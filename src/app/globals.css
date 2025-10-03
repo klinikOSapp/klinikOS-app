@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
   --background: #ffffff;
@@ -10,6 +10,76 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* Figma tokens */
+  /* Colors */
+  --color-brand-0: #f0fafa;
+  --color-brand-50: #e9fbf9;
+  --color-brand-100: #d3f7f3;
+  --color-brand-200: #a8efe7;
+  --color-brand-300: #7de7dc;
+  --color-brand-400: #59ded2;
+  --color-brand-500: #51d6c7;
+  --color-brand-600: #3fb7ab;
+  --color-brand-700: #338f88;
+  --color-brand-800: #2a6b67;
+  --color-brand-900: #1e4947;
+
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #f8fafb;
+  --color-neutral-100: #eef2f4;
+  --color-neutral-200: #e2e7ea;
+  --color-neutral-300: #cbd3d9;
+  --color-neutral-400: #aeb8c2;
+  --color-neutral-500: #8a95a1;
+  --color-neutral-600: #6d7783;
+  --color-neutral-700: #535c66;
+  --color-neutral-800: #3d434a;
+  --color-neutral-900: #24282c;
+
+  --color-success-50: #e9f8f1;
+  --color-success-200: #a0e3c3;
+  --color-success-600: #2e7d5b;
+  --color-success-800: #1d4f3a;
+
+  --color-warning-50: #fff7e8;
+  --color-warning-200: #ffd188;
+  --color-warning-600: #d97706; /* amber-600 */
+  --color-warning-800: #92400e; /* amber-800 */
+
+  --color-error-50: #feebec;
+  --color-error-200: #f7b7ba;
+  --color-error-600: #b91c1c; /* red-700 */
+  --color-error-800: #7f1d1d; /* red-900 */
+
+  --color-info-50: #f3eaff;
+  --color-info-200: #d4b5ff;
+  --color-info-600: #7825eb;
+  --color-info-800: #5a1eaf;
+
+  /* Spacing */
+  --spacing-topbar: 64px;
+  --spacing-sidebar: 256px;
+  --spacing-sidebar-collapsed: 80px;
+  --spacing-nav-item: 48px;
+  --spacing-cta: 56px;
+  --spacing-gapsm: 8px;
+  --spacing-gapmd: 16px;
+  --spacing-plnav: 24px;
+
+  /* Typography */
+  --font-inter: var(--font-geist-sans);
+  --text-title-md: 18px;
+  --leading-title-md: 28px;
+  --text-body-md: 16px;
+  --leading-body-md: 24px;
+
+  /* Radii */
+  --radius-xl: 16px;
+
+  /* Shadows */
+  --shadow-cta: 0 1px 2px 0 rgba(0, 0, 0, 0.3),
+    0 1px 3px 1px rgba(0, 0, 0, 0.15);
+  --shadow-nav-active: inset 4px 0 0 0 #a8efe7;
 }
 
 @media (prefers-color-scheme: dark) {
