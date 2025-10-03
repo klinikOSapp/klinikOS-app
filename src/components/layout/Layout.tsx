@@ -51,7 +51,7 @@ export default function Layout({ children }: LayoutProps) {
           itemsBottom={itemsBottom}
           cta={{ label: 'Añadir' }}
         />
-        <main className='bg-white rounded-tl-[var(--radius-xl)] w-full min-h-[calc(100dvh-var(--spacing-topbar))]'>
+        <main className='bg-white rounded-tl-[var(--radius-xl)] w-full h-[calc(100dvh-var(--spacing-topbar))] overflow-y-auto'>
           {children}
         </main>
       </div>
