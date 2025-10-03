@@ -1,4 +1,8 @@
+'use client'
+
 import React from 'react'
+import { useRouter } from 'next/navigation'
+import PatientFichaModal from '@/components/pacientes/PatientFichaModal'
 
 function KpiCard({
   title,
@@ -90,8 +94,12 @@ function TableHeaderCell({
 }
 
 function Row() {
+  const router = useRouter()
   return (
-    <tr className='border-b border-[var(--color-neutral-200)]'>
+    <tr
+      className='border-b border-[var(--color-neutral-200)] cursor-pointer hover:bg-[var(--color-neutral-50)]'
+      onClick={() => router.push('/pacientes/ficha')}
+    >
       <td className='py-2 pr-2 w-[240px]'>
         <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
           Laura Rivas
@@ -134,9 +142,11 @@ function Row() {
 
 export default function PacientesPage() {
   const rows = Array.from({ length: 12 })
+  const [open, setOpen] = React.useState(false)
 
   return (
     <div className='bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] min-h-[calc(100dvh-var(--spacing-topbar))] p-12'>
+      <PatientFichaModal open={open} onClose={() => setOpen(false)} />
       <div className='flex items-center gap-2'>
         <h1 className='text-[28px] leading-[36px] text-[var(--color-neutral-900)]'>
           Pacientes
@@ -262,7 +272,54 @@ export default function PacientesPage() {
           </thead>
           <tbody>
             {rows.map((_, i) => (
-              <Row key={i} />
+              <tr
+                key={i}
+                className='border-b border-[var(--color-neutral-200)] cursor-pointer hover:bg-[var(--color-neutral-50)]'
+                onClick={() => setOpen(true)}
+              >
+                <td className='py-2 pr-2 w-[240px]'>
+                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                    Laura Rivas
+                  </p>
+                </td>
+                <td className='py-2 pr-2 w-[191px]'>
+                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                    DD/MM/AAAA
+                  </p>
+                </td>
+                <td className='py-2 pr-2 w-[154px]'>
+                  <span className='inline-flex items-center'>
+                    <Chip color='sky'>Activo</Chip>
+                  </span>
+                </td>
+                <td className='py-2 pr-2 w-[196px]'>
+                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                    888 888 888
+                  </p>
+                </td>
+                <td className='py-2 pr-2 w-[151px]'>
+                  <span className='inline-flex items-center'>
+                    <Chip color='green' rounded='full'>
+                      Hecho
+                    </Chip>
+                  </span>
+                </td>
+                <td className='py-2 pr-2 w-[120px]'>
+                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                    No
+                  </p>
+                </td>
+                <td className='py-2 pr-2 w-[120px]'>
+                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                    380€
+                  </p>
+                </td>
+                <td className='py-2 pr-2 w-[204px]'>
+                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                    DD/MM/AAAA
+                  </p>
+                </td>
+              </tr>
             ))}
           </tbody>
         </table>
