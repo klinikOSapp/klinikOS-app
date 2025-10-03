@@ -11,7 +11,7 @@ export default function TopBar({ userName, userAvatarUrl }: TopBarProps) {
       <div className='flex items-center gap-4'>
         <Image src='/logo.svg' alt='Logo' width={32} height={32} priority />
         <Image
-          src='/logo expanded.svg'
+          src='/logo-expanded.svg'
           alt='Logo expanded'
           width={96}
           height={20}
