@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
 import { useRouter } from 'next/navigation'
 import PatientFichaModal from '@/components/pacientes/PatientFichaModal'
 
@@ -97,7 +98,7 @@ function Row() {
   const router = useRouter()
   return (
     <tr
-      className='border-b border-[var(--color-neutral-200)] cursor-pointer hover:bg-[var(--color-neutral-50)]'
+      className='cursor-pointer hover:bg-[var(--color-neutral-50)]'
       onClick={() => router.push('/pacientes/ficha')}
     >
       <td className='py-2 pr-2 w-[240px]'>
@@ -140,20 +141,66 @@ function Row() {
   )
 }
 
+type PatientRow = {
+  id: string
+  name: string
+  nextDate: string
+  status: 'Activo' | 'Hecho'
+  phone: string
+  checkin: 'Hecho' | 'Pendiente'
+  financing: 'Sí' | 'No'
+  debt: string
+  lastContact: string
+  tags?: Array<'deuda' | 'activo' | 'recall'>
+}
+
+const MOCK_PATIENTS: PatientRow[] = Array.from({ length: 12 }).map((_, i) => ({
+  id: `p-${i}`,
+  name: 'Laura Rivas',
+  nextDate: 'DD/MM/AAAA',
+  status: 'Activo',
+  phone: '888 888 888',
+  checkin: 'Hecho',
+  financing: 'No',
+  debt: '380€',
+  lastContact: 'DD/MM/AAAA',
+  tags: i % 3 === 0 ? ['deuda'] : i % 2 === 0 ? ['activo'] : ['recall']
+}))
+
 export default function PacientesPage() {
-  const rows = Array.from({ length: 12 })
   const [open, setOpen] = React.useState(false)
+  const [query, setQuery] = React.useState('')
+  const [activeFilter, setActiveFilter] = React.useState<
+    'todos' | 'deuda' | 'activos' | 'recall'
+  >('todos')
 
   return (
     <div className='bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] min-h-[calc(100dvh-var(--spacing-topbar))] p-12'>
       <PatientFichaModal open={open} onClose={() => setOpen(false)} />
-      <div className='flex items-center gap-2'>
-        <h1 className='text-[28px] leading-[36px] text-[var(--color-neutral-900)]'>
-          Pacientes
-        </h1>
-        <Chip color='teal' rounded='full'>
-          Recepción
-        </Chip>
+      <div className='flex items-center justify-between gap-2'>
+        <div className='flex items-center gap-2'>
+          <h1 className='text-[28px] leading-[36px] text-[var(--color-neutral-900)]'>
+            Pacientes
+          </h1>
+          <Chip color='teal' rounded='full'>
+            Recepción
+          </Chip>
+        </div>
+        <div className='flex items-center gap-3'>
+          <button
+            className='flex items-center gap-2 bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded-[136px] px-4 py-2 text-[16px] leading-[24px] text-[var(--color-neutral-900)]'
+            onClick={() => setOpen(true)}
+          >
+            <span className='text-[20px] leading-[20px]'>＋</span>
+            <span>Añadir paciente</span>
+          </button>
+          <button
+            className='size-6 grid place-items-center text-[var(--color-neutral-900)]'
+            aria-label='Más opciones'
+          >
+            ⋮
+          </button>
+        </div>
       </div>
       <p className='text-[14px] leading-[20px] text-[var(--color-neutral-900)] mt-2 max-w-[680px]'>
         Busca y filtra pacientes; confirma asistencias, reprograma citas y envía
@@ -216,34 +263,69 @@ export default function PacientesPage() {
           </button>
         </div>
         <div className='flex items-center gap-2'>
-          <div className='flex items-center gap-2 border-b border-[var(--color-neutral-700)] px-2 py-1'>
+          <div className='flex items-center gap-2 border-b border-[var(--color-neutral-900)] px-2 py-1'>
             <span className='text-[var(--color-neutral-900)]'>🔍</span>
-            <span className='text-[14px] leading-[20px] text-[var(--color-neutral-900)]'>
-              Buscar por nombre, email, teléfono,...
-            </span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder='Buscar por nombre, email, teléfono,...'
+              className='bg-transparent outline-none text-[14px] leading-[20px] text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-900)]'
+            />
           </div>
-          <Chip color='gray' rounded='full'>
+          <button
+            onClick={() => setActiveFilter('todos')}
+            className={[
+              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border',
+              activeFilter === 'todos'
+                ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
+                : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
+            ].join(' ')}
+          >
             Todos
-          </Chip>
-          <Chip color='gray' rounded='full'>
+          </button>
+          <button
+            onClick={() => setActiveFilter('deuda')}
+            className={[
+              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border',
+              activeFilter === 'deuda'
+                ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
+                : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
+            ].join(' ')}
+          >
             En deuda
-          </Chip>
-          <Chip color='gray' rounded='full'>
+          </button>
+          <button
+            onClick={() => setActiveFilter('activos')}
+            className={[
+              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border',
+              activeFilter === 'activos'
+                ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
+                : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
+            ].join(' ')}
+          >
             Activos
-          </Chip>
-          <Chip color='gray' rounded='full'>
+          </button>
+          <button
+            onClick={() => setActiveFilter('recall')}
+            className={[
+              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border',
+              activeFilter === 'recall'
+                ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
+                : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
+            ].join(' ')}
+          >
             Recall
-          </Chip>
+          </button>
         </div>
       </div>
 
-      <div className='mt-6 bg-white rounded-[8px] border border-[var(--color-neutral-200)] overflow-hidden'>
+      <div className='mt-6 rounded-[8px] overflow-hidden'>
         <table className='w-full table-fixed'>
           <thead>
-            <tr className='border-b border-[var(--color-neutral-300)]'>
+            <tr>
               <TableHeaderCell className='py-2 pr-2 w-[240px]'>
                 <div className='flex items-center gap-2'>
-                  <span className='text-[16px] leading-[24px]'>👤</span>
+                  <AccountCircleRounded className='size-4 text-[var(--color-neutral-700)]' />
                   <span>Paciente</span>
                 </div>
               </TableHeaderCell>
@@ -271,52 +353,65 @@ export default function PacientesPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((_, i) => (
+            {MOCK_PATIENTS.filter((p) => {
+              const q = query.trim().toLowerCase()
+              const matchesQuery = q
+                ? p.name.toLowerCase().includes(q) ||
+                  p.phone.toLowerCase().includes(q)
+                : true
+              const matchesFilter =
+                activeFilter === 'todos'
+                  ? true
+                  : activeFilter === 'deuda'
+                  ? p.tags?.includes('deuda')
+                  : activeFilter === 'activos'
+                  ? p.tags?.includes('activo')
+                  : p.tags?.includes('recall')
+              return Boolean(matchesQuery && matchesFilter)
+            }).map((row, i) => (
               <tr
-                key={i}
-                className='border-b border-[var(--color-neutral-200)] cursor-pointer hover:bg-[var(--color-neutral-50)]'
+                key={row.id}
+                className='cursor-pointer hover:bg-[var(--color-neutral-50)]'
                 onClick={() => setOpen(true)}
               >
                 <td className='py-2 pr-2 w-[240px]'>
                   <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
-                    Laura Rivas
+                    {row.name}
                   </p>
                 </td>
                 <td className='py-2 pr-2 w-[191px]'>
                   <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
-                    DD/MM/AAAA
+                    {row.nextDate}
                   </p>
                 </td>
                 <td className='py-2 pr-2 w-[154px]'>
-                  <span className='inline-flex items-center'>
-                    <Chip color='sky'>Activo</Chip>
-                  </span>
+                  <StatusPill type={row.status} />
                 </td>
                 <td className='py-2 pr-2 w-[196px]'>
                   <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
-                    888 888 888
+                    {row.phone}
                   </p>
                 </td>
                 <td className='py-2 pr-2 w-[151px]'>
                   <span className='inline-flex items-center'>
                     <Chip color='green' rounded='full'>
-                      Hecho
+                      {row.checkin}
                     </Chip>
                   </span>
                 </td>
                 <td className='py-2 pr-2 w-[120px]'>
                   <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
-                    No
+                    {row.financing}
                   </p>
                 </td>
                 <td className='py-2 pr-2 w-[120px]'>
                   <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
-                    380€
+                    {row.debt}
                   </p>
                 </td>
                 <td className='py-2 pr-2 w-[204px]'>
                   <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
-                    DD/MM/AAAA
+                    {row.lastContact}
                   </p>
                 </td>
               </tr>
