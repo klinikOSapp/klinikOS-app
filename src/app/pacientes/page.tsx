@@ -170,9 +170,8 @@ const MOCK_PATIENTS: PatientRow[] = Array.from({ length: 12 }).map((_, i) => ({
 export default function PacientesPage() {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
-  const [activeFilter, setActiveFilter] = React.useState<
-    'todos' | 'deuda' | 'activos' | 'recall'
-  >('todos')
+  type FilterKey = 'deuda' | 'activos' | 'recall'
+  const [selectedFilters, setSelectedFilters] = React.useState<FilterKey[]>([])
   const [selectedPatientIds, setSelectedPatientIds] = React.useState<string[]>(
     []
   )
@@ -187,6 +186,14 @@ export default function PacientesPage() {
         : [...prevSelected, patientId]
     )
   }
+
+  const isFilterActive = (key: FilterKey) => selectedFilters.includes(key)
+  const toggleFilter = (key: FilterKey) => {
+    setSelectedFilters((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    )
+  }
+  const clearFilters = () => setSelectedFilters([])
 
   return (
     <div className='bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] min-h-[calc(100dvh-var(--spacing-topbar))] p-12'>
@@ -286,10 +293,10 @@ export default function PacientesPage() {
             />
           </div>
           <button
-            onClick={() => setActiveFilter('todos')}
+            onClick={clearFilters}
             className={[
               'flex items-center gap-2 px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
-              activeFilter === 'todos'
+              selectedFilters.length === 0
                 ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                 : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
             ].join(' ')}
@@ -310,10 +317,10 @@ export default function PacientesPage() {
             <span>Todos</span>
           </button>
           <button
-            onClick={() => setActiveFilter('deuda')}
+            onClick={() => toggleFilter('deuda')}
             className={[
               'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
-              activeFilter === 'deuda'
+              isFilterActive('deuda')
                 ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                 : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
             ].join(' ')}
@@ -321,10 +328,10 @@ export default function PacientesPage() {
             En deuda
           </button>
           <button
-            onClick={() => setActiveFilter('activos')}
+            onClick={() => toggleFilter('activos')}
             className={[
               'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
-              activeFilter === 'activos'
+              isFilterActive('activos')
                 ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                 : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
             ].join(' ')}
@@ -332,10 +339,10 @@ export default function PacientesPage() {
             Activos
           </button>
           <button
-            onClick={() => setActiveFilter('recall')}
+            onClick={() => toggleFilter('recall')}
             className={[
               'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
-              activeFilter === 'recall'
+              isFilterActive('recall')
                 ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                 : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
             ].join(' ')}
@@ -388,14 +395,16 @@ export default function PacientesPage() {
                 ? p.name.toLowerCase().includes(q) ||
                   p.phone.toLowerCase().includes(q)
                 : true
-              const matchesFilter =
-                activeFilter === 'todos'
-                  ? true
-                  : activeFilter === 'deuda'
-                  ? p.tags?.includes('deuda')
-                  : activeFilter === 'activos'
-                  ? p.tags?.includes('activo')
-                  : p.tags?.includes('recall')
+              const matchesFilter = (() => {
+                if (selectedFilters.length === 0) return true
+                const tagMap: Record<FilterKey, 'deuda' | 'activo' | 'recall'> =
+                  {
+                    deuda: 'deuda',
+                    activos: 'activo',
+                    recall: 'recall'
+                  }
+                return selectedFilters.some((k) => p.tags?.includes(tagMap[k]))
+              })()
               return Boolean(matchesQuery && matchesFilter)
             }).map((row, i) => (
               <tr
