@@ -409,7 +409,8 @@ export default function PacientesPage() {
             }).map((row, i) => (
               <tr
                 key={row.id}
-                className='group hover:bg-[var(--color-neutral-50)]'
+                className='group hover:bg-[var(--color-neutral-50)] cursor-pointer'
+                onClick={() => setOpen(true)}
               >
                 <td className='py-2 pr-2 w-[48px]'>
                   <button

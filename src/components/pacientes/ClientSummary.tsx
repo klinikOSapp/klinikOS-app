@@ -11,21 +11,28 @@ const imgLine1 =
 const imgMoreVert =
   'http://localhost:3845/assets/49a32dc9867150df332161df4c1841329bdafc17.svg'
 
-export default function ClientSummary() {
+type ClientSummaryProps = {
+  onClose?: () => void
+}
+
+export default function ClientSummary({ onClose }: ClientSummaryProps) {
   return (
     <div
-      className='bg-[#f8fafb] relative'
+      className='bg-[#f8fafb] relative w-[1196px]'
       data-node-id='423:822'
       style={{ width: 1196, height: 900 }}
     >
-      <div
-        className='absolute size-[24px] top-[16px]'
+      <button
+        type='button'
+        aria-label='Cerrar'
+        onClick={onClose}
+        className='absolute size-[24px] top-[16px] cursor-pointer'
         data-name='close'
         data-node-id='410:779'
         style={{ left: 'calc(93.75% + 34.75px)' }}
       >
         <img alt='' className='block max-w-none size-full' src={imgClose} />
-      </div>
+      </button>
       <div
         className='absolute content-stretch flex gap-[24px] items-center left-[32px] top-[48px]'
         data-node-id='426:854'
