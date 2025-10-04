@@ -94,6 +94,48 @@ function TableHeaderCell({
   )
 }
 
+function FilterButton({
+  label,
+  active,
+  onClick,
+  showIcon = true
+}: {
+  label: string
+  active: boolean
+  onClick: () => void
+  showIcon?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={[
+        'flex items-center gap-2 px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors',
+        active
+          ? 'border-[var(--color-neutral-900)] text-[#1E4947]'
+          : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
+      ].join(' ')}
+    >
+      {showIcon && (
+        <svg
+          aria-hidden='true'
+          viewBox='0 0 24 24'
+          className='size-4'
+          fill='none'
+        >
+          <path
+            d='M4 5h16l-6 8v6l-4-2v-4L4 5z'
+            stroke='currentColor'
+            strokeWidth='2'
+            strokeLinejoin='round'
+          />
+        </svg>
+      )}
+      <span>{label}</span>
+    </button>
+  )
+}
+
 function Row() {
   const router = useRouter()
   return (
@@ -285,50 +327,29 @@ export default function PacientesPage() {
               className='bg-transparent outline-none text-[14px] leading-[20px] text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-900)]'
             />
           </div>
-          <button
+          <FilterButton
+            label='Todos'
+            active={activeFilter === 'todos'}
             onClick={() => setActiveFilter('todos')}
-            className={[
-              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer',
-              activeFilter === 'todos'
-                ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
-                : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
-            ].join(' ')}
-          >
-            Todos
-          </button>
-          <button
+          />
+          <FilterButton
+            label='En deuda'
+            active={activeFilter === 'deuda'}
             onClick={() => setActiveFilter('deuda')}
-            className={[
-              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer',
-              activeFilter === 'deuda'
-                ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
-                : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
-            ].join(' ')}
-          >
-            En deuda
-          </button>
-          <button
+            showIcon={false}
+          />
+          <FilterButton
+            label='Activos'
+            active={activeFilter === 'activos'}
             onClick={() => setActiveFilter('activos')}
-            className={[
-              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer',
-              activeFilter === 'activos'
-                ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
-                : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
-            ].join(' ')}
-          >
-            Activos
-          </button>
-          <button
+            showIcon={false}
+          />
+          <FilterButton
+            label='Recall'
+            active={activeFilter === 'recall'}
             onClick={() => setActiveFilter('recall')}
-            className={[
-              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer',
-              activeFilter === 'recall'
-                ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
-                : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
-            ].join(' ')}
-          >
-            Recall
-          </button>
+            showIcon={false}
+          />
         </div>
       </div>
 
