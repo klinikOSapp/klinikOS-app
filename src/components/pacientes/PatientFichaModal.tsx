@@ -3,6 +3,7 @@
 import React from 'react'
 import UserModal from './UserModal'
 import ClientSummary from './ClientSummary'
+import ClinicalHistory from './ClinicalHistory'
 
 type PatientFichaModalProps = {
   open: boolean
@@ -97,7 +98,10 @@ export default function PatientFichaModal({
             {/* Right content */}
             <div className='flex-1 min-w-0'>
               {active === 'Resumen' && <ClientSummary onClose={onClose} />}
-              {active !== 'Resumen' && (
+              {active === 'Historial clínico' && (
+                <ClinicalHistory onClose={onClose} />
+              )}
+              {active !== 'Resumen' && active !== 'Historial clínico' && (
                 <div className='p-6 text-[16px] text-[var(--color-neutral-900)]'>
                   {active}
                 </div>
