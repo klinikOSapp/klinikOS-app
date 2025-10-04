@@ -173,6 +173,20 @@ export default function PacientesPage() {
   const [activeFilter, setActiveFilter] = React.useState<
     'todos' | 'deuda' | 'activos' | 'recall'
   >('todos')
+  const [selectedPatientIds, setSelectedPatientIds] = React.useState<string[]>(
+    []
+  )
+
+  const isPatientSelected = (patientId: string) =>
+    selectedPatientIds.includes(patientId)
+
+  const togglePatientSelection = (patientId: string) => {
+    setSelectedPatientIds((prevSelected) =>
+      prevSelected.includes(patientId)
+        ? prevSelected.filter((id) => id !== patientId)
+        : [...prevSelected, patientId]
+    )
+  }
 
   return (
     <div className='bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] min-h-[calc(100dvh-var(--spacing-topbar))] p-12'>
@@ -245,7 +259,9 @@ export default function PacientesPage() {
 
       <div className='mt-8 flex items-center justify-between'>
         <div className='flex items-center gap-2'>
-          <Chip color='teal'>3 selected</Chip>
+          {selectedPatientIds.length > 0 && (
+            <Chip color='teal'>{selectedPatientIds.length} selected</Chip>
+          )}
           <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-[14px] leading-[20px] text-[var(--color-neutral-700)] cursor-pointer'>
             Estado
           </button>
@@ -320,6 +336,9 @@ export default function PacientesPage() {
         <table className='w-full table-fixed'>
           <thead>
             <tr>
+              <TableHeaderCell className='py-2 pr-2 w-[48px]'>
+                <span className='sr-only'>Seleccionar fila</span>
+              </TableHeaderCell>
               <TableHeaderCell className='py-2 pr-2 w-[240px]'>
                 <div className='flex items-center gap-2'>
                   <AccountCircleRounded className='size-4 text-[var(--color-neutral-700)]' />
@@ -368,9 +387,51 @@ export default function PacientesPage() {
             }).map((row, i) => (
               <tr
                 key={row.id}
-                className='cursor-pointer hover:bg-[var(--color-neutral-50)]'
-                onClick={() => setOpen(true)}
+                className='group hover:bg-[var(--color-neutral-50)]'
               >
+                <td className='py-2 pr-2 w-[48px]'>
+                  <button
+                    type='button'
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      togglePatientSelection(row.id)
+                    }}
+                    aria-pressed={isPatientSelected(row.id)}
+                    className='relative size-6 inline-flex items-center justify-center cursor-pointer'
+                  >
+                    {/* Outline box on hover */}
+                    <span className='absolute inset-0 rounded-[4px] border border-[var(--color-neutral-300)] bg-white opacity-0 group-hover:opacity-100 transition-opacity' />
+                    {/* Selected border */}
+                    <span
+                      className={[
+                        'absolute inset-0 rounded-[4px] border-2 transition-opacity',
+                        isPatientSelected(row.id)
+                          ? 'border-[#1E4947] opacity-100'
+                          : 'opacity-0'
+                      ].join(' ')}
+                    />
+                    {/* Check icon when selected */}
+                    <svg
+                      aria-hidden='true'
+                      viewBox='0 0 24 24'
+                      className={[
+                        'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
+                        'size-4 text-[#1E4947] transition-opacity',
+                        isPatientSelected(row.id) ? 'opacity-100' : 'opacity-0'
+                      ].join(' ')}
+                    >
+                      <path
+                        d='M5 12l4 4L19 7'
+                        fill='none'
+                        stroke='currentColor'
+                        strokeWidth='2'
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                      />
+                    </svg>
+                    <span className='sr-only'>Seleccionar fila</span>
+                  </button>
+                </td>
                 <td className='py-2 pr-2 w-[240px]'>
                   <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
                     {row.name}
