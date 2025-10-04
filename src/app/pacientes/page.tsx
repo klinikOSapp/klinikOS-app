@@ -288,20 +288,33 @@ export default function PacientesPage() {
           <button
             onClick={() => setActiveFilter('todos')}
             className={[
-              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer',
+              'flex items-center gap-2 px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
               activeFilter === 'todos'
-                ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
+                ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                 : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
             ].join(' ')}
           >
-            Todos
+            <svg
+              aria-hidden='true'
+              viewBox='0 0 24 24'
+              className='size-4'
+              fill='none'
+            >
+              <path
+                d='M4 5h16l-6 8v6l-4-2v-4L4 5z'
+                stroke='currentColor'
+                strokeWidth='2'
+                strokeLinejoin='round'
+              />
+            </svg>
+            <span>Todos</span>
           </button>
           <button
             onClick={() => setActiveFilter('deuda')}
             className={[
-              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer',
+              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
               activeFilter === 'deuda'
-                ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
+                ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                 : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
             ].join(' ')}
           >
@@ -310,9 +323,9 @@ export default function PacientesPage() {
           <button
             onClick={() => setActiveFilter('activos')}
             className={[
-              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer',
+              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
               activeFilter === 'activos'
-                ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
+                ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                 : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
             ].join(' ')}
           >
@@ -321,9 +334,9 @@ export default function PacientesPage() {
           <button
             onClick={() => setActiveFilter('recall')}
             className={[
-              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer',
+              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
               activeFilter === 'recall'
-                ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
+                ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                 : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
             ].join(' ')}
           >
