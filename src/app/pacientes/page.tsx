@@ -173,6 +173,20 @@ export default function PacientesPage() {
   const [activeFilter, setActiveFilter] = React.useState<
     'todos' | 'deuda' | 'activos' | 'recall'
   >('todos')
+  const [selectedPatientIds, setSelectedPatientIds] = React.useState<string[]>(
+    []
+  )
+
+  const isPatientSelected = (patientId: string) =>
+    selectedPatientIds.includes(patientId)
+
+  const togglePatientSelection = (patientId: string) => {
+    setSelectedPatientIds((prevSelected) =>
+      prevSelected.includes(patientId)
+        ? prevSelected.filter((id) => id !== patientId)
+        : [...prevSelected, patientId]
+    )
+  }
 
   return (
     <div className='bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] min-h-[calc(100dvh-var(--spacing-topbar))] p-12'>
@@ -187,15 +201,12 @@ export default function PacientesPage() {
           </Chip>
         </div>
         <div className='flex items-center gap-3'>
-          <button
-            className='flex items-center gap-2 bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded-[136px] px-4 py-2 text-[16px] leading-[24px] text-[var(--color-neutral-900)]'
-            onClick={() => setOpen(true)}
-          >
+          <button className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-[16px] leading-[24px] text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'>
             <span className='text-[20px] leading-[20px]'>＋</span>
             <span>Añadir paciente</span>
           </button>
           <button
-            className='size-6 grid place-items-center text-[var(--color-neutral-900)]'
+            className='size-6 grid place-items-center text-[var(--color-neutral-900)] cursor-pointer'
             aria-label='Más opciones'
           >
             ⋮
@@ -248,17 +259,19 @@ export default function PacientesPage() {
 
       <div className='mt-8 flex items-center justify-between'>
         <div className='flex items-center gap-2'>
-          <Chip color='teal'>3 selected</Chip>
-          <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-[14px] leading-[20px] text-[var(--color-neutral-700)]'>
+          {selectedPatientIds.length > 0 && (
+            <Chip color='teal'>{selectedPatientIds.length} selected</Chip>
+          )}
+          <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-[14px] leading-[20px] text-[var(--color-neutral-700)] cursor-pointer'>
             Estado
           </button>
-          <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-[14px] leading-[20px] text-[var(--color-neutral-700)]'>
+          <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-[14px] leading-[20px] text-[var(--color-neutral-700)] cursor-pointer'>
             Check-in
           </button>
-          <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center'>
+          <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
             🗑️
           </button>
-          <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center'>
+          <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
             ⋯
           </button>
         </div>
@@ -275,7 +288,7 @@ export default function PacientesPage() {
           <button
             onClick={() => setActiveFilter('todos')}
             className={[
-              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border',
+              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer',
               activeFilter === 'todos'
                 ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
                 : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
@@ -286,7 +299,7 @@ export default function PacientesPage() {
           <button
             onClick={() => setActiveFilter('deuda')}
             className={[
-              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border',
+              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer',
               activeFilter === 'deuda'
                 ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
                 : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
@@ -297,7 +310,7 @@ export default function PacientesPage() {
           <button
             onClick={() => setActiveFilter('activos')}
             className={[
-              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border',
+              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer',
               activeFilter === 'activos'
                 ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
                 : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
@@ -308,7 +321,7 @@ export default function PacientesPage() {
           <button
             onClick={() => setActiveFilter('recall')}
             className={[
-              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border',
+              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer',
               activeFilter === 'recall'
                 ? 'border-[var(--color-neutral-900)] text-[var(--color-neutral-900)]'
                 : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
@@ -323,6 +336,9 @@ export default function PacientesPage() {
         <table className='w-full table-fixed'>
           <thead>
             <tr>
+              <TableHeaderCell className='py-2 pr-2 w-[48px]'>
+                <span className='sr-only'>Seleccionar fila</span>
+              </TableHeaderCell>
               <TableHeaderCell className='py-2 pr-2 w-[240px]'>
                 <div className='flex items-center gap-2'>
                   <AccountCircleRounded className='size-4 text-[var(--color-neutral-700)]' />
@@ -371,9 +387,51 @@ export default function PacientesPage() {
             }).map((row, i) => (
               <tr
                 key={row.id}
-                className='cursor-pointer hover:bg-[var(--color-neutral-50)]'
-                onClick={() => setOpen(true)}
+                className='group hover:bg-[var(--color-neutral-50)]'
               >
+                <td className='py-2 pr-2 w-[48px]'>
+                  <button
+                    type='button'
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      togglePatientSelection(row.id)
+                    }}
+                    aria-pressed={isPatientSelected(row.id)}
+                    className='relative size-6 inline-flex items-center justify-center cursor-pointer'
+                  >
+                    {/* Outline box on hover */}
+                    <span className='absolute inset-0 rounded-[4px] border border-[var(--color-neutral-300)] bg-white opacity-0 group-hover:opacity-100 transition-opacity' />
+                    {/* Selected border */}
+                    <span
+                      className={[
+                        'absolute inset-0 rounded-[4px] border-2 transition-opacity',
+                        isPatientSelected(row.id)
+                          ? 'border-[#1E4947] opacity-100'
+                          : 'opacity-0'
+                      ].join(' ')}
+                    />
+                    {/* Check icon when selected */}
+                    <svg
+                      aria-hidden='true'
+                      viewBox='0 0 24 24'
+                      className={[
+                        'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
+                        'size-4 text-[#1E4947] transition-opacity',
+                        isPatientSelected(row.id) ? 'opacity-100' : 'opacity-0'
+                      ].join(' ')}
+                    >
+                      <path
+                        d='M5 12l4 4L19 7'
+                        fill='none'
+                        stroke='currentColor'
+                        strokeWidth='2'
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                      />
+                    </svg>
+                    <span className='sr-only'>Seleccionar fila</span>
+                  </button>
+                </td>
                 <td className='py-2 pr-2 w-[240px]'>
                   <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
                     {row.name}
@@ -421,20 +479,20 @@ export default function PacientesPage() {
       </div>
 
       <div className='mt-4 flex items-center justify-end gap-3 text-[14px] text-[var(--color-neutral-900)]'>
-        <button className='size-6 inline-flex items-center justify-center'>
+        <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
           «
         </button>
-        <button className='size-6 inline-flex items-center justify-center'>
+        <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
           ‹
         </button>
         <span className='underline'>1</span>
         <span>2</span>
         <span>…</span>
         <span>12</span>
-        <button className='size-6 inline-flex items-center justify-center'>
+        <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
           ›
         </button>
-        <button className='size-6 inline-flex items-center justify-center'>
+        <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
           »
         </button>
       </div>
