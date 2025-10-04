@@ -4,6 +4,7 @@ import React from 'react'
 import UserModal from './UserModal'
 import ClientSummary from './ClientSummary'
 import ClinicalHistory from './ClinicalHistory'
+import RxImages from './RxImages'
 
 type PatientFichaModalProps = {
   open: boolean
@@ -101,11 +102,14 @@ export default function PatientFichaModal({
               {active === 'Historial clínico' && (
                 <ClinicalHistory onClose={onClose} />
               )}
-              {active !== 'Resumen' && active !== 'Historial clínico' && (
-                <div className='p-6 text-[16px] text-[var(--color-neutral-900)]'>
-                  {active}
-                </div>
-              )}
+              {active === 'Imágenes RX' && <RxImages onClose={onClose} />}
+              {active !== 'Resumen' &&
+                active !== 'Historial clínico' &&
+                active !== 'Imágenes RX' && (
+                  <div className='p-6 text-[16px] text-[var(--color-neutral-900)]'>
+                    {active}
+                  </div>
+                )}
             </div>
           </div>
         </div>
