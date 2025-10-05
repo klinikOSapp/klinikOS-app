@@ -15,7 +15,6 @@ export default function PatientFichaModal({
   open,
   onClose
 }: PatientFichaModalProps) {
-  if (!open) return null
   const [active, setActive] = React.useState<
     | 'Resumen'
     | 'Historial clínico'
@@ -28,9 +27,14 @@ export default function PatientFichaModal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+    if (open) {
+      window.addEventListener('keydown', onKey)
+      return () => window.removeEventListener('keydown', onKey)
+    }
+    return undefined
+  }, [onClose, open])
+
+  if (!open) return null
 
   const items: Array<{ title: typeof active; body: string }> = [
     {
