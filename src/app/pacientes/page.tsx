@@ -4,6 +4,7 @@ import React from 'react'
 import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
 import { useRouter } from 'next/navigation'
 import PatientFichaModal from '@/components/pacientes/PatientFichaModal'
+import AddPatientModal from '@/components/pacientes/AddPatientModal'
 
 function KpiCard({
   title,
@@ -169,6 +170,7 @@ const MOCK_PATIENTS: PatientRow[] = Array.from({ length: 12 }).map((_, i) => ({
 
 export default function PacientesPage() {
   const [open, setOpen] = React.useState(false)
+  const [openAdd, setOpenAdd] = React.useState(false)
   const [query, setQuery] = React.useState('')
   type FilterKey = 'deuda' | 'activos' | 'recall'
   const [selectedFilters, setSelectedFilters] = React.useState<FilterKey[]>([])
@@ -198,6 +200,7 @@ export default function PacientesPage() {
   return (
     <div className='bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] min-h-[calc(100dvh-var(--spacing-topbar))] p-12'>
       <PatientFichaModal open={open} onClose={() => setOpen(false)} />
+      <AddPatientModal open={openAdd} onClose={() => setOpenAdd(false)} />
       <div className='flex items-center justify-between gap-2'>
         <div className='flex items-center gap-2'>
           <h1 className='text-[28px] leading-[36px] text-[var(--color-neutral-900)]'>
@@ -208,7 +211,11 @@ export default function PacientesPage() {
           </Chip>
         </div>
         <div className='flex items-center gap-3'>
-          <button className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-[16px] leading-[24px] text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'>
+          <button
+            type='button'
+            onClick={() => setOpenAdd(true)}
+            className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-[16px] leading-[24px] text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
+          >
             <span className='text-[20px] leading-[20px]'>＋</span>
             <span>Añadir paciente</span>
           </button>
