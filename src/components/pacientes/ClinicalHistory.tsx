@@ -1,4 +1,10 @@
 import React from 'react'
+import CloseRounded from '@mui/icons-material/CloseRounded'
+import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
+import PlaceRounded from '@mui/icons-material/PlaceRounded'
+import EditRounded from '@mui/icons-material/EditRounded'
+import AddRounded from '@mui/icons-material/AddRounded'
+import DownloadRounded from '@mui/icons-material/DownloadRounded'
 
 const imgImage7 =
   'http://localhost:3845/assets/f920d7654ef7da272b238b8cf87335e1b7525e87.png'
@@ -6,22 +12,10 @@ const imgFrame257 =
   'http://localhost:3845/assets/32603aa2bb5a605bdf4f394aa9dbfdb440bdd68e.png'
 const imgFrame258 =
   'http://localhost:3845/assets/169480ffca2c939f628b1c3cf2e79c07ca83281d.png'
-const imgClose =
-  'http://localhost:3845/assets/5ef958204bb620a694618e0538ad4b9d50b8e1c7.svg'
-const imgCalendarMonth =
-  'http://localhost:3845/assets/3d92926ba79b59e44b635f696cb1b2cfb147749d.svg'
-const imgDistance =
-  'http://localhost:3845/assets/e584e05c9a80570ad2879db4a22e35f2994acd7b.svg'
 const imgFrame22 =
   'http://localhost:3845/assets/74312461fa6f1aeea37c8026f0fa560c8bac19d6.svg'
 const imgFrame24 =
   'http://localhost:3845/assets/e8e9c127c34862c30917d77b4fd0c3ca2bf6e29e.svg'
-const imgEdit =
-  'http://localhost:3845/assets/f72c70101dce84e9f964419f769eb13a54b26c09.svg'
-const imgAdd =
-  'http://localhost:3845/assets/9b1bc4ef8677c4b99ee29bfe08015d2ea627df12.svg'
-const imgDownload =
-  'http://localhost:3845/assets/282e961dc8b82379ebdc9c9f0579926dabe5b30d.svg'
 
 type ClinicalHistoryProps = {
   onClose?: () => void
@@ -43,7 +37,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
         data-node-id='426:935'
         style={{ left: 'calc(93.75% + 34.75px)' }}
       >
-        <img alt='' className='block max-w-none size-full' src={imgClose} />
+        <CloseRounded className='size-6 text-[#24282c]' />
       </button>
 
       <div
@@ -95,11 +89,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
           <div className='content-stretch flex flex-col gap-[6px] items-start relative shrink-0 w-full'>
             <div className='content-stretch flex gap-[8px] items-center relative shrink-0'>
               <div className='relative shrink-0 size-[24px]'>
-                <img
-                  alt=''
-                  className='block max-w-none size-full'
-                  src={imgCalendarMonth}
-                />
+                <CalendarMonthRounded className='size-6 text-[#535c66]' />
               </div>
               <p className="font-['Inter:Regular',_sans-serif] font-normal leading-[20px] relative shrink-0 text-[#535c66] text-[14px] text-nowrap whitespace-pre">
                 Jue 16 septiembre, 2025
@@ -107,11 +97,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
             </div>
             <div className='content-stretch flex gap-[8px] items-center relative shrink-0 w-full'>
               <div className='relative shrink-0 size-[24px]'>
-                <img
-                  alt=''
-                  className='block max-w-none size-full'
-                  src={imgDistance}
-                />
+                <PlaceRounded className='size-6 text-[#535c66]' />
               </div>
               <p className="font-['Inter:Regular',_sans-serif] font-normal leading-[20px] relative shrink-0 text-[#535c66] text-[14px] text-nowrap whitespace-pre">
                 KlinkOS Ayora
@@ -132,11 +118,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
           <div className='content-stretch flex flex-col gap-[6px] items-start relative shrink-0 w-full'>
             <div className='content-stretch flex gap-[8px] items-center relative shrink-0'>
               <div className='relative shrink-0 size-[24px]'>
-                <img
-                  alt=''
-                  className='block max-w-none size-full'
-                  src={imgCalendarMonth}
-                />
+                <CalendarMonthRounded className='size-6 text-[#535c66]' />
               </div>
               <p className="font-['Inter:Regular',_sans-serif] font-normal leading-[20px] relative shrink-0 text-[#535c66] text-[14px] text-nowrap whitespace-pre">
                 Jue 16 septiembre, 2025
@@ -144,11 +126,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
             </div>
             <div className='content-stretch flex gap-[8px] items-center relative shrink-0 w-full'>
               <div className='relative shrink-0 size-[24px]'>
-                <img
-                  alt=''
-                  className='block max-w-none size-full'
-                  src={imgDistance}
-                />
+                <PlaceRounded className='size-6 text-[#535c66]' />
               </div>
               <p className="font-['Inter:Regular',_sans-serif] font-normal leading-[20px] relative shrink-0 text-[#535c66] text-[14px] text-nowrap whitespace-pre">
                 KlinkOS Ayora
@@ -198,7 +176,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
             Limpieza dental
           </p>
           <div className='absolute size-[24px]' style={{ left: 677, top: 16 }}>
-            <img alt='' className='block max-w-none size-full' src={imgEdit} />
+            <EditRounded className='size-6 text-[#24282c]' />
           </div>
 
           {/* Attachments */}
@@ -209,11 +187,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
               </p>
               <div className='content-stretch flex gap-[4px] items-center relative shrink-0'>
                 <div className='relative shrink-0 size-[24px]'>
-                  <img
-                    alt=''
-                    className='block max-w-none size-full'
-                    src={imgAdd}
-                  />
+                  <AddRounded className='size-6 text-[#59ded2]' />
                 </div>
                 <p className="font-['Inter:Regular',_sans-serif] font-normal leading-[20px] relative shrink-0 text-[#59ded2] text-[14px] text-nowrap whitespace-pre">
                   Subir documento
@@ -225,11 +199,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
                 Copia póliza seguro
               </p>
               <div className='relative shrink-0 size-[24px]'>
-                <img
-                  alt=''
-                  className='block max-w-none size-full'
-                  src={imgDownload}
-                />
+                <DownloadRounded className='size-6 text-[#535c66]' />
               </div>
             </div>
           </div>
@@ -242,11 +212,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
               </p>
               <div className='content-stretch flex gap-[4px] items-center relative shrink-0'>
                 <div className='relative shrink-0 size-[24px]'>
-                  <img
-                    alt=''
-                    className='block max-w-none size-full'
-                    src={imgAdd}
-                  />
+                  <AddRounded className='size-6 text-[#59ded2]' />
                 </div>
                 <p className="font-['Inter:Regular',_sans-serif] font-normal leading-[20px] relative shrink-0 text-[#59ded2] text-[14px] text-nowrap whitespace-pre">
                   Subir odontograma
