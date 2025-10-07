@@ -93,13 +93,13 @@ export default function UserModal() {
             className="font-['Inter:Medium',_sans-serif] font-medium leading-[32px] relative shrink-0 text-[24px] w-full"
             data-node-id='I410:801;410:780'
           >
-            Imágenes RX
+            Imágenes & RX
           </p>
           <p
             className="font-['Inter:Regular',_sans-serif] font-normal leading-[20px] relative shrink-0 text-[14px] w-full"
             data-node-id='I410:801;410:782'
           >
-            capturas intraorales/fotos antes-después y escáner 3D.
+            Capturas intraorales/fotos antes-después y escáner 3D.
           </p>
         </div>
         <div

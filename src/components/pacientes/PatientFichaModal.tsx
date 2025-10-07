@@ -18,7 +18,7 @@ export default function PatientFichaModal({
   const [active, setActive] = React.useState<
     | 'Resumen'
     | 'Historial clínico'
-    | 'Imágenes RX'
+    | 'Imágenes & RX'
     | 'Consentimientos'
     | 'Presupuestos'
   >('Resumen')
@@ -46,7 +46,7 @@ export default function PatientFichaModal({
       body: 'Notas SOAP, odontograma, actos y adjuntos.'
     },
     {
-      title: 'Imágenes RX',
+      title: 'Imágenes & RX',
       body: 'capturas intraorales/fotos antes-después y escáner 3D.'
     },
     {
