@@ -106,10 +106,10 @@ export default function PatientFichaModal({
               {active === 'Historial clínico' && (
                 <ClinicalHistory onClose={onClose} />
               )}
-              {active === 'Imágenes RX' && <RxImages onClose={onClose} />}
+              {active === 'Imágenes & RX' && <RxImages onClose={onClose} />}
               {active !== 'Resumen' &&
                 active !== 'Historial clínico' &&
-                active !== 'Imágenes RX' && (
+                active !== 'Imágenes & RX' && (
                   <div className='p-6 text-[16px] text-[var(--color-neutral-900)]'>
                     {active}
                   </div>

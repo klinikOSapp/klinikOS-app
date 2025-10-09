@@ -37,7 +37,7 @@ export default function RxImages({ onClose }: RxImagesProps) {
       >
         <div className='content-stretch flex gap-[8px] items-center relative shrink-0'>
           <p className="font-['Inter:Regular',_sans-serif] font-normal leading-[36px] relative shrink-0 text-[#24282c] text-[28px] text-nowrap whitespace-pre">
-            Imágenes RX
+            Imágenes & RX
           </p>
         </div>
         <p className="font-['Inter:Regular',_sans-serif] font-normal leading-[20px] min-w-full relative shrink-0 text-[#24282c] text-[14px] w-[min-content]">
