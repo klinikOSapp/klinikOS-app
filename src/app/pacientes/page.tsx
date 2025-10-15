@@ -352,38 +352,38 @@ export default function PacientesPage() {
         </div>
       </div>
 
-      <div className='mt-6 rounded-[8px] overflow-hidden'>
+      <div className='mt-6 rounded-[8px] overflow-auto w-[100rem] h-[34rem]'>
         <table className='w-full table-fixed'>
           <thead>
-            <tr>
-              <TableHeaderCell className='py-2 pr-2 w-[48px]'>
+            <tr className='h-[2rem]'>
+              <TableHeaderCell className='py-1 pr-1 w-[3rem]'>
                 <span className='sr-only'>Seleccionar fila</span>
               </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[240px]'>
+              <TableHeaderCell className='py-1 pr-1 w-[15rem]'>
                 <div className='flex items-center gap-2'>
                   <AccountCircleRounded className='size-4 text-[var(--color-neutral-700)]' />
                   <span>Paciente</span>
                 </div>
               </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[191px]'>
+              <TableHeaderCell className='py-1 pr-1 w-[11.9375rem]'>
                 Próxima cita
               </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[154px]'>
+              <TableHeaderCell className='py-1 pr-1 w-[9.625rem]'>
                 Estado
               </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[196px]'>
+              <TableHeaderCell className='py-1 pr-1 w-[12.25rem]'>
                 Teléfono
               </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[151px]'>
+              <TableHeaderCell className='py-1 pr-1 w-[9.4375rem]'>
                 Check-in
               </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[120px]'>
+              <TableHeaderCell className='py-1 pr-1 w-[7.5rem]'>
                 Financiación
               </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[120px]'>
+              <TableHeaderCell className='py-1 pr-1 w-[7.5rem]'>
                 Deuda
               </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[204px]'>
+              <TableHeaderCell className='py-1 pr-1 w-[12.75rem]'>
                 Último contacto
               </TableHeaderCell>
             </tr>
@@ -409,9 +409,9 @@ export default function PacientesPage() {
             }).map((row, i) => (
               <tr
                 key={row.id}
-                className='group hover:bg-[var(--color-neutral-50)]'
+                className='group hover:bg-[var(--color-neutral-50)] h-[2.5rem]'
               >
-                <td className='py-2 pr-2 w-[48px]'>
+                <td className='py-1 pr-1 w-[3rem]'>
                   <button
                     type='button'
                     onClick={(e) => {
@@ -419,7 +419,7 @@ export default function PacientesPage() {
                       togglePatientSelection(row.id)
                     }}
                     aria-pressed={isPatientSelected(row.id)}
-                    className='relative size-6 inline-flex items-center justify-center cursor-pointer'
+                    className='relative size-3 inline-flex items-center justify-center cursor-pointer'
                   >
                     {/* Outline box on hover */}
                     <span className='absolute inset-0 rounded-[4px] border border-[var(--color-neutral-300)] bg-white opacity-0 group-hover:opacity-100 transition-opacity' />
@@ -454,42 +454,42 @@ export default function PacientesPage() {
                     <span className='sr-only'>Seleccionar fila</span>
                   </button>
                 </td>
-                <td className='py-2 pr-2 w-[240px]'>
+                <td className='py-1 pr-1 w-[15rem]'>
                   <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
                     {row.name}
                   </p>
                 </td>
-                <td className='py-2 pr-2 w-[191px]'>
+                <td className='py-1 pr-1 w-[11.9375rem]'>
                   <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
                     {row.nextDate}
                   </p>
                 </td>
-                <td className='py-2 pr-2 w-[154px]'>
+                <td className='py-1 pr-1 w-[9.625rem]'>
                   <StatusPill type={row.status} />
                 </td>
-                <td className='py-2 pr-2 w-[196px]'>
+                <td className='py-1 pr-1 w-[12.25rem]'>
                   <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
                     {row.phone}
                   </p>
                 </td>
-                <td className='py-2 pr-2 w-[151px]'>
+                <td className='py-1 pr-1 w-[9.4375rem]'>
                   <span className='inline-flex items-center'>
                     <Chip color='green' rounded='full'>
                       {row.checkin}
                     </Chip>
                   </span>
                 </td>
-                <td className='py-2 pr-2 w-[120px]'>
+                <td className='py-1 pr-1 w-[7.5rem]'>
                   <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
                     {row.financing}
                   </p>
                 </td>
-                <td className='py-2 pr-2 w-[120px]'>
+                <td className='py-1 pr-1 w-[7.5rem]'>
                   <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
                     {row.debt}
                   </p>
                 </td>
-                <td className='py-2 pr-2 w-[204px]'>
+                <td className='py-1 pr-1 w-[12.75rem]'>
                   <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
                     {row.lastContact}
                   </p>
