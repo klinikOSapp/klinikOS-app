@@ -4,7 +4,6 @@ import React from 'react'
 import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
 import { useRouter } from 'next/navigation'
 import PatientFichaModal from '@/components/pacientes/PatientFichaModal'
-import AddPatientModal from '@/components/pacientes/AddPatientModal'
 
 function KpiCard({
   title,
@@ -170,7 +169,6 @@ const MOCK_PATIENTS: PatientRow[] = Array.from({ length: 12 }).map((_, i) => ({
 
 export default function PacientesPage() {
   const [open, setOpen] = React.useState(false)
-  const [openAdd, setOpenAdd] = React.useState(false)
   const [query, setQuery] = React.useState('')
   type FilterKey = 'deuda' | 'activos' | 'recall'
   const [selectedFilters, setSelectedFilters] = React.useState<FilterKey[]>([])
@@ -198,41 +196,40 @@ export default function PacientesPage() {
   const clearFilters = () => setSelectedFilters([])
 
   return (
-    <div className='bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] min-h-[calc(100dvh-var(--spacing-topbar))] p-12'>
+    <div className='max-w-content mx-auto bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] h-[calc(100dvh-var(--spacing-topbar))] p-6 flex flex-col overflow-hidden'>
       <PatientFichaModal open={open} onClose={() => setOpen(false)} />
-      <AddPatientModal open={openAdd} onClose={() => setOpenAdd(false)} />
-      <div className='flex items-center justify-between gap-2'>
-        <div className='flex items-center gap-2'>
-          <h1 className='text-[28px] leading-[36px] text-[var(--color-neutral-900)]'>
-            Pacientes
-          </h1>
-          <Chip color='teal' rounded='full'>
-            Recepción
-          </Chip>
-        </div>
-        <div className='flex items-center gap-3'>
-          <button
-            type='button'
-            onClick={() => setOpenAdd(true)}
-            className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-[16px] leading-[24px] text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
-          >
-            <span className='text-[20px] leading-[20px]'>＋</span>
-            <span>Añadir paciente</span>
-          </button>
-          <button
-            className='size-6 grid place-items-center text-[var(--color-neutral-900)] cursor-pointer'
-            aria-label='Más opciones'
-          >
-            ⋮
-          </button>
-        </div>
-      </div>
-      <p className='text-[14px] leading-[20px] text-[var(--color-neutral-900)] mt-2 max-w-[680px]'>
-        Busca y filtra pacientes; confirma asistencias, reprograma citas y envía
-        pre-registro, firmas y recordatorios al instante.
-      </p>
 
-      <div className='grid grid-cols-4 gap-6 mt-8'>
+      {/* Header Section - Fixed size */}
+      <div className='flex-shrink-0'>
+        <div className='flex items-center justify-between gap-2'>
+          <div className='flex items-center gap-2'>
+            <h1 className='text-[28px] leading-[36px] text-[var(--color-neutral-900)]'>
+              Pacientes
+            </h1>
+            <Chip color='teal' rounded='full'>
+              Recepción
+            </Chip>
+          </div>
+          <div className='flex items-center gap-3'>
+            <button className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-[16px] leading-[24px] text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'>
+              <span className='text-[20px] leading-[20px]'>＋</span>
+              <span>Añadir paciente</span>
+            </button>
+            <button
+              className='size-6 grid place-items-center text-[var(--color-neutral-900)] cursor-pointer'
+              aria-label='Más opciones'
+            >
+              ⋮
+            </button>
+          </div>
+        </div>
+        <p className='text-[14px] leading-[20px] text-[var(--color-neutral-900)] mt-2 max-w-[680px]'>
+          Busca y filtra pacientes; confirma asistencias, reprograma citas y
+          envía pre-registro, firmas y recordatorios al instante.
+        </p>
+      </div>
+
+      <div className='flex-shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-6 mt-8'>
         <KpiCard
           title='Pacientes hoy'
           value='2'
@@ -271,260 +268,268 @@ export default function PacientesPage() {
         />
       </div>
 
-      <div className='mt-8 flex items-center justify-between'>
-        <div className='flex items-center gap-2'>
-          {selectedPatientIds.length > 0 && (
-            <Chip color='teal'>{selectedPatientIds.length} selected</Chip>
-          )}
-          <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-[14px] leading-[20px] text-[var(--color-neutral-700)] cursor-pointer'>
-            Estado
-          </button>
-          <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-[14px] leading-[20px] text-[var(--color-neutral-700)] cursor-pointer'>
-            Check-in
-          </button>
-          <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
-            🗑️
-          </button>
-          <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
-            ⋯
-          </button>
-        </div>
-        <div className='flex items-center gap-2'>
-          <div className='flex items-center gap-2 border-b border-[var(--color-neutral-900)] px-2 py-1'>
-            <span className='text-[var(--color-neutral-900)]'>🔍</span>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder='Buscar por nombre, email, teléfono,...'
-              className='bg-transparent outline-none text-[14px] leading-[20px] text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-900)]'
-            />
+      {/* Table Section - Flexible container */}
+      <div className='flex-1 flex flex-col mt-8 overflow-hidden'>
+        <div className='flex-shrink-0 mb-6 flex items-center justify-between'>
+          <div className='flex items-center gap-2'>
+            {selectedPatientIds.length > 0 && (
+              <Chip color='teal'>{selectedPatientIds.length} selected</Chip>
+            )}
+            <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-[14px] leading-[20px] text-[var(--color-neutral-700)] cursor-pointer'>
+              Estado
+            </button>
+            <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-[14px] leading-[20px] text-[var(--color-neutral-700)] cursor-pointer'>
+              Check-in
+            </button>
+            <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
+              🗑️
+            </button>
+            <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
+              ⋯
+            </button>
           </div>
-          <button
-            onClick={clearFilters}
-            className={[
-              'flex items-center gap-2 px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
-              selectedFilters.length === 0
-                ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
-                : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
-            ].join(' ')}
-          >
-            <svg
-              aria-hidden='true'
-              viewBox='0 0 24 24'
-              className='size-4'
-              fill='none'
-            >
-              <path
-                d='M4 5h16l-6 8v6l-4-2v-4L4 5z'
-                stroke='currentColor'
-                strokeWidth='2'
-                strokeLinejoin='round'
+          <div className='flex items-center gap-2'>
+            <div className='flex items-center gap-2 border-b border-[var(--color-neutral-900)] px-2 py-1'>
+              <span className='text-[var(--color-neutral-900)]'>🔍</span>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder='Buscar por nombre, email, teléfono,...'
+                className='bg-transparent outline-none text-[14px] leading-[20px] text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-900)]'
               />
-            </svg>
-            <span>Todos</span>
-          </button>
-          <button
-            onClick={() => toggleFilter('deuda')}
-            className={[
-              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
-              isFilterActive('deuda')
-                ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
-                : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
-            ].join(' ')}
-          >
-            En deuda
-          </button>
-          <button
-            onClick={() => toggleFilter('activos')}
-            className={[
-              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
-              isFilterActive('activos')
-                ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
-                : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
-            ].join(' ')}
-          >
-            Activos
-          </button>
-          <button
-            onClick={() => toggleFilter('recall')}
-            className={[
-              'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
-              isFilterActive('recall')
-                ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
-                : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
-            ].join(' ')}
-          >
-            Recall
-          </button>
+            </div>
+            <button
+              onClick={clearFilters}
+              className={[
+                'flex items-center gap-2 px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
+                selectedFilters.length === 0
+                  ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
+                  : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
+              ].join(' ')}
+            >
+              <svg
+                aria-hidden='true'
+                viewBox='0 0 24 24'
+                className='size-4'
+                fill='none'
+              >
+                <path
+                  d='M4 5h16l-6 8v6l-4-2v-4L4 5z'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                  strokeLinejoin='round'
+                />
+              </svg>
+              <span>Todos</span>
+            </button>
+            <button
+              onClick={() => toggleFilter('deuda')}
+              className={[
+                'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
+                isFilterActive('deuda')
+                  ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
+                  : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
+              ].join(' ')}
+            >
+              En deuda
+            </button>
+            <button
+              onClick={() => toggleFilter('activos')}
+              className={[
+                'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
+                isFilterActive('activos')
+                  ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
+                  : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
+              ].join(' ')}
+            >
+              Activos
+            </button>
+            <button
+              onClick={() => toggleFilter('recall')}
+              className={[
+                'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
+                isFilterActive('recall')
+                  ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
+                  : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
+              ].join(' ')}
+            >
+              Recall
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div className='mt-6 rounded-[8px] overflow-hidden'>
-        <table className='w-full table-fixed'>
-          <thead>
-            <tr>
-              <TableHeaderCell className='py-2 pr-2 w-[48px]'>
-                <span className='sr-only'>Seleccionar fila</span>
-              </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[240px]'>
-                <div className='flex items-center gap-2'>
-                  <AccountCircleRounded className='size-4 text-[var(--color-neutral-700)]' />
-                  <span>Paciente</span>
-                </div>
-              </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[191px]'>
-                Próxima cita
-              </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[154px]'>
-                Estado
-              </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[196px]'>
-                Teléfono
-              </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[151px]'>
-                Check-in
-              </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[120px]'>
-                Financiación
-              </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[120px]'>
-                Deuda
-              </TableHeaderCell>
-              <TableHeaderCell className='py-2 pr-2 w-[204px]'>
-                Último contacto
-              </TableHeaderCell>
-            </tr>
-          </thead>
-          <tbody>
-            {MOCK_PATIENTS.filter((p) => {
-              const q = query.trim().toLowerCase()
-              const matchesQuery = q
-                ? p.name.toLowerCase().includes(q) ||
-                  p.phone.toLowerCase().includes(q)
-                : true
-              const matchesFilter = (() => {
-                if (selectedFilters.length === 0) return true
-                const tagMap: Record<FilterKey, 'deuda' | 'activo' | 'recall'> =
-                  {
+        <div className='flex-1 rounded-[8px] overflow-auto'>
+          <table className='w-full table-fixed'>
+            <thead>
+              <tr>
+                <TableHeaderCell className='py-2 pr-2 w-[40px]'>
+                  <span className='sr-only'>Seleccionar fila</span>
+                </TableHeaderCell>
+                <TableHeaderCell className='py-2 pr-2 w-[200px]'>
+                  <div className='flex items-center gap-2'>
+                    <AccountCircleRounded className='size-4 text-[var(--color-neutral-700)]' />
+                    <span>Paciente</span>
+                  </div>
+                </TableHeaderCell>
+                <TableHeaderCell className='py-2 pr-2 w-[140px]'>
+                  Próxima cita
+                </TableHeaderCell>
+                <TableHeaderCell className='py-2 pr-2 w-[120px]'>
+                  Estado
+                </TableHeaderCell>
+                <TableHeaderCell className='py-2 pr-2 w-[140px]'>
+                  Teléfono
+                </TableHeaderCell>
+                <TableHeaderCell className='py-2 pr-2 w-[100px]'>
+                  Check-in
+                </TableHeaderCell>
+                <TableHeaderCell className='py-2 pr-2 w-[100px]'>
+                  Financiación
+                </TableHeaderCell>
+                <TableHeaderCell className='py-2 pr-2 w-[100px]'>
+                  Deuda
+                </TableHeaderCell>
+                <TableHeaderCell className='py-2 pr-2 w-[140px]'>
+                  Último contacto
+                </TableHeaderCell>
+              </tr>
+            </thead>
+            <tbody>
+              {MOCK_PATIENTS.filter((p) => {
+                const q = query.trim().toLowerCase()
+                const matchesQuery = q
+                  ? p.name.toLowerCase().includes(q) ||
+                    p.phone.toLowerCase().includes(q)
+                  : true
+                const matchesFilter = (() => {
+                  if (selectedFilters.length === 0) return true
+                  const tagMap: Record<
+                    FilterKey,
+                    'deuda' | 'activo' | 'recall'
+                  > = {
                     deuda: 'deuda',
                     activos: 'activo',
                     recall: 'recall'
                   }
-                return selectedFilters.some((k) => p.tags?.includes(tagMap[k]))
-              })()
-              return Boolean(matchesQuery && matchesFilter)
-            }).map((row, i) => (
-              <tr
-                key={row.id}
-                className='group hover:bg-[var(--color-neutral-50)] cursor-pointer'
-                onClick={() => setOpen(true)}
-              >
-                <td className='py-2 pr-2 w-[48px]'>
-                  <button
-                    type='button'
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      togglePatientSelection(row.id)
-                    }}
-                    aria-pressed={isPatientSelected(row.id)}
-                    className='relative size-6 inline-flex items-center justify-center cursor-pointer'
-                  >
-                    {/* Outline box on hover */}
-                    <span className='absolute inset-0 rounded-[4px] border border-[var(--color-neutral-300)] bg-white opacity-0 group-hover:opacity-100 transition-opacity' />
-                    {/* Selected border */}
-                    <span
-                      className={[
-                        'absolute inset-0 rounded-[4px] border-2 transition-opacity',
-                        isPatientSelected(row.id)
-                          ? 'border-[#1E4947] opacity-100'
-                          : 'opacity-0'
-                      ].join(' ')}
-                    />
-                    {/* Check icon when selected */}
-                    <svg
-                      aria-hidden='true'
-                      viewBox='0 0 24 24'
-                      className={[
-                        'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
-                        'size-4 text-[#1E4947] transition-opacity',
-                        isPatientSelected(row.id) ? 'opacity-100' : 'opacity-0'
-                      ].join(' ')}
+                  return selectedFilters.some((k) =>
+                    p.tags?.includes(tagMap[k])
+                  )
+                })()
+                return Boolean(matchesQuery && matchesFilter)
+              }).map((row, i) => (
+                <tr
+                  key={row.id}
+                  className='group hover:bg-[var(--color-neutral-50)]'
+                >
+                  <td className='py-2 pr-2 w-[40px]'>
+                    <button
+                      type='button'
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        togglePatientSelection(row.id)
+                      }}
+                      aria-pressed={isPatientSelected(row.id)}
+                      className='relative size-6 inline-flex items-center justify-center cursor-pointer'
                     >
-                      <path
-                        d='M5 12l4 4L19 7'
-                        fill='none'
-                        stroke='currentColor'
-                        strokeWidth='2'
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
+                      {/* Outline box on hover */}
+                      <span className='absolute inset-0 rounded-[4px] border border-[var(--color-neutral-300)] bg-white opacity-0 group-hover:opacity-100 transition-opacity' />
+                      {/* Selected border */}
+                      <span
+                        className={[
+                          'absolute inset-0 rounded-[4px] border-2 transition-opacity',
+                          isPatientSelected(row.id)
+                            ? 'border-[#1E4947] opacity-100'
+                            : 'opacity-0'
+                        ].join(' ')}
                       />
-                    </svg>
-                    <span className='sr-only'>Seleccionar fila</span>
-                  </button>
-                </td>
-                <td className='py-2 pr-2 w-[240px]'>
-                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
-                    {row.name}
-                  </p>
-                </td>
-                <td className='py-2 pr-2 w-[191px]'>
-                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
-                    {row.nextDate}
-                  </p>
-                </td>
-                <td className='py-2 pr-2 w-[154px]'>
-                  <StatusPill type={row.status} />
-                </td>
-                <td className='py-2 pr-2 w-[196px]'>
-                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
-                    {row.phone}
-                  </p>
-                </td>
-                <td className='py-2 pr-2 w-[151px]'>
-                  <span className='inline-flex items-center'>
-                    <Chip color='green' rounded='full'>
-                      {row.checkin}
-                    </Chip>
-                  </span>
-                </td>
-                <td className='py-2 pr-2 w-[120px]'>
-                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
-                    {row.financing}
-                  </p>
-                </td>
-                <td className='py-2 pr-2 w-[120px]'>
-                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
-                    {row.debt}
-                  </p>
-                </td>
-                <td className='py-2 pr-2 w-[204px]'>
-                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
-                    {row.lastContact}
-                  </p>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                      {/* Check icon when selected */}
+                      <svg
+                        aria-hidden='true'
+                        viewBox='0 0 24 24'
+                        className={[
+                          'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
+                          'size-4 text-[#1E4947] transition-opacity',
+                          isPatientSelected(row.id)
+                            ? 'opacity-100'
+                            : 'opacity-0'
+                        ].join(' ')}
+                      >
+                        <path
+                          d='M5 12l4 4L19 7'
+                          fill='none'
+                          stroke='currentColor'
+                          strokeWidth='2'
+                          strokeLinecap='round'
+                          strokeLinejoin='round'
+                        />
+                      </svg>
+                      <span className='sr-only'>Seleccionar fila</span>
+                    </button>
+                  </td>
+                  <td className='py-2 pr-2 w-[200px]'>
+                    <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)] truncate'>
+                      {row.name}
+                    </p>
+                  </td>
+                  <td className='py-2 pr-2 w-[140px]'>
+                    <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                      {row.nextDate}
+                    </p>
+                  </td>
+                  <td className='py-2 pr-2 w-[120px]'>
+                    <StatusPill type={row.status} />
+                  </td>
+                  <td className='py-2 pr-2 w-[140px]'>
+                    <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)] truncate'>
+                      {row.phone}
+                    </p>
+                  </td>
+                  <td className='py-2 pr-2 w-[100px]'>
+                    <span className='inline-flex items-center'>
+                      <Chip color='green' rounded='full'>
+                        {row.checkin}
+                      </Chip>
+                    </span>
+                  </td>
+                  <td className='py-2 pr-2 w-[100px]'>
+                    <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                      {row.financing}
+                    </p>
+                  </td>
+                  <td className='py-2 pr-2 w-[100px]'>
+                    <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                      {row.debt}
+                    </p>
+                  </td>
+                  <td className='py-2 pr-2 w-[140px]'>
+                    <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)] truncate'>
+                      {row.lastContact}
+                    </p>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-      <div className='mt-4 flex items-center justify-end gap-3 text-[14px] text-[var(--color-neutral-900)]'>
-        <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
-          «
-        </button>
-        <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
-          ‹
-        </button>
-        <span className='underline'>1</span>
-        <span>2</span>
-        <span>…</span>
-        <span>12</span>
-        <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
-          ›
-        </button>
-        <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
-          »
-        </button>
+        <div className='flex-shrink-0 mt-4 flex items-center justify-end gap-3 text-[14px] text-[var(--color-neutral-900)]'>
+          <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
+            «
+          </button>
+          <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
+            ‹
+          </button>
+          <span className='underline'>1</span>
+          <span>2</span>
+          <span>…</span>
+          <span>12</span>
+          <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
+            ›
+          </button>
+          <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
+            »
+          </button>
+        </div>
       </div>
     </div>
   )
