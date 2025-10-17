@@ -196,7 +196,7 @@ export default function PacientesPage() {
   const clearFilters = () => setSelectedFilters([])
 
   return (
-    <div className='bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] min-h-[calc(100dvh-var(--spacing-topbar))] p-12'>
+    <div className='bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] h-full min-h-0 p-12 flex flex-col'>
       <PatientFichaModal open={open} onClose={() => setOpen(false)} />
       <div className='flex items-center justify-between gap-2'>
         <div className='flex items-center gap-2'>
@@ -352,38 +352,38 @@ export default function PacientesPage() {
         </div>
       </div>
 
-      <div className='mt-6 rounded-[8px] overflow-auto w-[100rem] h-[34rem]'>
-        <table className='w-full table-fixed'>
+      <div className='mt-6 rounded-[8px] overflow-auto w-full flex-1 min-h-0'>
+        <table className='w-full table-auto'>
           <thead>
             <tr className='h-[2rem]'>
               <TableHeaderCell className='py-1 pr-1 w-[3rem]'>
                 <span className='sr-only'>Seleccionar fila</span>
               </TableHeaderCell>
-              <TableHeaderCell className='py-1 pr-1 w-[15rem]'>
+              <TableHeaderCell className='py-1 pr-1 sm:w-[12rem] md:w-[14rem] lg:w-[16rem]'>
                 <div className='flex items-center gap-2'>
                   <AccountCircleRounded className='size-4 text-[var(--color-neutral-700)]' />
                   <span>Paciente</span>
                 </div>
               </TableHeaderCell>
-              <TableHeaderCell className='py-1 pr-1 w-[11.9375rem]'>
+              <TableHeaderCell className='py-1 pr-1 whitespace-nowrap'>
                 Próxima cita
               </TableHeaderCell>
-              <TableHeaderCell className='py-1 pr-1 w-[9.625rem]'>
+              <TableHeaderCell className='py-1 pr-1 whitespace-nowrap'>
                 Estado
               </TableHeaderCell>
-              <TableHeaderCell className='py-1 pr-1 w-[12.25rem]'>
+              <TableHeaderCell className='py-1 pr-1 whitespace-nowrap'>
                 Teléfono
               </TableHeaderCell>
-              <TableHeaderCell className='py-1 pr-1 w-[9.4375rem]'>
+              <TableHeaderCell className='py-1 pr-1 whitespace-nowrap'>
                 Check-in
               </TableHeaderCell>
-              <TableHeaderCell className='py-1 pr-1 w-[7.5rem]'>
+              <TableHeaderCell className='py-1 pr-1 whitespace-nowrap'>
                 Financiación
               </TableHeaderCell>
-              <TableHeaderCell className='py-1 pr-1 w-[7.5rem]'>
+              <TableHeaderCell className='py-1 pr-1 whitespace-nowrap'>
                 Deuda
               </TableHeaderCell>
-              <TableHeaderCell className='py-1 pr-1 w-[12.75rem]'>
+              <TableHeaderCell className='py-1 pr-1 whitespace-nowrap'>
                 Último contacto
               </TableHeaderCell>
             </tr>
@@ -454,43 +454,43 @@ export default function PacientesPage() {
                     <span className='sr-only'>Seleccionar fila</span>
                   </button>
                 </td>
-                <td className='py-1 pr-1 w-[15rem]'>
-                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                <td className='py-1 pr-1 sm:w-[12rem] md:w-[14rem] lg:w-[16rem]'>
+                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)] truncate'>
                     {row.name}
                   </p>
                 </td>
-                <td className='py-1 pr-1 w-[11.9375rem]'>
-                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                <td className='py-1 pr-1 whitespace-nowrap'>
+                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)] whitespace-nowrap'>
                     {row.nextDate}
                   </p>
                 </td>
-                <td className='py-1 pr-1 w-[9.625rem]'>
+                <td className='py-1 pr-1 whitespace-nowrap'>
                   <StatusPill type={row.status} />
                 </td>
-                <td className='py-1 pr-1 w-[12.25rem]'>
-                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                <td className='py-1 pr-1 whitespace-nowrap'>
+                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)] whitespace-nowrap'>
                     {row.phone}
                   </p>
                 </td>
-                <td className='py-1 pr-1 w-[9.4375rem]'>
+                <td className='py-1 pr-1 whitespace-nowrap'>
                   <span className='inline-flex items-center'>
                     <Chip color='green' rounded='full'>
                       {row.checkin}
                     </Chip>
                   </span>
                 </td>
-                <td className='py-1 pr-1 w-[7.5rem]'>
-                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                <td className='py-1 pr-1 whitespace-nowrap'>
+                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)] whitespace-nowrap'>
                     {row.financing}
                   </p>
                 </td>
-                <td className='py-1 pr-1 w-[7.5rem]'>
-                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                <td className='py-1 pr-1 whitespace-nowrap'>
+                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)] whitespace-nowrap'>
                     {row.debt}
                   </p>
                 </td>
-                <td className='py-1 pr-1 w-[12.75rem]'>
-                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                <td className='py-1 pr-1 whitespace-nowrap'>
+                  <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)] whitespace-nowrap'>
                     {row.lastContact}
                   </p>
                 </td>
