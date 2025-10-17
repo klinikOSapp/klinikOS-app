@@ -29,7 +29,7 @@ type AddPatientModalProps = {
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+    <p className='text-[1rem] leading-[1.5rem] text-[var(--color-neutral-900)]'>
       {children}
     </p>
   )
@@ -46,7 +46,7 @@ function TextInput({
     <div className='relative'>
       <input
         placeholder={placeholder}
-        className='w-full h-12 rounded-[8px] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5 text-[16px] leading-[24px] text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)] outline-none'
+        className='w-full h-12 rounded-[0.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5 text-[1rem] leading-[1.5rem] text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)] outline-none'
       />
       {required && (
         <span className='absolute right-2 top-1/2 -translate-y-1/2 text-[#B91C1C]'>
@@ -62,7 +62,7 @@ function DateInput() {
     <div className='relative'>
       <input
         placeholder='DD/MM/AAAA'
-        className='w-full h-12 rounded-[8px] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] pl-2.5 pr-10 text-[16px] leading-[24px] text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)] outline-none'
+        className='w-full h-12 rounded-[0.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] pl-2.5 pr-10 text-[1rem] leading-[1.5rem] text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)] outline-none'
       />
       <span className='absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-neutral-700)]'>
         📅
@@ -74,7 +74,7 @@ function DateInput() {
 function SelectInput() {
   return (
     <div className='relative'>
-      <select className='appearance-none w-full h-12 rounded-[8px] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5 text-[16px] leading-[24px] text-[var(--color-neutral-900)] outline-none'>
+      <select className='appearance-none w-full h-12 rounded-[0.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5 text-[1rem] leading-[1.5rem] text-[var(--color-neutral-900)] outline-none'>
         <option>Value</option>
       </select>
       <span className='pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-neutral-700)]'>
@@ -114,8 +114,8 @@ export default function AddPatientModal({
           aria-modal='true'
           onClick={(e) => e.stopPropagation()}
         >
-          <div className='w-[1092px] h-[956px] relative bg-[#F8FAFB] rounded-lg overflow-hidden'>
-            <div className='w-[1092px] h-14 px-8 left-0 top-0 absolute border-b border-[#CBD3D9] inline-flex justify-between items-center'>
+          <div className='w-[68.25rem] h-[59.75rem] relative bg-[#F8FAFB] rounded-lg overflow-hidden'>
+            <div className='w-[68.25rem] h-14 px-8 left-0 top-0 absolute border-b border-[#CBD3D9] inline-flex justify-between items-center'>
               <div className='justify-start text-[#24282C] text-lg font-medium font-sans leading-7'>
                 Formulario de creación de usuarios
               </div>
@@ -131,7 +131,7 @@ export default function AddPatientModal({
 
             <div
               data-devide='Desktop'
-              className='left-[32px] top-[96px] absolute inline-flex justify-start items-start gap-3'
+              className='left-[2rem] top-[6rem] absolute inline-flex justify-start items-start gap-3'
             >
               <div
                 data-has-line='true'
@@ -146,7 +146,7 @@ export default function AddPatientModal({
                     style={{ width: 24, height: 24, color: '#51D6C7' }}
                   />
                 </div>
-                <div className='absolute left-[10px] top-[26px] w-[2px] h-[22px] bg-[#24282C]'></div>
+                <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[#24282C]'></div>
               </div>
               <div className='justify-start text-[#24282C] text-base font-medium font-sans leading-normal'>
                 Paciente
@@ -155,7 +155,7 @@ export default function AddPatientModal({
 
             <div
               data-devide='Desktop'
-              className='left-[32px] top-[144px] absolute inline-flex justify-start items-start gap-3'
+              className='left-[2rem] top-[9rem] absolute inline-flex justify-start items-start gap-3'
             >
               <div
                 data-has-line='true'
@@ -170,7 +170,7 @@ export default function AddPatientModal({
                     style={{ width: 24, height: 24, color: '#24282C' }}
                   />
                 </div>
-                <div className='absolute left-[10px] top-[26px] w-[2px] h-[22px] bg-[#24282C]'></div>
+                <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[#24282C]'></div>
               </div>
               <div className='justify-start text-[#24282C] text-base font-medium font-sans leading-normal'>
                 Contacto
@@ -179,7 +179,7 @@ export default function AddPatientModal({
 
             <div
               data-devide='Desktop'
-              className='left-[32px] top-[192px] absolute inline-flex justify-start items-start gap-3'
+              className='left-[2rem] top-[12rem] absolute inline-flex justify-start items-start gap-3'
             >
               <div
                 data-has-line='true'
@@ -194,7 +194,7 @@ export default function AddPatientModal({
                     style={{ width: 24, height: 24, color: '#24282C' }}
                   />
                 </div>
-                <div className='absolute left-[10px] top-[26px] w-[2px] h-[22px] bg-[#24282C]'></div>
+                <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[#24282C]'></div>
               </div>
               <div className='justify-start text-[#24282C] text-base font-medium font-sans leading-normal'>
                 Administrativo
@@ -203,7 +203,7 @@ export default function AddPatientModal({
 
             <div
               data-devide='Desktop'
-              className='left-[32px] top-[240px] absolute inline-flex justify-start items-start gap-3'
+              className='left-[2rem] top-[15rem] absolute inline-flex justify-start items-start gap-3'
             >
               <div
                 data-has-line='true'
@@ -218,7 +218,7 @@ export default function AddPatientModal({
                     style={{ width: 24, height: 24, color: '#24282C' }}
                   />
                 </div>
-                <div className='absolute left-[10px] top-[26px] w-[2px] h-[22px] bg-[#24282C]'></div>
+                <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[#24282C]'></div>
               </div>
               <div className='justify-start text-[#24282C] text-base font-medium font-sans leading-normal'>
                 Salud
@@ -227,7 +227,7 @@ export default function AddPatientModal({
 
             <div
               data-devide='Desktop'
-              className='left-[32px] top-[288px] absolute inline-flex justify-start items-start gap-3'
+              className='left-[2rem] top-[18rem] absolute inline-flex justify-start items-start gap-3'
             >
               <div
                 data-has-line='false'
@@ -250,7 +250,7 @@ export default function AddPatientModal({
 
             <div
               data-property-1='Default'
-              className='w-[568px] left-[229px] top-[96px] absolute inline-flex flex-col justify-start items-start gap-2'
+              className='w-[35.5rem] left-[14.3125rem] top-[6rem] absolute inline-flex flex-col justify-start items-start gap-2'
             >
               <div className='inline-flex justify-start items-center gap-2'>
                 <div className='justify-start text-[#24282C] text-2xl font-medium font-sans leading-loose'>
@@ -265,10 +265,10 @@ export default function AddPatientModal({
               data-has-label='false'
               data-state='Default'
               data-typevalue='Place Holder'
-              className='w-80 left-[491px] top-[287px] absolute inline-flex flex-col justify-start items-start gap-2'
+              className='w-80 left-[30.6875rem] top-[17.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'
             >
               <div className='self-stretch flex flex-col justify-start items-start gap-1'>
-                <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.50px] outline-offset-[-0.50px] outline-gray-300 inline-flex justify-between items-center'>
+                <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-gray-300 inline-flex justify-between items-center'>
                   <div className='justify-start text-gray-400 text-base font-normal font-sans leading-normal'>
                     Value
                   </div>
@@ -297,10 +297,10 @@ export default function AddPatientModal({
               data-has-label='false'
               data-state='Default'
               data-typevalue='Place Holder'
-              className='w-80 left-[491px] top-[383px] absolute inline-flex flex-col justify-start items-start gap-2'
+              className='w-80 left-[30.6875rem] top-[23.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'
             >
               <div className='self-stretch flex flex-col justify-start items-start gap-1'>
-                <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.50px] outline-offset-[-0.50px] outline-gray-300 inline-flex justify-between items-center'>
+                <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-gray-300 inline-flex justify-between items-center'>
                   <div className='justify-start text-gray-400 text-base font-normal font-sans leading-normal'>
                     Value
                   </div>
@@ -329,10 +329,10 @@ export default function AddPatientModal({
               data-has-label='false'
               data-state='Default'
               data-typevalue='Place Holder'
-              className='w-80 left-[491px] top-[767px] absolute inline-flex flex-col justify-start items-start gap-2'
+              className='w-80 left-[30.6875rem] top-[47.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'
             >
               <div className='self-stretch flex flex-col justify-start items-start gap-1'>
-                <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.50px] outline-offset-[-0.50px] outline-gray-300 inline-flex justify-between items-center'>
+                <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-gray-300 inline-flex justify-between items-center'>
                   <div className='justify-start text-gray-400 text-base font-normal font-sans leading-normal'>
                     Value
                   </div>
@@ -355,9 +355,9 @@ export default function AddPatientModal({
               </div>
             </div>
 
-            <div className='w-80 left-[491px] top-[479px] absolute inline-flex flex-col justify-start items-start gap-2'>
+            <div className='w-80 left-[30.6875rem] top-[29.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
               <div className='self-stretch flex flex-col justify-start items-start gap-1'>
-                <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.50px] outline-offset-[-0.50px] outline-gray-300 inline-flex justify-between items-center'>
+                <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-gray-300 inline-flex justify-between items-center'>
                   <div className='justify-start text-gray-400 text-base font-normal font-sans leading-normal'>
                     DD/MM/AAAA
                   </div>
@@ -366,40 +366,40 @@ export default function AddPatientModal({
               </div>
             </div>
 
-            <div className='left-[294px] top-[160px] absolute justify-start text-zinc-800 text-base font-normal font-sans leading-normal'>
+            <div className='left-[18.375rem] top-[10rem] absolute justify-start text-zinc-800 text-base font-normal font-sans leading-normal'>
               Imagen del paciente
             </div>
-            <div className='left-[294px] top-[287px] absolute justify-start text-zinc-800 text-base font-normal font-sans leading-normal'>
+            <div className='left-[18.375rem] top-[17.9375rem] absolute justify-start text-zinc-800 text-base font-normal font-sans leading-normal'>
               Nombre
             </div>
-            <div className='left-[294px] top-[383px] absolute justify-start text-zinc-800 text-base font-normal font-sans leading-normal'>
+            <div className='left-[18.375rem] top-[23.9375rem] absolute justify-start text-zinc-800 text-base font-normal font-sans leading-normal'>
               Apellidos
             </div>
-            <div className='left-[294px] top-[767px] absolute justify-start text-zinc-800 text-base font-normal font-sans leading-normal'>
+            <div className='left-[18.375rem] top-[47.9375rem] absolute justify-start text-zinc-800 text-base font-normal font-sans leading-normal'>
               DNI/NIE
             </div>
-            <div className='left-[294px] top-[479px] absolute justify-start text-zinc-800 text-base font-normal font-sans leading-normal'>
+            <div className='left-[18.375rem] top-[29.9375rem] absolute justify-start text-zinc-800 text-base font-normal font-sans leading-normal'>
               Fecha de nacimiento
             </div>
-            <div className='left-[294px] top-[575px] absolute justify-start text-zinc-800 text-base font-normal font-sans leading-normal'>
+            <div className='left-[18.375rem] top-[35.9375rem] absolute justify-start text-zinc-800 text-base font-normal font-sans leading-normal'>
               Sexo biológico
             </div>
-            <div className='left-[294px] top-[671px] absolute justify-start text-zinc-800 text-base font-normal font-sans leading-normal'>
+            <div className='left-[18.375rem] top-[41.9375rem] absolute justify-start text-zinc-800 text-base font-normal font-sans leading-normal'>
               Idioma preferido
             </div>
-            <div className='w-40 left-[294px] top-[188px] absolute justify-start text-gray-500 text-xs font-medium font-sans leading-none'>
+            <div className='w-40 left-[18.375rem] top-[11.75rem] absolute justify-start text-gray-500 text-xs font-medium font-sans leading-none'>
               Toma una fotografía o súbela desde tu dispositivo
             </div>
             <button
               type='button'
-              className='w-20 h-20 left-[491px] top-[160px] absolute bg-gray-200 rounded-lg outline-1 outline-offset-[-1px] outline-teal-300 overflow-hidden grid place-items-center'
+              className='w-20 h-20 left-[30.6875rem] top-[10rem] absolute bg-gray-200 rounded-lg outline-[0.0625rem] outline-offset-[-0.0625rem] outline-teal-300 overflow-hidden grid place-items-center'
             >
               <img alt='' src={imgAddAPhoto} className='w-8 h-8' />
             </button>
 
-            <div className='w-80 left-[491px] top-[575px] absolute inline-flex flex-col justify-start items-start gap-2'>
+            <div className='w-80 left-[30.6875rem] top-[35.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
               <div className='self-stretch flex flex-col justify-start items-start gap-1'>
-                <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.50px] outline-offset-[-0.50px] outline-gray-300 inline-flex justify-between items-center'>
+                <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-gray-300 inline-flex justify-between items-center'>
                   <div className='justify-start text-gray-400 text-base font-normal font-sans leading-normal'>
                     Value
                   </div>
@@ -408,9 +408,9 @@ export default function AddPatientModal({
               </div>
             </div>
 
-            <div className='w-80 left-[491px] top-[671px] absolute inline-flex flex-col justify-start items-start gap-2'>
+            <div className='w-80 left-[30.6875rem] top-[41.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
               <div className='self-stretch flex flex-col justify-start items-start gap-1'>
-                <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.50px] outline-offset-[-0.50px] outline-gray-300 inline-flex justify-between items-center'>
+                <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-gray-300 inline-flex justify-between items-center'>
                   <div className='justify-start text-gray-400 text-base font-normal font-sans leading-normal'>
                     Value
                   </div>
@@ -419,11 +419,11 @@ export default function AddPatientModal({
               </div>
             </div>
 
-            <div className='w-[504px] h-0 left-[798px] top-[852px] absolute origin-top-left rotate-180 border-t border-[#AEB8C2]'></div>
+            <div className='w-[31.5rem] h-0 left-[49.875rem] top-[53.25rem] absolute origin-top-left rotate-180 border-t-[0.0625rem] border-[#AEB8C2]'></div>
             <button
               type='button'
               onClick={onContinue}
-              className='w-52 px-4 py-2 left-[583px] top-[892px] absolute bg-teal-300 rounded-[136px] outline-1 outline-offset-[-1px] outline-gray-300 inline-flex justify-center items-center gap-2'
+              className='w-52 px-4 py-2 left-[36.4375rem] top-[55.75rem] absolute bg-teal-300 rounded-[8.5rem] outline-[0.0625rem] outline-offset-[-0.0625rem] outline-gray-300 inline-flex justify-center items-center gap-2'
             >
               <div className='justify-start text-teal-900 text-base font-medium font-sans leading-normal'>
                 Continuar
