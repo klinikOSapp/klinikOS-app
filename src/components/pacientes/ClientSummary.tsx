@@ -1,31 +1,34 @@
 import React from 'react'
+import CloseRounded from '@mui/icons-material/CloseRounded'
+import MailRounded from '@mui/icons-material/MailRounded'
+import CallRounded from '@mui/icons-material/CallRounded'
+import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
 
-const imgClose =
-  'http://localhost:3845/assets/5ef958204bb620a694618e0538ad4b9d50b8e1c7.svg'
-const imgMail =
-  'http://localhost:3845/assets/dae09d8400da9390276da864f02dcc6039a223aa.svg'
-const imgCall =
-  'http://localhost:3845/assets/b7ea77f86188bf6ab0ebf35824da37c39ace0c81.svg'
 const imgLine1 =
   'http://localhost:3845/assets/a5fd2c78e5af92f84d85671667ff4e2a8a0f2cfd.svg'
-const imgMoreVert =
-  'http://localhost:3845/assets/49a32dc9867150df332161df4c1841329bdafc17.svg'
 
-export default function ClientSummary() {
+type ClientSummaryProps = {
+  onClose?: () => void
+}
+
+export default function ClientSummary({ onClose }: ClientSummaryProps) {
   return (
     <div
-      className='bg-[#f8fafb] relative'
+      className='bg-[#f8fafb] relative w-[1196px]'
       data-node-id='423:822'
       style={{ width: 1196, height: 900 }}
     >
-      <div
-        className='absolute size-[24px] top-[16px]'
+      <button
+        type='button'
+        aria-label='Cerrar'
+        onClick={onClose}
+        className='absolute size-[24px] top-[16px] cursor-pointer'
         data-name='close'
         data-node-id='410:779'
         style={{ left: 'calc(93.75% + 34.75px)' }}
       >
-        <img alt='' className='block max-w-none size-full' src={imgClose} />
-      </div>
+        <CloseRounded className='size-6 text-[#24282c]' />
+      </button>
       <div
         className='absolute content-stretch flex gap-[24px] items-center left-[32px] top-[48px]'
         data-node-id='426:854'
@@ -54,11 +57,7 @@ export default function ClientSummary() {
               data-name='mail'
               data-node-id='426:837'
             >
-              <img
-                alt=''
-                className='block max-w-none size-full'
-                src={imgMail}
-              />
+              <MailRounded className='size-6 text-[#24282c]' />
             </div>
             <p
               className="font-['Inter:Regular',_sans-serif] font-normal leading-[24px] not-italic relative shrink-0 text-[#24282c] text-[16px] text-nowrap whitespace-pre"
@@ -76,11 +75,7 @@ export default function ClientSummary() {
               data-name='call'
               data-node-id='426:847'
             >
-              <img
-                alt=''
-                className='block max-w-none size-full'
-                src={imgCall}
-              />
+              <CallRounded className='size-6 text-[#24282c]' />
             </div>
             <p
               className="font-['Inter:Regular',_sans-serif] font-normal leading-[24px] not-italic relative shrink-0 text-[#24282c] text-[16px] text-nowrap whitespace-pre"
@@ -338,7 +333,7 @@ export default function ClientSummary() {
         data-node-id='426:923'
         style={{ left: 'calc(93.75% + 18.75px)' }}
       >
-        <img alt='' className='block max-w-none size-full' src={imgMoreVert} />
+        <MoreVertRounded className='size-6 text-[#24282c]' />
       </div>
     </div>
   )
