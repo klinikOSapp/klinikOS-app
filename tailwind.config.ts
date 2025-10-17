@@ -92,6 +92,7 @@ export default {
         }
       },
       spacing: {
+        // Original layout spacing (preserved from design system)
         topbar: '64px',
         sidebar: '256px',
         'sidebar-collapsed': '80px',
@@ -101,7 +102,14 @@ export default {
         'bottombar-mobile': '64px',
         gapsm: '8px',
         gapmd: '16px',
-        plnav: '24px'
+        plnav: '24px',
+        
+        // Fluid spacing - scales proportionally with viewport width
+        // Usage: p-fluid-sm, mt-fluid-lg, gap-fluid-xl
+        'fluid-sm': 'clamp(0.5rem, 1vw, 1rem)',      // 8px → 16px
+        'fluid-md': 'clamp(1rem, 2vw, 1.5rem)',      // 16px → 24px
+        'fluid-lg': 'clamp(1.5rem, 3vw, 2rem)',      // 24px → 32px
+        'fluid-xl': 'clamp(2rem, 4vw, 3rem)',        // 32px → 48px
       },
       borderRadius: {
         xl: '16px',
@@ -127,6 +135,13 @@ export default {
       screens: {
         mobile: '360px',
         desktop: '905px'
+      },
+      
+      // Container max-widths for responsive layout constraints
+      // Usage: max-w-content, max-w-layout
+      maxWidth: {
+        'content': '1600px',  // Main content area maximum width
+        'layout': '1920px',   // Overall layout maximum width
       }
     }
   }
