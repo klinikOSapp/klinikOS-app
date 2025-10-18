@@ -4,6 +4,7 @@ import React from 'react'
 import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
 import { useRouter } from 'next/navigation'
 import AddPatientModal from '@/components/pacientes/AddPatientModal'
+import PatientFichaModal from '@/components/pacientes/PatientFichaModal'
 
 function KpiCard({
   title,
@@ -175,6 +176,7 @@ export default function PacientesPage() {
   const [selectedPatientIds, setSelectedPatientIds] = React.useState<string[]>(
     []
   )
+  const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
 
   const isPatientSelected = (patientId: string) =>
     selectedPatientIds.includes(patientId)
@@ -200,6 +202,10 @@ export default function PacientesPage() {
       <AddPatientModal
         open={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
+      />
+      <PatientFichaModal
+        open={isFichaModalOpen}
+        onClose={() => setIsFichaModalOpen(false)}
       />
 
       {/* Header Section - Fixed size */}
@@ -426,6 +432,7 @@ export default function PacientesPage() {
                 <tr
                   key={row.id}
                   className='group hover:bg-[var(--color-neutral-50)]'
+                  onClick={() => setIsFichaModalOpen(true)}
                 >
                   <td className='py-2 pr-2 w-[40px]'>
                     <button
