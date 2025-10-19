@@ -114,7 +114,7 @@ export default function AddPatientModal({
           aria-modal='true'
           onClick={(e) => e.stopPropagation()}
         >
-          <div className='w-[68.25rem] h-[59.75rem] relative bg-[#F8FAFB] rounded-lg overflow-hidden'>
+          <div className='w-[min(68.25rem,92vw)] h-[min(59.75rem,85vh)] relative bg-[#F8FAFB] rounded-lg overflow-y-auto'>
             <div className='w-[68.25rem] h-14 px-8 left-0 top-0 absolute border-b border-[#CBD3D9] inline-flex justify-between items-center'>
               <div className='justify-start text-[#24282C] text-lg font-medium font-sans leading-7'>
                 Formulario de creación de usuarios
