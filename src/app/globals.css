@@ -82,6 +82,21 @@
   --shadow-nav-active: inset 4px 0 0 0 #a8efe7;
 }
 
+/* ✨ BASE HTML FLUIDA - Hace TODO responsive automáticamente */
+html {
+  font-size: clamp(14px, 1vw, 18px);
+  /* 
+    Resultado en diferentes pantallas:
+    - 1280px viewport: 1rem = 14px (mínimo)
+    - 1512px viewport: 1rem = 15.12px (tu pantalla) ✓
+    - 1600px viewport: 1rem = 16px (estándar)
+    - 1920px viewport: 1rem = 18px (máximo)
+    
+    Esto hace que TODAS las clases de Tailwind (p-*, m-*, gap-*, text-*)
+    escalen automáticamente sin cambiar ningún código.
+  */
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;

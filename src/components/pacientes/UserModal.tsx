@@ -13,7 +13,7 @@ function Select({
 }: SelectProps) {
   const element = (
     <p
-      className="font-['Inter:Medium',_sans-serif] font-medium leading-[32px] relative shrink-0 text-[24px] w-full"
+      className="font-['Inter:Medium',_sans-serif] font-medium leading-8 relative shrink-0 text-xl w-full"
       data-node-id='410:780'
     >
       {hEad}
@@ -21,7 +21,7 @@ function Select({
   )
   const element1 = (
     <p
-      className="font-['Inter:Regular',_sans-serif] font-normal leading-[20px] relative shrink-0 text-[14px] w-full"
+      className="font-['Inter:Regular',_sans-serif] font-normal leading-5 relative shrink-0 text-sm w-full"
       data-node-id='410:782'
     >
       {body}
@@ -54,9 +54,8 @@ function Select({
 export default function UserModal() {
   return (
     <div
-      className='relative'
+      className='relative w-80 h-auto'
       data-node-id='410:781'
-      style={{ width: 304, height: 900 }}
     >
       <div className='relative size-full'>
         <div
@@ -72,13 +71,13 @@ export default function UserModal() {
           data-node-id='410:795'
         >
           <p
-            className="font-['Inter:Medium',_sans-serif] font-medium leading-[32px] relative shrink-0 text-[24px] w-full"
+            className="font-['Inter:Medium',_sans-serif] font-medium leading-8 relative shrink-0 text-xl w-full"
             data-node-id='I410:795;410:780'
           >
             Historial clínico
           </p>
           <p
-            className="font-['Inter:Regular',_sans-serif] font-normal leading-[20px] relative shrink-0 text-[14px] w-full"
+            className="font-['Inter:Regular',_sans-serif] font-normal leading-5 relative shrink-0 text-sm w-full"
             data-node-id='I410:795;410:782'
           >
             Notas SOAP, odontograma, actos y adjuntos.
@@ -90,13 +89,13 @@ export default function UserModal() {
           data-node-id='410:801'
         >
           <p
-            className="font-['Inter:Medium',_sans-serif] font-medium leading-[32px] relative shrink-0 text-[24px] w-full"
+            className="font-['Inter:Medium',_sans-serif] font-medium leading-8 relative shrink-0 text-xl w-full"
             data-node-id='I410:801;410:780'
           >
             Imágenes & RX
           </p>
           <p
-            className="font-['Inter:Regular',_sans-serif] font-normal leading-[20px] relative shrink-0 text-[14px] w-full"
+            className="font-['Inter:Regular',_sans-serif] font-normal leading-5 relative shrink-0 text-sm w-full"
             data-node-id='I410:801;410:782'
           >
             Capturas intraorales/fotos antes-después y escáner 3D.
@@ -108,13 +107,13 @@ export default function UserModal() {
           data-node-id='410:804'
         >
           <p
-            className="font-['Inter:Medium',_sans-serif] font-medium leading-[32px] relative shrink-0 text-[24px] w-full"
+            className="font-['Inter:Medium',_sans-serif] font-medium leading-8 relative shrink-0 text-xl w-full"
             data-node-id='I410:804;410:780'
           >
             Pagos y facturas
           </p>
           <p
-            className="font-['Inter:Regular',_sans-serif] font-normal leading-[20px] relative shrink-0 text-[14px] w-full"
+            className="font-['Inter:Regular',_sans-serif] font-normal leading-5 relative shrink-0 text-sm w-full"
             data-node-id='I410:804;410:782'
           >
             Cobros, financiación embebida, facturas/recibos y conciliación.
@@ -126,13 +125,13 @@ export default function UserModal() {
           data-node-id='410:810'
         >
           <p
-            className="font-['Inter:Medium',_sans-serif] font-medium leading-[32px] relative shrink-0 text-[24px] w-full"
+            className="font-['Inter:Medium',_sans-serif] font-medium leading-8 relative shrink-0 text-xl w-full"
             data-node-id='I410:810;410:780'
           >
             Actividad
           </p>
           <p
-            className="font-['Inter:Regular',_sans-serif] font-normal leading-[20px] relative shrink-0 text-[14px] w-full"
+            className="font-['Inter:Regular',_sans-serif] font-normal leading-5 relative shrink-0 text-sm w-full"
             data-node-id='I410:810;410:782'
           >
             log legal, toda acción con usuario, fecha/hora y contexto, para

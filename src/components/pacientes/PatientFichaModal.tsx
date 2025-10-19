@@ -69,14 +69,14 @@ export default function PatientFichaModal({
         <div
           role='dialog'
           aria-modal='true'
-          className='bg-white rounded-[12px] shadow-xl overflow-hidden w-[1572px] h-[948px]'
+          className='bg-white rounded-xl shadow-xl overflow-y-auto w-[min(68.25rem,92vw)] h-[min(59.75rem,85vh)]'
           onClick={(e) => e.stopPropagation()}
         >
           {/* Content split: left navigation (320px) + right summary */}
           <div className='flex gap-6 p-6 h-full'>
             {/* Left navigation */}
-            <div className='w-[304px] h-full shrink-0 border-r border-[var(--color-neutral-200)]'>
-              <ul className='h-[580px]'>
+            <div className='w-80 h-full shrink-0 border-r border-[var(--color-neutral-200)]'>
+              <ul className='h-auto'>
                 {items.map((it) => {
                   const selected = active === it.title
                   return (
@@ -88,10 +88,10 @@ export default function PatientFichaModal({
                         ].join(' ')}
                         onClick={() => setActive(it.title)}
                       >
-                        <p className='text-[24px] leading-[32px] font-medium text-[var(--color-neutral-900)]'>
+                        <p className='text-xl leading-8 font-medium text-[var(--color-neutral-900)]'>
                           {it.title}
                         </p>
-                        <p className='text-[14px] leading-[20px] text-[var(--color-neutral-900)]'>
+                        <p className='text-sm leading-5 text-[var(--color-neutral-900)]'>
                           {it.body}
                         </p>
                       </button>
@@ -110,7 +110,7 @@ export default function PatientFichaModal({
               {active !== 'Resumen' &&
                 active !== 'Historial clínico' &&
                 active !== 'Imágenes & RX' && (
-                  <div className='p-6 text-[16px] text-[var(--color-neutral-900)]'>
+                  <div className='p-6 text-base text-[var(--color-neutral-900)]'>
                     {active}
                   </div>
                 )}
