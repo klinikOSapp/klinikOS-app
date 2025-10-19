@@ -69,13 +69,13 @@ export default function PatientFichaModal({
         <div
           role='dialog'
           aria-modal='true'
-          className='bg-white rounded-xl shadow-xl overflow-y-auto w-[min(68.25rem,92vw)] h-[min(59.75rem,85vh)]'
+          className='bg-white rounded-xl shadow-xl overflow-hidden w-[min(93.75rem,92vw)] h-[min(56.25rem,85vh)]'
           onClick={(e) => e.stopPropagation()}
         >
           {/* Content split: left navigation (320px) + right summary */}
-          <div className='flex gap-6 p-6 h-full'>
+          <div className='flex h-full'>
             {/* Left navigation */}
-            <div className='w-80 h-full shrink-0 border-r border-[var(--color-neutral-200)]'>
+            <div className='w-[19rem] h-full shrink-0 border-r border-[var(--color-neutral-200)]'>
               <ul className='h-auto'>
                 {items.map((it) => {
                   const selected = active === it.title
@@ -101,7 +101,7 @@ export default function PatientFichaModal({
               </ul>
             </div>
             {/* Right content */}
-            <div className='flex-1 min-w-0'>
+            <div className='w-[74.75rem] h-full overflow-y-auto'>
               {active === 'Resumen' && <ClientSummary onClose={onClose} />}
               {active === 'Historial clínico' && (
                 <ClinicalHistory onClose={onClose} />
