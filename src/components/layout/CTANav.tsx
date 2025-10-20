@@ -41,7 +41,7 @@ export default function CTANav({ label, onClick, menuItems }: CTANavProps) {
               }}
               className='self-stretch px-3 py-2 bg-[var(--color-neutral-50)] inline-flex justify-start items-center gap-2 rounded-[8px] text-left hover:bg-[var(--color-brand-200)]'
             >
-              <span className='text-[var(--color-neutral-900)] text-base font-normal leading-normal'>
+              <span className='text-[var(--color-neutral-900)] text-body-md font-normal'>
                 {mi.label}
               </span>
             </button>
