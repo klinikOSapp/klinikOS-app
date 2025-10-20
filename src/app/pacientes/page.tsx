@@ -198,7 +198,7 @@ export default function PacientesPage() {
   const clearFilters = () => setSelectedFilters([])
 
   return (
-    <div className='w-[min(104rem,95vw)] h-[min(63.5rem,calc(100vh-var(--spacing-topbar)))] bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] p-[min(3rem,4vw)] flex flex-col overflow-auto'>
+    <div className='w-full max-w-[104rem] mx-auto h-[min(63.5rem,calc(100vh-var(--spacing-topbar)))] bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] p-[min(3rem,4vw)] flex flex-col overflow-auto'>
       <AddPatientModal
         open={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
