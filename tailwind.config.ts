@@ -93,26 +93,26 @@ export default {
       },
       spacing: {
         // Layout spacing in rem - scales with fluid base
-        topbar: '4rem',                    // 64px ÷ 16
-        sidebar: '16rem',                  // 256px ÷ 16
-        'sidebar-collapsed': '5rem',       // 80px ÷ 16
-        'nav-item': '3rem',                // 48px ÷ 16
-        cta: '3.5rem',                     // 56px ÷ 16
-        'topbar-mobile': '3.5rem',         // 56px ÷ 16
-        'bottombar-mobile': '4rem',        // 64px ÷ 16
-        gapsm: '0.5rem',                   // 8px ÷ 16
-        gapmd: '1rem',                     // 16px ÷ 16
-        plnav: '1.5rem',                   // 24px ÷ 16
-        
+        topbar: '4rem', // 64px ÷ 16
+        sidebar: '16rem', // 256px ÷ 16
+        'sidebar-collapsed': '5rem', // 80px ÷ 16
+        'nav-item': '3rem', // 48px ÷ 16
+        cta: '3.5rem', // 56px ÷ 16
+        'topbar-mobile': '3.5rem', // 56px ÷ 16
+        'bottombar-mobile': '4rem', // 64px ÷ 16
+        gapsm: '0.5rem', // 8px ÷ 16
+        gapmd: '1rem', // 16px ÷ 16
+        plnav: '1.5rem', // 24px ÷ 16
+
         // Fluid spacing - already correct, keep as-is
         'fluid-sm': 'clamp(0.5rem, 1vw, 1rem)',
         'fluid-md': 'clamp(1rem, 2vw, 1.5rem)',
         'fluid-lg': 'clamp(1.5rem, 3vw, 2rem)',
-        'fluid-xl': 'clamp(2rem, 4vw, 3rem)',
+        'fluid-xl': 'clamp(2rem, 4vw, 3rem)'
       },
       borderRadius: {
-        xl: '1rem',      // 16px ÷ 16
-        'tl-16': '1rem'  // 16px ÷ 16
+        xl: '1rem', // 16px ÷ 16
+        'tl-16': '1rem' // 16px ÷ 16
       },
       boxShadow: {
         cta: '0 1px 2px 0 rgba(0,0,0,0.3), 0 1px 3px 1px rgba(0,0,0,0.15)',
@@ -128,19 +128,41 @@ export default {
         ]
       },
       fontSize: {
-        'title-md': ['1.125rem', { lineHeight: '1.75rem', fontWeight: '500' }],
-        'body-md': ['1rem', { lineHeight: '1.5rem', fontWeight: '400' }]
+        'title-lg': [
+          'var(--text-title-lg)',
+          { lineHeight: 'var(--leading-title-lg)', fontWeight: '500' }
+        ],
+        'title-md': [
+          'var(--text-title-md)',
+          { lineHeight: 'var(--leading-title-md)', fontWeight: '500' }
+        ],
+        'title-sm': [
+          'var(--text-title-sm)',
+          { lineHeight: 'var(--leading-title-sm)', fontWeight: '500' }
+        ],
+        'body-md': [
+          'var(--text-body-md)',
+          { lineHeight: 'var(--leading-body-md)', fontWeight: '400' }
+        ],
+        'body-sm': [
+          'var(--text-body-sm)',
+          { lineHeight: 'var(--leading-body-sm)', fontWeight: '400' }
+        ],
+        'label-sm': [
+          'var(--text-label-sm)',
+          { lineHeight: 'var(--leading-label-sm)', fontWeight: '500' }
+        ]
       },
       screens: {
         mobile: '360px',
         desktop: '905px'
       },
-      
+
       // Container max-widths for responsive layout constraints
       // Usage: max-w-content, max-w-layout
       maxWidth: {
-        'content': '100rem',   // 1600px ÷ 16
-        'layout': '120rem',    // 1920px ÷ 16
+        content: '100rem', // 1600px ÷ 16
+        layout: '120rem' // 1920px ÷ 16
       }
     }
   }

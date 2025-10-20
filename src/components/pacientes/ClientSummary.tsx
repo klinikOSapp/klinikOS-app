@@ -14,7 +14,7 @@ type ClientSummaryProps = {
 export default function ClientSummary({ onClose }: ClientSummaryProps) {
   return (
     <div
-      className='bg-[#f8fafb] relative w-[74.75rem]'
+      className='bg-[#f8fafb] relative w-[74.75rem] overflow-hidden'
       data-node-id='423:822'
       style={{ width: '74.75rem', height: '56.25rem' }}
     >

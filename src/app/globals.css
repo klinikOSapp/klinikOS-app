@@ -72,6 +72,15 @@
   --leading-title-md: 1.75rem; /* 28px ÷ 16 = 1.75rem */
   --text-body-md: 1rem; /* 16px ÷ 16 = 1rem */
   --leading-body-md: 1.5rem; /* 24px ÷ 16 = 1.5rem */
+  /* Extended from Figma */
+  --text-title-lg: 1.5rem; /* 24px */
+  --leading-title-lg: 2rem; /* 32px */
+  --text-title-sm: 1rem; /* 16px (Medium) */
+  --leading-title-sm: 1.5rem; /* 24px */
+  --text-body-sm: 0.875rem; /* 14px */
+  --leading-body-sm: 1.25rem; /* 20px */
+  --text-label-sm: 0.6875rem; /* 11px */
+  --leading-label-sm: 1rem; /* 16px */
 
   /* Radii - NOW SCALES WITH FLUID BASE */
   --radius-xl: 1rem; /* 16px ÷ 16 = 1rem */
@@ -106,4 +115,14 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Utility: Standard page container */
+@layer utilities {
+  .container-page {
+    width: 100%;
+    max-width: 104rem; /* 1664px at 16px base */
+    margin-inline: auto;
+    padding-inline: min(3rem, 4vw);
+  }
 }

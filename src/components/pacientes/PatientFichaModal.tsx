@@ -1,7 +1,6 @@
 'use client'
 
 import React from 'react'
-import UserModal from './UserModal'
 import ClientSummary from './ClientSummary'
 import ClinicalHistory from './ClinicalHistory'
 import RxImages from './RxImages'
@@ -61,11 +60,11 @@ export default function PatientFichaModal({
 
   return (
     <div
-      className='fixed inset-0 z-50 bg-black/30'
+      className='fixed inset-0 z-50 bg-black/30 overflow-hidden'
       onClick={onClose}
       aria-hidden
     >
-      <div className='absolute inset-0 flex items-start justify-center py-8'>
+      <div className='absolute inset-0 flex items-center justify-center px-8'>
         <div
           role='dialog'
           aria-modal='true'
@@ -101,7 +100,7 @@ export default function PatientFichaModal({
               </ul>
             </div>
             {/* Right content */}
-            <div className='flex-1 min-w-0 h-full overflow-y-auto'>
+            <div className='flex-1 min-w-0 h-full overflow-hidden'>
               {active === 'Resumen' && <ClientSummary onClose={onClose} />}
               {active === 'Historial clínico' && (
                 <ClinicalHistory onClose={onClose} />
