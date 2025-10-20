@@ -92,28 +92,27 @@ export default {
         }
       },
       spacing: {
-        // Original layout spacing (preserved from design system)
-        topbar: '64px',
-        sidebar: '256px',
-        'sidebar-collapsed': '80px',
-        'nav-item': '48px',
-        cta: '56px',
-        'topbar-mobile': '56px',
-        'bottombar-mobile': '64px',
-        gapsm: '8px',
-        gapmd: '16px',
-        plnav: '24px',
+        // Layout spacing in rem - scales with fluid base
+        topbar: '4rem',                    // 64px ÷ 16
+        sidebar: '16rem',                  // 256px ÷ 16
+        'sidebar-collapsed': '5rem',       // 80px ÷ 16
+        'nav-item': '3rem',                // 48px ÷ 16
+        cta: '3.5rem',                     // 56px ÷ 16
+        'topbar-mobile': '3.5rem',         // 56px ÷ 16
+        'bottombar-mobile': '4rem',        // 64px ÷ 16
+        gapsm: '0.5rem',                   // 8px ÷ 16
+        gapmd: '1rem',                     // 16px ÷ 16
+        plnav: '1.5rem',                   // 24px ÷ 16
         
-        // Fluid spacing - scales proportionally with viewport width
-        // Usage: p-fluid-sm, mt-fluid-lg, gap-fluid-xl
-        'fluid-sm': 'clamp(0.5rem, 1vw, 1rem)',      // 8px → 16px
-        'fluid-md': 'clamp(1rem, 2vw, 1.5rem)',      // 16px → 24px
-        'fluid-lg': 'clamp(1.5rem, 3vw, 2rem)',      // 24px → 32px
-        'fluid-xl': 'clamp(2rem, 4vw, 3rem)',        // 32px → 48px
+        // Fluid spacing - already correct, keep as-is
+        'fluid-sm': 'clamp(0.5rem, 1vw, 1rem)',
+        'fluid-md': 'clamp(1rem, 2vw, 1.5rem)',
+        'fluid-lg': 'clamp(1.5rem, 3vw, 2rem)',
+        'fluid-xl': 'clamp(2rem, 4vw, 3rem)',
       },
       borderRadius: {
-        xl: '16px',
-        'tl-16': '16px'
+        xl: '1rem',      // 16px ÷ 16
+        'tl-16': '1rem'  // 16px ÷ 16
       },
       boxShadow: {
         cta: '0 1px 2px 0 rgba(0,0,0,0.3), 0 1px 3px 1px rgba(0,0,0,0.15)',
@@ -129,8 +128,8 @@ export default {
         ]
       },
       fontSize: {
-        'title-md': ['18px', { lineHeight: '28px', fontWeight: '500' }],
-        'body-md': ['16px', { lineHeight: '24px', fontWeight: '400' }]
+        'title-md': ['1.125rem', { lineHeight: '1.75rem', fontWeight: '500' }],
+        'body-md': ['1rem', { lineHeight: '1.5rem', fontWeight: '400' }]
       },
       screens: {
         mobile: '360px',
@@ -140,8 +139,8 @@ export default {
       // Container max-widths for responsive layout constraints
       // Usage: max-w-content, max-w-layout
       maxWidth: {
-        'content': '1600px',  // Main content area maximum width
-        'layout': '1920px',   // Overall layout maximum width
+        'content': '100rem',   // 1600px ÷ 16
+        'layout': '120rem',    // 1920px ÷ 16
       }
     }
   }

@@ -16,12 +16,12 @@ function KpiCard({
   badge?: React.ReactNode
 }) {
   return (
-    <div className='bg-white rounded-[8px] px-4 py-2 h-[128px] flex flex-col justify-between shadow-[1px_1px_2px_0_rgba(0,0,0,0.05)] border border-[var(--color-neutral-200)]'>
-      <p className='text-[18px] leading-[28px] font-medium text-[var(--color-neutral-600)]'>
+    <div className='bg-white rounded-[8px] p-[min(1rem,1.5vw)] h-[min(8rem,12vw)] flex flex-col justify-between shadow-[1px_1px_2px_0_rgba(0,0,0,0.05)] border border-[var(--color-neutral-200)]'>
+      <p className='text-lg leading-7 font-medium text-[var(--color-neutral-600)]'>
         {title}
       </p>
       <div className='flex items-baseline justify-between'>
-        <p className='text-[52px] leading-[60px] text-[var(--color-neutral-900)] font-medium'>
+        <p className='text-[min(3.25rem,5vw)] leading-[1.2] text-[var(--color-neutral-900)] font-medium'>
           {value}
         </p>
         {badge}
@@ -86,7 +86,7 @@ function TableHeaderCell({
   return (
     <th
       className={[
-        'text-[16px] leading-[24px] font-normal text-[var(--color-neutral-600)] text-left',
+        'text-base leading-6 font-normal text-[var(--color-neutral-600)] text-left',
         className
       ].join(' ')}
     >
@@ -103,12 +103,12 @@ function Row() {
       onClick={() => router.push('/pacientes/ficha')}
     >
       <td className='py-2 pr-2 w-[240px]'>
-        <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+        <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
           Laura Rivas
         </p>
       </td>
       <td className='py-2 pr-2 w-[191px]'>
-        <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+        <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
           DD/MM/AAAA
         </p>
       </td>
@@ -116,7 +116,7 @@ function Row() {
         <StatusPill type='Activo' />
       </td>
       <td className='py-2 pr-2 w-[196px]'>
-        <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+        <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
           888 888 888
         </p>
       </td>
@@ -124,17 +124,17 @@ function Row() {
         <StatusPill type='Hecho' />
       </td>
       <td className='py-2 pr-2 w-[120px]'>
-        <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+        <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
           No
         </p>
       </td>
       <td className='py-2 pr-2 w-[120px]'>
-        <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+        <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
           380€
         </p>
       </td>
       <td className='py-2 pr-2 w-[204px]'>
-        <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+        <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
           DD/MM/AAAA
         </p>
       </td>
@@ -198,7 +198,7 @@ export default function PacientesPage() {
   const clearFilters = () => setSelectedFilters([])
 
   return (
-    <div className='max-w-content mx-auto bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] h-[calc(100dvh-var(--spacing-topbar))] p-6 flex flex-col overflow-hidden'>
+    <div className='w-[min(104rem,95vw)] h-[min(63.5rem,calc(100vh-var(--spacing-topbar)))] bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] p-[min(3rem,4vw)] flex flex-col overflow-auto'>
       <AddPatientModal
         open={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
@@ -222,7 +222,7 @@ export default function PacientesPage() {
           <div className='flex items-center gap-3'>
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-[16px] leading-[24px] text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
+              className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-base leading-6 text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
             >
               <span className='text-[20px] leading-[20px]'>＋</span>
               <span>Añadir paciente</span>
@@ -241,12 +241,18 @@ export default function PacientesPage() {
         </p>
       </div>
 
-      <div className='flex-shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-6 mt-8'>
+      <div
+        className='flex-shrink-0 grid gap-[min(1rem,1.5vw)] mt-8'
+        style={{
+          gridTemplateColumns:
+            'repeat(auto-fit, minmax(min(15.5rem, 100%), 1fr))'
+        }}
+      >
         <KpiCard
           title='Pacientes hoy'
           value='2'
           badge={
-            <span className='text-[16px] leading-[24px] text-[var(--color-success-600)]'>
+            <span className='text-base leading-6 text-[var(--color-success-600)]'>
               24%
             </span>
           }
@@ -255,7 +261,7 @@ export default function PacientesPage() {
           title='Pacientes semana'
           value='16'
           badge={
-            <span className='text-[16px] leading-[24px] text-[var(--color-success-600)]'>
+            <span className='text-base leading-6 text-[var(--color-success-600)]'>
               8%
             </span>
           }
@@ -264,16 +270,14 @@ export default function PacientesPage() {
           title='Pacientes recibidos'
           value='4/16'
           badge={
-            <span className='text-[16px] leading-[24px] text-[#d97706]'>
-              25%
-            </span>
+            <span className='text-base leading-6 text-[#d97706]'>25%</span>
           }
         />
         <KpiCard
           title='Citas confirmadas'
           value='12/16'
           badge={
-            <span className='text-[16px] leading-[24px] text-[var(--color-success-600)]'>
+            <span className='text-base leading-6 text-[var(--color-success-600)]'>
               75%
             </span>
           }
@@ -480,12 +484,12 @@ export default function PacientesPage() {
                     </button>
                   </td>
                   <td className='py-2 pr-2 w-[200px]'>
-                    <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)] truncate'>
+                    <p className='text-base leading-6 text-[var(--color-neutral-900)] truncate'>
                       {row.name}
                     </p>
                   </td>
                   <td className='py-2 pr-2 w-[140px]'>
-                    <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                    <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
                       {row.nextDate}
                     </p>
                   </td>
@@ -493,7 +497,7 @@ export default function PacientesPage() {
                     <StatusPill type={row.status} />
                   </td>
                   <td className='py-2 pr-2 w-[140px]'>
-                    <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)] truncate'>
+                    <p className='text-base leading-6 text-[var(--color-neutral-900)] truncate'>
                       {row.phone}
                     </p>
                   </td>
@@ -505,17 +509,17 @@ export default function PacientesPage() {
                     </span>
                   </td>
                   <td className='py-2 pr-2 w-[100px]'>
-                    <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                    <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
                       {row.financing}
                     </p>
                   </td>
                   <td className='py-2 pr-2 w-[100px]'>
-                    <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)]'>
+                    <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
                       {row.debt}
                     </p>
                   </td>
                   <td className='py-2 pr-2 w-[140px]'>
-                    <p className='text-[16px] leading-[24px] text-[var(--color-neutral-900)] truncate'>
+                    <p className='text-base leading-6 text-[var(--color-neutral-900)] truncate'>
                       {row.lastContact}
                     </p>
                   </td>
