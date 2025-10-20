@@ -157,21 +157,21 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
         </p>
       </div>
 
-      {/* Right details card */}
+      {/* Right details card - pin to right instead of fixed width */}
       <div
         className='absolute bg-white border border-[#e2e7ea] border-solid rounded-[8px]'
         style={{
           left: 'calc(31.25% + 65.25px)',
+          right: 32,
           top: 164,
-          width: 717,
           height: 707
         }}
       >
         <div
-          className='relative rounded-[inherit] overflow-y-auto pr-2 pb-4'
-          style={{ width: 717, height: 707 }}
+          className='relative rounded-[inherit] overflow-y-auto px-0 py-fluid-md'
+          style={{ height: 707 }}
         >
-          <p className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[32px] left-[24px] not-italic text-[#24282c] text-[24px] text-nowrap top-[24px] whitespace-pre">
+          <p className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[32px] left-plnav not-italic text-[#24282c] text-[24px] text-nowrap top-[24px] whitespace-pre">
             Limpieza dental
           </p>
           <div className='absolute size-[24px]' style={{ left: 677, top: 16 }}>
@@ -179,7 +179,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
           </div>
 
           {/* Attachments */}
-          <div className='absolute content-stretch flex flex-col gap-[16px] items-start left-[24px] top-[588px] w-[677px]'>
+          <div className='absolute content-stretch flex flex-col gap-[16px] items-start left-plnav top-[588px] w-[677px]'>
             <div className='content-stretch flex items-center justify-between relative shrink-0 w-full'>
               <p className="font-['Inter:Medium',_sans-serif] font-medium leading-[24px] relative shrink-0 text-[#24282c] text-[16px] text-nowrap whitespace-pre">
                 Archivos adjuntos
@@ -204,7 +204,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
           </div>
 
           {/* Odontograma */}
-          <div className='absolute content-stretch flex flex-col gap-[8px] items-start left-[24px] top-[700px] w-[677px]'>
+          <div className='absolute content-stretch flex flex-col gap-[8px] items-start left-plnav top-[700px] w-[677px]'>
             <div className='content-stretch flex items-center justify-between relative shrink-0 w-full'>
               <p className="font-['Inter:Medium',_sans-serif] font-medium leading-[24px] relative shrink-0 text-[#24282c] text-[16px] text-nowrap whitespace-pre">
                 Odontograma
@@ -232,7 +232,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
           </div>
 
           {/* SOAP sections */}
-          <div className='absolute content-stretch flex flex-col gap-[24px] items-start left-[24px] top-[80px] w-[677px]'>
+          <div className='absolute content-stretch flex flex-col gap-[24px] items-start left-plnav top-[80px] w-[677px]'>
             <div className='content-stretch flex flex-col gap-[8px] items-start relative shrink-0 w-full'>
               <div className='content-stretch flex flex-col items-start relative shrink-0 w-full'>
                 <p className="font-['Inter:Medium',_sans-serif] font-medium leading-[24px] relative shrink-0 text-[#24282c] text-[16px] w-full">

@@ -33,11 +33,13 @@ function KpiCard({
 function Chip({
   children,
   color = 'teal',
-  rounded = 'lg'
+  rounded = 'lg',
+  size = 'sm'
 }: {
   children: React.ReactNode
   color?: 'teal' | 'sky' | 'green' | 'gray'
   rounded?: 'lg' | 'full'
+  size?: 'xs' | 'sm' | 'md'
 }) {
   const styles = {
     teal: 'bg-[var(--color-brand-0)] text-[var(--color-brand-700)] border border-[var(--color-brand-200)]',
@@ -46,14 +48,15 @@ function Chip({
     gray: 'bg-[var(--color-neutral-100)] text-[var(--color-neutral-700)]'
   }[color]
   const radius = rounded === 'full' ? 'rounded-[80px]' : 'rounded-[4px]'
+  const sizeClass =
+    size === 'xs'
+      ? 'text-label-sm font-normal'
+      : size === 'md'
+      ? 'text-body-md'
+      : 'text-body-sm'
+
   return (
-    <span
-      className={[
-        'px-2 py-0.5 text-[14px] leading-[20px]',
-        styles,
-        radius
-      ].join(' ')}
-    >
+    <span className={['px-2 py-0.5', sizeClass, styles, radius].join(' ')}>
       {children}
     </span>
   )
@@ -63,13 +66,15 @@ function StatusPill({ type }: { type: 'Activo' | 'Hecho' }) {
   if (type === 'Activo') {
     return (
       <span className='inline-flex items-center'>
-        <Chip color='sky'>Activo</Chip>
+        <Chip color='sky' size='md'>
+          Activo
+        </Chip>
       </span>
     )
   }
   return (
     <span className='inline-flex items-center'>
-      <Chip color='green' rounded='full'>
+      <Chip color='green' rounded='full' size='md'>
         Hecho
       </Chip>
     </span>
@@ -102,38 +107,38 @@ function Row() {
       className='cursor-pointer hover:bg-[var(--color-neutral-50)]'
       onClick={() => router.push('/pacientes/ficha')}
     >
-      <td className='py-2 pr-2 w-[240px]'>
+      <td className='py-1 pr-2 w-[240px]'>
         <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
           Laura Rivas
         </p>
       </td>
-      <td className='py-2 pr-2 w-[191px]'>
+      <td className='py-1 pr-2 w-[191px]'>
         <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
           DD/MM/AAAA
         </p>
       </td>
-      <td className='py-2 pr-2 w-[154px]'>
+      <td className='py-1 pr-2 w-[154px]'>
         <StatusPill type='Activo' />
       </td>
-      <td className='py-2 pr-2 w-[196px]'>
+      <td className='py-1 pr-2 w-[196px]'>
         <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
           888 888 888
         </p>
       </td>
-      <td className='py-2 pr-2 w-[151px]'>
+      <td className='py-1 pr-2 w-[151px]'>
         <StatusPill type='Hecho' />
       </td>
-      <td className='py-2 pr-2 w-[120px]'>
+      <td className='py-1 pr-2 w-[120px]'>
         <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
           No
         </p>
       </td>
-      <td className='py-2 pr-2 w-[120px]'>
+      <td className='py-1 pr-2 w-[120px]'>
         <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
           380€
         </p>
       </td>
-      <td className='py-2 pr-2 w-[204px]'>
+      <td className='py-1 pr-2 w-[204px]'>
         <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
           DD/MM/AAAA
         </p>
@@ -215,7 +220,7 @@ export default function PacientesPage() {
             <h1 className='text-[28px] leading-[36px] text-[var(--color-neutral-900)]'>
               Pacientes
             </h1>
-            <Chip color='teal' rounded='full'>
+            <Chip color='teal' rounded='full' size='xs'>
               Recepción
             </Chip>
           </div>
@@ -225,7 +230,7 @@ export default function PacientesPage() {
               className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-base leading-6 text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
             >
               <span className='text-[20px] leading-[20px]'>＋</span>
-              <span>Añadir paciente</span>
+              <span className='font-medium'>Añadir paciente</span>
             </button>
             <button
               className='size-6 grid place-items-center text-[var(--color-neutral-900)] cursor-pointer'
@@ -378,34 +383,34 @@ export default function PacientesPage() {
           <table className='w-full table-fixed'>
             <thead>
               <tr>
-                <TableHeaderCell className='py-2 pr-2 w-[40px]'>
+                <TableHeaderCell className='py-1 pr-2 w-[40px]'>
                   <span className='sr-only'>Seleccionar fila</span>
                 </TableHeaderCell>
-                <TableHeaderCell className='py-2 pr-2 w-[200px]'>
+                <TableHeaderCell className='py-1 pr-2 w-[200px]'>
                   <div className='flex items-center gap-2'>
                     <AccountCircleRounded className='size-4 text-[var(--color-neutral-700)]' />
                     <span>Paciente</span>
                   </div>
                 </TableHeaderCell>
-                <TableHeaderCell className='py-2 pr-2 w-[140px]'>
+                <TableHeaderCell className='py-1 pr-2 w-[140px]'>
                   Próxima cita
                 </TableHeaderCell>
-                <TableHeaderCell className='py-2 pr-2 w-[120px]'>
+                <TableHeaderCell className='py-1 pr-2 w-[120px]'>
                   Estado
                 </TableHeaderCell>
-                <TableHeaderCell className='py-2 pr-2 w-[140px]'>
+                <TableHeaderCell className='py-1 pr-2 w-[140px]'>
                   Teléfono
                 </TableHeaderCell>
-                <TableHeaderCell className='py-2 pr-2 w-[100px]'>
+                <TableHeaderCell className='py-1 pr-2 w-[100px]'>
                   Check-in
                 </TableHeaderCell>
-                <TableHeaderCell className='py-2 pr-2 w-[100px]'>
+                <TableHeaderCell className='py-1 pr-2 w-[100px]'>
                   Financiación
                 </TableHeaderCell>
-                <TableHeaderCell className='py-2 pr-2 w-[100px]'>
+                <TableHeaderCell className='py-1 pr-2 w-[100px]'>
                   Deuda
                 </TableHeaderCell>
-                <TableHeaderCell className='py-2 pr-2 w-[140px]'>
+                <TableHeaderCell className='py-1 pr-2 w-[140px]'>
                   Último contacto
                 </TableHeaderCell>
               </tr>
@@ -529,14 +534,14 @@ export default function PacientesPage() {
           </table>
         </div>
 
-        <div className='flex-shrink-0 mt-4 flex items-center justify-end gap-3 text-[14px] text-[var(--color-neutral-900)]'>
+        <div className='flex-shrink-0 mt-4 flex items-center justify-end gap-3 text-body-sm text-[var(--color-neutral-900)]'>
           <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
             «
           </button>
           <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
             ‹
           </button>
-          <span className='underline'>1</span>
+          <span className='font-bold underline'>1</span>
           <span>2</span>
           <span>…</span>
           <span>12</span>

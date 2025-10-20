@@ -45,15 +45,15 @@ export default function RxImages({ onClose }: RxImagesProps) {
         </p>
       </div>
 
-      {/* Card */}
+      {/* Card - anchor to left/right to avoid rounding overflow */}
       <div
         className='absolute bg-white border border-[#e2e7ea] border-solid rounded-[8px]'
-        style={{ left: 32, top: 164, width: 1124, height: 683 }}
+        style={{ left: 32, right: 32, top: 164, height: 683 }}
         data-node-id='457:95'
       >
         <div
-          className='relative rounded-[inherit]'
-          style={{ width: 1124, height: 683 }}
+          className='relative rounded-[inherit] px-plnav py-fluid-md'
+          style={{ height: 683 }}
         >
           {/* Add RX button */}
           <button
@@ -105,7 +105,7 @@ export default function RxImages({ onClose }: RxImagesProps) {
           {/* Main image viewer */}
           <div
             className='absolute rounded-[8px] overflow-hidden border border-[#cbd3d9] bg-[#3d434a]'
-            style={{ left: 240, top: 72, width: 868, height: 448 }}
+            style={{ left: 240, right: 16, top: 72, height: 448 }}
           >
             <img
               alt=''
@@ -117,7 +117,7 @@ export default function RxImages({ onClose }: RxImagesProps) {
           {/* Title row */}
           <div
             className='absolute flex items-center justify-between'
-            style={{ left: 240, top: 536, width: 868 }}
+            style={{ left: 240, right: 16, top: 536 }}
           >
             <p className='text-[24px] leading-[32px] font-medium text-[#24282c]'>
               Periapical 2.6
@@ -130,7 +130,7 @@ export default function RxImages({ onClose }: RxImagesProps) {
           {/* Description */}
           <p
             className='absolute text-[18px] leading-[28px] text-[#24282c]'
-            style={{ left: 240, top: 584, width: 868 }}
+            style={{ left: 240, right: 16, top: 584 }}
           >
             Caries distal profunda en 2.6, probable pulpitis reversible. No
             signos radiográficos de patología periapical activa. Periodonto

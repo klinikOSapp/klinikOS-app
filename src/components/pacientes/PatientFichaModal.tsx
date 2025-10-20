@@ -71,22 +71,25 @@ export default function PatientFichaModal({
           className='bg-white rounded-xl shadow-xl overflow-hidden w-[93.75rem] h-[56.25rem] max-w-[92vw] max-h-[85vh]'
           onClick={(e) => e.stopPropagation()}
           style={{
-            width: 'min(93.75rem, calc(93.75rem * (85vh / 56.25rem)))',
-            height: 'min(56.25rem, calc(56.25rem * (85vh / 56.25rem)))'
+            width:
+              'calc(93.75rem * min(1, calc(85vh / 56.25rem), calc((100vw - 4rem) / 93.75rem), calc(92vw / 93.75rem)))',
+            height:
+              'calc(56.25rem * min(1, calc(85vh / 56.25rem), calc((100vw - 4rem) / 93.75rem), calc(92vw / 93.75rem)))'
           }}
         >
           {/* Scaled content to always fit within 85vh without scroll */}
           <div
             className='w-[93.75rem] h-[56.25rem]'
             style={{
-              transform: 'scale(min(1, calc(85vh / 56.25rem)))',
+              transform:
+                'scale(min(1, calc(85vh / 56.25rem), calc((100vw - 4rem) / 93.75rem), calc(92vw / 93.75rem)))',
               transformOrigin: 'top left'
             }}
           >
             {/* Content split: left navigation (320px) + right summary */}
             <div className='flex h-full'>
               {/* Left navigation */}
-              <div className='w-[19rem] h-full shrink-0 border-r border-[var(--color-neutral-200)]'>
+              <div className='w-[19rem] h-full shrink-0 border-r border-[var(--color-neutral-200)] box-border'>
                 <ul className='h-auto'>
                   {items.map((it) => {
                     const selected = active === it.title
@@ -111,8 +114,8 @@ export default function PatientFichaModal({
                   })}
                 </ul>
               </div>
-              {/* Right content has fixed base width matching design */}
-              <div className='w-[74.75rem] h-full overflow-hidden'>
+              {/* Right content: vertical scroll only; never horizontal */}
+              <div className='w-[74.75rem] h-full overflow-y-auto overflow-x-hidden box-border'>
                 {active === 'Resumen' && <ClientSummary onClose={onClose} />}
                 {active === 'Historial clínico' && (
                   <ClinicalHistory onClose={onClose} />
