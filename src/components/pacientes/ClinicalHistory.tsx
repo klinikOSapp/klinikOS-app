@@ -24,8 +24,7 @@ type ClinicalHistoryProps = {
 export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
   return (
     <div
-      className='bg-[#f8fafb] relative w-[1196px]'
-      style={{ width: 1196, height: 900 }}
+      className='bg-[#f8fafb] relative w-[74.75rem] h-[56.25rem]'
       data-node-id='426:934'
     >
       <button
