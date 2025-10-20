@@ -68,51 +68,64 @@ export default function PatientFichaModal({
         <div
           role='dialog'
           aria-modal='true'
-          className='bg-white rounded-xl shadow-xl overflow-hidden w-[min(93.75rem,max(18rem,calc(100vw-26.24rem)))] h-[min(56.25rem,85vh)]'
+          className='bg-white rounded-xl shadow-xl overflow-hidden w-[93.75rem] h-[56.25rem] max-w-[92vw] max-h-[85vh]'
           onClick={(e) => e.stopPropagation()}
+          style={{
+            width: 'min(93.75rem, calc(93.75rem * (85vh / 56.25rem)))',
+            height: 'min(56.25rem, calc(56.25rem * (85vh / 56.25rem)))'
+          }}
         >
-          {/* Content split: left navigation (320px) + right summary */}
-          <div className='flex h-full'>
-            {/* Left navigation */}
-            <div className='w-[19rem] h-full shrink-0 border-r border-[var(--color-neutral-200)]'>
-              <ul className='h-auto'>
-                {items.map((it) => {
-                  const selected = active === it.title
-                  return (
-                    <li key={it.title}>
-                      <button
-                        className={[
-                          'w-full text-left px-6 pt-6 pb-4',
-                          selected ? 'bg-[#E9FBF9]' : ''
-                        ].join(' ')}
-                        onClick={() => setActive(it.title)}
-                      >
-                        <p className='text-xl leading-8 font-medium text-[var(--color-neutral-900)]'>
-                          {it.title}
-                        </p>
-                        <p className='text-sm leading-5 text-[var(--color-neutral-900)]'>
-                          {it.body}
-                        </p>
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-            {/* Right content */}
-            <div className='flex-1 min-w-0 h-full overflow-hidden'>
-              {active === 'Resumen' && <ClientSummary onClose={onClose} />}
-              {active === 'Historial clínico' && (
-                <ClinicalHistory onClose={onClose} />
-              )}
-              {active === 'Imágenes & RX' && <RxImages onClose={onClose} />}
-              {active !== 'Resumen' &&
-                active !== 'Historial clínico' &&
-                active !== 'Imágenes & RX' && (
-                  <div className='p-6 text-base text-[var(--color-neutral-900)]'>
-                    {active}
-                  </div>
+          {/* Scaled content to always fit within 85vh without scroll */}
+          <div
+            className='w-[93.75rem] h-[56.25rem]'
+            style={{
+              transform: 'scale(min(1, calc(85vh / 56.25rem)))',
+              transformOrigin: 'top left'
+            }}
+          >
+            {/* Content split: left navigation (320px) + right summary */}
+            <div className='flex h-full'>
+              {/* Left navigation */}
+              <div className='w-[19rem] h-full shrink-0 border-r border-[var(--color-neutral-200)]'>
+                <ul className='h-auto'>
+                  {items.map((it) => {
+                    const selected = active === it.title
+                    return (
+                      <li key={it.title}>
+                        <button
+                          className={[
+                            'w-full text-left px-6 pt-6 pb-4',
+                            selected ? 'bg-[#E9FBF9]' : ''
+                          ].join(' ')}
+                          onClick={() => setActive(it.title)}
+                        >
+                          <p className='text-xl leading-8 font-medium text-[var(--color-neutral-900)]'>
+                            {it.title}
+                          </p>
+                          <p className='text-sm leading-5 text-[var(--color-neutral-900)]'>
+                            {it.body}
+                          </p>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+              {/* Right content has fixed base width matching design */}
+              <div className='w-[74.75rem] h-full overflow-hidden'>
+                {active === 'Resumen' && <ClientSummary onClose={onClose} />}
+                {active === 'Historial clínico' && (
+                  <ClinicalHistory onClose={onClose} />
                 )}
+                {active === 'Imágenes & RX' && <RxImages onClose={onClose} />}
+                {active !== 'Resumen' &&
+                  active !== 'Historial clínico' &&
+                  active !== 'Imágenes & RX' && (
+                    <div className='p-6 text-base text-[var(--color-neutral-900)]'>
+                      {active}
+                    </div>
+                  )}
+              </div>
             </div>
           </div>
         </div>

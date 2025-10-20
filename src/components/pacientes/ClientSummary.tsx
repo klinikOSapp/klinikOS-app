@@ -14,9 +14,8 @@ type ClientSummaryProps = {
 export default function ClientSummary({ onClose }: ClientSummaryProps) {
   return (
     <div
-      className='bg-[#f8fafb] relative w-[74.75rem] overflow-hidden'
+      className='relative bg-[#f8fafb] overflow-hidden w-[74.75rem] h-[56.25rem]'
       data-node-id='423:822'
-      style={{ width: '74.75rem', height: '56.25rem' }}
     >
       <button
         type='button'
