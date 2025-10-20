@@ -65,11 +65,11 @@ export default function PatientFichaModal({
       onClick={onClose}
       aria-hidden
     >
-      <div className='absolute inset-0 flex items-start justify-center p-8'>
+      <div className='absolute inset-0 flex items-start justify-center py-8'>
         <div
           role='dialog'
           aria-modal='true'
-          className='bg-white rounded-xl shadow-xl overflow-hidden w-[min(93.75rem,92vw)] h-[min(56.25rem,85vh)]'
+          className='bg-white rounded-xl shadow-xl overflow-hidden w-[min(93.75rem,max(18rem,calc(100vw-26.24rem)))] h-[min(56.25rem,85vh)]'
           onClick={(e) => e.stopPropagation()}
         >
           {/* Content split: left navigation (320px) + right summary */}
@@ -101,7 +101,7 @@ export default function PatientFichaModal({
               </ul>
             </div>
             {/* Right content */}
-            <div className='w-[74.75rem] h-full overflow-y-auto'>
+            <div className='flex-1 min-w-0 h-full overflow-y-auto'>
               {active === 'Resumen' && <ClientSummary onClose={onClose} />}
               {active === 'Historial clínico' && (
                 <ClinicalHistory onClose={onClose} />
