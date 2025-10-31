@@ -89,6 +89,10 @@ export default {
           200: '#D4B5FF',
           600: '#7825EB',
           800: '#5A1EAF'
+        },
+        surface: {
+          app: 'var(--color-surface-app)',
+          popover: 'var(--color-surface-popover)'
         }
       },
       spacing: {
@@ -128,6 +132,10 @@ export default {
         ]
       },
       fontSize: {
+        kpi: [
+          'var(--text-kpi)',
+          { lineHeight: 'var(--leading-kpi)', fontWeight: '500' }
+        ],
         'title-lg': [
           'var(--text-title-lg)',
           { lineHeight: 'var(--leading-title-lg)', fontWeight: '500' }

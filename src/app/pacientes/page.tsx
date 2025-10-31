@@ -2,6 +2,17 @@
 
 import React from 'react'
 import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
+import AddRounded from '@mui/icons-material/AddRounded'
+import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
+import SearchRounded from '@mui/icons-material/SearchRounded'
+import DeleteRounded from '@mui/icons-material/DeleteRounded'
+import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded'
+import FilterListRounded from '@mui/icons-material/FilterListRounded'
+import CheckRounded from '@mui/icons-material/CheckRounded'
+import FirstPageRounded from '@mui/icons-material/FirstPageRounded'
+import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
+import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
+import LastPageRounded from '@mui/icons-material/LastPageRounded'
 import { useRouter } from 'next/navigation'
 import AddPatientModal from '@/components/pacientes/AddPatientModal'
 import PatientFichaModal from '@/components/pacientes/PatientFichaModal'
@@ -21,7 +32,7 @@ function KpiCard({
         {title}
       </p>
       <div className='flex items-baseline justify-between'>
-        <p className='text-[min(3.25rem,5vw)] leading-[1.2] text-[var(--color-neutral-900)] font-medium'>
+        <p className='text-kpi text-[var(--color-neutral-900)]'>
           {value}
         </p>
         {badge}
@@ -203,7 +214,7 @@ export default function PacientesPage() {
   const clearFilters = () => setSelectedFilters([])
 
   return (
-    <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] p-[min(3rem,4vw)] flex flex-col overflow-auto'>
+    <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] px-[min(3rem,4vw)] py-[min(1.5rem,2vw)] flex flex-col overflow-auto'>
       <AddPatientModal
         open={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
@@ -229,14 +240,14 @@ export default function PacientesPage() {
               onClick={() => setIsAddModalOpen(true)}
               className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-body-md text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
             >
-              <span className='text-title-sm leading-none'>＋</span>
+              <AddRounded className='size-5' />
               <span className='font-medium'>Añadir paciente</span>
             </button>
             <button
               className='size-6 grid place-items-center text-[var(--color-neutral-900)] cursor-pointer'
               aria-label='Más opciones'
             >
-              ⋮
+              <MoreVertRounded className='size-5' />
             </button>
           </div>
         </div>
@@ -303,15 +314,15 @@ export default function PacientesPage() {
               Check-in
             </button>
             <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
-              🗑️
+              <DeleteRounded className='size-5' />
             </button>
             <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
-              ⋯
+              <MoreHorizRounded className='size-5' />
             </button>
           </div>
           <div className='flex items-center gap-2'>
             <div className='flex items-center gap-2 border-b border-[var(--color-neutral-900)] px-2 py-1'>
-              <span className='text-[var(--color-neutral-900)]'>🔍</span>
+              <SearchRounded className='text-[var(--color-neutral-900)]' />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -328,19 +339,7 @@ export default function PacientesPage() {
                   : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
               ].join(' ')}
             >
-              <svg
-                aria-hidden='true'
-                viewBox='0 0 24 24'
-                className='size-4'
-                fill='none'
-              >
-                <path
-                  d='M4 5h16l-6 8v6l-4-2v-4L4 5z'
-                  stroke='currentColor'
-                  strokeWidth='2'
-                  strokeLinejoin='round'
-                />
-              </svg>
+              <FilterListRounded className='size-4' />
               <span>Todos</span>
             </button>
             <button
@@ -443,7 +442,7 @@ export default function PacientesPage() {
                   className='group hover:bg-[var(--color-neutral-50)]'
                   onClick={() => setIsFichaModalOpen(true)}
                 >
-                  <td className='py-2 pr-2 w-[40px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[40px]'>
                     <button
                       type='button'
                       onClick={(e) => {
@@ -465,9 +464,8 @@ export default function PacientesPage() {
                         ].join(' ')}
                       />
                       {/* Check icon when selected */}
-                      <svg
+                      <CheckRounded
                         aria-hidden='true'
-                        viewBox='0 0 24 24'
                         className={[
                           'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
                           'size-4 text-[#1E4947] transition-opacity',
@@ -475,55 +473,46 @@ export default function PacientesPage() {
                             ? 'opacity-100'
                             : 'opacity-0'
                         ].join(' ')}
-                      >
-                        <path
-                          d='M5 12l4 4L19 7'
-                          fill='none'
-                          stroke='currentColor'
-                          strokeWidth='2'
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                        />
-                      </svg>
+                      />
                       <span className='sr-only'>Seleccionar fila</span>
                     </button>
                   </td>
-                  <td className='py-2 pr-2 w-[200px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[200px]'>
                     <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
                       {row.name}
                     </p>
                   </td>
-                  <td className='py-2 pr-2 w-[140px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[140px]'>
                     <p className='text-body-md text-[var(--color-neutral-900)]'>
                       {row.nextDate}
                     </p>
                   </td>
-                  <td className='py-2 pr-2 w-[120px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[120px]'>
                     <StatusPill type={row.status} />
                   </td>
-                  <td className='py-2 pr-2 w-[140px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[140px]'>
                     <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
                       {row.phone}
                     </p>
                   </td>
-                  <td className='py-2 pr-2 w-[100px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[100px]'>
                     <span className='inline-flex items-center'>
                       <Chip color='green' rounded='full'>
                         {row.checkin}
                       </Chip>
                     </span>
                   </td>
-                  <td className='py-2 pr-2 w-[100px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[100px]'>
                     <p className='text-body-md text-[var(--color-neutral-900)]'>
                       {row.financing}
                     </p>
                   </td>
-                  <td className='py-2 pr-2 w-[100px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[100px]'>
                     <p className='text-body-md text-[var(--color-neutral-900)]'>
                       {row.debt}
                     </p>
                   </td>
-                  <td className='py-2 pr-2 w-[140px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[140px]'>
                     <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
                       {row.lastContact}
                     </p>
@@ -536,20 +525,20 @@ export default function PacientesPage() {
 
         <div className='flex-shrink-0 mt-4 flex items-center justify-end gap-3 text-body-sm text-[var(--color-neutral-900)]'>
           <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
-            «
+            <FirstPageRounded className='size-5' />
           </button>
           <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
-            ‹
+            <ChevronLeftRounded className='size-5' />
           </button>
           <span className='font-bold underline'>1</span>
           <span>2</span>
           <span>…</span>
           <span>12</span>
           <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
-            ›
+            <ChevronRightRounded className='size-5' />
           </button>
           <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
-            »
+            <LastPageRounded className='size-5' />
           </button>
         </div>
       </div>

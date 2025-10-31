@@ -124,7 +124,7 @@ export default function PatientFichaModal({
                 {active !== 'Resumen' &&
                   active !== 'Historial clínico' &&
                   active !== 'Imágenes & RX' && (
-                    <div className='p-6 text-base text-[var(--color-neutral-900)]'>
+                    <div className='p-6 text-body-md text-[var(--color-neutral-900)]'>
                       {active}
                     </div>
                   )}

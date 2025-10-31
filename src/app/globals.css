@@ -56,6 +56,10 @@
   --color-info-600: #7825eb;
   --color-info-800: #5a1eaf;
 
+  /* Semantic surfaces */
+  --color-surface-app: var(--color-neutral-50); /* App/modal background */
+  --color-surface-popover: var(--color-neutral-50); /* Popovers/cards */
+
   /* Spacing - NOW SCALES WITH FLUID BASE */
   --spacing-topbar: 4rem; /* 64px ÷ 16 = 4rem */
   --spacing-sidebar: 16rem; /* 256px ÷ 16 = 16rem */
@@ -81,6 +85,10 @@
   --leading-body-sm: 1.25rem; /* 20px */
   --text-label-sm: 0.6875rem; /* 11px */
   --leading-label-sm: 1rem; /* 16px */
+
+  /* KPI / Display numbers */
+  --text-kpi: min(3.25rem, 5vw);
+  --leading-kpi: 1.2;
 
   /* Radii - NOW SCALES WITH FLUID BASE */
   --radius-xl: 1rem; /* 16px ÷ 16 = 1rem */

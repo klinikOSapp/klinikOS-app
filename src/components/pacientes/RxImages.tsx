@@ -1,11 +1,7 @@
 import React from 'react'
-
-const imgImage8 =
-  'http://localhost:3845/assets/81fc6bd3b04b58147318626ad1d3149aa0c146fe.png'
-const imgClose =
-  'http://localhost:3845/assets/5ef958204bb620a694618e0538ad4b9d50b8e1c7.svg'
-const imgAddIcon =
-  'http://localhost:3845/assets/d7b1b4487f3951ea647dcf8ec980e427ffe208c0.svg'
+import CloseRounded from '@mui/icons-material/CloseRounded'
+import AddPhotoAlternateRounded from '@mui/icons-material/AddPhotoAlternateRounded'
+import ImageRounded from '@mui/icons-material/ImageRounded'
 
 type RxImagesProps = {
   onClose?: () => void
@@ -26,7 +22,7 @@ export default function RxImages({ onClose }: RxImagesProps) {
         data-name='close'
         data-node-id='457:42'
       >
-        <img alt='' className='block max-w-none size-full' src={imgClose} />
+        <CloseRounded className='block max-w-none size-full text-[#24282c]' />
       </button>
 
       {/* Header */}
@@ -60,8 +56,7 @@ export default function RxImages({ onClose }: RxImagesProps) {
             type='button'
             className='absolute right-4 top-4 bg-[#f8fafb] border border-[#cbd3d9] px-4 py-2 rounded-[136px] inline-flex items-center gap-2 text-body-md text-[#24282c] cursor-pointer'
           >
-            
-            <img alt='' src={imgAddIcon} className='size-[24px]' />
+            <AddPhotoAlternateRounded className='size-[24px]' />
             <span className='text-body-md text-[#24282c]'>Añadir RX</span>
           </button>
 
@@ -70,12 +65,8 @@ export default function RxImages({ onClose }: RxImagesProps) {
             <div className='h-full overflow-y-auto pr-2 rxThumbs'>
               {/* First selected thumb */}
               <div className='w-[190px]'>
-                <div className='bg-[#24282c] border-2 border-[#51d6c7] h-[190px] rounded-[8px] overflow-hidden'>
-                  <img
-                    alt=''
-                    src={imgImage8}
-                    className='w-[114%] h-full object-cover -ml-[7%]'
-                  />
+                <div className='bg-[#24282c] border-2 border-[#51d6c7] h-[190px] rounded-[8px] overflow-hidden grid place-items-center'>
+                  <ImageRounded className='text-white size-[48px]' />
                 </div>
                 <div className='mt-1'>
                   <p className='text-body-md text-[#24282c]'>
@@ -108,11 +99,9 @@ export default function RxImages({ onClose }: RxImagesProps) {
             className='absolute rounded-[8px] overflow-hidden border border-[#cbd3d9] bg-[#3d434a]'
             style={{ left: 240, right: 16, top: 72, height: 448 }}
           >
-            <img
-              alt=''
-              src={imgImage8}
-              className='w-[114%] h-full object-cover -ml-[7%]'
-            />
+            <div className='w-full h-full grid place-items-center'>
+              <ImageRounded className='text-white size-[64px]' />
+            </div>
           </div>
 
           {/* Title row */}
