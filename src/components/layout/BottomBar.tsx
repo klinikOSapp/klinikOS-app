@@ -44,7 +44,12 @@ export function BottomBar() {
             className='flex flex-col items-center justify-center gap-1'
           >
             <Icon className={active ? 'text-brand-900' : 'text-neutral-600'} />
-            <span className={active ? 'text-brand-900' : 'text-neutral-600'}>
+            <span
+              className={[
+                'font-inter text-label-sm',
+                active ? 'text-brand-900' : 'text-neutral-600'
+              ].join(' ')}
+            >
               {it.label}
             </span>
           </Link>

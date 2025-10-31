@@ -20,7 +20,7 @@ export function NavElement({ href, label, icon }: NavElementProps) {
       href={href}
       aria-current={isActive ? 'page' : undefined}
       className={[
-        'flex items-center gap-[16px] h-[48px] w-full px-6',
+        'flex items-center gap-[var(--spacing-gapmd)] h-[var(--spacing-nav-item)] w-full px-6',
         isActive
           ? 'bg-[var(--color-brand-900)] text-[var(--color-neutral-50)] shadow-[inset_4px_0_0_0_#a8efe7]'
           : 'text-[var(--color-brand-900)]',
@@ -32,7 +32,7 @@ export function NavElement({ href, label, icon }: NavElementProps) {
       <span className='size-6 shrink-0 flex items-center justify-center'>
         {icon}
       </span>
-      <span className='font-inter text-[18px] leading-[28px] font-medium'>
+      <span className='font-inter text-title-md font-medium'>
         {label}
       </span>
     </Link>

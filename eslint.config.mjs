@@ -20,6 +20,25 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
+  {
+    files: ["**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      // Bloquea tamaños absolutos en clases Tailwind (text-[..px], leading-[..px])
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Literal[value=/text-\\[(?:\\d+(?:\\.\\d+)?)px\\]/]",
+          message:
+            "Prohibido usar text-[..px]. Usa tokens semánticos (text-title-*, text-body-*, text-label-sm).",
+        },
+        {
+          selector: "Literal[value=/leading-\\[(?:\\d+(?:\\.\\d+)?)px\\]/]",
+          message:
+            "Prohibido usar leading-[..px]. Usa tokens semánticos con line-height integrado.",
+        },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;
