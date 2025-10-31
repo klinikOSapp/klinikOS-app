@@ -241,7 +241,7 @@ export default function AddPatientModal({
           onClick={(e) => e.stopPropagation()}
         >
           <div
-            className='w-[68.25rem] h-[59.75rem] max-w-[92vw] max-h-[85vh] shrink-0 relative bg-[var(--color-surface-app)] rounded-[1rem] overflow-hidden flex items-start justify-center'
+            className='w-[68.25rem] h-[59.75rem] max-w-[92vw] max-h-[85vh] shrink-0 relative bg-[var(--color-surface-modal,#fff)] rounded-[1rem] overflow-hidden flex items-start justify-center'
             style={{
               width: 'min(68.25rem, calc(68.25rem * (85vh / 60rem)))',
               height: 'min(59.75rem, calc(59.75rem * (85vh / 60rem)))'
@@ -483,7 +483,7 @@ export default function AddPatientModal({
                       createPortal(
                         <div
                           ref={calendarRef}
-                          className='fixed z-[100] w-[22.5rem] bg-[var(--color-surface-popover)] rounded-[1rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)] overflow-hidden'
+                          className='fixed z-[100] w-[22.5rem] bg-[var(--color-surface-popover,#fff)] rounded-[1rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)] overflow-hidden'
                           style={{
                             left: popoverPos.left,
                             top: popoverPos.top,
