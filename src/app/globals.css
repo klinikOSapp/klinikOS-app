@@ -4,7 +4,6 @@
   --background: #ffffff;
   --foreground: #171717;
 }
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -57,7 +56,10 @@
   --color-info-800: #5a1eaf;
 
   /* Semantic surfaces */
-  --color-surface-app: var(--color-neutral-50); /* App/modal background */
+  --color-surface-app: var(--color-neutral-50); /* App/page background */
+  --color-surface-modal: var(
+    --color-neutral-0
+  ); /* Dedicated modal surface (white) */
   --color-surface-popover: var(--color-neutral-50); /* Popovers/cards */
 
   /* Spacing - NOW SCALES WITH FLUID BASE */

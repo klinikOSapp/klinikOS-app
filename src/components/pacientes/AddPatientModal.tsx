@@ -241,7 +241,7 @@ export default function AddPatientModal({
           onClick={(e) => e.stopPropagation()}
         >
           <div
-            className='w-[68.25rem] h-[59.75rem] max-w-[92vw] max-h-[85vh] shrink-0 relative bg-[var(--color-surface-app)] rounded-[1rem] overflow-hidden flex items-start justify-center'
+            className='w-[68.25rem] h-[59.75rem] max-w-[92vw] max-h-[85vh] shrink-0 relative bg-[var(--color-surface-modal,#fff)] rounded-[1rem] overflow-hidden flex items-start justify-center'
             style={{
               width: 'min(68.25rem, calc(68.25rem * (85vh / 60rem)))',
               height: 'min(59.75rem, calc(59.75rem * (85vh / 60rem)))'
@@ -255,8 +255,8 @@ export default function AddPatientModal({
                 transformOrigin: 'top left'
               }}
             >
-              <div className='w-[68.25rem] h-14 px-8 left-0 top-0 absolute border-b border-[#CBD3D9] inline-flex justify-between items-center'>
-                <div className='justify-start text-[#24282C] text-title-md font-sans'>
+              <div className='w-[68.25rem] h-14 px-8 left-0 top-0 absolute border-b border-[var(--color-neutral-300)] inline-flex justify-between items-center'>
+                <div className='justify-start text-[var(--color-neutral-900)] text-title-lg font-sans'>
                   Formulario de creación de usuarios
                 </div>
                 <button
@@ -283,12 +283,16 @@ export default function AddPatientModal({
                     className='w-6 h-6 left-0 top-0 absolute'
                   >
                     <RadioButtonCheckedRounded
-                      style={{ width: 24, height: 24, color: '#51D6C7' }}
+                      style={{
+                        width: 24,
+                        height: 24,
+                        color: 'var(--color-brand-500)'
+                      }}
                     />
                   </div>
-                  <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[#24282C]'></div>
+                  <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[var(--color-neutral-900)]'></div>
                 </div>
-                <div className='justify-start text-[#24282C] text-title-sm font-sans'>
+                <div className='justify-start text-[var(--color-neutral-900)] text-title-sm font-sans'>
                   Paciente
                 </div>
               </div>
@@ -307,12 +311,16 @@ export default function AddPatientModal({
                     className='w-6 h-6 left-0 top-0 absolute'
                   >
                     <RadioButtonUncheckedRounded
-                      style={{ width: 24, height: 24, color: '#24282C' }}
+                      style={{
+                        width: 24,
+                        height: 24,
+                        color: 'var(--color-neutral-900)'
+                      }}
                     />
                   </div>
-                  <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[#24282C]'></div>
+                  <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[var(--color-neutral-900)]'></div>
                 </div>
-                <div className='justify-start text-[#24282C] text-title-sm font-sans'>
+                <div className='justify-start text-[var(--color-neutral-900)] text-title-sm font-sans'>
                   Contacto
                 </div>
               </div>
@@ -331,12 +339,16 @@ export default function AddPatientModal({
                     className='w-6 h-6 left-0 top-0 absolute'
                   >
                     <RadioButtonUncheckedRounded
-                      style={{ width: 24, height: 24, color: '#24282C' }}
+                      style={{
+                        width: 24,
+                        height: 24,
+                        color: 'var(--color-neutral-900)'
+                      }}
                     />
                   </div>
-                  <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[#24282C]'></div>
+                  <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[var(--color-neutral-900)]'></div>
                 </div>
-                <div className='justify-start text-[#24282C] text-title-sm font-sans'>
+                <div className='justify-start text-[var(--color-neutral-900)] text-title-sm font-sans'>
                   Administrativo
                 </div>
               </div>
@@ -355,12 +367,16 @@ export default function AddPatientModal({
                     className='w-6 h-6 left-0 top-0 absolute'
                   >
                     <RadioButtonUncheckedRounded
-                      style={{ width: 24, height: 24, color: '#24282C' }}
+                      style={{
+                        width: 24,
+                        height: 24,
+                        color: 'var(--color-neutral-900)'
+                      }}
                     />
                   </div>
-                  <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[#24282C]'></div>
+                  <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[var(--color-neutral-900)]'></div>
                 </div>
-                <div className='justify-start text-[#24282C] text-title-sm font-sans'>
+                <div className='justify-start text-[var(--color-neutral-900)] text-title-sm font-sans'>
                   Salud
                 </div>
               </div>
@@ -379,11 +395,15 @@ export default function AddPatientModal({
                     className='w-6 h-6 left-0 top-0 absolute'
                   >
                     <RadioButtonUncheckedRounded
-                      style={{ width: 24, height: 24, color: '#24282C' }}
+                      style={{
+                        width: 24,
+                        height: 24,
+                        color: 'var(--color-neutral-900)'
+                      }}
                     />
                   </div>
                 </div>
-                <div className='justify-start text-[#24282C] text-title-sm font-sans'>
+                <div className='justify-start text-[var(--color-neutral-900)] text-title-sm font-sans'>
                   Consentimientos
                 </div>
               </div>
@@ -393,7 +413,7 @@ export default function AddPatientModal({
                 className='w-[35.5rem] left-[14.3125rem] top-[6rem] absolute inline-flex flex-col justify-start items-start gap-2'
               >
                 <div className='inline-flex justify-start items-center gap-2'>
-                  <div className='justify-start text-[#24282C] text-title-lg font-sans'>
+                  <div className='justify-start text-[var(--color-neutral-900)] text-title-lg font-sans'>
                     Datos básicos del paciente
                   </div>
                 </div>
@@ -408,11 +428,11 @@ export default function AddPatientModal({
                 className='w-80 left-[30.6875rem] top-[17.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'
               >
                 <div className='self-stretch flex flex-col justify-start items-start gap-1'>
-                  <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-gray-300 inline-flex justify-between items-center'>
-                    <div className='justify-start text-gray-400 text-body-md font-sans'>
+                  <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-[var(--color-neutral-50)] rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-[var(--color-neutral-300)] inline-flex justify-between items-center'>
+                    <div className='justify-start text-[var(--color-neutral-400)] text-body-md font-sans'>
                       Value
                     </div>
-                    <span className='text-[#B91C1C] text-body-md leading-none grid place-items-center'>
+                    <span className='text-[var(--color-error-600)] text-body-md leading-none grid place-items-center'>
                       *
                     </span>
                   </div>
@@ -428,11 +448,11 @@ export default function AddPatientModal({
                 className='w-80 left-[30.6875rem] top-[23.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'
               >
                 <div className='self-stretch flex flex-col justify-start items-start gap-1'>
-                  <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-gray-300 inline-flex justify-between items-center'>
-                    <div className='justify-start text-gray-400 text-body-md font-sans'>
+                  <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-[var(--color-neutral-50)] rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-[var(--color-neutral-300)] inline-flex justify-between items-center'>
+                    <div className='justify-start text-[var(--color-neutral-400)] text-body-md font-sans'>
                       Value
                     </div>
-                    <span className='text-[#B91C1C] text-body-md leading-none grid place-items-center'>
+                    <span className='text-[var(--color-error-600)] text-body-md leading-none grid place-items-center'>
                       *
                     </span>
                   </div>
@@ -448,11 +468,11 @@ export default function AddPatientModal({
                 className='w-80 left-[30.6875rem] top-[47.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'
               >
                 <div className='self-stretch flex flex-col justify-start items-start gap-1'>
-                  <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-gray-300 inline-flex justify-between items-center'>
-                    <div className='justify-start text-gray-400 text-body-md font-sans'>
+                  <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-[var(--color-neutral-50)] rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-[var(--color-neutral-300)] inline-flex justify-between items-center'>
+                    <div className='justify-start text-[var(--color-neutral-400)] text-body-md font-sans'>
                       Value
                     </div>
-                    <span className='text-[#B91C1C] text-title-sm leading-none grid place-items-center'>
+                    <span className='text-[var(--color-error-600)] text-title-sm leading-none grid place-items-center'>
                       *
                     </span>
                   </div>
@@ -463,9 +483,9 @@ export default function AddPatientModal({
                 <div className='self-stretch flex flex-col justify-start items-start gap-1'>
                   <div
                     ref={dateFieldRef}
-                    className='relative self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-gray-300 inline-flex justify-between items-center'
+                    className='relative self-stretch h-12 pl-2.5 pr-2 py-2 bg-[var(--color-neutral-50)] rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-[var(--color-neutral-300)] inline-flex justify-between items-center'
                   >
-                    <div className='justify-start text-gray-400 text-body-md font-sans'>
+                    <div className='justify-start text-[var(--color-neutral-400)] text-body-md font-sans'>
                       {selectedDate
                         ? formatDateDDMMYYYY(selectedDate)
                         : 'DD/MM/AAAA'}
@@ -483,7 +503,7 @@ export default function AddPatientModal({
                       createPortal(
                         <div
                           ref={calendarRef}
-                          className='fixed z-[100] w-[22.5rem] bg-[var(--color-surface-popover)] rounded-[1rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)] overflow-hidden'
+                          className='fixed z-[100] w-[22.5rem] bg-[var(--color-surface-popover,#fff)] rounded-[1rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)] overflow-hidden'
                           style={{
                             left: popoverPos.left,
                             top: popoverPos.top,
@@ -691,41 +711,41 @@ export default function AddPatientModal({
                 </div>
               </div>
 
-              <div className='left-[18.375rem] top-[10rem] absolute justify-start text-zinc-800 text-body-md font-sans'>
+              <div className='left-[18.375rem] top-[10rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
                 Imagen del paciente
               </div>
-              <div className='left-[18.375rem] top-[17.9375rem] absolute justify-start text-zinc-800 text-body-md font-sans'>
+              <div className='left-[18.375rem] top-[17.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
                 Nombre
               </div>
-              <div className='left-[18.375rem] top-[23.9375rem] absolute justify-start text-zinc-800 text-body-md font-sans'>
+              <div className='left-[18.375rem] top-[23.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
                 Apellidos
               </div>
-              <div className='left-[18.375rem] top-[47.9375rem] absolute justify-start text-zinc-800 text-body-md font-sans'>
+              <div className='left-[18.375rem] top-[47.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
                 DNI/NIE
               </div>
-              <div className='left-[18.375rem] top-[29.9375rem] absolute justify-start text-zinc-800 text-body-md font-sans'>
+              <div className='left-[18.375rem] top-[29.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
                 Fecha de nacimiento
               </div>
-              <div className='left-[18.375rem] top-[35.9375rem] absolute justify-start text-zinc-800 text-body-md font-sans'>
+              <div className='left-[18.375rem] top-[35.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
                 Sexo biológico
               </div>
-              <div className='left-[18.375rem] top-[41.9375rem] absolute justify-start text-zinc-800 text-body-md font-sans'>
+              <div className='left-[18.375rem] top-[41.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
                 Idioma preferido
               </div>
-              <div className='w-40 left-[18.375rem] top-[11.75rem] absolute justify-start text-gray-500 text-label-sm font-medium font-sans'>
+              <div className='w-40 left-[18.375rem] top-[11.75rem] absolute justify-start text-[var(--color-neutral-500)] text-label-sm font-medium font-sans'>
                 Toma una fotografía o súbela desde tu dispositivo
               </div>
               <button
                 type='button'
-                className='w-20 h-20 left-[30.6875rem] top-[10rem] absolute bg-gray-200 rounded-lg outline-[0.0625rem] outline-offset-[-0.0625rem] outline-teal-300 overflow-hidden grid place-items-center'
+                className='w-20 h-20 left-[30.6875rem] top-[10rem] absolute bg-[var(--color-neutral-200)] rounded-lg outline-[0.0625rem] outline-offset-[-0.0625rem] outline-[var(--color-brand-300)] overflow-hidden grid place-items-center'
               >
                 <AddAPhotoRounded className='w-8 h-8' />
               </button>
 
               <div className='w-80 left-[30.6875rem] top-[35.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
                 <div className='self-stretch flex flex-col justify-start items-start gap-1'>
-                  <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-gray-300 inline-flex justify-between items-center'>
-                    <div className='justify-start text-gray-400 text-body-md font-sans'>
+                  <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-[var(--color-neutral-50)] rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-[var(--color-neutral-300)] inline-flex justify-between items-center'>
+                    <div className='justify-start text-[var(--color-neutral-400)] text-body-md font-sans'>
                       Value
                     </div>
                     <KeyboardArrowDownRounded className='w-6 h-6' />
@@ -735,8 +755,8 @@ export default function AddPatientModal({
 
               <div className='w-80 left-[30.6875rem] top-[41.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
                 <div className='self-stretch flex flex-col justify-start items-start gap-1'>
-                  <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-gray-50 rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-gray-300 inline-flex justify-between items-center'>
-                    <div className='justify-start text-gray-400 text-body-md font-sans'>
+                  <div className='self-stretch h-12 pl-2.5 pr-2 py-2 bg-[var(--color-neutral-50)] rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-[var(--color-neutral-300)] inline-flex justify-between items-center'>
+                    <div className='justify-start text-[var(--color-neutral-400)] text-body-md font-sans'>
                       Value
                     </div>
                     <KeyboardArrowDownRounded className='w-6 h-6' />
@@ -744,13 +764,13 @@ export default function AddPatientModal({
                 </div>
               </div>
 
-              <div className='w-[31.5rem] h-0 left-[49.875rem] top-[53.25rem] absolute origin-top-left rotate-180 border-t-[0.0625rem] border-[#AEB8C2]'></div>
+              <div className='w-[31.5rem] h-0 left-[49.875rem] top-[53.25rem] absolute origin-top-left rotate-180 border-t-[0.0625rem] border-[var(--color-neutral-400)]'></div>
               <button
                 type='button'
                 onClick={onContinue}
-                className='w-52 px-4 py-2 left-[36.4375rem] top-[55.75rem] absolute bg-teal-300 rounded-[8.5rem] outline-[0.0625rem] outline-offset-[-0.0625rem] outline-gray-300 inline-flex justify-center items-center gap-2'
+                className='w-52 px-4 py-2 left-[36.4375rem] top-[55.75rem] absolute bg-[var(--color-brand-300)] rounded-[8.5rem] outline-[0.0625rem] outline-offset-[-0.0625rem] outline-[var(--color-neutral-300)] inline-flex justify-center items-center gap-2'
               >
-                <div className='justify-start text-teal-900 text-body-md font-medium font-sans'>
+                <div className='justify-start text-[var(--color-brand-900)] text-body-md font-medium font-sans'>
                   Continuar
                 </div>
                 <ArrowForwardRounded className='w-6 h-6' />
