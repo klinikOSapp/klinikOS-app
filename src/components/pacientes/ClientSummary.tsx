@@ -4,9 +4,6 @@ import MailRounded from '@mui/icons-material/MailRounded'
 import CallRounded from '@mui/icons-material/CallRounded'
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
 
-const imgLine1 =
-  'http://localhost:3845/assets/a5fd2c78e5af92f84d85671667ff4e2a8a0f2cfd.svg'
-
 type ClientSummaryProps = {
   onClose?: () => void
 }

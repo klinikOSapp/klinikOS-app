@@ -5,17 +5,8 @@ import PlaceRounded from '@mui/icons-material/PlaceRounded'
 import EditRounded from '@mui/icons-material/EditRounded'
 import AddRounded from '@mui/icons-material/AddRounded'
 import DownloadRounded from '@mui/icons-material/DownloadRounded'
-
-const imgImage7 =
-  'http://localhost:3845/assets/f920d7654ef7da272b238b8cf87335e1b7525e87.png'
-const imgFrame257 =
-  'http://localhost:3845/assets/32603aa2bb5a605bdf4f394aa9dbfdb440bdd68e.png'
-const imgFrame258 =
-  'http://localhost:3845/assets/169480ffca2c939f628b1c3cf2e79c07ca83281d.png'
-const imgFrame22 =
-  'http://localhost:3845/assets/74312461fa6f1aeea37c8026f0fa560c8bac19d6.svg'
-const imgFrame24 =
-  'http://localhost:3845/assets/e8e9c127c34862c30917d77b4fd0c3ca2bf6e29e.svg'
+import ImageRounded from '@mui/icons-material/ImageRounded'
+import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
 
 type ClinicalHistoryProps = {
   onClose?: () => void
@@ -135,10 +126,10 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
         </div>
       </div>
       <div className='absolute h-[102px] w-[24px] left-[45px] top-[204px]'>
-        <img alt='' className='block max-w-none size-full' src={imgFrame22} />
+        <div className='h-full w-full bg-[#e2e7ea] rounded-[12px]' />
       </div>
       <div className='absolute h-[213px] w-[24px] left-[45px] top-[306px]'>
-        <img alt='' className='block max-w-none size-full' src={imgFrame24} />
+        <div className='h-full w-full bg-[#cbd3d9] rounded-[12px]' />
       </div>
 
       {/* Header */}
