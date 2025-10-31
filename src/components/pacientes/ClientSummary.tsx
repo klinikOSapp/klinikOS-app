@@ -83,13 +83,9 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
         </div>
       </div>
       <div
-        className='absolute h-0 left-[2.25rem] top-[11.5rem] w-[70.5rem]'
+        className='absolute left-[2.25rem] top-[11.5rem] w-[70.5rem] border-t border-[#e2e7ea]'
         data-node-id='426:850'
-      >
-        <div className='absolute bottom-0 left-0 right-0 top-[-0.063rem]'>
-          <img alt='' className='block max-w-none size-full' src={imgLine1} />
-        </div>
-      </div>
+      />
       <div
         className='absolute bg-[#f7b7ba] box-border content-stretch flex gap-[0.5rem] items-center justify-center px-[0.5rem] py-[0.25rem] rounded-[6rem] top-[3rem]'
         data-node-id='426:852'

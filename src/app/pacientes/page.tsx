@@ -214,7 +214,7 @@ export default function PacientesPage() {
   const clearFilters = () => setSelectedFilters([])
 
   return (
-    <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] p-[min(3rem,4vw)] flex flex-col overflow-auto'>
+    <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] px-fluid-xl py-fluid-md flex flex-col overflow-auto'>
       <AddPatientModal
         open={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
@@ -442,7 +442,7 @@ export default function PacientesPage() {
                   className='group hover:bg-[var(--color-neutral-50)]'
                   onClick={() => setIsFichaModalOpen(true)}
                 >
-                  <td className='py-2 pr-2 w-[40px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[40px]'>
                     <button
                       type='button'
                       onClick={(e) => {
@@ -477,42 +477,42 @@ export default function PacientesPage() {
                       <span className='sr-only'>Seleccionar fila</span>
                     </button>
                   </td>
-                  <td className='py-2 pr-2 w-[200px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[200px]'>
                     <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
                       {row.name}
                     </p>
                   </td>
-                  <td className='py-2 pr-2 w-[140px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[140px]'>
                     <p className='text-body-md text-[var(--color-neutral-900)]'>
                       {row.nextDate}
                     </p>
                   </td>
-                  <td className='py-2 pr-2 w-[120px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[120px]'>
                     <StatusPill type={row.status} />
                   </td>
-                  <td className='py-2 pr-2 w-[140px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[140px]'>
                     <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
                       {row.phone}
                     </p>
                   </td>
-                  <td className='py-2 pr-2 w-[100px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[100px]'>
                     <span className='inline-flex items-center'>
                       <Chip color='green' rounded='full'>
                         {row.checkin}
                       </Chip>
                     </span>
                   </td>
-                  <td className='py-2 pr-2 w-[100px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[100px]'>
                     <p className='text-body-md text-[var(--color-neutral-900)]'>
                       {row.financing}
                     </p>
                   </td>
-                  <td className='py-2 pr-2 w-[100px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[100px]'>
                     <p className='text-body-md text-[var(--color-neutral-900)]'>
                       {row.debt}
                     </p>
                   </td>
-                  <td className='py-2 pr-2 w-[140px]'>
+                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[140px]'>
                     <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
                       {row.lastContact}
                     </p>

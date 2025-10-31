@@ -211,12 +211,8 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
             </div>
             <div className='border border-[#aeb8c2] border-solid h-[174px] relative rounded-[8px] shrink-0 w-[227px]'>
               <div className='h-[174px] overflow-clip relative rounded-[inherit] w-[227px]'>
-                <div className='absolute h-[176px] left-[-1px] top-[-1px] w-[229px]'>
-                  <img
-                    alt=''
-                    className='absolute inset-0 max-w-none object-cover pointer-events-none size-full'
-                    src={imgImage7}
-                  />
+                <div className='absolute inset-0 grid place-items-center pointer-events-none'>
+                  <ImageRounded className='text-[#aeb8c2] size-[48px]' />
                 </div>
               </div>
             </div>
@@ -295,11 +291,9 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
                   >
                     <div className='absolute bg-white inset-0 rounded-[48px]' />
                     <div className='absolute inset-0 overflow-hidden rounded-[48px]'>
-                      <img
-                        alt=''
-                        className='absolute h-[150%] left-0 max-w-none top-[-2.88%] w-full'
-                        src={imgFrame257}
-                      />
+                      <div className='absolute inset-0 grid place-items-center'>
+                        <AccountCircleRounded className='text-[#aeb8c2] size-6' />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -320,11 +314,9 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
                   >
                     <div className='absolute bg-white inset-0 rounded-[48px]' />
                     <div className='absolute inset-0 overflow-hidden rounded-[48px]'>
-                      <img
-                        alt=''
-                        className='absolute h-[150%] left-0 max-w-none top-[-2.88%] w-full'
-                        src={imgFrame258}
-                      />
+                      <div className='absolute inset-0 grid place-items-center'>
+                        <AccountCircleRounded className='text-[#aeb8c2] size-6' />
+                      </div>
                     </div>
                   </div>
                 </div>
