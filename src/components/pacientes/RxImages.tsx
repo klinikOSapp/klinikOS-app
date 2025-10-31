@@ -35,11 +35,11 @@ export default function RxImages({ onClose }: RxImagesProps) {
         data-name='Header'
       >
         <div className='content-stretch flex gap-[8px] items-center relative shrink-0'>
-          <p className="font-['Inter:Regular',_sans-serif] font-normal leading-[36px] relative shrink-0 text-[#24282c] text-[28px] text-nowrap whitespace-pre">
+          <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-[#24282c] text-title-lg text-nowrap whitespace-pre">
             Imágenes & RX
           </p>
         </div>
-        <p className="font-['Inter:Regular',_sans-serif] font-normal leading-[20px] min-w-full relative shrink-0 text-[#24282c] text-[14px] w-[min-content]">
+        <p className="font-['Inter:Regular',_sans-serif] min-w-full relative shrink-0 text-[#24282c] text-body-sm w-[min-content]">
           Consulta las imágenes radiológicas de tus pacientes, así como añadir
           anotaciones para el resto del equipo.
         </p>
@@ -58,10 +58,11 @@ export default function RxImages({ onClose }: RxImagesProps) {
           {/* Add RX button */}
           <button
             type='button'
-            className='absolute right-4 top-4 bg-[#f8fafb] border border-[#cbd3d9] px-4 py-2 rounded-[136px] inline-flex items-center gap-2 text-[16px] leading-[24px] text-[#24282c] cursor-pointer'
+            className='absolute right-4 top-4 bg-[#f8fafb] border border-[#cbd3d9] px-4 py-2 rounded-[136px] inline-flex items-center gap-2 text-body-md text-[#24282c] cursor-pointer'
           >
+            
             <img alt='' src={imgAddIcon} className='size-[24px]' />
-            <span>Añadir RX</span>
+            <span className='text-body-md text-[#24282c]'>Añadir RX</span>
           </button>
 
           {/* Left thumbnails rail with vertical scroll */}
@@ -77,10 +78,10 @@ export default function RxImages({ onClose }: RxImagesProps) {
                   />
                 </div>
                 <div className='mt-1'>
-                  <p className='text-[16px] leading-[24px] text-[#24282c]'>
+                  <p className='text-body-md text-[#24282c]'>
                     Radiografía 1
                   </p>
-                  <p className='text-[12px] leading-[16px] text-[#24282c]'>
+                  <p className='text-label-sm text-[#24282c]'>
                     24-06-2025
                   </p>
                 </div>
@@ -90,10 +91,10 @@ export default function RxImages({ onClose }: RxImagesProps) {
                 <div key={i} className='w-[190px] mt-4'>
                   <div className='bg-[#24282c] border border-[#cbd3d9] h-[190px] rounded-[8px]' />
                   <div className='mt-1'>
-                    <p className='text-[16px] leading-[24px] text-[#24282c]'>
+                    <p className='text-body-md text-[#24282c]'>
                       Radiografía {i + 2}
                     </p>
-                    <p className='text-[12px] leading-[16px] text-[#24282c]'>
+                    <p className='text-label-sm text-[#24282c]'>
                       24-06-2025
                     </p>
                   </div>
@@ -119,17 +120,17 @@ export default function RxImages({ onClose }: RxImagesProps) {
             className='absolute flex items-center justify-between'
             style={{ left: 240, right: 16, top: 536 }}
           >
-            <p className='text-[24px] leading-[32px] font-medium text-[#24282c]'>
+            <p className='text-title-lg text-[#24282c]'>
               Periapical 2.6
             </p>
-            <p className='text-[12px] leading-[16px] text-[#24282c]'>
+            <p className='text-label-sm text-[#24282c]'>
               24-06-2025
             </p>
           </div>
 
           {/* Description */}
           <p
-            className='absolute text-[18px] leading-[28px] text-[#24282c]'
+            className='absolute text-body-md text-[#24282c]'
             style={{ left: 240, right: 16, top: 584 }}
           >
             Caries distal profunda en 2.6, probable pulpitis reversible. No

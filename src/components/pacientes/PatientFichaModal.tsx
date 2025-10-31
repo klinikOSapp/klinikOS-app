@@ -102,10 +102,10 @@ export default function PatientFichaModal({
                           ].join(' ')}
                           onClick={() => setActive(it.title)}
                         >
-                          <p className='text-xl leading-8 font-medium text-[var(--color-neutral-900)]'>
+                          <p className='text-title-lg font-medium text-[var(--color-neutral-900)]'>
                             {it.title}
                           </p>
-                          <p className='text-sm leading-5 text-[var(--color-neutral-900)]'>
+                          <p className='text-body-sm text-[var(--color-neutral-900)]'>
                             {it.body}
                           </p>
                         </button>

@@ -17,7 +17,7 @@ function KpiCard({
 }) {
   return (
     <div className='bg-white rounded-[8px] p-[min(1rem,1.5vw)] h-[min(8rem,12vw)] flex flex-col justify-between shadow-[1px_1px_2px_0_rgba(0,0,0,0.05)] border border-[var(--color-neutral-200)]'>
-      <p className='text-lg leading-7 font-medium text-[var(--color-neutral-600)]'>
+      <p className='text-title-sm font-medium text-[var(--color-neutral-600)]'>
         {title}
       </p>
       <div className='flex items-baseline justify-between'>
@@ -91,7 +91,7 @@ function TableHeaderCell({
   return (
     <th
       className={[
-        'text-base leading-6 font-normal text-[var(--color-neutral-600)] text-left',
+        'text-body-md font-normal text-[var(--color-neutral-600)] text-left',
         className
       ].join(' ')}
     >
@@ -108,12 +108,12 @@ function Row() {
       onClick={() => router.push('/pacientes/ficha')}
     >
       <td className='py-1 pr-2 w-[240px]'>
-        <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>
           Laura Rivas
         </p>
       </td>
       <td className='py-1 pr-2 w-[191px]'>
-        <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>
           DD/MM/AAAA
         </p>
       </td>
@@ -121,7 +121,7 @@ function Row() {
         <StatusPill type='Activo' />
       </td>
       <td className='py-1 pr-2 w-[196px]'>
-        <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>
           888 888 888
         </p>
       </td>
@@ -129,17 +129,17 @@ function Row() {
         <StatusPill type='Hecho' />
       </td>
       <td className='py-1 pr-2 w-[120px]'>
-        <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>
           No
         </p>
       </td>
       <td className='py-1 pr-2 w-[120px]'>
-        <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>
           380€
         </p>
       </td>
       <td className='py-1 pr-2 w-[204px]'>
-        <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>
           DD/MM/AAAA
         </p>
       </td>
@@ -217,7 +217,7 @@ export default function PacientesPage() {
       <div className='flex-shrink-0'>
         <div className='flex items-center justify-between gap-2'>
           <div className='flex items-center gap-2'>
-            <h1 className='text-[28px] leading-[36px] text-[var(--color-neutral-900)]'>
+            <h1 className='text-title-lg text-[var(--color-neutral-900)]'>
               Pacientes
             </h1>
             <Chip color='teal' rounded='full' size='xs'>
@@ -227,9 +227,9 @@ export default function PacientesPage() {
           <div className='flex items-center gap-3'>
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-base leading-6 text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
+              className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-body-md text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
             >
-              <span className='text-[20px] leading-[20px]'>＋</span>
+              <span className='text-title-sm leading-none'>＋</span>
               <span className='font-medium'>Añadir paciente</span>
             </button>
             <button
@@ -240,7 +240,7 @@ export default function PacientesPage() {
             </button>
           </div>
         </div>
-        <p className='text-[14px] leading-[20px] text-[var(--color-neutral-900)] mt-2 max-w-[680px]'>
+        <p className='text-body-sm text-[var(--color-neutral-900)] mt-2 max-w-[680px]'>
           Busca y filtra pacientes; confirma asistencias, reprograma citas y
           envía pre-registro, firmas y recordatorios al instante.
         </p>
@@ -257,7 +257,7 @@ export default function PacientesPage() {
           title='Pacientes hoy'
           value='2'
           badge={
-            <span className='text-base leading-6 text-[var(--color-success-600)]'>
+            <span className='text-body-md text-[var(--color-success-600)]'>
               24%
             </span>
           }
@@ -266,7 +266,7 @@ export default function PacientesPage() {
           title='Pacientes semana'
           value='16'
           badge={
-            <span className='text-base leading-6 text-[var(--color-success-600)]'>
+            <span className='text-body-md text-[var(--color-success-600)]'>
               8%
             </span>
           }
@@ -275,14 +275,14 @@ export default function PacientesPage() {
           title='Pacientes recibidos'
           value='4/16'
           badge={
-            <span className='text-base leading-6 text-[#d97706]'>25%</span>
+            <span className='text-body-md text-[#d97706]'>25%</span>
           }
         />
         <KpiCard
           title='Citas confirmadas'
           value='12/16'
           badge={
-            <span className='text-base leading-6 text-[var(--color-success-600)]'>
+            <span className='text-body-md text-[var(--color-success-600)]'>
               75%
             </span>
           }
@@ -296,10 +296,10 @@ export default function PacientesPage() {
             {selectedPatientIds.length > 0 && (
               <Chip color='teal'>{selectedPatientIds.length} selected</Chip>
             )}
-            <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-[14px] leading-[20px] text-[var(--color-neutral-700)] cursor-pointer'>
+            <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-body-sm text-[var(--color-neutral-700)] cursor-pointer'>
               Estado
             </button>
-            <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-[14px] leading-[20px] text-[var(--color-neutral-700)] cursor-pointer'>
+            <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-body-sm text-[var(--color-neutral-700)] cursor-pointer'>
               Check-in
             </button>
             <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
@@ -316,13 +316,13 @@ export default function PacientesPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder='Buscar por nombre, email, teléfono,...'
-                className='bg-transparent outline-none text-[14px] leading-[20px] text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-900)]'
+                className='bg-transparent outline-none text-body-sm text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-900)]'
               />
             </div>
             <button
               onClick={clearFilters}
               className={[
-                'flex items-center gap-2 px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
+                'flex items-center gap-2 px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
                 selectedFilters.length === 0
                   ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                   : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
@@ -346,7 +346,7 @@ export default function PacientesPage() {
             <button
               onClick={() => toggleFilter('deuda')}
               className={[
-                'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
+                'px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
                 isFilterActive('deuda')
                   ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                   : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
@@ -357,7 +357,7 @@ export default function PacientesPage() {
             <button
               onClick={() => toggleFilter('activos')}
               className={[
-                'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
+                'px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
                 isFilterActive('activos')
                   ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                   : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
@@ -368,7 +368,7 @@ export default function PacientesPage() {
             <button
               onClick={() => toggleFilter('recall')}
               className={[
-                'px-2 py-1 rounded-[32px] text-[14px] leading-[20px] border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
+                'px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active-border-[#1E4947]',
                 isFilterActive('recall')
                   ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                   : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
@@ -489,12 +489,12 @@ export default function PacientesPage() {
                     </button>
                   </td>
                   <td className='py-2 pr-2 w-[200px]'>
-                    <p className='text-base leading-6 text-[var(--color-neutral-900)] truncate'>
+                    <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
                       {row.name}
                     </p>
                   </td>
                   <td className='py-2 pr-2 w-[140px]'>
-                    <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
+                    <p className='text-body-md text-[var(--color-neutral-900)]'>
                       {row.nextDate}
                     </p>
                   </td>
@@ -502,7 +502,7 @@ export default function PacientesPage() {
                     <StatusPill type={row.status} />
                   </td>
                   <td className='py-2 pr-2 w-[140px]'>
-                    <p className='text-base leading-6 text-[var(--color-neutral-900)] truncate'>
+                    <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
                       {row.phone}
                     </p>
                   </td>
@@ -514,17 +514,17 @@ export default function PacientesPage() {
                     </span>
                   </td>
                   <td className='py-2 pr-2 w-[100px]'>
-                    <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
+                    <p className='text-body-md text-[var(--color-neutral-900)]'>
                       {row.financing}
                     </p>
                   </td>
                   <td className='py-2 pr-2 w-[100px]'>
-                    <p className='text-base leading-6 text-[var(--color-neutral-900)]'>
+                    <p className='text-body-md text-[var(--color-neutral-900)]'>
                       {row.debt}
                     </p>
                   </td>
                   <td className='py-2 pr-2 w-[140px]'>
-                    <p className='text-base leading-6 text-[var(--color-neutral-900)] truncate'>
+                    <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
                       {row.lastContact}
                     </p>
                   </td>
