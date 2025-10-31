@@ -64,7 +64,7 @@ export default function MainLayout({
     string
   > = {
     // Fluid inline padding matching current pages
-    responsive: 'px-fluid-xl',
+    responsive: 'px-[min(3rem,4vw)]',
     // Consistent 24px inline
     fixed: 'px-6',
     // Tighter 16px inline
