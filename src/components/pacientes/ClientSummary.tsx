@@ -1,8 +1,8 @@
-import React from 'react'
+import CallRounded from '@mui/icons-material/CallRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import MailRounded from '@mui/icons-material/MailRounded'
-import CallRounded from '@mui/icons-material/CallRounded'
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
+import AvatarImageDropdown from './AvatarImageDropdown'
 
 type ClientSummaryProps = {
   onClose?: () => void
@@ -29,10 +29,15 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
         className='absolute content-stretch flex gap-[1.5rem] items-center left-[2rem] top-[3rem]'
         data-node-id='426:854'
       >
-        <div
-          className='bg-[#535c66] rounded-[12.5rem] shrink-0 size-[6rem]'
-          data-node-id='423:829'
-        />
+        <div className='relative shrink-0'>
+          <div
+            className='bg-[var(--color-neutral-600)] rounded-[12.5rem] size-[6rem]'
+            data-node-id='423:829'
+          />
+          <div className='absolute -bottom-1 -right-1'>
+            <AvatarImageDropdown />
+          </div>
+        </div>
         <div
           className='content-stretch flex flex-col gap-[0.5rem] items-start relative shrink-0 w-[14.25rem]'
           data-node-id='426:853'
