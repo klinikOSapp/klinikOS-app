@@ -159,6 +159,10 @@ export default {
         'label-sm': [
           'var(--text-label-sm)',
           { lineHeight: 'var(--leading-label-sm)', fontWeight: '500' }
+        ],
+        'label-md': [
+          'var(--text-label-md)',
+          { lineHeight: 'var(--leading-label-md)', fontWeight: '500' }
         ]
       },
       screens: {

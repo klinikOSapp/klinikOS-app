@@ -12,7 +12,7 @@ type PatientFileModalProps = {
 type TabKey = 'summary' | 'history' | 'rx' | 'billing' | 'consents'
 
 export default function PatientFileModal({ open, onClose }: PatientFileModalProps) {
-  const [activeTab, setActiveTab] = React.useState<TabKey>('history')
+  const [activeTab, setActiveTab] = React.useState<TabKey>('summary')
 
   if (!open) return null
 
@@ -31,7 +31,7 @@ export default function PatientFileModal({ open, onClose }: PatientFileModalProp
         type='button'
         onClick={() => setActiveTab(tab)}
         className={[
-          'w-full text-left rounded-lg px-6 py-4 transition-colors',
+          'w-full text-left rounded-lg px-6 py-4 transition-colors cursor-pointer',
           isActive ? 'bg-[#E9FBF9]' : 'hover:bg-[var(--color-neutral-50)]'
         ].join(' ')}
       >
@@ -49,7 +49,7 @@ export default function PatientFileModal({ open, onClose }: PatientFileModalProp
     switch (activeTab) {
       case 'history':
         return (
-          <div className='w-full h-full overflow-auto'>
+          <div className='w-full h-full overflow-hidden'>
             {/* Reutilizamos el diseño del historial clínico dentro del panel derecho */}
             <ClinicalHistory onClose={onClose} />
           </div>
@@ -101,7 +101,7 @@ export default function PatientFileModal({ open, onClose }: PatientFileModalProp
             {/* Header */}
             <div className='absolute top-0 left-0 right-0 h-14 border-b border-[var(--color-neutral-300)] flex items-center justify-between px-6'>
               <div className='text-title-lg text-[var(--color-neutral-900)]'>Ficha del paciente</div>
-              <button type='button' aria-label='Cerrar' onClick={onClose} className='w-3.5 h-3.5'>
+              <button type='button' aria-label='Cerrar' onClick={onClose} className='w-3.5 h-3.5 cursor-pointer'>
                 <CloseRounded className='block w-3.5 h-3.5' />
               </button>
             </div>

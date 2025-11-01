@@ -22,7 +22,7 @@ export default function PatientFichaModal({
     | 'Imágenes RX'
     | 'Presupuestos y pagos'
     | 'Consentimientos'
-  >('Presupuestos y pagos')
+  >('Resumen')
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -99,7 +99,7 @@ export default function PatientFichaModal({
                       <li key={it.title}>
                         <button
                           className={[
-                            'w-full text-left px-6 pt-6 pb-4',
+                            'w-full text-left px-6 pt-6 pb-4 cursor-pointer',
                             selected ? 'bg-[#E9FBF9]' : ''
                           ].join(' ')}
                           onClick={() => setActive(it.title)}
