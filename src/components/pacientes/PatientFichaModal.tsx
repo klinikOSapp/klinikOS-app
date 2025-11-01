@@ -4,6 +4,8 @@ import React from 'react'
 import ClientSummary from './ClientSummary'
 import ClinicalHistory from './ClinicalHistory'
 import RxImages from './RxImages'
+import BudgetsPayments from './BudgetsPayments'
+import Consents from './Consents'
 
 type PatientFichaModalProps = {
   open: boolean
@@ -17,10 +19,10 @@ export default function PatientFichaModal({
   const [active, setActive] = React.useState<
     | 'Resumen'
     | 'Historial clínico'
-    | 'Imágenes & RX'
+    | 'Imágenes RX'
+    | 'Presupuestos y pagos'
     | 'Consentimientos'
-    | 'Presupuestos'
-  >('Resumen')
+  >('Presupuestos y pagos')
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -45,16 +47,16 @@ export default function PatientFichaModal({
       body: 'Notas SOAP, odontograma, actos y adjuntos.'
     },
     {
-      title: 'Imágenes & RX',
+      title: 'Imágenes RX',
       body: 'capturas intraorales/fotos antes-después y escáner 3D.'
     },
     {
-      title: 'Consentimientos',
-      body: 'log legal, toda acción con usuario, fecha/hora y contexto, para auditorías.'
+      title: 'Presupuestos y pagos',
+      body: 'Cobros, financiación embebida, facturas/recibos y conciliación.'
     },
     {
-      title: 'Presupuestos',
-      body: 'Presupuestos pendientes, abonados, archivados, etc.'
+      title: 'Consentimientos',
+      body: 'Accede a todos los consentimientos de los pacientes.'
     }
   ]
 
@@ -120,10 +122,18 @@ export default function PatientFichaModal({
                 {active === 'Historial clínico' && (
                   <ClinicalHistory onClose={onClose} />
                 )}
-                {active === 'Imágenes & RX' && <RxImages onClose={onClose} />}
+                {active === 'Imágenes RX' && <RxImages onClose={onClose} />}
+                {active === 'Presupuestos y pagos' && (
+                  <BudgetsPayments onClose={onClose} />
+                )}
+                {active === 'Consentimientos' && (
+                  <Consents onClose={onClose} />
+                )}
                 {active !== 'Resumen' &&
                   active !== 'Historial clínico' &&
-                  active !== 'Imágenes & RX' && (
+                  active !== 'Imágenes RX' &&
+                  active !== 'Consentimientos' &&
+                  active !== 'Presupuestos y pagos' && (
                     <div className='p-6 text-body-md text-[var(--color-neutral-900)]'>
                       {active}
                     </div>

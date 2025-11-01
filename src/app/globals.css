@@ -92,8 +92,36 @@
   --text-kpi: min(3.25rem, 5vw);
   --leading-kpi: 1.2;
 
+  /* Tables (semantic) */
+  /* Row height based on fluid base (40px at 16px) */
+  --height-row-md: 2.5rem;
+  /* Budgets table column fractions (derived from Figma proportions) */
+  --budgets-col-id: 0.094fr;
+  --budgets-col-desc: 0.342fr;
+  --budgets-col-amount: 0.103fr;
+  --budgets-col-status: 0.111fr;
+  --budgets-col-payment: 0.169fr;
+  --budgets-col-insurer: 0.181fr;
+  --budgets-grid-cols: minmax(0, var(--budgets-col-id))
+    minmax(0, var(--budgets-col-desc)) minmax(0, var(--budgets-col-amount))
+    minmax(0, var(--budgets-col-status)) minmax(0, var(--budgets-col-payment))
+    minmax(0, var(--budgets-col-insurer));
+
+  /* Payments table column fractions (from Figma widths, fluid) */
+  --payments-col-id: 0.095fr;
+  --payments-col-desc: 0.288fr;
+  --payments-col-amount: 0.117fr;
+  --payments-col-invoice: 0.149fr; /* Factura */
+  --payments-col-sent: 0.154fr; /* Enviada */
+  --payments-col-insurer: 0.197fr;
+  --payments-grid-cols: minmax(0, var(--payments-col-id))
+    minmax(0, var(--payments-col-desc)) minmax(0, var(--payments-col-amount))
+    minmax(0, var(--payments-col-invoice)) minmax(0, var(--payments-col-sent))
+    minmax(0, var(--payments-col-insurer));
+
   /* Radii - NOW SCALES WITH FLUID BASE */
   --radius-xl: 1rem; /* 16px ÷ 16 = 1rem */
+  --radius-pill: 4.5rem; /* semantic "pill" radius for badges/chips */
 
   /* Shadows */
   --shadow-cta: 0 1px 2px 0 rgba(0, 0, 0, 0.3),
