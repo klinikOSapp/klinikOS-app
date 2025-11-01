@@ -124,11 +124,28 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
           </div>
         </div>
       </div>
-      <div className='absolute h-[102px] w-[24px] left-[45px] top-[204px]'>
-        <div className='h-full w-full bg-[#e2e7ea] rounded-[12px]' />
+      {/* MD3 Variant A: Vertical dividers with badge */}
+      <div
+        className='absolute h-[102px] w-[24px] left-[45px] top-[204px]'
+        aria-hidden='true'
+      >
+        {/* Divider only between circles */}
+        <div className='absolute left-1/2 -translate-x-1/2 top-6 bottom-0 w-[0.125rem] bg-brand-500' />
+        {/* Badge dot */}
+        <div className='absolute left-1/2 top-0 -translate-x-1/2 grid place-items-center size-[24px]'>
+          <div className='size-6 rounded-full bg-brand-500' />
+        </div>
       </div>
-      <div className='absolute h-[213px] w-[24px] left-[45px] top-[306px]'>
-        <div className='h-full w-full bg-[#cbd3d9] rounded-[12px]' />
+      <div
+        className='absolute h-[213px] w-[24px] left-[45px] top-[306px]'
+        aria-hidden='true'
+      >
+        {/* Divider only between circles */}
+        <div className='absolute left-1/2 -translate-x-1/2 top-0 w-[0.125rem] bg-brand-500 h-[43px]' />
+        {/* Badge dot */}
+        <div className='absolute left-1/2 top-[43px] -translate-x-1/2 grid place-items-center size-[24px]'>
+          <div className='size-6 rounded-full bg-brand-500' />
+        </div>
       </div>
 
       {/* Header */}
