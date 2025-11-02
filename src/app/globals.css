@@ -129,6 +129,23 @@
   --shadow-cta: 0 1px 2px 0 rgba(0, 0, 0, 0.3),
     0 1px 3px 1px rgba(0, 0, 0, 0.15);
   --shadow-nav-active: inset 4px 0 0 0 #a8efe7;
+
+  /* Landing (pre-login) exact Figma specs */
+  --blur-landing: 18px; /* backdrop blur */
+  --landing-card-width: 460px;
+  --landing-card-height: 795px;
+  --radius-card-lg: 32px;
+  --shadow-landing-card: -2px -2px 4px 0 rgba(0, 0, 0, 0.1),
+    2px 2px 4px 0 rgba(0, 0, 0, 0.1);
+  --landing-hero-size: 167px; /* Logo login.svg size */
+  --landing-actions-width: 380px;
+  --landing-top-gap: 72px; /* space from top to logo */
+  --landing-gap-lg: 24px; /* vertical gaps between sections */
+  --text-title-landing: 2rem; /* 32px */
+  --leading-title-landing: 2.5rem; /* 40px */
+  --landing-cta-height: 48px; /* Button height from Figma (py:12 + lh:24) */
+  --shadow-button-soft: 0px 2px 2px 0px rgba(0, 0, 0, 0.1);
+  --landing-bottom-gap: 45px; /* Distance from T&C block to card bottom in Figma */
 }
 
 /* ✨ BASE HTML FLUIDA - Hace TODO responsive automáticamente */
