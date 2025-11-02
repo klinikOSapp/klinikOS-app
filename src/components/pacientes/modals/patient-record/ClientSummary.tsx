@@ -2,13 +2,31 @@ import CallRounded from '@mui/icons-material/CallRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import MailRounded from '@mui/icons-material/MailRounded'
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
-import AvatarImageDropdown from './AvatarImageDropdown'
+import React from 'react'
+import AvatarImageDropdown from '@/components/pacientes/AvatarImageDropdown'
 
 type ClientSummaryProps = {
   onClose?: () => void
 }
 
 export default function ClientSummary({ onClose }: ClientSummaryProps) {
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = React.useState<string | null>(
+    null
+  )
+  const lastUrlRef = React.useRef<string | null>(null)
+
+  const setPreviewFromFile = React.useCallback((file: File) => {
+    const url = URL.createObjectURL(file)
+    if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current)
+    lastUrlRef.current = url
+    setAvatarPreviewUrl(url)
+  }, [])
+
+  React.useEffect(() => {
+    return () => {
+      if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current)
+    }
+  }, [])
   return (
     <div
       className='relative bg-[#f8fafb] overflow-hidden w-[74.75rem] h-[56.25rem]'
@@ -31,11 +49,24 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
       >
         <div className='relative shrink-0'>
           <div
-            className='bg-[var(--color-neutral-600)] rounded-[12.5rem] size-[6rem]'
+            className='rounded-[12.5rem] size-[6rem] overflow-hidden bg-[var(--color-neutral-600)]'
             data-node-id='423:829'
-          />
+          >
+            {avatarPreviewUrl ? (
+              <img
+                src={avatarPreviewUrl}
+                alt=''
+                className='w-full h-full object-cover'
+                loading='lazy'
+              />
+            ) : null}
+          </div>
           <div className='absolute -bottom-1 -right-1'>
-            <AvatarImageDropdown />
+            <AvatarImageDropdown
+              previewUrl={avatarPreviewUrl ?? undefined}
+              onCaptureFromCamera={setPreviewFromFile}
+              onUploadFromDevice={setPreviewFromFile}
+            />
           </div>
         </div>
         <div
@@ -158,7 +189,7 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
         Contacto de emergencia
       </p>
       <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[17rem] whitespace-pre"
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] not-italic text-[#8a95a1] text-[1rem] text-nowrap top-[17rem] whitespace-pre"
         data-node-id='426:868'
         style={{ left: 'calc(18.75% + 1.922rem)' }}
       >
@@ -216,14 +247,14 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
         Ocupación
       </p>
       <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[21.5rem] whitespace-pre"
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[21.5rem] whitespace-pre"
         data-node-id='426:874'
         style={{ left: 'calc(18.75% + 1.922rem)' }}
       >
         Pais
       </p>
       <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[34.5rem] whitespace-pre"
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[34.5rem] whitespace-pre"
         data-node-id='426:880'
         style={{ left: 'calc(18.75% + 1.922rem)' }}
       >
@@ -335,3 +366,5 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
     </div>
   )
 }
+
+

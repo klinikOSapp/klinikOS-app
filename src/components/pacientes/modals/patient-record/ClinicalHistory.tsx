@@ -8,7 +8,7 @@ import EditRounded from '@mui/icons-material/EditRounded'
 import ImageRounded from '@mui/icons-material/ImageRounded'
 import PlaceRounded from '@mui/icons-material/PlaceRounded'
 import React from 'react'
-import SelectorCard from './SelectorCard'
+import SelectorCard from '@/components/pacientes/SelectorCard'
 
 type ClinicalHistoryProps = {
   onClose?: () => void
@@ -399,3 +399,5 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
     </div>
   )
 }
+
+

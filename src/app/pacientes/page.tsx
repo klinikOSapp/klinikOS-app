@@ -1,21 +1,21 @@
 'use client'
 
-import React from 'react'
+import AddPatientModal from '@/components/pacientes/modals/add-patient/AddPatientModal'
+import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
 import AddRounded from '@mui/icons-material/AddRounded'
-import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
-import SearchRounded from '@mui/icons-material/SearchRounded'
-import DeleteRounded from '@mui/icons-material/DeleteRounded'
-import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded'
-import FilterListRounded from '@mui/icons-material/FilterListRounded'
 import CheckRounded from '@mui/icons-material/CheckRounded'
-import FirstPageRounded from '@mui/icons-material/FirstPageRounded'
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
+import DeleteRounded from '@mui/icons-material/DeleteRounded'
+import FilterListRounded from '@mui/icons-material/FilterListRounded'
+import FirstPageRounded from '@mui/icons-material/FirstPageRounded'
 import LastPageRounded from '@mui/icons-material/LastPageRounded'
+import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded'
+import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
+import SearchRounded from '@mui/icons-material/SearchRounded'
 import { useRouter } from 'next/navigation'
-import AddPatientModal from '@/components/pacientes/AddPatientModal'
-import PatientFichaModal from '@/components/pacientes/PatientFichaModal'
+import React from 'react'
 
 function KpiCard({
   title,
@@ -32,9 +32,7 @@ function KpiCard({
         {title}
       </p>
       <div className='flex items-baseline justify-between'>
-        <p className='text-kpi text-[var(--color-neutral-900)]'>
-          {value}
-        </p>
+        <p className='text-kpi text-[var(--color-neutral-900)]'>{value}</p>
         {badge}
       </div>
     </div>
@@ -140,14 +138,10 @@ function Row() {
         <StatusPill type='Hecho' />
       </td>
       <td className='py-1 pr-2 w-[120px]'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
-          No
-        </p>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>No</p>
       </td>
       <td className='py-1 pr-2 w-[120px]'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
-          380€
-        </p>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>380€</p>
       </td>
       <td className='py-1 pr-2 w-[204px]'>
         <p className='text-body-md text-[var(--color-neutral-900)]'>
@@ -219,7 +213,7 @@ export default function PacientesPage() {
         open={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
       />
-      <PatientFichaModal
+      <PatientRecordModal
         open={isFichaModalOpen}
         onClose={() => setIsFichaModalOpen(false)}
       />
@@ -285,9 +279,7 @@ export default function PacientesPage() {
         <KpiCard
           title='Pacientes recibidos'
           value='4/16'
-          badge={
-            <span className='text-body-md text-[#d97706]'>25%</span>
-          }
+          badge={<span className='text-body-md text-[#d97706]'>25%</span>}
         />
         <KpiCard
           title='Citas confirmadas'

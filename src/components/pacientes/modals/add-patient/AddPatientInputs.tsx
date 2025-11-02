@@ -15,16 +15,22 @@ export function FieldLabel({ children }: { children: React.ReactNode }) {
 
 export function TextInput({
   placeholder = 'Value',
-  required
+  required,
+  value,
+  onChange
 }: {
   placeholder?: string
   required?: boolean
+  value?: string
+  onChange?: (v: string) => void
 }) {
   return (
     <div className='relative'>
       <input
         placeholder={placeholder}
         className='w-full h-12 rounded-[0.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5 text-body-md text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)] outline-none'
+        value={value}
+        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
       />
       {required && (
         <span className='absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-error-600)] text-body-md leading-none'>
@@ -36,28 +42,104 @@ export function TextInput({
 }
 
 export function SelectInput({
-  placeholder = 'Value'
+  placeholder = 'Value',
+  value,
+  onChange,
+  options
 }: {
   placeholder?: string
+  value?: string
+  onChange?: (v: string) => void
+  options?: { label: string; value: string }[]
 }) {
   return (
     <div className='relative'>
-      <select className='appearance-none w-full h-12 rounded-[0.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5 text-body-md text-[var(--color-neutral-900)] outline-none'>
-        <option>{placeholder}</option>
+      <select
+        className='appearance-none w-full h-12 rounded-[0.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5 text-body-md text-[var(--color-neutral-900)] outline-none'
+        value={value}
+        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+      >
+        {options && options.length > 0 ? (
+          <>
+            {!value && (
+              <option value='' disabled>
+                {placeholder}
+              </option>
+            )}
+            {options.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </>
+        ) : (
+          <option>{placeholder}</option>
+        )}
       </select>
       <KeyboardArrowDownRounded className='pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-neutral-700)]' />
     </div>
   )
 }
 
-export function TextArea({ placeholder = 'Value' }: { placeholder?: string }) {
+export function TextArea({
+  placeholder = 'Value',
+  value,
+  onChange
+}: {
+  placeholder?: string
+  value?: string
+  onChange?: (v: string) => void
+}) {
   return (
     <div className='relative'>
       <textarea
         placeholder={placeholder}
         className='w-full h-20 rounded-[0.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5 py-2 text-body-md text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)] outline-none resize-none'
+        value={value}
+        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
       />
     </div>
+  )
+}
+
+export function ToggleInput({
+  checked,
+  defaultChecked = true,
+  onChange,
+  ariaLabel
+}: {
+  checked?: boolean
+  defaultChecked?: boolean
+  onChange?: (checked: boolean) => void
+  ariaLabel?: string
+}) {
+  const isControlled = typeof checked === 'boolean'
+  const [internal, setInternal] = React.useState(defaultChecked)
+  const isOn = isControlled ? (checked as boolean) : internal
+  const toggle = () => {
+    const next = !isOn
+    if (!isControlled) setInternal(next)
+    onChange?.(next)
+  }
+  return (
+    <button
+      type='button'
+      role='switch'
+      aria-checked={isOn}
+      aria-label={ariaLabel}
+      onClick={toggle}
+      className={`w-10 h-6 rounded-[70px] relative shrink-0 transition-colors duration-150 ${
+        isOn ? 'bg-[var(--color-brand-500)]' : 'bg-[var(--color-neutral-300)]'
+      }`}
+    >
+      <span
+        className={`absolute top-[3px] size-[18px] rounded-full transition-[left] duration-150 ${
+          isOn
+            ? 'left-[19px] bg-[var(--color-brand-50)]'
+            : 'left-[3px] bg-[var(--color-neutral-50)]'
+        }`}
+      />
+    </button>
   )
 }
 

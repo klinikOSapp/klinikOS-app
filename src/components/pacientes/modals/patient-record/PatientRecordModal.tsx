@@ -1,21 +1,21 @@
 'use client'
 
 import React from 'react'
+import BudgetsPayments from './BudgetsPayments'
 import ClientSummary from './ClientSummary'
 import ClinicalHistory from './ClinicalHistory'
-import RxImages from './RxImages'
-import BudgetsPayments from './BudgetsPayments'
 import Consents from './Consents'
+import RxImages from './RxImages'
 
-type PatientFichaModalProps = {
+type PatientRecordModalProps = {
   open: boolean
   onClose: () => void
 }
 
-export default function PatientFichaModal({
+export default function PatientRecordModal({
   open,
   onClose
-}: PatientFichaModalProps) {
+}: PatientRecordModalProps) {
   const [active, setActive] = React.useState<
     | 'Resumen'
     | 'Historial clínico'
@@ -126,9 +126,7 @@ export default function PatientFichaModal({
                 {active === 'Presupuestos y pagos' && (
                   <BudgetsPayments onClose={onClose} />
                 )}
-                {active === 'Consentimientos' && (
-                  <Consents onClose={onClose} />
-                )}
+                {active === 'Consentimientos' && <Consents onClose={onClose} />}
                 {active !== 'Resumen' &&
                   active !== 'Historial clínico' &&
                   active !== 'Imágenes RX' &&

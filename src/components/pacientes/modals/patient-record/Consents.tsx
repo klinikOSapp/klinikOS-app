@@ -6,6 +6,9 @@ import AddRounded from '@mui/icons-material/AddRounded'
 import VisibilityRounded from '@mui/icons-material/VisibilityRounded'
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
 import PictureAsPdfRounded from '@mui/icons-material/PictureAsPdfRounded'
+import AttachEmailRounded from '@mui/icons-material/AttachEmailRounded'
+import DownloadRounded from '@mui/icons-material/DownloadRounded'
+import UploadConsentModal from './UploadConsentModal'
 
 type ConsentsProps = {
   onClose?: () => void
@@ -42,6 +45,22 @@ function StatusBadge({ status }: { status: ConsentRow['status'] }) {
 }
 
 export default function Consents({ onClose }: ConsentsProps) {
+  const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null)
+  const [isUploadOpen, setIsUploadOpen] = React.useState(false)
+
+  React.useEffect(() => {
+    function handleGlobalClick(e: MouseEvent) {
+      if (!openMenuRowId) return
+      const target = e.target as HTMLElement
+      const insideMenu = target.closest('[data-consents-menu="true"]')
+      const insideTrigger = target.closest('[data-consents-trigger="true"]')
+      if (!insideMenu && !insideTrigger) {
+        setOpenMenuRowId(null)
+      }
+    }
+    document.addEventListener('mousedown', handleGlobalClick)
+    return () => document.removeEventListener('mousedown', handleGlobalClick)
+  }, [openMenuRowId])
   return (
     <div className='relative w-[74.75rem] h-[56.25rem] bg-neutral-50'>
       {/* Close */}
@@ -66,7 +85,10 @@ export default function Consents({ onClose }: ConsentsProps) {
       <div className='absolute left-8 top-36 w-[70.25rem] h-[45.3125rem] bg-white rounded-xl border border-neutral-200'>
         <div className='relative w-full h-full rounded-inherit'>
           {/* Add button */}
-          <button className='absolute top-4 right-4 flex items-center gap-2 rounded-[136px] px-4 py-2 text-body-md text-neutral-900 bg-neutral-50 border border-neutral-300 hover:bg-brand-100 hover:border-brand-300 active:bg-brand-900 active:text-neutral-50 active:border-brand-900 transition-colors cursor-pointer'>
+          <button
+            onClick={() => setIsUploadOpen(true)}
+            className='absolute top-4 right-4 flex items-center gap-2 rounded-[136px] px-4 py-2 text-body-md text-neutral-900 bg-neutral-50 border border-neutral-300 hover:bg-brand-100 hover:border-brand-300 active:bg-brand-900 active:text-neutral-50 active:border-brand-900 transition-colors cursor-pointer'
+          >
             <AddRounded className='size-5' />
             <span className='font-medium'>Subir consentimiento</span>
           </button>
@@ -116,9 +138,63 @@ export default function Consents({ onClose }: ConsentsProps) {
                   </div>
 
                   {/* Actions */}
-                  <div className='absolute right-8 h-[72px] flex items-center gap-2'>
+                  <div className='absolute right-8 h-[72px] flex items-center gap-2 relative'>
                     <VisibilityRounded className='size-6 text-neutral-900' />
-                    <MoreVertRounded className='size-6 text-neutral-900' />
+                    <button
+                      type='button'
+                      aria-haspopup='menu'
+                      aria-expanded={openMenuRowId === row.id}
+                      onClick={() =>
+                        setOpenMenuRowId((prev) => (prev === row.id ? null : row.id))
+                      }
+                      className='size-8 grid place-items-center rounded-md hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
+                      data-consents-trigger='true'
+                      aria-label='Más opciones'
+                    >
+                      <MoreVertRounded className='size-6 text-neutral-900' />
+                    </button>
+
+                    {openMenuRowId === row.id && (
+                      <div
+                        role='menu'
+                        className='absolute right-0 top-full mt-2 w-64 rounded-lg bg-[var(--color-neutral-50)] shadow-[var(--shadow-cta)] border border-[var(--color-neutral-200)] p-2 z-10'
+                        data-consents-menu='true'
+                      >
+                        <button
+                          type='button'
+                          role='menuitem'
+                          onClick={() => {
+                            // Acción: Enviar consentimiento
+                            setOpenMenuRowId(null)
+                          }}
+                          className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
+                        >
+                          <AttachEmailRounded className='size-5' />
+                          <span className='text-body-md'>Enviar Consentimiento</span>
+                        </button>
+                        <button
+                          type='button'
+                          role='menuitem'
+                          disabled
+                          className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left text-[var(--color-neutral-600)] cursor-not-allowed'
+                        >
+                          <AttachEmailRounded className='size-5' />
+                          <span className='text-body-md'>Enviar copia firmada</span>
+                        </button>
+                        <button
+                          type='button'
+                          role='menuitem'
+                          onClick={() => {
+                            // Acción: Descargar
+                            setOpenMenuRowId(null)
+                          }}
+                          className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
+                        >
+                          <DownloadRounded className='size-5' />
+                          <span className='text-body-md'>Descargar</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -126,6 +202,14 @@ export default function Consents({ onClose }: ConsentsProps) {
           </div>
         </div>
       </div>
+      <UploadConsentModal
+        open={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+        onFileSelected={(f) => {
+          console.log('Archivo seleccionado', f.name)
+          setIsUploadOpen(false)
+        }}
+      />
     </div>
   )
 }

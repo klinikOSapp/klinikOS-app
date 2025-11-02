@@ -6,8 +6,10 @@ import RadioButtonCheckedRounded from '@mui/icons-material/RadioButtonCheckedRou
 import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded'
 import React from 'react'
 import AddPatientStepAdministrativo from './AddPatientStepAdministrativo'
+import AddPatientStepConsentimientos from './AddPatientStepConsentimientos'
 import AddPatientStepContacto from './AddPatientStepContacto'
 import AddPatientStepPaciente from './AddPatientStepPaciente'
+import AddPatientStepResumen from './AddPatientStepResumen'
 import AddPatientStepSalud from './AddPatientStepSalud'
 // Removed Figma assets; using MUI MD3 icons instead
 
@@ -25,7 +27,12 @@ export default function AddPatientModal({
   onContinue
 }: AddPatientModalProps) {
   const [step, setStep] = React.useState<
-    'paciente' | 'contacto' | 'administrativo' | 'salud'
+    | 'paciente'
+    | 'contacto'
+    | 'administrativo'
+    | 'salud'
+    | 'consentimientos'
+    | 'resumen'
   >('paciente')
   const [calendarOpen, setCalendarOpen] = React.useState(false)
   const calendarRef = React.useRef<HTMLDivElement | null>(null)
@@ -191,8 +198,49 @@ export default function AddPatientModal({
       setStep('salud')
       return
     }
+    if (step === 'salud') {
+      setStep('consentimientos')
+      return
+    }
+    if (step === 'consentimientos') {
+      setStep('resumen')
+      return
+    }
     onContinue?.()
   }, [step, onContinue])
+
+  // Centralized toggle states for steps
+  const [contactoToggles, setContactoToggles] = React.useState({
+    recordatorios: true,
+    marketing: true,
+    terminos: true
+  })
+  const [adminFacturaEmpresa, setAdminFacturaEmpresa] = React.useState(false)
+  const [saludToggles, setSaludToggles] = React.useState({
+    embarazo: false,
+    tabaquismo: false
+  })
+
+  // Datos para resumen
+  const [contactEmail, setContactEmail] = React.useState<string>('')
+  const [contactPhone, setContactPhone] = React.useState<string>('')
+  const [adminNotas, setAdminNotas] = React.useState<string>('')
+  const [saludAlergiasText, setSaludAlergiasText] = React.useState<string>('')
+  const [nombre, setNombre] = React.useState<string>('')
+  const [apellidos, setApellidos] = React.useState<string>('')
+  const [dni, setDni] = React.useState<string>('')
+  const [sexo, setSexo] = React.useState<string>('')
+  const [idioma, setIdioma] = React.useState<string>('')
+
+  // Type helper for Salud component props (workaround for JSX inference)
+  const SaludComp = AddPatientStepSalud as unknown as React.ComponentType<{
+    embarazo: boolean
+    onChangeEmbarazo: (v: boolean) => void
+    tabaquismo: boolean
+    onChangeTabaquismo: (v: boolean) => void
+    alergiasText?: string
+    onChangeAlergiasText?: (v: string) => void
+  }>
 
   if (!open) return null
 
@@ -385,7 +433,14 @@ export default function AddPatientModal({
 
               <div
                 data-devide='Desktop'
-                className='left-[2rem] top-[18rem] absolute inline-flex justify-start items-start gap-3'
+                className='left-[2rem] top-[18rem] absolute inline-flex justify-start items-start gap-3 cursor-pointer'
+                role='button'
+                tabIndex={0}
+                onClick={() => setStep('consentimientos')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ')
+                    setStep('consentimientos')
+                }}
               >
                 <div
                   data-has-line='false'
@@ -400,13 +455,52 @@ export default function AddPatientModal({
                       style={{
                         width: 24,
                         height: 24,
-                        color: 'var(--color-neutral-900)'
+                        color:
+                          step === 'consentimientos'
+                            ? 'var(--color-brand-500)'
+                            : 'var(--color-neutral-900)'
                       }}
                     />
                   </div>
                 </div>
                 <div className='justify-start text-[var(--color-neutral-900)] text-title-sm font-sans'>
                   Consentimientos
+                </div>
+              </div>
+
+              <div
+                data-devide='Desktop'
+                className='left-[2rem] top-[21rem] absolute inline-flex justify-start items-start gap-3 cursor-pointer'
+                role='button'
+                tabIndex={0}
+                onClick={() => setStep('resumen')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') setStep('resumen')
+                }}
+              >
+                <div
+                  data-has-line='false'
+                  data-orientation='Vertical'
+                  className='w-6 h-12 relative'
+                >
+                  <div
+                    data-state='radio_button_unchecked'
+                    className='w-6 h-6 left-0 top-0 absolute'
+                  >
+                    <RadioButtonUncheckedRounded
+                      style={{
+                        width: 24,
+                        height: 24,
+                        color:
+                          step === 'resumen'
+                            ? 'var(--color-brand-500)'
+                            : 'var(--color-neutral-900)'
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className='justify-start text-[var(--color-neutral-900)] text-title-sm font-sans'>
+                  Resumen
                 </div>
               </div>
 
@@ -422,18 +516,95 @@ export default function AddPatientModal({
                       ? 'Datos administrativos'
                       : step === 'salud'
                       ? 'Salud'
+                      : step === 'consentimientos'
+                      ? 'Documentos y consentimientos'
+                      : step === 'resumen'
+                      ? 'Resumen'
                       : 'Datos básicos del paciente'}
                   </div>
                 </div>
               </div>
 
-              {step === 'paciente' && <AddPatientStepPaciente />}
+              {step === 'paciente' && (
+                <AddPatientStepPaciente
+                  nombre={nombre}
+                  onChangeNombre={setNombre}
+                  apellidos={apellidos}
+                  onChangeApellidos={setApellidos}
+                  fechaNacimiento={selectedDate}
+                  onChangeFechaNacimiento={(d) => setSelectedDate(d)}
+                  dni={dni}
+                  onChangeDni={setDni}
+                  sexo={sexo}
+                  onChangeSexo={setSexo}
+                  idioma={idioma}
+                  onChangeIdioma={setIdioma}
+                />
+              )}
 
-              {step === 'contacto' && <AddPatientStepContacto />}
+              {step === 'contacto' && (
+                <AddPatientStepContacto
+                  recordatorios={contactoToggles.recordatorios}
+                  onChangeRecordatorios={(v) =>
+                    setContactoToggles((p) => ({ ...p, recordatorios: v }))
+                  }
+                  marketing={contactoToggles.marketing}
+                  onChangeMarketing={(v) =>
+                    setContactoToggles((p) => ({ ...p, marketing: v }))
+                  }
+                  terminos={contactoToggles.terminos}
+                  onChangeTerminos={(v) =>
+                    setContactoToggles((p) => ({ ...p, terminos: v }))
+                  }
+                  telefono={contactPhone}
+                  onChangeTelefono={setContactPhone}
+                  email={contactEmail}
+                  onChangeEmail={setContactEmail}
+                />
+              )}
 
-              {step === 'administrativo' && <AddPatientStepAdministrativo />}
+              {step === 'administrativo' && (
+                <AddPatientStepAdministrativo
+                  facturaEmpresa={adminFacturaEmpresa}
+                  onChangeFacturaEmpresa={setAdminFacturaEmpresa}
+                  notas={adminNotas}
+                  onChangeNotas={setAdminNotas}
+                />
+              )}
 
-              {step === 'salud' && <AddPatientStepSalud />}
+              {step === 'salud' && (
+                <SaludComp
+                  embarazo={saludToggles.embarazo}
+                  onChangeEmbarazo={(v: boolean) =>
+                    setSaludToggles((p) => ({ ...p, embarazo: v }))
+                  }
+                  tabaquismo={saludToggles.tabaquismo}
+                  onChangeTabaquismo={(v: boolean) =>
+                    setSaludToggles((p) => ({ ...p, tabaquismo: v }))
+                  }
+                  alergiasText={saludAlergiasText}
+                  onChangeAlergiasText={setSaludAlergiasText}
+                />
+              )}
+
+              {step === 'consentimientos' && <AddPatientStepConsentimientos />}
+
+              {step === 'resumen' && (
+                <AddPatientStepResumen
+                  nombre={nombre}
+                  apellidos={apellidos}
+                  email={contactEmail}
+                  telefono={contactPhone}
+                  anotaciones={adminNotas}
+                  alergias={saludAlergiasText
+                    .split(',')
+                    .map((s) => s.trim())
+                    .filter(Boolean)}
+                  recordatorios={contactoToggles.recordatorios}
+                  marketing={contactoToggles.marketing}
+                  terminos={contactoToggles.terminos}
+                />
+              )}
 
               <div className='w-[31.5rem] h-0 left-[49.875rem] top-[53.25rem] absolute origin-top-left rotate-180 border-t-[0.0625rem] border-[var(--color-neutral-400)]'></div>
               <button

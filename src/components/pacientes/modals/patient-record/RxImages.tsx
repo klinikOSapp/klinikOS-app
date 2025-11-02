@@ -147,3 +147,5 @@ export default function RxImages({ onClose }: RxImagesProps) {
     </div>
   )
 }
+
+

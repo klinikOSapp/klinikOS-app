@@ -1,8 +1,8 @@
 'use client'
 
+import ClinicalHistory from '@/components/pacientes/modals/patient-record/ClinicalHistory'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import React from 'react'
-import ClinicalHistory from './ClinicalHistory'
 
 type PatientFileModalProps = {
   open: boolean
@@ -11,7 +11,10 @@ type PatientFileModalProps = {
 
 type TabKey = 'summary' | 'history' | 'rx' | 'billing' | 'consents'
 
-export default function PatientFileModal({ open, onClose }: PatientFileModalProps) {
+export default function PatientFileModal({
+  open,
+  onClose
+}: PatientFileModalProps) {
   const [activeTab, setActiveTab] = React.useState<TabKey>('summary')
 
   if (!open) return null
@@ -57,29 +60,45 @@ export default function PatientFileModal({ open, onClose }: PatientFileModalProp
       case 'summary':
         return (
           <div className='p-8'>
-            <h2 className='text-title-lg text-[var(--color-neutral-900)] mb-2'>Resumen</h2>
-            <p className='text-body-sm text-[var(--color-neutral-700)]'>Datos básicos de consulta, alertas, próximas citas, deuda, …</p>
+            <h2 className='text-title-lg text-[var(--color-neutral-900)] mb-2'>
+              Resumen
+            </h2>
+            <p className='text-body-sm text-[var(--color-neutral-700)]'>
+              Datos básicos de consulta, alertas, próximas citas, deuda, …
+            </p>
           </div>
         )
       case 'rx':
         return (
           <div className='p-8'>
-            <h2 className='text-title-lg text-[var(--color-neutral-900)] mb-2'>Imágenes RX</h2>
-            <p className='text-body-sm text-[var(--color-neutral-700)]'>Capturas intraorales/fotos antes-después y escáner 3D.</p>
+            <h2 className='text-title-lg text-[var(--color-neutral-900)] mb-2'>
+              Imágenes RX
+            </h2>
+            <p className='text-body-sm text-[var(--color-neutral-700)]'>
+              Capturas intraorales/fotos antes-después y escáner 3D.
+            </p>
           </div>
         )
       case 'billing':
         return (
           <div className='p-8'>
-            <h2 className='text-title-lg text-[var(--color-neutral-900)] mb-2'>Presupuestos y pagos</h2>
-            <p className='text-body-sm text-[var(--color-neutral-700)]'>Cobros, financiación embebida, facturas/recibos y conciliación.</p>
+            <h2 className='text-title-lg text-[var(--color-neutral-900)] mb-2'>
+              Presupuestos y pagos
+            </h2>
+            <p className='text-body-sm text-[var(--color-neutral-700)]'>
+              Cobros, financiación embebida, facturas/recibos y conciliación.
+            </p>
           </div>
         )
       case 'consents':
         return (
           <div className='p-8'>
-            <h2 className='text-title-lg text-[var(--color-neutral-900)] mb-2'>Consentimientos</h2>
-            <p className='text-body-sm text-[var(--color-neutral-700)]'>Accede a todos los consentimientos de los pacientes.</p>
+            <h2 className='text-title-lg text-[var(--color-neutral-900)] mb-2'>
+              Consentimientos
+            </h2>
+            <p className='text-body-sm text-[var(--color-neutral-700)]'>
+              Accede a todos los consentimientos de los pacientes.
+            </p>
           </div>
         )
       default:
@@ -88,9 +107,17 @@ export default function PatientFileModal({ open, onClose }: PatientFileModalProp
   }
 
   return (
-    <div className='fixed inset-0 z-50 bg-black/30' onClick={onClose} aria-hidden>
+    <div
+      className='fixed inset-0 z-50 bg-black/30'
+      onClick={onClose}
+      aria-hidden
+    >
       <div className='absolute inset-0 flex items-start justify-center p-8'>
-        <div role='dialog' aria-modal='true' onClick={(e) => e.stopPropagation()}>
+        <div
+          role='dialog'
+          aria-modal='true'
+          onClick={(e) => e.stopPropagation()}
+        >
           <div
             className='w-[82rem] h-[60rem] max-w-[95vw] max-h-[90vh] relative bg-[var(--color-surface-modal,#fff)] rounded-[1rem] overflow-hidden flex'
             style={{
@@ -100,8 +127,15 @@ export default function PatientFileModal({ open, onClose }: PatientFileModalProp
           >
             {/* Header */}
             <div className='absolute top-0 left-0 right-0 h-14 border-b border-[var(--color-neutral-300)] flex items-center justify-between px-6'>
-              <div className='text-title-lg text-[var(--color-neutral-900)]'>Ficha del paciente</div>
-              <button type='button' aria-label='Cerrar' onClick={onClose} className='w-3.5 h-3.5 cursor-pointer'>
+              <div className='text-title-lg text-[var(--color-neutral-900)]'>
+                Ficha del paciente
+              </div>
+              <button
+                type='button'
+                aria-label='Cerrar'
+                onClick={onClose}
+                className='w-3.5 h-3.5 cursor-pointer'
+              >
                 <CloseRounded className='block w-3.5 h-3.5' />
               </button>
             </div>
@@ -148,5 +182,3 @@ export default function PatientFileModal({ open, onClose }: PatientFileModalProp
     </div>
   )
 }
-
-

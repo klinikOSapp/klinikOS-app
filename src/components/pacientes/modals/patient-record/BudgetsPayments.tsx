@@ -7,7 +7,6 @@ import FirstPageRounded from '@mui/icons-material/FirstPageRounded'
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
 import LastPageRounded from '@mui/icons-material/LastPageRounded'
-import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
 
 type BudgetsPaymentsProps = {
   onClose?: () => void
@@ -244,7 +243,7 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
             <button
               onClick={() => toggleFilter('activos')}
               className={[
-                'px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
+                'px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active-border-[#1E4947]',
                 isFilterActive('activos')
                   ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                   : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
@@ -255,7 +254,7 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
             <button
               onClick={() => toggleFilter('recall')}
               className={[
-                'px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
+                'px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active-bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
                 isFilterActive('recall')
                   ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                   : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'

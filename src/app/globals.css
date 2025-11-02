@@ -165,4 +165,12 @@ body {
     margin-inline: auto;
     padding-inline: min(3rem, 4vw);
   }
+  /* Oculta scrollbars pero mantiene el scroll funcional */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE & Edge */
+    scrollbar-width: none; /* Firefox */
+  }
 }
