@@ -1,13 +1,13 @@
 'use client'
 
-import React from 'react'
-import CloseRounded from '@mui/icons-material/CloseRounded'
 import AddRounded from '@mui/icons-material/AddRounded'
-import VisibilityRounded from '@mui/icons-material/VisibilityRounded'
+import AttachEmailRounded from '@mui/icons-material/AttachEmailRounded'
+import CloseRounded from '@mui/icons-material/CloseRounded'
+import DownloadRounded from '@mui/icons-material/DownloadRounded'
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
 import PictureAsPdfRounded from '@mui/icons-material/PictureAsPdfRounded'
-import AttachEmailRounded from '@mui/icons-material/AttachEmailRounded'
-import DownloadRounded from '@mui/icons-material/DownloadRounded'
+import VisibilityRounded from '@mui/icons-material/VisibilityRounded'
+import React from 'react'
 import UploadConsentModal from './UploadConsentModal'
 
 type ConsentsProps = {
@@ -22,10 +22,30 @@ type ConsentRow = {
 }
 
 const MOCK_ROWS: ConsentRow[] = [
-  { id: 'c1', name: 'Tratamiento de datos.pdf', sentAt: '19/08/2024', status: 'Firmado' },
-  { id: 'c2', name: 'Tratamiento de datos.pdf', sentAt: '19/08/2024', status: 'Enviado' },
-  { id: 'c3', name: 'Tratamiento de datos.pdf', sentAt: '19/08/2024', status: 'Enviado' },
-  { id: 'c4', name: 'Tratamiento de datos.pdf', sentAt: '19/08/2024', status: 'Enviado' }
+  {
+    id: 'c1',
+    name: 'Tratamiento de datos.pdf',
+    sentAt: '19/08/2024',
+    status: 'Firmado'
+  },
+  {
+    id: 'c2',
+    name: 'Tratamiento de datos.pdf',
+    sentAt: '19/08/2024',
+    status: 'Enviado'
+  },
+  {
+    id: 'c3',
+    name: 'Tratamiento de datos.pdf',
+    sentAt: '19/08/2024',
+    status: 'Enviado'
+  },
+  {
+    id: 'c4',
+    name: 'Tratamiento de datos.pdf',
+    sentAt: '19/08/2024',
+    status: 'Enviado'
+  }
 ]
 
 function StatusBadge({ status }: { status: ConsentRow['status'] }) {
@@ -44,9 +64,16 @@ function StatusBadge({ status }: { status: ConsentRow['status'] }) {
   )
 }
 
+type ToastVariant = 'success' | 'error'
+
 export default function Consents({ onClose }: ConsentsProps) {
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null)
   const [isUploadOpen, setIsUploadOpen] = React.useState(false)
+  const [rows, setRows] = React.useState<ConsentRow[]>(MOCK_ROWS)
+  const [toast, setToast] = React.useState<{
+    message: string
+    variant: ToastVariant
+  } | null>(null)
 
   React.useEffect(() => {
     function handleGlobalClick(e: MouseEvent) {
@@ -75,7 +102,9 @@ export default function Consents({ onClose }: ConsentsProps) {
 
       {/* Header */}
       <div className='absolute left-8 top-10 w-[35.5rem]'>
-        <p className='text-[28px] leading-[36px] text-neutral-900'>Consentimientos</p>
+        <p className='text-[28px] leading-[36px] text-neutral-900'>
+          Consentimientos
+        </p>
         <p className='text-body-sm text-neutral-900 mt-2'>
           Gestiona todos los consentimientos de los pacientes.
         </p>
@@ -112,10 +141,14 @@ export default function Consents({ onClose }: ConsentsProps) {
 
           {/* Rows */}
           <div className='absolute left-0 right-0 top-[9.5rem] bottom-6 overflow-y-auto'>
-            {MOCK_ROWS.map((row, idx) => {
+            {rows.map((row, idx) => {
               const topOffset = idx * 72
               return (
-                <div key={row.id} className='absolute left-0 right-0' style={{ top: topOffset }}>
+                <div
+                  key={row.id}
+                  className='absolute left-0 right-0'
+                  style={{ top: topOffset }}
+                >
                   {/* File + name + date small */}
                   <div className='absolute left-8 w-[589px] h-[72px] border-b border-neutral-300 flex items-center gap-4 p-2'>
                     <div className='flex items-center justify-center w-[42px] h-[49px]'>
@@ -134,7 +167,9 @@ export default function Consents({ onClose }: ConsentsProps) {
 
                   {/* Sent date */}
                   <div className='absolute left-[calc(60%+100.6px)] w-[238px] h-[72px] border-b border-neutral-300 flex items-center p-2'>
-                    <p className='text-body-md text-neutral-900'>{row.sentAt}</p>
+                    <p className='text-body-md text-neutral-900'>
+                      {row.sentAt}
+                    </p>
                   </div>
 
                   {/* Actions */}
@@ -145,7 +180,9 @@ export default function Consents({ onClose }: ConsentsProps) {
                       aria-haspopup='menu'
                       aria-expanded={openMenuRowId === row.id}
                       onClick={() =>
-                        setOpenMenuRowId((prev) => (prev === row.id ? null : row.id))
+                        setOpenMenuRowId((prev) =>
+                          prev === row.id ? null : row.id
+                        )
                       }
                       className='size-8 grid place-items-center rounded-md hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
                       data-consents-trigger='true'
@@ -170,7 +207,9 @@ export default function Consents({ onClose }: ConsentsProps) {
                           className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
                         >
                           <AttachEmailRounded className='size-5' />
-                          <span className='text-body-md'>Enviar Consentimiento</span>
+                          <span className='text-body-md'>
+                            Enviar Consentimiento
+                          </span>
                         </button>
                         <button
                           type='button'
@@ -179,7 +218,9 @@ export default function Consents({ onClose }: ConsentsProps) {
                           className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left text-[var(--color-neutral-600)] cursor-not-allowed'
                         >
                           <AttachEmailRounded className='size-5' />
-                          <span className='text-body-md'>Enviar copia firmada</span>
+                          <span className='text-body-md'>
+                            Enviar copia firmada
+                          </span>
                         </button>
                         <button
                           type='button'
@@ -205,13 +246,49 @@ export default function Consents({ onClose }: ConsentsProps) {
       <UploadConsentModal
         open={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
+        onError={(msg) => {
+          setToast({ message: msg, variant: 'error' })
+          window.setTimeout(() => setToast(null), 3500)
+        }}
         onFileSelected={(f) => {
-          console.log('Archivo seleccionado', f.name)
+          const d = new Date()
+          const dd = String(d.getDate()).padStart(2, '0')
+          const mm = String(d.getMonth() + 1).padStart(2, '0')
+          const yyyy = d.getFullYear()
+          const newRow: ConsentRow = {
+            id: `new-${Date.now()}`,
+            name: f.name || 'consentimiento.pdf',
+            sentAt: `${dd}/${mm}/${yyyy}`,
+            status: 'Enviado'
+          }
+          setRows((prev) => [newRow, ...prev])
+          setToast({ message: 'Consentimiento añadido', variant: 'success' })
+          window.setTimeout(() => setToast(null), 3000)
           setIsUploadOpen(false)
         }}
       />
+      {toast && (
+        <div className='fixed right-4 bottom-4 z-[200]'>
+          <div
+            className={[
+              'min-w-[240px] max-w-[360px] rounded-lg border shadow-[var(--shadow-cta)] px-3 py-2 flex items-start gap-2',
+              toast.variant === 'success'
+                ? 'bg-[var(--color-success-50)] border-[var(--color-success-200)] text-[var(--color-success-800)]'
+                : 'bg-[var(--color-error-50)] border-[var(--color-error-200)] text-[var(--color-error-800)]'
+            ].join(' ')}
+          >
+            <p className='text-body-md flex-1'>{toast.message}</p>
+            <button
+              type='button'
+              aria-label='Cerrar aviso'
+              className='ml-2 leading-none text-body-md'
+              onClick={() => setToast(null)}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
-
-

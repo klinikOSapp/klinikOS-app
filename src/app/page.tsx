@@ -1,26 +1,26 @@
 'use client'
 
-import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import React from 'react'
 
 export default function PreAuthLanding() {
   const [accepted, setAccepted] = React.useState(false)
 
   return (
     <main
-      className='min-h-screen w-full relative overflow-hidden'
+      className='min-h-[100dvh] w-full relative overflow-hidden'
       style={{
         backgroundImage:
           'linear-gradient(180deg, rgba(81,214,199,1) 0%, rgba(199,210,255,1) 100%)'
       }}
     >
-      <div className='absolute inset-0 grid place-items-center px-fluid-md py-fluid-lg'>
+      <div className='absolute inset-0 grid place-items-center px-fluid-md'>
         <div
-          className='backdrop-blur-[var(--blur-landing)] bg-[rgba(248,250,251,0.8)] w-full relative overflow-hidden'
+          className='backdrop-blur-[var(--blur-landing)] bg-[rgba(248,250,251,0.8)] w-full relative overflow-hidden mx-auto'
           style={{
-            width: 'var(--landing-card-width)',
-            height: 'var(--landing-card-height)',
+            width: 'min(var(--landing-card-width), 100%)',
+            height: 'min(var(--landing-card-height), var(--landing-max-h))',
             borderRadius: 'var(--radius-card-lg)',
             boxShadow: 'var(--shadow-landing-card)'
           }}
@@ -39,7 +39,11 @@ export default function PreAuthLanding() {
               alt='Logo klinikOS'
               width={0}
               height={0}
-              style={{ width: 'var(--landing-hero-size)', height: 'auto', justifySelf: 'center' }}
+              style={{
+                width: 'var(--landing-hero-size)',
+                height: 'auto',
+                justifySelf: 'center'
+              }}
               priority
             />
 
@@ -75,7 +79,10 @@ export default function PreAuthLanding() {
               <Link
                 href='/login'
                 className='rounded-[var(--radius-pill)] grid place-items-center bg-neutral-100 text-neutral-900 text-body-md font-inter'
-                style={{ height: 'var(--landing-cta-height)', boxShadow: 'var(--shadow-button-soft)' }}
+                style={{
+                  height: 'var(--landing-cta-height)',
+                  boxShadow: 'var(--shadow-button-soft)'
+                }}
               >
                 Iniciar sesión
               </Link>
@@ -92,10 +99,18 @@ export default function PreAuthLanding() {
                 checked={accepted}
                 onChange={(e) => setAccepted(e.target.checked)}
               />
-              <label htmlFor='accept' className='text-label-sm text-neutral-900'>
+              <label
+                htmlFor='accept'
+                className='text-label-sm text-neutral-900'
+              >
                 Haciendo click en la casilla acepto los{' '}
-                <a className='text-brand-500 hover:underline' href='#'>términos y condiciones</a>{' '}y la{' '}
-                <a className='text-brand-500 hover:underline' href='#'>política de privacidad</a>
+                <a className='text-brand-500 hover:underline' href='#'>
+                  términos y condiciones
+                </a>{' '}
+                y la{' '}
+                <a className='text-brand-500 hover:underline' href='#'>
+                  política de privacidad
+                </a>
               </label>
             </div>
           </div>
@@ -104,5 +119,3 @@ export default function PreAuthLanding() {
     </main>
   )
 }
-
-
