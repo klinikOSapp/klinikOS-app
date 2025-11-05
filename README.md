@@ -36,3 +36,47 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 # klinikOS-app
 # klinikOS-app
+
+## Design tokens y utilidades Tailwind
+
+Se han añadido tokens semánticos en `src/app/globals.css` y se exponen en `tailwind.config.ts`.
+
+Ejemplos de uso:
+
+```tsx
+// Colores semánticos
+<div className="bg-surface text-fg border border-border shadow-elevation-card" />
+
+// Jerarquías de texto
+<h2 className="text-title-md font-inter text-fg">Título</h2>
+<p className="text-body-sm text-fg-secondary">Contenido</p>
+
+// Estados
+<span className="text-state-success">+12%</span>
+
+// Data viz
+<svg>
+  <path className="stroke-chart-1" />
+  <path className="stroke-chart-2" />
+  <g className="stroke-chart-grid" />
+  <g className="stroke-chart-axis" />
+  <path className="fill-chart-3" />
+  <path className="fill-chart-4" />
+  <path className="stroke-chart-accent" />
+  <path className="stroke-chart-threshold" />
+  <path className="stroke-chart-negative" />
+  
+// Focus ring
+<button className="focus:outline-none focus:ring-2 focus:ring-focus">OK</button>
+```
+
+Tokens principales disponibles:
+
+- Fondo y superficies: `bg-surface`, `bg-surface-accent`, `bg-surface-app`
+- Texto: `text-fg`, `text-fg-secondary`, `text-fg-muted`, `text-fg-inverse`, `text-fg-link`
+- Bordes: `border-border`
+- Marca: `text-brandSemantic`, `text-brandSemantic-strong`, `text-brandSemantic-weak`
+- Estados: `text-state-success`, `text-state-warning`, `text-state-info`, `text-state-danger`
+- Gráficos: `stroke-chart-{1..4}`, `stroke-chart-accent`, `stroke-chart-grid`, `stroke-chart-axis`, `stroke-chart-negative`, `stroke-chart-threshold`
+- Sombras: `shadow-elevation-card`, `shadow-elevation-popover`
+- Radios: `rounded-lg`, `rounded-pill`, `rounded-full`

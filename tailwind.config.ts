@@ -91,8 +91,42 @@ export default {
           800: '#5A1EAF'
         },
         surface: {
-          app: 'var(--color-surface-app)',
+          app: 'var(--color-page-bg)',
+          DEFAULT: 'var(--color-surface)',
+          accent: 'var(--color-surface-accent)',
           popover: 'var(--color-surface-popover)'
+        },
+        fg: {
+          DEFAULT: 'var(--color-text-primary)',
+          secondary: 'var(--color-text-secondary)',
+          muted: 'var(--color-text-muted)',
+          inverse: 'var(--color-text-inverse)',
+          link: 'var(--color-link)'
+        },
+        border: {
+          DEFAULT: 'var(--color-border)'
+        },
+        brandSemantic: {
+          DEFAULT: 'var(--color-brand)',
+          strong: 'var(--color-brand-strong)',
+          weak: 'var(--color-brand-weak)'
+        },
+        state: {
+          success: 'var(--color-success)',
+          warning: 'var(--color-warning)',
+          info: 'var(--color-info)',
+          danger: 'var(--color-danger)'
+        },
+        chart: {
+          1: 'var(--chart-1)',
+          2: 'var(--chart-2)',
+          3: 'var(--chart-3)',
+          4: 'var(--chart-4)',
+          accent: 'var(--chart-accent)',
+          grid: 'var(--chart-grid)',
+          axis: 'var(--chart-axis)',
+          negative: 'var(--chart-negative)',
+          threshold: 'var(--chart-threshold)'
         }
       },
       spacing: {
@@ -108,6 +142,12 @@ export default {
         gapmd: '1rem', // 16px ÷ 16
         plnav: '1.5rem', // 24px ÷ 16
 
+        // Dashboard spacing
+        'card-gap': 'var(--spacing-card-gap)', // 24px - separación entre cards
+        'section-gap': 'var(--spacing-section-gap)', // 32px - separación entre secciones
+        'card-padding': 'var(--spacing-card-padding)', // 16px - padding interno
+        'chart-margin': 'var(--spacing-chart-margin)', // 16px - márgenes de gráficos
+
         // Fluid spacing - already correct, keep as-is
         'fluid-sm': 'clamp(0.5rem, 1vw, 1rem)',
         'fluid-md': 'clamp(1rem, 2vw, 1.5rem)',
@@ -116,11 +156,19 @@ export default {
       },
       borderRadius: {
         xl: '1rem', // 16px ÷ 16
-        'tl-16': '1rem' // 16px ÷ 16
+        'tl-16': '1rem', // 16px ÷ 16
+        lg: 'var(--radius-lg)',
+        pill: 'var(--radius-pill)',
+        full: 'var(--radius-full)'
       },
       boxShadow: {
         cta: '0 1px 2px 0 rgba(0,0,0,0.3), 0 1px 3px 1px rgba(0,0,0,0.15)',
-        'nav-active': 'inset 4px 0 0 0 #A8EFE7'
+        'nav-active': 'inset 4px 0 0 0 #A8EFE7',
+        'elevation-card': 'var(--shadow-elevation-card)',
+        'elevation-popover': 'var(--shadow-elevation-popover)'
+      },
+      ringColor: {
+        focus: 'var(--color-focus)'
       },
       fontFamily: {
         inter: [
@@ -136,6 +184,22 @@ export default {
           'var(--text-kpi)',
           { lineHeight: 'var(--leading-kpi)', fontWeight: '500' }
         ],
+        'display-lg': [
+          'var(--text-display-lg)',
+          { lineHeight: 'var(--leading-display-lg)', fontWeight: '400' }
+        ],
+        'display-md': [
+          'var(--text-display-md)',
+          { lineHeight: 'var(--leading-display-md)', fontWeight: '400' }
+        ],
+        'headline-lg': [
+          'var(--text-headline-lg)',
+          { lineHeight: 'var(--leading-headline-lg)', fontWeight: '400' }
+        ],
+        'headline-sm': [
+          'var(--text-headline-sm)',
+          { lineHeight: 'var(--leading-headline-sm)', fontWeight: '400' }
+        ],
         'title-lg': [
           'var(--text-title-lg)',
           { lineHeight: 'var(--leading-title-lg)', fontWeight: '500' }
@@ -147,6 +211,10 @@ export default {
         'title-sm': [
           'var(--text-title-sm)',
           { lineHeight: 'var(--leading-title-sm)', fontWeight: '500' }
+        ],
+        'body-lg': [
+          'var(--text-body-lg)',
+          { lineHeight: 'var(--leading-body-lg)', fontWeight: '400' }
         ],
         'body-md': [
           'var(--text-body-md)',
@@ -175,6 +243,17 @@ export default {
       maxWidth: {
         content: '100rem', // 1600px ÷ 16
         layout: '120rem' // 1920px ÷ 16
+      },
+
+      // Dashboard component dimensions
+      height: {
+        'card-stat': 'var(--height-card-stat)', // 163px - cards de estadísticas
+        'card-chart': 'var(--height-card-chart)' // 342px - cards con gráficos
+      },
+      width: {
+        'card-stat': 'var(--width-card-stat)', // 523px - ancho card estadística
+        'card-chart-lg': 'var(--width-card-chart-lg)', // 1069px - ancho card grande
+        'card-chart-md': 'var(--width-card-chart-md)' // 529px - ancho card mediano
       }
     }
   }
