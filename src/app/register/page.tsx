@@ -13,19 +13,16 @@ export default function RegisterPage() {
   return (
     <main
       className='min-h-[100dvh] w-full relative overflow-hidden'
-      style={{
-        backgroundImage:
-          'linear-gradient(180deg, rgba(81,214,199,1) 0%, rgba(199,210,255,1) 100%)'
-      }}
+      style={{ backgroundImage: 'var(--prelogin-bg-gradient)' }}
     >
       <div className='absolute inset-0 grid place-items-center px-fluid-md'>
         <div
           className='backdrop-blur-[var(--blur-landing)] bg-[var(--color-surface-overlay)] w-full relative overflow-hidden mx-auto'
           style={{
-            width: 'min(var(--landing-card-width), 100%)',
-            height: 'min(var(--landing-card-height), var(--landing-max-h))',
-            borderRadius: 'var(--radius-card-lg)',
-            boxShadow: 'var(--elevation-card-soft)'
+            width: 'min(var(--modal-card-width), 100%)',
+            height: 'min(var(--modal-card-height), var(--modal-max-h))',
+            borderRadius: 'var(--modal-radius-lg)',
+            boxShadow: 'var(--modal-shadow)'
           }}
         >
           <div
@@ -71,14 +68,14 @@ export default function RegisterPage() {
 
             <div
               className='w-full grid gap-gapmd justify-self-center'
-              style={{ maxWidth: 'var(--landing-actions-width)' }}
+              style={{ maxWidth: 'var(--modal-actions-width)' }}
             >
               {/* Apple */}
               <button
                 type='button'
                 className='rounded-[var(--radius-pill)] grid place-items-center bg-neutral-100 text-neutral-900 text-body-md font-inter'
                 style={{
-                  height: 'var(--landing-cta-height)',
+                  height: 'var(--modal-cta-height)',
                   boxShadow: 'var(--shadow-button-soft)'
                 }}
               >
@@ -98,7 +95,7 @@ export default function RegisterPage() {
                 type='button'
                 className='rounded-[var(--radius-pill)] grid place-items-center bg-neutral-100 text-neutral-900 text-body-md font-inter'
                 style={{
-                  height: 'var(--landing-cta-height)',
+                  height: 'var(--modal-cta-height)',
                   boxShadow: 'var(--shadow-button-soft)'
                 }}
               >
@@ -118,7 +115,7 @@ export default function RegisterPage() {
                 type='button'
                 className='rounded-[var(--radius-pill)] grid place-items-center bg-neutral-100 text-neutral-900 text-body-md font-inter'
                 style={{
-                  height: 'var(--landing-cta-height)',
+                  height: 'var(--modal-cta-height)',
                   boxShadow: 'var(--shadow-button-soft)'
                 }}
               >
@@ -139,7 +136,7 @@ export default function RegisterPage() {
                 onClick={() => setOpenEmailModal(true)}
                 className='rounded-[var(--radius-pill)] grid place-items-center bg-neutral-100 text-neutral-900 text-body-md font-inter'
                 style={{
-                  height: 'var(--landing-cta-height)',
+                  height: 'var(--modal-cta-height)',
                   boxShadow: 'var(--shadow-button-soft)'
                 }}
               >

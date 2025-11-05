@@ -45,10 +45,10 @@ export default function EmailRegisterModal({
           className='backdrop-blur-[var(--blur-landing)] bg-[var(--color-surface-overlay)] w-full relative overflow-hidden mx-auto'
           onClick={(e) => e.stopPropagation()}
           style={{
-            width: 'min(var(--landing-card-width), 100%)',
-            height: 'min(var(--landing-card-height), var(--landing-max-h))',
-            borderRadius: 'var(--radius-card-lg)',
-            boxShadow: 'var(--elevation-card-soft)'
+            width: 'min(var(--modal-card-width), 100%)',
+            height: 'min(var(--modal-card-height), var(--modal-max-h))',
+            borderRadius: 'var(--modal-radius-lg)',
+            boxShadow: 'var(--modal-shadow)'
           }}
         >
           {step === 'form' ? (
@@ -67,7 +67,7 @@ export default function EmailRegisterModal({
               className='absolute left-0 right-0 px-fluid-lg text-center'
               style={{
                 top: 'var(--modal-header-top)',
-                maxWidth: 'var(--landing-actions-width)',
+                maxWidth: 'var(--modal-actions-width)',
                 marginInline: 'auto'
               }}
             >
@@ -97,7 +97,7 @@ export default function EmailRegisterModal({
                 className='space-y-4'
                 style={{
                   marginTop: 'var(--modal-copy-to-first-gap)',
-                  maxWidth: 'var(--landing-actions-width)',
+                  maxWidth: 'var(--modal-actions-width)',
                   marginInline: 'auto'
                 }}
               >
@@ -237,14 +237,14 @@ export default function EmailRegisterModal({
               <div
                 style={{
                   marginTop: 'var(--modal-cta-top-gap)',
-                  maxWidth: 'var(--landing-actions-width)',
+                  maxWidth: 'var(--modal-actions-width)',
                   marginInline: 'auto'
                 }}
               >
                 <button
                   type='button'
                   className='w-full rounded-[var(--radius-pill)] grid place-items-center bg-brand-500 border border-[var(--color-border-default)] text-brand-900 text-body-md font-inter'
-                  style={{ height: 'var(--landing-cta-height)' }}
+                  style={{ height: 'var(--modal-cta-height)' }}
                   onClick={() => setStep('photo')}
                 >
                   Continuar

@@ -33,15 +33,18 @@ export default function LoginPage() {
   }
 
   return (
-    <main className='min-h-[100dvh] w-full relative overflow-hidden bg-surface-app'>
+    <main
+      className='min-h-[100dvh] w-full relative overflow-hidden'
+      style={{ backgroundImage: 'var(--prelogin-bg-gradient)' }}
+    >
       <div className='absolute inset-0 grid place-items-center px-fluid-md'>
         <div
-          className='backdrop-blur-[var(--blur-landing)] bg-[var(--color-surface-modal)] w-full relative overflow-hidden mx-auto'
+          className='backdrop-blur-[var(--blur-landing)] bg-[var(--color-surface-overlay)] w-full relative overflow-hidden mx-auto'
           style={{
-            width: 'min(var(--landing-card-width), 100%)',
-            height: 'min(var(--landing-card-height), var(--landing-max-h))',
-            borderRadius: 'var(--radius-card-lg)',
-            boxShadow: 'var(--shadow-landing-card)'
+            width: 'min(var(--modal-card-width), 100%)',
+            height: 'min(var(--modal-card-height), var(--modal-max-h))',
+            borderRadius: 'var(--modal-radius-lg)',
+            boxShadow: 'var(--modal-shadow)'
           }}
         >
           <div
@@ -64,7 +67,14 @@ export default function LoginPage() {
             </div>
 
             <div className='text-center'>
-              <h1 className='text-title-md font-inter text-neutral-900'>
+              <h1
+                className='font-inter text-neutral-900'
+                style={{
+                  fontSize: 'var(--text-title-landing)',
+                  lineHeight: 'var(--leading-title-landing)',
+                  fontWeight: 500
+                }}
+              >
                 Accede a klinikOS
               </h1>
               <p className='mt-gapsm text-body-md text-neutral-900'>
@@ -75,7 +85,7 @@ export default function LoginPage() {
             <form
               onSubmit={handleSubmit}
               className='grid gap-gapmd justify-self-center w-full'
-              style={{ maxWidth: 'var(--landing-actions-width)' }}
+              style={{ maxWidth: 'var(--modal-actions-width)' }}
             >
               {errorMessage ? (
                 <div className='rounded-xl border border-error-200 bg-error-50 text-error-600 px-fluid-md py-[0.5rem] text-body-sm'>
@@ -173,7 +183,7 @@ export default function LoginPage() {
                 type='submit'
                 disabled={isLoading}
                 className='w-full rounded-[var(--radius-pill)] bg-brand-600 hover:bg-brand-700 text-neutral-0 text-body-md font-inter shadow-cta disabled:opacity-70 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-brand-200'
-                style={{ height: 'var(--landing-cta-height)' }}
+                style={{ height: 'var(--modal-cta-height)' }}
               >
                 {isLoading ? 'Accediendo…' : 'Acceder'}
               </button>

@@ -147,6 +147,22 @@
   --shadow-button-soft: 0px 2px 2px 0px rgba(0, 0, 0, 0.1);
   --landing-bottom-gap: 2.8125rem; /* 45px */
 
+  /* Modal tokens (semantic aliases, reused by auth) */
+  --modal-card-width: var(--landing-card-width);
+  --modal-card-height: var(--landing-card-height);
+  --modal-max-h: var(--landing-max-h);
+  --modal-radius-lg: var(--radius-card-lg);
+  --modal-shadow: var(--elevation-card-soft);
+  --modal-actions-width: var(--landing-actions-width);
+  --modal-cta-height: var(--landing-cta-height);
+
+  /* Pre-login background (shared for /login and /register) */
+  --prelogin-bg-gradient: linear-gradient(
+    180deg,
+    rgba(81, 214, 199, 1) 0%,
+    rgba(199, 210, 255, 1) 100%
+  );
+
   /* Aliases semánticos propuestos */
   --color-surface-overlay: rgba(248, 250, 251, 0.8);
   --color-border-default: var(--color-neutral-300);
