@@ -12,25 +12,34 @@ export default function PatientsSummary({
   items = defaultItems
 }: PatientsSummaryProps) {
   return (
-    <section className='bg-surface rounded-lg shadow-elevation-card p-fluid-md'>
-      <header className='flex items-center justify-between'>
-        <h3 className='text-title-md text-fg'>Pacientes</h3>
-        <div className='text-label-sm text-fg-secondary'>{yearLabel} ▾</div>
+    <section className='bg-surface rounded-lg shadow-elevation-card p-4 h-card-stat'>
+      <header className='flex items-center justify-between mb-4'>
+        <h3 className='text-title-sm font-medium text-fg'>Pacientes</h3>
+        <div className='flex items-center gap-1 text-label-sm text-fg'>
+          <span>{yearLabel}</span>
+          <span className='material-symbols-rounded text-[16px]'>arrow_drop_down</span>
+        </div>
       </header>
-      <div className='grid grid-cols-1 sm:grid-cols-3 gap-fluid-sm pt-fluid-sm'>
+      <div className='grid grid-cols-3 gap-4'>
         {items.map((i) => (
-          <div key={i.label} className='bg-surface-app rounded-lg p-fluid-sm'>
-            <div className='flex items-center justify-between text-label-sm text-fg-secondary'>
+          <div key={i.label} className='bg-surface-app rounded-lg p-2 h-full flex flex-col justify-between'>
+            <div className='flex items-center justify-between text-label-sm text-fg-secondary mb-2'>
               <span>{i.label}</span>
-              <span className='text-fg'>{i.percent}</span>
+              <span className='font-medium text-fg'>{i.percent}</span>
             </div>
             {i.kpi ? (
               <div className='flex items-center gap-2'>
-                <div className='text-display-md text-state-success'>+ 12%</div>
-                <span className='material-symbols-rounded text-state-success'>trending_up</span>
+                <div className='text-headline-lg text-brandSemantic'>+ 12%</div>
+                <span className='material-symbols-rounded text-brandSemantic text-[34px]'>arrow_outward</span>
               </div>
             ) : (
-              <div className='text-headline-sm text-fg'>{i.value}</div>
+              <>
+                <div className='text-headline-sm text-fg-secondary mb-1'>{i.value}</div>
+                <div className='flex items-center gap-1'>
+                  <span className='text-body-sm text-brandSemantic'>+ 12%</span>
+                  <span className='material-symbols-rounded text-brandSemantic text-[16px]'>arrow_outward</span>
+                </div>
+              </>
             )}
           </div>
         ))}

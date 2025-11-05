@@ -6,16 +6,16 @@ export default function ProductionTotalCard({
   delta = '+ 35%'
 }: ProductionTotalCardProps) {
   return (
-    <section className='bg-brandSemantic-strong text-fg-inverse rounded-lg shadow-elevation-card p-fluid-md'>
-      <header className='flex items-baseline gap-fluid-md'>
-        <h3 className='text-title-md'>Producción total</h3>
-        <div className='text-label-sm opacity-80'>{periodLabel}</div>
+    <section className='bg-brand-900 text-fg-inverse rounded-lg shadow-elevation-card p-4 h-card-stat flex flex-col justify-between'>
+      <header className='flex items-baseline gap-4'>
+        <h3 className='text-title-sm font-medium'>Producción total</h3>
+        <div className='text-label-sm'>{periodLabel}</div>
       </header>
-      <div className='flex items-baseline gap-fluid-md pt-fluid-md'>
-        <div className='text-display-md'>{value}</div>
-        <div className='flex items-center gap-2 text-state-success'>
-          <span className='text-body-lg'>{delta}</span>
-          <span className='material-symbols-rounded'>trending_up</span>
+      <div className='flex items-baseline gap-4'>
+        <div className='text-display-lg'>{value}</div>
+        <div className='flex items-center gap-2'>
+          <span className='text-body-lg text-brandSemantic'>{delta}</span>
+          <span className='material-symbols-rounded text-brandSemantic'>arrow_outward</span>
         </div>
       </div>
     </section>
