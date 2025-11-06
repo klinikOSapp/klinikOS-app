@@ -10,7 +10,7 @@ export default function ProductionTotalCard({
   delta = '+ 35%'
 }: ProductionTotalCardProps) {
   return (
-    <section className='bg-brand-900 text-fg-inverse rounded-lg shadow-elevation-card p-fluid-md flex flex-col justify-between h-card-stat-fluid'>
+    <section className='bg-brand-900 text-fg-inverse rounded-lg shadow-elevation-card p-fluid-md flex flex-col justify-between h-card-stat-fluid w-card-stat-fluid shrink-0'>
       <header className='flex items-baseline gap-fluid-sm shrink-0'>
         <h3 className='text-title-sm font-medium'>Producción total</h3>
         <div className='text-label-sm'>{periodLabel}</div>

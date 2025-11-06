@@ -17,7 +17,7 @@ export default function PatientsSummary({
   items = defaultItems
 }: PatientsSummaryProps) {
   return (
-    <section className='bg-surface rounded-lg shadow-elevation-card p-fluid-md h-card-stat-fluid'>
+    <section className='bg-surface rounded-lg shadow-elevation-card p-fluid-md h-card-stat-fluid w-card-stat-fluid shrink-0'>
       <header className='flex items-center justify-between mb-fluid-sm'>
         <h3 className='text-title-sm font-medium text-fg'>Pacientes</h3>
         <div className='flex items-center gap-1 text-label-sm text-fg'>

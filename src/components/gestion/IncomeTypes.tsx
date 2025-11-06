@@ -12,7 +12,7 @@ export default function IncomeTypes({
   items = defaultItems
 }: IncomeTypesProps) {
   return (
-    <section className='bg-surface rounded-lg shadow-elevation-card p-card-pad h-card-stat-fluid'>
+    <section className='bg-surface rounded-lg shadow-elevation-card p-card-pad h-card-stat-fluid w-card-stat-fluid shrink-0'>
       <header className='flex items-center justify-between mb-header-cards'>
         <h3 className='text-title-sm font-medium text-fg'>Tipos de ingreso</h3>
         <div className='flex items-center gap-card-metric text-label-sm text-fg'>

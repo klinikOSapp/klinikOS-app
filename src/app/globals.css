@@ -187,6 +187,11 @@
   --height-card-stat-fluid: clamp(8rem, 10vw, 10.1875rem); /* 128px → 163px */
   --height-card-chart-fluid: clamp(16rem, 21vw, 21.375rem); /* 256px → 342px */
 
+  /* Fluid widths - adapt to viewport */
+  --width-card-stat-fluid: clamp(20rem, 30vw, 32.6875rem); /* 320px → 523px */
+  --width-card-chart-lg-fluid: clamp(40rem, 63vw, 66.8125rem); /* 640px → 1069px */
+  --width-card-chart-md-fluid: clamp(20rem, 31vw, 33.0625rem); /* 320px → 529px */
+
   /* Tables (semantic) */
   /* Row height based on fluid base (40px at 16px) */
   --height-row-md: 2.5rem;

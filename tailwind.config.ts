@@ -156,6 +156,9 @@ export default {
         'stats-offset': 'var(--spacing-stats-offset)',
         'charts-offset': 'var(--spacing-charts-offset)',
 
+        // Gap between main dashboard cards (horizontal)
+        'cards-gap': 'var(--spacing-card-gap)',
+
         // Fluid spacing - already correct, keep as-is
         'fluid-sm': 'clamp(0.5rem, 1vw, 1rem)',
         'fluid-md': 'clamp(1rem, 2vw, 1.5rem)',
@@ -261,9 +264,12 @@ export default {
         'card-chart-fluid': 'var(--height-card-chart-fluid)' // 256px → 342px (fluido)
       },
       width: {
-        'card-stat': 'var(--width-card-stat)', // 523px - ancho card estadística
-        'card-chart-lg': 'var(--width-card-chart-lg)', // 1069px - ancho card grande
-        'card-chart-md': 'var(--width-card-chart-md)' // 529px - ancho card mediano
+        'card-stat': 'var(--width-card-stat)', // 523px - ancho card estadística (fijo)
+        'card-chart-lg': 'var(--width-card-chart-lg)', // 1069px - ancho card grande (fijo)
+        'card-chart-md': 'var(--width-card-chart-md)', // 529px - ancho card mediano (fijo)
+        'card-stat-fluid': 'var(--width-card-stat-fluid)', // 320px → 523px (fluido)
+        'card-chart-lg-fluid': 'var(--width-card-chart-lg-fluid)', // 640px → 1069px (fluido)
+        'card-chart-md-fluid': 'var(--width-card-chart-md-fluid)' // 320px → 529px (fluido)
       }
     }
   }

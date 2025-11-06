@@ -14,20 +14,20 @@ export default function GestionPage() {
         <HeaderControls />
 
         {/* First row - Stats cards */}
-        <div className='grid grid-cols-1 md:grid-cols-3 gap-fluid-md mt-header-stack'>
+        <div className='flex gap-6 mt-header-stack overflow-x-auto'>
           <IncomeTypes />
           <PatientsSummary />
           <ProductionTotalCard />
         </div>
 
         {/* Second row - Billing chart + Specialty donut */}
-        <div className='grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-fluid-md mt-gapmd'>
+        <div className='grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6 mt-gapmd'>
           <BillingLineChart />
           <SpecialtyDonut />
         </div>
 
         {/* Third row - Accounting + Professional bars */}
-        <div className='grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-fluid-md mt-gapmd'>
+        <div className='grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6 mt-gapmd'>
           <AccountingPanel />
           <ProfessionalBars />
         </div>
