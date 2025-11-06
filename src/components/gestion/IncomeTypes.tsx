@@ -32,9 +32,7 @@ export default function IncomeTypes({
               <span>{i.label}</span>
               <span className='font-medium text-fg'>{i.percent}</span>
             </div>
-            <div className='text-headline-sm text-fg-secondary'>
-              {i.value}
-            </div>
+            <div className='text-headline-sm text-fg-secondary'>{i.value}</div>
             <div className='flex items-center gap-card-metric'>
               <span className='text-body-sm text-brandSemantic'>+ 12%</span>
               <span className='material-symbols-rounded text-brandSemantic text-[16px]'>
