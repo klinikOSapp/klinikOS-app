@@ -9,32 +9,29 @@ import ProfessionalBars from '@/components/gestion/ProfessionalBars'
 
 export default function GestionPage() {
   return (
-    <div className='bg-surface-app h-full overflow-auto'>
-      <div className='container-page py-fluid-md space-y-fluid-md'>
+    <div className='bg-surface-app min-h-screen overflow-auto'>
+      <div className='container-page py-fluid-md'>
         <HeaderControls />
 
-        <div className='grid grid-cols-1 md:grid-cols-3 gap-fluid-md'>
+        {/* First row - Stats cards */}
+        <div className='grid grid-cols-1 md:grid-cols-3 gap-fluid-md mt-stats-offset'>
           <IncomeTypes />
           <PatientsSummary />
           <ProductionTotalCard />
         </div>
 
-        <div className='grid grid-cols-1 lg:grid-cols-3 gap-fluid-md'>
-          <div className='lg:col-span-2'>
-            <BillingLineChart />
-          </div>
+        {/* Second row - Billing chart + Specialty donut */}
+        <div className='grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-fluid-md mt-charts-offset'>
+          <BillingLineChart />
           <SpecialtyDonut />
         </div>
 
-        <div className='grid grid-cols-1 lg:grid-cols-3 gap-fluid-md'>
-          <div className='lg:col-span-2'>
-            <AccountingPanel />
-          </div>
+        {/* Third row - Accounting + Professional bars */}
+        <div className='grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-fluid-md mt-section-gap'>
+          <AccountingPanel />
           <ProfessionalBars />
         </div>
       </div>
     </div>
   )
 }
-
-

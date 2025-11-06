@@ -142,11 +142,19 @@ export default {
         gapmd: '1rem', // 16px ÷ 16
         plnav: '1.5rem', // 24px ÷ 16
 
-        // Dashboard spacing
-        'card-gap': 'var(--spacing-card-gap)', // 24px - separación entre cards
-        'section-gap': 'var(--spacing-section-gap)', // 32px - separación entre secciones
-        'card-padding': 'var(--spacing-card-padding)', // 16px - padding interno
-        'chart-margin': 'var(--spacing-chart-margin)', // 16px - márgenes de gráficos
+        // Dashboard spacing tokens (CSS variables)
+        'card-pad': 'var(--space-card-pad)',
+        'card-gap': 'var(--space-card-gap)',
+        'card-gap2': 'var(--space-card-gap2)',
+        'card-inner': 'var(--space-card-inner)',
+        'header-cards': 'var(--space-header-cards)',
+        'card-row': 'var(--space-card-row)',
+        'card-metric': 'var(--space-card-metric)',
+
+        // Dashboard vertical spacing offsets
+        'section-gap': 'var(--spacing-section-gap)',
+        'stats-offset': 'var(--spacing-stats-offset)',
+        'charts-offset': 'var(--spacing-charts-offset)',
 
         // Fluid spacing - already correct, keep as-is
         'fluid-sm': 'clamp(0.5rem, 1vw, 1rem)',
@@ -247,8 +255,10 @@ export default {
 
       // Dashboard component dimensions
       height: {
-        'card-stat': 'var(--height-card-stat)', // 163px - cards de estadísticas
-        'card-chart': 'var(--height-card-chart)' // 342px - cards con gráficos
+        'card-stat': 'var(--height-card-stat)', // 163px - cards de estadísticas (fijo)
+        'card-chart': 'var(--height-card-chart)', // 342px - cards con gráficos (fijo)
+        'card-stat-fluid': 'var(--height-card-stat-fluid)', // 128px → 163px (fluido)
+        'card-chart-fluid': 'var(--height-card-chart-fluid)' // 256px → 342px (fluido)
       },
       width: {
         'card-stat': 'var(--width-card-stat)', // 523px - ancho card estadística

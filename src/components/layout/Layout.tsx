@@ -7,7 +7,6 @@ import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
 import BarChartRounded from '@mui/icons-material/BarChartRounded'
 import BadgeRounded from '@mui/icons-material/BadgeRounded'
 import SellRounded from '@mui/icons-material/SellRounded'
-import AnalyticsRounded from '@mui/icons-material/AnalyticsRounded'
 import { LayoutProps } from '@/types/layout'
 
 export default function Layout({ children }: LayoutProps) {
@@ -33,12 +32,6 @@ export default function Layout({ children }: LayoutProps) {
       label: 'Gestión',
       href: '/gestion',
       icon: <BarChartRounded />
-    },
-    {
-      id: 'informes',
-      label: 'Informes',
-      href: '/informes',
-      icon: <AnalyticsRounded />
     }
   ]
 

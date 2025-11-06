@@ -118,6 +118,9 @@ gap-card-gap            // 24px - Separación entre cards
 gap-section-gap         // 32px - Separación entre secciones
 p-card-padding          // 16px - Padding interno de cards
 m-chart-margin          // 16px - Márgenes de gráficos
+mt-stats-offset         // 113px - Offset inicial hasta la primera fila de KPIs
+mt-charts-offset        // 18.25rem - Offset hasta la fila de gráficos
+mt-section-gap          // 32px - Separación vertical estándar entre filas
 
 // Espaciado estándar (ya existente)
 gap-gapsm               // 8px - Gap pequeño
