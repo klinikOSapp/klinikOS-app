@@ -14,7 +14,7 @@ export default function GestionPage() {
         <HeaderControls />
 
         {/* First row - Stats cards */}
-        <div className='grid grid-cols-1 md:grid-cols-3 gap-fluid-md mt-stats-offset'>
+        <div className='grid grid-cols-1 md:grid-cols-3 gap-fluid-md mt-header-stack'>
           <IncomeTypes />
           <PatientsSummary />
           <ProductionTotalCard />
@@ -27,7 +27,7 @@ export default function GestionPage() {
         </div>
 
         {/* Third row - Accounting + Professional bars */}
-        <div className='grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-fluid-md mt-section-gap'>
+        <div className='grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-fluid-md mt-gapmd'>
           <AccountingPanel />
           <ProfessionalBars />
         </div>
