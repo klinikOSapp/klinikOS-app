@@ -159,11 +159,11 @@ export default {
         // Gap between main dashboard cards (horizontal)
         'cards-gap': 'var(--spacing-card-gap)',
 
-        // Fluid spacing - already correct, keep as-is
-        'fluid-sm': 'clamp(0.5rem, 1vw, 1rem)',
-        'fluid-md': 'clamp(1rem, 2vw, 1.5rem)',
-        'fluid-lg': 'clamp(1.5rem, 3vw, 2rem)',
-        'fluid-xl': 'clamp(2rem, 4vw, 3rem)'
+        // Fluid spacing - usando vh para escalar verticalmente
+        'fluid-sm': 'clamp(0.5rem, 1.5vh, 1rem)',
+        'fluid-md': 'clamp(1rem, 2vh, 1.5rem)',
+        'fluid-lg': 'clamp(1.5rem, 2.5vh, 2rem)',
+        'fluid-xl': 'clamp(2rem, 4vh, 3rem)'
       },
       borderRadius: {
         xl: '1rem', // 16px ÷ 16
