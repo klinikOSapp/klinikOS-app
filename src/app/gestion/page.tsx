@@ -21,7 +21,7 @@ export default function GestionPage() {
         </section>
 
         {/* Second row - Billing chart + Specialty donut */}
-        <div className='grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6 mt-gapmd'>
+        <div className='dashboard-grid-charts mt-gapmd'>
           <BillingLineChart />
           <SpecialtyDonut />
         </div>

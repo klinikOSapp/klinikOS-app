@@ -23,8 +23,8 @@ const DEFAULT_SPECIALTIES: SpecialtyShare[] = [
   { label: 'Estética', percentage: 10, colorToken: 'var(--color-brand-800)' }
 ]
 
-const CARD_WIDTH = 'var(--width-card-chart-md)'
-const CARD_HEIGHT = 'var(--height-card-chart)'
+const CARD_WIDTH = 'var(--width-card-chart-md-fluid)'
+const CARD_HEIGHT = 'var(--height-card-chart-fluid)'
 const DONUT_SIZE_REM = 12.6875
 const LEGEND_WIDTH_REM = 8.375
 

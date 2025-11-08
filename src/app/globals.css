@@ -213,14 +213,14 @@
   ); /* 320px → 523px scaled al viewport */
   --width-card-chart-lg-fluid: clamp(
     40rem,
-    63vw,
+    55.7vw,
     66.8125rem
-  ); /* 640px → 1069px */
+  ); /* 640px → 1069px escalado exacto (1069px ÷ 1920px) */
   --width-card-chart-md-fluid: clamp(
     20rem,
-    31vw,
+    27.6vw,
     33.0625rem
-  ); /* 320px → 529px */
+  ); /* 320px → 529px escalado exacto (529px ÷ 1920px) */
 
   /* Tables (semantic) */
   /* Row height based on fluid base (40px at 16px) */
@@ -321,7 +321,7 @@ body {
     gap: var(--spacing-card-gap);
     grid-template-columns: repeat(
       auto-fit,
-      minmax(min(100%, var(--width-card-chart-md)), 1fr)
+      minmax(min(100%, var(--width-card-chart-md-fluid)), 1fr)
     );
   }
 
@@ -347,9 +347,9 @@ body {
 
   @media (min-width: 1024px) {
     .dashboard-grid-charts {
-      grid-template-columns: minmax(0, var(--width-card-chart-lg)) minmax(
+      grid-template-columns: minmax(0, var(--width-card-chart-lg-fluid)) minmax(
           0,
-          var(--width-card-chart-md)
+          var(--width-card-chart-md-fluid)
         );
       justify-content: center;
     }

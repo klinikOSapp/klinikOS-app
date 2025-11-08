@@ -1,5 +1,7 @@
-const CARD_HEIGHT_VAR = 'var(--height-card-chart-fluid)'
-const CARD_WIDTH_VAR = 'var(--width-card-chart-md)'
+import type { CSSProperties } from 'react'
+
+const CARD_HEIGHT_VAR = 'var(--chart-card-height)'
+const CARD_WIDTH_VAR = 'var(--chart-card-width)'
 const AXIS_LEFT_RATIO = (55 / 529).toFixed(6)
 const GRID_WIDTH_RATIO = (438 / 529).toFixed(6)
 const AXIS_HEIGHT_RATIO = (220 / 342).toFixed(6)
@@ -7,11 +9,28 @@ const AREA_HEIGHT_RATIO = (208 / 342).toFixed(6)
 const BAR_HEIGHT_RATIOS = [195, 162, 117, 133].map((value) =>
   (value / 342).toFixed(6)
 )
+const PROFESSIONAL_LABELS = [
+  'Dr. Guille',
+  'Dra. Laura',
+  'Tamara (Hig.)',
+  'Nerea (Hig.)'
+]
+const AXIS_LABELS = [350, 300, 250, 200, 150, 100, 50, 0]
 
 export default function ProfessionalBars() {
+  const cardStyles: CSSProperties = {
+    '--chart-card-width': 'min(var(--width-card-chart-md-fluid), 95vw)',
+    '--chart-card-height': 'min(var(--height-card-chart-fluid), 34vh)',
+    width: 'var(--chart-card-width)',
+    height: 'var(--chart-card-height)'
+  }
+
   return (
-    <section className='bg-surface rounded-lg shadow-elevation-card p-fluid-md h-card-chart-fluid overflow-clip w-full'>
-      <header className='flex items-center justify-between mb-fluid-sm'>
+    <section
+      className='relative flex flex-col rounded-lg bg-surface p-fluid-md shadow-elevation-card overflow-clip'
+      style={cardStyles}
+    >
+      <header className='mb-[min(2.75rem,4vh)] flex items-center justify-between'>
         <h3 className='text-title-sm font-medium text-fg'>
           Facturación por profesional
         </h3>
@@ -23,12 +42,12 @@ export default function ProfessionalBars() {
       </header>
 
       <div
-        className='relative'
+        className='relative w-full'
         style={{ height: `calc(${CARD_HEIGHT_VAR} * ${AXIS_HEIGHT_RATIO})` }}
       >
         {/* Y-axis labels */}
-        <div className='absolute left-0 inset-y-0 flex flex-col justify-between text-label-sm text-fg-muted'>
-          {[350, 300, 250, 200, 150, 100, 50, 0].map((v) => (
+        <div className='absolute inset-y-0 left-0 flex w-max flex-col justify-between text-label-sm text-fg-muted'>
+          {AXIS_LABELS.map((v) => (
             <span key={v}>{v}</span>
           ))}
         </div>
@@ -74,10 +93,9 @@ export default function ProfessionalBars() {
             bottom: 0
           }}
         >
-          <span>Dr. Guille</span>
-          <span>Dra. Laura</span>
-          <span>Tamara (Hig.)</span>
-          <span>Nerea (Hig.)</span>
+          {PROFESSIONAL_LABELS.map((label) => (
+            <span key={label}>{label}</span>
+          ))}
         </div>
       </div>
     </section>
