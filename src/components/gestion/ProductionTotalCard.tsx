@@ -10,16 +10,24 @@ export default function ProductionTotalCard({
   delta = '+ 35%'
 }: ProductionTotalCardProps) {
   return (
-    <section className='bg-brand-900 text-fg-inverse rounded-lg shadow-elevation-card p-fluid-md flex flex-col justify-between h-card-stat-fluid w-card-stat-fluid shrink-0'>
-      <header className='flex items-baseline gap-fluid-sm shrink-0'>
-        <h3 className='text-title-sm font-medium'>Producción total</h3>
-        <div className='text-label-sm'>{periodLabel}</div>
+    <section className='bg-brand-900 text-fg-inverse text-[var(--color-text-inverse)] rounded-lg shadow-elevation-card p-[min(1rem,1.5vw)] flex flex-col gap-[min(2.9375rem,4.5vw)] h-card-stat-fluid w-card-stat-fluid shrink-0'>
+      <header className='flex items-baseline gap-[min(1rem,1.5vw)] shrink-0 text-[var(--color-text-inverse)]'>
+        <h3 className='text-title-sm font-medium text-[var(--color-text-inverse)]'>
+          Producción total
+        </h3>
+        <div className='text-label-md text-[var(--color-text-inverse)]'>
+          {periodLabel}
+        </div>
       </header>
-      <div className='flex items-baseline gap-fluid-md mt-auto'>
-        <div className='text-display-lg'>{value}</div>
-        <div className='flex items-center gap-gapsm'>
-          <span className='text-body-lg text-brandSemantic'>{delta}</span>
-          <span className='material-symbols-rounded text-brandSemantic'>
+      <div className='flex items-baseline gap-[min(1rem,1.5vw)] text-[var(--color-text-inverse)]'>
+        <div className='text-display-lg text-[var(--color-text-inverse)]'>
+          {value}
+        </div>
+        <div className='flex items-center gap-[min(0.5rem,1vw)]'>
+          <span className='text-body-lg text-[var(--color-brand-500)]'>
+            {delta}
+          </span>
+          <span className='material-symbols-rounded text-[var(--color-brand-500)] text-[min(1.5rem,2vw)]'>
             arrow_outward
           </span>
         </div>

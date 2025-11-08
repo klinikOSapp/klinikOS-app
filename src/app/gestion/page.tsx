@@ -14,11 +14,11 @@ export default function GestionPage() {
         <HeaderControls />
 
         {/* First row - Stats cards */}
-        <div className='flex gap-6 mt-header-stack overflow-x-auto'>
+        <section className='dashboard-grid-stats mt-header-stack'>
           <IncomeTypes />
           <PatientsSummary />
           <ProductionTotalCard />
-        </div>
+        </section>
 
         {/* Second row - Billing chart + Specialty donut */}
         <div className='grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6 mt-gapmd'>

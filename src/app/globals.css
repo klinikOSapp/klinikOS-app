@@ -206,7 +206,11 @@
   ); /* 256px → 342px - escala con altura del viewport */
 
   /* Fluid widths - adapt to viewport */
-  --width-card-stat-fluid: clamp(20rem, 30vw, 32.6875rem); /* 320px → 523px */
+  --width-card-stat-fluid: clamp(
+    20rem,
+    27.25vw,
+    32.6875rem
+  ); /* 320px → 523px scaled al viewport */
   --width-card-chart-lg-fluid: clamp(
     40rem,
     63vw,
@@ -272,13 +276,6 @@ html {
   font-size: clamp(14px, calc(0.625vw + 6px), 16px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
@@ -315,7 +312,7 @@ body {
     gap: var(--spacing-card-gap);
     grid-template-columns: repeat(
       auto-fit,
-      minmax(min(100%, var(--width-card-stat)), 1fr)
+      minmax(min(100%, var(--width-card-stat-fluid)), 1fr)
     );
   }
 
@@ -366,7 +363,7 @@ body {
     }
 
     .dashboard-grid-stats {
-      grid-template-columns: repeat(3, minmax(0, var(--width-card-stat)));
+      grid-template-columns: repeat(3, minmax(0, var(--width-card-stat-fluid)));
       justify-content: center;
     }
   }
