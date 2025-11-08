@@ -1,136 +1,144 @@
-type SpecialtyDonutProps = { yearLabel?: string }
+type SpecialtyShare = {
+  label: string
+  percentage: number
+  colorToken: string
+}
 
-const CARD_WIDTH_VAR = 'var(--width-card-chart-md)'
-const DONUT_SIZE_RATIO = (203 / 529).toFixed(6)
+type ProductionTotalCardProps = {
+  year?: string
+  value?: string
+  delta?: string
+  view?: 'barras' | 'circular'
+  specialties?: SpecialtyShare[]
+}
 
-export default function SpecialtyDonut({
-  yearLabel = '2024'
-}: SpecialtyDonutProps) {
+const DEFAULT_SPECIALTIES: SpecialtyShare[] = [
+  {
+    label: 'Conservadora',
+    percentage: 40,
+    colorToken: 'var(--color-brand-50)'
+  },
+  { label: 'Ortodoncia', percentage: 30, colorToken: 'var(--color-brand-200)' },
+  { label: 'Implantes', percentage: 20, colorToken: 'var(--color-brand-500)' },
+  { label: 'Estética', percentage: 10, colorToken: 'var(--color-brand-800)' }
+]
+
+const CARD_WIDTH = 'var(--width-card-chart-md)'
+const CARD_HEIGHT = 'var(--height-card-chart)'
+const DONUT_SIZE_REM = 12.6875
+const LEGEND_WIDTH_REM = 8.375
+
+function buildGradientStops(segments: SpecialtyShare[]) {
+  let cursor = 0
+  return segments
+    .map(({ percentage, colorToken }) => {
+      const start = cursor
+      cursor += percentage
+      return `${colorToken} ${start}% ${cursor}%`
+    })
+    .join(', ')
+}
+
+export default function ProductionTotalCard({
+  year = '2024',
+  value = '€ 56 K',
+  delta = '+ 35%',
+  view = 'circular',
+  specialties = DEFAULT_SPECIALTIES
+}: ProductionTotalCardProps) {
+  const gradientStops = buildGradientStops(specialties)
+
   return (
-    <section className='bg-surface rounded-lg shadow-elevation-card p-fluid-md h-card-chart-fluid overflow-clip w-full'>
-      <header className='flex items-center justify-between mb-fluid-sm'>
+    <section
+      className='relative overflow-clip rounded-lg bg-surface text-fg shadow-elevation-card'
+      style={{
+        width: `min(${CARD_WIDTH}, 95vw)`,
+        height: `min(${CARD_HEIGHT}, calc(100vh - 6rem))`
+      }}
+    >
+      <header className='absolute left-[1rem] top-[1rem] flex w-[min(31.0625rem,calc(95vw-2rem))] items-baseline justify-between'>
         <h3 className='text-title-sm font-medium text-fg'>
           Facturación por especialidad
         </h3>
-        <div className='flex items-center gap-gapsm text-label-sm text-fg'>
-          <span>{yearLabel}</span>
-          <span className='material-symbols-rounded text-[16px]'>
+        <button
+          type='button'
+          className='flex items-center gap-[0.25rem] text-[0.75rem] leading-4 text-fg font-normal'
+          aria-label={`Seleccionar periodo ${year}`}
+        >
+          {year}
+          <span className='material-symbols-rounded text-[1rem] leading-4 text-fg'>
             arrow_drop_down
           </span>
-        </div>
+        </button>
       </header>
 
-      {/* Toggle buttons */}
-      <div className='flex mt-fluid-sm mb-fluid-sm'>
-        <button className='bg-border border border-border px-gapsm py-gapsm rounded-l-2xl text-label-sm text-fg'>
+      <div className='absolute left-[1rem] top-[3.5rem] flex'>
+        <button
+          type='button'
+          className='flex items-center justify-center rounded-l-[1rem] border border-neutral-300 border-r-0 bg-neutral-300 px-[0.5rem] py-[0.25rem] text-[0.75rem] leading-4 text-neutral-900 font-normal'
+          aria-pressed={view === 'barras'}
+        >
           Barras
         </button>
-        <button className='border border-l-0 border-border px-gapsm py-gapsm rounded-r-2xl text-label-sm text-fg'>
+        <button
+          type='button'
+          className='flex items-center justify-center rounded-r-[1rem] border border-neutral-300 px-[0.25rem] py-[0.25rem] text-[0.75rem] leading-4 text-neutral-900 font-normal'
+          aria-pressed={view === 'circular'}
+        >
           Circular
         </button>
       </div>
 
-      <div className='relative flex items-center gap-fluid-md'>
-        {/* Donut Chart */}
+      <div
+        className='absolute left-[1rem] top-[6.5rem] flex items-center justify-center'
+        style={{
+          width: `min(${DONUT_SIZE_REM}rem, 40vw)`,
+          height: `min(${DONUT_SIZE_REM}rem, 40vw)`
+        }}
+        aria-hidden='true'
+      >
         <div
-          className='relative'
+          className='relative size-full rounded-full'
           style={{
-            width: `calc(${CARD_WIDTH_VAR} * ${DONUT_SIZE_RATIO})`,
-            height: `calc(${CARD_WIDTH_VAR} * ${DONUT_SIZE_RATIO})`
+            background: `conic-gradient(${gradientStops})`
           }}
         >
-          <svg viewBox='0 0 203 203' className='size-full -rotate-90'>
-            {/* Background circle */}
-            <circle
-              cx='101.5'
-              cy='101.5'
-              r='76.5'
-              fill='none'
-              stroke='var(--color-brand-50)'
-              strokeWidth='50'
-            />
-            {/* Conservadora 40% - Brand 50 */}
-            <circle
-              cx='101.5'
-              cy='101.5'
-              r='76.5'
-              fill='none'
-              stroke='var(--color-brand-50)'
-              strokeWidth='50'
-              strokeDasharray='192 481'
-              strokeDashoffset='0'
-            />
-            {/* Ortodoncia 30% - Brand 200 */}
-            <circle
-              cx='101.5'
-              cy='101.5'
-              r='76.5'
-              fill='none'
-              stroke='var(--color-brand-200)'
-              strokeWidth='50'
-              strokeDasharray='144 481'
-              strokeDashoffset='-192'
-            />
-            {/* Implantes 20% - Brand 500 */}
-            <circle
-              cx='101.5'
-              cy='101.5'
-              r='76.5'
-              fill='none'
-              stroke='var(--color-brand-500)'
-              strokeWidth='50'
-              strokeDasharray='96 481'
-              strokeDashoffset='-336'
-            />
-            {/* Estética 10% - Brand 800 */}
-            <circle
-              cx='101.5'
-              cy='101.5'
-              r='76.5'
-              fill='none'
-              stroke='var(--color-brand-800)'
-              strokeWidth='50'
-              strokeDasharray='48 481'
-              strokeDashoffset='-432'
-            />
-          </svg>
-
-          {/* Center text */}
-          <div className='absolute inset-0 flex flex-col items-center justify-center'>
-            <p className='text-headline-lg font-bold text-fg'>€ 56 K</p>
-            <div className='flex items-center gap-gapsm mt-gapsm'>
-              <p className='text-body-sm text-brandSemantic'>+ 35%</p>
-              <span className='material-symbols-rounded text-brandSemantic text-[16px]'>
+          <div className='absolute inset-[0.75rem] rounded-full border border-[rgba(255,255,255,0.5)] bg-surface' />
+          <div className='absolute inset-0 flex flex-col items-center justify-center gap-gapsm'>
+            <p className='text-headline-lg text-neutral-900'>{value}</p>
+            <div className='flex items-center gap-gapsm'>
+              <span className='text-body-sm font-normal text-brand-500'>
+                {delta}
+              </span>
+              <span className='material-symbols-rounded text-brand-500 text-[1rem] leading-4'>
                 arrow_outward
               </span>
             </div>
           </div>
         </div>
-
-        {/* Legend */}
-        <div className='flex flex-col gap-gapsm'>
-          <div className='flex items-center gap-gapsm text-label-sm text-fg-800'>
-            <div className='w-3 h-3 rounded-full bg-brand-50' />
-            <span>Conservadora</span>
-            <span className='font-medium'>40%</span>
-          </div>
-          <div className='flex items-center gap-gapsm text-label-sm text-fg-800'>
-            <div className='w-3 h-3 rounded-full bg-brand-200' />
-            <span>Ortodoncia</span>
-            <span className='font-medium'>30%</span>
-          </div>
-          <div className='flex items-center gap-gapsm text-label-sm text-fg-800'>
-            <div className='w-3 h-3 rounded-full bg-brand-500' />
-            <span>Implantes</span>
-            <span className='font-medium'>20%</span>
-          </div>
-          <div className='flex items-center gap-gapsm text-label-sm text-fg-800'>
-            <div className='w-3 h-3 rounded-full bg-brand-800' />
-            <span>Estética</span>
-            <span className='font-medium'>10%</span>
-          </div>
-        </div>
       </div>
+
+      <dl
+        className='absolute top-[9.6875rem] flex flex-col gap-[0.75rem] text-[0.75rem] leading-4 text-neutral-800'
+        style={{
+          left: `min(16.9375rem, calc(95vw - 10.5rem))`,
+          width: `min(${LEGEND_WIDTH_REM}rem, calc(95vw - 18rem))`
+        }}
+      >
+        {specialties.map(({ label, percentage, colorToken }) => (
+          <div key={label} className='flex items-center gap-[0.5rem]'>
+            <span
+              className='h-[0.75rem] w-[0.75rem] rounded-full'
+              style={{ backgroundColor: colorToken }}
+              aria-hidden='true'
+            />
+            <div className='flex w-full items-center justify-between gap-[0.5rem]'>
+              <dt className='font-normal'>{label}</dt>
+              <dd className='font-medium'>{percentage}%</dd>
+            </div>
+          </div>
+        ))}
+      </dl>
     </section>
   )
 }

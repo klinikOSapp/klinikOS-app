@@ -116,12 +116,28 @@
   --space-card-metric: 0.25rem; /* 4px between value and KPI */
 
   /* Dashboard-specific spacing - usando clamp() con vh para escalar verticalmente */
-  --spacing-card-gap: clamp(1rem, 2.2vh, 1.5rem); /* 16px → 24px - separación entre cards */
-  --spacing-section-gap: clamp(1rem, 2.5vh, 2rem); /* 16px → 32px - separación entre secciones */
+  --spacing-card-gap: clamp(
+    1rem,
+    2.2vh,
+    1.5rem
+  ); /* 16px → 24px - separación entre cards */
+  --spacing-section-gap: clamp(
+    1rem,
+    2.5vh,
+    2rem
+  ); /* 16px → 32px - separación entre secciones */
   --spacing-card-padding: 1rem; /* 16px - padding interno de cards */
   --spacing-chart-margin: 1rem; /* 16px - márgenes de gráficos */
-  --spacing-header-stack: clamp(2rem, 5vh, 3.5rem); /* 32px → 56px - Header a cards (ajustado a Figma) */
-  --spacing-stats-offset: clamp(1rem, 2vh, 1.5rem); /* 16px → 24px - offset interno */
+  --spacing-header-stack: clamp(
+    2rem,
+    5vh,
+    3.5rem
+  ); /* 32px → 56px - Header a cards (ajustado a Figma) */
+  --spacing-stats-offset: clamp(
+    1rem,
+    2vh,
+    1.5rem
+  ); /* 16px → 24px - offset interno */
   --spacing-charts-offset: 18.25rem; /* Distancia desde la parte superior a la fila de gráficos */
 
   /* Navigator controls */
@@ -174,10 +190,20 @@
   --width-card-stat: 32.6875rem; /* 523px - ancho card estadística */
   --width-card-chart-lg: 66.8125rem; /* 1069px - ancho card grande */
   --width-card-chart-md: 33.0625rem; /* 529px - ancho card mediano */
+  --width-income-card: 9.75rem; /* 156px - tarjeta Tipos de ingreso */
+  --height-income-card: 6.25rem; /* 100px - tarjeta Tipos de ingreso */
 
   /* Fluid heights - adapt to viewport usando vh para escalar verticalmente */
-  --height-card-stat-fluid: clamp(8rem, 15vh, 10.1875rem); /* 128px → 163px - escala con altura del viewport */
-  --height-card-chart-fluid: clamp(16rem, 31.7vh, 21.375rem); /* 256px → 342px - escala con altura del viewport */
+  --height-card-stat-fluid: clamp(
+    8rem,
+    15vh,
+    10.1875rem
+  ); /* 128px → 163px - escala con altura del viewport */
+  --height-card-chart-fluid: clamp(
+    16rem,
+    31.7vh,
+    21.375rem
+  ); /* 256px → 342px - escala con altura del viewport */
 
   /* Fluid widths - adapt to viewport */
   --width-card-stat-fluid: clamp(20rem, 30vw, 32.6875rem); /* 320px → 523px */

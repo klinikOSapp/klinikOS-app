@@ -19,7 +19,9 @@ export default function ProductionTotalCard({
         <div className='text-display-lg'>{value}</div>
         <div className='flex items-center gap-gapsm'>
           <span className='text-body-lg text-brandSemantic'>{delta}</span>
-          <span className='material-symbols-rounded text-brandSemantic'>arrow_outward</span>
+          <span className='material-symbols-rounded text-brandSemantic'>
+            arrow_outward
+          </span>
         </div>
       </div>
     </section>

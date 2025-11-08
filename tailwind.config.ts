@@ -261,7 +261,8 @@ export default {
         'card-stat': 'var(--height-card-stat)', // 163px - cards de estadísticas (fijo)
         'card-chart': 'var(--height-card-chart)', // 342px - cards con gráficos (fijo)
         'card-stat-fluid': 'var(--height-card-stat-fluid)', // 128px → 163px (fluido)
-        'card-chart-fluid': 'var(--height-card-chart-fluid)' // 256px → 342px (fluido)
+        'card-chart-fluid': 'var(--height-card-chart-fluid)', // 256px → 342px (fluido)
+        'income-card': 'var(--height-income-card)' // 100px - tarjeta Tipos de ingreso
       },
       width: {
         'card-stat': 'var(--width-card-stat)', // 523px - ancho card estadística (fijo)
@@ -269,7 +270,8 @@ export default {
         'card-chart-md': 'var(--width-card-chart-md)', // 529px - ancho card mediano (fijo)
         'card-stat-fluid': 'var(--width-card-stat-fluid)', // 320px → 523px (fluido)
         'card-chart-lg-fluid': 'var(--width-card-chart-lg-fluid)', // 640px → 1069px (fluido)
-        'card-chart-md-fluid': 'var(--width-card-chart-md-fluid)' // 320px → 529px (fluido)
+        'card-chart-md-fluid': 'var(--width-card-chart-md-fluid)', // 320px → 529px (fluido)
+        'income-card': 'var(--width-income-card)' // 156px - tarjeta Tipos de ingreso
       }
     }
   }

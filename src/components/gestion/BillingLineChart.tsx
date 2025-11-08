@@ -1,166 +1,232 @@
 type BillingLineChartProps = { yearLabel?: string }
 
 const CARD_HEIGHT_VAR = 'var(--height-card-chart-fluid)'
-const CARD_WIDTH_VAR = 'var(--width-card-chart-lg)'
-const CHART_HEIGHT_RATIO = (228 / 342).toFixed(6)
-const CHART_TOP_RATIO = (58 / 342).toFixed(6)
-const GRID_LEFT_RATIO = (63 / 1069).toFixed(6)
-const GRID_WIDTH_RATIO = (824 / 1069).toFixed(6)
-const Y_AXIS_TOP_RATIO = (2 / 342).toFixed(6)
-const Y_AXIS_HEIGHT_RATIO = (222 / 342).toFixed(6)
-const LABEL_ONE_LEFT_RATIO = (410 / 1069).toFixed(6)
-const LABEL_TWO_LEFT_RATIO = (442 / 1069).toFixed(6)
-const LABEL_TOP_RATIO = (118 / 342).toFixed(6)
-const COMPARISON_WIDTH_RATIO = (142 / 1069).toFixed(6)
+const CARD_WIDTH_VAR = 'var(--width-card-chart-lg-fluid)'
+const CARD_WIDTH_STYLE = 'min(100%, var(--width-card-chart-lg-fluid))'
+
+const HEADER_LEFT_RATIO = 16 / 1069
+const HEADER_TOP_RATIO = 16 / 342
+const Y_AXIS_LEFT_RATIO = 16 / 1069
+const Y_AXIS_TOP_RATIO = 64 / 342
+const Y_AXIS_HEIGHT_RATIO = 222 / 342
+const GRID_LEFT_RATIO = 63 / 1069
+const GRID_TOP_RATIO = 58 / 342
+const GRID_WIDTH_RATIO = 824 / 1069
+const GRID_HEIGHT_RATIO = 228 / 342
+const MONTH_ROW_TOP_RATIO = 302 / 342
+const CHIP_PRIMARY_LEFT_RATIO = 410 / 1069
+const CHIP_PRIMARY_TOP_RATIO = 118 / 342
+const CHIP_SECONDARY_LEFT_RATIO = 442 / 1069
+const CHIP_SECONDARY_TOP_RATIO = 86 / 342
+const COMPARISON_LEFT_RATIO = 911 / 1069
+const COMPARISON_TOP_RATIO = 58 / 342
+const COMPARISON_WIDTH_RATIO = 142 / 1069
+const HIGHLIGHT_LEFT_RATIO = (63 + 673.3636474609375) / 1069
+const HIGHLIGHT_WIDTH_RATIO = 1 / 1069
+const BRAND_LINE_LEFT_RATIO = 64 / 1069
+const BRAND_LINE_TOP_RATIO = 148.49644470214844 / 342
+const BRAND_LINE_WIDTH_RATIO = 673.5 / 1069
+const BRAND_LINE_HEIGHT_RATIO = 106.50354766845703 / 342
+const ACCENT_LINE_LEFT_RATIO = 63.5 / 1069
+const ACCENT_LINE_TOP_RATIO = 161.86012268066406 / 342
+const ACCENT_LINE_WIDTH_RATIO = 673.5 / 1069
+const ACCENT_LINE_HEIGHT_RATIO = 103.1398696899414 / 342
+const POINT_LEFT_RATIO = 356 / 1069
+const POINT_TOP_RATIO = 142 / 342
+const POINT_SIZE_RATIO = 13 / 342
+
+const BRAND_LINE_SRC =
+  'http://localhost:3845/assets/fcad0c2a4a81dfabb9159066244314acf76f927a.svg'
+const ACCENT_LINE_SRC =
+  'http://localhost:3845/assets/4b71e124208891d8f4cea425632526d07945cf2b.svg'
+const POINT_SRC =
+  'http://localhost:3845/assets/f840588f7a97e1a29391a19836fc99276e96acc6.svg'
+
+const Y_AXIS_LABELS = ['90K', '70K', '50K', '30K', '10K', '0']
+const MONTH_LABELS = [
+  'Ene',
+  'Feb',
+  'Mar',
+  'Abr',
+  'May',
+  'Jun',
+  'Jul',
+  'Ago',
+  'Sept',
+  'Oct',
+  'Nov',
+  'Dic'
+]
+
+const toWidth = (ratio: number) =>
+  `calc(${CARD_WIDTH_VAR} * ${ratio.toFixed(6)})`
+const toHeight = (ratio: number) =>
+  `calc(${CARD_HEIGHT_VAR} * ${ratio.toFixed(6)})`
 
 export default function BillingLineChart({
   yearLabel = '2024'
 }: BillingLineChartProps) {
   return (
-    <section className='bg-surface rounded-lg shadow-elevation-card p-fluid-md h-card-chart-fluid relative overflow-clip'>
-      <header className='flex items-center justify-between mb-fluid-sm'>
-        <h3 className='text-title-sm font-medium text-fg'>Facturación</h3>
-        <div className='flex items-center gap-gapsm text-label-sm text-fg'>
+    <section
+      className='relative w-full overflow-clip rounded-lg bg-surface shadow-elevation-card'
+      style={{ height: CARD_HEIGHT_VAR, width: CARD_WIDTH_STYLE }}
+    >
+      <header
+        className='absolute z-10 flex items-baseline justify-between text-fg'
+        style={{
+          left: toWidth(HEADER_LEFT_RATIO),
+          right: toWidth(HEADER_LEFT_RATIO),
+          top: toHeight(HEADER_TOP_RATIO)
+        }}
+      >
+        <h3 className='text-title-sm font-medium'>Facturación</h3>
+        <div className='flex items-center gap-[0.25rem] text-label-sm'>
           <span>{yearLabel}</span>
-          <span className='material-symbols-rounded text-[16px]'>
+          <span className='material-symbols-rounded text-[1rem] leading-none'>
             arrow_drop_down
           </span>
         </div>
       </header>
 
-      {/* Chart Area */}
       <div
-        className='relative mt-fluid-sm'
-        style={{ height: `calc(${CARD_HEIGHT_VAR} * ${CHART_HEIGHT_RATIO})` }}
+        className='absolute flex flex-col justify-between text-label-sm text-neutral-400'
+        style={{
+          left: toWidth(Y_AXIS_LEFT_RATIO),
+          top: toHeight(Y_AXIS_TOP_RATIO),
+          height: toHeight(Y_AXIS_HEIGHT_RATIO)
+        }}
       >
-        {/* Y-axis labels */}
-        <div
-          className='absolute left-0 flex flex-col justify-between text-label-sm text-fg-muted'
-          style={{
-            top: `calc(${CARD_HEIGHT_VAR} * ${Y_AXIS_TOP_RATIO})`,
-            height: `calc(${CARD_HEIGHT_VAR} * ${Y_AXIS_HEIGHT_RATIO})`
-          }}
-        >
-          {['90K', '70K', '50K', '30K', '10K', '0'].map((v) => (
-            <span key={v}>{v}</span>
-          ))}
-        </div>
+        {Y_AXIS_LABELS.map((value) => (
+          <span key={value}>{value}</span>
+        ))}
+      </div>
 
-        {/* Grid */}
+      <div
+        className='absolute'
+        style={{
+          left: toWidth(GRID_LEFT_RATIO),
+          top: toHeight(GRID_TOP_RATIO),
+          width: toWidth(GRID_WIDTH_RATIO),
+          height: toHeight(GRID_HEIGHT_RATIO)
+        }}
+      >
         <div
-          className='absolute'
+          className='absolute inset-0'
           style={{
-            left: `calc(${CARD_WIDTH_VAR} * ${GRID_LEFT_RATIO})`,
-            top: `calc(${CARD_HEIGHT_VAR} * ${CHART_TOP_RATIO})`,
-            width: `calc(${CARD_WIDTH_VAR} * ${GRID_WIDTH_RATIO})`,
-            height: `calc(${CARD_HEIGHT_VAR} * ${CHART_HEIGHT_RATIO})`
+            backgroundImage:
+              'linear-gradient(to bottom, var(--chart-grid) 1px, transparent 1px), linear-gradient(to right, var(--chart-grid) 1px, transparent 1px)',
+            backgroundSize: '100% calc(100% / 5), calc(100% / 11) 100%',
+            backgroundPosition: 'left top, left top'
           }}
-        >
-          <div className='absolute inset-0 bg-[linear-gradient(to_bottom,var(--chart-grid)_1px,transparent_1px)] bg-[size:100%_calc(100%/5)] opacity-50' />
-        </div>
+        />
+        <div
+          className='absolute inset-y-0'
+          style={{
+            left: toWidth(HIGHLIGHT_LEFT_RATIO),
+            width: `max(1px, calc(${CARD_WIDTH_VAR} * ${HIGHLIGHT_WIDTH_RATIO.toFixed(
+              6
+            )}))`,
+            backgroundColor: 'var(--color-warning-200)'
+          }}
+        />
+        <img
+          alt=''
+          aria-hidden
+          className='absolute pointer-events-none select-none'
+          src={ACCENT_LINE_SRC}
+          style={{
+            left: toWidth(ACCENT_LINE_LEFT_RATIO),
+            top: toHeight(ACCENT_LINE_TOP_RATIO),
+            width: toWidth(ACCENT_LINE_WIDTH_RATIO),
+            height: toHeight(ACCENT_LINE_HEIGHT_RATIO)
+          }}
+        />
+        <img
+          alt=''
+          aria-hidden
+          className='absolute pointer-events-none select-none'
+          src={BRAND_LINE_SRC}
+          style={{
+            left: toWidth(BRAND_LINE_LEFT_RATIO),
+            top: toHeight(BRAND_LINE_TOP_RATIO),
+            width: toWidth(BRAND_LINE_WIDTH_RATIO),
+            height: toHeight(BRAND_LINE_HEIGHT_RATIO)
+          }}
+        />
+        <img
+          alt=''
+          aria-hidden
+          className='absolute pointer-events-none select-none'
+          src={POINT_SRC}
+          style={{
+            left: toWidth(POINT_LEFT_RATIO),
+            top: toHeight(POINT_TOP_RATIO),
+            width: toHeight(POINT_SIZE_RATIO),
+            height: toHeight(POINT_SIZE_RATIO),
+            transform: 'translate(-50%, -50%)'
+          }}
+        />
+      </div>
 
-        {/* Chart lines */}
-        <svg
-          className='absolute'
-          style={{
-            left: `calc(${CARD_WIDTH_VAR} * ${GRID_LEFT_RATIO})`,
-            top: `calc(${CARD_HEIGHT_VAR} * ${CHART_TOP_RATIO})`,
-            width: `calc(${CARD_WIDTH_VAR} * ${GRID_WIDTH_RATIO})`,
-            height: `calc(${CARD_HEIGHT_VAR} * ${CHART_HEIGHT_RATIO})`
-          }}
-          viewBox='0 0 824 228'
-          preserveAspectRatio='none'
-        >
-          {/* Line 1 - Brand color */}
-          <polyline
-            points='0,158 68,148 137,153 206,138 275,118 344,123 413,128 482,126 551,133 620,143 689,138 757,148 824,138'
-            fill='none'
-            stroke='var(--chart-2)'
-            strokeWidth='2'
-          />
-          {/* Line 2 - Accent color dashed */}
-          <polyline
-            points='0,168 68,158 137,163 206,148 275,128 344,133 413,138 482,136 551,143 620,153 689,148 757,158 824,148'
-            fill='none'
-            stroke='var(--chart-accent)'
-            strokeDasharray='4 4'
-            strokeWidth='2'
-          />
-          {/* Data point markers */}
-          <circle cx='413' cy='128' r='6.5' fill='var(--chart-2)' />
-        </svg>
-
-        {/* Data labels */}
-        <div
-          className='absolute'
-          style={{
-            left: `calc(${CARD_WIDTH_VAR} * ${LABEL_ONE_LEFT_RATIO})`,
-            top: `calc(${CARD_HEIGHT_VAR} * ${LABEL_TOP_RATIO})`
-          }}
-        >
-          <div className='bg-surface-accent border border-brandSemantic rounded-full px-2 py-1 text-label-sm text-brandSemantic'>
-            21.000 €
-          </div>
-        </div>
-        <div
-          className='absolute'
-          style={{
-            left: `calc(${CARD_WIDTH_VAR} * ${LABEL_TWO_LEFT_RATIO})`,
-            top: `calc(${CARD_HEIGHT_VAR} * ${LABEL_TOP_RATIO})`
-          }}
-        >
-          <div className='border border-chart-accent border-dashed rounded-full px-2 py-1 text-label-sm text-chart-accent'>
-            24.000 €
-          </div>
-        </div>
-
-        {/* X-axis labels */}
-        <div
-          className='absolute flex justify-between text-label-sm text-fg-muted'
-          style={{
-            left: `calc(${CARD_WIDTH_VAR} * ${GRID_LEFT_RATIO})`,
-            width: `calc(${CARD_WIDTH_VAR} * ${GRID_WIDTH_RATIO})`,
-            bottom: 0
-          }}
-        >
-          {[
-            'Ene',
-            'Feb',
-            'Mar',
-            'Abr',
-            'May',
-            'Jun',
-            'Jul',
-            'Ago',
-            'Sept',
-            'Oct',
-            'Nov',
-            'Dic'
-          ].map((m) => (
-            <span key={m}>{m}</span>
-          ))}
+      <div
+        className='absolute'
+        style={{
+          left: toWidth(CHIP_PRIMARY_LEFT_RATIO),
+          top: toHeight(CHIP_PRIMARY_TOP_RATIO),
+          transform: 'translate(-50%, -50%)'
+        }}
+      >
+        <div className='rounded-full border border-brandSemantic bg-brand-50 px-[0.5rem] py-[0.25rem] text-label-sm text-brandSemantic'>
+          21.000 €
         </div>
       </div>
 
-      {/* Comparison Card */}
       <div
-        className='absolute right-fluid-md bg-surface border border-border rounded-lg p-gapsm'
+        className='absolute'
         style={{
-          top: `calc(${CARD_HEIGHT_VAR} * ${CHART_TOP_RATIO})`,
-          width: `calc(${CARD_WIDTH_VAR} * ${COMPARISON_WIDTH_RATIO})`,
-          height: `calc(${CARD_HEIGHT_VAR} * ${CHART_HEIGHT_RATIO})`
+          left: toWidth(CHIP_SECONDARY_LEFT_RATIO),
+          top: toHeight(CHIP_SECONDARY_TOP_RATIO),
+          transform: 'translate(-50%, -50%)'
         }}
       >
-        <p className='text-body-sm font-medium text-fg-secondary'>Oct, 2025</p>
-        <p className='text-headline-lg text-fg-secondary mt-fluid-sm'>42.000</p>
-        <div className='flex items-center gap-gapsm mt-fluid-sm'>
-          <p className='text-body-lg text-brandSemantic'>+ 6%</p>
-          <span className='material-symbols-rounded text-brandSemantic text-[24px]'>
+        <div className='rounded-full border border-info-200 border-dashed px-[0.5rem] py-[0.25rem] text-label-sm text-info-200'>
+          24.000 €
+        </div>
+      </div>
+
+      <div
+        className='absolute flex justify-between text-label-sm text-neutral-400'
+        style={{
+          left: toWidth(GRID_LEFT_RATIO),
+          top: toHeight(MONTH_ROW_TOP_RATIO),
+          width: toWidth(GRID_WIDTH_RATIO)
+        }}
+      >
+        {MONTH_LABELS.map((month) => (
+          <span key={month}>{month}</span>
+        ))}
+      </div>
+
+      <div
+        className='absolute flex flex-col rounded-lg border border-border bg-surface'
+        style={{
+          left: toWidth(COMPARISON_LEFT_RATIO),
+          top: toHeight(COMPARISON_TOP_RATIO),
+          width: toWidth(COMPARISON_WIDTH_RATIO),
+          height: toHeight(GRID_HEIGHT_RATIO),
+          padding: '0.625rem'
+        }}
+      >
+        <p className='text-body-sm font-medium text-neutral-600'>Oct, 2025</p>
+        <p className='mt-[0.75rem] text-headline-lg text-neutral-600'>42.000</p>
+        <div className='mt-[0.5rem] flex items-center gap-[0.5rem]'>
+          <span className='text-body-lg text-brandSemantic'>+ 6%</span>
+          <span className='material-symbols-rounded text-brandSemantic text-[1.5rem] leading-none'>
             arrow_outward
           </span>
         </div>
-        <p className='text-label-sm text-fg-secondary mt-fluid-md'>Oct, 2024</p>
-        <p className='text-title-sm font-medium text-chart-accent'>40.000</p>
+        <p className='mt-[3.25rem] text-label-sm text-neutral-600'>Oct, 2024</p>
+        <p className='text-title-sm font-medium text-info-200'>40.000</p>
       </div>
     </section>
   )
