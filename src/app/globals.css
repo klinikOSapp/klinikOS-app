@@ -118,9 +118,9 @@
   /* Dashboard-specific spacing - usando clamp() con vh para escalar verticalmente */
   --spacing-card-gap: clamp(
     1rem,
-    2.2vh,
-    1.5rem
-  ); /* 16px → 24px - separación entre cards */
+    calc(var(--width-card-chart-lg-fluid) - (2 * var(--width-card-stat-fluid))),
+    1.4375rem
+  ); /* gap iguala el ancho del chart y respeta límites de Figma */
   --spacing-section-gap: clamp(
     1rem,
     2.5vh,
@@ -208,17 +208,17 @@
   /* Fluid widths - adapt to viewport */
   --width-card-stat-fluid: clamp(
     20rem,
-    27.25vw,
+    27.239583vw,
     32.6875rem
-  ); /* 320px → 523px scaled al viewport */
+  ); /* 320px → 523px scaled al viewport (523px ÷ 1920px) */
   --width-card-chart-lg-fluid: clamp(
     40rem,
-    55.7vw,
+    55.677083vw,
     66.8125rem
   ); /* 640px → 1069px escalado exacto (1069px ÷ 1920px) */
   --width-card-chart-md-fluid: clamp(
     20rem,
-    27.6vw,
+    27.552083vw,
     33.0625rem
   ); /* 320px → 529px escalado exacto (529px ÷ 1920px) */
 

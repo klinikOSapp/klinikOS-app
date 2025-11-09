@@ -27,7 +27,7 @@ export default function GestionPage() {
         </div>
 
         {/* Third row - Accounting + Professional bars */}
-        <div className='grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6 mt-gapmd'>
+        <div className='grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-[var(--spacing-card-gap)] mt-gapmd'>
           <AccountingPanel />
           <ProfessionalBars />
         </div>
