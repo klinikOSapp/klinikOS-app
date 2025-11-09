@@ -193,6 +193,34 @@
   --width-income-card: 9.75rem; /* 156px - tarjeta Tipos de ingreso */
   --height-income-card: 6.25rem; /* 100px - tarjeta Tipos de ingreso */
 
+  /* Profesional bars chart ratios (Figma exact values) */
+  --chart-prof-width-limit: 95vw;
+  --chart-prof-height-limit: 34vh;
+  --chart-prof-axis-left-ratio: 0.10302; /* 55 / 529 */
+  --chart-prof-axis-label-left-ratio: 0.03025; /* 16 / 529 */
+  --chart-prof-grid-width-ratio: 0.82892; /* 438 / 529 */
+  --chart-prof-axis-height-ratio: 0.64327; /* 220 / 342 */
+  --chart-prof-grid-height-ratio: 0.60819; /* 208 / 342 */
+  --chart-prof-grid-top-ratio: 0.24561; /* 84 / 342 */
+  --chart-prof-labels-bottom-ratio: 0.88304; /* 302 / 342 */
+  --chart-prof-bar-width-ratio: 0.10964; /* 58 / 529 */
+  --chart-prof-bar-1-left-ratio: 0.10302; /* 55 / 529 */
+  --chart-prof-bar-2-left-ratio: 0.31570; /* 167 / 529 */
+  --chart-prof-bar-3-left-ratio: 0.55955; /* 296 / 529 */
+  --chart-prof-bar-4-left-ratio: 0.81285; /* 430 / 529 */
+  --chart-prof-bar-1-top-ratio: 0.28363; /* 97 / 342 */
+  --chart-prof-bar-2-top-ratio: 0.38070; /* 130 / 342 */
+  --chart-prof-bar-3-top-ratio: 0.51170; /* 175 / 342 */
+  --chart-prof-bar-4-top-ratio: 0.46491; /* 159 / 342 */
+  --chart-prof-bar-1-height-ratio: 0.57018; /* 195 / 342 */
+  --chart-prof-bar-2-height-ratio: 0.47310; /* 162 / 342 */
+  --chart-prof-bar-3-height-ratio: 0.34211; /* 117 / 342 */
+  --chart-prof-bar-4-height-ratio: 0.38889; /* 133 / 342 */
+
+  /* Accounting panel layout (Figma exact values) */
+  --accounting-width-limit: 95vw;
+  --accounting-height-limit: 34vh;
+
   /* Fluid heights - adapt to viewport usando vh para escalar verticalmente */
   --height-card-stat-fluid: clamp(
     8rem,
@@ -310,10 +338,13 @@ body {
   .dashboard-grid-stats {
     display: grid;
     gap: var(--spacing-card-gap);
-    grid-template-columns: repeat(
-      auto-fit,
-      minmax(min(100%, var(--width-card-stat-fluid)), 1fr)
-    );
+    grid-template-columns:
+      minmax(min(100%, var(--width-card-stat-fluid)), 32.6875rem)
+      minmax(
+        min(100%, var(--width-card-chart-lg-fluid)),
+        var(--width-card-chart-lg-fluid)
+      )
+      minmax(min(100%, var(--width-card-stat-fluid)), 32.6875rem);
   }
 
   .dashboard-grid-charts {
@@ -340,11 +371,6 @@ body {
     gap: var(--spacing-header-stack);
   }
 
-  .accounting-grid {
-    display: grid;
-    gap: var(--spacing-card-gap);
-  }
-
   @media (min-width: 1024px) {
     .dashboard-grid-charts {
       grid-template-columns: minmax(0, var(--width-card-chart-lg-fluid)) minmax(
@@ -354,33 +380,12 @@ body {
       justify-content: center;
     }
 
-    .dashboard-grid-double {
-      grid-template-columns: minmax(0, var(--width-card-chart-lg)) minmax(
-          0,
-          var(--width-card-chart-md)
-        );
-      justify-content: center;
-    }
-
     .dashboard-grid-stats {
-      grid-template-columns: repeat(3, minmax(0, var(--width-card-stat-fluid)));
+      grid-template-columns:
+        minmax(0, var(--width-card-stat))
+        minmax(0, var(--width-card-chart-lg))
+        minmax(0, var(--width-card-stat));
       justify-content: center;
-    }
-  }
-
-  @media (min-width: 768px) {
-    .accounting-grid {
-      grid-template-columns:
-        minmax(0, calc(var(--width-card-chart-lg) * 0.200187))
-        minmax(0, 1fr);
-    }
-  }
-
-  @media (min-width: 1280px) {
-    .accounting-grid {
-      grid-template-columns:
-        minmax(0, calc(var(--width-card-chart-lg) * 0.200187))
-        repeat(3, minmax(0, 1fr));
     }
   }
 }

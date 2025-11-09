@@ -20,7 +20,7 @@ export default function HeaderControls({
       </div>
 
       {/* Right side controls */}
-      <div className='flex flex-wrap items-center gap-gapsm xl:justify-end'>
+      <div className='flex flex-nowrap items-center gap-gapsm xl:justify-end min-w-0 overflow-x-auto'>
         {/* Range selector */}
         <button className={pillButtonClasses}>
           {rangeLabel}

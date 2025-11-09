@@ -1,33 +1,69 @@
 import type { CSSProperties } from 'react'
 
-const CARD_HEIGHT_VAR = 'var(--chart-card-height)'
-const CARD_WIDTH_VAR = 'var(--chart-card-width)'
-const AXIS_LEFT_RATIO = (55 / 529).toFixed(6)
-const GRID_WIDTH_RATIO = (438 / 529).toFixed(6)
-const AXIS_HEIGHT_RATIO = (220 / 342).toFixed(6)
-const AREA_HEIGHT_RATIO = (208 / 342).toFixed(6)
-const BAR_HEIGHT_RATIOS = [195, 162, 117, 133].map((value) =>
-  (value / 342).toFixed(6)
-)
+const CARD_WIDTH_BASE = 'var(--width-card-chart-md-fluid)'
+const CARD_HEIGHT_BASE = 'var(--height-card-chart-fluid)'
+const CARD_WIDTH_LIMIT = 'var(--chart-prof-width-limit)'
+const CARD_HEIGHT_LIMIT = 'var(--chart-prof-height-limit)'
+const CARD_WIDTH_CLAMP = `min(${CARD_WIDTH_BASE}, ${CARD_WIDTH_LIMIT})`
+const CARD_HEIGHT_CLAMP = `min(${CARD_HEIGHT_BASE}, ${CARD_HEIGHT_LIMIT})`
+
+const widthWithRatio = (ratioVar: string) =>
+  `min(calc(${CARD_WIDTH_BASE} * var(${ratioVar})), calc(${CARD_WIDTH_LIMIT} * var(${ratioVar})))`
+
+const heightWithRatio = (ratioVar: string) =>
+  `min(calc(${CARD_HEIGHT_BASE} * var(${ratioVar})), calc(${CARD_HEIGHT_LIMIT} * var(${ratioVar})))`
+
+const bottomWithRatio = (ratioVar: string) =>
+  `min(calc(${CARD_HEIGHT_BASE} * (1 - var(${ratioVar}))), calc(${CARD_HEIGHT_LIMIT} * (1 - var(${ratioVar}))))`
+
+const AXIS_LABELS = [350, 300, 250, 200, 150, 100, 50, 0]
 const PROFESSIONAL_LABELS = [
   'Dr. Guille',
   'Dra. Laura',
   'Tamara (Hig.)',
   'Nerea (Hig.)'
 ]
-const AXIS_LABELS = [350, 300, 250, 200, 150, 100, 50, 0]
+
+const BARS = [
+  {
+    label: 'Dr. Guille',
+    colorVar: 'var(--chart-1)',
+    leftVar: '--chart-prof-bar-1-left-ratio',
+    topVar: '--chart-prof-bar-1-top-ratio',
+    heightVar: '--chart-prof-bar-1-height-ratio'
+  },
+  {
+    label: 'Dra. Laura',
+    colorVar: 'var(--chart-2)',
+    leftVar: '--chart-prof-bar-2-left-ratio',
+    topVar: '--chart-prof-bar-2-top-ratio',
+    heightVar: '--chart-prof-bar-2-height-ratio'
+  },
+  {
+    label: 'Tamara (Hig.)',
+    colorVar: 'var(--chart-3)',
+    leftVar: '--chart-prof-bar-3-left-ratio',
+    topVar: '--chart-prof-bar-3-top-ratio',
+    heightVar: '--chart-prof-bar-3-height-ratio'
+  },
+  {
+    label: 'Nerea (Hig.)',
+    colorVar: 'var(--chart-4)',
+    leftVar: '--chart-prof-bar-4-left-ratio',
+    topVar: '--chart-prof-bar-4-top-ratio',
+    heightVar: '--chart-prof-bar-4-height-ratio'
+  }
+]
 
 export default function ProfessionalBars() {
   const cardStyles: CSSProperties = {
-    '--chart-card-width': 'min(var(--width-card-chart-md-fluid), 95vw)',
-    '--chart-card-height': 'min(var(--height-card-chart-fluid), 34vh)',
-    width: 'var(--chart-card-width)',
-    height: 'var(--chart-card-height)'
+    width: CARD_WIDTH_CLAMP,
+    height: CARD_HEIGHT_CLAMP
   }
 
   return (
     <section
-      className='relative flex flex-col rounded-lg bg-surface p-fluid-md shadow-elevation-card overflow-clip'
+      className='relative flex flex-col overflow-clip rounded-lg bg-surface p-fluid-md shadow-elevation-card'
       style={cardStyles}
     >
       <header className='mb-[min(2.75rem,4vh)] flex items-center justify-between'>
@@ -43,10 +79,17 @@ export default function ProfessionalBars() {
 
       <div
         className='relative w-full'
-        style={{ height: `calc(${CARD_HEIGHT_VAR} * ${AXIS_HEIGHT_RATIO})` }}
+        style={{ height: heightWithRatio('--chart-prof-axis-height-ratio') }}
       >
         {/* Y-axis labels */}
-        <div className='absolute inset-y-0 left-0 flex w-max flex-col justify-between text-label-sm text-fg-muted'>
+        <div
+          className='absolute flex w-max flex-col justify-between text-label-sm text-fg-muted'
+          style={{
+            left: widthWithRatio('--chart-prof-axis-label-left-ratio'),
+            top: 0,
+            height: heightWithRatio('--chart-prof-axis-height-ratio')
+          }}
+        >
           {AXIS_LABELS.map((v) => (
             <span key={v}>{v}</span>
           ))}
@@ -56,41 +99,37 @@ export default function ProfessionalBars() {
         <div
           className='absolute'
           style={{
-            left: `calc(${CARD_WIDTH_VAR} * ${AXIS_LEFT_RATIO})`,
-            width: `calc(${CARD_WIDTH_VAR} * ${GRID_WIDTH_RATIO})`,
-            height: `calc(${CARD_HEIGHT_VAR} * ${AREA_HEIGHT_RATIO})`
+            left: widthWithRatio('--chart-prof-axis-left-ratio'),
+            top: heightWithRatio('--chart-prof-grid-top-ratio'),
+            width: widthWithRatio('--chart-prof-grid-width-ratio'),
+            height: heightWithRatio('--chart-prof-grid-height-ratio')
           }}
         >
           <div className='absolute inset-0 bg-[linear-gradient(to_bottom,var(--chart-grid)_1px,transparent_1px)] bg-[size:100%_calc(100%/7)] opacity-50' />
         </div>
 
         {/* Bars */}
-        <div
-          className='absolute grid grid-cols-4 gap-fluid-md items-end'
-          style={{
-            left: `calc(${CARD_WIDTH_VAR} * ${AXIS_LEFT_RATIO})`,
-            width: `calc(${CARD_WIDTH_VAR} * ${GRID_WIDTH_RATIO})`,
-            height: `calc(${CARD_HEIGHT_VAR} * ${AREA_HEIGHT_RATIO})`
-          }}
-        >
-          {BAR_HEIGHT_RATIOS.map((ratio, index) => (
-            <div
-              key={index}
-              className={`rounded-2xl ${
-                ['bg-chart-1', 'bg-chart-2', 'bg-chart-3', 'bg-chart-4'][index]
-              }`}
-              style={{ height: `calc(${CARD_HEIGHT_VAR} * ${ratio})` }}
-            />
-          ))}
-        </div>
+        {BARS.map((bar) => (
+          <div
+            key={bar.label}
+            className='absolute rounded-2xl'
+            style={{
+              left: widthWithRatio(bar.leftVar),
+              top: heightWithRatio(bar.topVar),
+              width: widthWithRatio('--chart-prof-bar-width-ratio'),
+              height: heightWithRatio(bar.heightVar),
+              backgroundColor: bar.colorVar
+            }}
+          />
+        ))}
 
         {/* X-axis labels */}
         <div
-          className='absolute grid grid-cols-4 gap-fluid-md text-label-sm text-fg-muted'
+          className='absolute flex justify-between text-label-sm text-fg-muted'
           style={{
-            left: `calc(${CARD_WIDTH_VAR} * ${AXIS_LEFT_RATIO})`,
-            width: `calc(${CARD_WIDTH_VAR} * ${GRID_WIDTH_RATIO})`,
-            bottom: 0
+            left: widthWithRatio('--chart-prof-axis-left-ratio'),
+            width: widthWithRatio('--chart-prof-grid-width-ratio'),
+            bottom: bottomWithRatio('--chart-prof-labels-bottom-ratio')
           }}
         >
           {PROFESSIONAL_LABELS.map((label) => (

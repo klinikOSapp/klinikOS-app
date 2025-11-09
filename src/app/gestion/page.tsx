@@ -14,11 +14,11 @@ export default function GestionPage() {
         <HeaderControls />
 
         {/* First row - Stats cards */}
-        <section className='dashboard-grid-stats mt-header-stack'>
+        <div className='dashboard-grid-stats mt-header-stack'>
           <IncomeTypes />
           <PatientsSummary />
           <ProductionTotalCard />
-        </section>
+        </div>
 
         {/* Second row - Billing chart + Specialty donut */}
         <div className='dashboard-grid-charts mt-gapmd'>

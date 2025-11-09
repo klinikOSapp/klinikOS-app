@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react'
+
 type SpecialtyShare = {
   label: string
   percentage: number
@@ -27,6 +29,7 @@ const CARD_WIDTH = 'var(--width-card-chart-md-fluid)'
 const CARD_HEIGHT = 'var(--height-card-chart-fluid)'
 const DONUT_SIZE_REM = 12.6875
 const LEGEND_WIDTH_REM = 8.375
+type ChartCardStyles = CSSProperties & Record<'--card-width-current', string>
 
 function buildGradientStops(segments: SpecialtyShare[]) {
   let cursor = 0
@@ -48,21 +51,33 @@ export default function ProductionTotalCard({
 }: ProductionTotalCardProps) {
   const gradientStops = buildGradientStops(specialties)
 
+  const sectionStyles = {
+    '--card-width-current': `min(${CARD_WIDTH}, 95vw)`,
+    width: 'var(--card-width-current)',
+    height: `min(${CARD_HEIGHT}, calc(100vh - 6rem))`
+  } satisfies ChartCardStyles
+
+  const donutSize = `min(${DONUT_SIZE_REM}rem, calc(var(--card-width-current) - ${LEGEND_WIDTH_REM}rem - 3rem))`
+  const legendLeft = `min(16.9375rem, calc(var(--card-width-current) - ${LEGEND_WIDTH_REM}rem - 1rem))`
+  const legendWidth = `min(${LEGEND_WIDTH_REM}rem, calc(var(--card-width-current) - ${DONUT_SIZE_REM}rem - 3rem))`
+
   return (
     <section
       className='relative overflow-clip rounded-lg bg-surface text-fg shadow-elevation-card'
-      style={{
-        width: `min(${CARD_WIDTH}, 95vw)`,
-        height: `min(${CARD_HEIGHT}, calc(100vh - 6rem))`
-      }}
+      style={sectionStyles}
     >
-      <header className='absolute left-[1rem] top-[1rem] flex w-[min(31.0625rem,calc(95vw-2rem))] items-baseline justify-between'>
+      <header
+        className='absolute left-[1rem] top-[1rem] flex items-baseline justify-between'
+        style={{
+          width: `min(31.0625rem, calc(var(--card-width-current) - 2rem))`
+        }}
+      >
         <h3 className='text-title-sm font-medium text-fg'>
           Facturación por especialidad
         </h3>
         <button
           type='button'
-          className='flex items-center gap-[0.25rem] text-[0.75rem] leading-4 text-fg font-normal'
+          className='flex items-center gap-[0.25rem] text-[0.75rem] font-normal leading-4 text-fg'
           aria-label={`Seleccionar periodo ${year}`}
         >
           {year}
@@ -72,17 +87,22 @@ export default function ProductionTotalCard({
         </button>
       </header>
 
-      <div className='absolute left-[1rem] top-[3.5rem] flex'>
+      <div
+        className='absolute left-[1rem] top-[3.5rem] flex'
+        style={{
+          width: `min(7.75rem, calc(var(--card-width-current) - 2rem))`
+        }}
+      >
         <button
           type='button'
-          className='flex items-center justify-center rounded-l-[1rem] border border-neutral-300 border-r-0 bg-neutral-300 px-[0.5rem] py-[0.25rem] text-[0.75rem] leading-4 text-neutral-900 font-normal'
+          className='flex w-[3.0625rem] items-center justify-center rounded-l-[1rem] border border-neutral-300 border-r-0 bg-neutral-300 px-[0.5rem] py-[0.25rem] text-[0.75rem] font-normal leading-4 text-neutral-900'
           aria-pressed={view === 'barras'}
         >
           Barras
         </button>
         <button
           type='button'
-          className='flex items-center justify-center rounded-r-[1rem] border border-neutral-300 px-[0.25rem] py-[0.25rem] text-[0.75rem] leading-4 text-neutral-900 font-normal'
+          className='flex w-[3.5rem] items-center justify-center rounded-r-[1rem] border border-neutral-300 px-[0.25rem] py-[0.25rem] text-[0.75rem] font-normal leading-4 text-neutral-900'
           aria-pressed={view === 'circular'}
         >
           Circular
@@ -92,8 +112,8 @@ export default function ProductionTotalCard({
       <div
         className='absolute left-[1rem] top-[6.5rem] flex items-center justify-center'
         style={{
-          width: `min(${DONUT_SIZE_REM}rem, 40vw)`,
-          height: `min(${DONUT_SIZE_REM}rem, 40vw)`
+          width: donutSize,
+          height: donutSize
         }}
         aria-hidden='true'
       >
@@ -110,7 +130,7 @@ export default function ProductionTotalCard({
               <span className='text-body-sm font-normal text-brand-500'>
                 {delta}
               </span>
-              <span className='material-symbols-rounded text-brand-500 text-[1rem] leading-4'>
+              <span className='material-symbols-rounded text-[1rem] leading-4 text-brand-500'>
                 arrow_outward
               </span>
             </div>
@@ -121,8 +141,8 @@ export default function ProductionTotalCard({
       <dl
         className='absolute top-[9.6875rem] flex flex-col gap-[0.75rem] text-[0.75rem] leading-4 text-neutral-800'
         style={{
-          left: `min(16.9375rem, calc(95vw - 10.5rem))`,
-          width: `min(${LEGEND_WIDTH_REM}rem, calc(95vw - 18rem))`
+          left: legendLeft,
+          width: legendWidth
         }}
       >
         {specialties.map(({ label, percentage, colorToken }) => (
