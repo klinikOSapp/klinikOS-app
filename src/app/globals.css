@@ -108,7 +108,7 @@
 
   /* Dashboard specific spacing tokens (from Figma measurements) */
   --space-card-pad: 1rem; /* 16px */
-  --space-card-gap: 0.75rem; /* 12px */
+  --space-card-gap: 1rem; /* 16px */
   --space-card-gap2: 0.6875rem; /* 11px */
   --space-card-inner: 0.5rem; /* 8px */
   --space-header-cards: 2.4375rem; /* 39px header -> cards gap */
@@ -222,11 +222,10 @@
   --accounting-height-limit: 34vh;
 
   /* Fluid heights - adapt to viewport usando vh para escalar verticalmente */
-  --height-card-stat-fluid: clamp(
-    8rem,
-    15vh,
-    10.1875rem
-  ); /* 128px → 163px - escala con altura del viewport */
+  --height-card-stat-fluid: max(
+    10.1875rem,
+    15vh
+  ); /* Mínimo 163px (Figma) pero deja crecer con vh */
   --height-card-chart-fluid: clamp(
     16rem,
     31.7vh,
@@ -338,13 +337,10 @@ body {
   .dashboard-grid-stats {
     display: grid;
     gap: var(--spacing-card-gap);
-    grid-template-columns:
-      minmax(min(100%, var(--width-card-stat-fluid)), 32.6875rem)
-      minmax(
-        min(100%, var(--width-card-chart-lg-fluid)),
-        var(--width-card-chart-lg-fluid)
-      )
-      minmax(min(100%, var(--width-card-stat-fluid)), 32.6875rem);
+    grid-template-columns: repeat(
+      3,
+      minmax(min(100%, var(--width-card-stat-fluid)), var(--width-card-stat))
+    );
   }
 
   .dashboard-grid-charts {
@@ -381,10 +377,7 @@ body {
     }
 
     .dashboard-grid-stats {
-      grid-template-columns:
-        minmax(0, var(--width-card-stat))
-        minmax(0, var(--width-card-chart-lg))
-        minmax(0, var(--width-card-stat));
+      grid-template-columns: repeat(3, minmax(0, var(--width-card-stat)));
       justify-content: center;
     }
   }
@@ -395,8 +388,8 @@ body {
   .container-page {
     --container-gutter: clamp(1rem, 3vw, var(--spacing-plnav));
     --dashboard-max-width: calc(
-      var(--width-card-chart-lg) + var(--width-card-chart-md) +
-        var(--spacing-card-gap)
+      (2 * var(--width-card-stat)) + var(--width-card-chart-lg) +
+        (2 * var(--spacing-card-gap))
     );
     width: min(
       100%,
@@ -412,5 +405,24 @@ body {
   .scrollbar-hide {
     -ms-overflow-style: none; /* IE & Edge */
     scrollbar-width: none; /* Firefox */
+  }
+}
+
+/* Dashboard gaps at ≥1600px (incl. 1920px): force 1rem horizontally and vertically between cards */
+@media (min-width: 1600px) {
+  :root {
+    --spacing-card-gap: 1rem;
+  }
+}
+
+@media (max-height: 1000px) {
+  :root {
+    /* Reduce vertical stack so 24px bottom spacing stays visible on shorter viewports */
+    --spacing-header-stack: clamp(1.75rem, 4vh, 2.4375rem);
+    --height-card-chart-fluid: clamp(
+      16rem,
+      calc(31.7vh - 1.5rem),
+      21.375rem
+    );
   }
 }

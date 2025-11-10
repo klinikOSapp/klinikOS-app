@@ -1,4 +1,7 @@
+'use client'
+
 import type { CSSProperties } from 'react'
+import { Pie, PieChart, ResponsiveContainer, Cell } from 'recharts'
 
 type SpecialtyShare = {
   label: string
@@ -31,17 +34,6 @@ const DONUT_SIZE_REM = 12.6875
 const LEGEND_WIDTH_REM = 8.375
 type ChartCardStyles = CSSProperties & Record<'--card-width-current', string>
 
-function buildGradientStops(segments: SpecialtyShare[]) {
-  let cursor = 0
-  return segments
-    .map(({ percentage, colorToken }) => {
-      const start = cursor
-      cursor += percentage
-      return `${colorToken} ${start}% ${cursor}%`
-    })
-    .join(', ')
-}
-
 export default function ProductionTotalCard({
   year = '2024',
   value = '€ 56 K',
@@ -49,8 +41,6 @@ export default function ProductionTotalCard({
   view = 'circular',
   specialties = DEFAULT_SPECIALTIES
 }: ProductionTotalCardProps) {
-  const gradientStops = buildGradientStops(specialties)
-
   const sectionStyles = {
     '--card-width-current': `min(${CARD_WIDTH}, 95vw)`,
     width: 'var(--card-width-current)',
@@ -117,23 +107,34 @@ export default function ProductionTotalCard({
         }}
         aria-hidden='true'
       >
-        <div
-          className='relative size-full rounded-full'
-          style={{
-            background: `conic-gradient(${gradientStops})`
-          }}
-        >
-          <div className='absolute inset-[0.75rem] rounded-full border border-[rgba(255,255,255,0.5)] bg-surface' />
-          <div className='absolute inset-0 flex flex-col items-center justify-center gap-gapsm'>
-            <p className='text-headline-lg text-neutral-900'>{value}</p>
-            <div className='flex items-center gap-gapsm'>
-              <span className='text-body-sm font-normal text-brand-500'>
-                {delta}
-              </span>
-              <span className='material-symbols-rounded text-[1rem] leading-4 text-brand-500'>
-                arrow_outward
-              </span>
-            </div>
+        <ResponsiveContainer width='100%' height='100%'>
+          <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+            <Pie
+              data={specialties}
+              dataKey='percentage'
+              startAngle={90}
+              endAngle={-270}
+              innerRadius='88%'
+              outerRadius='100%'
+              paddingAngle={0}
+              cornerRadius={16}
+              stroke='transparent'
+              isAnimationActive
+            >
+              {specialties.map(({ label, colorToken }) => (
+                <Cell key={label} fill={colorToken} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        <div className='absolute inset-[0.75rem] rounded-full border border-[rgba(255,255,255,0.5)] bg-surface' />
+        <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-gapsm'>
+          <p className='text-headline-lg text-neutral-900'>{value}</p>
+          <div className='flex items-center gap-gapsm'>
+            <span className='text-body-sm font-normal text-brand-500'>{delta}</span>
+            <span className='material-symbols-rounded text-[1rem] leading-4 text-brand-500'>
+              arrow_outward
+            </span>
           </div>
         </div>
       </div>

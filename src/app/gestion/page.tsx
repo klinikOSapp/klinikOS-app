@@ -9,8 +9,8 @@ import ProfessionalBars from '@/components/gestion/ProfessionalBars'
 
 export default function GestionPage() {
   return (
-    <div className='bg-surface-app min-h-screen overflow-auto'>
-      <div className='container-page py-fluid-md'>
+    <div className='bg-surface-app min-h-screen overflow-auto pb-plnav'>
+      <div className='container-page py-fluid-md pb-plnav'>
         <HeaderControls />
 
         {/* First row - Stats cards */}
@@ -27,7 +27,7 @@ export default function GestionPage() {
         </div>
 
         {/* Third row - Accounting + Professional bars */}
-        <div className='grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-[var(--spacing-card-gap)] mt-gapmd'>
+        <div className='dashboard-grid-charts mt-gapmd mb-plnav'>
           <AccountingPanel />
           <ProfessionalBars />
         </div>

@@ -1,3 +1,14 @@
+'use client'
+import {
+  Line,
+  LineChart,
+  ReferenceLine,
+  ReferenceDot,
+  ResponsiveContainer,
+  XAxis,
+  YAxis
+} from 'recharts'
+import { useEffect, useState } from 'react'
 type BillingLineChartProps = { yearLabel?: string }
 
 const CARD_HEIGHT_VAR = 'var(--height-card-chart-fluid)'
@@ -23,24 +34,23 @@ const COMPARISON_TOP_RATIO = 58 / 342
 const COMPARISON_WIDTH_RATIO = 142 / 1069
 const HIGHLIGHT_LEFT_RATIO = (63 + 673.3636474609375) / 1069
 const HIGHLIGHT_WIDTH_RATIO = 1 / 1069
-const BRAND_LINE_LEFT_RATIO = 64 / 1069
-const BRAND_LINE_TOP_RATIO = 148.49644470214844 / 342
-const BRAND_LINE_WIDTH_RATIO = 673.5 / 1069
-const BRAND_LINE_HEIGHT_RATIO = 106.50354766845703 / 342
-const ACCENT_LINE_LEFT_RATIO = 63.5 / 1069
-const ACCENT_LINE_TOP_RATIO = 161.86012268066406 / 342
-const ACCENT_LINE_WIDTH_RATIO = 673.5 / 1069
-const ACCENT_LINE_HEIGHT_RATIO = 103.1398696899414 / 342
-const POINT_LEFT_RATIO = 356 / 1069
-const POINT_TOP_RATIO = 142 / 342
-const POINT_SIZE_RATIO = 13 / 342
-
-const BRAND_LINE_SRC =
-  'http://localhost:3845/assets/fcad0c2a4a81dfabb9159066244314acf76f927a.svg'
-const ACCENT_LINE_SRC =
-  'http://localhost:3845/assets/4b71e124208891d8f4cea425632526d07945cf2b.svg'
-const POINT_SRC =
-  'http://localhost:3845/assets/f840588f7a97e1a29391a19836fc99276e96acc6.svg'
+// Recharts sustituye las líneas SVG estáticas. Los datos por mes permiten dibujar
+// la línea "brand" (actual) y la "accent" (comparativa) manteniendo la estructura Figma.
+// Valores aproximados para maqueta; deben venir del backend en producción.
+const CHART_DATA = [
+  { month: 'Ene', brand: 26000, accent: 24000 },
+  { month: 'Feb', brand: 28000, accent: 25500 },
+  { month: 'Mar', brand: 30000, accent: 27000 },
+  { month: 'Abr', brand: 32000, accent: 29500 },
+  { month: 'May', brand: 35000, accent: 31500 },
+  { month: 'Jun', brand: 33000, accent: 31000 },
+  { month: 'Jul', brand: 36000, accent: 33000 },
+  { month: 'Ago', brand: 38000, accent: 35000 },
+  { month: 'Sept', brand: 39000, accent: 36500 },
+  { month: 'Oct', brand: 42000, accent: 40000 },
+  { month: 'Nov', brand: 41000, accent: 39500 },
+  { month: 'Dic', brand: 43000, accent: 40500 }
+]
 
 const Y_AXIS_LABELS = ['90K', '70K', '50K', '30K', '10K', '0']
 const MONTH_LABELS = [
@@ -66,6 +76,8 @@ const toHeight = (ratio: number) =>
 export default function BillingLineChart({
   yearLabel = '2024'
 }: BillingLineChartProps) {
+  const [isMounted, setIsMounted] = useState(false)
+  useEffect(() => setIsMounted(true), [])
   return (
     <section
       className='relative w-full overflow-clip rounded-lg bg-surface shadow-elevation-card'
@@ -129,43 +141,57 @@ export default function BillingLineChart({
             backgroundColor: 'var(--color-warning-200)'
           }}
         />
-        <img
-          alt=''
-          aria-hidden
-          className='absolute pointer-events-none select-none'
-          src={ACCENT_LINE_SRC}
-          style={{
-            left: toWidth(ACCENT_LINE_LEFT_RATIO),
-            top: toHeight(ACCENT_LINE_TOP_RATIO),
-            width: toWidth(ACCENT_LINE_WIDTH_RATIO),
-            height: toHeight(ACCENT_LINE_HEIGHT_RATIO)
-          }}
-        />
-        <img
-          alt=''
-          aria-hidden
-          className='absolute pointer-events-none select-none'
-          src={BRAND_LINE_SRC}
-          style={{
-            left: toWidth(BRAND_LINE_LEFT_RATIO),
-            top: toHeight(BRAND_LINE_TOP_RATIO),
-            width: toWidth(BRAND_LINE_WIDTH_RATIO),
-            height: toHeight(BRAND_LINE_HEIGHT_RATIO)
-          }}
-        />
-        <img
-          alt=''
-          aria-hidden
-          className='absolute pointer-events-none select-none'
-          src={POINT_SRC}
-          style={{
-            left: toWidth(POINT_LEFT_RATIO),
-            top: toHeight(POINT_TOP_RATIO),
-            width: toHeight(POINT_SIZE_RATIO),
-            height: toHeight(POINT_SIZE_RATIO),
-            transform: 'translate(-50%, -50%)'
-          }}
-        />
+        <div className='absolute inset-0'>
+          {isMounted && (
+            <ResponsiveContainer width='100%' height='100%'>
+              <LineChart
+                data={CHART_DATA}
+                margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+              >
+                {/* Ejes ocultos para mantener las etiquetas personalizadas de Figma */}
+                <XAxis dataKey='month' hide />
+                <YAxis domain={[0, 90000]} hide />
+                {/* Línea comparativa (info-200) - estilo discontínuo */}
+                <Line
+                  type='monotone'
+                  dataKey='accent'
+                  stroke='var(--info-200, #D4B5FF)'
+                  strokeWidth={2}
+                  strokeDasharray='4 4'
+                  dot={false}
+                  animationDuration={1200}
+                  animationBegin={150}
+                />
+                {/* Línea principal (brandSemantic) */}
+                <Line
+                  type='monotone'
+                  dataKey='brand'
+                  stroke='var(--brandSemantic, #51D6C7)'
+                  strokeWidth={2}
+                  dot={false}
+                  animationDuration={1200}
+                  animationBegin={0}
+                />
+                {/* Punto de foco en un mes concreto (aprox. a la maqueta) */}
+                <ReferenceDot
+                  x='Jun'
+                  y={33000}
+                  r={6}
+                  fill='var(--brandSemantic, #51D6C7)'
+                  stroke='var(--brandSemantic, #51D6C7)'
+                  isFront
+                />
+                {/* Línea vertical destacada en "Oct" como en la maqueta */}
+                <ReferenceLine
+                  x='Oct'
+                  stroke='var(--color-warning-200)'
+                  strokeWidth={1}
+                  ifOverflow='extendDomain'
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
       </div>
 
       <div
