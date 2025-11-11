@@ -14,7 +14,7 @@ export default function ProductionTotalCard({
       className='bg-brand-900 text-fg-inverse text-[var(--color-text-inverse)] rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 justify-self-stretch overflow-hidden'
       style={{ width: 'min(var(--width-card-stat-fluid), 100%)' }}
     >
-      <div className='flex h-full flex-col gap-[min(2.9375rem,4.5vw)] p-[min(1rem,1.5vw)] text-[var(--color-text-inverse)]'>
+      <div className='flex h-full flex-col gap-[min(1.46875rem,2.25vw)] p-[min(1rem,1.5vw)] text-[var(--color-text-inverse)]'>
         <header className='flex shrink-0 items-baseline gap-[min(1rem,1.5vw)]'>
           <h3 className='text-title-sm font-medium text-[var(--color-text-inverse)]'>
             Producción total

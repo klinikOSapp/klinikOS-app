@@ -129,10 +129,10 @@
   --spacing-card-padding: 1rem; /* 16px - padding interno de cards */
   --spacing-chart-margin: 1rem; /* 16px - márgenes de gráficos */
   --spacing-header-stack: clamp(
-    2rem,
-    5vh,
-    3.5rem
-  ); /* 32px → 56px - Header a cards (ajustado a Figma) */
+    1.6rem,
+    4vh,
+    2.8rem
+  ); /* Espaciado reducido 20%: antes 2rem-3.5rem → ahora 1.6rem-2.8rem */
   --spacing-stats-offset: clamp(
     1rem,
     2vh,
@@ -186,7 +186,7 @@
 
   /* Dashboard Component Dimensions */
   --height-card-stat: 10.1875rem; /* 163px - cards de estadísticas */
-  --height-card-chart: 21.375rem; /* 342px - cards con gráficos */
+  --height-card-chart: 24.58125rem; /* 393.3px (+15% sobre 342px) - cards con gráficos */
   --width-card-stat: 32.6875rem; /* 523px - ancho card estadística */
   --width-card-chart-lg: 66.8125rem; /* 1069px - ancho card grande */
   --width-card-chart-md: 33.0625rem; /* 529px - ancho card mediano */
@@ -195,7 +195,7 @@
 
   /* Profesional bars chart ratios (Figma exact values) */
   --chart-prof-width-limit: 95vw;
-  --chart-prof-height-limit: 34vh;
+  --chart-prof-height-limit: 39.1vh; /* +15% sobre 34vh para mayor altura */
   --chart-prof-axis-left-ratio: 0.10302; /* 55 / 529 */
   --chart-prof-axis-label-left-ratio: 0.03025; /* 16 / 529 */
   --chart-prof-grid-width-ratio: 0.82892; /* 438 / 529 */
@@ -219,18 +219,21 @@
 
   /* Accounting panel layout (Figma exact values) */
   --accounting-width-limit: 95vw;
-  --accounting-height-limit: 34vh;
+  --accounting-height-limit: 39.1vh; /* +15% sobre 34vh alineado con charts */
 
   /* Fluid heights - adapt to viewport usando vh para escalar verticalmente */
   --height-card-stat-fluid: max(
-    10.1875rem,
-    15vh
-  ); /* Mínimo 163px (Figma) pero deja crecer con vh */
-  --height-card-chart-fluid: clamp(
-    16rem,
-    31.7vh,
-    21.375rem
-  ); /* 256px → 342px - escala con altura del viewport */
+    8.15rem,
+    12vh
+  ); /* Altura reducida un 20%: antes 10.1875rem (163px) → ahora 8.15rem (~130px) */
+  --height-card-chart-fluid-base: clamp(
+    18.4rem,
+    36.455vh,
+    24.58125rem
+  ); /* 294.4px → 393.3px (+15%) - escala con altura del viewport */
+  --height-card-chart-fluid: var(
+    --height-card-chart-fluid-base
+  ); /* valor por defecto, se puede sobreescribir por sección */
 
   /* Fluid widths - adapt to viewport */
   --width-card-stat-fluid: clamp(
@@ -352,6 +355,16 @@ body {
     );
   }
 
+  .dashboard-grid-bottom {
+    --height-card-chart-fluid: max(
+      16rem,
+      min(
+        var(--height-card-chart-fluid-base),
+        calc(100vh - 40.625rem - var(--spacing-plnav))
+      )
+    );
+  }
+
   .dashboard-grid-double {
     display: grid;
     gap: var(--spacing-card-gap);
@@ -418,11 +431,11 @@ body {
 @media (max-height: 1000px) {
   :root {
     /* Reduce vertical stack so 24px bottom spacing stays visible on shorter viewports */
-    --spacing-header-stack: clamp(1.75rem, 4vh, 2.4375rem);
+    --spacing-header-stack: clamp(1.4rem, 3.2vh, 1.95rem);
     --height-card-chart-fluid: clamp(
-      16rem,
-      calc(31.7vh - 1.5rem),
-      21.375rem
+      18.4rem,
+      calc(36.455vh - 1.5rem),
+      24.58125rem
     );
   }
 }

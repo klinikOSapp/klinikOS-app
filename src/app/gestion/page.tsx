@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react'
+
 import HeaderControls from '@/components/gestion/HeaderControls'
 import IncomeTypes from '@/components/gestion/IncomeTypes'
 import PatientsSummary from '@/components/gestion/PatientsSummary'
@@ -6,6 +8,12 @@ import BillingLineChart from '@/components/gestion/BillingLineChart'
 import SpecialtyDonut from '@/components/gestion/SpecialtyDonut'
 import AccountingPanel from '@/components/gestion/AccountingPanel'
 import ProfessionalBars from '@/components/gestion/ProfessionalBars'
+
+const thirdRowStyles = {
+  '--height-card-chart-fluid-base': 'clamp(17.6rem, 34vh, 23.25rem)',
+  '--chart-prof-height-limit': '34vh',
+  '--accounting-height-limit': '34vh'
+} satisfies CSSProperties
 
 export default function GestionPage() {
   return (
@@ -27,7 +35,10 @@ export default function GestionPage() {
         </div>
 
         {/* Third row - Accounting + Professional bars */}
-        <div className='dashboard-grid-charts mt-gapmd mb-plnav'>
+        <div
+          className='dashboard-grid-charts dashboard-grid-bottom mt-gapmd mb-plnav'
+          style={thirdRowStyles}
+        >
           <AccountingPanel />
           <ProfessionalBars />
         </div>

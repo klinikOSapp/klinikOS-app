@@ -259,9 +259,9 @@ export default {
       // Dashboard component dimensions
       height: {
         'card-stat': 'var(--height-card-stat)', // 163px - cards de estadísticas (fijo)
-        'card-chart': 'var(--height-card-chart)', // 342px - cards con gráficos (fijo)
-        'card-stat-fluid': 'var(--height-card-stat-fluid)', // 128px → 163px (fluido)
-        'card-chart-fluid': 'var(--height-card-chart-fluid)', // 256px → 342px (fluido)
+        'card-chart': 'var(--height-card-chart)', // 393.3px (+15%) - cards con gráficos (fijo)
+        'card-stat-fluid': 'var(--height-card-stat-fluid)', // Altura fluid reducida 20% (≈130px base)
+        'card-chart-fluid': 'var(--height-card-chart-fluid)', // 294.4px → 393.3px (+15%) (fluido)
         'income-card': 'var(--height-income-card)' // 100px - tarjeta Tipos de ingreso
       },
       width: {
