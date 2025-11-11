@@ -190,8 +190,8 @@
   --width-card-stat: 32.6875rem; /* 523px - ancho card estadística */
   --width-card-chart-lg: 66.8125rem; /* 1069px - ancho card grande */
   --width-card-chart-md: 33.0625rem; /* 529px - ancho card mediano */
-  --width-income-card: 9.75rem; /* 156px - tarjeta Tipos de ingreso */
-  --height-income-card: 6.25rem; /* 100px - tarjeta Tipos de ingreso */
+  --width-income-card: 9.2625rem; /* 148.2px - tarjeta Tipos de ingreso (−5%) */
+  --height-income-card: 5.3125rem; /* 85px - tarjeta Tipos de ingreso (−15%) */
 
   /* Profesional bars chart ratios (Figma exact values) */
   --chart-prof-width-limit: 95vw;
