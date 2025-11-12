@@ -26,7 +26,7 @@ export default function AddProfilePhotoStep({ onBack, onContinue }: Props) {
     >
       <div
         style={{
-          maxWidth: 'var(--landing-actions-width)',
+          maxWidth: 'var(--modal-actions-width)',
           marginInline: 'auto'
         }}
       >
@@ -104,7 +104,7 @@ export default function AddProfilePhotoStep({ onBack, onContinue }: Props) {
         <div
           style={{
             marginTop: 'var(--modal-cta-top-gap)',
-            maxWidth: 'var(--landing-actions-width)',
+            maxWidth: 'var(--modal-actions-width)',
             marginInline: 'auto'
           }}
         >
@@ -112,7 +112,7 @@ export default function AddProfilePhotoStep({ onBack, onContinue }: Props) {
             type='button'
             onClick={onContinue}
             className='w-full rounded-[var(--radius-pill)] grid place-items-center bg-brand-500 border border-[var(--color-border-default)] text-brand-900 text-body-md font-inter'
-            style={{ height: 'var(--landing-cta-height)' }}
+            style={{ height: 'var(--modal-cta-height)' }}
           >
             Continuar
           </button>
