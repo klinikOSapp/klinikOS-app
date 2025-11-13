@@ -132,20 +132,20 @@
 
   /* Landing (pre-login) exact Figma specs */
   --blur-landing: 1.125rem; /* 18px */
-  --landing-card-width: 28.75rem; /* 460px */
-  --landing-card-height: 49.6875rem; /* 795px */
+  --landing-card-width: 25.875rem; /* 414px - 10% menos que 460px */
+  --landing-card-height: 45.95625rem; /* 735.3px - 10% menos que 817px */
   --radius-card-lg: 2rem; /* 32px */
   --shadow-landing-card: -2px -2px 4px 0 rgba(0, 0, 0, 0.1),
     2px 2px 4px 0 rgba(0, 0, 0, 0.1);
-  --landing-hero-size: 10.4375rem; /* 167px */
-  --landing-actions-width: 23.75rem; /* 380px */
-  --landing-top-gap: 4.5rem; /* 72px */
-  --landing-gap-lg: 1.5rem; /* 24px */
+  --landing-hero-size: 9.39375rem; /* 150.3px */
+  --landing-actions-width: 21.375rem; /* 342px */
+  --landing-top-gap: 4.05rem; /* 64.8px */
+  --landing-gap-lg: 1.35rem; /* 21.6px */
   --text-title-landing: 2rem; /* 32px */
   --leading-title-landing: 2.5rem; /* 40px */
-  --landing-cta-height: 3rem; /* 48px */
+  --landing-cta-height: 2.7rem; /* 43.2px */
   --shadow-button-soft: 0px 2px 2px 0px rgba(0, 0, 0, 0.1);
-  --landing-bottom-gap: 2.8125rem; /* 45px */
+  --landing-bottom-gap: 2.53125rem; /* 40.5px */
 
   /* Modal tokens (semantic aliases, reused by auth) */
   --modal-card-width: var(--landing-card-width);
@@ -189,6 +189,103 @@
   --modal-copy-to-first-gap: 3.5rem; /* 56px */
   --modal-cta-top-gap: 3.5rem; /* 56px */
   --modal-legal-top-gap: 4rem; /* 64px */
+}
+
+/* Logo animation */
+.logo-animation {
+  position: relative;
+  width: var(--landing-hero-size);
+  height: var(--landing-hero-size);
+}
+
+.logo-animation__glow {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-circle-avatar);
+  background: radial-gradient(
+    circle,
+    rgba(81, 214, 199, 0.35) 0%,
+    rgba(81, 214, 199, 0) 70%
+  );
+  animation: logoGlowPulse 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.logo-animation__segment {
+  position: absolute;
+  width: calc(var(--landing-hero-size) * 0.468);
+  height: calc(var(--landing-hero-size) * 0.468);
+  top: 0;
+  left: 0;
+  transform-origin: center;
+}
+
+.logo-animation__segment--outline {
+  border: calc(var(--landing-hero-size) * 0.0915) solid var(--color-brand-500);
+  border-radius: calc(var(--landing-hero-size) * 0.2343)
+    calc(var(--landing-hero-size) * 0.1046)
+    calc(var(--landing-hero-size) * 0.1046)
+    calc(var(--landing-hero-size) * 0.2343);
+  animation: logoSegmentOutline 3.4s ease-in-out infinite;
+  animation-delay: var(--la-delay, 0s);
+}
+
+.logo-animation__segment--filled {
+  border-radius: calc(var(--landing-hero-size) * 0.1046)
+    calc(var(--landing-hero-size) * 0.3268)
+    calc(var(--landing-hero-size) * 0.3268)
+    calc(var(--landing-hero-size) * 0.1046);
+  background: var(--color-brand-500);
+  animation: logoSegmentFilled 3.4s ease-in-out infinite;
+  animation-delay: var(--la-delay, 0s);
+}
+
+@keyframes logoSegmentOutline {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--la-rotation, 0deg)) scale(0.4);
+  }
+  28% {
+    opacity: 1;
+    transform: rotate(var(--la-rotation, 0deg)) scale(1.08);
+  }
+  50% {
+    transform: rotate(var(--la-rotation, 0deg)) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(var(--la-rotation, 0deg)) scale(1);
+  }
+}
+
+@keyframes logoSegmentFilled {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  28% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  50% {
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes logoGlowPulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.1;
+    transform: scale(1.05);
+  }
 }
 
 /* ✨ BASE HTML FLUIDA - Hace TODO responsive automáticamente */

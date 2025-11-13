@@ -1,0 +1,595 @@
+# klinikOS - Responsive Design System Rules
+
+## Project Context
+
+- **Project:** klinikOS (medical clinic management system)
+- **Timeline:** 7-8 month development project
+- **Team:** Multiple developers
+- **Design Source:** Figma (exact specifications via MCP)
+- **Target Screens:** 1280px - 1920px (desktop/tablet only, no mobile)
+- **User's Screen:** 1512px × 982px (primary testing viewport)
+
+## 🎨 CRITICAL: Figma MCP Integration
+
+### MANDATORY BEFORE ANY IMPLEMENTATION
+
+**You MUST use Figma MCP before writing ANY code.**
+
+When implementing a component or page:
+
+1. **ALWAYS use MCP to extract Figma data:**
+
+```
+   get_metadata - To see what's selected
+   get_code - To extract full component structure and measurements
+```
+
+2. **If you have ANY doubt about design specs:**
+
+   - DON'T guess
+   - DON'T assume
+   - USE Figma MCP to verify
+
+3. **Extract ALL measurements from Figma:**
+
+   - Container dimensions
+   - Component sizes
+   - Spacing values (padding, margins, gaps)
+   - Typography specs (size, line-height, weight)
+   - Colors and their exact values
+   - Border radius values
+   - All positioning values (left, top, etc.)
+
+4. **Document extracted measurements:**
+   Create a conversion table BEFORE coding:
+
+```
+   Component          | Figma (px) | ÷ 16 = Rem | Notes
+   -------------------|------------|------------|-------
+   Main container     | 1920×1080  | 120×67.5   | Full layout
+   Sidebar            | 256        | 16         | Navigation
+   Topbar             | 64         | 4          | Header height
+   Card width         | 248        | 15.5       | Stats card
+   Gap between cards  | 16         | 1          | Horizontal gap
+   ...
+```
+
+5. **Define semantic tokens:**
+   Based on Figma values, identify which CSS variables or Tailwind classes to use:
+
+```
+   Figma: 18px text → Token: text-title-md (1.125rem)
+   Figma: 64px topbar → Token: var(--spacing-topbar) or h-topbar
+   Figma: 16px radius → Token: rounded-xl (1rem)
+```
+
+6. **Verify 4 Pillars Compliance:**
+   Before implementing, confirm:
+
+   - [ ] Values converted to rem (Pillar 1 & 2)
+   - [ ] min() pattern for containers (Pillar 3)
+   - [ ] Figma structure maintained (Pillar 4)
+
+7. **Write justification summary:**
+   After implementation, provide:
+
+```
+   ## Figma Fidelity Report
+
+   ✅ STRUCTURE MAINTAINED:
+   - Layout uses [absolute/flex/grid] as in Figma
+   - Navigation positioned [left/top] as designed
+   - All components in correct hierarchy
+
+   ✅ MEASUREMENTS EXACT:
+   - Container: 1920px (Figma) → 120rem (code)
+   - Sidebar: 256px (Figma) → 16rem (code)
+   - Typography: 18px/28px (Figma) → text-title-md (code)
+
+   ✅ RESPONSIVE STRATEGY:
+   - Applied min(120rem, 95vw) for viewport safety
+   - Maintains Figma proportions at all screen sizes
+   - No structural changes, only value conversions
+
+   ✅ 4 PILLARS COMPLIANCE:
+   - Fluid base: All rem values scale automatically
+   - Exact measurements: All values from Figma ÷ 16
+   - Viewport limits: min() pattern applied
+   - Minimal refactoring: Structure identical to Figma
+```
+
+### When to Use Figma MCP
+
+**ALWAYS use MCP when:**
+
+- Starting a new component
+- Uncertain about any measurement
+- Need to verify spacing/sizing
+- Implementing a page layout
+- Checking typography specs
+- Verifying color values
+- Any doubt about design fidelity
+
+**Example MCP workflow:**
+
+```
+User: "Implement the patient stats cards section"
+
+Step 1: Use MCP to get Figma data
+[get_metadata] - See what's selected
+[get_code] - Extract full structure
+
+Step 2: Document findings
+"Figma shows 4 cards, each 248px × 128px, with 16px gaps"
+
+Step 3: Convert to tokens
+248px ÷ 16 = 15.5rem
+128px ÷ 16 = 8rem
+16px ÷ 16 = 1rem
+
+Step 4: Implement with min() pattern
+w-[min(15.5rem,100%)]
+h-[min(8rem,12vh)]
+gap-[min(1rem,1.5vw)]
+
+Step 5: Justify fidelity
+"Structure matches Figma exactly. All measurements converted px→rem. Applied min() for safety."
+```
+
+---
+
+## Core Responsive Philosophy (4 Pillars)
+
+### 1. FLUID HTML BASE (Foundation)
+
+```css
+/* Already implemented in globals.css */
+html {
+  font-size: clamp(14px, 1vw, 18px);
+}
+```
+
+- **Effect:** ALL rem values scale automatically
+- 1280px viewport → 1rem = 14px
+- 1512px viewport → 1rem = 15.12px
+- 1920px viewport → 1rem = 18px
+
+### 2. EXACT FIGMA MEASUREMENTS IN REM (Predictability)
+
+**Conversion formula:** `Figma px ÷ 16 = rem`
+
+**ALWAYS extract from Figma via MCP first, then convert.**
+
+Examples:
+
+- 1920px → 120rem
+- 256px → 16rem
+- 64px → 4rem
+- 48px → 3rem
+- 18px → 1.125rem
+
+**Why:** Easy to verify against Figma, maintains design system consistency.
+
+### 3. VIEWPORT LIMITS WITH min() (Safety)
+
+**Universal pattern:** `min(FigmaRem, ViewportUnit)`
+
+Examples:
+
+```tsx
+// Containers
+w-[min(93.75rem,92vw)]
+h-[min(56.25rem,85vh)]
+
+// Padding
+p-[min(3rem,4vw)]
+
+// Typography
+text-[min(3.25rem,5vw)]
+```
+
+**Why:** Ensures content NEVER exceeds viewport, no horizontal scroll.
+
+### 4. MINIMAL REFACTORING (Risk Reduction)
+
+**Golden Rule:** "Convert VALUES, not ARCHITECTURE"
+
+✅ DO:
+
+- Convert px to rem: `64px` → `4rem`
+- Apply min() to containers: `w-[120rem]` → `w-[min(120rem,95vw)]`
+- Use semantic Tailwind: `text-[18px]` → `text-title-md`
+- Keep absolute positioning: `left-[16rem] top-[4rem] absolute`
+- **VERIFY structure matches Figma exactly**
+
+❌ DON'T:
+
+- Change layout type: `absolute` → `flex/grid` (unless Figma changed)
+- Rebuild component structure
+- Add new breakpoints where Figma doesn't have them
+- Move elements to different positions
+- Remove Figma's design structure
+- **GUESS measurements - always use MCP**
+
+---
+
+## Implementation Workflow (MANDATORY STEPS)
+
+### Step 1: Extract from Figma (REQUIRED)
+
+```
+1. Select component/frame in Figma
+2. Use MCP: get_metadata to confirm selection
+3. Use MCP: get_code to extract structure
+4. Document ALL measurements in a table
+```
+
+### Step 2: Create Token Mapping
+
+```
+Map Figma values to semantic tokens:
+
+Figma Value → Semantic Token → Responsive Value
+64px        → var(--spacing-topbar) → 4rem
+256px       → w-sidebar → 16rem
+18px/28px   → text-title-md → 1.125rem/1.75rem
+16px radius → rounded-xl → 1rem
+```
+
+### Step 3: Verify 4 Pillars
+
+```
+✓ Fluid base active (globals.css)
+✓ All measurements converted (px ÷ 16)
+✓ min() pattern for containers
+✓ Structure matches Figma exactly
+```
+
+### Step 4: Implement Code
+
+```tsx
+// Use extracted measurements
+<div className='w-[min(120rem,95vw)] h-[min(67.5rem,85vh)]'>
+  {/* Keep Figma structure */}
+</div>
+```
+
+### Step 5: Write Justification
+
+```
+## Figma Fidelity Report
+
+✅ STRUCTURE: [Explain how it matches]
+✅ MEASUREMENTS: [Show conversion table]
+✅ RESPONSIVE: [Explain min() strategy]
+✅ 4 PILLARS: [Confirm compliance]
+```
+
+---
+
+## Correct Patterns
+
+### Containers
+
+```tsx
+// ✅ CORRECT - Fully responsive with min()
+<div className='w-[min(104rem,95vw)] h-[min(63.5rem,calc(100vh-4rem))]'>
+
+// ❌ WRONG - Doesn't scale proportionally
+<div className='w-full max-w-[104rem]'>
+<div className='w-[1664px]'>
+```
+
+### Typography
+
+```tsx
+// ✅ CORRECT - Semantic Tailwind classes (verify against Figma)
+<p className='text-xl leading-8'>Title</p>
+<p className='text-sm leading-5'>Description</p>
+
+// ❌ WRONG - Fixed px values
+<p className='text-[24px] leading-[32px]'>Title</p>
+```
+
+### Spacing
+
+```tsx
+// ✅ CORRECT - Scales with fluid base (from Figma)
+<div className='p-6 gap-4 mt-8'>
+
+// ✅ CORRECT - Explicit min() for exact control
+<div className='p-[min(3rem,4vw)] gap-[min(1rem,1.5vw)]'>
+
+// ❌ WRONG - Fixed px without MCP verification
+<div className='p-[24px] gap-[16px]'>
+```
+
+### Layout Preservation (CRITICAL)
+
+```tsx
+// ✅ CORRECT - Keep Figma structure, convert values
+// (Verified via MCP that Figma uses absolute positioning)
+<div className='w-[min(68.25rem,92vw)] h-[min(59.75rem,85vh)]'>
+  {/* Figma structure intact */}
+  <div className='left-[18.375rem] top-[10rem] absolute'>
+    <div className='w-[20rem] left-[30.6875rem] top-[17.9375rem] absolute'>
+      ...
+    </div>
+  </div>
+</div>
+
+// ❌ WRONG - Changing structure without MCP verification
+<div className='flex flex-col md:flex-row'>
+  <div className='grid grid-cols-2 gap-6'>
+    ... {/* Completely different from Figma */}
+  </div>
+</div>
+```
+
+---
+
+## CSS Variables (All in rem)
+
+### globals.css
+
+```css
+/* ALL values extracted from Figma and converted */
+/* Spacing */
+--spacing-topbar: 4rem; /* 64px from Figma */
+--spacing-sidebar: 16rem; /* 256px from Figma */
+--spacing-sidebar-collapsed: 5rem; /* 80px from Figma */
+--spacing-nav-item: 3rem; /* 48px from Figma */
+--spacing-cta: 3.5rem; /* 56px from Figma */
+--spacing-gapsm: 0.5rem; /* 8px from Figma */
+--spacing-gapmd: 1rem; /* 16px from Figma */
+--spacing-plnav: 1.5rem; /* 24px from Figma */
+
+/* Typography */
+--text-title-md: 1.125rem; /* 18px from Figma */
+--leading-title-md: 1.75rem; /* 28px from Figma */
+--text-body-md: 1rem; /* 16px from Figma */
+--leading-body-md: 1.5rem; /* 24px from Figma */
+
+/* Radii */
+--radius-xl: 1rem; /* 16px from Figma */
+```
+
+### tailwind.config.ts
+
+```ts
+/* ALL spacing values from Figma */
+spacing: {
+  topbar: '4rem',           // 64px Figma
+  sidebar: '16rem',         // 256px Figma
+  'nav-item': '3rem',       // 48px Figma
+  cta: '3.5rem',            // 56px Figma
+}
+
+maxWidth: {
+  'content': '100rem',   // 1600px Figma
+  'layout': '120rem',    // 1920px Figma
+}
+
+borderRadius: {
+  xl: '1rem',            // 16px Figma
+}
+
+fontSize: {
+  'title-md': ['1.125rem', { lineHeight: '1.75rem', fontWeight: '500' }], // 18px/28px Figma
+  'body-md': ['1rem', { lineHeight: '1.5rem', fontWeight: '400' }],       // 16px/24px Figma
+}
+```
+
+---
+
+## Implementation Checklist (MANDATORY)
+
+Before implementing ANY component:
+
+- [ ] **Used Figma MCP to extract design specs?**
+- [ ] **Documented ALL measurements in conversion table?**
+- [ ] **Defined semantic tokens/variables to use?**
+- [ ] **Verified structure matches Figma exactly?**
+- [ ] Am I maintaining Figma's layout type (absolute/flex/grid)?
+- [ ] Am I only converting px → rem?
+- [ ] Am I applying min() pattern to containers?
+- [ ] Am I using semantic Tailwind where appropriate?
+- [ ] Am I NOT changing structure without Figma justification?
+- [ ] Have I verified scaling at 1280px, 1512px, and 1920px?
+- [ ] **Written Figma Fidelity Report justifying decisions?**
+
+**If all YES → Proceed**  
+**If any NO → STOP, use MCP, reconsider**
+
+---
+
+## Scaling Verification
+
+Always calculate expected sizes at different viewports:
+
+| Viewport | Base    | Example: 4rem | Example: 16rem | Example: 93.75rem |
+| -------- | ------- | ------------- | -------------- | ----------------- |
+| 1280px   | 14px    | 56px          | 224px          | 1312px            |
+| 1512px   | 15.12px | 60.48px       | 241.92px       | 1417px            |
+| 1920px   | 18px    | 72px          | 288px          | 1687px            |
+
+---
+
+## Anti-Patterns (Never Do)
+
+```tsx
+// ❌ Implementing without MCP verification
+"I'll guess the spacing is 24px" → NO! Use MCP
+
+// ❌ Using only max-w without min()
+<div className='w-full max-w-[120rem]'>
+
+// ❌ Fixed px values without Figma source
+<div className='w-[1920px] h-[1080px]'>
+
+// ❌ Changing structure without MCP proof
+<div className='flex flex-col'> {/* Was it flex in Figma? */}
+
+// ❌ Adding arbitrary breakpoints
+<div className='md:w-1/2 lg:w-1/3'> {/* Not in Figma */}
+
+// ❌ Hardcoded values without token mapping
+<div className='p-[24px] gap-[16px]'> {/* Use semantic tokens */}
+```
+
+---
+
+## Successful Implementations (Reference)
+
+### PatientFichaModal (MCP Verified)
+
+```tsx
+// Extracted from Figma via MCP:
+// - Total: 1500px × 900px
+// - Nav: 304px
+// - Content: 1196px
+
+<div className='w-[min(93.75rem,92vw)] h-[min(56.25rem,85vh)]'>
+  <nav className='w-[19rem]'>        {/* 304px ÷ 16 = 19rem */}
+  <main className='w-[74.75rem]'>   {/* 1196px ÷ 16 = 74.75rem */}
+</div>
+
+// Justification: Structure matches Figma exactly.
+// All measurements verified via MCP and converted to rem.
+```
+
+### AddPatientModal (Correct Version)
+
+```tsx
+// MCP extraction confirmed absolute positioning in Figma
+
+<div className='w-[min(68.25rem,92vw)] h-[min(59.75rem,85vh)]'>
+  {/* Keep Figma structure with absolute positioning */}
+  <div className='left-[2rem] top-[6rem] absolute'>...</div>
+</div>
+
+// Justification: Figma uses absolute layout.
+// Maintained structure, converted all px to rem.
+```
+
+---
+
+## Example: Complete Implementation Flow
+
+```
+USER REQUEST: "Implement the patient stats cards"
+
+STEP 1: Extract from Figma (MCP)
+→ get_metadata: Confirms "Stats Cards Section" selected
+→ get_code: Returns structure with measurements
+
+STEP 2: Document Findings
+┌─────────────────────────┬────────────┬────────┬──────────────┐
+│ Component               │ Figma (px) │ Rem    │ Token        │
+├─────────────────────────┼────────────┼────────┼──────────────┤
+│ Container width         │ 1040       │ 65     │ Custom       │
+│ Card width              │ 248        │ 15.5   │ Custom       │
+│ Card height             │ 128        │ 8      │ Custom       │
+│ Gap horizontal          │ 16         │ 1      │ gap-4        │
+│ Card padding            │ 16         │ 1      │ p-4          │
+│ Large number size       │ 52         │ 3.25   │ Custom       │
+│ Title text              │ 16         │ 1      │ text-base    │
+│ Percentage text         │ 14         │ 0.875  │ text-sm      │
+└─────────────────────────┴────────────┴────────┴──────────────┘
+
+STEP 3: Verify 4 Pillars
+✓ Fluid base active
+✓ All px converted to rem
+✓ Will apply min() to container
+✓ Figma uses grid layout (verified via MCP)
+
+STEP 4: Implement
+<div className='w-[min(65rem,95vw)] grid gap-[min(1rem,1.5vw)]'
+     style={{gridTemplateColumns: 'repeat(auto-fit, minmax(min(15.5rem, 100%), 1fr))'}}>
+  <div className='w-[min(15.5rem,100%)] h-[min(8rem,12vh)] p-4'>
+    <p className='text-[min(3.25rem,5vw)]'>2</p>
+    <p className='text-base'>Pacientes hoy</p>
+    <p className='text-sm'>24%</p>
+  </div>
+  {/* Repeat for 4 cards */}
+</div>
+
+STEP 5: Justification Report
+## Figma Fidelity Report - Stats Cards
+
+✅ STRUCTURE MAINTAINED:
+- Layout uses grid as specified in Figma
+- 4 cards in horizontal row at desktop
+- All cards positioned correctly
+
+✅ MEASUREMENTS EXACT:
+- Container: 1040px (Figma) → 65rem (code)
+- Cards: 248px × 128px (Figma) → 15.5rem × 8rem (code)
+- Gap: 16px (Figma) → 1rem (code)
+- Typography: 52px/16px/14px (Figma) → 3.25rem/1rem/0.875rem (code)
+
+✅ RESPONSIVE STRATEGY:
+- Applied min(65rem, 95vw) for container
+- Cards use auto-fit grid for flexibility
+- min() pattern on all dimensional values
+- Maintains Figma proportions at all sizes
+
+✅ 4 PILLARS COMPLIANCE:
+- Fluid base: All rem values scale automatically ✓
+- Exact measurements: All from Figma ÷ 16 ✓
+- Viewport limits: min() pattern throughout ✓
+- Minimal refactoring: Grid structure from Figma ✓
+```
+
+---
+
+## File Locations
+
+- Base config: `src/app/globals.css`
+- Tailwind config: `tailwind.config.ts`
+- Modals: `src/components/pacientes/`
+- Pages: `src/app/pacientes/page.tsx`
+
+---
+
+## Critical Reminders
+
+1. **ALWAYS use Figma MCP first** - Never guess measurements
+2. **EXTRACT all measurements** - Document in conversion table
+3. **DEFINE semantic tokens** - Map Figma values to code tokens
+4. **NEVER use fixed px** - Always rem or CSS variables
+5. **ALWAYS use min() for containers** - Pattern: `min(FigmaRem, ViewportUnit)`
+6. **MAINTAIN Figma structure** - Convert values, not architecture
+7. **USE semantic Tailwind** - text-xl, text-sm, p-6, gap-4
+8. **VERIFY against Figma** - Structure must match exactly
+9. **WRITE justification** - Explain why it matches Figma
+10. **VERIFY scaling** - Test at 1280px, 1512px, 1920px
+11. **NO mobile breakpoints** - Project is desktop/tablet only
+12. **RESPECT positioning** - If Figma uses absolute, keep it
+
+---
+
+## Error Recovery
+
+If you realize you've violated the philosophy:
+
+1. STOP immediately
+2. Use Figma MCP to re-extract correct specs
+3. Revert changes using git
+4. Start over following the mandatory workflow
+5. Focus on converting VALUES only
+6. Keep Figma STRUCTURE intact
+7. Write proper justification
+
+---
+
+## When in Doubt
+
+**→ USE FIGMA MCP**
+**→ DON'T GUESS**
+**→ VERIFY STRUCTURE**
+**→ JUSTIFY DECISIONS**
+
+---
+
+**Remember:** This is a long-term project (7-8 months) with multiple developers. Design fidelity and consistency are MORE important than clever solutions. Always verify against Figma using MCP. Follow the philosophy strictly. Write justifications for every implementation.
