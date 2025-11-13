@@ -1,5 +1,6 @@
 'use client'
 
+import ClientLayout from '@/app/client-layout'
 import AddPatientModal from '@/components/pacientes/modals/add-patient/AddPatientModal'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
@@ -208,7 +209,8 @@ export default function PacientesPage() {
   const clearFilters = () => setSelectedFilters([])
 
   return (
-    <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] px-[min(3rem,4vw)] py-[min(1.5rem,2vw)] flex flex-col overflow-auto'>
+    <ClientLayout>
+      <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] px-[min(3rem,4vw)] py-[min(1.5rem,2vw)] flex flex-col overflow-auto'>
       <AddPatientModal
         open={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
@@ -534,7 +536,8 @@ export default function PacientesPage() {
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </ClientLayout>
   )
 }
 

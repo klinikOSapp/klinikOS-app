@@ -1,36 +1,14 @@
-import AccountingPanel from '@/components/gestion/AccountingPanel'
-import BillingLineChart from '@/components/gestion/BillingLineChart'
-import HeaderControls from '@/components/gestion/HeaderControls'
-import IncomeTypes from '@/components/gestion/IncomeTypes'
-import PatientsSummary from '@/components/gestion/PatientsSummary'
-import ProductionTotalCard from '@/components/gestion/ProductionTotalCard'
-import ProfessionalBars from '@/components/gestion/ProfessionalBars'
-import SpecialtyDonut from '@/components/gestion/SpecialtyDonut'
+import LandingAnimation from '@/components/auth/LandingAnimation'
 
-export default function Home() {
+export default function PreAuthLanding() {
   return (
-    <div className='min-h-screen bg-surface-app text-fg'>
-      <main className='container-page py-fluid-lg flex flex-col gap-[var(--spacing-section-gap)]'>
-        <div className='dashboard-header-group'>
-          <HeaderControls />
-        </div>
-
-        <section className='dashboard-grid-stats mt-[var(--spacing-header-stack)]'>
-            <IncomeTypes />
-            <PatientsSummary />
-            <ProductionTotalCard />
-        </section>
-
-        <section className='dashboard-grid-charts'>
-          <BillingLineChart />
-          <SpecialtyDonut />
-        </section>
-
-        <section className='dashboard-grid-double'>
-          <AccountingPanel />
-          <ProfessionalBars />
-        </section>
-      </main>
-    </div>
+    <main
+      className='relative min-h-[100dvh] w-full overflow-hidden'
+      style={{ backgroundImage: 'var(--prelogin-bg-gradient)' }}
+    >
+      <div className='absolute inset-0 grid place-items-center'>
+        <LandingAnimation />
+      </div>
+    </main>
   )
 }
