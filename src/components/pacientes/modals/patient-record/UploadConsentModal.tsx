@@ -9,6 +9,7 @@ export interface UploadConsentModalProps {
   onClose?: () => void
   onFileSelected?: (file: File) => void
   onError?: (message: string) => void
+  patientId?: string
 }
 
 export default function UploadConsentModal({

@@ -5,11 +5,24 @@ import MailRounded from '@mui/icons-material/MailRounded'
 import Image from 'next/image'
 import Link from 'next/link'
 import React from 'react'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 // Replaced Figma-served icons with MD3 icons from MUI
 
 export default function RegisterPage() {
   const [openEmailModal, setOpenEmailModal] = React.useState(false)
+  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
+  async function handleGoogle() {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo:
+          typeof window !== 'undefined'
+            ? `${window.location.origin}/pacientes`
+            : undefined
+      }
+    })
+  }
   return (
     <main
       className='min-h-[100dvh] w-full relative overflow-hidden'
@@ -93,6 +106,7 @@ export default function RegisterPage() {
               {/* Google */}
               <button
                 type='button'
+                onClick={handleGoogle}
                 className='rounded-[var(--radius-pill)] grid place-items-center bg-neutral-100 text-neutral-900 text-body-md font-inter'
                 style={{
                   height: 'var(--modal-cta-height)',

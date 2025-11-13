@@ -10,11 +10,13 @@ import RxImages from './RxImages'
 type PatientRecordModalProps = {
   open: boolean
   onClose: () => void
+  patientId?: string
 }
 
 export default function PatientRecordModal({
   open,
-  onClose
+  onClose,
+  patientId
 }: PatientRecordModalProps) {
   const [active, setActive] = React.useState<
     | 'Resumen'
@@ -118,15 +120,21 @@ export default function PatientRecordModal({
               </div>
               {/* Right content: vertical scroll only; never horizontal */}
               <div className='w-[74.75rem] h-full overflow-y-auto overflow-x-hidden box-border'>
-                {active === 'Resumen' && <ClientSummary onClose={onClose} />}
+                {active === 'Resumen' && (
+                  <ClientSummary onClose={onClose} patientId={patientId} />
+                )}
                 {active === 'Historial clínico' && (
-                  <ClinicalHistory onClose={onClose} />
+                  <ClinicalHistory onClose={onClose} patientId={patientId} />
                 )}
-                {active === 'Imágenes RX' && <RxImages onClose={onClose} />}
+                {active === 'Imágenes RX' && (
+                  <RxImages onClose={onClose} patientId={patientId} />
+                )}
                 {active === 'Presupuestos y pagos' && (
-                  <BudgetsPayments onClose={onClose} />
+                  <BudgetsPayments onClose={onClose} patientId={patientId} />
                 )}
-                {active === 'Consentimientos' && <Consents onClose={onClose} />}
+                {active === 'Consentimientos' && (
+                  <Consents onClose={onClose} patientId={patientId} />
+                )}
                 {active !== 'Resumen' &&
                   active !== 'Historial clínico' &&
                   active !== 'Imágenes RX' &&

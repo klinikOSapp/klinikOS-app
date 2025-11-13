@@ -4,12 +4,74 @@ import MailRounded from '@mui/icons-material/MailRounded'
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
 import React from 'react'
 import AvatarImageDropdown from '@/components/pacientes/AvatarImageDropdown'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 type ClientSummaryProps = {
   onClose?: () => void
+  patientId?: string
 }
 
-export default function ClientSummary({ onClose }: ClientSummaryProps) {
+export default function ClientSummary({ onClose, patientId }: ClientSummaryProps) {
+  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
+  const [displayName, setDisplayName] = React.useState<string>('—')
+  const [email, setEmail] = React.useState<string>('—')
+  const [phone, setPhone] = React.useState<string>('—')
+  const [dni, setDni] = React.useState<string>('—')
+  const [country, setCountry] = React.useState<string>('—')
+  const [preferredLanguage, setPreferredLanguage] = React.useState<string>('—')
+  const [occupation, setOccupation] = React.useState<string>('—')
+  const [dobText, setDobText] = React.useState<string>('—')
+  const [ageText, setAgeText] = React.useState<string>('—')
+  const [allergies, setAllergies] = React.useState<string[]>([])
+
+  React.useEffect(() => {
+    async function load() {
+      if (!patientId) return
+      // Patient core
+      const { data: p } = await supabase
+        .from('patients')
+        .select(
+          'first_name, last_name, email, phone_number, national_id, address_country, preferred_language, occupation, date_of_birth'
+        )
+        .eq('id', patientId)
+        .maybeSingle()
+      if (p) {
+        setDisplayName(
+          [p.first_name, p.last_name].filter(Boolean).join(' ') || '—'
+        )
+        setEmail(p.email ?? '—')
+        setPhone(p.phone_number ?? '—')
+        setDni(p.national_id ?? '—')
+        setCountry(p.address_country ?? '—')
+        setPreferredLanguage(p.preferred_language ?? '—')
+        setOccupation(p.occupation ?? '—')
+        if (p.date_of_birth) {
+          const d = new Date(p.date_of_birth)
+          setDobText(
+            `${String(d.getDate()).padStart(2, '0')}/${String(
+              d.getMonth() + 1
+            ).padStart(2, '0')}/${d.getFullYear()}`
+          )
+          const now = new Date()
+          let age = now.getFullYear() - d.getFullYear()
+          const m = now.getMonth() - d.getMonth()
+          if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--
+          setAgeText(`${age} años`)
+        }
+      }
+      // Allergies (medical alerts)
+      const { data: alerts } = await supabase
+        .from('patient_medical_alerts')
+        .select('alert_type')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false })
+        .limit(4)
+      if (alerts) {
+        setAllergies(alerts.map((a: any) => a.alert_type).filter(Boolean))
+      }
+    }
+    void load()
+  }, [patientId, supabase])
   const [avatarPreviewUrl, setAvatarPreviewUrl] = React.useState<string | null>(
     null
   )
@@ -78,7 +140,7 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
             data-node-id='426:830'
             style={{ width: 'min-content' }}
           >
-            Lucia López Cano
+            {displayName}
           </p>
           <div
             className='content-stretch flex gap-[0.5rem] items-center relative shrink-0 w-full'
@@ -95,7 +157,7 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
               className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic relative shrink-0 text-[#24282c] text-[1rem] text-nowrap whitespace-pre"
               data-node-id='426:831'
             >
-              Emailexample@gmail.com
+              {email}
             </p>
           </div>
           <div
@@ -113,7 +175,7 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
               className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic relative shrink-0 text-[#24282c] text-[1rem] text-nowrap whitespace-pre"
               data-node-id='426:838'
             >
-              +34 666 777 888
+              {phone}
             </p>
           </div>
         </div>
@@ -127,24 +189,28 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
         data-node-id='426:852'
         style={{ left: 'calc(50% - 0.25rem)' }}
       >
-        <p
+        {allergies[0] ? (
+          <p
           className="font-['Inter:Medium',_sans-serif] font-medium leading-[1rem] not-italic relative shrink-0 text-[0.75rem] text-nowrap text-red-700 whitespace-pre"
           data-node-id='426:851'
         >
-          Penicilina
+          {allergies[0]}
         </p>
+        ) : null}
       </div>
       <div
         className='absolute bg-[#f7b7ba] box-border content-stretch flex gap-[0.5rem] items-center justify-center px-[0.5rem] py-[0.25rem] rounded-[6rem] top-[3rem]'
         data-node-id='426:857'
         style={{ left: 'calc(56.25% + 0.016rem)' }}
       >
-        <p
+        {allergies[1] ? (
+          <p
           className="font-['Inter:Medium',_sans-serif] font-medium leading-[1rem] not-italic relative shrink-0 text-[0.75rem] text-nowrap text-red-700 whitespace-pre"
           data-node-id='426:858'
         >
-          Latex
+          {allergies[1]}
         </p>
+        ) : null}
       </div>
       <div
         className='absolute bg-[#e2e7ea] h-[3.5rem] overflow-clip rounded-[0.5rem] top-[5.5rem] w-[30.25rem]'
@@ -265,7 +331,7 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
         data-node-id='426:869'
         style={{ left: 'calc(18.75% + 1.922rem)' }}
       >
-        45 años
+        {ageText}
       </p>
       <p
         className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[31.75rem] whitespace-pre"
@@ -278,7 +344,7 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
         className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[18.75rem] whitespace-pre"
         data-node-id='426:871'
       >
-        26/02/1978
+        {dobText}
       </p>
       <p
         className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[18.75rem] whitespace-pre"
@@ -309,7 +375,7 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
         className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[23.25rem] whitespace-pre"
         data-node-id='426:873'
       >
-        49587154S
+        {dni}
       </p>
       <p
         className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[23.25rem] w-[30.25rem]"
@@ -322,21 +388,21 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
         className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[36.25rem] whitespace-pre"
         data-node-id='426:883'
       >
-        Funcionario
+        {occupation}
       </p>
       <p
         className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[23.25rem] whitespace-pre"
         data-node-id='426:875'
         style={{ left: 'calc(18.75% + 1.922rem)' }}
       >
-        España
+        {country}
       </p>
       <p
         className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[36.25rem] whitespace-pre"
         data-node-id='426:884'
         style={{ left: 'calc(18.75% + 1.922rem)' }}
       >
-        Español
+        {preferredLanguage}
       </p>
       <div
         className='absolute bg-[#f8fafb] box-border content-stretch flex gap-[0.5rem] items-center justify-center px-[0.5rem] py-[0.25rem] rounded-[1rem] top-[14.125rem]'

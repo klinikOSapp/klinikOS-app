@@ -80,3 +80,14 @@ Tokens principales disponibles:
 - Gráficos: `stroke-chart-{1..4}`, `stroke-chart-accent`, `stroke-chart-grid`, `stroke-chart-axis`, `stroke-chart-negative`, `stroke-chart-threshold`
 - Sombras: `shadow-elevation-card`, `shadow-elevation-popover`
 - Radios: `rounded-lg`, `rounded-pill`, `rounded-full`
+
+## Environment variables (Supabase)
+
+Create a `.env.local` with:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=your-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
+
+Then restart the dev server.

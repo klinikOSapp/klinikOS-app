@@ -1,4 +1,6 @@
 'use client'
+import SelectorCard from '@/components/pacientes/SelectorCard'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
 import AddRounded from '@mui/icons-material/AddRounded'
 import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
@@ -8,13 +10,60 @@ import EditRounded from '@mui/icons-material/EditRounded'
 import ImageRounded from '@mui/icons-material/ImageRounded'
 import PlaceRounded from '@mui/icons-material/PlaceRounded'
 import React from 'react'
-import SelectorCard from '@/components/pacientes/SelectorCard'
 
 type ClinicalHistoryProps = {
   onClose?: () => void
+  patientId?: string
 }
 
-export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
+export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryProps) {
+  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
+  const [notes, setNotes] = React.useState<
+    { id: string; created_at: string; note_type: string; content: string }[]
+  >([])
+  const [cardTitle, setCardTitle] = React.useState('—')
+  const [cardDate, setCardDate] = React.useState('—')
+  const [soapSubjective, setSoapSubjective] = React.useState<string>('—')
+  const [soapObjective, setSoapObjective] = React.useState<string>('—')
+  const [soapAssessment, setSoapAssessment] = React.useState<string>('—')
+  const [soapPlan, setSoapPlan] = React.useState<string>('—')
+
+  React.useEffect(() => {
+    async function load() {
+      if (!patientId) return
+      const { data } = await supabase
+        .from('clinical_notes')
+        .select('id, created_at, note_type, content')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false })
+        .limit(10)
+      if (Array.isArray(data)) {
+        setNotes(
+          data.map((n: any) => ({
+            id: String(n.id),
+            created_at: n.created_at,
+            note_type: n.note_type ?? 'Nota',
+            content: n.content ?? ''
+          }))
+        )
+        if (data[0]) {
+          const d = new Date(data[0].created_at)
+          setCardTitle(data[0].note_type ?? 'Nota clínica')
+          setCardDate(
+            `${String(d.getDate()).padStart(2, '0')}/${String(
+              d.getMonth() + 1
+            ).padStart(2, '0')}/${d.getFullYear()}`
+          )
+          const content = String(data[0].content ?? '')
+          setSoapSubjective(content)
+          setSoapObjective(content)
+          setSoapAssessment(content)
+          setSoapPlan(content)
+        }
+      }
+    }
+    void load()
+  }, [patientId, supabase])
   const [filter, setFilter] = React.useState<
     'proximas' | 'pasadas' | 'confirmadas' | 'inaxistencia'
   >('proximas')
@@ -150,7 +199,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
           style={{ left: 'calc(6.25% + 10.25px)', top: card.top }}
         >
           <SelectorCard
-            title='Limpieza dental'
+            title={cardTitle}
             selected={selectedCardId === card.id}
             onClick={() => setSelectedCardId(card.id)}
             lines={[
@@ -158,11 +207,11 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
                 icon: (
                   <CalendarMonthRounded className='size-6 text-neutral-700' />
                 ),
-                text: 'Jue 16 septiembre, 2025'
+                text: cardDate
               },
               {
                 icon: <PlaceRounded className='size-6 text-neutral-700' />,
-                text: 'KlinkOS Ayora'
+                text: 'KlinikOS'
               }
             ]}
           />
@@ -223,7 +272,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
           style={{ height: '100%' }}
         >
           <p className="absolute font-['Inter:Medium',_sans-serif] left-plnav not-italic text-neutral-900 text-title-lg text-nowrap top-[1.5rem] whitespace-pre">
-            Limpieza dental
+            {cardTitle}
           </p>
           <div
             className='absolute size-6'
@@ -293,7 +342,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
                 </p>
               </div>
               <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-700 text-body-sm w-full">
-                Siente dolor 7/10 al frío en 2.6 desde hace 3 días
+                {soapSubjective}
               </p>
             </div>
             <div className='content-stretch flex flex-col gap-[var(--spacing-gapsm)] items-start relative shrink-0 w-full'>
@@ -306,8 +355,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
                 </p>
               </div>
               <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-700 text-body-sm w-full">
-                Caries oclusal profunda en 2.6; sensibilidad al frío positiva;
-                RX: proximidad pulpar
+                {soapObjective}
               </p>
             </div>
             <div className='content-stretch flex flex-col gap-[var(--spacing-gapsm)] items-start relative shrink-0 w-full'>
@@ -320,8 +368,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
                 </p>
               </div>
               <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-700 text-body-sm w-full">
-                Pulpitis reversible 2.6. Dx diferencial: hipersensibilidad
-                dentinaria.
+                {soapAssessment}
               </p>
             </div>
             <div className='content-stretch flex flex-col gap-[var(--spacing-gapsm)] items-start relative shrink-0 w-full'>
@@ -334,8 +381,7 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
                 </p>
               </div>
               <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-700 text-body-sm w-full">
-                Operatoria en 2.6 hoy; barniz desensibilizante; ibuprofeno PRN;
-                control en 2 semanas; higiene en 6 meses (recall).
+                {soapPlan}
               </p>
             </div>
           </div>

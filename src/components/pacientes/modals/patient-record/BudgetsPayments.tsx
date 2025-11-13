@@ -7,116 +7,32 @@ import FirstPageRounded from '@mui/icons-material/FirstPageRounded'
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
 import LastPageRounded from '@mui/icons-material/LastPageRounded'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 type BudgetsPaymentsProps = {
   onClose?: () => void
+  patientId?: string
 }
 
-type BudgetRow = {
+type InvoiceRow = {
   id: string
-  description: string
-  amount: string
-  status: 'Aceptado' | 'Enviado'
-  payment: 'Completado' | 'Financiado'
-  insurer: string
+  invoiceNumber: string
+  total: number
+  amountPaid: number
+  status: string
+  issueDate: string
 }
 
-const MOCK_ROWS: BudgetRow[] = [
-  {
-    id: 'PR-001',
-    description: 'Operación mandíbula',
-    amount: '2.300 €',
-    status: 'Aceptado',
-    payment: 'Completado',
-    insurer: 'Adeslas'
-  },
-  {
-    id: 'PR-002',
-    description: 'Consulta inicial',
-    amount: '150 €',
-    status: 'Aceptado',
-    payment: 'Financiado',
-    insurer: 'Sanitas'
-  },
-  {
-    id: 'PR-003',
-    description: 'Radiografía',
-    amount: '100 €',
-    status: 'Enviado',
-    payment: 'Completado',
-    insurer: 'Sanitas'
-  },
-  {
-    id: 'PR-004',
-    description: 'Extracción de muela',
-    amount: '500 €',
-    status: 'Aceptado',
-    payment: 'Completado',
-    insurer: 'DKV'
-  },
-  {
-    id: 'PR-005',
-    description: 'Implante dental',
-    amount: '1.200 €',
-    status: 'Aceptado',
-    payment: 'Completado',
-    insurer: 'Adelas'
-  },
-  {
-    id: 'PR-006',
-    description: 'Férula de descarga',
-    amount: '300 €',
-    status: 'Enviado',
-    payment: 'Financiado',
-    insurer: 'Sanitas'
-  },
-  {
-    id: 'PR-007',
-    description: 'Tratamiento de ortodoncia',
-    amount: '1.800 €',
-    status: 'Aceptado',
-    payment: 'Completado',
-    insurer: 'DKV'
-  },
-  {
-    id: 'PR-008',
-    description: 'Consulta de seguimiento',
-    amount: '100 €',
-    status: 'Enviado',
-    payment: 'Completado',
-    insurer: 'Sanitas'
-  },
-  {
-    id: 'PR-009',
-    description: 'Blanqueamiento dental',
-    amount: '400 €',
-    status: 'Enviado',
-    payment: 'Financiado',
-    insurer: 'Sanitas'
-  }
-]
-
-function StatusBadge({
-  status
-}: {
-  status: BudgetRow['status']
-}) {
-  const isAccepted = status === 'Aceptado'
-  return (
-    <span
-      className={[
-        'inline-flex items-center justify-center rounded-pill px-2 py-1 text-label-sm',
-        isAccepted
-          ? 'border border-brand-500 text-brand-500'
-          : 'border border-warning-200 text-warning-200'
-      ].join(' ')}
-    >
-      {status}
-    </span>
+const currency = (n: number) =>
+  new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(
+    n || 0
   )
-}
 
-export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
+export default function BudgetsPayments({
+  onClose,
+  patientId
+}: BudgetsPaymentsProps) {
+  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
   const [subTab, setSubTab] = React.useState<'Presupuestos' | 'Pagos'>(
     'Presupuestos'
   )
@@ -129,6 +45,59 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
     )
   }
   const clearFilters = () => setSelectedFilters([])
+  const [invoices, setInvoices] = React.useState<InvoiceRow[]>([])
+  const [payments, setPayments] = React.useState<
+    { id: string; amount: number; sent: string; invoiceId: string }[]
+  >([])
+  const [saldoPendiente, setSaldoPendiente] = React.useState<number>(0)
+  const [facturasVencidas, setFacturasVencidas] = React.useState<number>(0)
+
+  // Load invoices and payments for the patient
+  React.useEffect(() => {
+    async function loadAll() {
+      if (!patientId) return
+      const { data: invs } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, total_amount, amount_paid, status, issue_date')
+        .eq('patient_id', patientId)
+        .order('issue_date', { ascending: false })
+        .limit(50)
+      const rows: InvoiceRow[] =
+        (invs ?? []).map((r: any) => ({
+          id: String(r.id),
+          invoiceNumber: r.invoice_number,
+          total: Number(r.total_amount ?? 0),
+          amountPaid: Number(r.amount_paid ?? 0),
+          status: r.status,
+          issueDate: new Date(r.issue_date).toLocaleDateString()
+        })) ?? []
+      setInvoices(rows)
+      const saldo = rows.reduce((acc, r) => acc + (r.total - r.amountPaid), 0)
+      setSaldoPendiente(saldo)
+      setFacturasVencidas(rows.filter((r) => r.status === 'overdue').length)
+
+      const invoiceIds = rows.map((r) => Number(r.id)).filter((n) => !isNaN(n))
+      if (invoiceIds.length > 0) {
+        const { data: pays } = await supabase
+          .from('payments')
+          .select('id, amount, transaction_date, invoice_id')
+          .in('invoice_id', invoiceIds)
+          .order('transaction_date', { ascending: false })
+          .limit(100)
+        setPayments(
+          (pays ?? []).map((p: any) => ({
+            id: String(p.id),
+            amount: Number(p.amount ?? 0),
+            sent: new Date(p.transaction_date).toLocaleDateString(),
+            invoiceId: String(p.invoice_id)
+          }))
+        )
+      } else {
+        setPayments([])
+      }
+    }
+    void loadAll()
+  }, [patientId, supabase])
   return (
     <div className='relative w-[74.75rem] h-[56.25rem] bg-neutral-50' data-node-id='997:3320'>
       <button
@@ -151,11 +120,11 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
       {/* KPIs */}
       <div className='absolute left-8 top-[10.25rem]'>
         <p className='text-title-sm text-neutral-900'>Saldo pendiente</p>
-        <p className='text-[32px] leading-[40px] text-neutral-900 mt-1'>702.60 €</p>
+        <p className='text-[32px] leading-[40px] text-neutral-900 mt-1'>{currency(saldoPendiente)}</p>
       </div>
       <div className='absolute left-[18.75%] top-[10.25rem] ml-[67.75px]'>
         <p className='text-title-sm text-neutral-900'>Facturas vencidas</p>
-        <p className='text-[32px] leading-[40px] text-warning-600 mt-1'>01</p>
+        <p className='text-[32px] leading-[40px] text-warning-600 mt-1'>{String(facturasVencidas).padStart(2, '0')}</p>
       </div>
 
       {/* Card */}
@@ -199,11 +168,11 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
                 style={{ gridTemplateColumns: 'var(--budgets-grid-cols)' }}
               >
                 <div className='px-2 py-1'>ID</div>
-                <div className='px-2 py-1'>Descripción</div>
-                <div className='px-2 py-1'>Monto</div>
+                <div className='px-2 py-1'>Factura</div>
+                <div className='px-2 py-1'>Importe</div>
+                <div className='px-2 py-1'>Pagado</div>
                 <div className='px-2 py-1'>Estado</div>
-                <div className='px-2 py-1'>Pago</div>
-                <div className='px-2 py-1'>Aseguradora</div>
+                <div className='px-2 py-1'>Fecha</div>
               </div>
             </div>
           )}
@@ -266,18 +235,18 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
 
           {subTab === 'Presupuestos' ? (
             <div className='absolute left-[33px] right-[32px] top-[9.5rem] bottom-[3rem] overflow-y-auto'>
-              {MOCK_ROWS.map((row) => (
+              {invoices.map((row) => (
                 <div
                   key={row.id}
                   className='grid items-center border-b border-neutral-300'
                   style={{ gridTemplateColumns: 'var(--budgets-grid-cols)', height: 'var(--height-row-md)' }}
                 >
                   <div className='px-2 text-body-md text-neutral-900'>{row.id}</div>
-                  <div className='px-2 text-body-md text-neutral-900'>{row.description}</div>
-                  <div className='px-2 text-body-md text-neutral-900'>{row.amount}</div>
-                  <div className='px-2'><StatusBadge status={row.status} /></div>
-                  <div className='px-2 text-body-md text-neutral-900'>{row.payment}</div>
-                  <div className='px-2 text-body-md text-neutral-900'>{row.insurer}</div>
+                  <div className='px-2 text-body-md text-neutral-900'>{row.invoiceNumber}</div>
+                  <div className='px-2 text-body-md text-neutral-900'>{currency(row.total)}</div>
+                  <div className='px-2 text-body-md text-neutral-900'>{currency(row.amountPaid)}</div>
+                  <div className='px-2 text-body-md text-neutral-900'>{row.status}</div>
+                  <div className='px-2 text-body-md text-neutral-900'>{row.issueDate}</div>
                 </div>
               ))}
             </div>
@@ -288,61 +257,22 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
                 style={{ gridTemplateColumns: 'var(--payments-grid-cols)' }}
               >
                 <div className='px-2 py-1'>ID</div>
-                <div className='px-2 py-1'>Descripción</div>
-                <div className='px-2 py-1'>Monto</div>
+                <div className='px-2 py-1'>Importe</div>
                 <div className='px-2 py-1'>Factura</div>
-                <div className='px-2 py-1'>Enviada</div>
-                <div className='px-2 py-1'>Aseguradora</div>
+                <div className='px-2 py-1'>Fecha</div>
+                <div className='px-2 py-1'>—</div>
               </div>
-              {[
-                {
-                  id: 'P-001',
-                  desc: 'Operación mandíbula',
-                  amount: '2.300 €',
-                  invoice: 'Generada',
-                  sent: '24/11/2024',
-                  insurer: 'Adeslas'
-                },
-                {
-                  id: 'P-002',
-                  desc: 'Consulta inicial',
-                  amount: '150 €',
-                  invoice: 'Generada',
-                  sent: '16/10/2024',
-                  insurer: 'Sanitas'
-                },
-                {
-                  id: 'P-003',
-                  desc: 'Radiografía',
-                  amount: '100 €',
-                  invoice: 'Pendiente',
-                  sent: '12/10/2024',
-                  insurer: 'Sanitas'
-                },
-                {
-                  id: 'P-004',
-                  desc: 'Extracción de muela',
-                  amount: '500 €',
-                  invoice: 'Pendiente',
-                  sent: 'No enviada',
-                  insurer: 'DKV'
-                }
-              ].map((p) => (
+              {payments.map((p) => (
                 <div
                   key={p.id}
                   className='grid items-center border-b border-neutral-300'
                   style={{ gridTemplateColumns: 'var(--payments-grid-cols)', height: 'var(--height-row-md)' }}
                 >
                   <div className='px-2 text-body-md text-neutral-900'>{p.id}</div>
-                  <div className='px-2 text-body-md text-neutral-900'>{p.desc}</div>
-                  <div className='px-2 text-body-md text-neutral-900'>{p.amount}</div>
-                  <div className={['px-2 text-body-md', p.invoice === 'Pendiente' ? 'text-warning-600' : 'text-neutral-900'].join(' ')}>
-                    {p.invoice}
-                  </div>
-                  <div className={['px-2 text-body-md', p.sent === 'No enviada' ? 'text-neutral-600' : 'text-neutral-900'].join(' ')}>
-                    {p.sent}
-                  </div>
-                  <div className='px-2 text-body-md text-neutral-900'>{p.insurer}</div>
+                  <div className='px-2 text-body-md text-neutral-900'>{currency(p.amount)}</div>
+                  <div className='px-2 text-body-md text-neutral-900'>{p.invoiceId}</div>
+                  <div className='px-2 text-body-md text-neutral-900'>{p.sent}</div>
+                  <div className='px-2 text-body-md text-neutral-900'>—</div>
                 </div>
               ))}
             </div>

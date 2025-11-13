@@ -8,10 +8,13 @@ import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
 import PictureAsPdfRounded from '@mui/icons-material/PictureAsPdfRounded'
 import VisibilityRounded from '@mui/icons-material/VisibilityRounded'
 import React from 'react'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import UploadConsentModal from './UploadConsentModal'
+import { getSignedUrl, uploadPatientFile } from '@/lib/storage'
 
 type ConsentsProps = {
   onClose?: () => void
+  patientId?: string
 }
 
 type ConsentRow = {
@@ -66,7 +69,8 @@ function StatusBadge({ status }: { status: ConsentRow['status'] }) {
 
 type ToastVariant = 'success' | 'error'
 
-export default function Consents({ onClose }: ConsentsProps) {
+export default function Consents({ onClose, patientId }: ConsentsProps) {
+  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null)
   const [isUploadOpen, setIsUploadOpen] = React.useState(false)
   const [rows, setRows] = React.useState<ConsentRow[]>(MOCK_ROWS)
@@ -74,6 +78,33 @@ export default function Consents({ onClose }: ConsentsProps) {
     message: string
     variant: ToastVariant
   } | null>(null)
+
+  React.useEffect(() => {
+    async function loadConsents() {
+      if (!patientId) return
+      const { data, error } = await supabase
+        .from('patient_consents')
+        .select('id, consent_type, status, signed_at, created_at, document_url')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false })
+      if (error) return
+      const mapped: ConsentRow[] =
+        (data ?? []).map((c: any) => ({
+          id: String(c.id),
+          name: c.document_url
+            ? String(c.document_url).split('/').pop() ?? c.consent_type
+            : c.consent_type,
+          sentAt: (c.signed_at || c.created_at
+            ? new Date(c.signed_at || c.created_at).toLocaleDateString()
+            : '—') as string,
+          status: (c.status === 'signed' ? 'Firmado' : 'Enviado') as
+            | 'Firmado'
+            | 'Enviado'
+        })) ?? []
+      setRows(mapped)
+    }
+    void loadConsents()
+  }, [patientId, supabase])
 
   React.useEffect(() => {
     function handleGlobalClick(e: MouseEvent) {
@@ -227,6 +258,15 @@ export default function Consents({ onClose }: ConsentsProps) {
                           role='menuitem'
                           onClick={() => {
                             // Acción: Descargar
+                            // If we saved a storage path, try to get a signed URL and open
+                            ;(async () => {
+                              try {
+                                const url = await getSignedUrl(row.name)
+                                window.open(url, '_blank', 'noopener,noreferrer')
+                              } catch {
+                                // fallback no-op
+                              }
+                            })()
                             setOpenMenuRowId(null)
                           }}
                           className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
@@ -246,25 +286,50 @@ export default function Consents({ onClose }: ConsentsProps) {
       <UploadConsentModal
         open={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
+        patientId={patientId}
         onError={(msg) => {
           setToast({ message: msg, variant: 'error' })
           window.setTimeout(() => setToast(null), 3500)
         }}
-        onFileSelected={(f) => {
-          const d = new Date()
-          const dd = String(d.getDate()).padStart(2, '0')
-          const mm = String(d.getMonth() + 1).padStart(2, '0')
-          const yyyy = d.getFullYear()
-          const newRow: ConsentRow = {
-            id: `new-${Date.now()}`,
-            name: f.name || 'consentimiento.pdf',
-            sentAt: `${dd}/${mm}/${yyyy}`,
-            status: 'Enviado'
+        onFileSelected={async (f) => {
+          try {
+            // upload to storage
+            if (!patientId) throw new Error('Sin paciente')
+            const { path } = await uploadPatientFile({
+              patientId,
+              file: f,
+              kind: 'consents'
+            })
+            // upsert DB row
+            const supabase = (await import('@/lib/supabase/client')).createSupabaseBrowserClient()
+            const { error: insertError } = await supabase.from('patient_consents').insert({
+              patient_id: patientId,
+              consent_type: f.type?.startsWith('image/') ? 'image' : 'pdf',
+              status: 'pending',
+              document_url: path
+            })
+            if (insertError) {
+              setToast({ message: insertError.message, variant: 'error' })
+              return
+            }
+            const d = new Date()
+            const dd = String(d.getDate()).padStart(2, '0')
+            const mm = String(d.getMonth() + 1).padStart(2, '0')
+            const yyyy = d.getFullYear()
+            const newRow: ConsentRow = {
+              id: `new-${Date.now()}`,
+              name: path, // store path to allow download
+              sentAt: `${dd}/${mm}/${yyyy}`,
+              status: 'Enviado'
+            }
+            setRows((prev) => [newRow, ...prev])
+            setToast({ message: 'Consentimiento subido', variant: 'success' })
+          } catch (e: any) {
+            setToast({ message: e?.message ?? 'Fallo al subir', variant: 'error' })
+          } finally {
+            window.setTimeout(() => setToast(null), 3000)
+            setIsUploadOpen(false)
           }
-          setRows((prev) => [newRow, ...prev])
-          setToast({ message: 'Consentimiento añadido', variant: 'success' })
-          window.setTimeout(() => setToast(null), 3000)
-          setIsUploadOpen(false)
         }}
       />
       {toast && (

@@ -2,6 +2,7 @@
 
 import AddPatientModal from '@/components/pacientes/modals/add-patient/AddPatientModal'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
 import AddRounded from '@mui/icons-material/AddRounded'
 import CheckRounded from '@mui/icons-material/CheckRounded'
@@ -165,20 +166,8 @@ type PatientRow = {
   tags?: Array<'deuda' | 'activo' | 'recall'>
 }
 
-const MOCK_PATIENTS: PatientRow[] = Array.from({ length: 12 }).map((_, i) => ({
-  id: `p-${i}`,
-  name: 'Laura Rivas',
-  nextDate: 'DD/MM/AAAA',
-  status: 'Activo',
-  phone: '888 888 888',
-  checkin: 'Hecho',
-  financing: 'No',
-  debt: '380€',
-  lastContact: 'DD/MM/AAAA',
-  tags: i % 3 === 0 ? ['deuda'] : i % 2 === 0 ? ['activo'] : ['recall']
-}))
-
 export default function PacientesPage() {
+  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
   type FilterKey = 'deuda' | 'activos' | 'recall'
@@ -187,6 +176,208 @@ export default function PacientesPage() {
     []
   )
   const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [rows, setRows] = React.useState<PatientRow[]>([])
+  const [selectedClinicId, setSelectedClinicId] = React.useState<string | null>(
+    null
+  )
+  const [kpi, setKpi] = React.useState<{
+    today: number
+    week: number
+    received: number
+    confirmed: number
+  }>({ today: 0, week: 0, received: 0, confirmed: 0 })
+  const [activePatientId, setActivePatientId] = React.useState<string | null>(
+    null
+  )
+  const router = useRouter()
+
+  React.useEffect(() => {
+    async function init() {
+      const { data: sessionData } = await supabase.auth.getSession()
+      if (!sessionData.session) {
+        router.replace('/login')
+        return
+      }
+      // Ensure staff record exists for this user
+      const { data: userData } = await supabase.auth.getUser()
+      const user = userData?.user
+      if (user) {
+        const fullName =
+          (user.user_metadata?.full_name as string | undefined) ||
+          ([user.user_metadata?.first_name, user.user_metadata?.last_name]
+            .filter(Boolean)
+            .join(' ')
+            .trim() || user.email?.split('@')[0] || 'Usuario')
+        await supabase
+          .from('staff')
+          .upsert(
+            { id: user.id, full_name: fullName },
+            { onConflict: 'id' }
+          )
+      }
+      // Determine clinic context
+      let clinicId: string | null = null
+      try {
+        const { data: clinics } = await supabase.rpc('get_my_clinics')
+        clinicId = Array.isArray(clinics) && clinics.length > 0 ? clinics[0] : null
+      } catch {
+        clinicId = null
+      }
+      setSelectedClinicId(clinicId)
+
+      // Fetch patients
+      type DbPatient = {
+        id: string
+        first_name: string
+        last_name: string
+        phone_number: string | null
+        email: string | null
+        national_id?: string | null
+      }
+      const { data, error } = await supabase
+        .from('patients')
+        .select('id, first_name, last_name, phone_number, email, national_id')
+        .eq('clinic_id', clinicId)
+        .limit(50)
+      if (error) {
+        // Keep rows empty on error
+        // Optionally surface a toast in future
+        setRows([])
+      } else {
+        const patients = (data as DbPatient[]) ?? []
+        const patientIds = patients.map((p) => p.id)
+
+        // Fetch aggregates
+        // Next appointment per patient (>= now)
+        const nowIso = new Date().toISOString()
+        const { data: appts } = await supabase
+          .from('appointments')
+          .select('id, patient_id, scheduled_start_time, status, actual_check_in_time')
+          .in('patient_id', patientIds)
+          .gte('scheduled_start_time', nowIso)
+          .order('scheduled_start_time', { ascending: true })
+
+        const nextByPatient = new Map<string, string>()
+        const checkinByPatient = new Map<string, 'Hecho' | 'Pendiente'>()
+        const statusByPatient = new Map<string, 'Activo' | 'Hecho'>()
+        if (Array.isArray(appts)) {
+          for (const a of appts) {
+            if (!nextByPatient.has(a.patient_id)) {
+              nextByPatient.set(
+                a.patient_id,
+                new Date(a.scheduled_start_time).toLocaleDateString()
+              )
+            }
+            // mark check-in if any appointment has check-in time
+            if (a.actual_check_in_time) {
+              checkinByPatient.set(a.patient_id, 'Hecho')
+            }
+            if (a.status === 'confirmed') {
+              statusByPatient.set(a.patient_id, 'Activo')
+            }
+          }
+        }
+
+        // Debt per patient (invoices open/overdue)
+        const { data: invs } = await supabase
+          .from('invoices')
+          .select('patient_id, status, total_amount, amount_paid')
+          .in('patient_id', patientIds)
+          .in('status', ['open', 'overdue'])
+
+        const debtByPatient = new Map<string, number>()
+        if (Array.isArray(invs)) {
+          for (const inv of invs) {
+            const prev = debtByPatient.get(inv.patient_id) ?? 0
+            const remaining =
+              Number(inv.total_amount ?? 0) - Number(inv.amount_paid ?? 0)
+            debtByPatient.set(inv.patient_id, prev + remaining)
+          }
+        }
+
+        // Last contact per patient (communications)
+        const { data: comms } = await supabase
+          .from('communications')
+          .select('patient_id, sent_at')
+          .in('patient_id', patientIds)
+
+        const lastContactByPatient = new Map<string, string>()
+        if (Array.isArray(comms)) {
+          for (const c of comms) {
+            const d = new Date(c.sent_at)
+            const prev = lastContactByPatient.get(c.patient_id)
+            if (!prev || d > new Date(prev)) {
+              lastContactByPatient.set(c.patient_id, d.toLocaleDateString())
+            }
+          }
+        }
+
+        // Map rows
+        const mapped: PatientRow[] = patients.map((p, i) => ({
+          id: p.id,
+          name: [p.first_name, p.last_name].filter(Boolean).join(' ') || '—',
+          phone: p.phone_number ?? '—',
+          nextDate: nextByPatient.get(p.id) ?? '—',
+          status: statusByPatient.get(p.id) ?? 'Activo',
+          checkin: checkinByPatient.get(p.id) ?? 'Pendiente',
+          financing: 'No',
+          debt:
+            debtByPatient.get(p.id) !== undefined
+              ? `${debtByPatient.get(p.id)!.toFixed(2)}€`
+              : '—',
+          lastContact: lastContactByPatient.get(p.id) ?? '—',
+          tags: i % 2 === 0 ? ['activo'] : undefined
+        }))
+        setRows(mapped)
+
+        // KPIs
+        if (clinicId) {
+          const startOfDay = new Date()
+          startOfDay.setHours(0, 0, 0, 0)
+          const endOfDay = new Date()
+          endOfDay.setHours(23, 59, 59, 999)
+          const startOfWeek = new Date()
+          const day = startOfWeek.getDay() || 7
+          startOfWeek.setHours(0, 0, 0, 0)
+          startOfWeek.setDate(startOfWeek.getDate() - (day - 1))
+          const endOfWeek = new Date(startOfWeek)
+          endOfWeek.setDate(startOfWeek.getDate() + 6)
+          endOfWeek.setHours(23, 59, 59, 999)
+
+          const { data: apptsClinic } = await supabase
+            .from('appointments')
+            .select('status, actual_check_in_time, scheduled_start_time')
+            .eq('clinic_id', clinicId)
+            .gte('scheduled_start_time', startOfWeek.toISOString())
+            .lte('scheduled_start_time', endOfWeek.toISOString())
+
+          const todayCount =
+            apptsClinic?.filter((a) => {
+              const t = new Date(a.scheduled_start_time).getTime()
+              return (
+                t >= startOfDay.getTime() && t <= endOfDay.getTime()
+              )
+            }).length ?? 0
+          const weekCount = apptsClinic?.length ?? 0
+          const receivedCount =
+            apptsClinic?.filter((a) => Boolean(a.actual_check_in_time))
+              .length ?? 0
+          const confirmedCount =
+            apptsClinic?.filter((a) => a.status === 'confirmed').length ?? 0
+          setKpi({
+            today: todayCount,
+            week: weekCount,
+            received: receivedCount,
+            confirmed: confirmedCount
+          })
+        }
+      }
+      setIsLoading(false)
+    }
+    void init()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const isPatientSelected = (patientId: string) =>
     selectedPatientIds.includes(patientId)
@@ -216,6 +407,7 @@ export default function PacientesPage() {
       <PatientRecordModal
         open={isFichaModalOpen}
         onClose={() => setIsFichaModalOpen(false)}
+        patientId={activePatientId ?? undefined}
       />
 
       {/* Header Section - Fixed size */}
@@ -260,33 +452,34 @@ export default function PacientesPage() {
       >
         <KpiCard
           title='Pacientes hoy'
-          value='2'
+          value={String(kpi.today)}
           badge={
             <span className='text-body-md text-[var(--color-success-600)]'>
-              24%
+              {/* placeholder trend */}
+              —
             </span>
           }
         />
         <KpiCard
           title='Pacientes semana'
-          value='16'
+          value={String(kpi.week)}
           badge={
             <span className='text-body-md text-[var(--color-success-600)]'>
-              8%
+              —
             </span>
           }
         />
         <KpiCard
           title='Pacientes recibidos'
-          value='4/16'
+          value={`${kpi.received}/${kpi.week}`}
           badge={<span className='text-body-md text-[#d97706]'>25%</span>}
         />
         <KpiCard
           title='Citas confirmadas'
-          value='12/16'
+          value={`${kpi.confirmed}/${kpi.week}`}
           badge={
             <span className='text-body-md text-[var(--color-success-600)]'>
-              75%
+              —
             </span>
           }
         />
@@ -407,7 +600,7 @@ export default function PacientesPage() {
               </tr>
             </thead>
             <tbody>
-              {MOCK_PATIENTS.filter((p) => {
+              {(isLoading ? [] : rows).filter((p) => {
                 const q = query.trim().toLowerCase()
                 const matchesQuery = q
                   ? p.name.toLowerCase().includes(q) ||
@@ -431,8 +624,11 @@ export default function PacientesPage() {
               }).map((row, i) => (
                 <tr
                   key={row.id}
-                  className='group hover:bg-[var(--color-neutral-50)]'
-                  onClick={() => setIsFichaModalOpen(true)}
+                  className='group hover:bg-[var(--color-neutral-50)] cursor-pointer'
+                  onClick={() => {
+                    setActivePatientId(row.id)
+                    setIsFichaModalOpen(true)
+                  }}
                 >
                   <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[40px]'>
                     <button

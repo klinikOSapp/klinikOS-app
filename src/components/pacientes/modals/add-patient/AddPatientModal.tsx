@@ -5,6 +5,7 @@ import CloseRounded from '@mui/icons-material/CloseRounded'
 import RadioButtonCheckedRounded from '@mui/icons-material/RadioButtonCheckedRounded'
 import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded'
 import React from 'react'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import AddPatientStepAdministrativo from './AddPatientStepAdministrativo'
 import AddPatientStepConsentimientos from './AddPatientStepConsentimientos'
 import AddPatientStepContacto from './AddPatientStepContacto'
@@ -26,6 +27,7 @@ export default function AddPatientModal({
   onClose,
   onContinue
 }: AddPatientModalProps) {
+  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
   const [step, setStep] = React.useState<
     | 'paciente'
     | 'contacto'
@@ -243,6 +245,35 @@ export default function AddPatientModal({
   }>
 
   if (!open) return null
+
+  async function handleCreatePatient() {
+    // Select first available clinic for this user
+    const { data: clinics } = await supabase.rpc('get_my_clinics')
+    const clinicId =
+      Array.isArray(clinics) && clinics.length > 0 ? clinics[0] : null
+    if (!clinicId) {
+      alert('No se encontró una clínica asociada. Contacta con administración.')
+      return
+    }
+    const payload: Record<string, any> = {
+      clinic_id: clinicId,
+      first_name: nombre || '—',
+      last_name: apellidos || '—',
+      phone_number: contactPhone || null,
+      email: contactEmail || null,
+      date_of_birth: selectedDate ? selectedDate.toISOString().slice(0, 10) : null,
+      national_id: dni || null,
+      preferred_language: idioma || null,
+      occupation: sexo || null,
+      notes: adminNotas || null
+    }
+    const { error } = await supabase.from('patients').insert(payload)
+    if (error) {
+      alert(error.message)
+      return
+    }
+    onClose()
+  }
 
   return (
     <div
@@ -609,11 +640,17 @@ export default function AddPatientModal({
               <div className='w-[31.5rem] h-0 left-[49.875rem] top-[53.25rem] absolute origin-top-left rotate-180 border-t-[0.0625rem] border-[var(--color-neutral-400)]'></div>
               <button
                 type='button'
-                onClick={handleContinue}
+                onClick={() => {
+                  if (step === 'resumen') {
+                    void handleCreatePatient()
+                  } else {
+                    handleContinue()
+                  }
+                }}
                 className='w-52 px-4 py-2 left-[36.4375rem] top-[55.75rem] absolute bg-[var(--color-brand-500)] rounded-[8.5rem] outline-[0.0625rem] outline-offset-[-0.0625rem] outline-[var(--color-neutral-300)] inline-flex justify-center items-center gap-2'
               >
                 <div className='justify-start text-[var(--color-brand-900)] text-body-md font-medium font-sans'>
-                  Continuar
+                  {step === 'resumen' ? 'Crear paciente' : 'Continuar'}
                 </div>
                 <ArrowForwardRounded className='w-6 h-6' />
               </button>

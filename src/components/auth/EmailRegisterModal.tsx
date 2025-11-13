@@ -3,6 +3,7 @@
 import ArrowBackIosNewRounded from '@mui/icons-material/ArrowBackIosNewRounded'
 import React from 'react'
 import AddProfilePhotoStep from './AddProfilePhotoStep'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 type EmailRegisterModalProps = {
   open: boolean
@@ -13,11 +14,56 @@ export default function EmailRegisterModal({
   open,
   onClose
 }: EmailRegisterModalProps) {
+  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
   const [name, setName] = React.useState('')
   const [surname, setSurname] = React.useState('')
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [step, setStep] = React.useState<'form' | 'photo'>('form')
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+
+  async function handleEmailSignUp() {
+    setError(null)
+    if (!email || !password) {
+      setError('Email y contraseña son obligatorios.')
+      return
+    }
+    try {
+      setIsLoading(true)
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { first_name: name, last_name: surname }
+        }
+      })
+      if (signUpError) {
+        setError(signUpError.message)
+        return
+      }
+      // Try to create staff immediately if we have a session/user
+      const { data: userData } = await supabase.auth.getUser()
+      const user = userData?.user ?? signUpData?.user ?? null
+      if (user) {
+        const fullName =
+          [name, surname].filter(Boolean).join(' ').trim() ||
+          (user.user_metadata?.name as string | undefined) ||
+          (user.email?.split('@')[0] ?? 'Usuario')
+        await supabase
+          .from('staff')
+          .upsert(
+            { id: user.id, full_name: fullName },
+            { onConflict: 'id' }
+          )
+      }
+      setStep('photo')
+    } catch (e: any) {
+      setError(e?.message ?? 'No se pudo crear la cuenta.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -243,12 +289,18 @@ export default function EmailRegisterModal({
               >
                 <button
                   type='button'
-                  className='w-full rounded-[var(--radius-pill)] grid place-items-center bg-brand-500 border border-[var(--color-border-default)] text-brand-900 text-body-md font-inter'
+                  disabled={isLoading}
+                  className='w-full rounded-[var(--radius-pill)] grid place-items-center bg-brand-500 border border-[var(--color-border-default)] text-brand-900 text-body-md font-inter disabled:opacity-70'
                   style={{ height: 'var(--modal-cta-height)' }}
-                  onClick={() => setStep('photo')}
+                  onClick={handleEmailSignUp}
                 >
-                  Continuar
+                  {isLoading ? 'Creando cuenta…' : 'Continuar'}
                 </button>
+                {error ? (
+                  <p className='text-center text-label-sm text-red-600 mt-2'>
+                    {error}
+                  </p>
+                ) : null}
                 <p
                   className='text-center text-label-sm text-neutral-900'
                   style={{ marginTop: 'var(--modal-legal-top-gap)' }}

@@ -1,9 +1,14 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import React from 'react'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
+  const router = useRouter()
+  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [rememberMe, setRememberMe] = React.useState(true)
@@ -26,10 +31,22 @@ export default function LoginPage() {
       setErrorMessage('La contraseña es obligatoria.')
       return
     }
-    setIsLoading(true)
-    await new Promise((r) => setTimeout(r, 600))
-    setIsLoading(false)
-    setErrorMessage('La autenticación aún no está conectada.')
+    try {
+      setIsLoading(true)
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+      if (error) {
+        setErrorMessage(error.message)
+      } else {
+        router.push('/pacientes')
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message ?? 'Error al iniciar sesión.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -188,6 +205,13 @@ export default function LoginPage() {
                 {isLoading ? 'Accediendo…' : 'Acceder'}
               </button>
             </form>
+
+            <p className='w-full text-center text-[14px] leading-5 text-neutral-900'>
+              ¿No tienes cuenta?{' '}
+              <Link href='/register' className='text-brand-500'>
+                Crear una cuenta
+              </Link>
+            </p>
 
             <div className='text-center'>
               <span className='text-label-sm text-neutral-600'>
