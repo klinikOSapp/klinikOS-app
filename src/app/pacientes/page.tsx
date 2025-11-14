@@ -15,7 +15,7 @@ import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
 import LastPageRounded from '@mui/icons-material/LastPageRounded'
 import { useRouter } from 'next/navigation'
 import AddPatientModal from '@/components/pacientes/AddPatientModal'
-import PatientFichaModal from '@/components/pacientes/PatientFichaModal'
+import PatientFileModal from '@/components/pacientes/PatientFileModal'
 
 function KpiCard({
   title,
@@ -219,7 +219,7 @@ export default function PacientesPage() {
         open={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
       />
-      <PatientFichaModal
+      <PatientFileModal
         open={isFichaModalOpen}
         onClose={() => setIsFichaModalOpen(false)}
       />

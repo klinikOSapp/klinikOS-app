@@ -8,6 +8,7 @@ import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
 import LastPageRounded from '@mui/icons-material/LastPageRounded'
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
+import ProposalCreationModal from './ProposalCreationModal'
 
 type BudgetsPaymentsProps = {
   onClose?: () => void
@@ -123,6 +124,7 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
   )
   type FilterKey = 'deuda' | 'activos' | 'recall'
   const [selectedFilters, setSelectedFilters] = React.useState<FilterKey[]>([])
+  const [showProposalModal, setShowProposalModal] = React.useState(false)
   const isFilterActive = (key: FilterKey) => selectedFilters.includes(key)
   const toggleFilter = (key: FilterKey) => {
     setSelectedFilters((prev) =>
@@ -188,7 +190,11 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
             </button>
           </div>
           {/* Create button */}
-          <button className='absolute top-4 right-4 flex items-center gap-2 rounded-[136px] px-4 py-2 text-body-md text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'>
+          <button
+            className='absolute top-4 right-4 flex items-center gap-2 rounded-[136px] px-4 py-2 text-body-md text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
+            type='button'
+            onClick={() => setShowProposalModal(true)}
+          >
             <AddRounded className='size-5' />
             <span className='font-medium'>Crear presupuesto</span>
           </button>
@@ -368,6 +374,11 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
           </div>
         </div>
       </div>
+
+      <ProposalCreationModal
+        open={showProposalModal}
+        onClose={() => setShowProposalModal(false)}
+      />
     </div>
   )
 }
