@@ -17,17 +17,177 @@ type ClinicalHistoryProps = {
   patientId?: string
 }
 
+type AppointmentRecord = {
+  id: string
+  clinic_id: string
+  status: string
+  scheduled_start_time: string
+  scheduled_end_time?: string | null
+  service_id?: number | null
+  service_type?: string | null
+  source?: string | null
+  source_hold_id?: number | null
+  box_id?: string | null
+  notes?: string | null
+  public_ref?: string | null
+  service_catalog?: { name?: string | null } | null
+}
+
+type AppointmentHoldRecord = {
+  id: string
+  clinic_id: string
+  patient_id: string
+  status: string
+  start_time: string
+  end_time: string
+  hold_expires_at?: string | null
+  notes?: string | null
+  public_ref?: string | null
+  summary_text?: string | null
+  summary_json?: Record<string, any> | null
+  suggested_service_id?: number | null
+  service_catalog?: { name?: string | null } | null
+  box_id?: string | null
+  held_by_call_id?: number | null
+}
+
+const parseSummary = (value: any): string | null => {
+  if (value == null) {
+    return null
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed.length) return null
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        return parseSummary(JSON.parse(trimmed))
+      } catch {
+        return trimmed
+      }
+    }
+    return trimmed
+  }
+  if (typeof value === 'object') {
+    const summaryFields = ['summary', 'notes', 'description', 'text']
+    for (const field of summaryFields) {
+      const fieldValue = (value as Record<string, any>)[field]
+      if (typeof fieldValue === 'string' && fieldValue.trim().length > 0) {
+        return fieldValue.trim()
+      }
+    }
+    if (Array.isArray((value as any).highlights)) {
+      const highlights = (value as any).highlights
+        .map((item: any) => (typeof item === 'string' ? item.trim() : ''))
+        .filter(Boolean)
+      if (highlights.length) {
+        return highlights.join('\n')
+      }
+    }
+  }
+  return null
+}
+
+const getServiceLabel = (record?: {
+  service_catalog?: { name?: string | null } | null
+  service_type?: string | null
+}): string => {
+  if (!record) return 'Consulta'
+  return record.service_catalog?.name || record.service_type || 'Consulta'
+}
+
+const humanize = (value?: string | null): string => {
+  if (!value) return '—'
+  return value
+    .toString()
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (ch) => ch.toUpperCase())
+}
+
+const mapAppointmentRows = (rows: any[]): AppointmentRecord[] =>
+  (rows || []).map((appt) => ({
+    id: String(appt.id),
+    clinic_id: appt.clinic_id,
+    status: appt.status,
+    scheduled_start_time: appt.scheduled_start_time,
+    scheduled_end_time: appt.scheduled_end_time,
+    service_id: appt.service_id ?? null,
+    service_type: appt.service_type ?? null,
+    source: appt.source ?? null,
+    source_hold_id:
+      appt.source_hold_id == null
+        ? null
+        : Number.isNaN(Number(appt.source_hold_id))
+          ? null
+          : Number(appt.source_hold_id),
+    box_id: appt.box_id ? String(appt.box_id) : null,
+    notes: appt.notes ?? null,
+    public_ref: appt.public_ref ?? null,
+    service_catalog: Array.isArray(appt.service_catalog)
+      ? appt.service_catalog[0] ?? null
+      : appt.service_catalog ?? null
+  }))
+
+type TimelineEntry =
+  | { kind: 'appointment'; record: AppointmentRecord }
+  | { kind: 'hold'; record: AppointmentHoldRecord }
+
 export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryProps) {
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
+  const resolveCallSourceInfo = React.useCallback(
+    async (callId?: number | null): Promise<HoldSourceInfo | null> => {
+      if (!callId) return null
+      try {
+        const { data: call } = await supabase
+          .from('calls')
+          .select('id, channel, direction, intent_summary, started_at, external_call_id')
+          .eq('id', callId)
+          .maybeSingle()
+        if (!call) {
+          return { kind: 'call' }
+        }
+        const summaryText = parseSummary(call.intent_summary)
+        const fetchCallLogBy = async (column: 'id' | 'call_id', value: string | number) => {
+          const { data: log } = await supabase
+            .from('call_logs')
+            .select('id, call_id, call_summary')
+            .eq(column, value as any)
+            .maybeSingle()
+          return log
+        }
+        let logRecord = await fetchCallLogBy('id', call.id)
+        if (!logRecord && call.external_call_id) {
+          logRecord = await fetchCallLogBy('call_id', call.external_call_id)
+          if (!logRecord) {
+            const fallbackId = String(call.external_call_id).replace(/-/g, '_')
+            if (fallbackId !== call.external_call_id) {
+              logRecord = await fetchCallLogBy('call_id', fallbackId)
+            }
+          }
+        }
+        const callSummaryText =
+          logRecord?.call_summary != null ? parseSummary(logRecord.call_summary) : null
+        return {
+          kind: 'call',
+          channel: call.channel,
+          summary: summaryText || callSummaryText || null,
+          callSummary: callSummaryText ?? summaryText ?? null,
+          startedAt: call.started_at,
+          direction: call.direction
+        }
+      } catch (error) {
+        console.error('Error loading call info', error)
+        return { kind: 'call' }
+      }
+    },
+    [supabase]
+  )
   const [notes, setNotes] = React.useState<
     { id: string; created_at: string; note_type: string; content: string }[]
   >([])
   const [cardTitle, setCardTitle] = React.useState('—')
   const [cardDate, setCardDate] = React.useState('—')
   const [activeAppointmentId, setActiveAppointmentId] = React.useState<string | null>(null)
-  const [appointments, setAppointments] = React.useState<
-    { id: string; status: string; scheduled_start_time: string; service_type?: string | null; public_ref?: string | null; service_catalog?: { name?: string | null } | null }[]
-  >([])
+  const [appointments, setAppointments] = React.useState<AppointmentRecord[]>([])
   const [soapSubjective, setSoapSubjective] = React.useState<string>('—')
   const [soapObjective, setSoapObjective] = React.useState<string>('—')
   const [soapAssessment, setSoapAssessment] = React.useState<string>('—')
@@ -39,6 +199,10 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
   const [editO, setEditO] = React.useState('')
   const [editA, setEditA] = React.useState('')
   const [editP, setEditP] = React.useState('')
+  const [editServiceId, setEditServiceId] = React.useState<number | null>(null)
+  const [serviceOptions, setServiceOptions] = React.useState<
+    Array<{ id: number; name: string }>
+  >([])
   const [staffList, setStaffList] = React.useState<
     Array<{ id: string; name: string; role?: string | null }>
   >([])
@@ -46,6 +210,601 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
     Array<{ id: string; name: string; path?: string; date: string; url?: string }>
   >([])
   const [activeNoteId, setActiveNoteId] = React.useState<string | null>(null)
+  const [holds, setHolds] = React.useState<AppointmentHoldRecord[]>([])
+  const [activeHold, setActiveHold] = React.useState<AppointmentHoldRecord | null>(null)
+  const [isConfirmingHold, setIsConfirmingHold] = React.useState(false)
+  const [appointmentSourceInfo, setAppointmentSourceInfo] = React.useState<{
+    source?: string | null
+    channel?: string | null
+    callSummary?: string | null
+    summary?: string | null
+    startedAt?: string | null
+    direction?: string | null
+  }>({})
+  const [holdForm, setHoldForm] = React.useState<{
+    boxId: string | null
+    serviceId: number | null
+    notes: string
+    staffAssignments: Array<{ staffId: string | null; role: string }>
+  }>({ boxId: null, serviceId: null, notes: '', staffAssignments: [] })
+  const [holdOptions, setHoldOptions] = React.useState<{
+    boxes: Array<{ id: string; label: string }>
+    services: Array<{ id: number; name: string }>
+    staff: Array<{ id: string; name: string }>
+  }>({ boxes: [], services: [], staff: [] })
+  const [clinicBoxes, setClinicBoxes] = React.useState<
+    Record<string, Array<{ id: string; label: string }>>
+  >({})
+  type HoldSourceInfo =
+    | {
+        kind: 'call'
+        channel?: string | null
+        summary?: string | null
+        callSummary?: string | null
+        startedAt?: string | null
+        direction?: string | null
+      }
+    | { kind: 'manual' }
+    | { kind: 'unknown' }
+  const [holdSource, setHoldSource] = React.useState<HoldSourceInfo>({ kind: 'unknown' })
+  const addHoldStaffAssignment = React.useCallback(() => {
+    setHoldForm((prev) => ({
+      ...prev,
+      staffAssignments: [...prev.staffAssignments, { staffId: null, role: '' }]
+    }))
+  }, [])
+  const updateHoldStaffAssignment = React.useCallback(
+    (index: number, updates: Partial<{ staffId: string | null; role: string }>) => {
+      setHoldForm((prev) => {
+        const next = prev.staffAssignments.map((assignment, idx) =>
+          idx === index ? { ...assignment, ...updates } : assignment
+        )
+        return { ...prev, staffAssignments: next }
+      })
+    },
+    []
+  )
+  const removeHoldStaffAssignment = React.useCallback((index: number) => {
+    setHoldForm((prev) => ({
+      ...prev,
+      staffAssignments: prev.staffAssignments.filter((_, idx) => idx !== index)
+    }))
+  }, [])
+  const renderDetailItem = React.useCallback(
+    (label: string, value: React.ReactNode, secondary?: React.ReactNode) => (
+      <div className='flex flex-col gap-1'>
+        <span className='text-label-sm text-neutral-500'>{label}</span>
+        <span className='text-body-md whitespace-pre-line'>{value ?? '—'}</span>
+        {secondary}
+      </div>
+    ),
+    []
+  )
+  const renderHoldDetails = () => {
+    if (!activeHold) return null
+    return (
+      <div className='flex flex-col gap-6'>
+        <div className='grid gap-6 sm:grid-cols-2'>
+          {renderDetailItem(
+            'Fecha y hora',
+            formatDateTime(activeHold.start_time),
+            <span className='text-label-sm text-neutral-500'>
+              {formatTimeRange(activeHold.start_time, activeHold.end_time)}
+            </span>
+          )}
+          {renderDetailItem('Estado', humanize(activeHold.status))}
+          {activeHold.hold_expires_at
+            ? renderDetailItem('Caduca', formatDateTime(activeHold.hold_expires_at))
+            : null}
+          {activeHold.service_catalog?.name
+            ? renderDetailItem('Servicio sugerido', activeHold.service_catalog.name)
+            : null}
+        </div>
+        {holdSource.kind === 'call' ? (
+          <div className='flex flex-col gap-1'>
+            <span className='text-label-sm text-neutral-500'>Origen</span>
+            <span className='text-body-md'>
+              {holdSource.channel ? `Canal: ${humanize(holdSource.channel)}` : 'Llamada'}
+            </span>
+            {holdSource.callSummary ? (
+              <span className='text-body-sm text-neutral-600 whitespace-pre-line'>
+                {holdSource.callSummary}
+              </span>
+            ) : holdSource.summary ? (
+              <span className='text-body-sm text-neutral-600 whitespace-pre-line'>
+                {holdSource.summary}
+              </span>
+            ) : null}
+            {holdSource.startedAt ? (
+              <span className='text-label-sm text-neutral-500'>
+                Inicio: {formatDateTime(holdSource.startedAt)}
+              </span>
+            ) : null}
+          </div>
+        ) : holdSource.kind === 'manual' ? (
+          <div className='flex flex-col gap-1'>
+            <span className='text-label-sm text-neutral-500'>Origen</span>
+            <span className='text-body-sm text-neutral-600'>Creada manualmente</span>
+          </div>
+        ) : null}
+        {(activeHold.summary_text || activeHold.summary_json) &&
+          renderDetailItem(
+            'Resumen',
+            activeHold.summary_text || activeHold.summary_json?.summary || '—'
+          )}
+        <div className='grid gap-4 sm:grid-cols-2'>
+          <label className='flex flex-col gap-2 text-sm text-neutral-700'>
+            Gabinete
+            <select
+              value={holdForm.boxId ?? ''}
+              onChange={(e) =>
+                setHoldForm((prev) => ({
+                  ...prev,
+                  boxId: e.target.value ? e.target.value : null
+                }))
+              }
+              className='rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200'
+            >
+              <option value=''>Sin asignar</option>
+              {holdOptions.boxes.map((box) => (
+                <option key={box.id} value={box.id}>
+                  {box.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className='flex flex-col gap-2 text-sm text-neutral-700'>
+            Servicio
+            <select
+              value={holdForm.serviceId != null ? String(holdForm.serviceId) : ''}
+              onChange={(e) =>
+                setHoldForm((prev) => ({
+                  ...prev,
+                  serviceId: e.target.value ? Number(e.target.value) : null
+                }))
+              }
+              className='rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200'
+            >
+              <option value=''>Sin especificar</option>
+              {holdOptions.services.map((service) => (
+                <option key={service.id} value={service.id}>
+                  {service.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className='sm:col-span-2 flex flex-col gap-3'>
+            <span className='text-label-sm text-neutral-500'>Profesionales asignados</span>
+            {holdForm.staffAssignments.length === 0 ? (
+              <p className='text-body-sm text-neutral-600'>
+                Añade uno o más profesionales y especifica su rol en la cita.
+              </p>
+            ) : (
+              holdForm.staffAssignments.map((assignment, index) => (
+                <div
+                  key={`hold-staff-${index}`}
+                  className='flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 md:flex-row md:items-center md:gap-4'
+                >
+                  <select
+                    value={assignment.staffId ?? ''}
+                    onChange={(e) =>
+                      updateHoldStaffAssignment(index, {
+                        staffId: e.target.value ? e.target.value : null
+                      })
+                    }
+                    className='rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200 md:min-w-[12rem]'
+                  >
+                    <option value=''>Seleccionar profesional</option>
+                    {holdOptions.staff.map((staff) => (
+                      <option key={staff.id} value={staff.id}>
+                        {staff.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type='text'
+                    value={assignment.role}
+                    onChange={(e) =>
+                      updateHoldStaffAssignment(index, { role: e.target.value })
+                    }
+                    placeholder='Rol (ej. Doctor principal)'
+                    className='rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200 md:flex-1'
+                  />
+                  <button
+                    type='button'
+                    onClick={() => removeHoldStaffAssignment(index)}
+                    className='self-start text-sm text-neutral-500 transition hover:text-neutral-800'
+                  >
+                    Quitar
+                  </button>
+                </div>
+              ))
+            )}
+            <button
+              type='button'
+              onClick={addHoldStaffAssignment}
+              className='inline-flex items-center gap-2 text-sm font-medium text-brand-500 transition hover:text-brand-400'
+            >
+              <AddRounded className='size-4' />
+              Añadir profesional
+            </button>
+          </div>
+          <label className='flex flex-col gap-2 text-sm text-neutral-700 sm:col-span-2'>
+            Notas internas
+            <textarea
+              value={holdForm.notes}
+              onChange={(e) =>
+                setHoldForm((prev) => ({
+                  ...prev,
+                  notes: e.target.value
+                }))
+              }
+              className='min-h-[96px] rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200'
+              placeholder='Añade notas relevantes para la reserva'
+            />
+          </label>
+        </div>
+        <div className='flex flex-col gap-2 border-t border-neutral-200 pt-4'>
+          <button
+            type='button'
+            onClick={handleConfirmHold}
+            disabled={isConfirmingHold || activeHold.status !== 'held'}
+            className='rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-brand-900 shadow-sm transition hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-70'
+          >
+            {isConfirmingHold ? 'Confirmando…' : 'Confirmar reserva'}
+          </button>
+          <p className='text-label-sm text-neutral-500'>
+            Al confirmar se crea una cita y se libera la reserva.
+          </p>
+        </div>
+      </div>
+    )
+  }
+  const renderAppointmentDetails = () => {
+    if (!activeAppointment) {
+      return (
+        <p className='text-body-sm text-neutral-600'>
+          Selecciona una cita para ver los detalles clínicos.
+        </p>
+      )
+    }
+    return (
+      <div className='flex flex-col gap-8'>
+        <div className='grid gap-6 sm:grid-cols-2'>
+          {renderDetailItem(
+            'Fecha y hora',
+            formatDateTime(activeAppointment.scheduled_start_time),
+            activeAppointment.scheduled_end_time ? (
+              <span className='text-label-sm text-neutral-500'>
+                {formatTimeRange(
+                  activeAppointment.scheduled_start_time,
+                  activeAppointment.scheduled_end_time
+                )}
+              </span>
+            ) : undefined
+          )}
+          {renderDetailItem('Estado', humanize(activeAppointment.status))}
+          {renderDetailItem('Servicio', getServiceLabel(activeAppointment))}
+          {renderDetailItem('Origen', humanize(appointmentSourceInfo.source ?? null))}
+          {renderDetailItem('Gabinete', appointmentBoxLabel)}
+          {activeAppointment.public_ref
+            ? renderDetailItem('Referencia pública', activeAppointment.public_ref)
+            : null}
+        </div>
+        {(appointmentSourceInfo.channel ||
+          appointmentSourceInfo.callSummary ||
+          appointmentSourceInfo.summary ||
+          appointmentSourceInfo.startedAt) && (
+          <div className='flex flex-col gap-1'>
+            <span className='text-label-sm text-neutral-500'>Detalles de origen</span>
+            {appointmentSourceInfo.channel ? (
+              <span className='text-body-md'>
+                Canal: {humanize(appointmentSourceInfo.channel)}
+              </span>
+            ) : null}
+            {appointmentSourceInfo.callSummary ? (
+              <span className='text-body-sm text-neutral-600 whitespace-pre-line'>
+                {appointmentSourceInfo.callSummary}
+              </span>
+            ) : appointmentSourceInfo.summary ? (
+              <span className='text-body-sm text-neutral-600 whitespace-pre-line'>
+                {appointmentSourceInfo.summary}
+              </span>
+            ) : null}
+            {appointmentSourceInfo.startedAt ? (
+              <span className='text-label-sm text-neutral-500'>
+                Inicio: {formatDateTime(appointmentSourceInfo.startedAt)}
+              </span>
+            ) : null}
+          </div>
+        )}
+        {activeAppointment.notes
+          ? renderDetailItem('Notas internas', activeAppointment.notes)
+          : null}
+        <section className='flex flex-col gap-3'>
+          <h3 className="font-['Inter:Medium',_sans-serif] text-neutral-900 text-body-md">
+            Atendido por
+          </h3>
+          {staffList.length === 0 ? (
+            <p className='text-label-sm text-neutral-600'>—</p>
+          ) : (
+            <div className='grid gap-3 sm:grid-cols-2'>
+              {staffList.map((m) => {
+                const roleLabel = m.role
+                  ? humanize(m.role.toLowerCase())
+                  : '—'
+                return (
+                  <div
+                    key={m.id}
+                    className='flex items-center gap-3 rounded-lg border border-neutral-200 px-3 py-2'
+                  >
+                    <div className='relative grid size-9 place-items-center rounded-full bg-neutral-100 text-neutral-400'>
+                      <AccountCircleRounded className='size-6' />
+                    </div>
+                    <div className="flex flex-col font-['Inter:Regular',_sans-serif] gap-0.5 text-neutral-900">
+                      <span className='text-body-sm'>{m.name}</span>
+                      <span className='text-label-sm text-neutral-500'>{roleLabel}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
+        <section className='flex flex-col gap-3'>
+          <div className='flex items-center justify-between'>
+            <h3 className="font-['Inter:Medium',_sans-serif] text-neutral-900 text-body-md">
+              Archivos adjuntos
+            </h3>
+            <button
+              type='button'
+              className='inline-flex items-center gap-1 text-sm font-medium text-brand-500 transition hover:text-brand-400'
+              onClick={() => document.getElementById('history-upload-input')?.click()}
+            >
+              <AddRounded className='size-4' />
+              Subir documento
+            </button>
+          </div>
+          <input
+            id='history-upload-input'
+            type='file'
+            className='hidden'
+            onChange={async (e) => {
+              const f = e.target.files?.[0]
+              if (!f || !patientId) return
+              try {
+                const { uploadPatientFile } = await import('@/lib/storage')
+                const { createSupabaseBrowserClient } = await import('@/lib/supabase/client')
+                const supa = createSupabaseBrowserClient()
+                const { path } = await uploadPatientFile({ patientId, file: f, kind: 'rx' })
+                await supa.from('clinical_attachments').insert({
+                  patient_id: patientId,
+                  appointment_id: activeAppointmentId,
+                  staff_id: (await supa.auth.getUser()).data.user?.id,
+                  file_name: f.name,
+                  file_type: f.type,
+                  storage_path: path
+                })
+                const { data: atts } = await supa
+                  .from('clinical_attachments')
+                  .select('id, file_name, storage_path, created_at')
+                  .eq('appointment_id', activeAppointmentId)
+                  .order('created_at', { ascending: false })
+                  .limit(10)
+                const mapped = await Promise.all(
+                  (atts || []).map(async (r: any) => ({
+                    id: String(r.id),
+                    name: r.file_name || 'archivo',
+                    path: r.storage_path || undefined,
+                    date: new Date(r.created_at).toLocaleDateString(),
+                    url: r.storage_path ? await getSignedUrl(r.storage_path) : undefined
+                  }))
+                )
+                setAttachments(mapped)
+              } finally {
+                if (e.target) e.target.value = ''
+              }
+            }}
+          />
+          {attachments.length === 0 ? (
+            <p className='text-label-sm text-neutral-600'>—</p>
+          ) : (
+            <div className='grid gap-3'>
+              {attachments.map((att) => (
+                <div
+                  key={att.id}
+                  className='flex items-center justify-between rounded-lg border border-neutral-300 px-3 py-2'
+                >
+                  <span className='text-body-sm text-neutral-700'>{att.name}</span>
+                  <button
+                    type='button'
+                    className='grid size-6 place-items-center text-neutral-700 transition hover:text-neutral-900'
+                    onClick={() =>
+                      att.url && window.open(att.url, '_blank', 'noopener,noreferrer')
+                    }
+                    aria-label='Descargar'
+                  >
+                    <DownloadRounded className='size-5' />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+        <section className='flex flex-col gap-3'>
+          <div className='flex items-center justify-between'>
+            <h3 className="font-['Inter:Medium',_sans-serif] text-neutral-900 text-body-md">
+              Odontograma
+            </h3>
+            <button
+              type='button'
+              className='inline-flex items-center gap-1 text-sm font-medium text-brand-500 transition hover:text-brand-400'
+              onClick={() => document.getElementById('odontogram-upload-input')?.click()}
+            >
+              <AddRounded className='size-4' />
+              Subir odontograma
+            </button>
+          </div>
+          <input
+            id='odontogram-upload-input'
+            type='file'
+            accept='image/*'
+            className='hidden'
+            onChange={async (e) => {
+              const f = e.target.files?.[0]
+              if (!f || !patientId) return
+              try {
+                const { uploadPatientFile } = await import('@/lib/storage')
+                const { createSupabaseBrowserClient } = await import('@/lib/supabase/client')
+                const supa = createSupabaseBrowserClient()
+                const { path } = await uploadPatientFile({ patientId, file: f, kind: 'rx' })
+                await supa.from('clinical_attachments').insert({
+                  patient_id: patientId,
+                  appointment_id: activeAppointmentId,
+                  staff_id: (await supa.auth.getUser()).data.user?.id,
+                  file_name: f.name,
+                  file_type: f.type,
+                  storage_path: path
+                })
+              } finally {
+                if (e.target) e.target.value = ''
+              }
+            }}
+          />
+          <div className='flex h-[10.875rem] w-[14.1875rem] items-center justify-center rounded-[calc(var(--radius-xl)/2)] border border-neutral-300 bg-neutral-100 text-neutral-400'>
+            <ImageRounded className='size-12' />
+          </div>
+        </section>
+        <section className='grid gap-6 md:grid-cols-2'>
+          <div className='flex flex-col gap-1'>
+            <p className="font-['Inter:Medium',_sans-serif] text-neutral-900 text-body-md">
+              Subjetivo
+            </p>
+            <p className="font-['Inter:Regular',_sans-serif] text-neutral-500 text-label-sm">
+              ¿Por qué viene?
+            </p>
+            <p className="font-['Inter:Regular',_sans-serif] text-neutral-700 text-body-sm whitespace-pre-line">
+              {soapSubjective}
+            </p>
+          </div>
+          <div className='flex flex-col gap-1'>
+            <p className="font-['Inter:Medium',_sans-serif] text-neutral-900 text-body-md">
+              Objetivo
+            </p>
+            <p className="font-['Inter:Regular',_sans-serif] text-neutral-500 text-label-sm">
+              ¿Qué tiene?
+            </p>
+            <p className="font-['Inter:Regular',_sans-serif] text-neutral-700 text-body-sm whitespace-pre-line">
+              {soapObjective}
+            </p>
+          </div>
+          <div className='flex flex-col gap-1'>
+            <p className="font-['Inter:Medium',_sans-serif] text-neutral-900 text-body-md">
+              Evaluación
+            </p>
+            <p className="font-['Inter:Regular',_sans-serif] text-neutral-500 text-label-sm">
+              ¿Qué le hacemos?
+            </p>
+            <p className="font-['Inter:Regular',_sans-serif] text-neutral-700 text-body-sm whitespace-pre-line">
+              {soapAssessment}
+            </p>
+          </div>
+          <div className='flex flex-col gap-1'>
+            <p className="font-['Inter:Medium',_sans-serif] text-neutral-900 text-body-md">
+              Plan
+            </p>
+            <p className="font-['Inter:Regular',_sans-serif] text-neutral-500 text-label-sm">
+              Tratamiento a seguir
+            </p>
+            <p className="font-['Inter:Regular',_sans-serif] text-neutral-700 text-body-sm whitespace-pre-line">
+              {soapPlan}
+            </p>
+          </div>
+        </section>
+      </div>
+    )
+  }
+  const activeAppointment = React.useMemo(() => {
+    if (!activeAppointmentId) return null
+    return (
+      appointments.find((appt) => String(appt.id) === String(activeAppointmentId)) ?? null
+    )
+  }, [appointments, activeAppointmentId])
+  const appointmentBoxLabel = React.useMemo(() => {
+    if (!activeAppointment?.box_id) return 'Sin asignar'
+    const boxes = clinicBoxes[activeAppointment.clinic_id] ?? []
+    const match = boxes.find((box) => box.id === activeAppointment.box_id)
+    return match?.label ?? 'Sin asignar'
+  }, [activeAppointment, clinicBoxes])
+
+  const formatDateShort = React.useCallback((date: Date) => {
+    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`
+  }, [])
+
+  const formatDateTime = React.useCallback((iso: string) => {
+    return new Date(iso).toLocaleString('es-ES', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    })
+  }, [])
+
+  const formatTimeRange = React.useCallback((startIso: string, endIso: string) => {
+    const start = new Date(startIso)
+    const end = new Date(endIso)
+    const startLabel = start.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+    const endLabel = end.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+    return `${startLabel} - ${endLabel}`
+  }, [])
+
+  const getEntriesForFilter = React.useCallback(
+    (f: Filter): TimelineEntry[] => {
+      const now = Date.now()
+      const entryStartTime = (entry: TimelineEntry) =>
+        entry.kind === 'appointment'
+          ? new Date(entry.record.scheduled_start_time).getTime()
+          : new Date(entry.record.start_time).getTime()
+
+      if (f === 'proximas') {
+        const appointmentEntries = appointments
+          .filter((a) => new Date(a.scheduled_start_time).getTime() > now)
+          .map((record) => ({ kind: 'appointment', record } as TimelineEntry))
+        const holdEntries = holds
+          .filter((h) => h.status !== 'cancelled' && new Date(h.start_time).getTime() > now)
+          .map((record) => ({ kind: 'hold', record } as TimelineEntry))
+        return [...appointmentEntries, ...holdEntries].sort(
+          (a, b) => entryStartTime(a) - entryStartTime(b)
+        )
+      }
+      if (f === 'pasadas') {
+        return appointments
+          .filter((a) => new Date(a.scheduled_start_time).getTime() <= now)
+          .map((record) => ({ kind: 'appointment', record } as TimelineEntry))
+          .sort((a, b) => entryStartTime(b) - entryStartTime(a))
+      }
+      if (f === 'confirmadas') {
+        return appointments
+          .filter((a) => a.status === 'confirmed')
+          .map((record) => ({ kind: 'appointment', record } as TimelineEntry))
+          .sort((a, b) => entryStartTime(b) - entryStartTime(a))
+      }
+      if (f === 'inaxistencia') {
+        return appointments
+          .filter((a) => a.status === 'no_show')
+          .map((record) => ({ kind: 'appointment', record } as TimelineEntry))
+          .sort((a, b) => entryStartTime(b) - entryStartTime(a))
+      }
+      return appointments
+        .map((record) => ({ kind: 'appointment', record } as TimelineEntry))
+        .sort((a, b) => entryStartTime(b) - entryStartTime(a))
+    },
+    [appointments, holds]
+  )
 
   React.useEffect(() => {
     async function load() {
@@ -53,16 +812,19 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
       // Load appointments for left list (with service name + ref)
       const { data: appts } = await supabase
         .from('appointments')
-        .select('id, status, scheduled_start_time, service_type, public_ref, service_catalog(name)')
+        .select(
+          'id, clinic_id, box_id, status, scheduled_start_time, scheduled_end_time, service_id, service_type, source, source_hold_id, public_ref, notes, service_catalog:service_id(name)'
+        )
         .eq('patient_id', patientId)
         .order('scheduled_start_time', { ascending: false })
         .limit(10)
       const hasAppointments = Array.isArray(appts) && appts.length > 0
       if (hasAppointments) {
-        setAppointments(appts as any)
-        const a0 = appts[0] as any
+        const mappedAppointments = mapAppointmentRows(appts as any[])
+        setAppointments(mappedAppointments)
+        const a0 = mappedAppointments[0]
         const d = new Date(a0.scheduled_start_time)
-        const service = a0.service_catalog?.name || a0.service_type || 'Consulta'
+        const service = getServiceLabel(a0)
         const ref = a0.public_ref ? ` · ${a0.public_ref}` : ''
         setCardTitle(`${service}${ref}`)
         setCardDate(
@@ -72,6 +834,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
         )
         setActiveAppointmentId(String(a0.id))
         setEditStatus(a0.status)
+        setEditServiceId(a0.service_id ?? null)
         const iso = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
           .toISOString()
           .slice(0, 16)
@@ -107,9 +870,167 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
           setSoapPlan('—')
         }
       }
+
+      const { data: holdRows } = await supabase
+        .from('appointment_holds')
+        .select(
+          'id, clinic_id, patient_id, box_id, held_by_call_id, status, start_time, end_time, hold_expires_at, notes, public_ref, summary_text, summary_json, suggested_service_id, service_catalog:suggested_service_id(name)'
+        )
+        .eq('patient_id', patientId)
+        .order('start_time', { ascending: true })
+        .limit(20)
+      if (Array.isArray(holdRows)) {
+        setHolds(
+          holdRows.map((hold: any) => ({
+            id: String(hold.id),
+            clinic_id: hold.clinic_id,
+            patient_id: hold.patient_id,
+            box_id: hold.box_id ? String(hold.box_id) : null,
+            held_by_call_id:
+              hold.held_by_call_id == null
+                ? null
+                : Number.isNaN(Number(hold.held_by_call_id))
+                  ? null
+                  : Number(hold.held_by_call_id),
+            status: hold.status,
+            start_time: hold.start_time,
+            end_time: hold.end_time,
+            hold_expires_at: hold.hold_expires_at,
+            notes: hold.notes,
+            public_ref: hold.public_ref,
+            summary_text: hold.summary_text,
+            summary_json: hold.summary_json,
+            suggested_service_id: hold.suggested_service_id,
+            service_catalog: Array.isArray(hold.service_catalog)
+              ? hold.service_catalog[0] ?? null
+              : hold.service_catalog ?? null
+          }))
+        )
+      }
     }
     void load()
   }, [patientId, supabase])
+  React.useEffect(() => {
+    if (!activeHold) return
+    const hold = activeHold
+    setHoldForm({
+      boxId: hold.box_id ? String(hold.box_id) : null,
+      serviceId: hold.suggested_service_id ?? null,
+      notes: hold.notes ?? '',
+      staffAssignments: []
+    })
+    setHoldSource({ kind: 'unknown' })
+    async function loadHoldMetadata() {
+      try {
+        const [boxesRes, staffRes, servicesRes] = await Promise.all([
+          supabase.rpc('get_clinic_boxes', { clinic: hold.clinic_id }),
+          supabase.rpc('get_clinic_staff', { clinic: hold.clinic_id }),
+          supabase.rpc('get_clinic_services', { clinic: hold.clinic_id })
+        ])
+        const boxes = (boxesRes.data || []).map((box: any) => ({
+          id: String(box.id),
+          label: box.name || 'Sin nombre'
+        }))
+        const staffOptions = (staffRes.data || [])
+          .map((row: any) => ({
+            id: row.id,
+            name: row.full_name || row.id
+          }))
+          .filter((opt: any) => opt.id)
+        const services = (servicesRes.data || []).map((s: any) => ({
+          id: s.id,
+          name: s.name
+        }))
+        setHoldOptions({ boxes, services, staff: staffOptions })
+        setClinicBoxes((prev) => ({
+          ...prev,
+          [hold.clinic_id]: boxes
+        }))
+      } catch (error) {
+        console.error('Error loading hold metadata', error)
+        setHoldOptions({ boxes: [], services: [], staff: [] })
+      }
+
+      if (hold.held_by_call_id) {
+        const info = await resolveCallSourceInfo(hold.held_by_call_id)
+        if (info) {
+          setHoldSource(info)
+        } else {
+          setHoldSource({ kind: 'call' })
+        }
+      } else {
+        setHoldSource(hold.notes ? { kind: 'manual' } : { kind: 'unknown' })
+      }
+    }
+    void loadHoldMetadata()
+  }, [activeHold, resolveCallSourceInfo, supabase])
+
+  React.useEffect(() => {
+    async function loadAppointmentMetadata() {
+      if (!activeAppointment) {
+        setServiceOptions([])
+        setAppointmentSourceInfo({})
+        return
+      }
+
+      setEditServiceId(activeAppointment.service_id ?? null)
+      setAppointmentSourceInfo({ source: activeAppointment.source ?? null })
+
+      try {
+        const { data: servicesRes } = await supabase.rpc('get_clinic_services', {
+          clinic: activeAppointment.clinic_id
+        })
+        const options =
+          servicesRes?.map((svc: any) => ({ id: svc.id, name: svc.name })) ?? []
+        setServiceOptions(options)
+      } catch (error) {
+        console.error('Error loading services for appointment', error)
+        setServiceOptions([])
+      }
+
+      if (!clinicBoxes[activeAppointment.clinic_id]) {
+        try {
+          const { data: boxesRes } = await supabase.rpc('get_clinic_boxes', {
+            clinic: activeAppointment.clinic_id
+          })
+          const mappedBoxes =
+            boxesRes?.map((box: any) => ({
+              id: String(box.id),
+              label: box.name || 'Sin nombre'
+            })) ?? []
+          setClinicBoxes((prev) => ({
+            ...prev,
+            [activeAppointment.clinic_id]: mappedBoxes
+          }))
+        } catch (error) {
+          console.error('Error loading boxes for appointment', error)
+        }
+      }
+
+      if (activeAppointment.source_hold_id) {
+        try {
+          const { data: holdRow } = await supabase
+            .from('appointment_holds')
+            .select('held_by_call_id')
+            .eq('id', activeAppointment.source_hold_id)
+            .maybeSingle()
+          if (holdRow?.held_by_call_id) {
+            const info = await resolveCallSourceInfo(holdRow.held_by_call_id)
+            if (info) {
+              setAppointmentSourceInfo((prev) => ({
+                ...prev,
+                ...info,
+                source: activeAppointment.source ?? prev.source ?? null
+              }))
+            }
+          }
+        } catch (error) {
+          console.error('Error loading source hold for appointment', error)
+        }
+      }
+    }
+    void loadAppointmentMetadata()
+  }, [activeAppointment, clinicBoxes, resolveCallSourceInfo, supabase])
 
   const fetchAndSetAppointmentNote = React.useCallback(
     async (appointmentId: string | number | null | undefined) => {
@@ -223,45 +1144,57 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
     'confirmadas',
     'inaxistencia'
   ]
-  function pickByFilter(f: Filter) {
-    const now = new Date().getTime()
-    const pick =
-      f === 'proximas'
-        ? appointments.find((a) => new Date(a.scheduled_start_time).getTime() > now)
-        : f === 'pasadas'
-        ? appointments.find((a) => new Date(a.scheduled_start_time).getTime() <= now)
-        : f === 'confirmadas'
-        ? appointments.find((a) => a.status === 'confirmed')
-        : f === 'inaxistencia'
-        ? appointments.find(
-            (a) =>
-              a.status === 'no_show' &&
-              new Date(a.scheduled_start_time).getTime() <= now
-          )
-        : undefined
-    if (pick) {
-      const d = new Date(pick.scheduled_start_time)
-      setActiveAppointmentId(String(pick.id))
-      const service = pick.service_catalog?.name || pick.service_type || 'Consulta'
-      const ref = pick.public_ref ? ` · ${pick.public_ref}` : ''
-      setCardTitle(`${service}${ref}`)
-      setCardDate(
-        `${String(d.getDate()).padStart(2, '0')}/${String(
-          d.getMonth() + 1
-        ).padStart(2, '0')}/${d.getFullYear()}`
-      )
-      setEditStatus(pick.status)
-      const iso = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-        .toISOString()
-        .slice(0, 16)
-      setEditDate(iso)
-      void fetchAndSetAppointmentNote(pick.id)
-    }
-  }
+  const pickByFilter = React.useCallback(
+    (f: Filter) => {
+      const entries = getEntriesForFilter(f)
+      if (entries.length === 0) {
+        setActiveAppointmentId(null)
+        setActiveHold(null)
+        return
+      }
+      const first = entries[0]
+      if (first.kind === 'appointment') {
+        const pick = first.record
+        const d = new Date(pick.scheduled_start_time)
+        setActiveHold(null)
+        setActiveAppointmentId(String(pick.id))
+        const service = getServiceLabel(pick)
+        const ref = pick.public_ref ? ` · ${pick.public_ref}` : ''
+        setCardTitle(`${service}${ref}`)
+        setCardDate(formatDateShort(d))
+        setEditStatus(pick.status)
+        setEditServiceId(pick.service_id ?? null)
+        setAppointmentSourceInfo({
+          source: pick.source ?? null
+        })
+        const iso = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+          .toISOString()
+          .slice(0, 16)
+        setEditDate(iso)
+      } else {
+        const hold = first.record
+        const d = new Date(hold.start_time)
+        setActiveAppointmentId(null)
+        setActiveHold(hold)
+        setActiveNoteId(null)
+        setAttachments([])
+        setStaffList([])
+        const service = hold.service_catalog?.name || hold.summary_text || 'Reserva pendiente'
+        const ref = hold.public_ref ? ` · ${hold.public_ref}` : ''
+        setCardTitle(`${service}${ref}`)
+        setCardDate(formatDateShort(d))
+        setSoapSubjective(hold.summary_text || hold.summary_json?.subjective || '—')
+        setSoapObjective('—')
+        setSoapAssessment('—')
+        setSoapPlan('—')
+      }
+    },
+    [formatDateShort, getEntriesForFilter]
+  )
+
   React.useEffect(() => {
     pickByFilter(filter)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, JSON.stringify(appointments)])
+  }, [filter, pickByFilter])
   // Load staff linked to appointment + attachments list
   React.useEffect(() => {
     async function loadStaffAndAttachments() {
@@ -354,6 +1287,142 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
       setFilter(orderedFilters[nextIdx])
     }
   }
+
+  const timelineEntries = React.useMemo(() => getEntriesForFilter(filter), [getEntriesForFilter, filter])
+
+  const handleConfirmHold = React.useCallback(async () => {
+    if (!activeHold) return
+    const hold = activeHold
+    setIsConfirmingHold(true)
+    try {
+      const selectedBoxId = holdForm.boxId || hold.box_id || null
+      const selectedServiceId =
+        holdForm.serviceId ?? hold.suggested_service_id ?? null
+      const notesToUse = holdForm.notes?.trim() || hold.notes || null
+      const selectedServiceName = selectedServiceId
+        ? holdOptions.services.find((s) => s.id === selectedServiceId)?.name ||
+          hold.service_catalog?.name ||
+          hold.summary_text ||
+          'Consulta'
+        : hold.service_catalog?.name ||
+          hold.summary_text ||
+          'Consulta'
+      const serviceName =
+        selectedServiceName || hold.service_catalog?.name || 'Consulta'
+      const publicRef = `APPT-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
+      await supabase
+        .from('appointment_holds')
+        .update({
+          box_id: selectedBoxId,
+          notes: notesToUse,
+          suggested_service_id: selectedServiceId
+        })
+        .eq('id', hold.id)
+      const { data: inserted, error } = await supabase
+        .from('appointments')
+        .insert({
+          clinic_id: hold.clinic_id,
+          patient_id: hold.patient_id,
+          box_id: selectedBoxId,
+          status: 'confirmed',
+          scheduled_start_time: hold.start_time,
+          scheduled_end_time: hold.end_time,
+          notes: notesToUse,
+          source: 'manual',
+          service_id: selectedServiceId,
+          service_type: serviceName,
+          public_ref: publicRef,
+          source_hold_id: hold.id
+        })
+        .select(
+          'id, clinic_id, box_id, status, scheduled_start_time, scheduled_end_time, service_id, service_type, source, source_hold_id, public_ref, notes, service_catalog:service_id(name)'
+        )
+        .maybeSingle()
+      if (error) {
+        throw error
+      }
+      await supabase
+        .from('appointment_holds')
+        .update({ status: 'used' })
+        .eq('id', hold.id)
+      if (inserted) {
+        const insertedServiceCatalog = Array.isArray(inserted.service_catalog)
+          ? inserted.service_catalog[0]
+          : inserted.service_catalog
+        const record: AppointmentRecord = {
+          id: String(inserted.id),
+          clinic_id: inserted.clinic_id,
+          status: inserted.status,
+          scheduled_start_time: inserted.scheduled_start_time,
+          scheduled_end_time: inserted.scheduled_end_time,
+          service_id: inserted.service_id ?? selectedServiceId ?? null,
+          service_type: inserted.service_type,
+          source: inserted.source ?? 'manual',
+          source_hold_id:
+            inserted.source_hold_id == null
+              ? null
+              : Number.isNaN(Number(inserted.source_hold_id))
+                ? null
+                : Number(inserted.source_hold_id),
+          box_id: inserted.box_id ? String(inserted.box_id) : null,
+          notes: inserted.notes ?? notesToUse ?? null,
+          public_ref: inserted.public_ref,
+          service_catalog: insertedServiceCatalog ?? null
+        }
+        setAppointments((prev) => {
+          const next = [...prev, record]
+          return next.sort(
+            (a, b) =>
+              new Date(b.scheduled_start_time).getTime() -
+              new Date(a.scheduled_start_time).getTime()
+          )
+        })
+        const staffAssignmentsToInsert = holdForm.staffAssignments.filter(
+          (assignment) => assignment.staffId
+        )
+        if (inserted.id && staffAssignmentsToInsert.length) {
+          try {
+            await supabase.from('appointment_staff').insert(
+              staffAssignmentsToInsert.map((assignment) => ({
+                appointment_id: Number(inserted.id),
+                staff_id: assignment.staffId as string,
+                role_in_appointment: assignment.role?.trim() || null
+              }))
+            )
+          } catch (staffError) {
+            console.error('Error asignando staff a la cita', staffError)
+          }
+        }
+        setHolds((prev) => prev.filter((h) => h.id !== hold.id))
+        setActiveHold(null)
+        setActiveAppointmentId(String(inserted.id))
+        setHoldForm({ boxId: null, serviceId: null, notes: '', staffAssignments: [] })
+        const startDate = new Date(inserted.scheduled_start_time)
+        const serviceLabel = getServiceLabel({
+          service_catalog: insertedServiceCatalog ?? null,
+          service_type: inserted.service_type ?? null
+        })
+        const ref = inserted.public_ref ? ` · ${inserted.public_ref}` : ''
+        setCardTitle(`${serviceLabel}${ref}`)
+        setCardDate(formatDateShort(startDate))
+        setEditStatus(inserted.status)
+        const iso = new Date(startDate.getTime() - startDate.getTimezoneOffset() * 60000)
+          .toISOString()
+          .slice(0, 16)
+        setEditDate(iso)
+        setSoapSubjective('—')
+        setSoapObjective('—')
+        setSoapAssessment('—')
+        setSoapPlan('—')
+      }
+      pickByFilter(filter)
+    } catch (error) {
+      console.error('Error confirming appointment hold', error)
+      alert('No se pudo confirmar la reserva. Intenta nuevamente.')
+    } finally {
+      setIsConfirmingHold(false)
+    }
+  }, [activeHold, filter, formatDateShort, pickByFilter, supabase, holdForm, holdOptions.services])
   return (
     <div
       className='bg-neutral-50 relative w-full max-w-[74.75rem] h-full min-h-[56.25rem] overflow-hidden'
@@ -452,52 +1521,79 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
       {/* Timeline cards left (selectable) */}
       <div className='absolute top-[inherit] w-[19.625rem]' style={{ left: 'calc(6.25% + 10.25px)', top: '12.75rem' }}>
         <div className='flex flex-col gap-[1rem]'>
-          {(() => {
-            const now = new Date().getTime()
-            const list =
-              filter === 'proximas'
-                ? appointments.filter((a) => new Date(a.scheduled_start_time).getTime() > now)
-                : filter === 'pasadas'
-                ? appointments.filter((a) => new Date(a.scheduled_start_time).getTime() <= now)
-                : filter === 'confirmadas'
-                ? appointments.filter((a) => a.status === 'confirmed')
-                : filter === 'inaxistencia'
-                ? appointments.filter(
-                    (a) =>
-                      a.status === 'no_show' &&
-                      new Date(a.scheduled_start_time).getTime() <= now
-                  )
-                : appointments
-            return list
-          })().map((a) => {
-            const d = new Date(a.scheduled_start_time)
-            const service = a.service_catalog?.name || a.service_type || 'Consulta'
-            const ref = a.public_ref ? ` · ${a.public_ref}` : ''
-            const title = `${service}${ref}`
-            const dateStr = `${String(d.getDate()).padStart(2, '0')}/${String(
-              d.getMonth() + 1
-            ).padStart(2, '0')}/${d.getFullYear()}`
-            const isSelected = String(a.id) === activeAppointmentId
+          {timelineEntries.map((entry) => {
+            if (entry.kind === 'appointment') {
+              const appt = entry.record
+              const d = new Date(appt.scheduled_start_time)
+              const service = getServiceLabel(appt)
+              const ref = appt.public_ref ? ` · ${appt.public_ref}` : ''
+              const title = `${service}${ref}`
+              const dateStr = formatDateShort(d)
+              const isSelected = !activeHold && String(appt.id) === activeAppointmentId
+              return (
+          <SelectorCard
+                  key={`appt-${appt.id}`}
+                  title={title}
+                  selected={isSelected}
+                  onClick={() => {
+                    setSelectedCardId(String(appt.id))
+                    setActiveHold(null)
+                    setActiveAppointmentId(String(appt.id))
+                    setCardTitle(title)
+                    setCardDate(dateStr)
+                    setSoapSubjective('—')
+                    setSoapObjective('—')
+                    setSoapAssessment('—')
+                    setSoapPlan('—')
+                  }}
+            lines={[
+              {
+                      icon: <CalendarMonthRounded className='size-6 text-neutral-700' />,
+                      text: dateStr
+              },
+              {
+                icon: <PlaceRounded className='size-6 text-neutral-700' />,
+                      text: 'KlinikOS'
+              }
+            ]}
+          />
+              )
+            }
+            const hold = entry.record
+            const d = new Date(hold.start_time)
+            const title = `${hold.service_catalog?.name || hold.summary_text || 'Reserva pendiente'}${hold.public_ref ? ` · ${hold.public_ref}` : ''}`
+            const dateStr = formatDateShort(d)
+            const isSelected = activeHold?.id === hold.id
             return (
           <SelectorCard
-                key={a.id}
+                key={`hold-${hold.id}`}
                 title={title}
                 selected={isSelected}
+                variant='hold'
                 onClick={() => {
-                  setSelectedCardId(String(a.id))
-                  setActiveAppointmentId(String(a.id))
-                  setCardTitle(title)
+                  setSelectedCardId(`hold-${hold.id}`)
+                  setActiveAppointmentId(null)
+                  setActiveHold(hold)
+                  setActiveNoteId(null)
+                  setAttachments([])
+                  setStaffList([])
+                  const serviceLabel = hold.service_catalog?.name || hold.summary_text || 'Reserva pendiente'
+                  const ref = hold.public_ref ? ` · ${hold.public_ref}` : ''
+                  setCardTitle(`${serviceLabel}${ref}`)
                   setCardDate(dateStr)
-                  void fetchAndSetAppointmentNote(a.id)
+                  setSoapSubjective(hold.summary_text || hold.summary_json?.subjective || '—')
+                  setSoapObjective('—')
+                  setSoapAssessment('—')
+                  setSoapPlan('—')
                 }}
             lines={[
               {
                     icon: <CalendarMonthRounded className='size-6 text-neutral-700' />,
-                    text: dateStr
+                    text: `${dateStr} · ${formatTimeRange(hold.start_time, hold.end_time)}`
               },
               {
                 icon: <PlaceRounded className='size-6 text-neutral-700' />,
-                    text: 'KlinikOS'
+                    text: hold.status === 'held' ? 'Reserva pendiente' : `Reserva ${hold.status}`
               }
             ]}
           />
@@ -545,7 +1641,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
         </p>
       </div>
 
-      {/* Right details card - pin to right instead of fixed width */}
+      {/* Right details card */}
       <div
         className='absolute bg-white border border-neutral-200 border-solid rounded-[calc(var(--radius-xl)/2)]'
         style={{
@@ -555,244 +1651,30 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
           bottom: 'var(--spacing-plnav)'
         }}
       >
-        <div
-          className='relative rounded-[inherit] overflow-y-auto px-0 py-fluid-md'
-          style={{ height: '100%' }}
-        >
-          <p className="absolute font-['Inter:Medium',_sans-serif] left-plnav not-italic text-neutral-900 text-title-lg text-nowrap top-[1.5rem] whitespace-pre">
-            {cardTitle}
-          </p>
-          <div
-            className='absolute size-6'
-            style={{ left: '42.3125rem', top: 'var(--spacing-gapmd)' }}
-          >
-            <button
-              type='button'
-              aria-label='Editar'
-              onClick={() => setIsEditOpen(true)}
-              className='grid place-items-center'
-          >
-            <EditRounded className='size-6 text-neutral-900' />
-            </button>
-          </div>
-
-          {/* Attachments */}
-          <div className='absolute content-stretch flex flex-col gap-[var(--spacing-gapmd)] items-start left-plnav top-[36.75rem] w-[42.3125rem]'>
-            <div className='content-stretch flex items-center justify-between relative shrink-0 w-full'>
-              <p className="font-['Inter:Medium',_sans-serif] relative shrink-0 text-neutral-900 text-body-md text-nowrap whitespace-pre">
-                Archivos adjuntos
-              </p>
-              <div
-                className='content-stretch flex gap-[0.25rem] items-center relative shrink-0 cursor-pointer'
-                onClick={() => document.getElementById('history-upload-input')?.click()}
-              >
-                <div className='relative shrink-0 size-6'>
-                  <AddRounded className='size-6 text-brand-400' />
-                </div>
-                <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-brand-400 text-body-sm text-nowrap whitespace-pre">
-                  Subir documento
+        <div className='h-full overflow-y-auto rounded-[inherit]'>
+          <div className='flex min-h-full flex-col gap-8 px-[var(--spacing-plnav)] pr-[var(--spacing-plnav)] pb-[var(--spacing-plnav)] pt-[2.5rem] text-neutral-900'>
+            <div className='flex flex-wrap items-start justify-between gap-4'>
+              <div className='flex flex-col gap-1'>
+                <p className="font-['Inter:Medium',_sans-serif] text-neutral-900 text-title-lg">
+                  {cardTitle}
                 </p>
+                <span className='text-label-sm text-neutral-500'>{cardDate}</span>
               </div>
-            </div>
-            <input id='history-upload-input' type='file' className='hidden' onChange={async (e) => {
-              const f = e.target.files?.[0]
-              if (!f || !patientId) return
-              try {
-                const { uploadPatientFile } = await import('@/lib/storage')
-                const { createSupabaseBrowserClient } = await import('@/lib/supabase/client')
-                const supa = createSupabaseBrowserClient()
-                const { path } = await uploadPatientFile({ patientId, file: f, kind: 'rx' })
-                await supa.from('clinical_attachments').insert({
-                  patient_id: patientId,
-                  appointment_id: activeAppointmentId,
-                  staff_id: (await supa.auth.getUser()).data.user?.id,
-                  file_name: f.name,
-                  file_type: f.type,
-                  storage_path: path
-                })
-                const { data: atts } = await supa
-                  .from('clinical_attachments')
-                  .select('id, file_name, storage_path, created_at')
-                  .eq('appointment_id', activeAppointmentId)
-                  .order('created_at', { ascending: false })
-                  .limit(10)
-                const mapped = await Promise.all(
-                  (atts || []).map(async (r: any) => ({
-                    id: String(r.id),
-                    name: r.file_name || 'archivo',
-                    path: r.storage_path || undefined,
-                    date: new Date(r.created_at).toLocaleDateString(),
-                    url: r.storage_path ? await getSignedUrl(r.storage_path) : undefined
-                  }))
-                )
-                setAttachments(mapped)
-              } finally {
-                if (e.target) e.target.value = ''
-              }
-            }}/>
-            {attachments.length === 0 ? (
-              <p className='text-label-sm text-neutral-600'>—</p>
-            ) : (
-              attachments.map((att) => (
-                <div key={att.id} className='border border-neutral-300 border-solid box-border content-stretch flex gap-[var(--spacing-gapsm)] items-center justify-between px-[0.75rem] py-[var(--spacing-gapsm)] relative rounded-[calc(var(--radius-xl)/2)] shrink-0'>
-              <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-700 text-body-sm text-nowrap whitespace-pre">
-                    {att.name}
-                  </p>
-                  <button
-                    type='button'
-                    className='relative shrink-0 size-6 grid place-items-center'
-                    onClick={() => att.url && window.open(att.url, '_blank', 'noopener,noreferrer')}
-                    aria-label='Descargar'
-                  >
-                <DownloadRounded className='size-6 text-neutral-700' />
-                  </button>
-              </div>
-              ))
-            )}
-          </div>
-
-          {/* Odontograma */}
-          <div className='absolute content-stretch flex flex-col gap-[var(--spacing-gapsm)] items-start left-plnav top-[43.75rem] w-[42.3125rem]'>
-            <div className='content-stretch flex items-center justify-between relative shrink-0 w-full'>
-              <p className="font-['Inter:Medium',_sans-serif] relative shrink-0 text-neutral-900 text-body-md text-nowrap whitespace-pre">
-                Odontograma
-              </p>
-              <div
-                className='content-stretch flex gap-[0.25rem] items-center relative shrink-0 cursor-pointer'
-                onClick={() => document.getElementById('odontogram-upload-input')?.click()}
-              >
-                <div className='relative shrink-0 size-6'>
-                  <AddRounded className='size-6 text-brand-400' />
-                </div>
-                <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-brand-400 text-body-sm text-nowrap whitespace-pre">
-                  Subir odontograma
-                </p>
-              </div>
-            </div>
-            <input id='odontogram-upload-input' type='file' accept='image/*' className='hidden' onChange={async (e) => {
-              const f = e.target.files?.[0]
-              if (!f || !patientId) return
-              try {
-                const { uploadPatientFile } = await import('@/lib/storage')
-                const { createSupabaseBrowserClient } = await import('@/lib/supabase/client')
-                const supa = createSupabaseBrowserClient()
-                const { path } = await uploadPatientFile({ patientId, file: f, kind: 'rx' })
-                await supa.from('clinical_attachments').insert({
-                  patient_id: patientId,
-                  appointment_id: activeAppointmentId,
-                  staff_id: (await supa.auth.getUser()).data.user?.id,
-                  file_name: f.name,
-                  file_type: f.type,
-                  storage_path: path
-                })
-              } finally {
-                if (e.target) e.target.value = ''
-              }
-            }}/>
-            <div className='border border-neutral-400 border-solid h-[10.875rem] relative rounded-[calc(var(--radius-xl)/2)] shrink-0 w-[14.1875rem]'>
-              <div className='h-[10.875rem] overflow-clip relative rounded-[inherit] w-[14.1875rem]'>
-                <div className='absolute inset-0 grid place-items-center pointer-events-none'>
-                  <ImageRounded className='text-neutral-400 size-12' />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* SOAP sections */}
-          <div className='absolute content-stretch flex flex-col gap-[1.5rem] items-start left-plnav top-[5rem] w-[42.3125rem]'>
-            <div className='content-stretch flex flex-col gap-[var(--spacing-gapsm)] items-start relative shrink-0 w-full'>
-              <div className='content-stretch flex flex-col items-start relative shrink-0 w-full'>
-                <p className="font-['Inter:Medium',_sans-serif] relative shrink-0 text-[#24282c] text-body-md w-full">
-                  Subjetivo
-                </p>
-                <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-[#aeb8c2] text-label-sm w-full">
-                  ¿Por qué viene?
-                </p>
-              </div>
-              <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-700 text-body-sm w-full">
-                {soapSubjective}
-              </p>
-            </div>
-            <div className='content-stretch flex flex-col gap-[var(--spacing-gapsm)] items-start relative shrink-0 w-full'>
-              <div className='content-stretch flex flex-col items-start relative shrink-0 w-full'>
-                <p className="font-['Inter:Medium',_sans-serif] relative shrink-0 text-[#24282c] text-body-md w-full">
-                  Objetivo
-                </p>
-                <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-[#aeb8c2] text-label-sm w-full">
-                  ¿Qué tiene?
-                </p>
-              </div>
-              <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-700 text-body-sm w-full">
-                {soapObjective}
-              </p>
-            </div>
-            <div className='content-stretch flex flex-col gap-[var(--spacing-gapsm)] items-start relative shrink-0 w-full'>
-              <div className='content-stretch flex flex-col items-start relative shrink-0 w-full'>
-                <p className="font-['Inter:Medium',_sans-serif] relative shrink-0 text-[#24282c] text-body-md w-full">
-                  Evaluación
-                </p>
-                <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-[#aeb8c2] text-label-sm w-full">
-                  ¿Qué le hacemos?
-                </p>
-              </div>
-              <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-700 text-body-sm w-full">
-                {soapAssessment}
-              </p>
-            </div>
-            <div className='content-stretch flex flex-col gap-[var(--spacing-gapsm)] items-start relative shrink-0 w-full'>
-              <div className='content-stretch flex flex-col items-start relative shrink-0 w-full'>
-                <p className="font-['Inter:Medium',_sans-serif] relative shrink-0 text-[#24282c] text-body-md w-full">
-                  Plan
-                </p>
-                <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-[#aeb8c2] text-label-sm w-full">
-                  Tratamiento a seguir
-                </p>
-              </div>
-              <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-700 text-body-sm w-full">
-                {soapPlan}
-              </p>
-            </div>
-          </div>
-
-          {/* Attended by */}
-          <div className='absolute content-stretch flex flex-col gap-[var(--spacing-gapmd)] items-start left-[var(--spacing-plnav)] top-[29.75rem] w-[21.0625rem]'>
-            <p className="font-['Inter:Medium',_sans-serif] relative shrink-0 text-[#24282c] text-body-md w-full">
-              Atendido Por:
-            </p>
-            <div className='content-stretch flex gap-[2.0625rem] items-center relative shrink-0 w-full'>
-              {staffList.length === 0 ? (
-                <p className='text-label-sm text-neutral-600'>—</p>
-              ) : (
-                staffList.map((m) => {
-                  const roleLabel = m.role
-                    ? m.role
-                        .replace(/_/g, ' ')
-                        .replace(/\b\w/g, (ch) => ch.toUpperCase())
-                    : '—'
-                  return (
-                    <div key={m.id} className='content-stretch flex gap-[0.75rem] items-center relative shrink-0 w-[9.5rem]'>
-                <div className='relative rounded-full shrink-0 size-9'>
-                        <div aria-hidden='true' className='absolute inset-0 pointer-events-none rounded-full'>
-                    <div className='absolute bg-white inset-0 rounded-full' />
-                    <div className='absolute inset-0 overflow-hidden rounded-full'>
-                      <div className='absolute inset-0 grid place-items-center'>
-                        <AccountCircleRounded className='text-neutral-400 size-6' />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="content-stretch flex flex-col font-['Inter:Regular',_sans-serif] font-normal gap-[0.25rem] items-start relative shrink-0 w-[6rem]">
-                        <p className='relative shrink-0 text-[#24282c] text-body-sm w-full'>{m.name}</p>
-                        <p className='relative shrink-0 text-[#cbd3d9] text-label-sm w-full'>{roleLabel}</p>
-                      </div>
-                    </div>
-                  )
-                })
+              {!activeHold && (
+                <button
+                  type='button'
+                  aria-label='Editar'
+                  onClick={() => setIsEditOpen(true)}
+                  className='grid size-8 place-items-center rounded-full border border-neutral-200 transition hover:bg-neutral-100'
+                >
+                  <EditRounded className='size-5 text-neutral-700' />
+                </button>
               )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            </div>
+            {activeHold ? renderHoldDetails() : renderAppointmentDetails()}
+          </div>
+        </div>
+      </div>
       {isEditOpen && (
         <div className='fixed inset-0 z-[120] bg-black/50 grid place-items-center'>
           <div className='bg-white rounded-xl border border-neutral-300 w-[min(92vw,520px)] p-4'>
@@ -801,16 +1683,24 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
               <button className='text-neutral-700' onClick={() => setIsEditOpen(false)}>
                 ×
               </button>
-            </div>
+                </div>
             <div className='mt-4 grid gap-3'>
               <label className='grid gap-1'>
-                <span className='text-label-sm text-neutral-700'>Consulta</span>
-                <input
-                  type='text'
-                  value={cardTitle}
-                  readOnly
-                  className='border border-neutral-300 rounded px-2 py-1 bg-neutral-50'
-                />
+                <span className='text-label-sm text-neutral-700'>Servicio</span>
+                <select
+                  value={editServiceId != null ? String(editServiceId) : ''}
+                  onChange={(e) =>
+                    setEditServiceId(e.target.value ? Number(e.target.value) : null)
+                  }
+                  className='border border-neutral-300 rounded px-2 py-1'
+                >
+                  <option value=''>Sin especificar</option>
+                  {serviceOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className='grid gap-1'>
                 <span className='text-label-sm text-neutral-700'>Estado</span>
@@ -852,7 +1742,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                   <span className='text-label-sm text-neutral-700'>Plan</span>
                   <textarea className='border border-neutral-300 rounded px-2 py-1' rows={3} value={editP} onChange={(e)=>setEditP(e.target.value)} />
                 </label>
-                </div>
+              </div>
               <div className='flex justify-end gap-2 mt-2'>
                 <button
                   type='button'
@@ -876,6 +1766,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                       .from('appointments')
                       .update({
                         status: editStatus,
+                        service_id: editServiceId,
                         scheduled_start_time: utc.toISOString(),
                         scheduled_end_time: new Date(utc.getTime() + 60 * 60 * 1000).toISOString()
                       })
@@ -943,20 +1834,22 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                     setIsEditOpen(false)
                     const { data: ap } = await supabase
                       .from('appointments')
-                      .select('id, status, scheduled_start_time, service_type, public_ref, service_catalog(name)')
+                      .select(
+                        'id, clinic_id, box_id, status, scheduled_start_time, scheduled_end_time, service_id, service_type, source, source_hold_id, public_ref, notes, service_catalog:service_id(name)'
+                      )
                       .eq('patient_id', patientId)
                       .order('scheduled_start_time', { ascending: false })
                       .limit(10)
-                    if (Array.isArray(ap)) setAppointments(ap as any)
+                    if (Array.isArray(ap)) setAppointments(mapAppointmentRows(ap as any[]))
                     pickByFilter(filter)
                   }}
                 >
                   Guardar
                 </button>
-              </div>
             </div>
           </div>
         </div>
+      </div>
       )}
     </div>
   )

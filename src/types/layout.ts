@@ -21,6 +21,7 @@ export interface SidebarProps {
 export interface TopBarProps {
   userName: string
   userAvatarUrl?: string
+  onAccountClick?: () => void
 }
 
 export interface LayoutProps {

@@ -11,6 +11,7 @@ type SelectorCardProps = {
   selected?: boolean
   onClick?: () => void
   className?: string
+  variant?: 'default' | 'hold'
 }
 
 export default function SelectorCard({
@@ -18,8 +19,19 @@ export default function SelectorCard({
   lines = [],
   selected = false,
   onClick,
-  className
+  className,
+  variant = 'default'
 }: SelectorCardProps) {
+  const borderClass = React.useMemo(() => {
+    if (variant === 'hold') {
+      return selected
+        ? 'border border-amber-500 bg-amber-50/70 shadow-[0_0_0_2px_rgba(251,191,36,0.35)]'
+        : 'border border-dashed border-amber-300 bg-amber-50/50'
+    }
+    return selected
+      ? 'border border-brand-500 shadow-[0_0_0_2px_rgba(81,214,199,0.2)]'
+      : 'border border-neutral-200'
+  }, [selected, variant])
   return (
     <button
       type='button'
@@ -28,7 +40,7 @@ export default function SelectorCard({
       className={[
         'bg-white box-border content-stretch flex w-full flex-col items-start rounded-lg px-4 py-2 text-left',
         'gap-4 outline-none transition-shadow',
-        selected ? 'border border-brand-500 shadow-[0_0_0_2px_rgba(81,214,199,0.2)]' : 'border border-neutral-200',
+        borderClass,
         'focus-visible:ring-2 focus-visible:ring-brand-200',
         className
       ]
