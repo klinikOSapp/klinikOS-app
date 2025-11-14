@@ -51,6 +51,49 @@ type AppointmentHoldRecord = {
   held_by_call_id?: number | null
 }
 
+type HoldStaffAssignment = {
+  staffId: string | null
+  roleKey: string | null
+  customRole: string
+}
+
+type HoldFormState = {
+  boxId: string | null
+  serviceId: number | null
+  notes: string
+  staffAssignments: HoldStaffAssignment[]
+}
+
+const STAFF_ROLE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'doctor', label: 'Doctor/a' },
+  { value: 'higienista', label: 'Higienista' },
+  { value: 'recepcion', label: 'Recepción' },
+  { value: 'gerencia', label: 'Gerencia' },
+  { value: 'custom', label: 'Otro rol' }
+]
+
+const createEmptyStaffAssignment = (): HoldStaffAssignment => ({
+  staffId: null,
+  roleKey: null,
+  customRole: ''
+})
+
+const createInitialHoldFormState = (): HoldFormState => ({
+  boxId: null,
+  serviceId: null,
+  notes: '',
+  staffAssignments: []
+})
+
+const resolveAssignmentRole = (assignment: HoldStaffAssignment): string | null => {
+  if (assignment.roleKey === 'custom') {
+    return assignment.customRole.trim() ? assignment.customRole.trim() : null
+  }
+  if (!assignment.roleKey) return null
+  const option = STAFF_ROLE_OPTIONS.find((opt) => opt.value === assignment.roleKey)
+  return option?.label ?? assignment.roleKey
+}
+
 const parseSummary = (value: any): string | null => {
   if (value == null) {
     return null
@@ -213,6 +256,17 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
   const [holds, setHolds] = React.useState<AppointmentHoldRecord[]>([])
   const [activeHold, setActiveHold] = React.useState<AppointmentHoldRecord | null>(null)
   const [isConfirmingHold, setIsConfirmingHold] = React.useState(false)
+  const [cancellingEntries, setCancellingEntries] = React.useState<Record<string, boolean>>({})
+  const toggleCancellingEntry = React.useCallback((key: string, pending: boolean) => {
+    setCancellingEntries((prev) => {
+      if (pending) {
+        return { ...prev, [key]: true }
+      }
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }, [])
   const [appointmentSourceInfo, setAppointmentSourceInfo] = React.useState<{
     source?: string | null
     channel?: string | null
@@ -221,12 +275,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
     startedAt?: string | null
     direction?: string | null
   }>({})
-  const [holdForm, setHoldForm] = React.useState<{
-    boxId: string | null
-    serviceId: number | null
-    notes: string
-    staffAssignments: Array<{ staffId: string | null; role: string }>
-  }>({ boxId: null, serviceId: null, notes: '', staffAssignments: [] })
+  const [holdForm, setHoldForm] = React.useState<HoldFormState>(() => createInitialHoldFormState())
   const [holdOptions, setHoldOptions] = React.useState<{
     boxes: Array<{ id: string; label: string }>
     services: Array<{ id: number; name: string }>
@@ -250,11 +299,11 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
   const addHoldStaffAssignment = React.useCallback(() => {
     setHoldForm((prev) => ({
       ...prev,
-      staffAssignments: [...prev.staffAssignments, { staffId: null, role: '' }]
+      staffAssignments: [...prev.staffAssignments, createEmptyStaffAssignment()]
     }))
   }, [])
   const updateHoldStaffAssignment = React.useCallback(
-    (index: number, updates: Partial<{ staffId: string | null; role: string }>) => {
+    (index: number, updates: Partial<HoldStaffAssignment>) => {
       setHoldForm((prev) => {
         const next = prev.staffAssignments.map((assignment, idx) =>
           idx === index ? { ...assignment, ...updates } : assignment
@@ -282,6 +331,8 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
   )
   const renderHoldDetails = () => {
     if (!activeHold) return null
+    const holdCancelKey = `hold-${activeHold.id}`
+    const isCancellingHold = Boolean(cancellingEntries[holdCancelKey])
     return (
       <div className='flex flex-col gap-6'>
         <div className='grid gap-6 sm:grid-cols-2'>
@@ -401,15 +452,37 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                       </option>
                     ))}
                   </select>
-                  <input
-                    type='text'
-                    value={assignment.role}
-                    onChange={(e) =>
-                      updateHoldStaffAssignment(index, { role: e.target.value })
-                    }
-                    placeholder='Rol (ej. Doctor principal)'
-                    className='rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200 md:flex-1'
-                  />
+                  <div className='flex flex-1 flex-col gap-2 md:flex-row md:items-center md:gap-3'>
+                    <select
+                      value={assignment.roleKey ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value || null
+                        updateHoldStaffAssignment(index, {
+                          roleKey: value,
+                          customRole: value === 'custom' ? assignment.customRole : ''
+                        })
+                      }}
+                      className='rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200 md:min-w-[12rem]'
+                    >
+                      <option value=''>Seleccionar rol</option>
+                      {STAFF_ROLE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    {assignment.roleKey === 'custom' ? (
+                      <input
+                        type='text'
+                        value={assignment.customRole}
+                        onChange={(e) =>
+                          updateHoldStaffAssignment(index, { customRole: e.target.value })
+                        }
+                        placeholder='Describe el rol'
+                        className='rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200 md:flex-1'
+                      />
+                    ) : null}
+                  </div>
                   <button
                     type='button'
                     onClick={() => removeHoldStaffAssignment(index)}
@@ -445,14 +518,24 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
           </label>
         </div>
         <div className='flex flex-col gap-2 border-t border-neutral-200 pt-4'>
+          <div className='flex flex-col gap-2 sm:flex-row'>
           <button
             type='button'
             onClick={handleConfirmHold}
-            disabled={isConfirmingHold || activeHold.status !== 'held'}
+              disabled={isConfirmingHold || isCancellingHold || activeHold.status !== 'held'}
             className='rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-brand-900 shadow-sm transition hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-70'
           >
             {isConfirmingHold ? 'Confirmando…' : 'Confirmar reserva'}
           </button>
+          <button
+            type='button'
+            onClick={() => handleCancelHold(activeHold)}
+            disabled={isCancellingHold}
+            className='rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60'
+          >
+            {isCancellingHold ? 'Cancelando…' : 'Cancelar reserva'}
+          </button>
+          </div>
           <p className='text-label-sm text-neutral-500'>
             Al confirmar se crea una cita y se libera la reserva.
           </p>
@@ -763,43 +846,48 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
   }, [])
 
   const getEntriesForFilter = React.useCallback(
-    (f: Filter): TimelineEntry[] => {
+    (
+      f: Filter,
+      overrides?: { appointments?: AppointmentRecord[]; holds?: AppointmentHoldRecord[] }
+    ): TimelineEntry[] => {
       const now = Date.now()
+      const appointmentSource = overrides?.appointments ?? appointments
+      const holdSource = overrides?.holds ?? holds
       const entryStartTime = (entry: TimelineEntry) =>
         entry.kind === 'appointment'
           ? new Date(entry.record.scheduled_start_time).getTime()
           : new Date(entry.record.start_time).getTime()
 
       if (f === 'proximas') {
-        const appointmentEntries = appointments
+        const appointmentEntries = appointmentSource
           .filter((a) => new Date(a.scheduled_start_time).getTime() > now)
           .map((record) => ({ kind: 'appointment', record } as TimelineEntry))
-        const holdEntries = holds
-          .filter((h) => h.status !== 'cancelled' && new Date(h.start_time).getTime() > now)
+        const holdEntries = holdSource
+          .filter((h) => h.status === 'held' && new Date(h.start_time).getTime() > now)
           .map((record) => ({ kind: 'hold', record } as TimelineEntry))
         return [...appointmentEntries, ...holdEntries].sort(
           (a, b) => entryStartTime(a) - entryStartTime(b)
         )
       }
       if (f === 'pasadas') {
-        return appointments
+        return appointmentSource
           .filter((a) => new Date(a.scheduled_start_time).getTime() <= now)
           .map((record) => ({ kind: 'appointment', record } as TimelineEntry))
           .sort((a, b) => entryStartTime(b) - entryStartTime(a))
       }
       if (f === 'confirmadas') {
-        return appointments
+        return appointmentSource
           .filter((a) => a.status === 'confirmed')
           .map((record) => ({ kind: 'appointment', record } as TimelineEntry))
           .sort((a, b) => entryStartTime(b) - entryStartTime(a))
       }
       if (f === 'inaxistencia') {
-        return appointments
+        return appointmentSource
           .filter((a) => a.status === 'no_show')
           .map((record) => ({ kind: 'appointment', record } as TimelineEntry))
           .sort((a, b) => entryStartTime(b) - entryStartTime(a))
       }
-      return appointments
+      return appointmentSource
         .map((record) => ({ kind: 'appointment', record } as TimelineEntry))
         .sort((a, b) => entryStartTime(b) - entryStartTime(a))
     },
@@ -880,8 +968,9 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
         .order('start_time', { ascending: true })
         .limit(20)
       if (Array.isArray(holdRows)) {
+        const sanitizedHolds = holdRows.filter((hold: any) => hold.status !== 'used')
         setHolds(
-          holdRows.map((hold: any) => ({
+          sanitizedHolds.map((hold: any) => ({
             id: String(hold.id),
             clinic_id: hold.clinic_id,
             patient_id: hold.patient_id,
@@ -1145,8 +1234,11 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
     'inaxistencia'
   ]
   const pickByFilter = React.useCallback(
-    (f: Filter) => {
-      const entries = getEntriesForFilter(f)
+    (
+      f: Filter,
+      overrides?: { appointments?: AppointmentRecord[]; holds?: AppointmentHoldRecord[] }
+    ) => {
+      const entries = getEntriesForFilter(f, overrides)
       if (entries.length === 0) {
         setActiveAppointmentId(null)
         setActiveHold(null)
@@ -1290,6 +1382,70 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
 
   const timelineEntries = React.useMemo(() => getEntriesForFilter(filter), [getEntriesForFilter, filter])
 
+  const handleCancelHold = React.useCallback(
+    async (hold: AppointmentHoldRecord | null) => {
+      if (!hold) return
+      const entryKey = `hold-${hold.id}`
+      toggleCancellingEntry(entryKey, true)
+      try {
+        await supabase.from('appointment_holds').update({ status: 'cancelled' }).eq('id', hold.id)
+        const nextHolds = holds.filter((h) => h.id !== hold.id)
+        setHolds(nextHolds)
+        if (activeHold?.id === hold.id) {
+          setActiveHold(null)
+          setHoldForm(createInitialHoldFormState())
+        }
+        pickByFilter(filter, { holds: nextHolds })
+      } catch (error) {
+        console.error('Error cancelling appointment hold', error)
+        alert('No se pudo cancelar la reserva. Intenta nuevamente.')
+      } finally {
+        toggleCancellingEntry(entryKey, false)
+      }
+    },
+    [
+      activeHold,
+      filter,
+      holds,
+      pickByFilter,
+      supabase,
+      toggleCancellingEntry
+    ]
+  )
+
+  const handleCancelAppointment = React.useCallback(
+    async (appointment: AppointmentRecord | null) => {
+      if (!appointment) return
+      const entryKey = `appt-${appointment.id}`
+      toggleCancellingEntry(entryKey, true)
+      try {
+        await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', appointment.id)
+        const nextAppointments = appointments.map((appt) =>
+          appt.id === appointment.id ? { ...appt, status: 'cancelled' } : appt
+        )
+        setAppointments(nextAppointments)
+        if (activeAppointmentId === String(appointment.id)) {
+          setActiveAppointmentId(null)
+          setEditStatus('cancelled')
+        }
+        pickByFilter(filter, { appointments: nextAppointments })
+      } catch (error) {
+        console.error('Error cancelling appointment', error)
+        alert('No se pudo cancelar la cita. Intenta nuevamente.')
+      } finally {
+        toggleCancellingEntry(entryKey, false)
+      }
+    },
+    [
+      activeAppointmentId,
+      appointments,
+      filter,
+      pickByFilter,
+      supabase,
+      toggleCancellingEntry
+    ]
+  )
+
   const handleConfirmHold = React.useCallback(async () => {
     if (!activeHold) return
     const hold = activeHold
@@ -1309,7 +1465,8 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
           'Consulta'
       const serviceName =
         selectedServiceName || hold.service_catalog?.name || 'Consulta'
-      const publicRef = `APPT-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
+      const publicRef =
+        hold.public_ref ?? `APPT-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
       await supabase
         .from('appointment_holds')
         .update({
@@ -1386,7 +1543,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
               staffAssignmentsToInsert.map((assignment) => ({
                 appointment_id: Number(inserted.id),
                 staff_id: assignment.staffId as string,
-                role_in_appointment: assignment.role?.trim() || null
+                role_in_appointment: resolveAssignmentRole(assignment)
               }))
             )
           } catch (staffError) {
@@ -1396,7 +1553,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
         setHolds((prev) => prev.filter((h) => h.id !== hold.id))
         setActiveHold(null)
         setActiveAppointmentId(String(inserted.id))
-        setHoldForm({ boxId: null, serviceId: null, notes: '', staffAssignments: [] })
+        setHoldForm(createInitialHoldFormState())
         const startDate = new Date(inserted.scheduled_start_time)
         const serviceLabel = getServiceLabel({
           service_catalog: insertedServiceCatalog ?? null,
@@ -1521,107 +1678,150 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
       {/* Timeline cards left (selectable) */}
       <div className='absolute top-[inherit] w-[19.625rem]' style={{ left: 'calc(6.25% + 10.25px)', top: '12.75rem' }}>
         <div className='flex flex-col gap-[1rem]'>
-          {timelineEntries.map((entry) => {
-            if (entry.kind === 'appointment') {
-              const appt = entry.record
-              const d = new Date(appt.scheduled_start_time)
-              const service = getServiceLabel(appt)
-              const ref = appt.public_ref ? ` · ${appt.public_ref}` : ''
-              const title = `${service}${ref}`
-              const dateStr = formatDateShort(d)
-              const isSelected = !activeHold && String(appt.id) === activeAppointmentId
-              return (
-          <SelectorCard
-                  key={`appt-${appt.id}`}
-                  title={title}
-                  selected={isSelected}
-                  onClick={() => {
-                    setSelectedCardId(String(appt.id))
-                    setActiveHold(null)
-                    setActiveAppointmentId(String(appt.id))
-                    setCardTitle(title)
-                    setCardDate(dateStr)
-                    setSoapSubjective('—')
-                    setSoapObjective('—')
-                    setSoapAssessment('—')
-                    setSoapPlan('—')
-                  }}
-            lines={[
-              {
-                      icon: <CalendarMonthRounded className='size-6 text-neutral-700' />,
-                      text: dateStr
-              },
-              {
-                icon: <PlaceRounded className='size-6 text-neutral-700' />,
-                      text: 'KlinikOS'
-              }
-            ]}
-          />
+          {(() => {
+            const timelineNow = Date.now()
+            return timelineEntries.map((entry, index) => {
+              const isAppointment = entry.kind === 'appointment'
+              const entryKey = isAppointment
+                ? `appt-${entry.record.id}`
+                : `hold-${entry.record.id}`
+              const startDate = new Date(
+                isAppointment ? entry.record.scheduled_start_time : entry.record.start_time
               )
-            }
-            const hold = entry.record
-            const d = new Date(hold.start_time)
-            const title = `${hold.service_catalog?.name || hold.summary_text || 'Reserva pendiente'}${hold.public_ref ? ` · ${hold.public_ref}` : ''}`
-            const dateStr = formatDateShort(d)
-            const isSelected = activeHold?.id === hold.id
-            return (
-          <SelectorCard
-                key={`hold-${hold.id}`}
-                title={title}
-                selected={isSelected}
-                variant='hold'
-                onClick={() => {
-                  setSelectedCardId(`hold-${hold.id}`)
-                  setActiveAppointmentId(null)
-                  setActiveHold(hold)
-                  setActiveNoteId(null)
-                  setAttachments([])
-                  setStaffList([])
-                  const serviceLabel = hold.service_catalog?.name || hold.summary_text || 'Reserva pendiente'
-                  const ref = hold.public_ref ? ` · ${hold.public_ref}` : ''
-                  setCardTitle(`${serviceLabel}${ref}`)
-                  setCardDate(dateStr)
-                  setSoapSubjective(hold.summary_text || hold.summary_json?.subjective || '—')
-                  setSoapObjective('—')
-                  setSoapAssessment('—')
-                  setSoapPlan('—')
-                }}
-            lines={[
-              {
-                    icon: <CalendarMonthRounded className='size-6 text-neutral-700' />,
-                    text: `${dateStr} · ${formatTimeRange(hold.start_time, hold.end_time)}`
-              },
-              {
-                icon: <PlaceRounded className='size-6 text-neutral-700' />,
-                    text: hold.status === 'held' ? 'Reserva pendiente' : `Reserva ${hold.status}`
+              const isFuture = startDate.getTime() > timelineNow
+              const canCancel = isAppointment
+                ? isFuture && entry.record.status !== 'cancelled'
+                : entry.record.status === 'held' && isFuture
+              const isCancelling = Boolean(cancellingEntries[entryKey])
+              const dotClass = isAppointment
+                ? 'bg-brand-500 border-brand-100'
+                : 'bg-amber-400 border-amber-200'
+              const lineClass = isAppointment ? 'bg-brand-100' : 'bg-amber-100'
+              const cancelHandler = () =>
+                isAppointment
+                  ? handleCancelAppointment(entry.record)
+                  : handleCancelHold(entry.record)
+
+              if (isAppointment) {
+                const appt = entry.record
+                const service = getServiceLabel(appt)
+                const ref = appt.public_ref ? ` · ${appt.public_ref}` : ''
+                const title = `${service}${ref}`
+                const dateStr = formatDateShort(startDate)
+                const isSelected = !activeHold && String(appt.id) === activeAppointmentId
+                return (
+                  <div key={entryKey} className='flex items-stretch gap-4'>
+                    <div className='flex min-h-full w-6 flex-col items-center pt-3'>
+                      <span className={`size-3 rounded-full border-2 ${dotClass}`} />
+                      {index < timelineEntries.length - 1 && (
+                        <span className={`mt-1 w-[2px] flex-1 rounded-full ${lineClass}`} />
+                      )}
+                    </div>
+                    <div className='flex-1 flex flex-col gap-2'>
+                      <SelectorCard
+                        title={title}
+                        selected={isSelected}
+                        className='w-full'
+                        onClick={() => {
+                          setSelectedCardId(String(appt.id))
+                          setActiveHold(null)
+                          setActiveAppointmentId(String(appt.id))
+                          setCardTitle(title)
+                          setCardDate(dateStr)
+                          setSoapSubjective('—')
+                          setSoapObjective('—')
+                          setSoapAssessment('—')
+                          setSoapPlan('—')
+                        }}
+                        lines={[
+                          {
+                            icon: <CalendarMonthRounded className='size-6 text-neutral-700' />,
+                            text: dateStr
+                          },
+                          {
+                            icon: <PlaceRounded className='size-6 text-neutral-700' />,
+                            text: 'KlinikOS'
+                          }
+                        ]}
+                      />
+                      {canCancel ? (
+                        <button
+                          type='button'
+                          onClick={cancelHandler}
+                          disabled={isCancelling}
+                          className='self-start rounded-full border border-neutral-300 px-3 py-1 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60'
+                        >
+                          {isCancelling ? 'Cancelando…' : 'Cancelar'}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                )
               }
-            ]}
-          />
-            )
-          })}
-        </div>
-      </div>
-      {/* MD3 Variant A: Vertical dividers with badge */}
-      <div
-        className='absolute h-[6.375rem] w-6 left-[2.8125rem] top-[12.75rem]'
-        aria-hidden='true'
-      >
-        {/* Divider only between circles */}
-        <div className='absolute left-1/2 -translate-x-1/2 top-6 bottom-0 w-[0.125rem] bg-brand-500' />
-        {/* Badge dot */}
-        <div className='absolute left-1/2 top-0 -translate-x-1/2 grid place-items-center size-6'>
-          <div className='size-6 rounded-full bg-brand-500' />
-        </div>
-      </div>
-      <div
-        className='absolute h-[13.3125rem] w-6 left-[2.8125rem] top-[19.125rem]'
-        aria-hidden='true'
-      >
-        {/* Divider only between circles */}
-        <div className='absolute left-1/2 -translate-x-1/2 top-0 w-[0.125rem] bg-brand-500 h-[2.6875rem]' />
-        {/* Badge dot */}
-        <div className='absolute left-1/2 top-[2.6875rem] -translate-x-1/2 grid place-items-center size-6'>
-          <div className='size-6 rounded-full bg-brand-500' />
+
+              const hold = entry.record
+              const title = `${hold.service_catalog?.name || hold.summary_text || 'Reserva pendiente'}${
+                hold.public_ref ? ` · ${hold.public_ref}` : ''
+              }`
+              const dateStr = formatDateShort(startDate)
+              const isSelected = activeHold?.id === hold.id
+              return (
+                <div key={entryKey} className='flex items-stretch gap-4'>
+                  <div className='flex min-h-full w-6 flex-col items-center pt-3'>
+                    <span className={`size-3 rounded-full border-2 ${dotClass}`} />
+                    {index < timelineEntries.length - 1 && (
+                      <span className={`mt-1 w-[2px] flex-1 rounded-full ${lineClass}`} />
+                    )}
+                  </div>
+                  <div className='flex-1 flex flex-col gap-2'>
+                    <SelectorCard
+                      title={title}
+                      selected={isSelected}
+                      variant='hold'
+                      className='w-full'
+                      onClick={() => {
+                        setSelectedCardId(`hold-${hold.id}`)
+                        setActiveAppointmentId(null)
+                        setActiveHold(hold)
+                        setActiveNoteId(null)
+                        setAttachments([])
+                        setStaffList([])
+                        const serviceLabel =
+                          hold.service_catalog?.name || hold.summary_text || 'Reserva pendiente'
+                        const ref = hold.public_ref ? ` · ${hold.public_ref}` : ''
+                        setCardTitle(`${serviceLabel}${ref}`)
+                        setCardDate(dateStr)
+                        setSoapSubjective(hold.summary_text || hold.summary_json?.subjective || '—')
+                        setSoapObjective('—')
+                        setSoapAssessment('—')
+                        setSoapPlan('—')
+                      }}
+                      lines={[
+                        {
+                          icon: <CalendarMonthRounded className='size-6 text-neutral-700' />,
+                          text: `${dateStr} · ${formatTimeRange(hold.start_time, hold.end_time)}`
+                        },
+                        {
+                          icon: <PlaceRounded className='size-6 text-neutral-700' />,
+                          text: hold.status === 'held' ? 'Reserva pendiente' : `Reserva ${hold.status}`
+                        }
+                      ]}
+                    />
+                    {canCancel ? (
+                      <button
+                        type='button'
+                        onClick={cancelHandler}
+                        disabled={isCancelling}
+                        className='self-start rounded-full border border-dashed border-amber-300 px-3 py-1 text-sm font-medium text-amber-700 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60'
+                      >
+                        {isCancelling ? 'Cancelando…' : 'Cancelar'}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              )
+            })
+          })()}
         </div>
       </div>
 
