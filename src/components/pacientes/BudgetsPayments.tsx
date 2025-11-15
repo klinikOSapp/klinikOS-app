@@ -1,6 +1,7 @@
 import React from 'react'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import AddRounded from '@mui/icons-material/AddRounded'
+import ElectricBoltRounded from '@mui/icons-material/ElectricBoltRounded'
 import SearchRounded from '@mui/icons-material/SearchRounded'
 import FilterListRounded from '@mui/icons-material/FilterListRounded'
 import FirstPageRounded from '@mui/icons-material/FirstPageRounded'
@@ -9,6 +10,7 @@ import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
 import LastPageRounded from '@mui/icons-material/LastPageRounded'
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
 import ProposalCreationModal from './ProposalCreationModal'
+import { QuickBudgetModal, type QuickBudgetOption } from './QuickBudgetModal'
 
 type BudgetsPaymentsProps = {
   onClose?: () => void
@@ -125,6 +127,9 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
   type FilterKey = 'deuda' | 'activos' | 'recall'
   const [selectedFilters, setSelectedFilters] = React.useState<FilterKey[]>([])
   const [showProposalModal, setShowProposalModal] = React.useState(false)
+  const [showQuickBudgetModal, setShowQuickBudgetModal] = React.useState(false)
+  const [quickBudgetSelection, setQuickBudgetSelection] =
+    React.useState<QuickBudgetOption | null>(null)
   const isFilterActive = (key: FilterKey) => selectedFilters.includes(key)
   const toggleFilter = (key: FilterKey) => {
     setSelectedFilters((prev) =>
@@ -154,11 +159,21 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
       {/* KPIs */}
       <div className='absolute left-8 top-[10.25rem]'>
         <p className='text-title-sm text-neutral-900'>Saldo pendiente</p>
-        <p className='text-[32px] leading-[40px] text-neutral-900 mt-1'>702.60 €</p>
+        <p
+          className='mt-1 text-neutral-900'
+          style={{ fontSize: '2rem', lineHeight: '2.5rem' }}
+        >
+          702.60 €
+        </p>
       </div>
       <div className='absolute left-[18.75%] top-[10.25rem] ml-[67.75px]'>
         <p className='text-title-sm text-neutral-900'>Facturas vencidas</p>
-        <p className='text-[32px] leading-[40px] text-warning-600 mt-1'>01</p>
+        <p
+          className='mt-1 text-warning-600'
+          style={{ fontSize: '2rem', lineHeight: '2.5rem' }}
+        >
+          01
+        </p>
       </div>
 
       {/* Card */}
@@ -191,11 +206,22 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
           </div>
           {/* Create button */}
           <button
-            className='absolute top-4 right-4 flex items-center gap-2 rounded-[136px] px-4 py-2 text-body-md text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
+            className='absolute top-4 right-[15.5rem] flex items-center gap-2 rounded-[8.5rem] px-4 py-2 text-body-md text-[var(--color-neutral-900)] transition-colors cursor-pointer hover:bg-[#F8FAFB]'
+            type='button'
+            onClick={() => setShowQuickBudgetModal(true)}
+          >
+            <ElectricBoltRounded className='size-6 text-brand-500' />
+            <span className='font-medium text-[var(--color-neutral-900)]'>
+              Presupuesto rapido
+            </span>
+          </button>
+
+          <button
+            className='absolute top-4 right-8 flex items-center gap-2 rounded-[8.5rem] px-4 py-2 text-body-md text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
             type='button'
             onClick={() => setShowProposalModal(true)}
           >
-            <AddRounded className='size-5' />
+            <AddRounded className='size-6' />
             <span className='font-medium'>Crear presupuesto</span>
           </button>
 
@@ -378,6 +404,15 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
       <ProposalCreationModal
         open={showProposalModal}
         onClose={() => setShowProposalModal(false)}
+      />
+      <QuickBudgetModal
+        open={showQuickBudgetModal}
+        onClose={() => setShowQuickBudgetModal(false)}
+        onContinue={(selection) => {
+          setQuickBudgetSelection(selection)
+          setShowQuickBudgetModal(false)
+          setShowProposalModal(true)
+        }}
       />
     </div>
   )

@@ -1,14 +1,14 @@
 'use client'
+import { useEffect, useState } from 'react'
 import {
   Line,
   LineChart,
-  ReferenceLine,
   ReferenceDot,
+  ReferenceLine,
   ResponsiveContainer,
   XAxis,
   YAxis
 } from 'recharts'
-import { useEffect, useState } from 'react'
 type BillingLineChartProps = { yearLabel?: string }
 
 const CARD_HEIGHT_VAR = 'var(--height-card-chart-fluid)'
@@ -84,9 +84,7 @@ export default function BillingLineChart({
     (entry) => entry.month === CURRENT_MONTH_KEY
   )
   const chartData =
-    highlightIndex >= 0
-      ? CHART_DATA.slice(0, highlightIndex + 1)
-      : CHART_DATA
+    highlightIndex >= 0 ? CHART_DATA.slice(0, highlightIndex + 1) : CHART_DATA
   useEffect(() => setIsMounted(true), [])
   return (
     <section
@@ -182,7 +180,6 @@ export default function BillingLineChart({
                   r={6}
                   fill='var(--color-warning-200, #FFD188)'
                   stroke='var(--color-warning-200, #FFD188)'
-                  isFront
                 />
                 {/* Línea vertical destacada en "Oct" como en la maqueta */}
                 <ReferenceLine

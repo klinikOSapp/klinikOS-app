@@ -4,11 +4,11 @@ import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import React from 'react'
 import { createPortal } from 'react-dom'
-
-const MODAL_WIDTH_REM = 68.25
-const MODAL_HEIGHT_REM = 59.75
-const SCALE_FORMULA =
-  'min(1, calc(85vh / 59.75rem), calc((100vw - 4rem) / 68.25rem), calc(92vw / 68.25rem))'
+import {
+  MODAL_HEIGHT_REM,
+  MODAL_SCALE_FORMULA,
+  MODAL_WIDTH_REM
+} from './modalDimensions'
 
 const DEFAULT_SELECTED_TEETH = new Set([21, 15, 16, 17, 27, 47, 46, 35])
 
@@ -31,106 +31,49 @@ const ARCADA_HALF_WIDTH_REM = `${ARCADA_HALF_WIDTH_PX / 16}rem`
 const ARCADA_HEIGHT_PX = 277
 const ARCADA_HEIGHT_REM = `${ARCADA_HEIGHT_PX / 16}rem`
 
-const BASE_QUADRANT_POINTS: Array<{ x: number; y: number; size: number }> = [
-  { x: 7.5, y: 221, size: 32 },
-  { x: 40.5, y: 213, size: 32 },
-  { x: 70.5, y: 198, size: 32 },
-  { x: 87.5, y: 169, size: 32 },
-  { x: 94.5, y: 135, size: 32 },
-  { x: 95.5, y: 90, size: 40 },
-  { x: 104.5, y: 45, size: 40 },
-  { x: 110.5, y: 0, size: 40 }
+const upperTeeth: ToothConfig[] = [
+  { id: 11, x: 131, y: 0, size: 32, labelPosition: 'top' },
+  { id: 21, x: 178, y: 0, size: 32, labelPosition: 'top' },
+  { id: 12, x: 98, y: 8, size: 32, labelPosition: 'top' },
+  { id: 22, x: 211, y: 8, size: 32, labelPosition: 'top' },
+  { id: 13, x: 47, y: 47, size: 32, labelPosition: 'left' },
+  { id: 23, x: 241, y: 47, size: 32, labelPosition: 'right' },
+  { id: 14, x: 31, y: 76, size: 32, labelPosition: 'left' },
+  { id: 24, x: 258, y: 76, size: 32, labelPosition: 'right' },
+  { id: 15, x: 24, y: 110, size: 32, labelPosition: 'left' },
+  { id: 25, x: 265, y: 110, size: 32, labelPosition: 'right' },
+  { id: 16, x: 15, y: 147, size: 40, labelPosition: 'left' },
+  { id: 26, x: 266, y: 147, size: 40, labelPosition: 'right' },
+  { id: 17, x: 6, y: 192, size: 40, labelPosition: 'left' },
+  { id: 27, x: 275, y: 192, size: 40, labelPosition: 'right' },
+  { id: 18, x: 0, y: 237, size: 40, labelPosition: 'left' },
+  { id: 28, x: 281, y: 237, size: 40, labelPosition: 'right' }
 ]
 
-const TOOTH_LABEL_POSITIONS: Record<number, LabelPosition> = {
-  11: 'top',
-  12: 'top',
-  13: 'left',
-  14: 'left',
-  15: 'left',
-  16: 'left',
-  17: 'left',
-  18: 'left',
-  21: 'top',
-  22: 'top',
-  23: 'right',
-  24: 'right',
-  25: 'right',
-  26: 'right',
-  27: 'right',
-  28: 'right',
-  31: 'bottom',
-  32: 'bottom',
-  33: 'left',
-  34: 'left',
-  35: 'left',
-  36: 'left',
-  37: 'left',
-  38: 'left',
-  41: 'bottom',
-  42: 'bottom',
-  43: 'right',
-  44: 'right',
-  45: 'right',
-  46: 'right',
-  47: 'right',
-  48: 'right'
-}
+const lowerTeeth: ToothConfig[] = [
+  { id: 31, x: 131, y: 221, size: 32, labelPosition: 'bottom' },
+  { id: 41, x: 178, y: 221, size: 32, labelPosition: 'bottom' },
+  { id: 32, x: 98, y: 213, size: 32, labelPosition: 'bottom' },
+  { id: 42, x: 211, y: 213, size: 32, labelPosition: 'bottom' },
+  { id: 33, x: 43, y: 198, size: 32, labelPosition: 'left' },
+  { id: 43, x: 241, y: 198, size: 32, labelPosition: 'right' },
+  { id: 34, x: 27, y: 169, size: 32, labelPosition: 'left' },
+  { id: 44, x: 258, y: 169, size: 32, labelPosition: 'right' },
+  { id: 35, x: 22, y: 135, size: 32, labelPosition: 'left' },
+  { id: 45, x: 265, y: 135, size: 32, labelPosition: 'right' },
+  { id: 36, x: 15, y: 90, size: 40, labelPosition: 'left' },
+  { id: 46, x: 266, y: 90, size: 40, labelPosition: 'right' },
+  { id: 37, x: 6, y: 45, size: 40, labelPosition: 'left' },
+  { id: 47, x: 275, y: 45, size: 40, labelPosition: 'right' },
+  { id: 38, x: 0, y: 0, size: 40, labelPosition: 'left' },
+  { id: 48, x: 281, y: 0, size: 40, labelPosition: 'right' }
+]
 
-const TOOTH_SIZES: Record<number, number> = {
-  11: 32,
-  12: 32,
-  13: 32,
-  14: 32,
-  15: 32,
-  16: 40,
-  17: 40,
-  18: 40,
-  21: 32,
-  22: 32,
-  23: 32,
-  24: 32,
-  25: 32,
-  26: 40,
-  27: 40,
-  28: 40,
-  31: 32,
-  32: 32,
-  33: 32,
-  34: 32,
-  35: 32,
-  36: 40,
-  37: 40,
-  38: 40,
-  41: 32,
-  42: 32,
-  43: 32,
-  44: 32,
-  45: 32,
-  46: 40,
-  47: 40,
-  48: 40
-}
+const upperLeftIds = new Set([11, 12, 13, 14, 15, 16, 17, 18])
+const upperRightIds = new Set([21, 22, 23, 24, 25, 26, 27, 28])
 
-function buildQuadrantTeeth(
-  ids: number[],
-  mirrorX: boolean,
-  mirrorY: boolean
-): ToothConfig[] {
-  return ids.map((id, index) => {
-    const base = BASE_QUADRANT_POINTS[index]
-    const x = mirrorX ? ARCADA_HALF_WIDTH_PX - base.x : base.x
-    const y = mirrorY ? ARCADA_HEIGHT_PX - base.y : base.y
-
-    return {
-      id,
-      x,
-      y,
-      size: TOOTH_SIZES[id],
-      labelPosition: TOOTH_LABEL_POSITIONS[id]
-    }
-  })
-}
+const lowerLeftIds = new Set([31, 32, 33, 34, 35, 36, 37, 38])
+const lowerRightIds = new Set([41, 42, 43, 44, 45, 46, 47, 48])
 
 type ToothRenderConfig = ToothConfig & {
   selected: boolean
@@ -218,41 +161,36 @@ function Tooth({
 
 const arcadaQuadrants: Array<{
   key: string
-  toothIds: number[]
-  mirrorX: boolean
-  mirrorY: boolean
+  teeth: ToothConfig[]
+  offsetX: number
   leftPx: number
   topPx: number
 }> = [
   {
     key: 'upper-left',
-    toothIds: [11, 12, 13, 14, 15, 16, 17, 18],
-    mirrorX: true,
-    mirrorY: true,
+    teeth: upperTeeth.filter((tooth) => upperLeftIds.has(tooth.id)),
+    offsetX: 0,
     leftPx: 81,
     topPx: 33
   },
   {
     key: 'upper-right',
-    toothIds: [21, 22, 23, 24, 25, 26, 27, 28],
-    mirrorX: false,
-    mirrorY: true,
+    teeth: upperTeeth.filter((tooth) => upperRightIds.has(tooth.id)),
+    offsetX: ARCADA_HALF_WIDTH_PX,
     leftPx: 81 + ARCADA_HALF_WIDTH_PX,
     topPx: 33
   },
   {
     key: 'lower-left',
-    toothIds: [31, 32, 33, 34, 35, 36, 37, 38],
-    mirrorX: true,
-    mirrorY: false,
+    teeth: lowerTeeth.filter((tooth) => lowerLeftIds.has(tooth.id)),
+    offsetX: 0,
     leftPx: 80,
     topPx: 349
   },
   {
     key: 'lower-right',
-    toothIds: [41, 42, 43, 44, 45, 46, 47, 48],
-    mirrorX: false,
-    mirrorY: false,
+    teeth: lowerTeeth.filter((tooth) => lowerRightIds.has(tooth.id)),
+    offsetX: ARCADA_HALF_WIDTH_PX,
     leftPx: 80 + ARCADA_HALF_WIDTH_PX,
     topPx: 349
   }
@@ -319,8 +257,8 @@ export default function OdontogramaModal({
           aria-label='Odontograma'
           className='relative overflow-hidden rounded-[0.5rem] bg-neutral-50'
           style={{
-            width: `calc(${MODAL_WIDTH_REM}rem * ${SCALE_FORMULA})`,
-            height: `calc(${MODAL_HEIGHT_REM}rem * ${SCALE_FORMULA})`
+            width: `calc(${MODAL_WIDTH_REM}rem * ${MODAL_SCALE_FORMULA})`,
+            height: `calc(${MODAL_HEIGHT_REM}rem * ${MODAL_SCALE_FORMULA})`
           }}
           onClick={(event) => event.stopPropagation()}
         >
@@ -329,7 +267,7 @@ export default function OdontogramaModal({
             style={{
               width: `${MODAL_WIDTH_REM}rem`,
               height: `${MODAL_HEIGHT_REM}rem`,
-              transform: `scale(${SCALE_FORMULA})`,
+              transform: `scale(${MODAL_SCALE_FORMULA})`,
               transformOrigin: 'top left'
             }}
           >
@@ -347,8 +285,10 @@ export default function OdontogramaModal({
 
             <div className='absolute left-[2rem] top-[5.5rem] h-[41.625rem] w-[31.5rem]'>
               <div className='absolute left-[13.6875rem] top-0 flex h-full w-[4.0625rem] flex-col items-center'>
-                <p className='text-title-sm text-neutral-900'>Superior</p>
-                <div className='relative mt-[1.5rem] flex-1'>
+                <p className='text-title-sm text-neutral-900 mb-[1.5625rem]'>
+                  Superior
+                </p>
+                <div className='relative mt-[5.96875rem] flex-1'>
                   <div
                     className='absolute left-1/2 top-[0.0625rem] h-[26.6875rem] -translate-x-1/2 bg-neutral-300'
                     style={{ width: '0.0625rem' }}
@@ -356,7 +296,7 @@ export default function OdontogramaModal({
                 </div>
                 <p className='text-title-sm text-neutral-900'>Inferior</p>
               </div>
-              <div className='absolute left-0 top-[20.5625rem] flex w-full items-center justify-between'>
+              <div className='absolute left-0 top-[20rem] flex w-full items-center justify-between'>
                 <p className='text-title-sm text-neutral-900'>Izquierda</p>
                 <div className='h-[0.0625rem] w-[20.0625rem] bg-neutral-300' />
                 <p className='text-title-sm text-neutral-900'>Derecha</p>
@@ -373,14 +313,11 @@ export default function OdontogramaModal({
                   }}
                 >
                   <div className='relative size-full'>
-                    {buildQuadrantTeeth(
-                      quadrant.toothIds,
-                      quadrant.mirrorX,
-                      quadrant.mirrorY
-                    ).map((tooth) => (
+                    {quadrant.teeth.map((tooth) => (
                       <Tooth
                         key={`${quadrant.key}-${tooth.id}`}
                         {...tooth}
+                        x={tooth.x - quadrant.offsetX}
                         selected={selectedTeeth.has(tooth.id)}
                         onToggle={toggleTooth}
                       />

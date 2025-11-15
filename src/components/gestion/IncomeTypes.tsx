@@ -29,7 +29,7 @@ export default function IncomeTypes({
           <h3 className='text-title-sm font-medium text-fg'>Tipos de ingreso</h3>
           <div className='flex items-center gap-card-metric text-label-md text-fg'>
             <span>{yearLabel}</span>
-            <span className='material-symbols-rounded text-[16px]'>
+            <span className='material-symbols-rounded text-body-md'>
               arrow_drop_down
             </span>
           </div>
@@ -58,7 +58,7 @@ export default function IncomeTypes({
                 <span className='text-body-sm text-brandSemantic'>
                   {i.delta ?? '+ 12%'}
                 </span>
-                <span className='material-symbols-rounded text-brandSemantic text-[16px]'>
+                <span className='material-symbols-rounded text-brandSemantic text-body-md'>
                   arrow_outward
                 </span>
               </div>

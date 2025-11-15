@@ -15,7 +15,13 @@ import PhoneRounded from '@mui/icons-material/PhoneRounded'
 import RadioButtonCheckedRounded from '@mui/icons-material/RadioButtonCheckedRounded'
 import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded'
 import React from 'react'
+import { createPortal } from 'react-dom'
 import OdontogramaModal from './OdontogramaModal'
+import {
+  MODAL_HEIGHT_REM,
+  MODAL_SCALE_FORMULA,
+  MODAL_WIDTH_REM
+} from './modalDimensions'
 
 type ProposalCreationModalProps = {
   open: boolean
@@ -458,6 +464,7 @@ export default function ProposalCreationModal({
   open,
   onClose
 }: ProposalCreationModalProps) {
+  const [mounted, setMounted] = React.useState(false)
   const [currentStep, setCurrentStep] = React.useState<
     'plan' | 'pricing' | 'financiación' | 'firma' | 'resumen'
   >('plan')
@@ -466,14 +473,16 @@ export default function ProposalCreationModal({
   const [odontogramaOpen, setOdontogramaOpen] = React.useState(false)
 
   React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  React.useEffect(() => {
+    if (!open) return undefined
     const handler = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
     }
-    if (open) {
-      window.addEventListener('keydown', handler)
-      return () => window.removeEventListener('keydown', handler)
-    }
-    return undefined
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
   }, [onClose, open])
 
   React.useEffect(() => {
@@ -515,7 +524,7 @@ export default function ProposalCreationModal({
   const showIndividualPieceButton =
     isPlanStep && selectedLocation === 'Piezas individuales'
 
-  if (!open) return null
+  if (!open || !mounted) return null
 
   const stepConfig = [
     { key: 'plan', label: 'Plan', top: '6rem' },
@@ -575,35 +584,35 @@ export default function ProposalCreationModal({
     }
   }
 
-  return (
+  const content = (
     <>
       <div
         className='fixed inset-0 z-[60] bg-neutral-900/40'
         onClick={onClose}
-        aria-hidden
+        aria-hidden='true'
       >
         <div className='absolute inset-0 flex items-center justify-center px-8'>
           <div
             role='dialog'
             aria-modal='true'
+            aria-label='Formulario de creación de presupuesto'
             className='relative overflow-hidden rounded-[0.5rem] bg-neutral-50'
             style={{
-              width:
-                'calc(68.25rem * min(1, calc(85vh / 59.75rem), calc((100vw - 4rem) / 68.25rem), calc(92vw / 68.25rem)))',
-              height:
-                'calc(59.75rem * min(1, calc(85vh / 59.75rem), calc((100vw - 4rem) / 68.25rem), calc(92vw / 68.25rem)))'
+              width: `calc(${MODAL_WIDTH_REM}rem * ${MODAL_SCALE_FORMULA})`,
+              height: `calc(${MODAL_HEIGHT_REM}rem * ${MODAL_SCALE_FORMULA})`
             }}
             onClick={(event) => event.stopPropagation()}
           >
             <div
-              className='relative h-[59.75rem] w-[68.25rem] bg-neutral-50'
+              className='relative bg-neutral-50'
               style={{
-                transform:
-                  'scale(min(1, calc(85vh / 59.75rem), calc((100vw - 4rem) / 68.25rem), calc(92vw / 68.25rem)))',
+                width: `${MODAL_WIDTH_REM}rem`,
+                height: `${MODAL_HEIGHT_REM}rem`,
+                transform: `scale(${MODAL_SCALE_FORMULA})`,
                 transformOrigin: 'top left'
               }}
             >
-              <div className='absolute left-0 top-0 flex h-[3.5rem] w-full items-center justify-between border-b border-neutral-300 px-[2rem]'>
+              <header className='absolute left-0 top-0 flex h-[3.5rem] w-full items-center justify-between border-b border-neutral-300 px-[2rem]'>
                 <p className='text-title-md text-neutral-900'>{headerTitle}</p>
                 <button
                   type='button'
@@ -613,7 +622,7 @@ export default function ProposalCreationModal({
                 >
                   <CloseRounded fontSize='inherit' />
                 </button>
-              </div>
+              </header>
 
               {shouldShowStepper &&
                 steps.map((step) => (
@@ -629,7 +638,7 @@ export default function ProposalCreationModal({
               {isPlanStep ? (
                 <>
                   <div className='absolute left-[14.3125rem] top-[6rem] flex w-[35.5rem] flex-col gap-[0.5rem]'>
-                    <p className='text-title-lg text-neutral-900'>
+                    <p className='text-title-lg font-medium text-neutral-900'>
                       Selección de plan
                     </p>
                   </div>
@@ -637,7 +646,7 @@ export default function ProposalCreationModal({
                   <div className='absolute left-[18.375rem] top-[10rem] flex h-[6rem] w-[21.75rem] items-center gap-[1.5rem]'>
                     <div className='size-[6rem] shrink-0 rounded-full bg-neutral-700' />
                     <div className='flex flex-col gap-[0.5rem]'>
-                      <p className='text-title-lg text-neutral-900'>
+                      <p className='text-title-lg font-medium text-neutral-900'>
                         Lucia López Cano
                       </p>
                       <div className='flex items-center gap-[0.5rem] text-body-md text-neutral-900'>
@@ -753,7 +762,7 @@ export default function ProposalCreationModal({
               ) : isPricingStep ? (
                 <>
                   <div className='absolute left-[14.3125rem] top-[6rem] flex w-[34rem] flex-col gap-[0.5rem]'>
-                    <p className='text-title-lg text-neutral-900'>
+                    <p className='text-title-lg font-medium text-neutral-900'>
                       Precios, descuentos y ofertas
                     </p>
                   </div>
@@ -840,7 +849,7 @@ export default function ProposalCreationModal({
               ) : isFinancingStep ? (
                 <>
                   <div className='absolute left-[14.3125rem] top-[6rem] flex w-[35.5rem] flex-col gap-[0.5rem]'>
-                    <p className='text-title-lg text-neutral-900'>
+                    <p className='text-title-lg font-medium text-neutral-900'>
                       Financiación
                     </p>
                   </div>
@@ -948,7 +957,7 @@ export default function ProposalCreationModal({
               ) : isSignatureStep ? (
                 <>
                   <div className='absolute left-[14.3125rem] top-[6rem] flex w-[35.5rem] flex-col gap-[0.5rem]'>
-                    <p className='text-title-lg text-neutral-900'>
+                    <p className='text-title-lg font-medium text-neutral-900'>
                       Firma y envío
                     </p>
                   </div>
@@ -1025,7 +1034,7 @@ export default function ProposalCreationModal({
               ) : isSummaryStep ? (
                 <>
                   <div className='absolute left-[14.3125rem] top-[6rem] flex w-[35.5rem] flex-col gap-[0.5rem]'>
-                    <p className='text-title-lg text-neutral-900'>PR-001</p>
+                    <p className='text-title-lg font-medium text-neutral-900'>PR-001</p>
                   </div>
 
                   <div className='absolute left-[18.125rem] top-[9.5rem] h-[44.5625rem] w-[31.6875rem] overflow-y-auto overflow-x-hidden'>
@@ -1267,4 +1276,6 @@ export default function ProposalCreationModal({
       />
     </>
   )
+
+  return createPortal(content, document.body)
 }

@@ -56,7 +56,12 @@ export default function Consents({ onClose }: ConsentsProps) {
 
       {/* Header */}
       <div className='absolute left-8 top-10 w-[35.5rem]'>
-        <p className='text-[28px] leading-[36px] text-neutral-900'>Consentimientos</p>
+        <p
+          className='text-neutral-900'
+          style={{ fontSize: '1.75rem', lineHeight: '2.25rem' }}
+        >
+          Consentimientos
+        </p>
         <p className='text-body-sm text-neutral-900 mt-2'>
           Gestiona todos los consentimientos de los pacientes.
         </p>

@@ -71,7 +71,7 @@ export default function ProfessionalBars() {
           Facturación por profesional
         </h3>
         <button className='text-fg-secondary'>
-          <span className='material-symbols-rounded text-[24px]'>
+          <span className='material-symbols-rounded text-title-lg'>
             filter_alt
           </span>
         </button>
