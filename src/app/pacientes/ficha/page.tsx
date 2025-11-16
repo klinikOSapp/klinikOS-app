@@ -1,5 +1,5 @@
 import ClientLayout from '@/app/client-layout'
-import ClientSummary from '@/components/pacientes/ClientSummary'
+import ClientSummary from '@/components/pacientes/modals/patient-record/ClientSummary'
 import React from 'react'
 
 export default function PacienteFichaPage() {
