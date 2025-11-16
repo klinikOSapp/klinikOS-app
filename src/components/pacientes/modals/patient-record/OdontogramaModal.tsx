@@ -2,6 +2,7 @@
 
 import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
+import KeyboardArrowUpRounded from '@mui/icons-material/KeyboardArrowUpRounded'
 import React from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -10,7 +11,7 @@ import {
   MODAL_WIDTH_REM
 } from './modalDimensions'
 
-const DEFAULT_SELECTED_TEETH = new Set([21, 15, 16, 17, 27, 47, 46, 35])
+const DEFAULT_SELECTED_TEETH = new Set<number>([])
 
 type LabelPosition = 'top' | 'bottom' | 'left' | 'right'
 
@@ -77,7 +78,7 @@ const lowerRightIds = new Set([41, 42, 43, 44, 45, 46, 47, 48])
 
 type ToothRenderConfig = ToothConfig & {
   selected: boolean
-  onToggle: (id: number) => void
+  onToggle: (id: number, shiftKey: boolean) => void
 }
 
 function Tooth({
@@ -140,7 +141,7 @@ function Tooth({
         type='button'
         aria-pressed={selected}
         aria-label={`Seleccionar diente ${id}`}
-        onClick={() => onToggle(id)}
+        onClick={(e) => onToggle(id, e.shiftKey)}
         className='relative size-full rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300'
       >
         <div className='relative size-full'>
@@ -211,18 +212,79 @@ export default function OdontogramaModal({
   const [selectedTeeth, setSelectedTeeth] = React.useState<Set<number>>(
     () => new Set(DEFAULT_SELECTED_TEETH)
   )
+  const [lastClickedTooth, setLastClickedTooth] = React.useState<number | null>(null)
 
-  const toggleTooth = React.useCallback((toothId: number) => {
-    setSelectedTeeth((prev) => {
-      const next = new Set(prev)
-      if (next.has(toothId)) {
-        next.delete(toothId)
+  // Helper function to get teeth in the same quadrant
+  const getQuadrantTeeth = (toothId: number): number[] => {
+    if (upperLeftIds.has(toothId)) {
+      return Array.from(upperLeftIds).sort((a, b) => a - b)
+    } else if (upperRightIds.has(toothId)) {
+      return Array.from(upperRightIds).sort((a, b) => a - b)
+    } else if (lowerLeftIds.has(toothId)) {
+      return Array.from(lowerLeftIds).sort((a, b) => a - b)
+    } else if (lowerRightIds.has(toothId)) {
+      return Array.from(lowerRightIds).sort((a, b) => a - b)
+    }
+    return []
+  }
+
+  // Helper function to get teeth in range
+  const getTeethInRange = (start: number, end: number): number[] => {
+    const quadrantTeeth = getQuadrantTeeth(start)
+    const endQuadrantTeeth = getQuadrantTeeth(end)
+
+    // Check if both teeth are in the same quadrant
+    if (quadrantTeeth.length === 0 || !endQuadrantTeeth.includes(end)) {
+      return []
+    }
+
+    const startIdx = quadrantTeeth.indexOf(start)
+    const endIdx = quadrantTeeth.indexOf(end)
+
+    if (startIdx === -1 || endIdx === -1) return []
+
+    const minIdx = Math.min(startIdx, endIdx)
+    const maxIdx = Math.max(startIdx, endIdx)
+
+    return quadrantTeeth.slice(minIdx, maxIdx + 1)
+  }
+
+  const toggleTooth = React.useCallback(
+    (toothId: number, shiftKey: boolean = false) => {
+      console.log('🦷 Click en diente:', toothId, '| Shift:', shiftKey, '| Último diente:', lastClickedTooth)
+
+      // If Shift is pressed and we have a previous tooth, select range
+      if (shiftKey && lastClickedTooth !== null && lastClickedTooth !== toothId) {
+        console.log('🔄 Shift+Click - seleccionando rango')
+        const teethInRange = getTeethInRange(lastClickedTooth, toothId)
+        console.log('📋 Dientes en rango:', teethInRange)
+
+        if (teethInRange.length > 0) {
+          setSelectedTeeth((prevSelected) => {
+            const next = new Set(prevSelected)
+            teethInRange.forEach((id) => next.add(id))
+            return next
+          })
+        }
       } else {
-        next.add(toothId)
+        // Normal click - toggle the tooth
+        console.log('✅ Click normal - toggle diente', toothId)
+        setSelectedTeeth((prevSelected) => {
+          const next = new Set(prevSelected)
+          if (next.has(toothId)) {
+            next.delete(toothId)
+          } else {
+            next.add(toothId)
+          }
+          return next
+        })
       }
-      return next
-    })
-  }, [])
+
+      // Always update last clicked tooth
+      setLastClickedTooth(toothId)
+    },
+    [lastClickedTooth]
+  )
 
   const selectedTeethList = React.useMemo(
     () => Array.from(selectedTeeth).sort((a, b) => a - b),
@@ -244,6 +306,19 @@ export default function OdontogramaModal({
 
   if (!open || !mounted) return null
 
+  const modalFrameStyle = {
+    '--modal-scale': MODAL_SCALE_FORMULA,
+    width: `min(92vw, calc(${MODAL_WIDTH_REM}rem * var(--modal-scale)))`,
+    height: `min(85vh, calc(${MODAL_HEIGHT_REM}rem * var(--modal-scale)))`
+  } as React.CSSProperties
+
+  const modalContentStyle = {
+    width: `${MODAL_WIDTH_REM}rem`,
+    height: `${MODAL_HEIGHT_REM}rem`,
+    transform: 'scale(var(--modal-scale))',
+    transformOrigin: 'top left'
+  } as React.CSSProperties
+
   const content = (
     <div
       className='fixed inset-0 z-50 bg-black/30'
@@ -258,117 +333,123 @@ export default function OdontogramaModal({
           onClick={(event) => event.stopPropagation()}
         >
           <div
-            className='w-[68.25rem] h-[59.75rem] max-w-[92vw] max-h-[85vh] shrink-0 relative bg-neutral-50 rounded-[0.5rem] overflow-hidden flex items-start justify-center'
-            style={{
-              width: `min(68.25rem, calc(68.25rem * (85vh / 60rem)))`,
-              height: `min(59.75rem, calc(59.75rem * (85vh / 60rem)))`
-            }}
+            className='relative flex shrink-0 items-start justify-center'
+            style={modalFrameStyle}
           >
-            <div
-              className='relative w-[68.25rem] h-[60rem]'
-              style={{
-                transform: `scale(${MODAL_SCALE_FORMULA})`,
-                transformOrigin: 'top left'
-              }}
-            >
-            <header className='absolute left-0 top-0 flex h-[3.5rem] w-full items-center justify-between border-b border-neutral-300 px-[2rem]'>
-              <p className='text-title-md text-neutral-900'>Odontograma</p>
-              <button
-                type='button'
-                onClick={onClose}
-                aria-label='Cerrar odontograma'
-                className='flex size-[0.875rem] items-center justify-center text-neutral-900'
+            <div className='relative h-full w-full overflow-hidden rounded-[0.5rem] bg-neutral-50'>
+              <div
+                className='relative w-[68.25rem] h-[60rem]'
+                style={modalContentStyle}
               >
-                <CloseRounded fontSize='inherit' />
-              </button>
-            </header>
+                <header className='absolute left-0 top-0 flex h-[3.5rem] w-full items-center justify-between border-b border-neutral-300 px-[2rem]'>
+                  <p className='text-title-md text-neutral-900'>Odontograma</p>
+                  <button
+                    type='button'
+                    onClick={onClose}
+                    aria-label='Cerrar odontograma'
+                    className='flex size-[0.875rem] items-center justify-center text-neutral-900'
+                  >
+                    <CloseRounded fontSize='inherit' />
+                  </button>
+                </header>
 
-            <div className='absolute left-[2rem] top-[5.5rem] h-[41.625rem] w-[31.5rem]'>
-              <div className='absolute left-[13.6875rem] top-0 flex h-full w-[4.0625rem] flex-col items-center'>
-                <p className='text-title-sm text-neutral-900 mb-[1.5625rem]'>
-                  Superior
-                </p>
-                <div className='relative mt-[5.96875rem] flex-1'>
-                  <div
-                    className='absolute left-1/2 top-[0.0625rem] h-[26.6875rem] -translate-x-1/2 bg-neutral-300'
-                    style={{ width: '0.0625rem' }}
-                  />
-                </div>
-                <p className='text-title-sm text-neutral-900'>Inferior</p>
-              </div>
-              <div className='absolute left-0 top-[20rem] flex w-full items-center justify-between'>
-                <p className='text-title-sm text-neutral-900'>Izquierda</p>
-                <div className='h-[0.0625rem] w-[20.0625rem] bg-neutral-300' />
-                <p className='text-title-sm text-neutral-900'>Derecha</p>
-              </div>
-              {arcadaQuadrants.map((quadrant) => (
-                <div
-                  key={quadrant.key}
-                  className='absolute'
-                  style={{
-                    left: pxToRem(quadrant.leftPx),
-                    top: pxToRem(quadrant.topPx),
-                    width: ARCADA_HALF_WIDTH_REM,
-                    height: ARCADA_HEIGHT_REM
-                  }}
-                >
-                  <div className='relative size-full'>
-                    {quadrant.teeth.map((tooth) => (
-                      <Tooth
-                        key={`${quadrant.key}-${tooth.id}`}
-                        {...tooth}
-                        x={tooth.x - quadrant.offsetX}
-                        selected={selectedTeeth.has(tooth.id)}
-                        onToggle={toggleTooth}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <p className='absolute left-[34.75rem] top-[5.5rem] text-title-md text-neutral-900'>
-              Diente(s) seleccionado:
-            </p>
-
-            <div className='absolute left-[34.75rem] top-[8.25rem] flex h-[5.625rem] w-[31.5rem] flex-wrap content-start gap-[0.5rem] overflow-y-auto pr-[0.25rem]'>
-              {selectedTeethList.length === 0 ? (
-                <p className='text-label-sm text-neutral-500'>
-                  No hay dientes seleccionados.
-                </p>
-              ) : (
-                selectedTeethList.map((toothId) => (
-                  <div key={toothId} className='flex items-center gap-[0.5rem]'>
-                    <span className='block size-[1rem] rounded-full bg-brand-500' />
-                    <p className='text-label-sm text-neutral-900'>
-                      Diente #{toothId}
+                <div className='absolute left-[2rem] top-[5.5rem] h-[41.625rem] w-[31.5rem]'>
+                  <div className='absolute left-[13.6875rem] top-[-1.5rem] flex h-full w-[4.0625rem] flex-col items-center'>
+                    <p className='text-title-sm text-neutral-900 mb-[1.5625rem]'>
+                      Superior
                     </p>
+                    <div className='relative mt-[5.96875rem] flex-1'>
+                      <div
+                        className='absolute left-1/2 top-[0.0625rem] h-[27.5rem] -translate-x-1/2 bg-neutral-300'
+                        style={{ width: '0.0625rem' }}
+                      />
+                    </div>
+                    <p className='text-title-sm text-neutral-900 mt-[1.5625rem]'>Inferior</p>
                   </div>
-                ))
-              )}
-            </div>
+                  <div className='absolute left-0 top-[20rem] flex w-full items-center justify-between'>
+                    <p className='text-title-sm text-neutral-900'>Izquierda</p>
+                    <div className='h-[0.0625rem] w-[20.0625rem] bg-neutral-300' />
+                    <p className='text-title-sm text-neutral-900'>Derecha</p>
+                  </div>
+                  {arcadaQuadrants.map((quadrant) => (
+                    <div
+                      key={quadrant.key}
+                      className='absolute'
+                      style={{
+                        left: pxToRem(quadrant.leftPx),
+                        top: pxToRem(quadrant.topPx),
+                        width: ARCADA_HALF_WIDTH_REM,
+                        height: ARCADA_HEIGHT_REM
+                      }}
+                    >
+                      <div className='relative size-full'>
+                        {quadrant.teeth.map((tooth) => (
+                          <Tooth
+                            key={`${quadrant.key}-${tooth.id}`}
+                            {...tooth}
+                            x={tooth.x - quadrant.offsetX}
+                            selected={selectedTeeth.has(tooth.id)}
+                            onToggle={toggleTooth}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
-            <label className='absolute left-[34.75rem] top-[13.875rem] flex w-[31.5rem] flex-col gap-[0.5rem] text-body-sm text-neutral-900'>
-              Observaciones
-              <div className='border border-neutral-300 bg-neutral-50 px-[0.625rem] py-[0.5rem]'>
-                <textarea
-                  className='h-[5rem] w-full resize-none bg-transparent text-body-md text-neutral-900 placeholder:text-neutral-400 outline-none'
-                  placeholder='Value'
-                />
+                <div className='absolute left-[34.75rem] top-[5.5rem] flex w-[31.5rem] flex-col gap-[0.375rem]'>
+                  <p className='text-title-md text-neutral-900'>
+                    Diente(s) seleccionado:
+                  </p>
+                  <div className='flex items-center gap-[0.375rem] text-label-sm text-neutral-600'>
+                    <span>Mantén</span>
+                    <kbd className='inline-flex items-center gap-[0.25rem] rounded border border-neutral-300 bg-neutral-100 px-[0.375rem] py-[0.125rem] text-label-sm font-medium text-neutral-700 shadow-sm'>
+                      <KeyboardArrowUpRounded sx={{ fontSize: '1rem' }} />
+                      Shift
+                    </kbd>
+                    <span>y haz clic en otro diente para seleccionar un rango</span>
+                  </div>
+                </div>
+
+                <div className='absolute left-[34.75rem] top-[9rem] flex h-[5.625rem] w-[31.5rem] flex-wrap content-start gap-[0.5rem] overflow-y-auto pr-[0.25rem]'>
+                  {selectedTeethList.length === 0 ? (
+                    <p className='text-label-sm text-neutral-500'>
+                      No hay dientes seleccionados.
+                    </p>
+                  ) : (
+                    selectedTeethList.map((toothId) => (
+                      <div key={toothId} className='flex items-center gap-[0.5rem]'>
+                        <span className='block size-[1rem] rounded-full bg-brand-500' />
+                        <p className='text-label-sm text-neutral-900'>
+                          Diente #{toothId}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <label className='absolute left-[34.75rem] top-[14.625rem] flex w-[31.5rem] flex-col gap-[0.5rem] text-body-sm text-neutral-900'>
+                  Observaciones
+                  <div className='border border-neutral-300 bg-neutral-50 px-[0.625rem] py-[0.5rem]'>
+                    <textarea
+                      className='h-[5rem] w-full resize-none bg-transparent text-body-md text-neutral-900 placeholder:text-neutral-400 outline-none'
+                      placeholder='Value'
+                    />
+                  </div>
+                  <span className='text-label-sm text-neutral-600'>
+                    Texto descriptivo
+                  </span>
+                </label>
+
+                <button
+                  type='button'
+                  onClick={onContinue}
+                  className='absolute left-[36.4375rem] top-[55.75rem] inline-flex h-[2.5rem] w-[13.4375rem] items-center justify-center gap-[0.5rem] rounded-full border border-brand-500 bg-brand-500 px-[1rem] text-body-md font-medium text-brand-900 transition-colors hover:bg-brand-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300'
+                >
+                  Continuar
+                  <ArrowForwardRounded className='size-5' />
+                </button>
               </div>
-              <span className='text-label-sm text-neutral-600'>
-                Texto descriptivo
-              </span>
-            </label>
-
-            <button
-              type='button'
-              onClick={onContinue}
-              className='absolute left-[36.4375rem] top-[55.75rem] inline-flex h-[2.5rem] w-[13.4375rem] items-center justify-center gap-[0.5rem] rounded-full border border-brand-500 bg-brand-500 px-[1rem] text-body-md font-medium text-brand-900 transition-colors hover:bg-brand-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300'
-            >
-              Continuar
-              <ArrowForwardRounded className='size-5' />
-            </button>
             </div>
           </div>
         </div>
