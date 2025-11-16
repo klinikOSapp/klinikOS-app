@@ -89,7 +89,7 @@ const QuickBudgetModal = ({
   const renderSelectionStep = () => (
     <>
       <p
-        className='absolute text-title-lg font-medium text-neutral-900'
+        className='absolute text-title-lg text-neutral-900'
         style={{ left: '14.3125rem', top: '6rem' }}
       >
         Selección del plan
@@ -122,7 +122,7 @@ const QuickBudgetModal = ({
                 {option.label}
               </span>
             </span>
-            <span className='text-title-lg font-medium text-neutral-900'>
+            <span className='text-title-lg text-neutral-900'>
               {option.amount}
             </span>
           </button>
@@ -158,8 +158,8 @@ const QuickBudgetModal = ({
           width: '35.5rem'
         }}
       >
-        <p className='text-title-lg font-medium text-neutral-900'>{selectedOption.label}</p>
-        <p className='text-title-lg font-medium text-neutral-900'>{selectedOption.amount}</p>
+        <p className='text-title-lg text-neutral-900'>{selectedOption.label}</p>
+        <p className='text-title-lg text-neutral-900'>{selectedOption.amount}</p>
       </div>
 
       <p
@@ -250,51 +250,61 @@ const QuickBudgetModal = ({
     </>
   )
 
+  const modalFrameStyle = {
+    '--modal-scale': MODAL_SCALE_FORMULA,
+    width: `min(92vw, calc(${MODAL_WIDTH_REM}rem * var(--modal-scale)))`,
+    height: `min(85vh, calc(${MODAL_HEIGHT_REM}rem * var(--modal-scale)))`
+  } as React.CSSProperties
+
+  const modalContentStyle = {
+    width: `${MODAL_WIDTH_REM}rem`,
+    height: `${MODAL_HEIGHT_REM}rem`,
+    transform: 'scale(var(--modal-scale))',
+    transformOrigin: 'top left'
+  } as React.CSSProperties
+
   const content = (
     <div
-      className='fixed inset-0 z-[65] bg-neutral-900/40'
+      className='fixed inset-0 z-50 bg-black/30'
       onClick={onClose}
       aria-hidden='true'
     >
-      <div className='absolute inset-0 flex items-center justify-center px-8'>
+      <div className='absolute inset-0 flex items-start justify-center p-8'>
         <div
           role='dialog'
           aria-modal='true'
           aria-label='Creación de presupuesto rápido'
-          className='relative overflow-hidden rounded-[0.5rem] bg-neutral-50'
-          style={{
-            width: `calc(${MODAL_WIDTH_REM}rem * ${MODAL_SCALE_FORMULA})`,
-            height: `calc(${MODAL_HEIGHT_REM}rem * ${MODAL_SCALE_FORMULA})`
-          }}
           onClick={(event) => event.stopPropagation()}
         >
           <div
-            className='relative bg-neutral-50'
-            style={{
-              width: `${MODAL_WIDTH_REM}rem`,
-              height: `${MODAL_HEIGHT_REM}rem`,
-              transform: `scale(${MODAL_SCALE_FORMULA})`,
-              transformOrigin: 'top left'
-            }}
+            className='relative flex shrink-0 items-start justify-center'
+            style={modalFrameStyle}
           >
-            <header className='absolute left-0 top-0 flex h-[3.5rem] w-full items-center justify-between border-b border-neutral-300 px-[2rem]'>
-              <p className='text-title-md text-neutral-900'>
-                Creación de presupuesto rápido
-              </p>
-              <button
-                type='button'
-                onClick={onClose}
-                aria-label='Cerrar presupuesto rápido'
-                className='flex size-[0.875rem] items-center justify-center text-neutral-900'
+            <div className='relative h-full w-full overflow-hidden rounded-[0.5rem] bg-neutral-50'>
+              <div
+                className='relative w-[68.25rem] h-[60rem]'
+                style={modalContentStyle}
               >
-                <CloseRounded fontSize='inherit' />
-              </button>
-            </header>
+                <header className='absolute left-0 top-0 flex h-[3.5rem] w-full items-center justify-between border-b border-neutral-300 px-[2rem]'>
+                  <p className='text-title-md text-neutral-900'>
+                    Creación de presupuesto rápido
+                  </p>
+                  <button
+                    type='button'
+                    onClick={onClose}
+                    aria-label='Cerrar presupuesto rápido'
+                    className='flex size-[0.875rem] items-center justify-center text-neutral-900'
+                  >
+                    <CloseRounded fontSize='inherit' />
+                  </button>
+                </header>
 
-            {step === 'select' ? renderSelectionStep() : renderDetailsStep()}
+                {step === 'select' ? renderSelectionStep() : renderDetailsStep()}
+            </div>
           </div>
         </div>
       </div>
+    </div>
     </div>
   )
 

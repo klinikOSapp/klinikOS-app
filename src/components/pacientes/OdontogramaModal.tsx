@@ -246,31 +246,31 @@ export default function OdontogramaModal({
 
   const content = (
     <div
-      className='fixed inset-0 z-[70] bg-neutral-900/40'
+      className='fixed inset-0 z-50 bg-black/30'
       onClick={onClose}
       aria-hidden='true'
     >
-      <div className='absolute inset-0 flex items-center justify-center px-8'>
+      <div className='absolute inset-0 flex items-start justify-center p-8'>
         <div
           role='dialog'
           aria-modal='true'
           aria-label='Odontograma'
-          className='relative overflow-hidden rounded-[0.5rem] bg-neutral-50'
-          style={{
-            width: `calc(${MODAL_WIDTH_REM}rem * ${MODAL_SCALE_FORMULA})`,
-            height: `calc(${MODAL_HEIGHT_REM}rem * ${MODAL_SCALE_FORMULA})`
-          }}
           onClick={(event) => event.stopPropagation()}
         >
           <div
-            className='relative bg-neutral-50'
+            className='w-[68.25rem] h-[59.75rem] max-w-[92vw] max-h-[85vh] shrink-0 relative bg-neutral-50 rounded-[0.5rem] overflow-hidden flex items-start justify-center'
             style={{
-              width: `${MODAL_WIDTH_REM}rem`,
-              height: `${MODAL_HEIGHT_REM}rem`,
-              transform: `scale(${MODAL_SCALE_FORMULA})`,
-              transformOrigin: 'top left'
+              width: `min(68.25rem, calc(68.25rem * (85vh / 60rem)))`,
+              height: `min(59.75rem, calc(59.75rem * (85vh / 60rem)))`
             }}
           >
+            <div
+              className='relative w-[68.25rem] h-[60rem]'
+              style={{
+                transform: `scale(${MODAL_SCALE_FORMULA})`,
+                transformOrigin: 'top left'
+              }}
+            >
             <header className='absolute left-0 top-0 flex h-[3.5rem] w-full items-center justify-between border-b border-neutral-300 px-[2rem]'>
               <p className='text-title-md text-neutral-900'>Odontograma</p>
               <button
@@ -369,6 +369,7 @@ export default function OdontogramaModal({
               Continuar
               <ArrowForwardRounded className='size-5' />
             </button>
+            </div>
           </div>
         </div>
       </div>

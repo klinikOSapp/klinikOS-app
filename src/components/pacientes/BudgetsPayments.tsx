@@ -1,14 +1,13 @@
-import React from 'react'
-import CloseRounded from '@mui/icons-material/CloseRounded'
 import AddRounded from '@mui/icons-material/AddRounded'
-import ElectricBoltRounded from '@mui/icons-material/ElectricBoltRounded'
-import SearchRounded from '@mui/icons-material/SearchRounded'
-import FilterListRounded from '@mui/icons-material/FilterListRounded'
-import FirstPageRounded from '@mui/icons-material/FirstPageRounded'
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
+import CloseRounded from '@mui/icons-material/CloseRounded'
+import ElectricBoltRounded from '@mui/icons-material/ElectricBoltRounded'
+import FilterListRounded from '@mui/icons-material/FilterListRounded'
+import FirstPageRounded from '@mui/icons-material/FirstPageRounded'
 import LastPageRounded from '@mui/icons-material/LastPageRounded'
-import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
+import SearchRounded from '@mui/icons-material/SearchRounded'
+import React from 'react'
 import ProposalCreationModal from './ProposalCreationModal'
 import { QuickBudgetModal, type QuickBudgetOption } from './QuickBudgetModal'
 
@@ -100,11 +99,7 @@ const MOCK_ROWS: BudgetRow[] = [
   }
 ]
 
-function StatusBadge({
-  status
-}: {
-  status: BudgetRow['status']
-}) {
+function StatusBadge({ status }: { status: BudgetRow['status'] }) {
   const isAccepted = status === 'Aceptado'
   return (
     <span
@@ -138,7 +133,10 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
   }
   const clearFilters = () => setSelectedFilters([])
   return (
-    <div className='relative w-[74.75rem] h-[56.25rem] bg-neutral-50' data-node-id='997:3320'>
+    <div
+      className='relative w-[74.75rem] h-[56.25rem] bg-neutral-50'
+      data-node-id='997:3320'
+    >
       <button
         type='button'
         aria-label='Cerrar'
@@ -152,7 +150,8 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
       <div className='absolute left-8 top-10 w-[35.5rem]'>
         <p className='text-title-lg text-neutral-900'>Presupuestos y pagos</p>
         <p className='text-body-sm text-neutral-900 mt-2'>
-          Consulta y gestión de pagos y facturas, añadir nueva facturación, descargar facturas y enviar recordatorios al paciente.
+          Consulta y gestión de pagos y facturas, añadir nueva facturación,
+          descargar facturas y enviar recordatorios al paciente.
         </p>
       </div>
 
@@ -212,7 +211,7 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
           >
             <ElectricBoltRounded className='size-6 text-brand-500' />
             <span className='font-medium text-[var(--color-neutral-900)]'>
-              Presupuesto rapido
+              Presupuesto rápido
             </span>
           </button>
 
@@ -303,14 +302,29 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
                 <div
                   key={row.id}
                   className='grid items-center border-b border-neutral-300'
-                  style={{ gridTemplateColumns: 'var(--budgets-grid-cols)', height: 'var(--height-row-md)' }}
+                  style={{
+                    gridTemplateColumns: 'var(--budgets-grid-cols)',
+                    height: 'var(--height-row-md)'
+                  }}
                 >
-                  <div className='px-2 text-body-md text-neutral-900'>{row.id}</div>
-                  <div className='px-2 text-body-md text-neutral-900'>{row.description}</div>
-                  <div className='px-2 text-body-md text-neutral-900'>{row.amount}</div>
-                  <div className='px-2'><StatusBadge status={row.status} /></div>
-                  <div className='px-2 text-body-md text-neutral-900'>{row.payment}</div>
-                  <div className='px-2 text-body-md text-neutral-900'>{row.insurer}</div>
+                  <div className='px-2 text-body-md text-neutral-900'>
+                    {row.id}
+                  </div>
+                  <div className='px-2 text-body-md text-neutral-900'>
+                    {row.description}
+                  </div>
+                  <div className='px-2 text-body-md text-neutral-900'>
+                    {row.amount}
+                  </div>
+                  <div className='px-2'>
+                    <StatusBadge status={row.status} />
+                  </div>
+                  <div className='px-2 text-body-md text-neutral-900'>
+                    {row.payment}
+                  </div>
+                  <div className='px-2 text-body-md text-neutral-900'>
+                    {row.insurer}
+                  </div>
                 </div>
               ))}
             </div>
@@ -364,18 +378,43 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
                 <div
                   key={p.id}
                   className='grid items-center border-b border-neutral-300'
-                  style={{ gridTemplateColumns: 'var(--payments-grid-cols)', height: 'var(--height-row-md)' }}
+                  style={{
+                    gridTemplateColumns: 'var(--payments-grid-cols)',
+                    height: 'var(--height-row-md)'
+                  }}
                 >
-                  <div className='px-2 text-body-md text-neutral-900'>{p.id}</div>
-                  <div className='px-2 text-body-md text-neutral-900'>{p.desc}</div>
-                  <div className='px-2 text-body-md text-neutral-900'>{p.amount}</div>
-                  <div className={['px-2 text-body-md', p.invoice === 'Pendiente' ? 'text-warning-600' : 'text-neutral-900'].join(' ')}>
+                  <div className='px-2 text-body-md text-neutral-900'>
+                    {p.id}
+                  </div>
+                  <div className='px-2 text-body-md text-neutral-900'>
+                    {p.desc}
+                  </div>
+                  <div className='px-2 text-body-md text-neutral-900'>
+                    {p.amount}
+                  </div>
+                  <div
+                    className={[
+                      'px-2 text-body-md',
+                      p.invoice === 'Pendiente'
+                        ? 'text-warning-600'
+                        : 'text-neutral-900'
+                    ].join(' ')}
+                  >
                     {p.invoice}
                   </div>
-                  <div className={['px-2 text-body-md', p.sent === 'No enviada' ? 'text-neutral-600' : 'text-neutral-900'].join(' ')}>
+                  <div
+                    className={[
+                      'px-2 text-body-md',
+                      p.sent === 'No enviada'
+                        ? 'text-neutral-600'
+                        : 'text-neutral-900'
+                    ].join(' ')}
+                  >
                     {p.sent}
                   </div>
-                  <div className='px-2 text-body-md text-neutral-900'>{p.insurer}</div>
+                  <div className='px-2 text-body-md text-neutral-900'>
+                    {p.insurer}
+                  </div>
                 </div>
               ))}
             </div>
@@ -417,5 +456,3 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
     </div>
   )
 }
-
-
