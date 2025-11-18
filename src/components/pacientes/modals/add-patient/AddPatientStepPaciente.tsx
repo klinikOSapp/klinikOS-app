@@ -18,6 +18,7 @@ type Props = {
   onChangeSexo?: (v: string) => void
   idioma?: string
   onChangeIdioma?: (v: string) => void
+  onAvatarSelected?: (file: File | null) => void
 }
 
 export default function AddPatientStepPaciente({
@@ -32,7 +33,8 @@ export default function AddPatientStepPaciente({
   sexo,
   onChangeSexo,
   idioma,
-  onChangeIdioma
+  onChangeIdioma,
+  onAvatarSelected
 }: Props) {
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
   const lastUrlRef = React.useRef<string | null>(null)
@@ -42,7 +44,8 @@ export default function AddPatientStepPaciente({
     if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current)
     lastUrlRef.current = url
     setPreviewUrl(url)
-  }, [])
+    onAvatarSelected?.(file)
+  }, [onAvatarSelected])
 
   React.useEffect(() => {
     return () => {
@@ -118,9 +121,10 @@ export default function AddPatientStepPaciente({
           value={sexo ?? ''}
           onChange={onChangeSexo}
           options={[
-            { label: 'Femenino', value: 'femenino' },
-            { label: 'Masculino', value: 'masculino' },
-            { label: 'Otro / Prefiero no decir', value: 'otro' }
+            { label: 'Femenino', value: 'female' },
+            { label: 'Masculino', value: 'male' },
+            { label: 'Otro', value: 'other' },
+            { label: 'Prefiero no decirlo', value: 'undisclosed' }
           ]}
         />
       </div>

@@ -1,11 +1,12 @@
 'use client'
 
+import { uploadPatientFile } from '@/lib/storage'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import RadioButtonCheckedRounded from '@mui/icons-material/RadioButtonCheckedRounded'
 import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded'
 import React from 'react'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import AddPatientStepAdministrativo from './AddPatientStepAdministrativo'
 import AddPatientStepConsentimientos from './AddPatientStepConsentimientos'
 import AddPatientStepContacto from './AddPatientStepContacto'
@@ -217,6 +218,7 @@ export default function AddPatientModal({
     marketing: true,
     terminos: true
   })
+  const [contactWhatsapp, setContactWhatsapp] = React.useState(true)
   const [adminFacturaEmpresa, setAdminFacturaEmpresa] = React.useState(false)
   const [saludToggles, setSaludToggles] = React.useState({
     embarazo: false,
@@ -226,13 +228,80 @@ export default function AddPatientModal({
   // Datos para resumen
   const [contactEmail, setContactEmail] = React.useState<string>('')
   const [contactPhone, setContactPhone] = React.useState<string>('')
+  const [emergencyContactName, setEmergencyContactName] = React.useState<string>('')
+  const [emergencyContactPhone, setEmergencyContactPhone] = React.useState<string>('')
+  const [emergencyContactEmail, setEmergencyContactEmail] = React.useState<string>('')
   const [adminNotas, setAdminNotas] = React.useState<string>('')
   const [saludAlergiasText, setSaludAlergiasText] = React.useState<string>('')
+  const [saludMedicamentosText, setSaludMedicamentosText] = React.useState<string>('')
+  const [saludMotivoText, setSaludMotivoText] = React.useState<string>('')
+  const [saludFearScale, setSaludFearScale] = React.useState<string>('')
+  const [saludAccesibilidad, setSaludAccesibilidad] = React.useState<{
+    movilidad: boolean
+    interprete: boolean
+  }>({ movilidad: false, interprete: false })
   const [nombre, setNombre] = React.useState<string>('')
   const [apellidos, setApellidos] = React.useState<string>('')
   const [dni, setDni] = React.useState<string>('')
   const [sexo, setSexo] = React.useState<string>('')
   const [idioma, setIdioma] = React.useState<string>('')
+  const [avatarFile, setAvatarFile] = React.useState<File | null>(null)
+  const [clinicId, setClinicId] = React.useState<string | null>(null)
+  const [staffOptions, setStaffOptions] = React.useState<Array<{ label: string; value: string }>>(
+    []
+  )
+  const [selectedProfessionalId, setSelectedProfessionalId] = React.useState<string>('')
+  const [leadSource, setLeadSource] = React.useState<string>('')
+  const [coverageType, setCoverageType] = React.useState<string>('')
+  const [insuranceProvider, setInsuranceProvider] = React.useState<string>('')
+  const [insurancePolicyNumber, setInsurancePolicyNumber] = React.useState<string>('')
+  const [insuranceExpiry, setInsuranceExpiry] = React.useState<Date | null>(null)
+  const [addressLine1, setAddressLine1] = React.useState<string>('')
+  const [addressLine2, setAddressLine2] = React.useState<string>('')
+  const [addressNumber, setAddressNumber] = React.useState<string>('')
+  const [addressState, setAddressState] = React.useState<string>('')
+  const [addressCity, setAddressCity] = React.useState<string>('')
+  const [addressPostalCode, setAddressPostalCode] = React.useState<string>('')
+  const [addressCountry, setAddressCountry] = React.useState<string>('')
+  const [billCompanyName, setBillCompanyName] = React.useState<string>('')
+  const [billCompanyTaxId, setBillCompanyTaxId] = React.useState<string>('')
+  const [preferredPaymentMethod, setPreferredPaymentMethod] = React.useState<string>('')
+  const [preferredFinancingOption, setPreferredFinancingOption] = React.useState<string>('')
+
+  React.useEffect(() => {
+    if (!open) return
+    let active = true
+    async function loadClinicContext() {
+      try {
+        const { data: clinics } = await supabase.rpc('get_my_clinics')
+        if (!active) return
+        const firstClinic =
+          Array.isArray(clinics) && clinics.length > 0 ? (clinics[0] as string) : null
+        setClinicId(firstClinic)
+        if (firstClinic) {
+          const { data: staffRows } = await supabase.rpc('get_clinic_staff', {
+            clinic: firstClinic
+          })
+          if (!active) return
+          setStaffOptions(
+            (staffRows || []).map((row: any) => ({
+              label: row.full_name || row.id,
+              value: row.id
+            }))
+          )
+        } else {
+          setStaffOptions([])
+        }
+      } catch (error) {
+        console.error('Error loading clinic context', error)
+        setStaffOptions([])
+      }
+    }
+    loadClinicContext()
+    return () => {
+      active = false
+    }
+  }, [open, supabase])
 
   // Type helper for Salud component props (workaround for JSX inference)
   const SaludComp = AddPatientStepSalud as unknown as React.ComponentType<{
@@ -242,21 +311,44 @@ export default function AddPatientModal({
     onChangeTabaquismo: (v: boolean) => void
     alergiasText?: string
     onChangeAlergiasText?: (v: string) => void
+    medicamentosText?: string
+    onChangeMedicamentosText?: (v: string) => void
+    motivoConsulta?: string
+    onChangeMotivoConsulta?: (v: string) => void
+    fearScale?: string
+    onChangeFearScale?: (v: string) => void
+    mobilityRestricted?: boolean
+    onChangeMobilityRestricted?: (v: boolean) => void
+    needsInterpreter?: boolean
+    onChangeNeedsInterpreter?: (v: boolean) => void
   }>
 
   if (!open) return null
 
   async function handleCreatePatient() {
-    // Select first available clinic for this user
-    const { data: clinics } = await supabase.rpc('get_my_clinics')
-    const clinicId =
-      Array.isArray(clinics) && clinics.length > 0 ? clinics[0] : null
-    if (!clinicId) {
+    let clinicForPatient = clinicId
+    if (!clinicForPatient) {
+      const { data: clinics } = await supabase.rpc('get_my_clinics')
+      clinicForPatient =
+        Array.isArray(clinics) && clinics.length > 0 ? (clinics[0] as string) : null
+      setClinicId(clinicForPatient)
+    }
+    if (!clinicForPatient) {
       alert('No se encontró una clínica asociada. Contacta con administración.')
       return
     }
+
+    const billingPrefs =
+      adminFacturaEmpresa || billCompanyName || billCompanyTaxId
+        ? {
+            bill_to_company: adminFacturaEmpresa,
+            company_name: billCompanyName || null,
+            company_tax_id: billCompanyTaxId || null
+          }
+        : null
+
     const payload: Record<string, any> = {
-      clinic_id: clinicId,
+      clinic_id: clinicForPatient,
       first_name: nombre || '—',
       last_name: apellidos || '—',
       phone_number: contactPhone || null,
@@ -264,15 +356,193 @@ export default function AddPatientModal({
       date_of_birth: selectedDate ? selectedDate.toISOString().slice(0, 10) : null,
       national_id: dni || null,
       preferred_language: idioma || null,
-      occupation: sexo || null,
-      notes: adminNotas || null
+      biological_sex: sexo || null,
+      allow_marketing: contactoToggles.marketing,
+      allow_appointment_reminders: contactoToggles.recordatorios,
+      allow_whatsapp: contactWhatsapp,
+      primary_staff_id: selectedProfessionalId || null,
+      lead_source: leadSource || null,
+      address_line1: addressLine1 || null,
+      address_line2: addressLine2 || null,
+      address_number: addressNumber || null,
+      address_state: addressState || null,
+      address_city: addressCity || null,
+      address_postal_code: addressPostalCode || null,
+      address_country: addressCountry || null,
+      emergency_contact_name: emergencyContactName || null,
+      emergency_contact_phone: emergencyContactPhone || null,
+      emergency_contact_email: emergencyContactEmail || null,
+      notes: adminNotas || null,
+      preferred_payment_method: preferredPaymentMethod || null,
+      preferred_financing_option: preferredFinancingOption || null,
+      billing_preferences: billingPrefs
     }
-    const { error } = await supabase.from('patients').insert(payload)
-    if (error) {
-      alert(error.message)
-      return
+
+    try {
+      const { data: insertedPatient, error } = await supabase
+        .from('patients')
+        .insert(payload)
+        .select('id')
+        .single()
+      if (error) throw error
+      const patientId = insertedPatient?.id
+      const followUp: Promise<any>[] = []
+
+      if (
+        patientId &&
+        (insuranceProvider || insurancePolicyNumber || coverageType || insuranceExpiry)
+      ) {
+        followUp.push(
+          supabase.from('patient_insurances').insert({
+            patient_id: patientId,
+            provider: insuranceProvider || null,
+            policy_number: insurancePolicyNumber || null,
+            coverage_type: coverageType || null,
+            expiry_date: insuranceExpiry ? insuranceExpiry.toISOString().slice(0, 10) : null,
+            metadata:
+              billCompanyName || billCompanyTaxId
+                ? {
+                    bill_to_company: adminFacturaEmpresa,
+                    company_name: billCompanyName || null,
+                    company_tax_id: billCompanyTaxId || null
+                  }
+                : null
+          })
+        )
+      }
+
+      if (patientId) {
+        followUp.push(
+          supabase.from('patient_health_profiles').upsert({
+            patient_id: patientId,
+            allergies: saludAlergiasText || null,
+            medications: saludMedicamentosText || null,
+            main_complaint: saludMotivoText || null,
+            fear_scale: saludFearScale ? Number(saludFearScale) : null,
+            is_pregnant: saludToggles.embarazo,
+            is_smoker: saludToggles.tabaquismo,
+            motivo_consulta: saludMotivoText || null,
+            mobility_restrictions: saludAccesibilidad.movilidad,
+            needs_interpreter: saludAccesibilidad.interprete,
+            accessibility: {
+              mobility_restrictions: saludAccesibilidad.movilidad,
+              needs_interpreter: saludAccesibilidad.interprete
+            }
+          })
+        )
+      }
+
+      const alerts: Array<{
+        alert_type: string
+        description: string
+        is_critical: boolean
+        category?: string | null
+        severity?: 'low' | 'medium' | 'high' | null
+      }> = []
+
+      const allergyEntries = saludAlergiasText
+        .split(/[,\\n]/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((text) => ({
+          alert_type: text,
+          description: text,
+          is_critical: true,
+          category: 'allergy',
+          severity: 'high' as const
+        }))
+      alerts.push(...allergyEntries)
+
+      if (saludToggles.embarazo) {
+        alerts.push({
+          alert_type: 'pregnancy',
+          description: 'Paciente embarazada',
+          is_critical: false,
+          category: 'condition',
+          severity: 'medium'
+        })
+      }
+
+      if (saludToggles.tabaquismo) {
+        alerts.push({
+          alert_type: 'tobacco use',
+          description: 'Paciente fumador',
+          is_critical: false,
+          category: 'habit',
+          severity: 'medium'
+        })
+      }
+
+      const fearValue = saludFearScale ? Number(saludFearScale) : null
+      if (fearValue && fearValue >= 7) {
+        alerts.push({
+          alert_type: 'dental_anxiety',
+          description: `Nivel de miedo ${fearValue}/10`,
+          is_critical: false,
+          category: 'condition',
+          severity: 'medium'
+        })
+      }
+
+      if (saludAccesibilidad.movilidad) {
+        alerts.push({
+          alert_type: 'mobility_restrictions',
+          description: 'Movilidad reducida',
+          is_critical: false,
+          category: 'accessibility',
+          severity: 'medium'
+        })
+      }
+
+      if (saludAccesibilidad.interprete) {
+        alerts.push({
+          alert_type: 'needs_interpreter',
+          description: 'Requiere intérprete',
+          is_critical: false,
+          category: 'accessibility',
+          severity: 'low'
+        })
+      }
+
+      if (patientId && alerts.length) {
+        followUp.push(
+          supabase
+            .from('patient_medical_alerts')
+            .insert(
+              alerts.map((alert) => ({
+                ...alert,
+                category: alert.category ?? null,
+                severity: alert.severity ?? null,
+                patient_id: patientId
+              }))
+            )
+        )
+      }
+
+      if (patientId && avatarFile) {
+        followUp.push(
+          (async () => {
+            try {
+              const { path } = await uploadPatientFile({
+                patientId,
+                file: avatarFile,
+                kind: 'avatar'
+              })
+              await supabase.from('patients').update({ avatar_url: path }).eq('id', patientId)
+            } catch (avatarError) {
+              console.error('Error uploading avatar', avatarError)
+            }
+          })()
+        )
+      }
+
+      await Promise.all(followUp)
+      setAvatarFile(null)
+      onClose()
+    } catch (error) {
+      console.error('Error creating patient', error)
+      alert('No se pudo crear el paciente. Intenta nuevamente.')
     }
-    onClose()
   }
 
   return (
@@ -570,6 +840,7 @@ export default function AddPatientModal({
                   onChangeSexo={setSexo}
                   idioma={idioma}
                   onChangeIdioma={setIdioma}
+                  onAvatarSelected={setAvatarFile}
                 />
               )}
 
@@ -587,10 +858,18 @@ export default function AddPatientModal({
                   onChangeTerminos={(v) =>
                     setContactoToggles((p) => ({ ...p, terminos: v }))
                   }
+                  whatsappOptIn={contactWhatsapp}
+                  onChangeWhatsappOptIn={setContactWhatsapp}
                   telefono={contactPhone}
                   onChangeTelefono={setContactPhone}
                   email={contactEmail}
                   onChangeEmail={setContactEmail}
+                  emergencyName={emergencyContactName}
+                  onChangeEmergencyName={setEmergencyContactName}
+                  emergencyPhone={emergencyContactPhone}
+                  onChangeEmergencyPhone={setEmergencyContactPhone}
+                  emergencyEmail={emergencyContactEmail}
+                  onChangeEmergencyEmail={setEmergencyContactEmail}
                 />
               )}
 
@@ -600,6 +879,41 @@ export default function AddPatientModal({
                   onChangeFacturaEmpresa={setAdminFacturaEmpresa}
                   notas={adminNotas}
                   onChangeNotas={setAdminNotas}
+                  staffOptions={staffOptions}
+                  selectedStaffId={selectedProfessionalId}
+                  onChangeStaff={setSelectedProfessionalId}
+                  leadSource={leadSource}
+                  onChangeLeadSource={setLeadSource}
+                  coverageType={coverageType}
+                  onChangeCoverageType={setCoverageType}
+                  insuranceProvider={insuranceProvider}
+                  onChangeInsuranceProvider={setInsuranceProvider}
+                  insurancePolicyNumber={insurancePolicyNumber}
+                  onChangeInsurancePolicyNumber={setInsurancePolicyNumber}
+                  insuranceExpiry={insuranceExpiry}
+                  onChangeInsuranceExpiry={(date: Date) => setInsuranceExpiry(date)}
+                  addressLine1={addressLine1}
+                  onChangeAddressLine1={setAddressLine1}
+                  addressLine2={addressLine2}
+                  onChangeAddressLine2={setAddressLine2}
+                  addressNumber={addressNumber}
+                  onChangeAddressNumber={setAddressNumber}
+                  addressState={addressState}
+                  onChangeAddressState={setAddressState}
+                  addressCity={addressCity}
+                  onChangeAddressCity={setAddressCity}
+                  addressPostalCode={addressPostalCode}
+                  onChangeAddressPostalCode={setAddressPostalCode}
+                  addressCountry={addressCountry}
+                  onChangeAddressCountry={setAddressCountry}
+                  billCompanyName={billCompanyName}
+                  onChangeBillCompanyName={setBillCompanyName}
+                  billCompanyTaxId={billCompanyTaxId}
+                  onChangeBillCompanyTaxId={setBillCompanyTaxId}
+                  preferredPaymentMethod={preferredPaymentMethod}
+                  onChangePreferredPaymentMethod={setPreferredPaymentMethod}
+                  preferredFinancingOption={preferredFinancingOption}
+                  onChangePreferredFinancingOption={setPreferredFinancingOption}
                 />
               )}
 
@@ -615,6 +929,20 @@ export default function AddPatientModal({
                   }
                   alergiasText={saludAlergiasText}
                   onChangeAlergiasText={setSaludAlergiasText}
+                  medicamentosText={saludMedicamentosText}
+                  onChangeMedicamentosText={setSaludMedicamentosText}
+                  motivoConsulta={saludMotivoText}
+                  onChangeMotivoConsulta={setSaludMotivoText}
+                  fearScale={saludFearScale}
+                  onChangeFearScale={setSaludFearScale}
+                  mobilityRestricted={saludAccesibilidad.movilidad}
+                  onChangeMobilityRestricted={(v: boolean) =>
+                    setSaludAccesibilidad((p) => ({ ...p, movilidad: v }))
+                  }
+                  needsInterpreter={saludAccesibilidad.interprete}
+                  onChangeNeedsInterpreter={(v: boolean) =>
+                    setSaludAccesibilidad((p) => ({ ...p, interprete: v }))
+                  }
                 />
               )}
 

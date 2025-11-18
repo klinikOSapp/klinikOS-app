@@ -27,6 +27,14 @@ const ALERT_SEVERITY_STYLES: Record<AlertSeverity, { bg: string; text: string; d
   low: { bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500' }
 }
 
+const ALERT_CATEGORY_LABELS: Record<string, string> = {
+  allergy: 'Alergias',
+  condition: 'Condiciones',
+  habit: 'Hábitos',
+  accessibility: 'Accesibilidad',
+  general: 'Alertas'
+}
+
 export default function ClientSummary({ onClose, patientId }: ClientSummaryProps) {
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
   const [displayName, setDisplayName] = React.useState<string>('—')
@@ -140,7 +148,7 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
       const { path } = await uploadPatientFile({
         patientId,
         file,
-        kind: 'rx' // reuse bucket; path is namespaced by patient; logical avatar folder is fine
+        kind: 'avatar'
       })
       await supabase.from('patients').update({ avatar_url: path }).eq('id', patientId)
       try {
@@ -158,6 +166,20 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
       if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current)
     }
   }, [])
+  const groupedAlerts = React.useMemo(() => {
+    if (!alerts.length) return []
+    const map = new Map<string, PatientAlert[]>()
+    alerts.forEach((alert) => {
+      const key = alert.category ?? 'general'
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(alert)
+    })
+    return Array.from(map.entries()).map(([category, items]) => ({
+      category,
+      items
+    }))
+  }, [alerts])
+
   return (
     <div
       className='relative bg-[#f8fafb] overflow-hidden w-[74.75rem] h-[56.25rem]'
@@ -263,27 +285,38 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
         className='absolute flex flex-col gap-[0.75rem] top-[3rem] w-[30.25rem]'
         style={{ left: 'calc(43.75% + 0.797rem)' }}
       >
-        <div className='flex flex-wrap items-center gap-[0.5rem]'>
-          <p className="font-['Inter:Medium',_sans-serif] font-medium leading-[1rem] text-[#8a95a1] text-[0.75rem] whitespace-pre">
-            Alergias:
-          </p>
-          {alerts.length === 0 ? (
-            <span className="font-['Inter:Regular',_sans-serif] text-[0.75rem] text-[#8a95a1]">
-              Sin alertas registradas
-            </span>
+        <div className='flex flex-col gap-[0.5rem]'>
+          {groupedAlerts.length === 0 ? (
+            <div className='flex items-center gap-[0.5rem]'>
+              <p className="font-['Inter:Medium',_sans-serif] font-medium leading-[1rem] text-[#8a95a1] text-[0.75rem] whitespace-pre">
+                Alergias:
+              </p>
+              <span className="font-['Inter:Regular',_sans-serif] text-[0.75rem] text-[#8a95a1]">
+                Sin alertas registradas
+              </span>
+            </div>
           ) : (
-            alerts.map((alert, idx) => {
-              const styles = ALERT_SEVERITY_STYLES[alert.severity] ||
-                ALERT_SEVERITY_STYLES.medium
+            groupedAlerts.map(({ category, items }) => {
+              const label = ALERT_CATEGORY_LABELS[category] ?? ALERT_CATEGORY_LABELS.general
               return (
-                <div
-                  key={`${alert.label}-${idx}`}
-                  className={`flex items-center gap-[0.375rem] px-[0.5rem] py-[0.25rem] rounded-[6rem] ${styles.bg}`}
-                >
-                  <span className={`inline-block size-2 rounded-full ${styles.dot}`} />
-                  <span className={`font-['Inter:Medium',_sans-serif] text-[0.75rem] ${styles.text}`}>
-                    {alert.label}
-                  </span>
+                <div key={category} className='flex flex-wrap items-center gap-[0.5rem]'>
+                  <p className="font-['Inter:Medium',_sans-serif] font-medium leading-[1rem] text-[#8a95a1] text-[0.75rem] whitespace-pre">
+                    {label}:
+                  </p>
+                  {items.map((alert, idx) => {
+                    const styles = ALERT_SEVERITY_STYLES[alert.severity] || ALERT_SEVERITY_STYLES.medium
+                    return (
+                      <div
+                        key={`${category}-${alert.label}-${idx}`}
+                        className={`flex items-center gap-[0.375rem] px-[0.5rem] py-[0.25rem] rounded-[6rem] ${styles.bg}`}
+                      >
+                        <span className={`inline-block size-2 rounded-full ${styles.dot}`} />
+                        <span className={`font-['Inter:Medium',_sans-serif] text-[0.75rem] ${styles.text}`}>
+                          {alert.label}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
               )
             })

@@ -66,10 +66,7 @@ type HoldFormState = {
 
 const STAFF_ROLE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'doctor', label: 'Doctor/a' },
-  { value: 'higienista', label: 'Higienista' },
-  { value: 'recepcion', label: 'Recepción' },
-  { value: 'gerencia', label: 'Gerencia' },
-  { value: 'custom', label: 'Otro rol' }
+  { value: 'higienista', label: 'Higienista' }
 ]
 
 const createEmptyStaffAssignment = (): HoldStaffAssignment => ({

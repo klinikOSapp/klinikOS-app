@@ -1,6 +1,5 @@
 'use client'
 
-import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded'
 import { TextInput, ToggleInput } from './AddPatientInputs'
 
 type Props = {
@@ -10,10 +9,18 @@ type Props = {
   onChangeMarketing: (v: boolean) => void
   terminos: boolean
   onChangeTerminos: (v: boolean) => void
+  whatsappOptIn: boolean
+  onChangeWhatsappOptIn: (v: boolean) => void
   telefono?: string
   onChangeTelefono?: (v: string) => void
   email?: string
   onChangeEmail?: (v: string) => void
+  emergencyName?: string
+  onChangeEmergencyName?: (v: string) => void
+  emergencyPhone?: string
+  onChangeEmergencyPhone?: (v: string) => void
+  emergencyEmail?: string
+  onChangeEmergencyEmail?: (v: string) => void
 }
 
 export default function AddPatientStepContacto({
@@ -23,10 +30,18 @@ export default function AddPatientStepContacto({
   onChangeMarketing,
   terminos,
   onChangeTerminos,
+  whatsappOptIn,
+  onChangeWhatsappOptIn,
   telefono,
   onChangeTelefono,
   email,
-  onChangeEmail
+  onChangeEmail,
+  emergencyName,
+  onChangeEmergencyName,
+  emergencyPhone,
+  onChangeEmergencyPhone,
+  emergencyEmail,
+  onChangeEmergencyEmail
 }: Props) {
   return (
     <div className='left-[18.375rem] top-[10rem] absolute inline-flex flex-col justify-start items-start gap-6 w-[31.5rem] h-[43.25rem] overflow-y-auto overflow-x-clip pr-2 pb-2 scrollbar-hide'>
@@ -34,22 +49,12 @@ export default function AddPatientStepContacto({
         <div className='text-title-sm text-[var(--color-neutral-900)]'>
           Teléfono
         </div>
-        <div className='flex gap-3 w-full'>
-          <div className='relative w-20'>
-            <select className='appearance-none w-full h-12 rounded-lg bg-[var(--color-neutral-50)] outline-[0.03125rem] outline-offset-[-0.03125rem] outline-[var(--color-neutral-300)] pl-2.5 pr-8 text-body-md text-[var(--color-neutral-900)]'>
-              <option>+34</option>
-            </select>
-            <KeyboardArrowDownRounded className='pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-neutral-700)]' />
-          </div>
-          <div className='flex-1'>
-            <TextInput
-              placeholder='Value'
-              required
-              value={telefono}
-              onChange={onChangeTelefono}
-            />
-          </div>
-        </div>
+        <TextInput
+          placeholder='Número con prefijo internacional'
+          required
+          value={telefono}
+          onChange={onChangeTelefono}
+        />
       </div>
 
       <div className='inline-flex flex-col gap-2 w-full'>
@@ -57,7 +62,7 @@ export default function AddPatientStepContacto({
           Email
         </div>
         <TextInput
-          placeholder='Example@example.com'
+          placeholder='persona@ejemplo.com'
           required
           value={email}
           onChange={onChangeEmail}
@@ -82,6 +87,27 @@ export default function AddPatientStepContacto({
               </span>
             </label>
           ))}
+        </div>
+      </div>
+
+      <div className='inline-flex flex-col gap-3 w-full'>
+        <div className='text-title-sm text-[var(--color-neutral-900)]'>
+          WhatsApp / mensajería
+        </div>
+        <div className='flex items-start gap-4'>
+          <ToggleInput
+            ariaLabel='Permitir mensajes por WhatsApp'
+            checked={whatsappOptIn}
+            onChange={onChangeWhatsappOptIn}
+          />
+          <div>
+            <p className='text-body-md text-[var(--color-neutral-900)]'>
+              Permite recordatorios por apps de mensajería
+            </p>
+            <p className='text-label-sm text-[var(--color-neutral-600)]'>
+              Incluye WhatsApp/Telegram.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -150,20 +176,38 @@ export default function AddPatientStepContacto({
 
       <div className='inline-flex flex-col gap-2 w-full'>
         <div className='text-title-sm text-[var(--color-neutral-900)]'>
-          Contacto emergencia
+          Contacto de emergencia
         </div>
         <div className='grid grid-cols-1 gap-4'>
           <div>
             <div className='text-title-sm text-[var(--color-neutral-900)] mb-2'>
               Nombre
             </div>
-            <TextInput placeholder='Value' />
+            <TextInput
+              placeholder='Nombre completo'
+              value={emergencyName}
+              onChange={onChangeEmergencyName}
+            />
           </div>
           <div>
             <div className='text-title-sm text-[var(--color-neutral-900)] mb-2'>
               Teléfono de contacto
             </div>
-            <TextInput placeholder='Value' />
+            <TextInput
+              placeholder='Teléfono'
+              value={emergencyPhone}
+              onChange={onChangeEmergencyPhone}
+            />
+          </div>
+          <div>
+            <div className='text-title-sm text-[var(--color-neutral-900)] mb-2'>
+              Email
+            </div>
+            <TextInput
+              placeholder='persona@ejemplo.com'
+              value={emergencyEmail}
+              onChange={onChangeEmergencyEmail}
+            />
           </div>
         </div>
       </div>
