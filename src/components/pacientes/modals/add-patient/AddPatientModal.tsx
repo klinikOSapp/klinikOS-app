@@ -393,42 +393,46 @@ export default function AddPatientModal({
         (insuranceProvider || insurancePolicyNumber || coverageType || insuranceExpiry)
       ) {
         followUp.push(
-          supabase.from('patient_insurances').insert({
-            patient_id: patientId,
-            provider: insuranceProvider || null,
-            policy_number: insurancePolicyNumber || null,
-            coverage_type: coverageType || null,
-            expiry_date: insuranceExpiry ? insuranceExpiry.toISOString().slice(0, 10) : null,
-            metadata:
-              billCompanyName || billCompanyTaxId
-                ? {
-                    bill_to_company: adminFacturaEmpresa,
-                    company_name: billCompanyName || null,
-                    company_tax_id: billCompanyTaxId || null
-                  }
-                : null
-          })
+          (async () => {
+            await supabase.from('patient_insurances').insert({
+              patient_id: patientId,
+              provider: insuranceProvider || null,
+              policy_number: insurancePolicyNumber || null,
+              coverage_type: coverageType || null,
+              expiry_date: insuranceExpiry ? insuranceExpiry.toISOString().slice(0, 10) : null,
+              metadata:
+                billCompanyName || billCompanyTaxId
+                  ? {
+                      bill_to_company: adminFacturaEmpresa,
+                      company_name: billCompanyName || null,
+                      company_tax_id: billCompanyTaxId || null
+                    }
+                  : null
+            })
+          })()
         )
       }
 
       if (patientId) {
         followUp.push(
-          supabase.from('patient_health_profiles').upsert({
-            patient_id: patientId,
-            allergies: saludAlergiasText || null,
-            medications: saludMedicamentosText || null,
-            main_complaint: saludMotivoText || null,
-            fear_scale: saludFearScale ? Number(saludFearScale) : null,
-            is_pregnant: saludToggles.embarazo,
-            is_smoker: saludToggles.tabaquismo,
-            motivo_consulta: saludMotivoText || null,
-            mobility_restrictions: saludAccesibilidad.movilidad,
-            needs_interpreter: saludAccesibilidad.interprete,
-            accessibility: {
+          (async () => {
+            await supabase.from('patient_health_profiles').upsert({
+              patient_id: patientId,
+              allergies: saludAlergiasText || null,
+              medications: saludMedicamentosText || null,
+              main_complaint: saludMotivoText || null,
+              fear_scale: saludFearScale ? Number(saludFearScale) : null,
+              is_pregnant: saludToggles.embarazo,
+              is_smoker: saludToggles.tabaquismo,
+              motivo_consulta: saludMotivoText || null,
               mobility_restrictions: saludAccesibilidad.movilidad,
-              needs_interpreter: saludAccesibilidad.interprete
-            }
-          })
+              needs_interpreter: saludAccesibilidad.interprete,
+              accessibility: {
+                mobility_restrictions: saludAccesibilidad.movilidad,
+                needs_interpreter: saludAccesibilidad.interprete
+              }
+            })
+          })()
         )
       }
 
@@ -465,7 +469,7 @@ export default function AddPatientModal({
 
       if (saludToggles.tabaquismo) {
         alerts.push({
-          alert_type: 'tobacco use',
+          alert_type: 'tobacco_use',
           description: 'Paciente fumador',
           is_critical: false,
           category: 'habit',
@@ -506,16 +510,18 @@ export default function AddPatientModal({
 
       if (patientId && alerts.length) {
         followUp.push(
-          supabase
-            .from('patient_medical_alerts')
-            .insert(
-              alerts.map((alert) => ({
-                ...alert,
-                category: alert.category ?? null,
-                severity: alert.severity ?? null,
-                patient_id: patientId
-              }))
-            )
+          (async () => {
+            await supabase
+              .from('patient_medical_alerts')
+              .insert(
+                alerts.map((alert) => ({
+                  ...alert,
+                  category: alert.category ?? null,
+                  severity: alert.severity ?? null,
+                  patient_id: patientId
+                }))
+              )
+          })()
         )
       }
 
