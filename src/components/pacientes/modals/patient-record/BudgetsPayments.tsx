@@ -8,6 +8,7 @@ import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
 import LastPageRounded from '@mui/icons-material/LastPageRounded'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
 
 type BudgetsPaymentsProps = {
   onClose?: () => void
@@ -69,7 +70,9 @@ export default function BudgetsPayments({
           total: Number(r.total_amount ?? 0),
           amountPaid: Number(r.amount_paid ?? 0),
           status: r.status,
-          issueDate: new Date(r.issue_date).toLocaleDateString()
+          issueDate: new Date(r.issue_date).toLocaleDateString(DEFAULT_LOCALE, {
+            timeZone: DEFAULT_TIMEZONE
+          })
         })) ?? []
       setInvoices(rows)
       const saldo = rows.reduce((acc, r) => acc + (r.total - r.amountPaid), 0)
@@ -88,7 +91,9 @@ export default function BudgetsPayments({
           (pays ?? []).map((p: any) => ({
             id: String(p.id),
             amount: Number(p.amount ?? 0),
-            sent: new Date(p.transaction_date).toLocaleDateString(),
+            sent: new Date(p.transaction_date).toLocaleDateString(DEFAULT_LOCALE, {
+              timeZone: DEFAULT_TIMEZONE
+            }),
             invoiceId: String(p.invoice_id)
           }))
         )

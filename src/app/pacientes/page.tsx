@@ -2,6 +2,7 @@
 
 import AddPatientModal from '@/components/pacientes/modals/add-patient/AddPatientModal'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
+import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
 import AddRounded from '@mui/icons-material/AddRounded'
@@ -266,7 +267,9 @@ export default function PacientesPage() {
             if (!nextByPatient.has(a.patient_id)) {
               nextByPatient.set(
                 a.patient_id,
-                new Date(a.scheduled_start_time).toLocaleDateString()
+                new Date(a.scheduled_start_time).toLocaleDateString(DEFAULT_LOCALE, {
+                  timeZone: DEFAULT_TIMEZONE
+                })
               )
             }
             // mark check-in if any appointment has check-in time
@@ -308,7 +311,10 @@ export default function PacientesPage() {
             const d = new Date(c.sent_at)
             const prev = lastContactByPatient.get(c.patient_id)
             if (!prev || d > new Date(prev)) {
-              lastContactByPatient.set(c.patient_id, d.toLocaleDateString())
+              lastContactByPatient.set(
+                c.patient_id,
+                d.toLocaleDateString(DEFAULT_LOCALE, { timeZone: DEFAULT_TIMEZONE })
+              )
             }
           }
         }

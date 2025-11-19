@@ -8,6 +8,7 @@ import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
 import PictureAsPdfRounded from '@mui/icons-material/PictureAsPdfRounded'
 import VisibilityRounded from '@mui/icons-material/VisibilityRounded'
 import React from 'react'
+import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import UploadConsentModal from './UploadConsentModal'
 import { getSignedUrl, uploadPatientFile } from '@/lib/storage'
@@ -95,7 +96,10 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
             ? String(c.document_url).split('/').pop() ?? c.consent_type
             : c.consent_type,
           sentAt: (c.signed_at || c.created_at
-            ? new Date(c.signed_at || c.created_at).toLocaleDateString()
+            ? new Date(c.signed_at || c.created_at).toLocaleDateString(
+                DEFAULT_LOCALE,
+                { timeZone: DEFAULT_TIMEZONE }
+              )
             : '—') as string,
           status: (c.status === 'signed' ? 'Firmado' : 'Enviado') as
             | 'Firmado'

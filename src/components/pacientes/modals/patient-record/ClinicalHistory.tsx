@@ -1,5 +1,6 @@
 'use client'
 import SelectorCard from '@/components/pacientes/SelectorCard'
+import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
 import { getSignedUrl } from '@/lib/storage'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
@@ -30,7 +31,8 @@ type AppointmentRecord = {
   box_id?: string | null
   notes?: string | null
   public_ref?: string | null
-  service_catalog?: { name?: string | null } | null
+  service_catalog?: { name?: string | null; category?: string | null } | null
+  service_catalog?: { name?: string | null; category?: string | null } | null
 }
 
 type AppointmentHoldRecord = {
@@ -196,12 +198,9 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
         }
         let logRecord = await fetchCallLogBy('id', call.id)
         if (!logRecord && call.external_call_id) {
-          logRecord = await fetchCallLogBy('call_id', call.external_call_id)
-          if (!logRecord) {
-            const fallbackId = String(call.external_call_id).replace(/-/g, '_')
-            if (fallbackId !== call.external_call_id) {
-              logRecord = await fetchCallLogBy('call_id', fallbackId)
-            }
+          const numericExternal = Number(call.external_call_id)
+          if (!Number.isNaN(numericExternal)) {
+            logRecord = await fetchCallLogBy('call_id', numericExternal)
           }
         }
         const callSummaryText =
@@ -275,7 +274,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
   const [holdForm, setHoldForm] = React.useState<HoldFormState>(() => createInitialHoldFormState())
   const [holdOptions, setHoldOptions] = React.useState<{
     boxes: Array<{ id: string; label: string }>
-    services: Array<{ id: number; name: string }>
+    services: Array<{ id: number; name: string; category?: string | null }>
     staff: Array<{ id: string; name: string }>
   }>({ boxes: [], services: [], staff: [] })
   const [clinicBoxes, setClinicBoxes] = React.useState<
@@ -676,7 +675,9 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                     id: String(r.id),
                     name: r.file_name || 'archivo',
                     path: r.storage_path || undefined,
-                    date: new Date(r.created_at).toLocaleDateString(),
+                    date: new Date(r.created_at).toLocaleDateString(DEFAULT_LOCALE, {
+                      timeZone: DEFAULT_TIMEZONE
+                    }),
                     url: r.storage_path ? await getSignedUrl(r.storage_path) : undefined
                   }))
                 )
@@ -818,29 +819,51 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
   }, [activeAppointment, clinicBoxes])
 
   const formatDateShort = React.useCallback((date: Date) => {
-    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`
+    return date.toLocaleDateString(DEFAULT_LOCALE, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: DEFAULT_TIMEZONE
+    })
   }, [])
 
   const formatDateTime = React.useCallback((iso: string) => {
-    return new Date(iso).toLocaleString('es-ES', {
+    return new Date(iso).toLocaleString(DEFAULT_LOCALE, {
       dateStyle: 'medium',
-      timeStyle: 'short'
+      timeStyle: 'short',
+      timeZone: DEFAULT_TIMEZONE
     })
   }, [])
 
   const formatTimeRange = React.useCallback((startIso: string, endIso: string) => {
     const start = new Date(startIso)
     const end = new Date(endIso)
-    const startLabel = start.toLocaleTimeString('es-ES', {
+    const startLabel = start.toLocaleTimeString(DEFAULT_LOCALE, {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: DEFAULT_TIMEZONE
     })
-    const endLabel = end.toLocaleTimeString('es-ES', {
+    const endLabel = end.toLocaleTimeString(DEFAULT_LOCALE, {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: DEFAULT_TIMEZONE
     })
     return `${startLabel} - ${endLabel}`
   }, [])
+
+  const formatTimeLabel = React.useCallback(
+    (startIso: string, endIso?: string | null) => {
+      if (endIso) {
+        return formatTimeRange(startIso, endIso)
+      }
+      return new Date(startIso).toLocaleTimeString(DEFAULT_LOCALE, {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: DEFAULT_TIMEZONE
+      })
+    },
+    [formatTimeRange]
+  )
 
   const getEntriesForFilter = React.useCallback(
     (
@@ -849,6 +872,9 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
     ): TimelineEntry[] => {
       const now = Date.now()
       const appointmentSource = overrides?.appointments ?? appointments
+      const filteredAppointments = appointmentSource.filter(
+        (appt) => appt.status !== 'cancelled'
+      )
       const holdSource = overrides?.holds ?? holds
       const entryStartTime = (entry: TimelineEntry) =>
         entry.kind === 'appointment'
@@ -856,7 +882,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
           : new Date(entry.record.start_time).getTime()
 
       if (f === 'proximas') {
-        const appointmentEntries = appointmentSource
+        const appointmentEntries = filteredAppointments
           .filter((a) => new Date(a.scheduled_start_time).getTime() > now)
           .map((record) => ({ kind: 'appointment', record } as TimelineEntry))
         const holdEntries = holdSource
@@ -867,24 +893,24 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
         )
       }
       if (f === 'pasadas') {
-        return appointmentSource
+        return filteredAppointments
           .filter((a) => new Date(a.scheduled_start_time).getTime() <= now)
           .map((record) => ({ kind: 'appointment', record } as TimelineEntry))
           .sort((a, b) => entryStartTime(b) - entryStartTime(a))
       }
       if (f === 'confirmadas') {
-        return appointmentSource
+        return filteredAppointments
           .filter((a) => a.status === 'confirmed')
           .map((record) => ({ kind: 'appointment', record } as TimelineEntry))
           .sort((a, b) => entryStartTime(b) - entryStartTime(a))
       }
       if (f === 'inaxistencia') {
-        return appointmentSource
+        return filteredAppointments
           .filter((a) => a.status === 'no_show')
           .map((record) => ({ kind: 'appointment', record } as TimelineEntry))
           .sort((a, b) => entryStartTime(b) - entryStartTime(a))
       }
-      return appointmentSource
+      return filteredAppointments
         .map((record) => ({ kind: 'appointment', record } as TimelineEntry))
         .sort((a, b) => entryStartTime(b) - entryStartTime(a))
     },
@@ -898,7 +924,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
       const { data: appts } = await supabase
         .from('appointments')
         .select(
-          'id, clinic_id, box_id, status, scheduled_start_time, scheduled_end_time, service_id, service_type, source, source_hold_id, public_ref, notes, service_catalog:service_id(name)'
+          'id, clinic_id, box_id, status, scheduled_start_time, scheduled_end_time, service_id, service_type, source, source_hold_id, public_ref, notes, service_catalog:service_id(name, category)'
         )
         .eq('patient_id', patientId)
         .order('scheduled_start_time', { ascending: false })
@@ -912,11 +938,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
         const service = getServiceLabel(a0)
         const ref = a0.public_ref ? ` · ${a0.public_ref}` : ''
         setCardTitle(`${service}${ref}`)
-        setCardDate(
-          `${String(d.getDate()).padStart(2, '0')}/${String(
-            d.getMonth() + 1
-          ).padStart(2, '0')}/${d.getFullYear()}`
-        )
+        setCardDate(formatDateShort(d))
         setActiveAppointmentId(String(a0.id))
         setEditStatus(a0.status)
         setEditServiceId(a0.service_id ?? null)
@@ -944,11 +966,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
         if (data[0] && !hasAppointments) {
           const d = new Date(data[0].created_at)
           setCardTitle(data[0].note_type ?? 'Nota clínica')
-          setCardDate(
-            `${String(d.getDate()).padStart(2, '0')}/${String(
-              d.getMonth() + 1
-            ).padStart(2, '0')}/${d.getFullYear()}`
-          )
+          setCardDate(formatDateShort(d))
           setSoapSubjective('—')
           setSoapObjective('—')
           setSoapAssessment('—')
@@ -959,7 +977,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
       const { data: holdRows } = await supabase
         .from('appointment_holds')
         .select(
-          'id, clinic_id, patient_id, box_id, held_by_call_id, status, start_time, end_time, hold_expires_at, notes, public_ref, summary_text, summary_json, suggested_service_id, service_catalog:suggested_service_id(name)'
+          'id, clinic_id, patient_id, box_id, held_by_call_id, status, start_time, end_time, hold_expires_at, notes, public_ref, summary_text, summary_json, suggested_service_id, service_catalog:suggested_service_id(name, category)'
         )
         .eq('patient_id', patientId)
         .order('start_time', { ascending: true })
@@ -995,7 +1013,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
       }
     }
     void load()
-  }, [patientId, supabase])
+  }, [formatDateShort, patientId, supabase])
   React.useEffect(() => {
     if (!activeHold) return
     const hold = activeHold
@@ -1025,7 +1043,8 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
           .filter((opt: any) => opt.id)
         const services = (servicesRes.data || []).map((s: any) => ({
           id: s.id,
-          name: s.name
+          name: s.name,
+          category: s.category ?? null
         }))
         setHoldOptions({ boxes, services, staff: staffOptions })
         setClinicBoxes((prev) => ({
@@ -1351,7 +1370,9 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
               id: String(r.id),
               name: r.file_name || 'archivo',
               path: r.storage_path || undefined,
-              date: new Date(r.created_at).toLocaleDateString(),
+              date: new Date(r.created_at).toLocaleDateString(DEFAULT_LOCALE, {
+                timeZone: DEFAULT_TIMEZONE
+              }),
               url
             }
           })
@@ -1449,19 +1470,44 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
     setIsConfirmingHold(true)
     try {
       const selectedBoxId = holdForm.boxId || hold.box_id || null
-      const selectedServiceId =
-        holdForm.serviceId ?? hold.suggested_service_id ?? null
+      const selectedServiceId = holdForm.serviceId ?? hold.suggested_service_id ?? null
       const notesToUse = holdForm.notes?.trim() || hold.notes || null
-      const selectedServiceName = selectedServiceId
-        ? holdOptions.services.find((s) => s.id === selectedServiceId)?.name ||
-          hold.service_catalog?.name ||
-          hold.summary_text ||
-          'Consulta'
-        : hold.service_catalog?.name ||
-          hold.summary_text ||
-          'Consulta'
-      const serviceName =
-        selectedServiceName || hold.service_catalog?.name || 'Consulta'
+      let selectedServiceMeta =
+        selectedServiceId != null
+          ? holdOptions.services.find((s) => s.id === selectedServiceId) ?? null
+          : null
+      if (selectedServiceId && !selectedServiceMeta) {
+        try {
+          const { data: svcMeta } = await supabase
+            .from('service_catalog')
+            .select('id, name, category')
+            .eq('id', selectedServiceId)
+            .maybeSingle()
+          if (svcMeta) {
+            selectedServiceMeta = {
+              id: selectedServiceId,
+              name: svcMeta.name,
+              category: svcMeta.category ?? null
+            }
+          }
+        } catch (svcError) {
+          console.warn('No se pudo cargar el servicio seleccionado', svcError)
+        }
+      }
+      const selectedServiceName =
+        selectedServiceMeta?.name ||
+        hold.service_catalog?.name ||
+        hold.summary_text ||
+        'Consulta'
+      const serviceName = selectedServiceName || hold.service_catalog?.name || 'Consulta'
+      const serviceTypeSnapshot =
+        selectedServiceMeta?.category ||
+        hold.service_catalog?.category ||
+        (typeof hold.summary_json?.service_type === 'string'
+          ? hold.summary_json?.service_type
+          : null) ||
+        selectedServiceName ||
+        'Consulta'
       const publicRef =
         hold.public_ref ?? `APPT-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
       await supabase
@@ -1484,12 +1530,12 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
           notes: notesToUse,
           source: 'manual',
           service_id: selectedServiceId,
-          service_type: serviceName,
+          service_type: serviceTypeSnapshot,
           public_ref: publicRef,
           source_hold_id: hold.id
         })
         .select(
-          'id, clinic_id, box_id, status, scheduled_start_time, scheduled_end_time, service_id, service_type, source, source_hold_id, public_ref, notes, service_catalog:service_id(name)'
+          'id, clinic_id, box_id, status, scheduled_start_time, scheduled_end_time, service_id, service_type, source, source_hold_id, public_ref, notes, service_catalog:service_id(name, category)'
         )
         .maybeSingle()
       if (error) {
@@ -1510,7 +1556,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
           scheduled_start_time: inserted.scheduled_start_time,
           scheduled_end_time: inserted.scheduled_end_time,
           service_id: inserted.service_id ?? selectedServiceId ?? null,
-          service_type: inserted.service_type,
+          service_type: inserted.service_type ?? serviceTypeSnapshot,
           source: inserted.source ?? 'manual',
           source_hold_id:
             inserted.source_hold_id == null
@@ -1531,21 +1577,55 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
               new Date(a.scheduled_start_time).getTime()
           )
         })
-        const staffAssignmentsToInsert = holdForm.staffAssignments.filter(
-          (assignment) => assignment.staffId
-        )
+        const staffAssignmentsToInsert = holdForm.staffAssignments
+          .map((assignment) => ({
+            staffId: assignment.staffId,
+            role: resolveAssignmentRole(assignment)
+          }))
+          .filter((assignment) => assignment.staffId)
         if (inserted.id && staffAssignmentsToInsert.length) {
+          const payload = staffAssignmentsToInsert.map((assignment) => ({
+            staff_id: assignment.staffId as string,
+            role: assignment.role
+          }))
+          const staffNameMap = new Map(
+            holdOptions.staff.map((staff) => [staff.id, staff.name])
+          )
+          let staffPersisted = false
           try {
-            await supabase.from('appointment_staff').insert(
-              staffAssignmentsToInsert.map((assignment) => ({
-                appointment_id: Number(inserted.id),
-                staff_id: assignment.staffId as string,
-                role_in_appointment: resolveAssignmentRole(assignment)
+            await supabase.rpc('assign_staff_to_appointment', {
+              appointment_id: Number(inserted.id),
+              assignments: payload
+            })
+            staffPersisted = true
+          } catch (staffError) {
+            console.error('Error asignando staff con RPC, aplicando respaldo', staffError)
+          }
+          if (!staffPersisted) {
+            try {
+              await supabase.from('appointment_staff').upsert(
+                payload.map((assignment) => ({
+                  appointment_id: Number(inserted.id),
+                  staff_id: assignment.staff_id,
+                  role_in_appointment: assignment.role
+                }))
+              )
+              staffPersisted = true
+            } catch (fallbackError) {
+              console.error('No se pudo asignar staff tras confirmar la cita', fallbackError)
+            }
+          }
+          if (staffPersisted) {
+            setStaffList(
+              payload.map((assignment) => ({
+                id: assignment.staff_id,
+                name: staffNameMap.get(assignment.staff_id) ?? assignment.staff_id,
+                role: assignment.role ?? null
               }))
             )
-          } catch (staffError) {
-            console.error('Error asignando staff a la cita', staffError)
           }
+        } else {
+          setStaffList([])
         }
         setHolds((prev) => prev.filter((h) => h.id !== hold.id))
         setActiveHold(null)
@@ -1576,7 +1656,16 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
     } finally {
       setIsConfirmingHold(false)
     }
-  }, [activeHold, filter, formatDateShort, pickByFilter, supabase, holdForm, holdOptions.services])
+  }, [
+    activeHold,
+    filter,
+    formatDateShort,
+    pickByFilter,
+    supabase,
+    holdForm,
+    holdOptions.services,
+    holdOptions.staff
+  ])
   return (
     <div
       className='bg-neutral-50 relative w-full max-w-[74.75rem] h-full min-h-[56.25rem] overflow-hidden'
@@ -1673,8 +1762,11 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
       </div>
 
       {/* Timeline cards left (selectable) */}
-      <div className='absolute top-[inherit] w-[19.625rem]' style={{ left: 'calc(6.25% + 10.25px)', top: '12.75rem' }}>
-        <div className='flex flex-col gap-[1rem]'>
+      <div
+        className='absolute w-[19.625rem] overflow-y-auto pr-4'
+        style={{ left: 'calc(6.25% + 10.25px)', top: '12.75rem', bottom: 'var(--spacing-plnav)' }}
+      >
+        <div className='flex flex-col gap-[1rem] pb-8'>
           {(() => {
             const timelineNow = Date.now()
             return timelineEntries.map((entry, index) => {
@@ -1705,6 +1797,11 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                 const ref = appt.public_ref ? ` · ${appt.public_ref}` : ''
                 const title = `${service}${ref}`
                 const dateStr = formatDateShort(startDate)
+                const appointmentTime = formatTimeLabel(
+                  appt.scheduled_start_time,
+                  appt.scheduled_end_time ?? null
+                )
+                const statusLabel = humanize(appt.status)
                 const isSelected = !activeHold && String(appt.id) === activeAppointmentId
                 return (
                   <div key={entryKey} className='flex items-stretch gap-4'>
@@ -1733,11 +1830,11 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                         lines={[
                           {
                             icon: <CalendarMonthRounded className='size-6 text-neutral-700' />,
-                            text: dateStr
+                            text: `${dateStr} · ${appointmentTime}`
                           },
                           {
                             icon: <PlaceRounded className='size-6 text-neutral-700' />,
-                            text: 'KlinikOS'
+                            text: `Estado: ${statusLabel}`
                           }
                         ]}
                       />
@@ -2031,9 +2128,9 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                     setIsEditOpen(false)
                     const { data: ap } = await supabase
                       .from('appointments')
-                      .select(
-                        'id, clinic_id, box_id, status, scheduled_start_time, scheduled_end_time, service_id, service_type, source, source_hold_id, public_ref, notes, service_catalog:service_id(name)'
-                      )
+        .select(
+          'id, clinic_id, box_id, status, scheduled_start_time, scheduled_end_time, service_id, service_type, source, source_hold_id, public_ref, notes, service_catalog:service_id(name, category)'
+        )
                       .eq('patient_id', patientId)
                       .order('scheduled_start_time', { ascending: false })
                       .limit(10)

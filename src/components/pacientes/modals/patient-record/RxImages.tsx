@@ -3,6 +3,7 @@ import CloseRounded from '@mui/icons-material/CloseRounded'
 import AddPhotoAlternateRounded from '@mui/icons-material/AddPhotoAlternateRounded'
 import ImageRounded from '@mui/icons-material/ImageRounded'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
 import { uploadPatientFile, getSignedUrl } from '@/lib/storage'
 
 type RxImagesProps = {
@@ -42,7 +43,9 @@ export default function RxImages({ onClose, patientId }: RxImagesProps) {
             return {
               id: String(r.id),
               title: r.file_name ?? 'Radiografía',
-              date: new Date(r.created_at).toLocaleDateString(),
+              date: new Date(r.created_at).toLocaleDateString(DEFAULT_LOCALE, {
+                timeZone: DEFAULT_TIMEZONE
+              }),
               storage_path: r.storage_path ?? undefined,
               signedUrl
             }
@@ -141,7 +144,9 @@ export default function RxImages({ onClose, patientId }: RxImagesProps) {
                   {
                     id: `new-${Date.now()}`,
                     title: f.name,
-                    date: d.toLocaleDateString(),
+                    date: d.toLocaleDateString(DEFAULT_LOCALE, {
+                      timeZone: DEFAULT_TIMEZONE
+                    }),
                     storage_path: path,
                     signedUrl
                   },
