@@ -14,7 +14,7 @@ export default function Layout({ children }: LayoutProps) {
     {
       id: 'agenda',
       label: 'Agenda',
-      href: '/',
+      href: '/agenda',
       icon: <CalendarMonthRounded />
     },
     { id: 'caja', label: 'Caja', href: '/caja', icon: <SellRounded /> },

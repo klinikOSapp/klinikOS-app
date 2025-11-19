@@ -262,7 +262,14 @@ export default {
         'card-chart': 'var(--height-card-chart)', // 393.3px (+15%) - cards con gráficos (fijo)
         'card-stat-fluid': 'var(--height-card-stat-fluid)', // Altura fluid reducida 20% (≈130px base)
         'card-chart-fluid': 'var(--height-card-chart-fluid)', // 294.4px → 393.3px (+15%) (fluido)
-        'income-card': 'var(--height-income-card)' // 100px - tarjeta Tipos de ingreso
+        'income-card': 'var(--height-income-card)', // 100px - tarjeta Tipos de ingreso
+        'scheduler-grid': 'var(--scheduler-height)',
+        'scheduler-toolbar': 'var(--scheduler-toolbar-height)',
+        'scheduler-box': 'var(--scheduler-box-height)',
+        'scheduler-slot': 'var(--scheduler-slot-height)',
+        'scheduler-event-sm': 'var(--scheduler-event-height-sm)',
+        'scheduler-event-lg': 'var(--scheduler-event-height-lg)',
+        'scheduler-overlay': 'var(--scheduler-overlay-height)'
       },
       width: {
         'card-stat': 'var(--width-card-stat)', // 523px - ancho card estadística (fijo)
@@ -271,7 +278,16 @@ export default {
         'card-stat-fluid': 'var(--width-card-stat-fluid)', // 320px → 523px (fluido)
         'card-chart-lg-fluid': 'var(--width-card-chart-lg-fluid)', // 640px → 1069px (fluido)
         'card-chart-md-fluid': 'var(--width-card-chart-md-fluid)', // 320px → 529px (fluido)
-        'income-card': 'var(--width-income-card)' // 156px - tarjeta Tipos de ingreso
+        'income-card': 'var(--width-income-card)', // 156px - tarjeta Tipos de ingreso
+        'scheduler-grid': 'var(--scheduler-width)',
+        'scheduler-time': 'var(--scheduler-time-width)',
+        'scheduler-label': 'var(--scheduler-label-width)',
+        'scheduler-header-first': 'var(--scheduler-header-width-first)',
+        'scheduler-header': 'var(--scheduler-header-width)',
+        'scheduler-day-first': 'var(--scheduler-day-width-first)',
+        'scheduler-day': 'var(--scheduler-day-width)',
+        'scheduler-event': 'var(--scheduler-event-width)',
+        'scheduler-overlay': 'var(--scheduler-overlay-width)'
       }
     }
   }

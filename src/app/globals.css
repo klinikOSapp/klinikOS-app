@@ -326,6 +326,96 @@
     rgba(199, 210, 255, 1) 100%
   );
 
+  /* Scheduler (agenda weekly view) */
+  --scheduler-width: 104rem; /* 1664px - reference only */
+  --scheduler-height: 63.5rem; /* 1016px */
+  --scheduler-toolbar-height: 4.5rem; /* 72px */
+  --scheduler-day-header-height: 4.5rem; /* 72px */
+  --scheduler-body-offset-y: 9rem; /* toolbar + header = 144px */
+  --scheduler-box-height: 27.25rem; /* 436px */
+  --scheduler-time-width: 5rem; /* 80px */
+  --scheduler-label-width: 4.9375rem; /* 79px */
+  --scheduler-label-left: 0.0625rem; /* 1px divider */
+
+  /* Fluid percentages - adapt to container width */
+  --scheduler-header-width-first: 18.75%; /* 312/1664 */
+  --scheduler-header-width: 13.52%; /* 225/1664 */
+  --scheduler-day-width-first: 13.64%; /* 227/1664 */
+  --scheduler-day-width: 13.52%; /* 225/1664 */
+  --scheduler-day-left-mon: 4.81%; /* 80/1664 */
+  --scheduler-day-left-tue: 18.45%; /* 307/1664 */
+  --scheduler-day-left-wed: 31.97%; /* 532/1664 */
+  --scheduler-day-left-thu: 45.61%; /* 759/1664 */
+  --scheduler-day-left-fri: 59.13%; /* 984/1664 */
+  --scheduler-day-left-sat: 72.78%; /* 1211/1664 */
+  --scheduler-day-left-sun: 86.30%; /* 1436/1664 */
+  --scheduler-header-left-mon: 0%; /* 0/1664 */
+  --scheduler-header-left-tue: 18.75%; /* 312/1664 */
+  --scheduler-header-left-wed: 32.27%; /* 537/1664 */
+  --scheduler-header-left-thu: 45.79%; /* 762/1664 */
+  --scheduler-header-left-fri: 59.31%; /* 987/1664 */
+  --scheduler-header-left-sat: 72.84%; /* 1212/1664 */
+  --scheduler-header-left-sun: 86.36%; /* 1437/1664 */
+  --scheduler-box-top-second: 27.25rem; /* 436px */
+  --scheduler-slot-height: 7.785625rem; /* 124.57px */
+  /* Event card sizing - relative to column (227px reference) */
+  --scheduler-event-width: 92.95%; /* 211px/227px from Figma */
+  --scheduler-event-left-offset: 3.52%; /* 8px/227px from Figma */
+  --scheduler-event-padding: 0.5rem; /* 8px internal padding from Figma */
+  --scheduler-event-height-sm: 4rem; /* 64px - single-line content with ellipsis */
+  --scheduler-event-height-lg: 4.5rem; /* 72px - single-line content with more padding */
+  --scheduler-event-gap: 0.5rem; /* 8px vertical gap from Figma */
+  --scheduler-overlay-width: 24.5rem; /* 392px from Figma */
+  --scheduler-overlay-height: 33.25rem; /* 532px from Figma */
+  --scheduler-overlay-offset-x: 33.5625rem; /* 537px */
+  --scheduler-overlay-offset-y: 10.4375rem; /* 167px */
+  --scheduler-grid-gutter: 2.5rem; /* 40px lateral */
+  --scheduler-overlay-header-pad-x: 1rem; /* 16px from Figma */
+  --scheduler-overlay-header-pad-y: 0.5rem; /* 8px from Figma */
+  --scheduler-overlay-body-pad-x: 1rem; /* 16px from Figma */
+  --scheduler-overlay-body-pad-top: 1rem; /* 16px from Figma */
+  --scheduler-overlay-body-pad-bottom: 1rem; /* 16px from Figma */
+  --scheduler-overlay-section-gap: 1.5rem; /* 24px entre bloques from Figma */
+  --scheduler-overlay-icon-gap: 0.25rem; /* 4px from Figma */
+  --scheduler-overlay-icon-size: 1rem; /* 16px from Figma */
+  --scheduler-overlay-label-gap: 0.25rem; /* 4px entre icono y etiqueta */
+  --scheduler-overlay-value-gap: 1.5rem; /* 24px entre etiqueta y valor from Figma */
+  --scheduler-overlay-contact-gap: 0.5rem; /* 8px para phone/email from Figma */
+  --scheduler-overlay-avatar-size: 2rem; /* 32px from Figma */
+  --scheduler-overlay-avatar-color: var(--color-neutral-700);
+  --scheduler-overlay-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  /* Month calendar (vista mensual) - Figma exact values */
+  --month-row-height: 10.925rem; /* 174.8px from Figma */
+  --month-cell-padding-top: 1rem; /* 16px from Figma */
+  --month-event-width: 13.1875rem; /* 211px from Figma */
+  --month-event-height: 2.25rem; /* 36px from Figma */
+  --month-event-top: 3.875rem; /* 62px from Figma */
+  --month-event-left: 0.8575rem; /* 13.72px average from Figma */
+  --month-event-padding: 0.5rem; /* 8px from Figma */
+  --month-event-radius: 0.5rem; /* 8px from Figma */
+  --color-event-purple: #f1e9fb; /* Purple event background */
+  --color-event-teal: #e9fbf9; /* Teal event background */
+  --color-event-coral: #fbe9e9; /* Coral event background */
+
+  /* Day calendar (vista diaria) - Figma exact values */
+  --day-time-column-width: 5.5rem; /* 88px from Figma */
+  --day-box-column-width: 32.833125rem; /* 525.33px from Figma */
+  --day-event-width: 31.0625rem; /* 497px from Figma */
+  --day-event-height: 2.25rem; /* 36px from Figma */
+  --day-event-left: 0.875rem; /* 14px from Figma */
+  --day-event-padding: 0.5rem; /* 8px from Figma */
+  --day-event-radius: 0.5rem; /* 8px from Figma */
+  --day-segmented-width: 17.625rem; /* 282px from Figma */
+  --day-segmented-height: 2.5rem; /* 40px from Figma */
+  --day-segmented-radius: 0.25rem; /* 4px from Figma */
+  --day-segmented-padding-x: 0.75rem; /* 12px from Figma */
+  --day-segmented-padding-y: 0.5rem; /* 8px from Figma */
+  --day-segmented-gap: 0.625rem; /* 10px from Figma */
+  --day-segmented-btn1-width: 8.0625rem; /* 129px from Figma */
+  --day-segmented-btn2-width: 5.3125rem; /* 85px from Figma */
+  --day-segmented-btn3-width: 4.25rem; /* 68px from Figma */
+
   /* Aliases semánticos propuestos */
   --color-surface-overlay: rgba(248, 250, 251, 0.8);
   --color-border-default: var(--color-neutral-300);
