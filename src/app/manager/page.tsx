@@ -10,6 +10,14 @@ import TimelineRounded from '@mui/icons-material/TimelineRounded'
 import { useRouter } from 'next/navigation'
 import React from 'react'
 
+type VoiceCallStatus =
+  | 'booked'
+  | 'hold'
+  | 'rescheduled'
+  | 'cancelled'
+  | 'faq'
+  | 'not_booked'
+
 type VoiceCallRow = {
   eventId: number
   callRowId: number
@@ -22,13 +30,23 @@ type VoiceCallRow = {
   patientId?: string | null
   patientName: string
   patientPhone: string
+  callReason?: string | null
   durationSeconds: number
   summary: string
   transcript: string
   recordingUrl?: string | null
-  status: 'booked' | 'not_booked'
+  status: VoiceCallStatus
   appointmentRef?: string | null
   appointmentId?: number
+  appointmentStatus?: string | null
+  holdInfo?: {
+    id: number
+    publicRef?: string | null
+    status: string
+    expiresAt?: string | null
+    startTime?: string | null
+    endTime?: string | null
+  } | null
   agentName: string
   callStatus: string
 }
@@ -72,6 +90,8 @@ function extractSummary(payload: any, intentSummary: any): string {
   const candidates = [
     payload?.call?.analysis?.summary,
     payload?.call?.call_summary,
+    payload?.call?.call_analysis?.call_summary,
+    payload?.call?.call_analysis?.custom_analysis_data?.call_summary,
     payload?.analysis?.summary,
     payload?.call?.summary,
     typeof intentSummary === 'string' ? intentSummary : null,
@@ -95,6 +115,8 @@ function extractTranscript(payload: any): string {
 
 function extractPatientName(payload: any) {
   return (
+    payload?.call?.call_analysis?.custom_analysis_data?.full_name ||
+    payload?.call?.call_analysis?.custom_analysis_data?.patient_name ||
     payload?.call?.retell_llm_dynamic_variables?.name ||
     payload?.call?.collected_dynamic_variables?.patient_name ||
     'Paciente sin nombre'
@@ -108,6 +130,52 @@ function extractPhone(payload: any) {
     payload?.call?.from_number ||
     '—'
   )
+}
+
+function extractCallReason(payload: any) {
+  return (
+    payload?.call?.call_analysis?.custom_analysis_data?.call_reason ||
+    payload?.call?.call_reason ||
+    payload?.call_reason ||
+    payload?.call?.retell_llm_dynamic_variables?.call_reason ||
+    null
+  )
+}
+
+const STATUS_META: Record<
+  VoiceCallStatus,
+  { label: string; badgeClass: string; detailDescription: string }
+> = {
+  booked: {
+    label: 'Appointment booked',
+    badgeClass: 'bg-emerald-50 text-emerald-700',
+    detailDescription: 'La llamada generó una cita confirmada.'
+  },
+  hold: {
+    label: 'Hold creado',
+    badgeClass: 'bg-sky-50 text-sky-700',
+    detailDescription: 'Se reservó un horario pendiente de confirmación.'
+  },
+  rescheduled: {
+    label: 'Reprogramación',
+    badgeClass: 'bg-indigo-50 text-indigo-700',
+    detailDescription: 'La llamada gestionó un cambio de horario.'
+  },
+  cancelled: {
+    label: 'Cancelación',
+    badgeClass: 'bg-rose-50 text-rose-700',
+    detailDescription: 'La llamada canceló una cita existente.'
+  },
+  faq: {
+    label: 'Consulta / FAQ',
+    badgeClass: 'bg-purple-50 text-purple-700',
+    detailDescription: 'La llamada fue informativa.'
+  },
+  not_booked: {
+    label: 'Sin cita',
+    badgeClass: 'bg-amber-50 text-amber-700',
+    detailDescription: 'La llamada no generó una acción en la agenda.'
+  }
 }
 
 export default function ManagerPage() {
@@ -163,7 +231,7 @@ export default function ManagerPage() {
       new Set((callRows ?? []).map((c) => c.patient_id).filter(Boolean))
     )
 
-    const [clinicsRes, patientsRes, appointmentsRes] = await Promise.all([
+    const [clinicsRes, patientsRes, appointmentsRes, holdsRes] = await Promise.all([
       clinicIds.length
         ? supabase.from('clinics').select('id, name').in('id', clinicIds)
         : Promise.resolve({ data: [], error: null }),
@@ -176,12 +244,19 @@ export default function ManagerPage() {
       supabase
         .from('appointments')
         .select('id, public_ref, created_by_call_id, scheduled_start_time, status')
-        .in('created_by_call_id', callIds)
+        .in('created_by_call_id', callIds),
+      supabase
+        .from('appointment_holds')
+        .select(
+          'id, public_ref, status, held_by_call_id, hold_expires_at, start_time, end_time'
+        )
+        .in('held_by_call_id', callIds)
     ])
 
     if (clinicsRes.error) throw clinicsRes.error
     if (patientsRes.error) throw patientsRes.error
     if (appointmentsRes.error) throw appointmentsRes.error
+    if (holdsRes.error) throw holdsRes.error
 
     const callMap = new Map((callRows ?? []).map((row) => [row.id, row]))
     const clinicsMap = new Map(
@@ -194,6 +269,12 @@ export default function ManagerPage() {
     for (const appt of appointmentsRes.data ?? []) {
       if (appt.created_by_call_id) {
         appointmentMap.set(appt.created_by_call_id, appt)
+      }
+    }
+    const holdMap = new Map<number, (typeof holdsRes.data)[number]>()
+    for (const hold of holdsRes.data ?? []) {
+      if (hold.held_by_call_id) {
+        holdMap.set(hold.held_by_call_id, hold)
       }
     }
 
@@ -210,6 +291,8 @@ export default function ManagerPage() {
           null
         const patient = patientsMap.get(callRecord.patient_id ?? '')
         const appointment = appointmentMap.get(callId) ?? null
+        const hold = holdMap.get(callId) ?? null
+        const callReason = extractCallReason(payload)
         const patientName = patient
           ? [patient.first_name, patient.last_name].filter(Boolean).join(' ')
           : extractPatientName(payload)
@@ -222,7 +305,30 @@ export default function ManagerPage() {
         const summary = extractSummary(payload, callRecord.intent_summary)
         const transcript = extractTranscript(payload)
         const recordingUrl = callRecord.recording_url ?? payload?.call?.recording_url
-        const status = appointment ? 'booked' : 'not_booked'
+        const reasonText = callReason?.toLowerCase() ?? ''
+        const callSuccess =
+          payload?.call?.call_analysis?.call_successful ??
+          payload?.call?.call_analysis?.custom_analysis_data?.call_successful ??
+          null
+        let status: VoiceCallStatus = 'not_booked'
+        if (appointment) {
+          status = 'booked'
+        } else if (hold) {
+          status = 'hold'
+        } else if (reasonText.includes('resched')) {
+          status = 'rescheduled'
+        } else if (reasonText.includes('cancel')) {
+          status = 'cancelled'
+        } else if (
+          reasonText.includes('faq') ||
+          reasonText.includes('question') ||
+          reasonText.includes('consulta') ||
+          reasonText.includes('info')
+        ) {
+          status = 'faq'
+        } else if (callSuccess && reasonText.includes('book')) {
+          status = 'hold'
+        }
         const callStatus =
           callRecord.status || payload?.call?.call_status || eventRow.event_type || 'unknown'
 
@@ -238,13 +344,25 @@ export default function ManagerPage() {
           patientId: patient?.id,
           patientName,
           patientPhone,
+          callReason,
           durationSeconds: Number.isFinite(durationSeconds) ? durationSeconds : 0,
           summary,
           transcript,
           recordingUrl,
           status,
-          appointmentRef: appointment?.public_ref,
+          appointmentRef: appointment?.public_ref ?? hold?.public_ref ?? null,
           appointmentId: appointment?.id,
+          appointmentStatus: appointment?.status ?? null,
+          holdInfo: hold
+            ? {
+                id: hold.id,
+                publicRef: hold.public_ref,
+                status: hold.status,
+                expiresAt: hold.hold_expires_at,
+                startTime: hold.start_time,
+                endTime: hold.end_time
+              }
+            : null,
           agentName,
           callStatus
         } as VoiceCallRow
@@ -318,6 +436,7 @@ export default function ManagerPage() {
             call.patientPhone,
             call.clinicName,
             call.agentName,
+            call.callReason ?? '',
             call.payloadCallId ?? '',
             call.externalCallId ?? ''
           ]
@@ -327,7 +446,7 @@ export default function ManagerPage() {
       const matchesClinic =
         filters.clinic === 'all' || call.clinicId === filters.clinic
       const matchesStatus =
-        filters.status === 'all' || call.status === (filters.status as VoiceCallRow['status'])
+        filters.status === 'all' || call.status === (filters.status as VoiceCallStatus)
       const matchesEvent =
         filters.eventType === 'all' || call.eventType === filters.eventType
       const matchesAgent =
@@ -337,8 +456,19 @@ export default function ManagerPage() {
   }, [calls, filters, searchTerm])
 
   const totals = React.useMemo(() => {
-    const booked = calls.filter((call) => call.status === 'booked').length
-    const notBooked = calls.length - booked
+    const counts: Record<VoiceCallStatus, number> = {
+      booked: 0,
+      hold: 0,
+      rescheduled: 0,
+      cancelled: 0,
+      faq: 0,
+      not_booked: 0
+    }
+    for (const call of calls) {
+      counts[call.status] += 1
+    }
+    const booked = counts.booked + counts.hold + counts.rescheduled
+    const notBooked = counts.not_booked + counts.cancelled + counts.faq
     const avgDuration =
       calls.length > 0
         ? calls.reduce((sum, call) => sum + call.durationSeconds, 0) / calls.length
@@ -428,6 +558,7 @@ export default function ManagerPage() {
               <th className='px-4 py-3'>Fecha</th>
               <th className='px-4 py-3'>Clínica</th>
               <th className='px-4 py-3'>Paciente</th>
+              <th className='px-4 py-3'>Motivo</th>
               <th className='px-4 py-3'>Teléfono</th>
               <th className='px-4 py-3'>Duración</th>
               <th className='px-4 py-3'>Resumen</th>
@@ -459,6 +590,15 @@ export default function ManagerPage() {
                   <div className='text-xs text-neutral-500'>
                     ID llamada: {call.payloadCallId ?? call.externalCallId ?? '—'}
                   </div>
+                </td>
+                <td className='px-4 py-3 align-top'>
+                  {call.callReason ? (
+                    <span className='inline-flex rounded-full bg-neutral-100 px-2 py-1 text-xs font-medium text-neutral-700'>
+                      {call.callReason}
+                    </span>
+                  ) : (
+                    <span className='text-sm text-neutral-500'>—</span>
+                  )}
                 </td>
                 <td className='px-4 py-3 align-top'>{call.patientPhone}</td>
                 <td className='px-4 py-3 align-top'>{formatDuration(call.durationSeconds)}</td>
@@ -700,8 +840,9 @@ function CallDetailsModal({
             <DetailField label='Duración' value={formatDuration(call.durationSeconds)} />
             <DetailField
               label='Estado'
-              value={call.status === 'booked' ? 'Appointment booked' : 'Appointment not booked'}
+              value={STATUS_META[call.status].label}
             />
+            <DetailField label='Motivo' value={call.callReason ?? '—'} />
           </div>
           <section className='rounded-xl border border-neutral-200 bg-neutral-50 p-4'>
             <h3 className='text-base font-semibold text-neutral-900'>Resumen</h3>
@@ -713,6 +854,36 @@ function CallDetailsModal({
               {call.transcript}
             </p>
           </section>
+          {call.holdInfo ? (
+            <section className='rounded-xl border border-neutral-200 bg-neutral-50 p-4'>
+              <h3 className='text-base font-semibold text-neutral-900'>Hold asociado</h3>
+              <div className='mt-2 grid gap-4 sm:grid-cols-2'>
+                <DetailField
+                  label='Referencia'
+                  value={call.holdInfo.publicRef ?? `Hold #${call.holdInfo.id}`}
+                />
+                <DetailField label='Estado' value={call.holdInfo.status} />
+                {call.holdInfo.startTime ? (
+                  <DetailField
+                    label='Inicio'
+                    value={new Date(call.holdInfo.startTime).toLocaleString('es-ES')}
+                  />
+                ) : null}
+                {call.holdInfo.endTime ? (
+                  <DetailField
+                    label='Fin'
+                    value={new Date(call.holdInfo.endTime).toLocaleString('es-ES')}
+                  />
+                ) : null}
+                {call.holdInfo.expiresAt ? (
+                  <DetailField
+                    label='Expira'
+                    value={new Date(call.holdInfo.expiresAt).toLocaleString('es-ES')}
+                  />
+                ) : null}
+              </div>
+            </section>
+          ) : null}
           {call.recordingUrl ? (
             <section className='rounded-xl border border-neutral-200 bg-neutral-50 p-4'>
               <h3 className='text-base font-semibold text-neutral-900'>Escuchar llamada</h3>
