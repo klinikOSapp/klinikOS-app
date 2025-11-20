@@ -1,5 +1,13 @@
 'use client'
 
+import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
+import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
+import MonitorHeartRounded from '@mui/icons-material/MonitorHeartRounded'
+import { useState } from 'react'
+
+import AppointmentDetailOverlay from './AppointmentDetailOverlay'
+import type { EventDetail } from './types'
+
 const TIME_LABELS = [
   '9:00',
   '9:30',
@@ -37,7 +45,14 @@ type DayEvent = {
   label: string
   top: string
   bgColor: string
+  detail?: EventDetail
+  box?: string
 }
+
+type DayEventSelection = {
+  event: DayEvent
+  boxId: string
+} | null
 
 type BoxColumn = {
   id: string
@@ -47,6 +62,28 @@ type BoxColumn = {
 type TimeSlot = {
   time: string
   boxes: BoxColumn[]
+}
+
+// Helper function to create event details
+function createEventDetail(title: string, box: string): EventDetail {
+  return {
+    title,
+    date: 'Lunes, 20 de Noviembre 2025',
+    duration: '12:30 - 13:00 (30 minutos)',
+    patientFull: 'Juan Pérez González',
+    patientPhone: '+34 666 777 888',
+    patientEmail: 'juan.perez@gmail.com',
+    referredBy: 'Familiar de Xus',
+    professional: 'Nombre apellidos',
+    economicAmount: '100 €',
+    economicStatus: 'Pendiente de pago',
+    notes: 'Primera limpieza del paciente',
+    locationLabel: 'Fecha y ubicación',
+    patientLabel: 'Paciente',
+    professionalLabel: 'Profesional',
+    economicLabel: 'Económico',
+    notesLabel: 'Notas'
+  }
 }
 
 // Datos de ejemplo basados en Figma
@@ -59,9 +96,11 @@ const TIME_SLOTS: TimeSlot[] = [
         events: [
           {
             id: 'e1',
-            label: '13:00 Consulta médica',
+            label: '9:30 Consulta médica',
             top: '3.9375rem', // 63px
-            bgColor: 'var(--color-event-coral)'
+            bgColor: 'var(--color-event-coral)',
+            detail: createEventDetail('9:30 Consulta médica', 'Box 1'),
+            box: 'Box 1'
           }
         ]
       },
@@ -355,7 +394,7 @@ const TIME_SLOTS: TimeSlot[] = [
   }
 ]
 
-function TimeColumn() {
+function TimeColumn({ timeLabels }: { timeLabels: string[] }) {
   return (
     <div
       className='absolute left-0 flex flex-col bg-[var(--color-neutral-100)]'
@@ -365,7 +404,7 @@ function TimeColumn() {
         height: 'calc(100% - var(--scheduler-day-header-height))'
       }}
     >
-      {TIME_LABELS.map((time, index) => (
+      {timeLabels.map((time, index) => (
         <div
           key={index}
           className='flex flex-1 items-center justify-center border-b border-r border-[var(--color-border-default)] p-2'
@@ -382,26 +421,28 @@ function TimeColumn() {
 function BoxHeaders() {
   return (
     <div
-      className='absolute left-0 flex w-full border-b border-[var(--color-border-default)] bg-[var(--color-neutral-50)]'
-      style={{
-        top: 0,
-        height: 'var(--scheduler-day-header-height)'
-      }}
+      className='sticky top-0 z-20 flex w-full border-b border-[var(--color-border-default)] bg-[var(--color-neutral-50)]'
+      style={{ height: 'var(--scheduler-day-header-height)' }}
     >
+      <div
+        className='flex items-center justify-center border-r border-[var(--color-border-default)] bg-[var(--color-neutral-100)] px-2'
+        style={{ width: 'var(--day-time-column-width)' }}
+      >
+        <p className='text-label-md font-medium uppercase tracking-[0.08em] text-[var(--color-neutral-600)]'>
+          Box
+        </p>
+      </div>
       {BOX_HEADERS.map((box, index) => (
         <div
           key={index}
-          className={[
-            'flex flex-1 items-center justify-center p-2',
-            index === 0 ? 'pl-[var(--day-time-column-width)]' : ''
-          ].join(' ')}
+          className='flex flex-1 items-center justify-center px-3'
         >
           <p
             className={[
-              'text-body-md text-center',
+              'text-body-md text-center font-medium',
               box.tone === 'neutral'
-                ? 'font-normal text-[var(--color-neutral-600)]'
-                : 'font-normal text-[var(--color-neutral-900)]'
+                ? 'text-[var(--color-neutral-600)]'
+                : 'text-[var(--color-neutral-900)]'
             ].join(' ')}
           >
             {box.label}
@@ -412,10 +453,48 @@ function BoxHeaders() {
   )
 }
 
-function DayEvent({ event }: { event: DayEvent }) {
+function DayEvent({
+  event,
+  onHover,
+  onLeave,
+  onActivate,
+  isActive,
+  isHovered
+}: {
+  event: DayEvent
+  onHover: () => void
+  onLeave: () => void
+  onActivate: () => void
+  isActive?: boolean
+  isHovered?: boolean
+}) {
+  const stateClasses = isActive
+    ? 'border-2 border-[var(--color-brand-500)] shadow-[0px_4px_12px_rgba(81,214,199,0.35)]'
+    : isHovered
+    ? 'border-2 border-[var(--color-brand-300)]'
+    : 'border-2 border-transparent'
+
   return (
-    <div
-      className='flex items-center justify-center rounded-[var(--day-event-radius)] p-[var(--day-event-padding)] text-body-sm font-normal text-[var(--color-neutral-900)]'
+    <button
+      type='button'
+      onMouseEnter={onHover}
+      onMouseLeave={onLeave}
+      onFocus={onHover}
+      onBlur={onLeave}
+      onClick={(e) => {
+        e.stopPropagation()
+        onActivate()
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onActivate()
+        }
+      }}
+      className={[
+        'flex items-center justify-center rounded-[var(--day-event-radius)] p-[var(--day-event-padding)] text-body-sm font-normal text-[var(--color-neutral-900)] transition-all duration-150',
+        stateClasses
+      ].join(' ')}
       style={{
         position: 'absolute',
         top: event.top,
@@ -426,31 +505,85 @@ function DayEvent({ event }: { event: DayEvent }) {
       }}
     >
       <p className='truncate text-center'>{event.label}</p>
-    </div>
+    </button>
   )
 }
 
-function BoxColumn({ column }: { column: BoxColumn }) {
+function BoxColumn({
+  column,
+  onHover,
+  onActivate,
+  activeId,
+  hoveredId
+}: {
+  column: BoxColumn
+  onHover: (selection: DayEventSelection) => void
+  onActivate: (selection: DayEventSelection) => void
+  activeId?: string | null
+  hoveredId?: string | null
+}) {
   return (
     <div className='relative flex-1 overflow-hidden border-b border-r border-[var(--color-border-default)] bg-[var(--color-neutral-0)]'>
       {column.events.map((event) => (
-        <DayEvent key={event.id} event={event} />
+        <DayEvent
+          key={event.id}
+          event={event}
+          onHover={() => onHover({ event, boxId: column.id })}
+          onLeave={() => onHover(null)}
+          onActivate={() => onActivate({ event, boxId: column.id })}
+          isActive={activeId === event.id}
+          isHovered={hoveredId === event.id && activeId !== event.id}
+        />
       ))}
     </div>
   )
 }
 
-function TimeSlotRow({ slot }: { slot: TimeSlot }) {
+function TimeSlotRow({
+  slot,
+  onHover,
+  onActivate,
+  activeId,
+  hoveredId
+}: {
+  slot: TimeSlot
+  onHover: (selection: DayEventSelection) => void
+  onActivate: (selection: DayEventSelection) => void
+  activeId?: string | null
+  hoveredId?: string | null
+}) {
   return (
     <div className='flex flex-1'>
       {slot.boxes.map((box) => (
-        <BoxColumn key={box.id} column={box} />
+        <BoxColumn
+          key={box.id}
+          column={box}
+          onHover={onHover}
+          onActivate={onActivate}
+          activeId={activeId}
+          hoveredId={hoveredId}
+        />
       ))}
     </div>
   )
 }
 
-function DayGrid() {
+function DayGrid({
+  timeLabels,
+  onHover,
+  onActivate,
+  activeId,
+  hoveredId
+}: {
+  timeLabels: string[]
+  onHover: (selection: DayEventSelection) => void
+  onActivate: (selection: DayEventSelection) => void
+  activeId?: string | null
+  hoveredId?: string | null
+}) {
+  // Filtrar slots según los horarios visibles
+  const filteredSlots = TIME_SLOTS.filter((slot) => timeLabels.includes(slot.time))
+
   return (
     <div
       className='absolute flex w-full flex-col'
@@ -461,22 +594,187 @@ function DayGrid() {
         height: 'calc(100% - var(--scheduler-day-header-height))'
       }}
     >
-      {TIME_SLOTS.map((slot, index) => (
-        <TimeSlotRow key={index} slot={slot} />
+      {filteredSlots.map((slot, index) => (
+        <TimeSlotRow
+          key={index}
+          slot={slot}
+          onHover={onHover}
+          onActivate={onActivate}
+          activeId={activeId}
+          hoveredId={hoveredId}
+        />
       ))}
     </div>
   )
 }
 
-export default function DayCalendar() {
-  // Calcular altura total: 23 slots × 62.285px = 1432.555px → 89.5rem
-  const totalHeight = `calc(${TIME_LABELS.length} * var(--scheduler-slot-height-half) + var(--scheduler-day-header-height))`
+type DayPeriod = 'full' | 'morning' | 'afternoon'
+
+interface DayCalendarProps {
+  period?: DayPeriod
+}
+
+export default function DayCalendar({ period = 'full' }: DayCalendarProps) {
+  const [hovered, setHovered] = useState<DayEventSelection>(null)
+  const [active, setActive] = useState<DayEventSelection>(null)
+
+  const handleHover = (state: DayEventSelection) => {
+    setHovered(state)
+  }
+
+  const handleActivate = (state: DayEventSelection) => {
+    if (!state) return
+    const isSame = active?.event.id === state.event.id
+    setActive(isSame ? null : state)
+    setHovered(isSame ? null : state)
+  }
+
+  const handleRootClick = () => {
+    setActive(null)
+  }
+
+  // Filtrar horarios según el período seleccionado
+  const getFilteredTimeLabels = () => {
+    if (period === 'morning') {
+      // Mañana: 9:00 - 12:00 (incluye 12:00)
+      return TIME_LABELS.filter((time) => {
+        const hour = parseInt(time.split(':')[0])
+        return hour >= 9 && hour <= 12
+      })
+    } else if (period === 'afternoon') {
+      // Tarde: 12:00 - 20:00
+      return TIME_LABELS.filter((time) => {
+        const hour = parseInt(time.split(':')[0])
+        return hour >= 12 && hour <= 20
+      })
+    }
+    // Día completo: 9:00 - 20:00
+    return TIME_LABELS
+  }
+
+  const filteredTimeLabels = getFilteredTimeLabels()
+
+  // Calcular altura total basada en slots filtrados
+  const totalHeight = `calc(${filteredTimeLabels.length} * var(--scheduler-slot-height-half) + var(--scheduler-day-header-height))`
+
+  const overlaySource = active
+  const activeDetail = overlaySource?.event.detail
 
   return (
-    <div className='relative w-full' style={{ height: totalHeight }}>
+    <div
+      className='relative w-full'
+      style={{ height: totalHeight }}
+      onClick={handleRootClick}
+    >
       <BoxHeaders />
-      <TimeColumn />
-      <DayGrid />
+      <TimeColumn timeLabels={filteredTimeLabels} />
+      <DayGrid
+        timeLabels={filteredTimeLabels}
+        onHover={handleHover}
+        onActivate={handleActivate}
+        activeId={active?.event.id}
+        hoveredId={hovered?.event.id}
+      />
+
+      {/* Hover overlay - Simplified detail view */}
+      {hovered && !active && hovered.event.detail && (
+        <div
+          className='pointer-events-none absolute z-10 flex flex-col overflow-hidden overflow-y-auto rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)]'
+          style={{
+            top: '5rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 'var(--scheduler-overlay-width)',
+            maxHeight: '14rem'
+          }}
+        >
+          {/* Header */}
+          <div className='flex items-center justify-between bg-[var(--color-brand-100)] px-4 py-2'>
+            <p className='text-title-md font-medium text-[var(--color-neutral-900)]'>
+              {hovered.event.detail.title}
+            </p>
+            <p className='text-body-md font-bold text-[var(--color-neutral-900)]'>
+              {hovered.event.box}
+            </p>
+          </div>
+
+          {/* Body */}
+          <div className='flex flex-col gap-4 bg-[var(--color-neutral-0)] px-4 py-4'>
+            {/* Fecha y ubicación */}
+            <div className='flex flex-col gap-1'>
+              <div className='flex items-center gap-1'>
+                <CalendarMonthRounded
+                  className='text-[var(--color-neutral-600)]'
+                  sx={{ fontSize: '1rem' }}
+                />
+                <p className='text-label-md font-normal text-[var(--color-neutral-600)]'>
+                  Fecha y ubicación
+                </p>
+              </div>
+              <p className='text-body-sm font-normal text-[var(--color-neutral-900)]'>
+                {hovered.event.detail.date}
+              </p>
+            </div>
+
+            {/* Paciente */}
+            <div className='flex flex-col gap-1'>
+              <div className='flex items-center gap-1'>
+                <AccountCircleRounded
+                  className='text-[var(--color-neutral-600)]'
+                  sx={{ fontSize: '1rem' }}
+                />
+                <p className='text-label-md font-normal text-[var(--color-neutral-600)]'>
+                  Paciente
+                </p>
+              </div>
+              <p className='text-body-sm font-normal text-[var(--color-neutral-900)]'>
+                {hovered.event.detail.patientFull}
+              </p>
+            </div>
+
+            {/* Profesional */}
+            <div className='flex flex-col gap-1'>
+              <div className='flex items-center gap-1'>
+                <MonitorHeartRounded
+                  className='text-[var(--color-neutral-600)]'
+                  sx={{ fontSize: '1rem' }}
+                />
+                <p className='text-label-md font-normal text-[var(--color-neutral-600)]'>
+                  Profesional
+                </p>
+              </div>
+              <div className='flex items-center gap-4'>
+                <span
+                  className='inline-flex shrink-0 rounded-full bg-[var(--color-neutral-700)]'
+                  style={{ width: '2rem', height: '2rem' }}
+                />
+                <p className='text-body-sm font-normal text-[var(--color-neutral-900)]'>
+                  {hovered.event.detail.professional}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Click overlay - AppointmentDetailOverlay */}
+      {overlaySource && activeDetail && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '5rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 20
+          }}
+        >
+          <AppointmentDetailOverlay
+            detail={activeDetail}
+            box={overlaySource.event.box || ''}
+            position={{ top: '0', left: '0' }}
+          />
+        </div>
+      )}
     </div>
   )
 }

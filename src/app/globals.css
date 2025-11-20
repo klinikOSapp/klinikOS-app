@@ -419,6 +419,12 @@
   --day-segmented-btn2-width: 5.3125rem; /* 85px from Figma */
   --day-segmented-btn3-width: 4.25rem; /* 68px from Figma */
 
+  /* Sunday dot pattern (domingo con puntos) - SVG pattern from Figma */
+  --sunday-dot-size: 1px; /* Tamaño del punto */
+  --sunday-dot-spacing: 16px; /* Espaciado entre puntos (16x16 grid) */
+  --sunday-dot-color: rgba(203, 211, 217, 0.4); /* Neutral/300 con opacidad */
+  --sunday-bg-pattern: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23cbd3d9' opacity='0.4'/%3E%3C/svg%3E");
+
   /* Aliases semánticos propuestos */
   --color-surface-overlay: rgba(248, 250, 251, 0.8);
   --color-border-default: var(--color-neutral-300);

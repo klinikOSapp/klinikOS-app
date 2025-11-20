@@ -407,6 +407,33 @@ function NavigationArrow({
   )
 }
 
+function NavigationControl({
+  label,
+  widthRem,
+  onPrevious,
+  onNext
+}: {
+  label: string
+  widthRem: number
+  onPrevious: () => void
+  onNext: () => void
+}) {
+  const widthStyle = `min(${widthRem}rem, 45vw)`
+
+  return (
+    <div className='flex items-center gap-2'>
+      <NavigationArrow direction='previous' onClick={onPrevious} />
+      <div
+        className='flex h-[2.5rem] items-center justify-center rounded-full border border-[var(--color-border-default)] bg-[var(--color-neutral-50)] px-4 text-body-md font-medium text-[var(--color-neutral-900)]'
+        style={{ width: widthStyle }}
+      >
+        {label}
+      </div>
+      <NavigationArrow direction='next' onClick={onNext} />
+    </div>
+  )
+}
+
 type ToolbarChipProps = {
   label: string
   onClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void
@@ -688,14 +715,27 @@ function DayGrid({
   onHover: (selection: EventSelection) => void
   onActivate: (selection: EventSelection) => void
 }) {
+  // Domingo con patrón de puntos SVG
+  const isSunday = column.id === 'sunday'
+  const sundayStyle = isSunday
+    ? {
+        backgroundColor: 'var(--color-neutral-0)',
+        backgroundImage: 'var(--sunday-bg-pattern)',
+        backgroundRepeat: 'repeat',
+        backgroundSize: 'var(--sunday-dot-spacing) var(--sunday-dot-spacing)',
+        backgroundPosition: '0 0'
+      }
+    : {}
+
   return (
     <div
-      className='absolute border-r border-[var(--color-border-default)] bg-[var(--color-neutral-0)]'
+      className={`absolute border-r border-[var(--color-border-default)] ${isSunday ? '' : 'bg-[var(--color-neutral-0)]'}`}
       style={{
         left: `var(${column.leftVar})`,
         top: '0',
         width: `var(${column.widthVar})`,
-        height: '100%'
+        height: '100%',
+        ...sundayStyle
       }}
     >
       {/* Líneas horizontales para cada media hora */}
@@ -733,6 +773,18 @@ function DayGrid({
   )
 }
 
+// Eventos de ejemplo para la vista mensual
+const MONTH_EVENTS = [
+  { id: 'm1', date: new Date(2024, 9, 7), title: '13:00 Consulta médica', bgColor: 'var(--color-event-purple)' },
+  { id: 'm2', date: new Date(2024, 9, 9), title: '13:00 Consulta médica', bgColor: 'var(--color-event-purple)' },
+  { id: 'm3', date: new Date(2024, 9, 10), title: '13:00 Consulta médica', bgColor: 'var(--color-event-teal)' },
+  { id: 'm4', date: new Date(2024, 9, 13), title: '13:00 Consulta médica', bgColor: 'var(--color-event-teal)' },
+  { id: 'm5', date: new Date(2024, 9, 14), title: '13:00 Consulta médica', bgColor: 'var(--color-event-teal)' },
+  { id: 'm6', date: new Date(2024, 9, 15), title: '13:00 Consulta médica', bgColor: 'var(--color-event-teal)' },
+  { id: 'm7', date: new Date(2024, 9, 17), title: '13:00 Consulta médica', bgColor: 'var(--color-event-purple)' },
+  { id: 'm8', date: new Date(2024, 9, 22), title: '13:00 Consulta médica', bgColor: 'var(--color-event-coral)' }
+]
+
 export default function WeekScheduler() {
   const [hovered, setHovered] = useState<EventSelection>(null)
   const [active, setActive] = useState<EventSelection>(null)
@@ -757,6 +809,12 @@ export default function WeekScheduler() {
     monday.setDate(today.getDate() + diff)
     monday.setHours(0, 0, 0, 0)
     return monday
+  })
+
+  // Month navigation state - starts with current month
+  const [currentMonth, setCurrentMonth] = useState<Date>(() => {
+    const today = new Date()
+    return new Date(today.getFullYear(), today.getMonth(), 1)
   })
 
   const viewDropdownRef = useRef<HTMLDivElement | null>(null)
@@ -887,7 +945,7 @@ export default function WeekScheduler() {
 
   // Month navigation functions
   const goToPreviousMonth = () => {
-    setCurrentWeekStart((prev) => {
+    setCurrentMonth((prev) => {
       const newDate = new Date(prev)
       newDate.setMonth(prev.getMonth() - 1)
       return newDate
@@ -895,17 +953,18 @@ export default function WeekScheduler() {
   }
 
   const goToNextMonth = () => {
-    setCurrentWeekStart((prev) => {
+    setCurrentMonth((prev) => {
       const newDate = new Date(prev)
       newDate.setMonth(prev.getMonth() + 1)
       return newDate
     })
   }
 
-  // Get month name "Octubre"
+  // Get month name "Octubre 2025"
   const getMonthString = () => {
-    const month = currentWeekStart.toLocaleString('es-ES', { month: 'long' })
-    return month.charAt(0).toUpperCase() + month.slice(1)
+    const month = currentMonth.toLocaleString('es-ES', { month: 'long' })
+    const year = currentMonth.getFullYear()
+    return `${month.charAt(0).toUpperCase() + month.slice(1)} ${year}`
   }
 
   // Get day date string "19 oct 2025"
@@ -980,41 +1039,26 @@ export default function WeekScheduler() {
           )}
           {/* Selector de fecha condicional según la vista */}
           {viewOption === 'mes' ? (
-            /* Vista Mensual: Selector de mes "Octubre" */
-            <div className='flex items-center'>
-              <NavigationArrow
-                direction='previous'
-                onClick={goToPreviousMonth}
-              />
-              <div className='flex h-[2.5rem] items-center justify-center border-y border-[var(--color-border-default)] bg-[var(--color-neutral-50)] px-4 py-2 text-body-md font-medium text-[var(--color-neutral-900)]'>
-                {getMonthString()}
-              </div>
-              <NavigationArrow direction='next' onClick={goToNextMonth} />
-            </div>
+            <NavigationControl
+              label={getMonthString()}
+              widthRem={5.9375} // 95px ÷ 16
+              onPrevious={goToPreviousMonth}
+              onNext={goToNextMonth}
+            />
           ) : viewOption === 'dia' ? (
-            /* Vista Diaria: Selector de día "19 oct 2025" */
-            <div className='flex items-center'>
-              <NavigationArrow
-                direction='previous'
-                onClick={goToPreviousWeek}
-              />
-              <div className='flex h-[2.5rem] items-center justify-center border-y border-[var(--color-border-default)] bg-[var(--color-neutral-50)] px-4 py-2 text-body-md font-medium text-[var(--color-neutral-900)]'>
-                {getDayString()}
-              </div>
-              <NavigationArrow direction='next' onClick={goToNextWeek} />
-            </div>
+            <NavigationControl
+              label={getDayString()}
+              widthRem={10.0625} // Empatado con vista semanal (161px ÷ 16)
+              onPrevious={goToPreviousWeek}
+              onNext={goToNextWeek}
+            />
           ) : (
-            /* Vista Semanal: Selector de rango "13 - 19, oct 2025" */
-            <div className='flex items-center gap-2'>
-              <NavigationArrow
-                direction='previous'
-                onClick={goToPreviousWeek}
-              />
-              <div className='flex h-[2.5rem] w-[10.0625rem] items-center justify-center rounded-full border border-[var(--color-border-default)] bg-[var(--color-neutral-50)] text-body-md font-medium text-[var(--color-neutral-900)]'>
-                {getWeekRangeString()}
-              </div>
-              <NavigationArrow direction='next' onClick={goToNextWeek} />
-            </div>
+            <NavigationControl
+              label={getWeekRangeString()}
+              widthRem={10.0625} // 161px ÷ 16
+              onPrevious={goToPreviousWeek}
+              onNext={goToNextWeek}
+            />
           )}
           <div className='flex items-center gap-3'>
             <div ref={viewDropdownRef} className='relative'>
@@ -1064,7 +1108,7 @@ export default function WeekScheduler() {
                 />
               ) : null}
             </div>
-            {viewOption === 'semana' ? (
+            {viewOption !== 'dia' ? (
               <div ref={boxDropdownRef} className='relative'>
                 <ToolbarChip
                   label='Box'
@@ -1118,12 +1162,12 @@ export default function WeekScheduler() {
       {viewOption === 'mes' ? (
         /* Vista Mensual */
         <div className='relative flex-1 overflow-hidden bg-[var(--color-neutral-0)]'>
-          <MonthCalendar />
+          <MonthCalendar currentMonth={currentWeekStart} events={MONTH_EVENTS} />
         </div>
       ) : viewOption === 'dia' ? (
         /* Vista Diaria - Con scroll vertical */
         <div className='relative flex-1 overflow-y-auto bg-[var(--color-neutral-0)]'>
-          <DayCalendar />
+          <DayCalendar period={dayPeriod} />
         </div>
       ) : (
         /* Vista Semanal */
