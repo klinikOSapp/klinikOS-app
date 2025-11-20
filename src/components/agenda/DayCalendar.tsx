@@ -446,23 +446,30 @@ const TIME_SLOTS: TimeSlot[] = [
 function TimeColumn({ timeLabels }: { timeLabels: string[] }) {
   return (
     <div
-      className='absolute left-0 flex flex-col bg-[var(--color-neutral-100)]'
+      className='absolute left-0 bg-[var(--color-neutral-100)]'
       style={{
         top: 'var(--scheduler-day-header-height)',
         width: 'var(--day-time-column-width)',
         height: 'calc(100% - var(--scheduler-day-header-height))'
       }}
     >
-      {timeLabels.map((time, index) => (
-        <div
-          key={index}
-          className='flex flex-1 items-center justify-center border-b border-r border-[var(--color-border-default)] p-2'
-        >
-          <p className='text-body-md font-normal text-[var(--color-neutral-600)]'>
-            {time}
-          </p>
-        </div>
-      ))}
+      <div
+        className='grid h-full'
+        style={{
+          gridTemplateRows: `repeat(${timeLabels.length}, 1fr)`
+        }}
+      >
+        {timeLabels.map((time, index) => (
+          <div
+            key={index}
+            className='flex items-center justify-center border-b border-r border-[var(--color-border-default)] p-2'
+          >
+            <p className='text-body-md font-normal text-[var(--color-neutral-600)]'>
+              {time}
+            </p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -572,7 +579,7 @@ function BoxColumn({
   hoveredId?: string | null
 }) {
   return (
-    <div className='relative flex-1 overflow-hidden border-b border-r border-[var(--color-border-default)] bg-[var(--color-neutral-0)]'>
+    <div className='relative flex-1 overflow-hidden border-r border-[var(--color-border-default)] bg-[var(--color-neutral-0)]'>
       {column.events.map((event) => (
         <DayEvent
           key={event.id}
@@ -602,7 +609,7 @@ function TimeSlotRow({
   hoveredId?: string | null
 }) {
   return (
-    <div className='flex flex-1'>
+    <div className='flex border-b border-[var(--color-border-default)]'>
       {slot.boxes.map((box) => (
         <BoxColumn
           key={box.id}
@@ -635,12 +642,13 @@ function DayGrid({
 
   return (
     <div
-      className='absolute flex w-full flex-col'
+      className='absolute grid w-full'
       style={{
         left: 'var(--day-time-column-width)',
         top: 'var(--scheduler-day-header-height)',
         width: 'calc(100% - var(--day-time-column-width))',
-        height: 'calc(100% - var(--scheduler-day-header-height))'
+        height: 'calc(100% - var(--scheduler-day-header-height))',
+        gridTemplateRows: `repeat(${filteredSlots.length}, 1fr)`
       }}
     >
       {filteredSlots.map((slot, index) => (

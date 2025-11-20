@@ -39,7 +39,7 @@ export default function ParteDiarioModal({
       {/* Modal */}
       <div className='fixed inset-0 z-50 flex items-center justify-center pointer-events-none'>
         <div
-          className='pointer-events-auto bg-[var(--color-neutral-50)] rounded-lg overflow-hidden'
+          className='pointer-events-auto flex h-full flex-col overflow-hidden rounded-lg bg-[var(--color-neutral-50)]'
           style={{
             width: 'min(37.625rem, 92vw)',
             height: 'min(26.25rem, 85vh)'
@@ -74,7 +74,7 @@ export default function ParteDiarioModal({
           </div>
 
           {/* Content */}
-          <div className='px-8 pt-12'>
+          <div className='flex-1 px-8 pt-12'>
             {/* Profesional Field */}
             <div className='flex items-start gap-6 mb-16'>
               <label
@@ -135,15 +135,12 @@ export default function ParteDiarioModal({
           </div>
 
           {/* Footer with Download Button */}
-          <div
-            className='absolute bottom-8 right-8'
-            style={{ width: '7.4375rem' }}
-          >
+          <div className='flex justify-end px-8 pb-[2.6875rem]'>
             <button
               type='button'
               onClick={handleDownload}
               disabled={!selectedProfesional || selectedDates.length === 0}
-              className='w-full h-10 px-4 text-base font-medium text-[var(--color-brand-900)] bg-[var(--color-brand-500)] rounded-full border border-[var(--color-border-default)] transition-all duration-150 hover:bg-[var(--color-brand-600)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[var(--color-brand-500)]'
+              className='h-10 w-[7.4375rem] rounded-full border border-[var(--color-border-default)] bg-[var(--color-brand-500)] px-4 text-base font-medium text-[var(--color-brand-900)] transition-all duration-150 hover:bg-[var(--color-brand-600)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-[var(--color-brand-500)]'
             >
               Descargar
             </button>

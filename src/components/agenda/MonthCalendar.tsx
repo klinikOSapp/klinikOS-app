@@ -279,7 +279,6 @@ function DayCell({
         bgClass
       ].join(' ')}
       style={{
-        height: 'var(--month-row-height)',
         ...dotStyle
       }}
     >
@@ -323,14 +322,21 @@ function MonthGrid({
 }) {
   return (
     <div
-      className='absolute left-0 flex w-full flex-col'
+      className='absolute left-0 flex w-full flex-col overflow-y-auto'
       style={{
         top: 'var(--scheduler-day-header-height)',
         height: 'calc(100% - var(--scheduler-day-header-height))'
       }}
     >
       {calendarData.map((week, weekIndex) => (
-        <div key={weekIndex} className='flex flex-1'>
+        <div
+          key={weekIndex}
+          className='flex'
+          style={{
+            minHeight: 'min(var(--month-row-height), 15vh)',
+            flex: '1 0 auto'
+          }}
+        >
           {week.map((cell, dayIndex) => {
             const globalDayIndex = weekIndex * 7 + dayIndex
             return (
