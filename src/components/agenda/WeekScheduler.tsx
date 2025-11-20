@@ -20,6 +20,7 @@ import AppointmentDetailOverlay from './AppointmentDetailOverlay'
 import AppointmentSummaryCard from './AppointmentSummaryCard'
 import DayCalendar from './DayCalendar'
 import MonthCalendar from './MonthCalendar'
+import ParteDiarioModal from './ParteDiarioModal'
 import type {
   AgendaEvent,
   DayColumn,
@@ -424,8 +425,8 @@ function NavigationControl({
     <div className='flex items-center gap-2'>
       <NavigationArrow direction='previous' onClick={onPrevious} />
       <div
-        className='flex h-[2.5rem] items-center justify-center rounded-full border border-[var(--color-border-default)] bg-[var(--color-neutral-50)] px-4 text-body-md font-medium text-[var(--color-neutral-900)]'
-        style={{ width: widthStyle }}
+        className='flex h-[2.5rem] flex-shrink-0 items-center justify-center rounded-full border border-[var(--color-border-default)] bg-[var(--color-neutral-50)] px-4 text-body-md font-medium text-[var(--color-neutral-900)] whitespace-nowrap'
+        style={{ minWidth: `${widthRem}rem`, maxWidth: '45vw' }}
       >
         {label}
       </div>
@@ -640,10 +641,19 @@ function MultiSelectDropdown({
   )
 }
 
-function ToolbarAction({ label, icon }: { label: string; icon: ReactElement }) {
+function ToolbarAction({
+  label,
+  icon,
+  onClick
+}: {
+  label: string
+  icon: ReactElement
+  onClick?: () => void
+}) {
   return (
     <button
       type='button'
+      onClick={onClick}
       className='inline-flex h-[2.5rem] items-center gap-[var(--spacing-gapsm)] rounded-full border border-[var(--color-border-default)] bg-[var(--color-neutral-50)] px-4 text-body-md font-medium text-[var(--color-neutral-900)] transition-colors duration-150 hover:bg-[var(--color-brand-0)]'
     >
       {icon}
@@ -799,6 +809,7 @@ export default function WeekScheduler() {
   const [openDropdown, setOpenDropdown] = useState<
     null | 'view' | 'professional' | 'box'
   >(null)
+  const [isParteDiarioModalOpen, setIsParteDiarioModalOpen] = useState(false)
 
   // Week navigation state - starts with current week
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
@@ -1023,8 +1034,8 @@ export default function WeekScheduler() {
 
   return (
     <section
-      className='relative flex h-full w-full flex-col overflow-hidden rounded-tl-[var(--radius-xl)] border border-[var(--color-border-default)] bg-[var(--color-neutral-50)]'
-      style={frameStyle}
+      className='relative flex h-full w-full flex-col rounded-tl-[var(--radius-xl)] border border-[var(--color-border-default)] bg-[var(--color-neutral-50)]'
+      style={{ ...frameStyle, overflow: 'visible' }}
       onClick={handleRootClick}
     >
       {/* Fixed Header - Compartido entre todas las vistas */}
@@ -1145,6 +1156,7 @@ export default function WeekScheduler() {
                 fontSize='small'
               />
             }
+            onClick={() => setIsParteDiarioModalOpen(true)}
           />
           <ToolbarAction
             label='Imprimir'
@@ -1162,11 +1174,11 @@ export default function WeekScheduler() {
       {viewOption === 'mes' ? (
         /* Vista Mensual */
         <div className='relative flex-1 overflow-hidden bg-[var(--color-neutral-0)]'>
-          <MonthCalendar currentMonth={currentWeekStart} events={MONTH_EVENTS} />
+          <MonthCalendar currentMonth={currentMonth} />
         </div>
       ) : viewOption === 'dia' ? (
         /* Vista Diaria - Con scroll vertical */
-        <div className='relative flex-1 overflow-y-auto bg-[var(--color-neutral-0)]'>
+        <div className='relative flex-1 overflow-x-visible overflow-y-auto bg-[var(--color-neutral-0)]'>
           <DayCalendar period={dayPeriod} />
         </div>
       ) : (
@@ -1296,6 +1308,12 @@ export default function WeekScheduler() {
           </div>
         </>
       )}
+
+      {/* Parte Diario Modal */}
+      <ParteDiarioModal
+        isOpen={isParteDiarioModalOpen}
+        onClose={() => setIsParteDiarioModalOpen(false)}
+      />
     </section>
   )
 }

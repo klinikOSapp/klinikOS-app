@@ -8,6 +8,55 @@ import { useState } from 'react'
 import AppointmentDetailOverlay from './AppointmentDetailOverlay'
 import type { EventDetail } from './types'
 
+const OVERLAY_GUTTER = '1rem'
+
+// Positioning functions for smart overlay placement
+function getOverlayTop(relativeTop: string): string {
+  const trimmed = relativeTop.trim()
+  if (trimmed.startsWith('calc(') && trimmed.endsWith(')')) {
+    const inner = trimmed.slice(5, -1).trim()
+    return `calc(var(--scheduler-day-header-height) + ${inner})`
+  }
+  return `calc(var(--scheduler-day-header-height) + ${trimmed})`
+}
+
+function getOverlayLeft(boxId: string): string {
+  // Smart positioning: place overlay to the right of the box when possible
+  // If box is the last one (box3), place overlay to the LEFT
+  const isLastBox = boxId === 'box3'
+
+  if (isLastBox) {
+    // Place overlay to the LEFT
+    // Calculate: 2/3 of the width (from left edge) - overlay width - gutter
+    return `max(1rem, calc(66.67% - var(--scheduler-overlay-width) - ${OVERLAY_GUTTER}))`
+  }
+
+  // For first and middle boxes, place overlay to the RIGHT
+  // box1: starts after time column (var(--day-time-column-width)) + 1/3 width + gutter
+  // box2: starts at 1/3 + 1/3 width + gutter
+  if (boxId === 'box1') {
+    return `calc(var(--day-time-column-width) + 33.33% + ${OVERLAY_GUTTER})`
+  }
+
+  // box2
+  return `calc(var(--day-time-column-width) + 66.67% + ${OVERLAY_GUTTER})`
+}
+
+function getSmartOverlayPosition(
+  relativeTop: string,
+  boxId: string,
+  overlayHeight: string = 'var(--scheduler-overlay-height)'
+) {
+  const baseTop = getOverlayTop(relativeTop)
+  const baseLeft = getOverlayLeft(boxId)
+
+  return {
+    top: `max(0rem, min(${baseTop}, calc(100vh - ${overlayHeight} - var(--spacing-topbar) - var(--scheduler-toolbar-height) - var(--scheduler-day-header-height) - 1rem)))`,
+    left: baseLeft,
+    maxHeight: `min(${overlayHeight}, calc(100vh - var(--spacing-topbar) - var(--scheduler-toolbar-height) - var(--scheduler-day-header-height) - 2rem))`
+  }
+}
+
 const TIME_LABELS = [
   '9:00',
   '9:30',
@@ -421,7 +470,7 @@ function TimeColumn({ timeLabels }: { timeLabels: string[] }) {
 function BoxHeaders() {
   return (
     <div
-      className='sticky top-0 z-20 flex w-full border-b border-[var(--color-border-default)] bg-[var(--color-neutral-50)]'
+      className='sticky top-0 z-10 flex w-full border-b border-[var(--color-border-default)] bg-[var(--color-neutral-50)]'
       style={{ height: 'var(--scheduler-day-header-height)' }}
     >
       <div
@@ -654,16 +703,16 @@ export default function DayCalendar({ period = 'full' }: DayCalendarProps) {
 
   const filteredTimeLabels = getFilteredTimeLabels()
 
-  // Calcular altura total basada en slots filtrados
-  const totalHeight = `calc(${filteredTimeLabels.length} * var(--scheduler-slot-height-half) + var(--scheduler-day-header-height))`
+  // Calcular altura mínima basada en slots filtrados
+  const minHeight = `calc(${filteredTimeLabels.length} * var(--scheduler-slot-height-half) + var(--scheduler-day-header-height))`
 
   const overlaySource = active
   const activeDetail = overlaySource?.event.detail
 
   return (
     <div
-      className='relative w-full'
-      style={{ height: totalHeight }}
+      className='relative h-full w-full'
+      style={{ minHeight }}
       onClick={handleRootClick}
     >
       <BoxHeaders />
@@ -677,17 +726,22 @@ export default function DayCalendar({ period = 'full' }: DayCalendarProps) {
       />
 
       {/* Hover overlay - Simplified detail view */}
-      {hovered && !active && hovered.event.detail && (
-        <div
-          className='pointer-events-none absolute z-10 flex flex-col overflow-hidden overflow-y-auto rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)]'
-          style={{
-            top: '5rem',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: 'var(--scheduler-overlay-width)',
-            maxHeight: '14rem'
-          }}
-        >
+      {hovered && !active && hovered.event.detail && (() => {
+        const position = getSmartOverlayPosition(
+          hovered.event.top,
+          hovered.boxId,
+          '14rem'
+        )
+        return (
+          <div
+            className='pointer-events-none absolute z-10 flex flex-col overflow-hidden overflow-y-auto rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)]'
+            style={{
+              top: position.top,
+              left: position.left,
+              width: 'var(--scheduler-overlay-width)',
+              maxHeight: position.maxHeight
+            }}
+          >
           {/* Header */}
           <div className='flex items-center justify-between bg-[var(--color-brand-100)] px-4 py-2'>
             <p className='text-title-md font-medium text-[var(--color-neutral-900)]'>
@@ -755,26 +809,23 @@ export default function DayCalendar({ period = 'full' }: DayCalendarProps) {
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* Click overlay - AppointmentDetailOverlay */}
-      {overlaySource && activeDetail && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '5rem',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 20
-          }}
-        >
+      {overlaySource && activeDetail && (() => {
+        const position = getSmartOverlayPosition(
+          overlaySource.event.top,
+          overlaySource.boxId
+        )
+        return (
           <AppointmentDetailOverlay
             detail={activeDetail}
             box={overlaySource.event.box || ''}
-            position={{ top: '0', left: '0' }}
+            position={position}
           />
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

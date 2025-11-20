@@ -9,6 +9,52 @@ import AppointmentDetailOverlay from './AppointmentDetailOverlay'
 import type { EventDetail } from './types'
 
 const WEEKDAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+const OVERLAY_GUTTER = '1rem'
+
+// Positioning functions for smart overlay placement
+function getOverlayTop(dayIndex: number, totalWeeks: number): string {
+  // Calculate which week this day is in (0-4 typically)
+  const weekIndex = Math.floor(dayIndex / 7)
+  const weekPercentage = (weekIndex / totalWeeks) * 100
+
+  // Position in the middle of the cell vertically
+  return `calc(var(--scheduler-day-header-height) + ${weekPercentage}%)`
+}
+
+function getOverlayLeft(dayIndex: number): string {
+  // Calculate which column (0-6 for Mon-Sun)
+  const dayOfWeek = dayIndex % 7
+
+  // If in the last 3 days of week (Fri, Sat, Sun = 4, 5, 6), place overlay to the LEFT
+  const isRightColumn = dayOfWeek >= 4
+
+  if (isRightColumn) {
+    // Place overlay to the LEFT
+    // Calculate column position as percentage: dayOfWeek / 7 * 100
+    const columnPercent = (dayOfWeek / 7) * 100
+    return `max(1rem, calc(${columnPercent}% - var(--scheduler-overlay-width) - ${OVERLAY_GUTTER}))`
+  }
+
+  // For left/middle columns, place overlay to the RIGHT
+  const columnPercent = (dayOfWeek / 7) * 100
+  const columnWidth = (1 / 7) * 100 // ~14.28%
+  return `calc(${columnPercent}% + ${columnWidth}% + ${OVERLAY_GUTTER})`
+}
+
+function getSmartOverlayPosition(
+  dayIndex: number,
+  totalWeeks: number,
+  overlayHeight: string = 'var(--scheduler-overlay-height)'
+) {
+  const baseTop = getOverlayTop(dayIndex, totalWeeks)
+  const baseLeft = getOverlayLeft(dayIndex)
+
+  return {
+    top: `max(0rem, min(${baseTop}, calc(100vh - ${overlayHeight} - var(--spacing-topbar) - var(--scheduler-toolbar-height) - var(--scheduler-day-header-height) - 1rem)))`,
+    left: baseLeft,
+    maxHeight: `min(${overlayHeight}, calc(100vh - var(--spacing-topbar) - var(--scheduler-toolbar-height) - var(--scheduler-day-header-height) - 2rem))`
+  }
+}
 
 type MonthEvent = {
   id: string
@@ -454,6 +500,7 @@ export default function MonthCalendar({
   }
 
   const calendarData = generateCalendarData()
+  const totalWeeks = calendarData.length
 
   const overlaySource = active
   const activeDetail = overlaySource?.event.detail
@@ -470,17 +517,22 @@ export default function MonthCalendar({
       />
 
       {/* Hover overlay - Simplified detail view */}
-      {hovered && !active && hovered.event.detail && (
-        <div
-          className='pointer-events-none absolute z-10 flex flex-col overflow-hidden overflow-y-auto rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)]'
-          style={{
-            top: '5rem',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: 'var(--scheduler-overlay-width)',
-            maxHeight: '14rem'
-          }}
-        >
+      {hovered && !active && hovered.event.detail && (() => {
+        const position = getSmartOverlayPosition(
+          hovered.dayIndex,
+          totalWeeks,
+          '14rem'
+        )
+        return (
+          <div
+            className='pointer-events-none absolute z-10 flex flex-col overflow-hidden overflow-y-auto rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)]'
+            style={{
+              top: position.top,
+              left: position.left,
+              width: 'var(--scheduler-overlay-width)',
+              maxHeight: position.maxHeight
+            }}
+          >
           {/* Header */}
           <div className='flex items-center justify-between bg-[var(--color-brand-100)] px-4 py-2'>
             <p className='text-title-md font-medium text-[var(--color-neutral-900)]'>
@@ -548,26 +600,23 @@ export default function MonthCalendar({
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* Click overlay - AppointmentDetailOverlay */}
-      {overlaySource && activeDetail && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '5rem',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 20
-          }}
-        >
+      {overlaySource && activeDetail && (() => {
+        const position = getSmartOverlayPosition(
+          overlaySource.dayIndex,
+          totalWeeks
+        )
+        return (
           <AppointmentDetailOverlay
             detail={activeDetail}
             box={overlaySource.event.box || ''}
-            position={{ top: '0', left: '0' }}
+            position={position}
           />
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
