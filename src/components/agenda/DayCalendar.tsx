@@ -579,7 +579,8 @@ function BoxColumn({
   hoveredId?: string | null
 }) {
   return (
-    <div className='relative flex-1 overflow-hidden border-r border-[var(--color-border-default)] bg-[var(--color-neutral-0)]'>
+    <div className='relative flex-1 overflow-hidden border-r border-b border-[var(--color-border-default)] bg-[var(--color-neutral-0)]'>
+      {/* Eventos */}
       {column.events.map((event) => (
         <DayEvent
           key={event.id}
@@ -609,7 +610,7 @@ function TimeSlotRow({
   hoveredId?: string | null
 }) {
   return (
-    <div className='flex border-b border-[var(--color-border-default)]'>
+    <div className='flex'>
       {slot.boxes.map((box) => (
         <BoxColumn
           key={box.id}
