@@ -4,7 +4,9 @@ import { getSignedUrl, uploadStaffAvatar } from '@/lib/storage'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import CloudUploadRounded from '@mui/icons-material/CloudUploadRounded'
+import InsightsRounded from '@mui/icons-material/InsightsRounded'
 import LogoutRounded from '@mui/icons-material/LogoutRounded'
+import { useRouter } from 'next/navigation'
 import React from 'react'
 
 type StaffProfile = {
@@ -19,6 +21,7 @@ type AccountPanelProps = {
   onClose: () => void
   user: { id: string; email?: string | null } | null
   staff: StaffProfile | null
+  canManage?: boolean
   onProfileUpdated?: (payload: {
     fullName: string
     avatarUrl?: string | null
@@ -39,8 +42,10 @@ export default function AccountPanel({
   onClose,
   user,
   staff,
+  canManage = false,
   onProfileUpdated
 }: AccountPanelProps) {
+  const router = useRouter()
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
   const [fullName, setFullName] = React.useState('')
   const [phone, setPhone] = React.useState('')
@@ -124,6 +129,11 @@ export default function AccountPanel({
     window.location.href = '/login'
   }
 
+  const handleManagerRoute = () => {
+    onClose()
+    router.push('/manager')
+  }
+
   if (!open) return null
 
   const initials = resolveInitials(fullName || staff?.full_name || user?.email || '')
@@ -197,6 +207,16 @@ export default function AccountPanel({
             </span>
           </div>
           <div className='flex flex-col gap-3 pt-2'>
+            {canManage ? (
+              <button
+                type='button'
+                onClick={handleManagerRoute}
+                className='inline-flex items-center justify-center gap-2 rounded-lg border border-brand-100 bg-brand-50 px-4 py-2 text-sm font-medium text-brand-800 transition hover:bg-brand-100'
+              >
+                <InsightsRounded className='size-5' />
+                Panel de gerencia
+              </button>
+            ) : null}
             <button
               type='button'
               onClick={handleSave}

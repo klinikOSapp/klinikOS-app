@@ -52,9 +52,41 @@ export default function Layout({ children }: LayoutProps) {
   const [displayName, setDisplayName] = React.useState('Usuario')
   const [avatarUrl, setAvatarUrl] = React.useState<string | undefined>(undefined)
   const [accountOpen, setAccountOpen] = React.useState(false)
+  const [isManager, setIsManager] = React.useState(false)
 
   React.useEffect(() => {
     let active = true
+    async function determineManagerAccess() {
+      try {
+        const { data: clinics, error } = await supabase.rpc('get_my_clinics')
+        if (!active) return
+        if (error || !Array.isArray(clinics) || clinics.length === 0) {
+          setIsManager(false)
+          return
+        }
+        for (const clinicId of clinics as string[]) {
+          if (!clinicId) continue
+          const { data: role, error: roleError } = await supabase.rpc('get_my_role_in_clinic', {
+            p_clinic_id: clinicId
+          })
+          if (!active) return
+          if (roleError) {
+            continue
+          }
+          if (role === 'gerencia') {
+            setIsManager(true)
+            return
+          }
+        }
+        setIsManager(false)
+      } catch (error) {
+        if (active) {
+          console.error('Error determining manager privileges', error)
+          setIsManager(false)
+        }
+      }
+    }
+
     async function loadProfile() {
       const {
         data: { user }
@@ -65,6 +97,7 @@ export default function Layout({ children }: LayoutProps) {
         setStaffProfile(null)
         setDisplayName('Usuario')
         setAvatarUrl(undefined)
+        setIsManager(false)
         return
       }
       setUser(user)
@@ -110,6 +143,7 @@ export default function Layout({ children }: LayoutProps) {
         setStaffProfile(null)
         setAvatarUrl(undefined)
       }
+      await determineManagerAccess()
     }
     void loadProfile()
     return () => {
@@ -159,6 +193,7 @@ export default function Layout({ children }: LayoutProps) {
         onClose={() => setAccountOpen(false)}
         user={user}
         staff={staffProfile}
+        canManage={isManager}
         onProfileUpdated={handleProfileUpdated}
       />
     </div>
