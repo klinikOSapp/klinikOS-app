@@ -40,12 +40,28 @@ const WEEK_RANGE = '13 - 19, oct 2025'
 
 const TIME_LABELS = [
   '9:00',
+  '9:30',
   '10:00',
+  '10:30',
   '11:00',
+  '11:30',
   '12:00',
+  '12:30',
   '13:00',
+  '13:30',
   '14:00',
-  '15:00'
+  '14:30',
+  '15:00',
+  '15:30',
+  '16:00',
+  '16:30',
+  '17:00',
+  '17:30',
+  '18:00',
+  '18:30',
+  '19:00',
+  '19:30',
+  '20:00'
 ]
 
 const HEADER_CELLS: HeaderCell[] = [
@@ -112,6 +128,11 @@ const PROFESSIONAL_OPTIONS = [
   { id: 'profesional-1', label: 'Profesional 1' },
   { id: 'profesional-2', label: 'Profesional 2' },
   { id: 'profesional-3', label: 'Profesional 3' }
+]
+
+const BOX_OPTIONS = [
+  { id: 'box-1', label: 'Box 1' },
+  { id: 'box-2', label: 'Box 2' }
 ]
 
 const DATE_BY_DAY: Record<Weekday, string> = {
@@ -348,10 +369,6 @@ const DAY_COLUMNS: DayColumn[] = [
   }
 ]
 
-const BOX_ROWS = [
-  { id: 'box-1', label: 'BOX 1', top: '0rem' },
-  { id: 'box-2', label: 'BOX 2', top: 'var(--scheduler-box-top-second)' }
-]
 
 const frameStyle: CSSProperties = {
   width: '100%',
@@ -360,8 +377,9 @@ const frameStyle: CSSProperties = {
   '--scheduler-height': 'calc(100dvh - var(--spacing-topbar))'
 } as CSSProperties
 
-const contentStyle: CSSProperties = {
-  height: 'calc(var(--scheduler-height) - var(--scheduler-body-offset-y))' // Content height without toolbar and day header
+// Calcular altura dinámica basada en número de slots de media hora
+const getContentHeight = (numSlots: number): string => {
+  return `calc(${numSlots} * var(--scheduler-slot-height-half))`
 }
 
 function NavigationArrow({
@@ -531,13 +549,20 @@ function ViewDropdown({
   )
 }
 
-function ProfessionalDropdown({
+type MultiSelectOption = {
+  id: string
+  label: string
+}
+
+function MultiSelectDropdown({
   id,
   selected,
+  options,
   onToggle
 }: {
   id: string
   selected: string[]
+  options: MultiSelectOption[]
   onToggle: (value: string) => void
 }) {
   return (
@@ -548,7 +573,7 @@ function ProfessionalDropdown({
       className='absolute left-0 top-[calc(100%+0.5rem)] z-20 flex w-[min(9.3125rem,30vw)] flex-col rounded-[0.5rem] border border-[var(--color-neutral-200)] bg-[rgba(248,250,251,0.9)] py-[0.5rem] backdrop-blur-[0.125rem] shadow-[0.125rem_0.125rem_0.25rem_0_rgba(0,0,0,0.1)]'
       onClick={(event) => event.stopPropagation()}
     >
-      {PROFESSIONAL_OPTIONS.map((option) => {
+      {options.map((option) => {
         const isChecked = selected.includes(option.id)
         return (
           <button
@@ -628,41 +653,27 @@ function HeaderLabels({ cells }: { cells: typeof HEADER_CELLS }) {
 
 function TimeColumn() {
   return (
-    <div className='absolute left-0 top-0 h-full w-[var(--scheduler-time-width)] border-r border-[var(--color-border-default)] bg-[var(--color-neutral-0)]'>
-      <div
-        className='grid h-full'
-        style={{
-          gridTemplateRows: `repeat(${TIME_LABELS.length}, var(--scheduler-slot-height))`
-        }}
-      >
-        {TIME_LABELS.map((label) => (
-          <div
-            key={label}
-            className='flex items-center justify-center border-b border-[var(--color-border-default)] text-body-md font-medium text-[var(--color-neutral-600)]'
-          >
-            {label}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function BoxLabels() {
-  return (
-    <div className='absolute left-[var(--scheduler-label-left)] top-0 h-full w-[var(--scheduler-label-width)]'>
-      {BOX_ROWS.map((row) => (
+    <div
+      className='absolute left-0 top-0 flex flex-col bg-[var(--color-neutral-100)]'
+      style={{
+        width: 'var(--scheduler-time-width)',
+        height: '100%'
+      }}
+    >
+      {TIME_LABELS.map((time, index) => (
         <div
-          key={row.id}
-          className='absolute flex h-[var(--scheduler-box-height)] w-full items-center justify-center border-r border-[var(--color-border-default)] bg-[var(--color-neutral-50)] text-label-md font-medium uppercase tracking-[0.08em] text-[var(--color-neutral-900)]'
-          style={{ top: row.top }}
+          key={index}
+          className='flex flex-1 items-center justify-center border-b border-r border-[var(--color-border-default)] p-2'
         >
-          {row.label}
+          <p className='text-body-md font-normal text-[var(--color-neutral-600)]'>
+            {time}
+          </p>
         </div>
       ))}
     </div>
   )
 }
+
 
 function DayGrid({
   column,
@@ -679,7 +690,7 @@ function DayGrid({
 }) {
   return (
     <div
-      className='absolute border-b border-r border-[var(--color-border-default)] bg-[var(--color-neutral-0)]'
+      className='absolute border-r border-[var(--color-border-default)] bg-[var(--color-neutral-0)]'
       style={{
         left: `var(${column.leftVar})`,
         top: '0',
@@ -687,6 +698,22 @@ function DayGrid({
         height: '100%'
       }}
     >
+      {/* Líneas horizontales para cada media hora */}
+      <div
+        className='absolute inset-0 grid'
+        style={{
+          gridTemplateRows: `repeat(${TIME_LABELS.length}, var(--scheduler-slot-height-half))`
+        }}
+      >
+        {TIME_LABELS.map((_, index) => (
+          <div
+            key={index}
+            className='border-b border-[var(--color-border-default)]'
+          />
+        ))}
+      </div>
+
+      {/* Eventos */}
       <div className='absolute inset-0'>
         {column.events.map((event) => (
           <AppointmentSummaryCard
@@ -714,9 +741,12 @@ export default function WeekScheduler() {
   const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>([
     'profesional-1'
   ])
-  const [openDropdown, setOpenDropdown] = useState<null | 'view' | 'professional'>(
-    null
+  const [selectedBoxes, setSelectedBoxes] = useState<string[]>(
+    BOX_OPTIONS.map((option) => option.id)
   )
+  const [openDropdown, setOpenDropdown] = useState<
+    null | 'view' | 'professional' | 'box'
+  >(null)
 
   // Week navigation state - starts with current week
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
@@ -731,8 +761,10 @@ export default function WeekScheduler() {
 
   const viewDropdownRef = useRef<HTMLDivElement | null>(null)
   const professionalDropdownRef = useRef<HTMLDivElement | null>(null)
+  const boxDropdownRef = useRef<HTMLDivElement | null>(null)
   const viewDropdownId = useId()
   const professionalDropdownId = useId()
+  const boxDropdownId = useId()
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -752,7 +784,8 @@ export default function WeekScheduler() {
       const target = event.target as Node
       if (
         viewDropdownRef.current?.contains(target) ||
-        professionalDropdownRef.current?.contains(target)
+        professionalDropdownRef.current?.contains(target) ||
+        boxDropdownRef.current?.contains(target)
       ) {
         return
       }
@@ -794,6 +827,11 @@ export default function WeekScheduler() {
     setOpenDropdown((current) => (current === 'professional' ? null : 'professional'))
   }
 
+  const handleBoxChipClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    setOpenDropdown((current) => (current === 'box' ? null : 'box'))
+  }
+
   const handleViewSelect = (value: ViewOption) => {
     setViewOption(value)
     setOpenDropdown(null)
@@ -801,6 +839,15 @@ export default function WeekScheduler() {
 
   const handleProfessionalToggle = (value: string) => {
     setSelectedProfessionals((previous) => {
+      if (previous.includes(value)) {
+        return previous.filter((item) => item !== value)
+      }
+      return [...previous, value]
+    })
+  }
+
+  const handleBoxToggle = (value: string) => {
+    setSelectedBoxes((previous) => {
       if (previous.includes(value)) {
         return previous.filter((item) => item !== value)
       }
@@ -993,7 +1040,6 @@ export default function WeekScheduler() {
                 />
               ) : null}
             </div>
-            <ToolbarChip label='Equipo' />
             <div ref={professionalDropdownRef} className='relative'>
               <ToolbarChip
                 label='Profesional'
@@ -1010,13 +1056,40 @@ export default function WeekScheduler() {
                 ariaControls={professionalDropdownId}
               />
               {openDropdown === 'professional' ? (
-                <ProfessionalDropdown
+                <MultiSelectDropdown
                   id={professionalDropdownId}
                   selected={selectedProfessionals}
+                  options={PROFESSIONAL_OPTIONS}
                   onToggle={handleProfessionalToggle}
                 />
               ) : null}
             </div>
+            {viewOption === 'semana' ? (
+              <div ref={boxDropdownRef} className='relative'>
+                <ToolbarChip
+                  label='Box'
+                  onClick={handleBoxChipClick}
+                  isActive={openDropdown === 'box'}
+                  icon={
+                    <KeyboardArrowDownRounded
+                      className='text-[var(--color-neutral-400)]'
+                      fontSize='inherit'
+                    />
+                  }
+                  ariaExpanded={openDropdown === 'box'}
+                  ariaHaspopup
+                  ariaControls={boxDropdownId}
+                />
+                {openDropdown === 'box' ? (
+                  <MultiSelectDropdown
+                    id={boxDropdownId}
+                    selected={selectedBoxes}
+                    options={BOX_OPTIONS}
+                    onToggle={handleBoxToggle}
+                  />
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
         <div className='flex items-center gap-3'>
@@ -1060,16 +1133,8 @@ export default function WeekScheduler() {
 
           {/* Scrollable Content Area */}
           <div className='relative flex-1 overflow-y-auto bg-[var(--color-neutral-0)]'>
-            <div className='relative' style={contentStyle}>
+            <div className='relative' style={{ height: getContentHeight(TIME_LABELS.length) }}>
               <TimeColumn />
-              <BoxLabels />
-
-          <div
-            className='pointer-events-none absolute left-0 w-full border-t border-[var(--color-border-default)]'
-            style={{
-              top: 'var(--scheduler-box-top-second)'
-            }}
-          />
 
           {DAY_COLUMNS.map((column) => (
             <DayGrid

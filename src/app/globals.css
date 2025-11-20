@@ -357,7 +357,8 @@
   --scheduler-header-left-sat: 72.84%; /* 1212/1664 */
   --scheduler-header-left-sun: 86.36%; /* 1437/1664 */
   --scheduler-box-top-second: 27.25rem; /* 436px */
-  --scheduler-slot-height: 7.785625rem; /* 124.57px */
+  --scheduler-slot-height: 7.785625rem; /* 124.57px - altura por hora completa */
+  --scheduler-slot-height-half: 3.8928125rem; /* 62.285px - altura por media hora (124.57/2) */
   /* Event card sizing - relative to column (227px reference) */
   --scheduler-event-width: 92.95%; /* 211px/227px from Figma */
   --scheduler-event-left-offset: 3.52%; /* 8px/227px from Figma */
@@ -388,7 +389,8 @@
   /* Month calendar (vista mensual) - Figma exact values */
   --month-row-height: 10.925rem; /* 174.8px from Figma */
   --month-cell-padding-top: 1rem; /* 16px from Figma */
-  --month-event-width: 13.1875rem; /* 211px from Figma */
+  --month-event-width: 13.1875rem; /* 211px from Figma - reference only */
+  --month-event-width-percent: 88.89%; /* 211px / 237.57px = 88.89% - fluid width */
   --month-event-height: 2.25rem; /* 36px from Figma */
   --month-event-top: 3.875rem; /* 62px from Figma */
   --month-event-left: 0.8575rem; /* 13.72px average from Figma */
@@ -401,7 +403,8 @@
   /* Day calendar (vista diaria) - Figma exact values */
   --day-time-column-width: 5.5rem; /* 88px from Figma */
   --day-box-column-width: 32.833125rem; /* 525.33px from Figma */
-  --day-event-width: 31.0625rem; /* 497px from Figma */
+  --day-event-width: 31.0625rem; /* 497px from Figma - reference only */
+  --day-event-width-percent: 94.63%; /* 497px / 525.33px = 94.63% - fluid width */
   --day-event-height: 2.25rem; /* 36px from Figma */
   --day-event-left: 0.875rem; /* 14px from Figma */
   --day-event-padding: 0.5rem; /* 8px from Figma */

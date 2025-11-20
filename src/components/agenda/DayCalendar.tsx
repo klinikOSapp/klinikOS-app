@@ -2,16 +2,27 @@
 
 const TIME_LABELS = [
   '9:00',
+  '9:30',
   '10:00',
+  '10:30',
   '11:00',
+  '11:30',
   '12:00',
+  '12:30',
   '13:00',
+  '13:30',
   '14:00',
+  '14:30',
   '15:00',
+  '15:30',
   '16:00',
+  '16:30',
   '17:00',
+  '17:30',
   '18:00',
+  '18:30',
   '19:00',
+  '19:30',
   '20:00'
 ]
 
@@ -409,7 +420,7 @@ function DayEvent({ event }: { event: DayEvent }) {
         position: 'absolute',
         top: event.top,
         left: 'var(--day-event-left)',
-        width: 'var(--day-event-width)',
+        width: 'var(--day-event-width-percent)',
         height: 'var(--day-event-height)',
         backgroundColor: event.bgColor
       }}
@@ -458,8 +469,8 @@ function DayGrid() {
 }
 
 export default function DayCalendar() {
-  // Calcular altura total: 12 slots × 124.57px = 1494.84px → 93.4275rem
-  const totalHeight = `calc(${TIME_LABELS.length} * var(--scheduler-slot-height) + var(--scheduler-day-header-height))`
+  // Calcular altura total: 23 slots × 62.285px = 1432.555px → 89.5rem
+  const totalHeight = `calc(${TIME_LABELS.length} * var(--scheduler-slot-height-half) + var(--scheduler-day-header-height))`
 
   return (
     <div className='relative w-full' style={{ height: totalHeight }}>

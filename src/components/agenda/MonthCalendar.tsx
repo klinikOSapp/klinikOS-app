@@ -198,8 +198,9 @@ function MonthEvent({ event }: { event: MonthEvent }) {
       style={{
         position: 'absolute',
         top: 'var(--month-event-top)',
-        left: 'var(--month-event-left)',
-        width: 'var(--month-event-width)',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: 'var(--month-event-width-percent)',
         height: 'var(--month-event-height)',
         backgroundColor: event.bgColor
       }}

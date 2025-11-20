@@ -59,21 +59,30 @@ export default function AppointmentSummaryCard({
       aria-pressed={isActive}
       aria-controls={isActive ? 'scheduler-event-overlay' : undefined}
     >
-      <div className='flex items-start justify-between gap-2'>
-        <div className='flex min-w-0 flex-1 flex-col gap-1'>
-          <p className='overflow-hidden text-ellipsis whitespace-nowrap text-body-sm font-medium text-[var(--color-neutral-900)]'>
+      <div className='flex items-start justify-between'>
+        <div className='flex min-w-0 flex-1 flex-col gap-2'>
+          <p
+            className='overflow-hidden text-ellipsis whitespace-nowrap font-medium text-[var(--color-neutral-900)]'
+            style={{
+              fontSize: 'var(--text-label-md)',
+              lineHeight: 'var(--leading-label-md)'
+            }}
+          >
             {event.title}
           </p>
-          <p className='overflow-hidden text-ellipsis whitespace-nowrap text-label-md font-medium text-[var(--color-neutral-700)]'>
+          <p
+            className='overflow-hidden text-ellipsis whitespace-nowrap font-medium text-[var(--color-neutral-900)]'
+            style={{
+              fontSize: 'var(--text-label-md)',
+              lineHeight: 'var(--leading-label-md)'
+            }}
+          >
             {event.patient}
           </p>
         </div>
-        <div className='flex shrink-0 flex-col items-end gap-1 text-right'>
-          <p className='whitespace-nowrap text-title-sm font-semibold text-[var(--color-neutral-900)]'>
+        <div className='flex shrink-0 flex-col items-end justify-center self-stretch text-right'>
+          <p className='whitespace-nowrap text-title-sm font-bold text-[var(--color-neutral-900)]'>
             {event.box}
-          </p>
-          <p className='whitespace-nowrap text-label-md font-normal text-[var(--color-neutral-600)]'>
-            {event.timeRange}
           </p>
         </div>
       </div>
