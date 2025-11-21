@@ -1,5 +1,6 @@
 'use client'
 
+import { RoleContext, UserRole } from '@/context/role-context'
 import { getSignedUrl } from '@/lib/storage'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { LayoutProps } from '@/types/layout'
@@ -53,36 +54,54 @@ export default function Layout({ children }: LayoutProps) {
   const [avatarUrl, setAvatarUrl] = React.useState<string | undefined>(undefined)
   const [accountOpen, setAccountOpen] = React.useState(false)
   const [isManager, setIsManager] = React.useState(false)
+  const [userRole, setUserRole] = React.useState<UserRole>(null)
+
+  const resolveRolePriority = React.useCallback((current: UserRole, candidate: UserRole) => {
+    if (!candidate) return current
+    if (!current) return candidate
+    const priority = ['gerencia', 'recepcion', 'doctor', 'higienista'] as const
+    const currentIdx = priority.indexOf(current as (typeof priority)[number])
+    const candidateIdx = priority.indexOf(candidate as (typeof priority)[number])
+    if (candidateIdx === -1) return current
+    if (currentIdx === -1 || candidateIdx < currentIdx) {
+      return candidate
+    }
+    return current
+  }, [])
 
   React.useEffect(() => {
     let active = true
-    async function determineManagerAccess() {
+    async function determineRoleAccess() {
       try {
         const { data: clinics, error } = await supabase.rpc('get_my_clinics')
         if (!active) return
         if (error || !Array.isArray(clinics) || clinics.length === 0) {
           setIsManager(false)
+          setUserRole(null)
           return
         }
+        let resolvedRole: UserRole = null
         for (const clinicId of clinics as string[]) {
           if (!clinicId) continue
           const { data: role, error: roleError } = await supabase.rpc('get_my_role_in_clinic', {
             p_clinic_id: clinicId
           })
           if (!active) return
-          if (roleError) {
+          if (roleError || !role) {
             continue
           }
-          if (role === 'gerencia') {
-            setIsManager(true)
-            return
+          resolvedRole = resolveRolePriority(resolvedRole, role as UserRole)
+          if (resolvedRole === 'gerencia') {
+            break
           }
         }
-        setIsManager(false)
+        setIsManager(resolvedRole === 'gerencia')
+        setUserRole(resolvedRole)
       } catch (error) {
         if (active) {
           console.error('Error determining manager privileges', error)
           setIsManager(false)
+          setUserRole(null)
         }
       }
     }
@@ -143,13 +162,13 @@ export default function Layout({ children }: LayoutProps) {
         setStaffProfile(null)
         setAvatarUrl(undefined)
       }
-      await determineManagerAccess()
+      await determineRoleAccess()
     }
     void loadProfile()
     return () => {
       active = false
     }
-  }, [supabase])
+  }, [resolveRolePriority, supabase])
 
   const handleProfileUpdated = React.useCallback(
     async ({ fullName, avatarUrl: path }: { fullName: string; avatarUrl?: string | null }) => {
@@ -171,31 +190,45 @@ export default function Layout({ children }: LayoutProps) {
     []
   )
 
+  const roleContextValue = React.useMemo(
+    () => ({
+      role: userRole,
+      canViewFinancials: userRole === 'gerencia' || userRole === 'recepcion',
+      canManageAppointments: userRole === 'gerencia' || userRole === 'recepcion',
+      canAssignStaff: userRole === 'gerencia' || userRole === 'recepcion'
+    }),
+    [userRole]
+  )
+
+  const showCta = roleContextValue.canManageAppointments
+
   return (
     <div className='bg-[var(--color-brand-0)] h-dvh overflow-hidden'>
-      <TopBar
-        userName={displayName}
-        userAvatarUrl={avatarUrl}
-        onAccountClick={() => setAccountOpen(true)}
-      />
-      <div className='flex'>
-        <Sidebar
-          itemsTop={itemsTop}
-          itemsBottom={itemsBottom}
-          cta={{ label: 'Añadir' }}
+      <RoleContext.Provider value={roleContextValue}>
+        <TopBar
+          userName={displayName}
+          userAvatarUrl={avatarUrl}
+          onAccountClick={() => setAccountOpen(true)}
         />
-        <main className='bg-white rounded-tl-[var(--radius-xl)] w-full h-[calc(100dvh-var(--spacing-topbar))] min-h-0 overflow-hidden'>
-          {children}
-        </main>
-      </div>
-      <AccountPanel
-        open={accountOpen}
-        onClose={() => setAccountOpen(false)}
-        user={user}
-        staff={staffProfile}
-        canManage={isManager}
-        onProfileUpdated={handleProfileUpdated}
-      />
+        <div className='flex'>
+          <Sidebar
+            itemsTop={itemsTop}
+            itemsBottom={itemsBottom}
+            cta={showCta ? { label: 'Añadir' } : undefined}
+          />
+          <main className='bg-white rounded-tl-[var(--radius-xl)] w-full h-[calc(100dvh-var(--spacing-topbar))] min-h-0 overflow-hidden'>
+            {children}
+          </main>
+        </div>
+        <AccountPanel
+          open={accountOpen}
+          onClose={() => setAccountOpen(false)}
+          user={user}
+          staff={staffProfile}
+          canManage={isManager}
+          onProfileUpdated={handleProfileUpdated}
+        />
+      </RoleContext.Provider>
     </div>
   )
 }

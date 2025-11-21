@@ -9,7 +9,7 @@ export async function getClinicIdForPatient(patientId: string): Promise<string |
 export async function uploadPatientFile(params: {
   patientId: string
   file: File
-  kind: 'rx' | 'consents' | 'avatar'
+  kind: 'rx' | 'consents' | 'avatar' | 'orthodontics'
 }): Promise<{ path: string }> {
   const supabase = createSupabaseBrowserClient()
   const { patientId, file, kind } = params

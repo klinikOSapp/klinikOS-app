@@ -1,5 +1,6 @@
 'use client'
 
+import { useUserRole } from '@/context/role-context'
 import React from 'react'
 import BudgetsPayments from './BudgetsPayments'
 import ClientSummary from './ClientSummary'
@@ -18,6 +19,7 @@ export default function PatientRecordModal({
   onClose,
   patientId
 }: PatientRecordModalProps) {
+  const { canViewFinancials } = useUserRole()
   const [active, setActive] = React.useState<
     | 'Resumen'
     | 'Historial clínico'
@@ -37,30 +39,45 @@ export default function PatientRecordModal({
     return undefined
   }, [onClose, open])
 
-  if (!open) return null
+  const items = React.useMemo(
+    () =>
+      [
+        {
+          title: 'Resumen' as const,
+          body: 'Datos básicos de consulta, alertas, próximas citas, deuda, ...'
+        },
+        {
+          title: 'Historial clínico' as const,
+          body: 'Notas SOAP, odontograma, actos y adjuntos.'
+        },
+        {
+          title: 'Imágenes RX' as const,
+          body: 'capturas intraorales/fotos antes-después y escáner 3D.'
+        },
+        {
+          title: 'Presupuestos y pagos' as const,
+          body: 'Cobros, financiación embebida, facturas/recibos y conciliación.'
+        },
+        {
+          title: 'Consentimientos' as const,
+          body: 'Accede a todos los consentimientos de los pacientes.'
+        }
+      ].filter((item) => {
+        if (item.title === 'Presupuestos y pagos') {
+          return canViewFinancials
+        }
+        return true
+      }),
+    [canViewFinancials]
+  )
 
-  const items: Array<{ title: typeof active; body: string }> = [
-    {
-      title: 'Resumen',
-      body: 'Datos básicos de consulta, alertas, próximas citas, deuda, ...'
-    },
-    {
-      title: 'Historial clínico',
-      body: 'Notas SOAP, odontograma, actos y adjuntos.'
-    },
-    {
-      title: 'Imágenes RX',
-      body: 'capturas intraorales/fotos antes-después y escáner 3D.'
-    },
-    {
-      title: 'Presupuestos y pagos',
-      body: 'Cobros, financiación embebida, facturas/recibos y conciliación.'
-    },
-    {
-      title: 'Consentimientos',
-      body: 'Accede a todos los consentimientos de los pacientes.'
+  React.useEffect(() => {
+    if (!items.find((item) => item.title === active)) {
+      setActive(items[0]?.title ?? 'Resumen')
     }
-  ]
+  }, [active, items])
+
+  if (!open) return null
 
   return (
     <div

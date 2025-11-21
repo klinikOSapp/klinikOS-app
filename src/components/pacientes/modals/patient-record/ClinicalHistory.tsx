@@ -1,5 +1,6 @@
 'use client'
 import SelectorCard from '@/components/pacientes/SelectorCard'
+import { useUserRole } from '@/context/role-context'
 import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
 import { getSignedUrl } from '@/lib/storage'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
@@ -175,6 +176,8 @@ type TimelineEntry =
 
 export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryProps) {
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
+  const { canManageAppointments, canAssignStaff } = useUserRole()
+  const appointmentFieldsDisabled = !canManageAppointments
   const resolveCallSourceInfo = React.useCallback(
     async (callId?: number | null): Promise<HoldSourceInfo | null> => {
       if (!callId) return null
@@ -243,12 +246,16 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
     Array<{ id: number; name: string }>
   >([])
   const [staffList, setStaffList] = React.useState<
-    Array<{ id: string; name: string; role?: string | null }>
+    Array<{ id: string; name: string; appointmentRole?: string | null; clinicRole?: string | null }>
   >([])
   const [attachments, setAttachments] = React.useState<
     Array<{ id: string; name: string; path?: string; date: string; url?: string }>
   >([])
+  const [odontograms, setOdontograms] = React.useState<
+    Array<{ id: string; name: string; path?: string; date: string; url?: string }>
+  >([])
   const [activeNoteId, setActiveNoteId] = React.useState<string | null>(null)
+  const [activeNoteAuthorId, setActiveNoteAuthorId] = React.useState<string | null>(null)
   const [holds, setHolds] = React.useState<AppointmentHoldRecord[]>([])
   const [activeHold, setActiveHold] = React.useState<AppointmentHoldRecord | null>(null)
   const [isConfirmingHold, setIsConfirmingHold] = React.useState(false)
@@ -293,13 +300,15 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
     | { kind: 'unknown' }
   const [holdSource, setHoldSource] = React.useState<HoldSourceInfo>({ kind: 'unknown' })
   const addHoldStaffAssignment = React.useCallback(() => {
+    if (!canAssignStaff) return
     setHoldForm((prev) => ({
       ...prev,
       staffAssignments: [...prev.staffAssignments, createEmptyStaffAssignment()]
     }))
-  }, [])
+  }, [canAssignStaff])
   const updateHoldStaffAssignment = React.useCallback(
     (index: number, updates: Partial<HoldStaffAssignment>) => {
+      if (!canAssignStaff) return
       setHoldForm((prev) => {
         const next = prev.staffAssignments.map((assignment, idx) =>
           idx === index ? { ...assignment, ...updates } : assignment
@@ -307,14 +316,15 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
         return { ...prev, staffAssignments: next }
       })
     },
-    []
+    [canAssignStaff]
   )
   const removeHoldStaffAssignment = React.useCallback((index: number) => {
+    if (!canAssignStaff) return
     setHoldForm((prev) => ({
       ...prev,
       staffAssignments: prev.staffAssignments.filter((_, idx) => idx !== index)
     }))
-  }, [])
+  }, [canAssignStaff])
   const renderDetailItem = React.useCallback(
     (label: string, value: React.ReactNode, secondary?: React.ReactNode) => (
       <div className='flex flex-col gap-1'>
@@ -390,6 +400,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                   boxId: e.target.value ? e.target.value : null
                 }))
               }
+              disabled={!canManageAppointments}
               className='rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200'
             >
               <option value=''>Sin asignar</option>
@@ -410,6 +421,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                   serviceId: e.target.value ? Number(e.target.value) : null
                 }))
               }
+              disabled={!canManageAppointments}
               className='rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200'
             >
               <option value=''>Sin especificar</option>
@@ -439,6 +451,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                         staffId: e.target.value ? e.target.value : null
                       })
                     }
+                    disabled={!canAssignStaff}
                     className='rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200 md:min-w-[12rem]'
                   >
                     <option value=''>Seleccionar profesional</option>
@@ -458,6 +471,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                           customRole: value === 'custom' ? assignment.customRole : ''
                         })
                       }}
+                      disabled={!canAssignStaff}
                       className='rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200 md:min-w-[12rem]'
                     >
                       <option value=''>Seleccionar rol</option>
@@ -475,6 +489,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                           updateHoldStaffAssignment(index, { customRole: e.target.value })
                         }
                         placeholder='Describe el rol'
+                        disabled={!canAssignStaff}
                         className='rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200 md:flex-1'
                       />
                     ) : null}
@@ -482,7 +497,8 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                   <button
                     type='button'
                     onClick={() => removeHoldStaffAssignment(index)}
-                    className='self-start text-sm text-neutral-500 transition hover:text-neutral-800'
+                    disabled={!canAssignStaff}
+                    className='self-start text-sm text-neutral-500 transition hover:text-neutral-800 disabled:cursor-not-allowed disabled:opacity-60'
                   >
                     Quitar
                   </button>
@@ -492,7 +508,8 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
             <button
               type='button'
               onClick={addHoldStaffAssignment}
-              className='inline-flex items-center gap-2 text-sm font-medium text-brand-500 transition hover:text-brand-400'
+              disabled={!canAssignStaff}
+              className='inline-flex items-center gap-2 text-sm font-medium text-brand-500 transition hover:text-brand-400 disabled:cursor-not-allowed disabled:opacity-60'
             >
               <AddRounded className='size-4' />
               Añadir profesional
@@ -508,34 +525,37 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                   notes: e.target.value
                 }))
               }
+              disabled={!canManageAppointments}
               className='min-h-[96px] rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200'
               placeholder='Añade notas relevantes para la reserva'
             />
           </label>
         </div>
-        <div className='flex flex-col gap-2 border-t border-neutral-200 pt-4'>
-          <div className='flex flex-col gap-2 sm:flex-row'>
-          <button
-            type='button'
-            onClick={handleConfirmHold}
-              disabled={isConfirmingHold || isCancellingHold || activeHold.status !== 'held'}
-            className='rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-brand-900 shadow-sm transition hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-70'
-          >
-            {isConfirmingHold ? 'Confirmando…' : 'Confirmar reserva'}
-          </button>
-          <button
-            type='button'
-            onClick={() => handleCancelHold(activeHold)}
-            disabled={isCancellingHold}
-            className='rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60'
-          >
-            {isCancellingHold ? 'Cancelando…' : 'Cancelar reserva'}
-          </button>
+        {canManageAppointments ? (
+          <div className='flex flex-col gap-2 border-t border-neutral-200 pt-4'>
+            <div className='flex flex-col gap-2 sm:flex-row'>
+              <button
+                type='button'
+                onClick={handleConfirmHold}
+                disabled={isConfirmingHold || isCancellingHold || activeHold.status !== 'held'}
+                className='rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-brand-900 shadow-sm transition hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-70'
+              >
+                {isConfirmingHold ? 'Confirmando…' : 'Confirmar reserva'}
+              </button>
+              <button
+                type='button'
+                onClick={() => handleCancelHold(activeHold)}
+                disabled={isCancellingHold}
+                className='rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60'
+              >
+                {isCancellingHold ? 'Cancelando…' : 'Cancelar reserva'}
+              </button>
+            </div>
+            <p className='text-label-sm text-neutral-500'>
+              Al confirmar se crea una cita y se libera la reserva.
+            </p>
           </div>
-          <p className='text-label-sm text-neutral-500'>
-            Al confirmar se crea una cita y se libera la reserva.
-          </p>
-        </div>
+        ) : null}
       </div>
     )
   }
@@ -609,9 +629,11 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
           ) : (
             <div className='grid gap-3 sm:grid-cols-2'>
               {staffList.map((m) => {
-                const roleLabel = m.role
-                  ? humanize(m.role.toLowerCase())
-                  : '—'
+                const roles = [m.appointmentRole, m.clinicRole]
+                  .filter(Boolean)
+                  .map((role) => humanize(String(role).toLowerCase()))
+                const uniqueRoles = Array.from(new Set(roles))
+                const roleLabel = uniqueRoles.length > 0 ? uniqueRoles.join(' · ') : '—'
                 return (
                   <div
                     key={m.id}
@@ -621,8 +643,9 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                       <AccountCircleRounded className='size-6' />
                     </div>
                     <div className="flex flex-col font-['Inter:Regular',_sans-serif] gap-0.5 text-neutral-900">
-                      <span className='text-body-sm'>{m.name}</span>
-                      <span className='text-label-sm text-neutral-500'>{roleLabel}</span>
+                      <span className='text-body-sm'>
+                        {roleLabel !== '—' ? `${roleLabel} · ${m.name}` : m.name}
+                      </span>
                     </div>
                   </div>
                 )
@@ -738,23 +761,80 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                 const { uploadPatientFile } = await import('@/lib/storage')
                 const { createSupabaseBrowserClient } = await import('@/lib/supabase/client')
                 const supa = createSupabaseBrowserClient()
-                const { path } = await uploadPatientFile({ patientId, file: f, kind: 'rx' })
-                await supa.from('clinical_attachments').insert({
+                const { path } = await uploadPatientFile({
+                  patientId,
+                  file: f,
+                  kind: 'orthodontics'
+                })
+                const { data: inserted, error } = await supa
+                  .from('clinical_attachments')
+                  .insert({
                   patient_id: patientId,
                   appointment_id: activeAppointmentId,
                   staff_id: (await supa.auth.getUser()).data.user?.id,
                   file_name: f.name,
                   file_type: f.type,
-                  storage_path: path
-                })
+                    storage_path: path
+                  })
+                  .select('id, created_at')
+                  .single()
+                if (error) throw error
+                let signedUrl: string | undefined
+                try {
+                  signedUrl = await getSignedUrl(path)
+                } catch {
+                  signedUrl = undefined
+                }
+                setOdontograms((prev) => [
+                  {
+                    id: String(inserted?.id ?? path),
+                    name: f.name,
+                    path,
+                    date: new Date(inserted?.created_at ?? Date.now()).toLocaleDateString(
+                      DEFAULT_LOCALE,
+                      { timeZone: DEFAULT_TIMEZONE }
+                    ),
+                    url: signedUrl
+                  },
+                  ...prev
+                ])
               } finally {
                 if (e.target) e.target.value = ''
               }
             }}
           />
-          <div className='flex h-[10.875rem] w-[14.1875rem] items-center justify-center rounded-[calc(var(--radius-xl)/2)] border border-neutral-300 bg-neutral-100 text-neutral-400'>
-            <ImageRounded className='size-12' />
-          </div>
+          {odontograms.length === 0 ? (
+            <div className='flex h-[10.875rem] w-[14.1875rem] items-center justify-center rounded-[calc(var(--radius-xl)/2)] border border-neutral-300 bg-neutral-100 text-neutral-400'>
+              <ImageRounded className='size-12' />
+            </div>
+          ) : (
+            <div className='flex flex-wrap gap-3'>
+              {odontograms.map((odo) => (
+                <button
+                  key={odo.id}
+                  type='button'
+                  className='relative h-[10.875rem] w-[14.1875rem] overflow-hidden rounded-[calc(var(--radius-xl)/2)] border border-neutral-200 shadow-sm transition hover:scale-[1.01] focus-visible:ring-2 focus-visible:ring-brand-300'
+                  onClick={() => odo.url && window.open(odo.url, '_blank', 'noopener,noreferrer')}
+                >
+                  {odo.url ? (
+                    <img
+                      src={odo.url}
+                      alt={odo.name}
+                      className='h-full w-full object-cover'
+                      loading='lazy'
+                    />
+                  ) : (
+                    <div className='flex h-full w-full items-center justify-center bg-neutral-100 text-neutral-400'>
+                      <ImageRounded className='size-10' />
+                    </div>
+                  )}
+                  <span className='absolute bottom-2 left-2 rounded bg-black/60 px-2 py-1 text-xs text-white'>
+                    {odo.date}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </section>
         <section className='grid gap-6 md:grid-cols-2'>
           <div className='flex flex-col gap-1'>
@@ -1149,6 +1229,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
         setEditA('')
         setEditP('')
         setActiveNoteId(null)
+        setActiveNoteAuthorId(null)
         return
       }
       const numericId =
@@ -1156,7 +1237,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
       const filterValue = Number.isNaN(numericId) ? appointmentId : numericId
       const { data, error } = await supabase
         .from('appointment_notes')
-        .select('id, content, content_json, note_type, created_at')
+        .select('id, content, content_json, note_type, created_at, staff_id')
         .eq('appointment_id', filterValue as any)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -1167,10 +1248,12 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
         setSoapAssessment('—')
         setSoapPlan('—')
         setActiveNoteId(null)
+        setActiveNoteAuthorId(null)
         return
       }
       if (Array.isArray(data) && data[0]) {
         setActiveNoteId(String(data[0].id))
+        setActiveNoteAuthorId((data[0] as any).staff_id ?? null)
         const rawJson = (data[0] as any).content_json
         let cj:
           | {
@@ -1223,6 +1306,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
         setEditA('')
         setEditP('')
         setActiveNoteId(null)
+        setActiveNoteAuthorId(null)
       }
     },
     [supabase]
@@ -1311,6 +1395,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
       const appointmentFilter = Number.isNaN(numericActiveId)
         ? activeAppointmentId
         : numericActiveId
+      const clinicIdForStaff = activeAppointment?.clinic_id ?? null
       const { data: staffLinks } = await supabase
         .from('appointment_staff')
         .select('staff_id, role_in_appointment')
@@ -1319,6 +1404,21 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
         .map((link: any) => link.staff_id)
         .filter(Boolean)
       let staff: Array<{ id: string; name: string; role?: string | null }> = []
+      let clinicRoleMap = new Map<string, string | null>()
+      if (clinicIdForStaff && staffIds.length) {
+        const { data: clinicRoles, error: clinicRoleError } = await supabase
+          .from('staff_clinics')
+          .select('staff_id, role')
+          .eq('clinic_id', clinicIdForStaff)
+          .in('staff_id', staffIds as any)
+        if (clinicRoleError) {
+          console.error('Error loading staff clinic roles', clinicRoleError)
+        } else if (Array.isArray(clinicRoles)) {
+          clinicRoleMap = new Map(
+            clinicRoles.map((row: any) => [row.staff_id, row.role ?? null])
+          )
+        }
+      }
       if (staffIds.length) {
         try {
           const { data: profiles } = await supabase.rpc('get_staff_names', {
@@ -1336,14 +1436,16 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
           staff = (staffLinks || []).map((link: any) => ({
             id: link.staff_id,
             name: nameById.get(link.staff_id)?.name ?? link.staff_id,
-            role: link.role_in_appointment ?? null
+            appointmentRole: link.role_in_appointment ?? null,
+            clinicRole: clinicRoleMap.get(link.staff_id) ?? null
           }))
         } catch (rpcError) {
           console.error('Error loading staff names', rpcError)
           staff = (staffLinks || []).map((link: any) => ({
             id: link.staff_id,
             name: link.staff_id,
-            role: link.role_in_appointment ?? null
+            appointmentRole: link.role_in_appointment ?? null,
+            clinicRole: clinicRoleMap.get(link.staff_id) ?? null
           }))
         }
       }
@@ -1378,9 +1480,10 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
           })
         )
       setAttachments(mapped)
+      setOdontograms(mapped.filter((item) => item.path?.includes('/orthodontics/')))
     }
     void loadStaffAndAttachments()
-  }, [activeAppointmentId, supabase])
+  }, [activeAppointmentId, activeAppointment, supabase])
   const handleKeyDown = (current: Filter) => (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
@@ -1402,7 +1505,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
 
   const handleCancelHold = React.useCallback(
     async (hold: AppointmentHoldRecord | null) => {
-      if (!hold) return
+      if (!hold || !canManageAppointments) return
       const entryKey = `hold-${hold.id}`
       toggleCancellingEntry(entryKey, true)
       try {
@@ -1421,19 +1524,12 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
         toggleCancellingEntry(entryKey, false)
       }
     },
-    [
-      activeHold,
-      filter,
-      holds,
-      pickByFilter,
-      supabase,
-      toggleCancellingEntry
-    ]
+    [activeHold, filter, holds, pickByFilter, supabase, toggleCancellingEntry, canManageAppointments]
   )
 
   const handleCancelAppointment = React.useCallback(
     async (appointment: AppointmentRecord | null) => {
-      if (!appointment) return
+      if (!appointment || !canManageAppointments) return
       const entryKey = `appt-${appointment.id}`
       toggleCancellingEntry(entryKey, true)
       try {
@@ -1460,12 +1556,13 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
       filter,
       pickByFilter,
       supabase,
-      toggleCancellingEntry
+      toggleCancellingEntry,
+      canManageAppointments
     ]
   )
 
   const handleConfirmHold = React.useCallback(async () => {
-    if (!activeHold) return
+    if (!activeHold || !canManageAppointments) return
     const hold = activeHold
     setIsConfirmingHold(true)
     try {
@@ -1664,7 +1761,8 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
     supabase,
     holdForm,
     holdOptions.services,
-    holdOptions.staff
+    holdOptions.staff,
+    canManageAppointments
   ])
   return (
     <div
@@ -1778,9 +1876,11 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                 isAppointment ? entry.record.scheduled_start_time : entry.record.start_time
               )
               const isFuture = startDate.getTime() > timelineNow
-              const canCancel = isAppointment
-                ? isFuture && entry.record.status !== 'cancelled'
-                : entry.record.status === 'held' && isFuture
+              const canCancel =
+                canManageAppointments &&
+                (isAppointment
+                  ? isFuture && entry.record.status !== 'cancelled'
+                  : entry.record.status === 'held' && isFuture)
               const isCancelling = Boolean(cancellingEntries[entryKey])
               const dotClass = isAppointment
                 ? 'bg-brand-500 border-brand-100'
@@ -1986,7 +2086,8 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                   onChange={(e) =>
                     setEditServiceId(e.target.value ? Number(e.target.value) : null)
                   }
-                  className='border border-neutral-300 rounded px-2 py-1'
+                  disabled={appointmentFieldsDisabled}
+                  className='border border-neutral-300 rounded px-2 py-1 disabled:bg-neutral-100 disabled:text-neutral-500 disabled:cursor-not-allowed'
                 >
                   <option value=''>Sin especificar</option>
                   {serviceOptions.map((option) => (
@@ -2001,7 +2102,8 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                 <select
                   value={editStatus}
                   onChange={(e) => setEditStatus(e.target.value)}
-                  className='border border-neutral-300 rounded px-2 py-1'
+                  disabled={appointmentFieldsDisabled}
+                  className='border border-neutral-300 rounded px-2 py-1 disabled:bg-neutral-100 disabled:text-neutral-500 disabled:cursor-not-allowed'
                 >
                   <option value='scheduled'>scheduled</option>
                   <option value='confirmed'>confirmed</option>
@@ -2016,7 +2118,8 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                   type='datetime-local'
                   value={editDate}
                   onChange={(e) => setEditDate(e.target.value)}
-                  className='border border-neutral-300 rounded px-2 py-1'
+                  disabled={appointmentFieldsDisabled}
+                  className='border border-neutral-300 rounded px-2 py-1 disabled:bg-neutral-100 disabled:text-neutral-500 disabled:cursor-not-allowed'
                 />
               </label>
               <div className='grid grid-cols-2 gap-3'>
@@ -2050,25 +2153,27 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                   className='px-3 py-2 rounded bg-[var(--color-brand-500)] text-[var(--color-brand-900)]'
                   onClick={async () => {
                     if (!activeAppointmentId) return
-                    const local = new Date(editDate)
-                    if (Number.isNaN(local.getTime())) {
-                      console.warn('Invalid date selected for appointment update')
-                      return
-                    }
-                    const utc = new Date(local.getTime() + local.getTimezoneOffset() * 60000)
-                    const { error: updateError } = await supabase
-                      .from('appointments')
-                      .update({
-                        status: editStatus,
-                        service_id: editServiceId,
-                        scheduled_start_time: utc.toISOString(),
-                        scheduled_end_time: new Date(utc.getTime() + 60 * 60 * 1000).toISOString()
-                      })
-                      .eq('id', activeAppointmentId)
-                    if (updateError) {
-                      console.error('Error updating appointment', updateError)
-                      alert('No se pudo guardar la cita. Intenta nuevamente.')
-                      return
+                    if (canManageAppointments) {
+                      const local = new Date(editDate)
+                      if (Number.isNaN(local.getTime())) {
+                        console.warn('Invalid date selected for appointment update')
+                        return
+                      }
+                      const utc = new Date(local.getTime() + local.getTimezoneOffset() * 60000)
+                      const { error: updateError } = await supabase
+                        .from('appointments')
+                        .update({
+                          status: editStatus,
+                          service_id: editServiceId,
+                          scheduled_start_time: utc.toISOString(),
+                          scheduled_end_time: new Date(utc.getTime() + 60 * 60 * 1000).toISOString()
+                        })
+                        .eq('id', activeAppointmentId)
+                      if (updateError) {
+                        console.error('Error updating appointment', updateError)
+                        alert('No se pudo guardar la cita. Intenta nuevamente.')
+                        return
+                      }
                     }
                     const { data: userData, error: userError } = await supabase.auth.getUser()
                     if (userError) {
@@ -2076,10 +2181,13 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                     }
                     const staffId = userData?.user?.id
                     if (staffId) {
+                      const appointmentIdFilter = Number.isNaN(Number(activeAppointmentId))
+                        ? activeAppointmentId
+                        : Number(activeAppointmentId)
                       const { data: apptRow, error: apptError } = await supabase
                         .from('appointments')
                         .select('patient_id')
-                        .eq('id', activeAppointmentId)
+                        .eq('id', appointmentIdFilter as any)
                         .maybeSingle()
                       if (apptError) {
                         console.error('Error obtaining patient for appointment', apptError)
@@ -2096,7 +2204,9 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                           content: `S: ${editS}\nO: ${editO}\nA: ${editA}\nP: ${editP}`,
                           content_json: { s: editS, o: editO, a: editA, p: editP }
                         }
-                        if (activeNoteId) {
+                        const canUpdateExistingNote =
+                          Boolean(activeNoteId) && activeNoteAuthorId === staffId
+                        if (canUpdateExistingNote) {
                           const noteIdFilter = Number.isNaN(Number(activeNoteId))
                             ? activeNoteId
                             : Number(activeNoteId)
@@ -2120,6 +2230,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                             alert('No se pudo guardar la nota clínica. Revisa los permisos/RLS.')
                           } else if (insertedNote?.id) {
                             setActiveNoteId(String(insertedNote.id))
+                            setActiveNoteAuthorId(staffId)
                           }
                         }
                         await loadAppointmentNote()
