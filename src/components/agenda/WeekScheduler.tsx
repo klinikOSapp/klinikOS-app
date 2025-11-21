@@ -18,6 +18,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 
 import AppointmentDetailOverlay from './AppointmentDetailOverlay'
 import AppointmentSummaryCard from './AppointmentSummaryCard'
+import CreateAppointmentModal from './CreateAppointmentModal'
 import DayCalendar from './DayCalendar'
 import MonthCalendar from './MonthCalendar'
 import ParteDiarioModal from './ParteDiarioModal'
@@ -810,6 +811,7 @@ export default function WeekScheduler() {
     null | 'view' | 'professional' | 'box'
   >(null)
   const [isParteDiarioModalOpen, setIsParteDiarioModalOpen] = useState(false)
+  const [isCreateAppointmentModalOpen, setIsCreateAppointmentModalOpen] = useState(false)
 
   // Week navigation state - starts with current week
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
@@ -1167,6 +1169,17 @@ export default function WeekScheduler() {
               />
             }
           />
+          <button
+            onClick={() => setIsCreateAppointmentModalOpen(true)}
+            className='flex items-center gap-2 rounded-full bg-brand-500 px-4 py-2 transition-all hover:bg-brand-600 active:scale-95'
+          >
+            <span className='material-symbols-rounded text-xl text-brand-900'>
+              add
+            </span>
+            <span className='font-medium text-sm text-brand-900'>
+              Añadir cita
+            </span>
+          </button>
         </div>
       </header>
 
@@ -1313,6 +1326,17 @@ export default function WeekScheduler() {
       <ParteDiarioModal
         isOpen={isParteDiarioModalOpen}
         onClose={() => setIsParteDiarioModalOpen(false)}
+      />
+
+      {/* Create Appointment Modal */}
+      <CreateAppointmentModal
+        isOpen={isCreateAppointmentModalOpen}
+        onClose={() => setIsCreateAppointmentModalOpen(false)}
+        onSubmit={(data) => {
+          console.log('Nueva cita creada:', data)
+          setIsCreateAppointmentModalOpen(false)
+          // TODO: Integrar con backend para guardar la cita
+        }}
       />
     </section>
   )

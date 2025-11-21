@@ -79,8 +79,8 @@ export default function ParteDiarioModal({
             <div className='flex items-start gap-6 mb-16'>
               <label
                 htmlFor='profesional-select'
-                className='text-base font-normal text-[var(--color-neutral-900)] pt-3'
-                style={{ width: '5.25rem' }}
+                className='text-base font-normal text-[var(--color-neutral-900)]'
+                style={{ width: '7.375rem', paddingTop: '0.75rem' }}
               >
                 Profesional
               </label>
@@ -117,7 +117,7 @@ export default function ParteDiarioModal({
               <label
                 htmlFor='periodo-input'
                 className='text-base font-normal text-[var(--color-neutral-900)]'
-                style={{ width: '7.375rem', paddingTop: '0.375rem' }}
+                style={{ width: '7.375rem', paddingTop: '0.75rem' }}
               >
                 Fecha del parte
               </label>

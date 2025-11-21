@@ -203,6 +203,7 @@
   --chart-prof-grid-height-ratio: 0.60819; /* 208 / 342 */
   --chart-prof-grid-top-ratio: 0.24561; /* 84 / 342 */
   --chart-prof-labels-bottom-ratio: 0.88304; /* 302 / 342 */
+  --chart-prof-content-height-ratio: 0.93567; /* (320 / 342) - altura total del área del gráfico incluyendo labels X */
   --chart-prof-bar-width-ratio: 0.10964; /* 58 / 529 */
   --chart-prof-bar-1-left-ratio: 0.10302; /* 55 / 529 */
   --chart-prof-bar-2-left-ratio: 0.31570; /* 167 / 529 */
@@ -449,6 +450,45 @@
   --modal-copy-to-first-gap: 3.5rem; /* 56px */
   --modal-cta-top-gap: 3.5rem; /* 56px */
   --modal-legal-top-gap: 4rem; /* 64px */
+
+  /* Create Appointment Modal - Extracted from Figma */
+  --modal-create-width: 68.25rem; /* 1092px */
+  --modal-create-height: 59.75rem; /* 956px */
+  --modal-create-header-height: 3.5rem; /* 56px */
+  --modal-create-header-pad-x: 2rem; /* 32px */
+  --modal-create-title-top: 6rem; /* 96px */
+  --modal-create-title-left: 14.3125rem; /* 229px */
+  --modal-create-label-left: 18.375rem; /* 294px */
+  --modal-create-input-left: 30.6875rem; /* 491px */
+  --modal-create-field-width: 19.1875rem; /* 307px */
+  --modal-create-field-height: 3rem; /* 48px */
+  --modal-create-textarea-height: 5rem; /* 80px */
+  --modal-create-button-width: 13.4375rem; /* 215px */
+  --modal-create-button-height: 2.5rem; /* 40px */
+  --modal-create-line-top: 53.25rem; /* 852px */
+  --modal-create-line-width: 31.5rem; /* 504px */
+  --modal-create-button-top: 55.75rem; /* 892px */
+  
+  /* Field positions (top values) */
+  --modal-create-field-servicio-top: 11.5rem; /* 184px */
+  --modal-create-field-paciente-top: 17.9375rem; /* 287px */
+  --modal-create-field-responsable-top: 23.9375rem; /* 383px */
+  --modal-create-field-observaciones-top: 29.9375rem; /* 479px */
+  --modal-create-field-presupuesto-top: 37.9375rem; /* 607px */
+  --modal-create-field-fecha-top: 43.9375rem; /* 703px */
+  --modal-create-field-hora-top: 48.9375rem; /* ~783px - calculado manteniendo gap similar */
+  
+  /* Input/Select styling */
+  --input-border-width: 0.5px;
+  --input-radius: 0.5rem; /* 8px */
+  --input-bg: var(--color-neutral-50);
+  --input-border-color: var(--color-neutral-300);
+  --input-text-color: var(--color-neutral-900);
+  --input-placeholder-color: var(--color-neutral-400);
+  --input-description-color: var(--color-neutral-600);
+  
+  /* Button pill styling */
+  --button-pill-radius: 8.5rem; /* 136px - muy redondeado */
 }
 
 /* Logo animation */

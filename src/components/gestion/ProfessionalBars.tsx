@@ -63,15 +63,15 @@ export default function ProfessionalBars() {
 
   return (
     <section
-      className='relative flex flex-col overflow-clip rounded-lg bg-surface p-fluid-md shadow-elevation-card'
+      className='relative flex flex-col overflow-clip rounded-lg bg-surface p-[1rem] shadow-elevation-card'
       style={cardStyles}
     >
-      <header className='mb-[min(2.75rem,4vh)] flex items-center justify-between'>
+      <header className='mb-[2.75rem] flex items-center justify-between'>
         <h3 className='text-title-sm font-medium text-fg'>
           Facturación por profesional
         </h3>
         <button className='text-fg-secondary'>
-          <span className='material-symbols-rounded text-[24px]'>
+          <span className='material-symbols-rounded text-[1.5rem]'>
             filter_alt
           </span>
         </button>
@@ -79,11 +79,11 @@ export default function ProfessionalBars() {
 
       <div
         className='relative w-full'
-        style={{ height: heightWithRatio('--chart-prof-axis-height-ratio') }}
+        style={{ height: heightWithRatio('--chart-prof-content-height-ratio') }}
       >
         {/* Y-axis labels */}
         <div
-          className='absolute flex w-max flex-col justify-between text-label-sm text-fg-muted'
+          className='absolute flex w-max flex-col justify-between font-normal text-[0.75rem] leading-[1rem] text-fg-muted'
           style={{
             left: widthWithRatio('--chart-prof-axis-label-left-ratio'),
             top: 0,
@@ -125,7 +125,7 @@ export default function ProfessionalBars() {
 
         {/* X-axis labels */}
         <div
-          className='absolute flex justify-between text-label-sm text-fg-muted'
+          className='absolute flex justify-between font-normal text-[0.75rem] leading-[1rem] text-fg-muted'
           style={{
             left: widthWithRatio('--chart-prof-axis-left-ratio'),
             width: widthWithRatio('--chart-prof-grid-width-ratio'),
