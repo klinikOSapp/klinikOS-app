@@ -145,6 +145,180 @@ export function TextArea({
   )
 }
 
+export function AutocompleteInput({
+  placeholder = 'Value',
+  required,
+  value,
+  onChange,
+  onSelect
+}: {
+  placeholder?: string
+  required?: boolean
+  value?: string
+  onChange?: (v: string) => void
+  onSelect?: (suggestion: { 
+    display: string
+    street: string
+    city: string
+    postcode: string
+    province: string
+    country: string
+    countryCode: string
+  }) => void
+}) {
+  const [suggestions, setSuggestions] = React.useState<any[]>([])
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [showSuggestions, setShowSuggestions] = React.useState(false)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const debounceTimer = React.useRef<NodeJS.Timeout>()
+
+  // Cerrar sugerencias al hacer clic fuera
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false)
+      }
+    }
+    if (showSuggestions) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+    return undefined
+  }, [showSuggestions])
+
+  const searchAddress = async (query: string) => {
+    if (!query || query.length < 3) {
+      setSuggestions([])
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      // Usando Nominatim de OpenStreetMap
+      // Limitar búsqueda a España añadiendo 'countrycodes=es'
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?` +
+          `q=${encodeURIComponent(query)}&` +
+          `format=json&` +
+          `addressdetails=1&` +
+          `countrycodes=es&` +
+          `limit=5`,
+        {
+          headers: {
+            'User-Agent': 'klinikOS-App/1.0' // Nominatim requiere User-Agent
+          }
+        }
+      )
+      const data = await response.json()
+      setSuggestions(data)
+      setShowSuggestions(true)
+    } catch (error) {
+      console.error('Error fetching address suggestions:', error)
+      setSuggestions([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleInputChange = (newValue: string) => {
+    onChange?.(newValue)
+
+    // Debounce la búsqueda para no hacer demasiadas peticiones
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current)
+    }
+
+    debounceTimer.current = setTimeout(() => {
+      searchAddress(newValue)
+    }, 300) // Esperar 300ms después de que el usuario deje de escribir
+  }
+
+  const handleSelectSuggestion = (suggestion: any) => {
+    const address = suggestion.address || {}
+    const street = address.road || address.street || ''
+    const city = address.city || address.town || address.village || ''
+    const postcode = address.postcode || ''
+    const province = address.state || address.province || ''
+    const country = address.country || ''
+    const countryCode = address.country_code || ''
+
+    const displayText = suggestion.display_name || street
+
+    onChange?.(displayText)
+    onSelect?.({
+      display: displayText,
+      street,
+      city,
+      postcode,
+      province,
+      country,
+      countryCode
+    })
+
+    setShowSuggestions(false)
+    setSuggestions([])
+  }
+
+  return (
+    <div className='relative' ref={containerRef}>
+      <input
+        placeholder={placeholder}
+        className='w-full h-12 rounded-[0.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5 text-body-md text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)] outline-none'
+        value={value}
+        onChange={(e) => handleInputChange(e.target.value)}
+        autoComplete='off'
+      />
+      {required && (
+        <span className='absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-error-600)] text-body-md leading-none'>
+          *
+        </span>
+      )}
+      {isLoading && (
+        <span className='absolute right-10 top-1/2 -translate-y-1/2 text-[var(--color-neutral-400)] text-body-sm'>
+          Buscando...
+        </span>
+      )}
+
+      {showSuggestions && suggestions.length > 0 && (
+        <div
+          className='absolute z-50 w-full mt-1 bg-[rgba(248,250,251,0.95)] backdrop-blur-[2px] rounded-[0.5rem] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)] border border-[var(--color-neutral-300)] py-2 max-h-60 overflow-y-auto'
+          style={{ backdropFilter: 'blur(2px)' }}
+        >
+          {suggestions.map((suggestion, index) => {
+            const address = suggestion.address || {}
+            const street = address.road || address.street || ''
+            const city = address.city || address.town || address.village || ''
+            const province = address.state || address.province || ''
+            const postcode = address.postcode || ''
+
+            return (
+              <button
+                key={suggestion.place_id || index}
+                type='button'
+                onClick={() => handleSelectSuggestion(suggestion)}
+                className='w-full px-3 py-2 text-left hover:bg-[var(--color-brand-50)] transition-colors'
+              >
+                <div className='text-body-md font-medium text-[var(--color-neutral-900)]'>
+                  {street}
+                </div>
+                <div className='text-body-sm text-[var(--color-neutral-600)]'>
+                  {postcode && `${postcode} `}
+                  {city && `${city}`}
+                  {city && province && ', '}
+                  {province}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ToggleInput({
   checked,
   defaultChecked = true,
@@ -210,6 +384,105 @@ export function DatePickerInput({
   const [scale, setScale] = React.useState(1)
   const [showMonthMenu, setShowMonthMenu] = React.useState(false)
   const [showYearMenu, setShowYearMenu] = React.useState(false)
+
+  // Estados para inputs de día, mes, año
+  const [dayInput, setDayInput] = React.useState('')
+  const [monthInput, setMonthInput] = React.useState('')
+  const [yearInput, setYearInput] = React.useState('')
+  const dayRef = React.useRef<HTMLInputElement>(null)
+  const monthRef = React.useRef<HTMLInputElement>(null)
+  const yearRef = React.useRef<HTMLInputElement>(null)
+
+  // Actualizar inputs cuando cambia selectedDate
+  React.useEffect(() => {
+    if (selectedDate) {
+      setDayInput(String(selectedDate.getDate()).padStart(2, '0'))
+      setMonthInput(String(selectedDate.getMonth() + 1).padStart(2, '0'))
+      setYearInput(String(selectedDate.getFullYear()))
+    } else {
+      setDayInput('')
+      setMonthInput('')
+      setYearInput('')
+    }
+  }, [selectedDate])
+
+  // Función para validar y actualizar la fecha
+  const updateDateFromInputs = React.useCallback((d: string, m: string, y: string) => {
+    if (d.length === 2 && m.length === 2 && y.length === 4) {
+      const day = parseInt(d, 10)
+      const month = parseInt(m, 10)
+      const year = parseInt(y, 10)
+      if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2100) {
+        const newDate = new Date(year, month - 1, day)
+        if (newDate.getDate() === day && newDate.getMonth() === month - 1) {
+          setSelectedDate(newDate)
+          onChange?.(newDate)
+        }
+      }
+    }
+  }, [onChange])
+
+  const handleDayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 2)
+    setDayInput(val)
+    if (val.length === 2) {
+      monthRef.current?.focus()
+      monthRef.current?.select()
+    }
+    updateDateFromInputs(val, monthInput, yearInput)
+  }
+
+  const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 2)
+    setMonthInput(val)
+    if (val.length === 2) {
+      yearRef.current?.focus()
+      yearRef.current?.select()
+    }
+    updateDateFromInputs(dayInput, val, yearInput)
+  }
+
+  const handleYearChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 4)
+    setYearInput(val)
+    updateDateFromInputs(dayInput, monthInput, val)
+  }
+
+  const handleDayKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && dayInput.length === 0) {
+      e.preventDefault()
+    }
+  }
+
+  const handleMonthKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && monthInput.length === 0) {
+      e.preventDefault()
+      dayRef.current?.focus()
+    }
+  }
+
+  const handleYearKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && yearInput.length === 0) {
+      e.preventDefault()
+      monthRef.current?.focus()
+    }
+  }
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault()
+    const pastedText = e.clipboardData.getData('text')
+    const match = pastedText.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/)
+    if (match) {
+      const [, d, m, y] = match
+      const day = d.padStart(2, '0')
+      const month = m.padStart(2, '0')
+      const year = y.length === 2 ? `20${y}` : y
+      setDayInput(day)
+      setMonthInput(month)
+      setYearInput(year)
+      updateDateFromInputs(day, month, year)
+    }
+  }
 
   const remToPx = React.useCallback((rem: number) => {
     const root = getComputedStyle(document.documentElement).fontSize
@@ -321,8 +594,40 @@ export function DatePickerInput({
         ref={dateFieldRef}
         className='relative self-stretch h-12 pl-2.5 pr-2 py-2 bg-[var(--color-neutral-50)] rounded-lg outline-[0.03125rem] outline-offset-[-0.03125rem] outline-[var(--color-neutral-300)] inline-flex justify-between items-center'
       >
-        <div className='justify-start text-[var(--color-neutral-400)] text-body-md font-sans'>
-          {selectedDate ? formatDateDDMMYYYY(selectedDate) : 'DD/MM/AAAA'}
+        <div className='flex items-center gap-1 text-body-md font-sans'>
+          <input
+            ref={dayRef}
+            type='text'
+            value={dayInput}
+            onChange={handleDayChange}
+            onKeyDown={handleDayKeyDown}
+            onPaste={handlePaste}
+            placeholder='DD'
+            maxLength={2}
+            className='w-8 bg-transparent outline-none text-center text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)]'
+          />
+          <span className='text-[var(--color-neutral-400)]'>/</span>
+          <input
+            ref={monthRef}
+            type='text'
+            value={monthInput}
+            onChange={handleMonthChange}
+            onKeyDown={handleMonthKeyDown}
+            placeholder='MM'
+            maxLength={2}
+            className='w-8 bg-transparent outline-none text-center text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)]'
+          />
+          <span className='text-[var(--color-neutral-400)]'>/</span>
+          <input
+            ref={yearRef}
+            type='text'
+            value={yearInput}
+            onChange={handleYearChange}
+            onKeyDown={handleYearKeyDown}
+            placeholder='AAAA'
+            maxLength={4}
+            className='w-16 bg-transparent outline-none text-center text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)]'
+          />
         </div>
         <button
           type='button'

@@ -384,21 +384,40 @@ function PricingTextArea({
   )
 }
 
-function DisabledFinancingSwitch({
+function FinancingSwitch({
   top,
-  left = '30.625rem'
+  left = '30.625rem',
+  checked,
+  onChange
 }: {
   top: string
   left?: string
+  checked: boolean
+  onChange: (checked: boolean) => void
 }) {
   return (
     <div
       className='absolute flex w-[19.1875rem] items-center gap-[1rem]'
       style={{ left, top }}
     >
-      <div className='relative h-[1.5rem] w-[2.5rem] rounded-[4.375rem] bg-neutral-200'>
-        <div className='absolute left-[0.1875rem] top-[0.1875rem] size-[1.125rem] rounded-full bg-neutral-400' />
-      </div>
+      <button
+        type='button'
+        role='switch'
+        aria-checked={checked}
+        aria-label='Quiero financiar'
+        onClick={() => onChange(!checked)}
+        className={`w-10 h-6 rounded-[70px] relative shrink-0 transition-colors duration-150 ${
+          checked ? 'bg-[var(--color-brand-500)]' : 'bg-neutral-200'
+        }`}
+      >
+        <span
+          className={`absolute top-[3px] size-[18px] rounded-full transition-[left] duration-150 ${
+            checked
+              ? 'left-[19px] bg-[var(--color-brand-50)]'
+              : 'left-[3px] bg-neutral-400'
+          }`}
+        />
+      </button>
       <span className='text-body-md text-neutral-900'>Quiero financiar</span>
     </div>
   )
@@ -513,7 +532,15 @@ export default function ProposalCreationModal({
   const [selectedDiscount, setSelectedDiscount] = React.useState('')
   const [selectedTerm, setSelectedTerm] = React.useState('')
   const [selectedSignee, setSelectedSignee] = React.useState('')
+  const [wantsFinancing, setWantsFinancing] = React.useState(false)
   const [odontogramaOpen, setOdontogramaOpen] = React.useState(false)
+
+  // Si se desactiva financiación y el usuario está en ese paso o después, redirigir
+  React.useEffect(() => {
+    if (!wantsFinancing && currentStep === 'financiación') {
+      setCurrentStep('pricing')
+    }
+  }, [wantsFinancing, currentStep])
 
   React.useEffect(() => {
     setMounted(true)
@@ -536,6 +563,7 @@ export default function ProposalCreationModal({
       setSelectedDiscount('')
       setSelectedTerm('')
       setSelectedSignee('')
+      setWantsFinancing(false)
       setOdontogramaOpen(false)
       setCurrentStep('plan')
     }
@@ -581,7 +609,18 @@ export default function ProposalCreationModal({
     { key: 'firma', label: 'Firma', top: '15rem' }
   ] as const
 
-  const steps = stepConfig.map(({ key, label, top }) => {
+  // Filtrar el paso de financiación si no está activado
+  const visibleStepConfig = wantsFinancing 
+    ? stepConfig 
+    : stepConfig.filter(s => s.key !== 'financiación')
+
+  // Ajustar posiciones cuando financiación está oculta
+  const adjustedStepConfig = visibleStepConfig.map((step, index) => ({
+    ...step,
+    top: `${6 + index * 3}rem`
+  }))
+
+  const steps = adjustedStepConfig.map(({ key, label, top }) => {
     let state: StepState = 'upcoming'
     if (currentStep === 'plan') {
       state = key === 'plan' ? 'current' : 'upcoming'
@@ -623,7 +662,8 @@ export default function ProposalCreationModal({
     if (currentStep === 'plan') {
       setCurrentStep('pricing')
     } else if (currentStep === 'pricing') {
-      setCurrentStep('financiación')
+      // Si no quiere financiar, salta directamente a firma
+      setCurrentStep(wantsFinancing ? 'financiación' : 'firma')
     } else if (currentStep === 'financiación') {
       setCurrentStep('firma')
     } else if (currentStep === 'firma') {
@@ -637,7 +677,8 @@ export default function ProposalCreationModal({
     if (currentStep === 'resumen') {
       setCurrentStep('firma')
     } else if (currentStep === 'firma') {
-      setCurrentStep('financiación')
+      // Si no quiere financiar, vuelve directo a pricing
+      setCurrentStep(wantsFinancing ? 'financiación' : 'pricing')
     } else if (currentStep === 'financiación') {
       setCurrentStep('pricing')
     } else if (currentStep === 'pricing') {
@@ -879,7 +920,11 @@ export default function ProposalCreationModal({
                         placeholder='Value'
                       />
 
-                      <DisabledFinancingSwitch top='50rem' />
+                      <FinancingSwitch 
+                        top='50rem' 
+                        checked={wantsFinancing}
+                        onChange={setWantsFinancing}
+                      />
 
                       <div className='absolute left-[18.375rem] top-[53.25rem] h-px w-[31.5rem] bg-neutral-300' />
 

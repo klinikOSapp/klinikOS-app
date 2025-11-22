@@ -7,12 +7,12 @@ type Props = {
   onChangeRecordatorios: (v: boolean) => void
   marketing: boolean
   onChangeMarketing: (v: boolean) => void
-  terminos: boolean
-  onChangeTerminos: (v: boolean) => void
   telefono?: string
   onChangeTelefono?: (v: string) => void
   email?: string
   onChangeEmail?: (v: string) => void
+  referidoPor?: string
+  onChangeReferidoPor?: (v: string) => void
 }
 
 export default function AddPatientStepContacto({
@@ -20,12 +20,12 @@ export default function AddPatientStepContacto({
   onChangeRecordatorios,
   marketing,
   onChangeMarketing,
-  terminos,
-  onChangeTerminos,
   telefono,
   onChangeTelefono,
   email,
-  onChangeEmail
+  onChangeEmail,
+  referidoPor,
+  onChangeReferidoPor
 }: Props) {
   return (
     <div className='left-[18.375rem] top-[10rem] absolute inline-flex flex-col justify-start items-start gap-6 w-[31.5rem] h-[43.25rem] overflow-y-auto overflow-x-clip pr-2 pb-2 scrollbar-hide'>
@@ -78,8 +78,6 @@ export default function AddPatientStepContacto({
             <label key={label} className='flex items-center gap-3'>
               <input
                 type='checkbox'
-                checked
-                readOnly
                 className='size-5 accent-[var(--color-brand-500)]'
               />
               <span className='text-body-md text-[var(--color-neutral-900)]'>
@@ -132,27 +130,6 @@ export default function AddPatientStepContacto({
         </div>
       </div>
 
-      <div className='inline-flex flex-col gap-3 w-full'>
-        <div className='text-title-sm text-[var(--color-neutral-900)]'>
-          Términos y privacidad
-        </div>
-        <div className='flex items-start gap-4'>
-          <ToggleInput
-            ariaLabel='Términos y privacidad'
-            checked={terminos}
-            onChange={onChangeTerminos}
-          />
-          <div>
-            <p className='text-body-md text-[var(--color-neutral-900)]'>
-              Términos de uso y privacidad
-            </p>
-            <p className='text-label-sm underline text-[var(--color-brand-500)]'>
-              Ver términos de uso
-            </p>
-          </div>
-        </div>
-      </div>
-
       <div className='inline-flex flex-col gap-2 w-full'>
         <div className='text-title-sm text-[var(--color-neutral-900)]'>
           Contacto emergencia
@@ -171,6 +148,17 @@ export default function AddPatientStepContacto({
             <TextInput placeholder='Value' />
           </div>
         </div>
+      </div>
+
+      <div className='inline-flex flex-col gap-2 w-full'>
+        <div className='text-title-sm text-[var(--color-neutral-900)]'>
+          Referido por
+        </div>
+        <TextInput
+          placeholder='Nombre de quien refirió al paciente'
+          value={referidoPor}
+          onChange={onChangeReferidoPor}
+        />
       </div>
     </div>
   )

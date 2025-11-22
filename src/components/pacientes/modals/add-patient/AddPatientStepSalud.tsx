@@ -125,8 +125,6 @@ export default function AddPatientStepSalud({
         <label className='flex items-center gap-3'>
           <input
             type='checkbox'
-            checked
-            readOnly
             className='size-5 accent-[var(--color-brand-500)]'
           />
           <span className='text-body-md text-[var(--color-neutral-900)]'>
@@ -136,8 +134,6 @@ export default function AddPatientStepSalud({
         <label className='flex items-center gap-3'>
           <input
             type='checkbox'
-            checked
-            readOnly
             className='size-5 accent-[var(--color-brand-500)]'
           />
           <span className='text-body-md text-[var(--color-neutral-900)]'>

@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  AutocompleteInput,
   SelectInput,
   TextArea,
   TextInput,
@@ -26,6 +27,16 @@ type Props = {
   onChangePago2?: (v: string) => void
   financiacion?: string
   onChangeFinanciacion?: (v: string) => void
+  cif?: string
+  onChangeCif?: (v: string) => void
+  calle?: string
+  onChangeCalle?: (v: string) => void
+  ciudad?: string
+  onChangeCiudad?: (v: string) => void
+  provincia?: string
+  onChangeProvincia?: (v: string) => void
+  codigoPostal?: string
+  onChangeCodigoPostal?: (v: string) => void
 }
 
 export default function AddPatientStepAdministrativo({
@@ -46,7 +57,17 @@ export default function AddPatientStepAdministrativo({
   pago2,
   onChangePago2,
   financiacion,
-  onChangeFinanciacion
+  onChangeFinanciacion,
+  cif,
+  onChangeCif,
+  calle,
+  onChangeCalle,
+  ciudad,
+  onChangeCiudad,
+  provincia,
+  onChangeProvincia,
+  codigoPostal,
+  onChangeCodigoPostal
 }: Props) {
   return (
     <div className='left-[18.375rem] top-[10rem] absolute inline-flex flex-col justify-start items-start gap-6 w-[31.5rem] h-[43.25rem] overflow-y-auto overflow-x-clip pr-2 pb-2 scrollbar-hide'>
@@ -105,35 +126,81 @@ export default function AddPatientStepAdministrativo({
             { label: 'Mutua', value: 'mutua' }
           ]}
         />
-        <TextInput placeholder='Compañía' />
-        <TextInput placeholder='Número de póliza' />
-        <TextInput placeholder='Vencimiento' />
+        {cobertura && cobertura !== 'ninguna' && (
+          <>
+            <TextInput placeholder='Compañía' />
+            <TextInput placeholder='Número de póliza' />
+            <TextInput placeholder='Vencimiento' />
+          </>
+        )}
       </div>
 
       <div className='inline-flex flex-col gap-4 w-full'>
         <div className='text-title-sm text-[var(--color-neutral-900)]'>
           Dirección fiscal
         </div>
-        <TextInput placeholder='Calle' />
+        <AutocompleteInput
+          placeholder='Calle'
+          value={calle}
+          onChange={onChangeCalle}
+          onSelect={(suggestion) => {
+            // Autorellenar campos relacionados cuando se selecciona una dirección
+            if (suggestion.city && onChangeCiudad) {
+              onChangeCiudad(suggestion.city)
+            }
+            if (suggestion.province && onChangeProvincia) {
+              onChangeProvincia(suggestion.province)
+            }
+            if (suggestion.postcode && onChangeCodigoPostal) {
+              onChangeCodigoPostal(suggestion.postcode)
+            }
+            // Autorellenar país según el código de país
+            if (suggestion.countryCode && onChangePais) {
+              onChangePais(suggestion.countryCode)
+            }
+          }}
+        />
         <div className='grid grid-cols-2 gap-4 w-full'>
           <TextInput placeholder='Número' />
           <TextInput placeholder='Piso' />
         </div>
         <div className='grid grid-cols-2 gap-4 w-full'>
-          <TextInput placeholder='Ciudad' />
-          <TextInput placeholder='Provincia' />
+          <TextInput
+            placeholder='Ciudad'
+            value={ciudad}
+            onChange={onChangeCiudad}
+          />
+          <TextInput
+            placeholder='Provincia'
+            value={provincia}
+            onChange={onChangeProvincia}
+          />
         </div>
-        <SelectInput
-          placeholder='País'
-          value={pais ?? ''}
-          onChange={onChangePais}
-          options={[
-            { label: 'España', value: 'es' },
-            { label: 'Francia', value: 'fr' },
-            { label: 'Portugal', value: 'pt' },
-            { label: 'Italia', value: 'it' }
-          ]}
-        />
+        <div className='grid grid-cols-2 gap-4 w-full'>
+          <TextInput
+            placeholder='Código Postal'
+            value={codigoPostal}
+            onChange={onChangeCodigoPostal}
+          />
+          <SelectInput
+            placeholder='País'
+            value={pais ?? ''}
+            onChange={onChangePais}
+            options={[
+              { label: 'España', value: 'es' },
+              { label: 'Francia', value: 'fr' },
+              { label: 'Portugal', value: 'pt' },
+              { label: 'Italia', value: 'it' },
+              { label: 'Alemania', value: 'de' },
+              { label: 'Reino Unido', value: 'gb' },
+              { label: 'Países Bajos', value: 'nl' },
+              { label: 'Bélgica', value: 'be' },
+              { label: 'Suiza', value: 'ch' },
+              { label: 'Austria', value: 'at' },
+              { label: 'Andorra', value: 'ad' }
+            ]}
+          />
+        </div>
         <div className='flex items-center gap-4'>
           <ToggleInput
             ariaLabel='Facturar a empresa'
@@ -144,6 +211,13 @@ export default function AddPatientStepAdministrativo({
             Facturar a empresa
           </span>
         </div>
+        {facturaEmpresa && (
+          <TextInput
+            placeholder='CIF de la empresa'
+            value={cif}
+            onChange={onChangeCif}
+          />
+        )}
       </div>
 
       <div className='inline-flex flex-col gap-4 w-full'>

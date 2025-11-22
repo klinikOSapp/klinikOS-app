@@ -1,5 +1,10 @@
 'use client'
 
+import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded'
+import CancelRounded from '@mui/icons-material/CancelRounded'
+import MailOutlineRounded from '@mui/icons-material/MailOutlineRounded'
+import PhoneRounded from '@mui/icons-material/PhoneRounded'
+
 type Props = {
   // Datos básicos
   nombre?: string
@@ -11,7 +16,6 @@ type Props = {
   // Consentimientos / toggles
   recordatorios?: boolean
   marketing?: boolean
-  terminos?: boolean
 }
 
 export default function AddPatientStepResumen({
@@ -22,106 +26,130 @@ export default function AddPatientStepResumen({
   alergias = [],
   anotaciones,
   recordatorios,
-  marketing,
-  terminos
+  marketing
 }: Props) {
   const fullName =
-    [nombre, apellidos].filter(Boolean).join(' ').trim() || 'Nombre y apellidos'
+    [nombre, apellidos].filter(Boolean).join(' ').trim() || 'Lucia López Cano'
   return (
-    <div className='left-[14.3125rem] top-[6rem] absolute w-[35.5rem]'>
-      <div className='flex items-center gap-6'>
-        <div className='size-24 rounded-full bg-[var(--color-neutral-600)]' />
-        <div className='flex flex-col gap-2'>
-          <p className='text-title-lg text-[var(--color-neutral-900)]'>
+    <>
+      {/* Avatar + Info del Paciente */}
+      <div className='absolute left-[18.375rem] top-[10rem] flex items-center gap-6'>
+        <div className='size-24 rounded-full bg-[var(--color-neutral-700)]' />
+        <div className='flex flex-col gap-2 w-[14.25rem]'>
+          <p className='text-[1.5rem] leading-[2rem] font-medium text-[var(--color-neutral-900)]'>
             {fullName}
           </p>
-          {email ? (
+          <div className='flex items-center gap-2'>
+            <MailOutlineRounded className='size-6 text-[var(--color-neutral-900)]' />
             <p className='text-body-md text-[var(--color-neutral-900)]'>
-              {email}
+              {email || 'Email no proporcionado'}
             </p>
-          ) : null}
-          {telefono ? (
+          </div>
+          <div className='flex items-center gap-2'>
+            <PhoneRounded className='size-6 text-[var(--color-neutral-900)]' />
             <p className='text-body-md text-[var(--color-neutral-900)]'>
-              {telefono}
+              {telefono || 'Teléfono no proporcionado'}
             </p>
-          ) : null}
+          </div>
         </div>
       </div>
 
-      <div className='mt-8 grid grid-cols-[160px_1fr] gap-y-4 items-start'>
-        <div className='text-label-sm text-[var(--color-neutral-500)]'>
-          Alergias:
-        </div>
-        <div className='flex gap-2'>
-          {alergias.length > 0 ? (
-            alergias.map((a) => (
-              <span
-                key={a}
-                className='inline-flex items-center px-2 py-1 rounded-full bg-[var(--color-error-200)] text-[var(--color-error-600)] text-label-sm'
-              >
-                {a}
-              </span>
-            ))
-          ) : (
-            <span className='text-body-md text-[var(--color-neutral-500)]'>
-              —
+      {/* Alergias */}
+      <p className='absolute left-[18.375rem] top-[18.25rem] text-[0.75rem] leading-[1rem] font-medium text-[#8A95A1]'>
+        Alergias:
+      </p>
+      <div className='absolute left-[25.5625rem] top-[18rem] flex items-center gap-2'>
+        {alergias.length > 0 ? (
+          alergias.map((a, index) => (
+            <span
+              key={a}
+              className='inline-flex items-center px-2 py-1 rounded-full bg-[var(--color-error-200)] text-[var(--color-error-600)] text-[0.75rem] leading-[1rem] font-medium'
+            >
+              {a}
             </span>
-          )}
-        </div>
-
-        <div className='text-label-sm text-[var(--color-neutral-500)]'>
-          Anotaciones:
-        </div>
-        <div className='text-body-md text-[var(--color-neutral-900)]'>
-          {anotaciones || '—'}
-        </div>
-
-        <div className='text-label-sm text-[var(--color-neutral-500)]'>
-          Consentimientos:
-        </div>
-        <div className='flex flex-col gap-2'>
-          <ResumenItem label='Tratamiento de datos personales' checked={true} />
-          <ResumenItem
-            label='Consentimiento de uso de imagen'
-            checked={Boolean(marketing)}
-            negative
-          />
-          <ResumenItem
-            label='Marketing y RRSS'
-            checked={Boolean(marketing)}
-            negative
-          />
-          <ResumenItem
-            label='Comunicación SMS/WPP'
-            checked={Boolean(recordatorios)}
-          />
-          <ResumenItem
-            label='Términos de usos y privacidad'
-            checked={Boolean(terminos)}
-          />
-        </div>
+          ))
+        ) : (
+          <span className='text-body-md text-[var(--color-neutral-500)]'>
+            Sin alergias
+          </span>
+        )}
       </div>
-    </div>
+
+      {/* Anotaciones */}
+      <p className='absolute left-[18.375rem] top-[21rem] text-[0.75rem] leading-[1rem] font-medium text-[#8A95A1]'>
+        Anotaciones:
+      </p>
+      <p className='absolute left-[25.5625rem] top-[21rem] text-body-md text-[var(--color-neutral-900)] w-[24rem]'>
+        {anotaciones || 'Sin anotaciones'}
+      </p>
+
+      {/* Consentimientos */}
+      <p className='absolute left-[18.375rem] top-[25.5rem] text-[0.75rem] leading-[1rem] font-medium text-[#8A95A1]'>
+        Consentimientos:
+      </p>
+      
+      <ResumenItem 
+        label='Tratamiento de datos personales' 
+        checked={true}
+        top='25.5rem'
+      />
+      <ResumenItem
+        label='Consentimiento de uso de imagen'
+        checked={Boolean(marketing)}
+        negative
+        top='27.625rem'
+      />
+      <ResumenItem
+        label='Marketing y RRSS'
+        checked={Boolean(marketing)}
+        negative
+        top='29.75rem'
+      />
+      <ResumenItem
+        label='Comunicación SMS/WPP'
+        checked={Boolean(recordatorios)}
+        top='31.875rem'
+      />
+    </>
   )
 }
 
 function ResumenItem({
   label,
   checked,
-  negative
+  negative,
+  top
 }: {
   label: string
   checked: boolean
   negative?: boolean
+  top: string
 }) {
-  const icon = checked && !negative ? '✔︎' : '✖︎'
-  const color =
-    checked && !negative
-      ? 'text-[var(--color-brand-500)]'
-      : 'text-[var(--color-neutral-900)]'
+  const showCheck = checked && !negative
+  const showCancel = !checked || negative
+  
   return (
-    <div className='flex items-center gap-2'>
-      <span className={color}>{icon}</span>
+    <div 
+      className='absolute left-[25.5625rem] flex items-center gap-2'
+      style={{ top }}
+    >
+      {showCheck ? (
+        <CheckCircleRounded 
+          style={{
+            width: 24,
+            height: 24,
+            color: 'var(--color-brand-500)'
+          }}
+        />
+      ) : (
+        <CancelRounded
+          style={{
+            width: 24,
+            height: 24,
+            color: 'var(--color-neutral-900)'
+          }}
+        />
+      )}
       <span className='text-body-md text-[var(--color-neutral-900)]'>
         {label}
       </span>

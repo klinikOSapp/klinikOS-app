@@ -1,6 +1,8 @@
 'use client'
 
+import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded'
 import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded'
+import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import RadioButtonCheckedRounded from '@mui/icons-material/RadioButtonCheckedRounded'
 import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded'
@@ -12,6 +14,80 @@ import AddPatientStepPaciente from './AddPatientStepPaciente'
 import AddPatientStepResumen from './AddPatientStepResumen'
 import AddPatientStepSalud from './AddPatientStepSalud'
 // Removed Figma assets; using MUI MD3 icons instead
+
+type StepState = 'current' | 'completed' | 'upcoming'
+type StepConnectorTone = 'brand' | 'neutral'
+
+function StepItem({
+  label,
+  state,
+  top,
+  connectorTone,
+  onClick
+}: {
+  label: string
+  state: StepState
+  top: string
+  connectorTone: StepConnectorTone
+  onClick?: () => void
+}) {
+  const isCurrent = state === 'current'
+  const isCompleted = state === 'completed'
+  const showConnector = label !== 'Resumen'
+  const connectorColor =
+    connectorTone === 'brand'
+      ? 'var(--color-brand-500)'
+      : 'var(--color-neutral-300)'
+  return (
+    <div
+      className='absolute left-[2rem] flex h-[3rem] items-start gap-3 cursor-pointer'
+      style={{ top }}
+      onClick={onClick}
+      role='button'
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onClick?.()
+      }}
+    >
+      <div className='relative h-[3rem] w-6'>
+        <div className='absolute left-0 top-0 size-6'>
+          {isCompleted ? (
+            <CheckCircleRounded
+              style={{
+                width: 24,
+                height: 24,
+                color: 'var(--color-brand-500)'
+              }}
+            />
+          ) : isCurrent ? (
+            <RadioButtonCheckedRounded
+              style={{
+                width: 24,
+                height: 24,
+                color: 'var(--color-brand-500)'
+              }}
+            />
+          ) : (
+            <RadioButtonUncheckedRounded
+              style={{
+                width: 24,
+                height: 24,
+                color: 'var(--color-neutral-900)'
+              }}
+            />
+          )}
+        </div>
+        {showConnector && (
+          <span
+            className='absolute left-[0.625rem] top-[1.625rem] block h-[1.375rem] w-[0.125rem]'
+            style={{ backgroundColor: connectorColor }}
+          />
+        )}
+      </div>
+      <p className='text-title-sm text-neutral-900'>{label}</p>
+    </div>
+  )
+}
 
 type AddPatientModalProps = {
   open: boolean
@@ -209,11 +285,24 @@ export default function AddPatientModal({
     onContinue?.()
   }, [step, onContinue])
 
+  const handleBack = React.useCallback(() => {
+    if (step === 'resumen') {
+      setStep('consentimientos')
+    } else if (step === 'consentimientos') {
+      setStep('salud')
+    } else if (step === 'salud') {
+      setStep('administrativo')
+    } else if (step === 'administrativo') {
+      setStep('contacto')
+    } else if (step === 'contacto') {
+      setStep('paciente')
+    }
+  }, [step])
+
   // Centralized toggle states for steps
   const [contactoToggles, setContactoToggles] = React.useState({
-    recordatorios: true,
-    marketing: true,
-    terminos: true
+    recordatorios: false,
+    marketing: false
   })
   const [adminFacturaEmpresa, setAdminFacturaEmpresa] = React.useState(false)
   const [saludToggles, setSaludToggles] = React.useState({
@@ -240,6 +329,11 @@ export default function AddPatientModal({
   const [adminPago1, setAdminPago1] = React.useState<string>('')
   const [adminPago2, setAdminPago2] = React.useState<string>('')
   const [adminFinanciacion, setAdminFinanciacion] = React.useState<string>('')
+  const [adminCif, setAdminCif] = React.useState<string>('')
+  const [adminCalle, setAdminCalle] = React.useState<string>('')
+  const [adminCiudad, setAdminCiudad] = React.useState<string>('')
+  const [adminProvincia, setAdminProvincia] = React.useState<string>('')
+  const [adminCodigoPostal, setAdminCodigoPostal] = React.useState<string>('')
 
   // Estados adicionales Salud
   const [saludAntecedentes, setSaludAntecedentes] = React.useState<string>('')
@@ -260,6 +354,22 @@ export default function AddPatientModal({
   }>
 
   if (!open) return null
+
+  // Calcular estados de los pasos
+  const stepOrder = ['paciente', 'contacto', 'administrativo', 'salud', 'consentimientos', 'resumen']
+  const currentStepIndex = stepOrder.indexOf(step)
+  
+  const getStepState = (stepName: string): StepState => {
+    const stepIndex = stepOrder.indexOf(stepName)
+    if (stepIndex < currentStepIndex) return 'completed'
+    if (stepIndex === currentStepIndex) return 'current'
+    return 'upcoming'
+  }
+
+  const getConnectorTone = (stepName: string): StepConnectorTone => {
+    const stepIndex = stepOrder.indexOf(stepName)
+    return stepIndex < currentStepIndex ? 'brand' : 'neutral'
+  }
 
   return (
     <div
@@ -302,224 +412,53 @@ export default function AddPatientModal({
                 </button>
               </div>
 
-              <div
-                data-devide='Desktop'
-                className='left-[2rem] top-[6rem] absolute inline-flex justify-start items-start gap-3 cursor-pointer'
-                role='button'
-                tabIndex={0}
+              <StepItem
+                label='Paciente'
+                state={getStepState('paciente')}
+                top='6rem'
+                connectorTone={getConnectorTone('paciente')}
                 onClick={() => setStep('paciente')}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') setStep('paciente')
-                }}
-              >
-                <div
-                  data-has-line='true'
-                  data-orientation='Vertical'
-                  className='w-6 h-12 relative'
-                >
-                  <div
-                    data-state='Fill'
-                    className='w-6 h-6 left-0 top-0 absolute'
-                  >
-                    <RadioButtonCheckedRounded
-                      style={{
-                        width: 24,
-                        height: 24,
-                        color: 'var(--color-brand-500)'
-                      }}
-                    />
-                  </div>
-                  <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[var(--color-neutral-900)]'></div>
-                </div>
-                <div className='justify-start text-[var(--color-neutral-900)] text-title-sm font-sans'>
-                  Paciente
-                </div>
-              </div>
+              />
 
-              <div
-                data-devide='Desktop'
-                className='left-[2rem] top-[9rem] absolute inline-flex justify-start items-start gap-3 cursor-pointer'
-                role='button'
-                tabIndex={0}
+              <StepItem
+                label='Contacto'
+                state={getStepState('contacto')}
+                top='9rem'
+                connectorTone={getConnectorTone('contacto')}
                 onClick={() => setStep('contacto')}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') setStep('contacto')
-                }}
-              >
-                <div
-                  data-has-line='true'
-                  data-orientation='Vertical'
-                  className='w-6 h-12 relative'
-                >
-                  <div
-                    data-state='radio_button_unchecked'
-                    className='w-6 h-6 left-0 top-0 absolute'
-                  >
-                    <RadioButtonUncheckedRounded
-                      style={{
-                        width: 24,
-                        height: 24,
-                        color:
-                          step === 'contacto'
-                            ? 'var(--color-brand-500)'
-                            : 'var(--color-neutral-900)'
-                      }}
-                    />
-                  </div>
-                  <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[var(--color-neutral-900)]'></div>
-                </div>
-                <div className='justify-start text-[var(--color-neutral-900)] text-title-sm font-sans'>
-                  Contacto
-                </div>
-              </div>
+              />
 
-              <div
-                data-devide='Desktop'
-                className='left-[2rem] top-[12rem] absolute inline-flex justify-start items-start gap-3 cursor-pointer'
-                role='button'
-                tabIndex={0}
+              <StepItem
+                label='Administrativo'
+                state={getStepState('administrativo')}
+                top='12rem'
+                connectorTone={getConnectorTone('administrativo')}
                 onClick={() => setStep('administrativo')}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ')
-                    setStep('administrativo')
-                }}
-              >
-                <div
-                  data-has-line='true'
-                  data-orientation='Vertical'
-                  className='w-6 h-12 relative'
-                >
-                  <div
-                    data-state='radio_button_unchecked'
-                    className='w-6 h-6 left-0 top-0 absolute'
-                  >
-                    <RadioButtonUncheckedRounded
-                      style={{
-                        width: 24,
-                        height: 24,
-                        color:
-                          step === 'administrativo'
-                            ? 'var(--color-brand-500)'
-                            : 'var(--color-neutral-900)'
-                      }}
-                    />
-                  </div>
-                  <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[var(--color-neutral-900)]'></div>
-                </div>
-                <div className='justify-start text-[var(--color-neutral-900)] text-title-sm font-sans'>
-                  Administrativo
-                </div>
-              </div>
+              />
 
-              <div
-                data-devide='Desktop'
-                className='left-[2rem] top-[15rem] absolute inline-flex justify-start items-start gap-3 cursor-pointer'
-                role='button'
-                tabIndex={0}
+              <StepItem
+                label='Salud'
+                state={getStepState('salud')}
+                top='15rem'
+                connectorTone={getConnectorTone('salud')}
                 onClick={() => setStep('salud')}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') setStep('salud')
-                }}
-              >
-                <div
-                  data-has-line='true'
-                  data-orientation='Vertical'
-                  className='w-6 h-12 relative'
-                >
-                  <div
-                    data-state='radio_button_unchecked'
-                    className='w-6 h-6 left-0 top-0 absolute'
-                  >
-                    <RadioButtonUncheckedRounded
-                      style={{
-                        width: 24,
-                        height: 24,
-                        color:
-                          step === 'salud'
-                            ? 'var(--color-brand-500)'
-                            : 'var(--color-neutral-900)'
-                      }}
-                    />
-                  </div>
-                  <div className='absolute left-[0.625rem] top-[1.625rem] w-[0.125rem] h-[1.375rem] bg-[var(--color-neutral-900)]'></div>
-                </div>
-                <div className='justify-start text-[var(--color-neutral-900)] text-title-sm font-sans'>
-                  Salud
-                </div>
-              </div>
+              />
 
-              <div
-                data-devide='Desktop'
-                className='left-[2rem] top-[18rem] absolute inline-flex justify-start items-start gap-3 cursor-pointer'
-                role='button'
-                tabIndex={0}
+              <StepItem
+                label='Consentimientos'
+                state={getStepState('consentimientos')}
+                top='18rem'
+                connectorTone={getConnectorTone('consentimientos')}
                 onClick={() => setStep('consentimientos')}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ')
-                    setStep('consentimientos')
-                }}
-              >
-                <div
-                  data-has-line='false'
-                  data-orientation='Vertical'
-                  className='w-6 h-12 relative'
-                >
-                  <div
-                    data-state='radio_button_unchecked'
-                    className='w-6 h-6 left-0 top-0 absolute'
-                  >
-                    <RadioButtonUncheckedRounded
-                      style={{
-                        width: 24,
-                        height: 24,
-                        color:
-                          step === 'consentimientos'
-                            ? 'var(--color-brand-500)'
-                            : 'var(--color-neutral-900)'
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className='justify-start text-[var(--color-neutral-900)] text-title-sm font-sans'>
-                  Consentimientos
-                </div>
-              </div>
+              />
 
-              <div
-                data-devide='Desktop'
-                className='left-[2rem] top-[21rem] absolute inline-flex justify-start items-start gap-3 cursor-pointer'
-                role='button'
-                tabIndex={0}
+              <StepItem
+                label='Resumen'
+                state={getStepState('resumen')}
+                top='21rem'
+                connectorTone={getConnectorTone('resumen')}
                 onClick={() => setStep('resumen')}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') setStep('resumen')
-                }}
-              >
-                <div
-                  data-has-line='false'
-                  data-orientation='Vertical'
-                  className='w-6 h-12 relative'
-                >
-                  <div
-                    data-state='radio_button_unchecked'
-                    className='w-6 h-6 left-0 top-0 absolute'
-                  >
-                    <RadioButtonUncheckedRounded
-                      style={{
-                        width: 24,
-                        height: 24,
-                        color:
-                          step === 'resumen'
-                            ? 'var(--color-brand-500)'
-                            : 'var(--color-neutral-900)'
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className='justify-start text-[var(--color-neutral-900)] text-title-sm font-sans'>
-                  Resumen
-                </div>
-              </div>
+              />
 
               <div
                 data-property-1='Default'
@@ -569,10 +508,6 @@ export default function AddPatientModal({
                   onChangeMarketing={(v) =>
                     setContactoToggles((p) => ({ ...p, marketing: v }))
                   }
-                  terminos={contactoToggles.terminos}
-                  onChangeTerminos={(v) =>
-                    setContactoToggles((p) => ({ ...p, terminos: v }))
-                  }
                   telefono={contactPhone}
                   onChangeTelefono={setContactPhone}
                   email={contactEmail}
@@ -600,6 +535,16 @@ export default function AddPatientModal({
                   onChangePago2={setAdminPago2}
                   financiacion={adminFinanciacion}
                   onChangeFinanciacion={setAdminFinanciacion}
+                  cif={adminCif}
+                  onChangeCif={setAdminCif}
+                  calle={adminCalle}
+                  onChangeCalle={setAdminCalle}
+                  ciudad={adminCiudad}
+                  onChangeCiudad={setAdminCiudad}
+                  provincia={adminProvincia}
+                  onChangeProvincia={setAdminProvincia}
+                  codigoPostal={adminCodigoPostal}
+                  onChangeCodigoPostal={setAdminCodigoPostal}
                 />
               )}
 
@@ -637,21 +582,41 @@ export default function AddPatientModal({
                     .filter(Boolean)}
                   recordatorios={contactoToggles.recordatorios}
                   marketing={contactoToggles.marketing}
-                  terminos={contactoToggles.terminos}
                 />
               )}
 
               <div className='w-[31.5rem] h-0 left-[18.375rem] top-[53.25rem] absolute origin-top-left rotate-180 border-t-[0.0625rem] border-[var(--color-neutral-400)]'></div>
-              <button
-                type='button'
-                onClick={handleContinue}
-                className='w-[13.4375rem] px-4 py-2 left-[36.4375rem] top-[55.75rem] absolute bg-[var(--color-brand-500)] rounded-[8.5rem] outline-[0.0625rem] outline-offset-[-0.0625rem] outline-[var(--color-neutral-300)] inline-flex justify-center items-center gap-2'
-              >
-                <div className='justify-start text-[var(--color-brand-900)] text-body-md font-medium font-sans'>
+              
+              {step !== 'paciente' && (
+                <button
+                  type='button'
+                  onClick={handleBack}
+                  className='absolute left-[18.375rem] top-[55.75rem] inline-flex h-[2.5rem] w-[13.4375rem] items-center justify-center gap-[0.5rem] rounded-full border border-[var(--color-brand-500)] bg-[var(--color-neutral-50)] px-[1rem] text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-100)]'
+                >
+                  <ArrowBackRounded className='size-5' />
+                  Volver
+                </button>
+              )}
+
+              {step !== 'resumen' ? (
+                <button
+                  type='button'
+                  onClick={handleContinue}
+                  className='w-[13.4375rem] px-4 py-2 left-[36.4375rem] top-[55.75rem] absolute bg-[var(--color-brand-500)] rounded-[8.5rem] border border-[var(--color-brand-500)] inline-flex justify-center items-center gap-2 text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-400)]'
+                >
                   Continuar
-                </div>
-                <ArrowForwardRounded className='w-6 h-6' />
-              </button>
+                  <ArrowForwardRounded className='w-6 h-6' />
+                </button>
+              ) : (
+                <button
+                  type='button'
+                  onClick={handleContinue}
+                  className='w-[13.4375rem] px-4 py-2 left-[36.4375rem] top-[55.75rem] absolute bg-[var(--color-brand-500)] rounded-[8.5rem] border border-[var(--color-brand-500)] inline-flex justify-center items-center gap-2 text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-400)]'
+                >
+                  Crear paciente
+                  <ArrowForwardRounded className='w-6 h-6' />
+                </button>
+              )}
             </div>
           </div>
         </div>
