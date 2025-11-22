@@ -82,12 +82,12 @@ export default function AddPatientStepPaciente({
           previewUrl={previewUrl ?? undefined}
           onCaptureFromCamera={setPreviewFromFile}
           onUploadFromDevice={setPreviewFromFile}
-          triggerClassName='w-20 h-20 bg-[var(--color-neutral-200)] rounded-lg outline-[0.0625rem] outline-offset-[-0.0625rem] outline-[var(--color-brand-300)] overflow-hidden grid place-items-center'
+          triggerClassName='w-[4.9375rem] h-[4.9375rem] bg-[var(--color-neutral-200)] rounded-[0.5rem] outline-[0.0625rem] outline-offset-[-0.0625rem] outline-[var(--color-brand-300)] overflow-hidden grid place-items-center'
           triggerIconClassName='w-8 h-8'
         />
       </div>
 
-      <div className='w-80 left-[30.6875rem] top-[17.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
+      <div className='w-[19.1875rem] left-[30.6875rem] top-[17.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
         <TextInput
           placeholder='Nombre'
           required
@@ -96,7 +96,7 @@ export default function AddPatientStepPaciente({
         />
       </div>
 
-      <div className='w-80 left-[30.6875rem] top-[23.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
+      <div className='w-[19.1875rem] left-[30.6875rem] top-[23.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
         <TextInput
           placeholder='Apellidos'
           required
@@ -105,14 +105,14 @@ export default function AddPatientStepPaciente({
         />
       </div>
 
-      <div className='w-80 left-[30.6875rem] top-[29.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
+      <div className='w-[19.1875rem] left-[30.6875rem] top-[29.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
         <DatePicker
           value={fechaNacimiento ?? undefined}
           onChange={onChangeFechaNacimiento}
         />
       </div>
 
-      <div className='w-80 left-[30.6875rem] top-[35.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
+      <div className='w-[19.1875rem] left-[30.6875rem] top-[35.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
         <SelectInput
           placeholder='Selecciona sexo'
           value={sexo ?? ''}
@@ -125,7 +125,7 @@ export default function AddPatientStepPaciente({
         />
       </div>
 
-      <div className='w-80 left-[30.6875rem] top-[41.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
+      <div className='w-[19.1875rem] left-[30.6875rem] top-[41.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
         <SelectInput
           placeholder='Selecciona idioma'
           value={idioma ?? ''}
@@ -139,7 +139,7 @@ export default function AddPatientStepPaciente({
         />
       </div>
 
-      <div className='w-80 left-[30.6875rem] top-[47.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
+      <div className='w-[19.1875rem] left-[30.6875rem] top-[47.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
         <TextInput
           placeholder='DNI/NIE'
           required

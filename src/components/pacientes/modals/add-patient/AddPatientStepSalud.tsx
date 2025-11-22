@@ -9,6 +9,10 @@ type Props = {
   onChangeTabaquismo: (v: boolean) => void
   alergiasText?: string
   onChangeAlergiasText?: (v: string) => void
+  antecedentes?: string
+  onChangeAntecedentes?: (v: string) => void
+  miedo?: string
+  onChangeMiedo?: (v: string) => void
 }
 
 export default function AddPatientStepSalud({
@@ -17,7 +21,11 @@ export default function AddPatientStepSalud({
   tabaquismo,
   onChangeTabaquismo,
   alergiasText,
-  onChangeAlergiasText
+  onChangeAlergiasText,
+  antecedentes,
+  onChangeAntecedentes,
+  miedo,
+  onChangeMiedo
 }: Props) {
   return (
     <div className='left-[18.375rem] top-[10rem] absolute inline-flex flex-col justify-start items-start gap-6 w-[31.5rem] h-[43.25rem] overflow-y-auto overflow-x-clip pr-2 pb-2 scrollbar-hide'>
@@ -66,7 +74,18 @@ export default function AddPatientStepSalud({
         <div className='text-title-sm text-[var(--color-neutral-900)]'>
           Antecedentes
         </div>
-        <SelectInput />
+        <SelectInput
+          placeholder='Selecciona antecedentes'
+          value={antecedentes ?? ''}
+          onChange={onChangeAntecedentes}
+          options={[
+            { label: 'Diabetes', value: 'diabetes' },
+            { label: 'Hipertensión', value: 'hipertension' },
+            { label: 'Cardiopatía', value: 'cardiopatia' },
+            { label: 'Alergias medicamentos', value: 'alergias' },
+            { label: 'Ninguno', value: 'ninguno' }
+          ]}
+        />
       </div>
 
       <div className='inline-flex flex-col gap-2 w-full'>
@@ -80,7 +99,23 @@ export default function AddPatientStepSalud({
         <div className='text-title-sm text-[var(--color-neutral-900)]'>
           Miedo al dentista
         </div>
-        <SelectInput placeholder='1 -10' />
+        <SelectInput
+          placeholder='Selecciona nivel (1-10)'
+          value={miedo ?? ''}
+          onChange={onChangeMiedo}
+          options={[
+            { label: '1 - Ningún miedo', value: '1' },
+            { label: '2', value: '2' },
+            { label: '3', value: '3' },
+            { label: '4', value: '4' },
+            { label: '5 - Miedo moderado', value: '5' },
+            { label: '6', value: '6' },
+            { label: '7', value: '7' },
+            { label: '8', value: '8' },
+            { label: '9', value: '9' },
+            { label: '10 - Miedo extremo', value: '10' }
+          ]}
+        />
       </div>
 
       <div className='inline-flex flex-col gap-3 w-full'>

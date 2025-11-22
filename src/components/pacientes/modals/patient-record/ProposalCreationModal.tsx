@@ -113,89 +113,91 @@ function ExampleDropdown({
   value?: string
   onValueChange?: (value: string) => void
 }) {
-  const [uncontrolledValue, setUncontrolledValue] = React.useState('')
-  const selectId = React.useId()
-  const selectRef = React.useRef<HTMLSelectElement>(null)
-  const isControlled = value !== undefined
-  const selectValue = isControlled ? value : uncontrolledValue
-  const hasSelection = selectValue !== ''
+  const [isOpen, setIsOpen] = React.useState(false)
+  const containerRef = React.useRef<HTMLDivElement>(null)
 
-  const openSelect = React.useCallback(() => {
-    const node = selectRef.current
-    if (!node) return
-
-    const enhancedNode = node as HTMLSelectElement & {
-      showPicker?: () => void
+  // Cerrar dropdown al hacer clic fuera
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false)
+      }
     }
-
-    if (typeof enhancedNode.showPicker === 'function') {
-      enhancedNode.showPicker()
-      return
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
     }
+    return undefined
+  }, [isOpen])
 
-    node.focus({ preventScroll: true })
-    node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
-    node.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
-    node.click()
-  }, [])
+  const displayText = value || placeholder
+  const hasSelection = Boolean(value)
 
   return (
     <div
       className='absolute w-[19.1875rem]'
       style={{ left: '30.6875rem', top }}
       data-field={label.toLowerCase()}
+      ref={containerRef}
     >
-      <div className='flex h-[3rem] w-full items-center rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem] py-[0.5rem] transition-colors focus-within:border-brand-300 focus-within:bg-brand-100'>
-        <select
-          id={selectId}
-          name={label.toLowerCase()}
-          value={selectValue}
-          onChange={(event) => {
-            const nextValue = event.target.value
-            if (!isControlled) setUncontrolledValue(nextValue)
-            onValueChange?.(nextValue)
-          }}
-          className={[
-            'h-full flex-1 cursor-pointer appearance-none bg-transparent text-body-md outline-none',
-            hasSelection ? 'text-neutral-900' : 'text-neutral-400'
-          ].join(' ')}
+      <div className='relative'>
+        <button
+          type='button'
+          onClick={() => setIsOpen(!isOpen)}
           aria-labelledby={labelId}
           aria-required={required}
-          required={required}
-          ref={selectRef}
+          className='flex h-[3rem] w-full items-center justify-between rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem] py-[0.5rem] text-left outline-none transition-colors hover:border-neutral-400'
         >
-          <option value=''>{placeholder}</option>
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-        <div className='ml-[0.5rem] inline-flex items-center gap-[0.25rem]'>
-          <button
-            type='button'
-            aria-label={`Abrir selector de ${label.toLowerCase()}`}
-            onMouseDown={(event) => {
-              event.preventDefault()
-              openSelect()
-            }}
-            onClick={(event) => {
-              event.preventDefault()
-              openSelect()
-            }}
-            className='inline-flex size-[1.5rem] shrink-0 items-center justify-center rounded-[0.5rem] text-neutral-500 transition-colors hover:text-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300'
+          <span
+            className={`text-body-md ${
+              hasSelection ? 'text-neutral-900' : 'text-neutral-400'
+            }`}
           >
-            <KeyboardArrowDownRounded fontSize='small' />
-          </button>
-          {required && (
-            <span
-              aria-hidden='true'
-              className='text-label-md font-medium text-error-600'
-            >
-              *
-            </span>
-          )}
-        </div>
+            {displayText}
+          </span>
+          <div className='ml-[0.5rem] inline-flex items-center gap-[0.25rem]'>
+            <KeyboardArrowDownRounded
+              fontSize='small'
+              className={`text-neutral-500 transition-transform ${
+                isOpen ? 'rotate-180' : ''
+              }`}
+            />
+            {required && (
+              <span
+                aria-hidden='true'
+                className='text-label-md font-medium text-error-600'
+              >
+                *
+              </span>
+            )}
+          </div>
+        </button>
+
+        {isOpen && options.length > 0 && (
+          <div
+            className='absolute z-50 w-full mt-1 bg-[rgba(248,250,251,0.95)] backdrop-blur-[2px] rounded-[0.5rem] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)] border border-neutral-300 py-2 max-h-60 overflow-y-auto'
+            style={{ backdropFilter: 'blur(2px)' }}
+          >
+            {options.map((option) => (
+              <button
+                key={option}
+                type='button'
+                onClick={() => {
+                  onValueChange?.(option)
+                  setIsOpen(false)
+                }}
+                className={`w-full px-2 py-1 text-left text-body-md font-medium text-neutral-900 hover:bg-brand-50 transition-colors ${
+                  option === value ? 'bg-brand-50' : ''
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -260,61 +262,85 @@ function PricingSelectField({
   label,
   placeholder,
   options = [],
-  description
-}: PricingSelectFieldProps) {
-  const selectRef = React.useRef<HTMLSelectElement>(null)
+  description,
+  value,
+  onValueChange
+}: PricingSelectFieldProps & {
+  value?: string
+  onValueChange?: (value: string) => void
+}) {
+  const [isOpen, setIsOpen] = React.useState(false)
+  const containerRef = React.useRef<HTMLDivElement>(null)
 
-  const openSelect = React.useCallback(() => {
-    const node = selectRef.current
-    if (!node) return
-    const enhancedNode = node as HTMLSelectElement & {
-      showPicker?: () => void
+  // Cerrar dropdown al hacer clic fuera
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false)
+      }
     }
-    if (typeof enhancedNode.showPicker === 'function') {
-      enhancedNode.showPicker()
-      return
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-    node.focus({ preventScroll: true })
-    node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
-    node.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
-    node.click()
-  }, [])
+    return undefined
+  }, [isOpen])
+
+  const displayText = value || placeholder
+  const hasSelection = Boolean(value)
 
   return (
-    <div className='absolute w-[19.1875rem]' style={{ left, top }}>
+    <div className='absolute w-[19.1875rem]' style={{ left, top }} ref={containerRef}>
       <label htmlFor={id} className='block text-body-sm text-neutral-900'>
         {label}
       </label>
-      <div className='mt-[0.5rem] flex h-[3rem] items-center rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem] transition-colors focus-within:border-brand-300 focus-within:bg-brand-100'>
-        <select
-          id={id}
-          name={id}
-          defaultValue=''
-          className='h-full flex-1 cursor-pointer appearance-none bg-transparent pr-[2.5rem] text-body-md text-neutral-400 outline-none'
-          ref={selectRef}
-        >
-          <option value=''>{placeholder}</option>
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+      <div className='relative mt-[0.5rem]'>
         <button
           type='button'
-          aria-label={`Abrir selector de ${label.toLowerCase()}`}
-          onMouseDown={(event) => {
-            event.preventDefault()
-            openSelect()
-          }}
-          onClick={(event) => {
-            event.preventDefault()
-            openSelect()
-          }}
-          className='ml-[0.5rem] inline-flex size-[1.5rem] shrink-0 items-center justify-center rounded-[0.5rem] text-neutral-500 transition-colors hover:text-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300'
+          id={id}
+          onClick={() => setIsOpen(!isOpen)}
+          className='flex h-[3rem] w-full items-center justify-between rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem] text-left outline-none transition-colors hover:border-neutral-400'
         >
-          <KeyboardArrowDownRounded fontSize='small' />
+          <span
+            className={`text-body-md ${
+              hasSelection ? 'text-neutral-900' : 'text-neutral-400'
+            }`}
+          >
+            {displayText}
+          </span>
+          <KeyboardArrowDownRounded
+            fontSize='small'
+            className={`text-neutral-500 transition-transform ${
+              isOpen ? 'rotate-180' : ''
+            }`}
+          />
         </button>
+
+        {isOpen && options.length > 0 && (
+          <div
+            className='absolute z-50 w-full mt-1 bg-[rgba(248,250,251,0.95)] backdrop-blur-[2px] rounded-[0.5rem] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)] border border-neutral-300 py-2 max-h-60 overflow-y-auto'
+            style={{ backdropFilter: 'blur(2px)' }}
+          >
+            {options.map((option) => (
+              <button
+                key={option}
+                type='button'
+                onClick={() => {
+                  onValueChange?.(option)
+                  setIsOpen(false)
+                }}
+                className={`w-full px-2 py-1 text-left text-body-md font-medium text-neutral-900 hover:bg-brand-50 transition-colors ${
+                  option === value ? 'bg-brand-50' : ''
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       {description && (
         <p className='mt-[0.25rem] text-[0.6875rem] font-medium leading-4 text-neutral-500'>
@@ -482,6 +508,11 @@ export default function ProposalCreationModal({
   >('plan')
   const baseFieldId = React.useId()
   const [selectedLocation, setSelectedLocation] = React.useState('')
+  const [selectedTreatment, setSelectedTreatment] = React.useState('')
+  const [selectedProfessional, setSelectedProfessional] = React.useState('')
+  const [selectedDiscount, setSelectedDiscount] = React.useState('')
+  const [selectedTerm, setSelectedTerm] = React.useState('')
+  const [selectedSignee, setSelectedSignee] = React.useState('')
   const [odontogramaOpen, setOdontogramaOpen] = React.useState(false)
 
   React.useEffect(() => {
@@ -500,6 +531,11 @@ export default function ProposalCreationModal({
   React.useEffect(() => {
     if (!open) {
       setSelectedLocation('')
+      setSelectedTreatment('')
+      setSelectedProfessional('')
+      setSelectedDiscount('')
+      setSelectedTerm('')
+      setSelectedSignee('')
       setOdontogramaOpen(false)
       setCurrentStep('plan')
     }
@@ -728,6 +764,8 @@ export default function ProposalCreationModal({
                         options={treatmentOptions}
                         placeholder='Selecciona un tratamiento'
                         required
+                        value={selectedTreatment}
+                        onValueChange={setSelectedTreatment}
                       />
                       <ExampleDropdown
                         top='33.5rem'
@@ -746,6 +784,8 @@ export default function ProposalCreationModal({
                         options={professionalOptions}
                         placeholder='Selecciona un profesional'
                         required
+                        value={selectedProfessional}
+                        onValueChange={setSelectedProfessional}
                       />
 
                       {showIndividualPieceButton && (
@@ -808,6 +848,8 @@ export default function ProposalCreationModal({
                         placeholder='%'
                         options={['%', '€', 'Sin descuento']}
                         description='Texto descriptivo'
+                        value={selectedDiscount}
+                        onValueChange={setSelectedDiscount}
                       />
                       <PricingTextArea
                         id={`${baseFieldId}-discount-reason`}
@@ -904,6 +946,8 @@ export default function ProposalCreationModal({
                             top='12.25rem'
                             placeholder='Value'
                             options={termOptions}
+                            value={selectedTerm}
+                            onValueChange={setSelectedTerm}
                           />
 
                           <PricingTextField
@@ -1005,6 +1049,8 @@ export default function ProposalCreationModal({
                             top='0rem'
                             left='30.6875rem'
                             options={professionalOptions}
+                            value={selectedSignee}
+                            onValueChange={setSelectedSignee}
                           />
 
                           <PricingTextArea

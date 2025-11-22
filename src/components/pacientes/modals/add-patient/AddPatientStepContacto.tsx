@@ -1,7 +1,6 @@
 'use client'
 
-import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded'
-import { TextInput, ToggleInput } from './AddPatientInputs'
+import { SelectInput, TextInput, ToggleInput } from './AddPatientInputs'
 
 type Props = {
   recordatorios: boolean
@@ -35,11 +34,17 @@ export default function AddPatientStepContacto({
           Teléfono
         </div>
         <div className='flex gap-3 w-full'>
-          <div className='relative w-20'>
-            <select className='appearance-none w-full h-12 rounded-lg bg-[var(--color-neutral-50)] outline-[0.03125rem] outline-offset-[-0.03125rem] outline-[var(--color-neutral-300)] pl-2.5 pr-8 text-body-md text-[var(--color-neutral-900)]'>
-              <option>+34</option>
-            </select>
-            <KeyboardArrowDownRounded className='pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-neutral-700)]' />
+          <div className='w-20'>
+            <SelectInput
+              placeholder='+34'
+              value='+34'
+              options={[
+                { label: '+34', value: '+34' },
+                { label: '+1', value: '+1' },
+                { label: '+33', value: '+33' },
+                { label: '+44', value: '+44' }
+              ]}
+            />
           </div>
           <div className='flex-1'>
             <TextInput

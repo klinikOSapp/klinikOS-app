@@ -232,6 +232,19 @@ export default function AddPatientModal({
   const [sexo, setSexo] = React.useState<string>('')
   const [idioma, setIdioma] = React.useState<string>('')
 
+  // Estados adicionales Administrativo
+  const [adminProfesional, setAdminProfesional] = React.useState<string>('')
+  const [adminCanal, setAdminCanal] = React.useState<string>('')
+  const [adminCobertura, setAdminCobertura] = React.useState<string>('')
+  const [adminPais, setAdminPais] = React.useState<string>('')
+  const [adminPago1, setAdminPago1] = React.useState<string>('')
+  const [adminPago2, setAdminPago2] = React.useState<string>('')
+  const [adminFinanciacion, setAdminFinanciacion] = React.useState<string>('')
+
+  // Estados adicionales Salud
+  const [saludAntecedentes, setSaludAntecedentes] = React.useState<string>('')
+  const [saludMiedo, setSaludMiedo] = React.useState<string>('')
+
   // Type helper for Salud component props (workaround for JSX inference)
   const SaludComp = AddPatientStepSalud as unknown as React.ComponentType<{
     embarazo: boolean
@@ -240,6 +253,10 @@ export default function AddPatientModal({
     onChangeTabaquismo: (v: boolean) => void
     alergiasText?: string
     onChangeAlergiasText?: (v: string) => void
+    antecedentes?: string
+    onChangeAntecedentes?: (v: string) => void
+    miedo?: string
+    onChangeMiedo?: (v: string) => void
   }>
 
   if (!open) return null
@@ -257,7 +274,7 @@ export default function AddPatientModal({
           onClick={(e) => e.stopPropagation()}
         >
           <div
-            className='w-[68.25rem] h-[59.75rem] max-w-[92vw] max-h-[85vh] shrink-0 relative bg-[var(--color-surface-modal,#fff)] rounded-[1rem] overflow-hidden flex items-start justify-center'
+            className='w-[68.25rem] h-[59.75rem] max-w-[92vw] max-h-[85vh] shrink-0 relative bg-[var(--color-surface-modal,#fff)] rounded-[0.5rem] overflow-hidden flex items-start justify-center'
             style={{
               width: 'min(68.25rem, calc(68.25rem * (85vh / 60rem)))',
               height: 'min(59.75rem, calc(59.75rem * (85vh / 60rem)))'
@@ -272,7 +289,7 @@ export default function AddPatientModal({
               }}
             >
               <div className='w-[68.25rem] h-14 px-8 left-0 top-0 absolute border-b border-[var(--color-neutral-300)] inline-flex justify-between items-center'>
-                <div className='justify-start text-[var(--color-neutral-900)] text-title-lg font-sans'>
+                <div className='justify-start text-[var(--color-neutral-900)] text-title-md font-sans'>
                   Formulario de creación de usuarios
                 </div>
                 <button
@@ -509,7 +526,7 @@ export default function AddPatientModal({
                 className='w-[35.5rem] left-[14.3125rem] top-[6rem] absolute inline-flex flex-col justify-start items-start gap-2'
               >
                 <div className='inline-flex justify-start items-center gap-2'>
-                  <div className='justify-start text-[var(--color-neutral-900)] text-title-lg font-sans'>
+                  <div className='justify-start text-[var(--color-neutral-900)] text-[1.5rem] leading-[2rem] font-medium font-sans'>
                     {step === 'contacto'
                       ? 'Contacto y consentimientos rápidos'
                       : step === 'administrativo'
@@ -569,6 +586,20 @@ export default function AddPatientModal({
                   onChangeFacturaEmpresa={setAdminFacturaEmpresa}
                   notas={adminNotas}
                   onChangeNotas={setAdminNotas}
+                  profesional={adminProfesional}
+                  onChangeProfesional={setAdminProfesional}
+                  canal={adminCanal}
+                  onChangeCanal={setAdminCanal}
+                  cobertura={adminCobertura}
+                  onChangeCobertura={setAdminCobertura}
+                  pais={adminPais}
+                  onChangePais={setAdminPais}
+                  pago1={adminPago1}
+                  onChangePago1={setAdminPago1}
+                  pago2={adminPago2}
+                  onChangePago2={setAdminPago2}
+                  financiacion={adminFinanciacion}
+                  onChangeFinanciacion={setAdminFinanciacion}
                 />
               )}
 
@@ -584,6 +615,10 @@ export default function AddPatientModal({
                   }
                   alergiasText={saludAlergiasText}
                   onChangeAlergiasText={setSaludAlergiasText}
+                  antecedentes={saludAntecedentes}
+                  onChangeAntecedentes={setSaludAntecedentes}
+                  miedo={saludMiedo}
+                  onChangeMiedo={setSaludMiedo}
                 />
               )}
 
@@ -606,11 +641,11 @@ export default function AddPatientModal({
                 />
               )}
 
-              <div className='w-[31.5rem] h-0 left-[49.875rem] top-[53.25rem] absolute origin-top-left rotate-180 border-t-[0.0625rem] border-[var(--color-neutral-400)]'></div>
+              <div className='w-[31.5rem] h-0 left-[18.375rem] top-[53.25rem] absolute origin-top-left rotate-180 border-t-[0.0625rem] border-[var(--color-neutral-400)]'></div>
               <button
                 type='button'
                 onClick={handleContinue}
-                className='w-52 px-4 py-2 left-[36.4375rem] top-[55.75rem] absolute bg-[var(--color-brand-500)] rounded-[8.5rem] outline-[0.0625rem] outline-offset-[-0.0625rem] outline-[var(--color-neutral-300)] inline-flex justify-center items-center gap-2'
+                className='w-[13.4375rem] px-4 py-2 left-[36.4375rem] top-[55.75rem] absolute bg-[var(--color-brand-500)] rounded-[8.5rem] outline-[0.0625rem] outline-offset-[-0.0625rem] outline-[var(--color-neutral-300)] inline-flex justify-center items-center gap-2'
               >
                 <div className='justify-start text-[var(--color-brand-900)] text-body-md font-medium font-sans'>
                   Continuar
