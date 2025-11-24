@@ -203,6 +203,7 @@
   --chart-prof-grid-height-ratio: 0.60819; /* 208 / 342 */
   --chart-prof-grid-top-ratio: 0.24561; /* 84 / 342 */
   --chart-prof-labels-bottom-ratio: 0.88304; /* 302 / 342 */
+  --chart-prof-content-height-ratio: 0.93567; /* (320 / 342) - altura total del área del gráfico incluyendo labels X */
   --chart-prof-bar-width-ratio: 0.10964; /* 58 / 529 */
   --chart-prof-bar-1-left-ratio: 0.10302; /* 55 / 529 */
   --chart-prof-bar-2-left-ratio: 0.31570; /* 167 / 529 */
@@ -294,20 +295,20 @@
 
   /* Landing (pre-login) exact Figma specs */
   --blur-landing: 1.125rem; /* 18px */
-  --landing-card-width: 28.75rem; /* 460px */
-  --landing-card-height: 49.6875rem; /* 795px */
+  --landing-card-width: 25.875rem; /* 414px - 10% menos que 460px */
+  --landing-card-height: 45.95625rem; /* 735.3px - 10% menos que 817px */
   --radius-card-lg: 2rem; /* 32px */
   --shadow-landing-card: -2px -2px 4px 0 rgba(0, 0, 0, 0.1),
     2px 2px 4px 0 rgba(0, 0, 0, 0.1);
-  --landing-hero-size: 10.4375rem; /* 167px */
-  --landing-actions-width: 23.75rem; /* 380px */
-  --landing-top-gap: 4.5rem; /* 72px */
-  --landing-gap-lg: 1.5rem; /* 24px */
+  --landing-hero-size: 9.39375rem; /* 150.3px */
+  --landing-actions-width: 21.375rem; /* 342px */
+  --landing-top-gap: 4.05rem; /* 64.8px */
+  --landing-gap-lg: 1.35rem; /* 21.6px */
   --text-title-landing: 2rem; /* 32px */
   --leading-title-landing: 2.5rem; /* 40px */
-  --landing-cta-height: 3rem; /* 48px */
+  --landing-cta-height: 2.7rem; /* 43.2px */
   --shadow-button-soft: 0px 2px 2px 0px rgba(0, 0, 0, 0.1);
-  --landing-bottom-gap: 2.8125rem; /* 45px */
+  --landing-bottom-gap: 2.53125rem; /* 40.5px */
   --landing-max-h: 90vh; /* viewport-based, semantic token */
 
   /* Modal tokens (semantic aliases, reutilizados por auth) */
@@ -325,6 +326,105 @@
     rgba(81, 214, 199, 1) 0%,
     rgba(199, 210, 255, 1) 100%
   );
+
+  /* Scheduler (agenda weekly view) */
+  --scheduler-width: 104rem; /* 1664px - reference only */
+  --scheduler-height: 63.5rem; /* 1016px */
+  --scheduler-toolbar-height: 4.5rem; /* 72px */
+  --scheduler-day-header-height: 4.5rem; /* 72px */
+  --scheduler-body-offset-y: 9rem; /* toolbar + header = 144px */
+  --scheduler-box-height: 27.25rem; /* 436px */
+  --scheduler-time-width: 5rem; /* 80px */
+  --scheduler-label-width: 4.9375rem; /* 79px */
+  --scheduler-label-left: 0.0625rem; /* 1px divider */
+
+  /* Fluid percentages - adapt to container width */
+  --scheduler-header-width-first: 18.75%; /* 312/1664 */
+  --scheduler-header-width: 13.52%; /* 225/1664 */
+  --scheduler-day-width-first: 13.64%; /* 227/1664 */
+  --scheduler-day-width: 13.52%; /* 225/1664 */
+  --scheduler-day-left-mon: 4.81%; /* 80/1664 */
+  --scheduler-day-left-tue: 18.45%; /* 307/1664 */
+  --scheduler-day-left-wed: 31.97%; /* 532/1664 */
+  --scheduler-day-left-thu: 45.61%; /* 759/1664 */
+  --scheduler-day-left-fri: 59.13%; /* 984/1664 */
+  --scheduler-day-left-sat: 72.78%; /* 1211/1664 */
+  --scheduler-day-left-sun: 86.30%; /* 1436/1664 */
+  --scheduler-header-left-mon: 0%; /* 0/1664 */
+  --scheduler-header-left-tue: 18.75%; /* 312/1664 */
+  --scheduler-header-left-wed: 32.27%; /* 537/1664 */
+  --scheduler-header-left-thu: 45.79%; /* 762/1664 */
+  --scheduler-header-left-fri: 59.31%; /* 987/1664 */
+  --scheduler-header-left-sat: 72.84%; /* 1212/1664 */
+  --scheduler-header-left-sun: 86.36%; /* 1437/1664 */
+  --scheduler-box-top-second: 27.25rem; /* 436px */
+  --scheduler-slot-height: 7.785625rem; /* 124.57px - altura por hora completa */
+  --scheduler-slot-height-half: 3.8928125rem; /* 62.285px - altura por media hora (124.57/2) */
+  /* Event card sizing - relative to column (227px reference) */
+  --scheduler-event-width: 92.95%; /* 211px/227px from Figma */
+  --scheduler-event-left-offset: 3.52%; /* 8px/227px from Figma */
+  --scheduler-event-padding: 0.5rem; /* 8px internal padding from Figma */
+  --scheduler-event-height-sm: 4rem; /* 64px - single-line content with ellipsis */
+  --scheduler-event-height-lg: 4.5rem; /* 72px - single-line content with more padding */
+  --scheduler-event-gap: 0.5rem; /* 8px vertical gap from Figma */
+  --scheduler-overlay-width: 24.5rem; /* 392px from Figma */
+  --scheduler-overlay-height: 33.25rem; /* 532px from Figma */
+  --scheduler-overlay-offset-x: 33.5625rem; /* 537px */
+  --scheduler-overlay-offset-y: 10.4375rem; /* 167px */
+  --scheduler-grid-gutter: 2.5rem; /* 40px lateral */
+  --scheduler-overlay-header-pad-x: 1rem; /* 16px from Figma */
+  --scheduler-overlay-header-pad-y: 0.5rem; /* 8px from Figma */
+  --scheduler-overlay-body-pad-x: 1rem; /* 16px from Figma */
+  --scheduler-overlay-body-pad-top: 1rem; /* 16px from Figma */
+  --scheduler-overlay-body-pad-bottom: 1rem; /* 16px from Figma */
+  --scheduler-overlay-section-gap: 1.5rem; /* 24px entre bloques from Figma */
+  --scheduler-overlay-icon-gap: 0.25rem; /* 4px from Figma */
+  --scheduler-overlay-icon-size: 1rem; /* 16px from Figma */
+  --scheduler-overlay-label-gap: 0.25rem; /* 4px entre icono y etiqueta */
+  --scheduler-overlay-value-gap: 1.5rem; /* 24px entre etiqueta y valor from Figma */
+  --scheduler-overlay-contact-gap: 0.5rem; /* 8px para phone/email from Figma */
+  --scheduler-overlay-avatar-size: 2rem; /* 32px from Figma */
+  --scheduler-overlay-avatar-color: var(--color-neutral-700);
+  --scheduler-overlay-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  /* Month calendar (vista mensual) - Figma exact values */
+  --month-row-height: 10.925rem; /* 174.8px from Figma */
+  --month-cell-padding-top: 1rem; /* 16px from Figma */
+  --month-event-width: 13.1875rem; /* 211px from Figma - reference only */
+  --month-event-width-percent: 88.89%; /* 211px / 237.57px = 88.89% - fluid width */
+  --month-event-height: 2.25rem; /* 36px from Figma */
+  --month-event-top: 3.875rem; /* 62px from Figma */
+  --month-event-left: 0.8575rem; /* 13.72px average from Figma */
+  --month-event-padding: 0.5rem; /* 8px from Figma */
+  --month-event-radius: 0.5rem; /* 8px from Figma */
+  --color-event-purple: #f1e9fb; /* Purple event background */
+  --color-event-teal: #e9fbf9; /* Teal event background */
+  --color-event-coral: #fbe9e9; /* Coral event background */
+
+  /* Day calendar (vista diaria) - Figma exact values */
+  --day-time-column-width: 5.5rem; /* 88px from Figma */
+  --day-box-column-width: 32.833125rem; /* 525.33px from Figma */
+  --day-event-width: 31.0625rem; /* 497px from Figma - reference only */
+  --day-event-width-percent: 94.63%; /* 497px / 525.33px = 94.63% - fluid width */
+  --day-event-height: 2.25rem; /* 36px from Figma */
+  --day-event-left: 0.875rem; /* 14px from Figma */
+  --day-event-padding: 0.5rem; /* 8px from Figma */
+  --day-event-radius: 0.5rem; /* 8px from Figma */
+  --day-segmented-width: 17.625rem; /* 282px from Figma */
+  --day-segmented-height: 2.5rem; /* 40px from Figma */
+  --day-segmented-radius: 0.25rem; /* 4px from Figma */
+  --day-segmented-padding-x: 0.75rem; /* 12px from Figma */
+  --day-segmented-padding-y: 0.5rem; /* 8px from Figma */
+  --day-segmented-gap: 0.625rem; /* 10px from Figma */
+  --day-segmented-btn1-width: 8.0625rem; /* 129px from Figma */
+  --day-segmented-btn2-width: 5.3125rem; /* 85px from Figma */
+  --day-segmented-btn3-width: 4.25rem; /* 68px from Figma */
+
+  /* Sunday dot pattern (domingo con puntos) - SVG pattern from Figma */
+  --sunday-dot-size: 1px; /* Tamaño del punto */
+  --sunday-dot-spacing: 16px; /* Espaciado entre puntos (16x16 grid) */
+  --sunday-dot-color: rgba(203, 211, 217, 0.4); /* Neutral/300 con opacidad */
+  --sunday-bg-pattern: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23cbd3d9' opacity='0.4'/%3E%3C/svg%3E");
 
   /* Aliases semánticos propuestos */
   --color-surface-overlay: rgba(248, 250, 251, 0.8);
@@ -350,6 +450,142 @@
   --modal-copy-to-first-gap: 3.5rem; /* 56px */
   --modal-cta-top-gap: 3.5rem; /* 56px */
   --modal-legal-top-gap: 4rem; /* 64px */
+
+  /* Create Appointment Modal - Extracted from Figma */
+  --modal-create-width: 68.25rem; /* 1092px */
+  --modal-create-height: 59.75rem; /* 956px */
+  --modal-create-header-height: 3.5rem; /* 56px */
+  --modal-create-header-pad-x: 2rem; /* 32px */
+  --modal-create-title-top: 6rem; /* 96px */
+  --modal-create-title-left: 14.3125rem; /* 229px */
+  --modal-create-label-left: 18.375rem; /* 294px */
+  --modal-create-input-left: 30.6875rem; /* 491px */
+  --modal-create-field-width: 19.1875rem; /* 307px */
+  --modal-create-field-height: 3rem; /* 48px */
+  --modal-create-textarea-height: 5rem; /* 80px */
+  --modal-create-button-width: 13.4375rem; /* 215px */
+  --modal-create-button-height: 2.5rem; /* 40px */
+  --modal-create-line-top: 53.25rem; /* 852px */
+  --modal-create-line-width: 31.5rem; /* 504px */
+  --modal-create-button-top: 55.75rem; /* 892px */
+  
+  /* Field positions (top values) */
+  --modal-create-field-servicio-top: 11.5rem; /* 184px */
+  --modal-create-field-paciente-top: 17.9375rem; /* 287px */
+  --modal-create-field-responsable-top: 23.9375rem; /* 383px */
+  --modal-create-field-observaciones-top: 29.9375rem; /* 479px */
+  --modal-create-field-presupuesto-top: 37.9375rem; /* 607px */
+  --modal-create-field-fecha-top: 43.9375rem; /* 703px */
+  --modal-create-field-hora-top: 48.9375rem; /* ~783px - calculado manteniendo gap similar */
+  
+  /* Input/Select styling */
+  --input-border-width: 0.5px;
+  --input-radius: 0.5rem; /* 8px */
+  --input-bg: var(--color-neutral-50);
+  --input-border-color: var(--color-neutral-300);
+  --input-text-color: var(--color-neutral-900);
+  --input-placeholder-color: var(--color-neutral-400);
+  --input-description-color: var(--color-neutral-600);
+  
+  /* Button pill styling */
+  --button-pill-radius: 8.5rem; /* 136px - muy redondeado */
+}
+
+/* Logo animation */
+.logo-animation {
+  position: relative;
+  width: var(--landing-hero-size);
+  height: var(--landing-hero-size);
+}
+
+.logo-animation__glow {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-circle-avatar);
+  background: radial-gradient(
+    circle,
+    rgba(81, 214, 199, 0.35) 0%,
+    rgba(81, 214, 199, 0) 70%
+  );
+  animation: logoGlowPulse 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.logo-animation__segment {
+  position: absolute;
+  width: calc(var(--landing-hero-size) * 0.468);
+  height: calc(var(--landing-hero-size) * 0.468);
+  top: 0;
+  left: 0;
+  transform-origin: center;
+}
+
+.logo-animation__segment--outline {
+  border: calc(var(--landing-hero-size) * 0.0915) solid var(--color-brand-500);
+  border-radius: calc(var(--landing-hero-size) * 0.2343)
+    calc(var(--landing-hero-size) * 0.1046)
+    calc(var(--landing-hero-size) * 0.1046)
+    calc(var(--landing-hero-size) * 0.2343);
+  animation: logoSegmentOutline 3.4s ease-in-out infinite;
+  animation-delay: var(--la-delay, 0s);
+}
+
+.logo-animation__segment--filled {
+  border-radius: calc(var(--landing-hero-size) * 0.1046)
+    calc(var(--landing-hero-size) * 0.3268)
+    calc(var(--landing-hero-size) * 0.3268)
+    calc(var(--landing-hero-size) * 0.1046);
+  background: var(--color-brand-500);
+  animation: logoSegmentFilled 3.4s ease-in-out infinite;
+  animation-delay: var(--la-delay, 0s);
+}
+
+@keyframes logoSegmentOutline {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--la-rotation, 0deg)) scale(0.4);
+  }
+  28% {
+    opacity: 1;
+    transform: rotate(var(--la-rotation, 0deg)) scale(1.08);
+  }
+  50% {
+    transform: rotate(var(--la-rotation, 0deg)) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(var(--la-rotation, 0deg)) scale(1);
+  }
+}
+
+@keyframes logoSegmentFilled {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  28% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  50% {
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes logoGlowPulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.1;
+    transform: scale(1.05);
+  }
 }
 
 /* ✨ BASE HTML FLUIDA - Hace TODO responsive automáticamente */

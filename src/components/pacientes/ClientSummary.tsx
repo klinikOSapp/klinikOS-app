@@ -8,8 +8,6 @@ const imgCall =
   'http://localhost:3845/assets/b7ea77f86188bf6ab0ebf35824da37c39ace0c81.svg'
 const imgLine1 =
   'http://localhost:3845/assets/a5fd2c78e5af92f84d85671667ff4e2a8a0f2cfd.svg'
-const imgMoreVert =
-  'http://localhost:3845/assets/49a32dc9867150df332161df4c1841329bdafc17.svg'
 
 export default function ClientSummary() {
   return (
@@ -331,14 +329,6 @@ export default function ClientSummary() {
         >
           Editar
         </p>
-      </div>
-      <div
-        className='absolute size-[24px] top-[228px]'
-        data-name='more_vert'
-        data-node-id='426:923'
-        style={{ left: 'calc(93.75% + 18.75px)' }}
-      >
-        <img alt='' className='block max-w-none size-full' src={imgMoreVert} />
       </div>
     </div>
   )

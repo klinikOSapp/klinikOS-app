@@ -1,5 +1,6 @@
 'use client'
 
+import ClientLayout from '@/app/client-layout'
 import HeaderControls from '@/components/gestion/HeaderControls'
 import AccountingPanel from '@/components/gestion/AccountingPanel'
 import BillingLineChart from '@/components/gestion/BillingLineChart'
@@ -42,32 +43,34 @@ export default function GestionPage() {
   }
 
   return (
-    <div className='bg-surface-app min-h-screen overflow-auto pb-plnav'>
-      <div className='container-page py-fluid-md pb-plnav'>
-        <HeaderControls />
+    <ClientLayout>
+      <div className='bg-surface-app min-h-screen overflow-auto pb-plnav'>
+        <div className='container-page py-fluid-md pb-plnav'>
+          <HeaderControls />
 
-        {/* First row - Stats cards */}
-        <div className='dashboard-grid-stats mt-header-stack'>
-          <IncomeTypes />
-          <PatientsSummary />
-          <ProductionTotalCard />
-        </div>
+          {/* First row - Stats cards */}
+          <div className='dashboard-grid-stats mt-header-stack'>
+            <IncomeTypes />
+            <PatientsSummary />
+            <ProductionTotalCard />
+          </div>
 
-        {/* Second row - Billing chart + Specialty donut */}
-        <div className='dashboard-grid-charts mt-gapmd'>
-          <BillingLineChart />
-          <SpecialtyDonut />
-        </div>
+          {/* Second row - Billing chart + Specialty donut */}
+          <div className='dashboard-grid-charts mt-gapmd'>
+            <BillingLineChart />
+            <SpecialtyDonut />
+          </div>
 
-        {/* Third row - Accounting + Professional bars */}
-        <div
-          className='dashboard-grid-charts dashboard-grid-bottom mt-gapmd mb-plnav'
-          style={thirdRowStyles}
-        >
-          <AccountingPanel />
-          <ProfessionalBars />
+          {/* Third row - Accounting + Professional bars */}
+          <div
+            className='dashboard-grid-charts dashboard-grid-bottom mt-gapmd mb-plnav'
+            style={thirdRowStyles}
+          >
+            <AccountingPanel />
+            <ProfessionalBars />
+          </div>
         </div>
       </div>
-    </div>
+    </ClientLayout>
   )
 }
