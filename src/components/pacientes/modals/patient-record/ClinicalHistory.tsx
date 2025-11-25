@@ -1902,6 +1902,27 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                   appt.scheduled_end_time ?? null
                 )
                 const statusLabel = humanize(appt.status)
+                const statusTone: 'success' | 'info' | 'danger' | 'default' =
+                  appt.status === 'confirmed'
+                    ? 'success'
+                    : appt.status === 'not_accepted'
+                      ? 'danger'
+                      : appt.status === 'scheduled'
+                        ? 'info'
+                        : 'default'
+                const statusBadgeClass =
+                  appt.status === 'confirmed'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : appt.status === 'not_accepted'
+                      ? 'border-rose-200 bg-rose-50 text-rose-700'
+                    : appt.status === 'scheduled'
+                      ? 'border-sky-200 bg-sky-50 text-sky-700'
+                      : 'border-neutral-200 bg-neutral-50 text-neutral-700'
+                const statusChip = (
+                  <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${statusBadgeClass}`}>
+                    {statusLabel}
+                  </span>
+                )
                 const isSelected = !activeHold && String(appt.id) === activeAppointmentId
                 return (
                   <div key={entryKey} className='flex items-stretch gap-4'>
@@ -1915,6 +1936,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                       <SelectorCard
                         title={title}
                         selected={isSelected}
+                        tone={statusTone}
                         className='w-full'
                         onClick={() => {
                           setSelectedCardId(String(appt.id))
@@ -1934,7 +1956,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                           },
                           {
                             icon: <PlaceRounded className='size-6 text-neutral-700' />,
-                            text: `Estado: ${statusLabel}`
+                            text: statusChip
                           }
                         ]}
                       />

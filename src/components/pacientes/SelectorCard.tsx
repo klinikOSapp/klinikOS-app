@@ -2,7 +2,7 @@ import React from 'react'
 
 type SelectorCardLine = {
   icon?: React.ReactNode
-  text: string
+  text: React.ReactNode
 }
 
 type SelectorCardProps = {
@@ -12,6 +12,7 @@ type SelectorCardProps = {
   onClick?: () => void
   className?: string
   variant?: 'default' | 'hold'
+  tone?: 'default' | 'success' | 'info' | 'danger'
 }
 
 export default function SelectorCard({
@@ -20,7 +21,8 @@ export default function SelectorCard({
   selected = false,
   onClick,
   className,
-  variant = 'default'
+  variant = 'default',
+  tone = 'default'
 }: SelectorCardProps) {
   const borderClass = React.useMemo(() => {
     if (variant === 'hold') {
@@ -28,10 +30,14 @@ export default function SelectorCard({
         ? 'border border-amber-500 bg-amber-50/70 shadow-[0_0_0_2px_rgba(251,191,36,0.35)]'
         : 'border border-dashed border-amber-300 bg-amber-50/50'
     }
-    return selected
-      ? 'border border-brand-500 shadow-[0_0_0_2px_rgba(81,214,199,0.2)]'
-      : 'border border-neutral-200'
-  }, [selected, variant])
+    if (selected) {
+      return 'border border-brand-500 shadow-[0_0_0_2px_rgba(81,214,199,0.2)]'
+    }
+    if (tone === 'success') return 'border border-emerald-200 bg-emerald-50/70'
+    if (tone === 'info') return 'border border-sky-200 bg-sky-50/70'
+    if (tone === 'danger') return 'border border-rose-200 bg-rose-50/70'
+    return 'border border-neutral-200'
+  }, [selected, variant, tone])
   return (
     <button
       type='button'
@@ -59,7 +65,7 @@ export default function SelectorCard({
                     {line.icon}
                   </span>
                 ) : null}
-                <p className='shrink-0 whitespace-pre text-body-sm text-neutral-700'>{line.text}</p>
+                <div className='shrink-0 whitespace-pre text-body-sm text-neutral-700'>{line.text}</div>
               </div>
             ))}
           </div>
