@@ -5,19 +5,9 @@ import React from 'react'
 
 const SOCIAL_OPTIONS = [
   {
-    label: 'Continuar con Apple',
-    iconSrc: '/apple-black-logo-svgrepo-com.svg',
-    alt: 'Apple'
-  },
-  {
     label: 'Continuar con Google',
     iconSrc: '/google-icon-logo-svgrepo-com.svg',
     alt: 'Google'
-  },
-  {
-    label: 'Continuar con Facebook',
-    iconSrc: '/facebook-icon-logo-svgrepo-com.svg',
-    alt: 'Facebook'
   }
 ] as const
 

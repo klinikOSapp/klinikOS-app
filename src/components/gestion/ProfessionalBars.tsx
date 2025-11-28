@@ -1,20 +1,20 @@
 import type { CSSProperties } from 'react'
 
-const CARD_WIDTH_BASE = 'var(--width-card-chart-md-fluid)'
-const CARD_HEIGHT_BASE = 'var(--height-card-chart-fluid)'
-const CARD_WIDTH_LIMIT = 'var(--chart-prof-width-limit)'
-const CARD_HEIGHT_LIMIT = 'var(--chart-prof-height-limit)'
-const CARD_WIDTH_CLAMP = `min(${CARD_WIDTH_BASE}, ${CARD_WIDTH_LIMIT})`
-const CARD_HEIGHT_CLAMP = `min(${CARD_HEIGHT_BASE}, ${CARD_HEIGHT_LIMIT})`
+// SOLUCIÓN FINAL: Variables base sin límites para cálculos
+// El contenedor tiene el min() pero los elementos internos usan 100% de ese espacio
+const CARD_WIDTH = 'var(--width-card-chart-prof)' // 33.0625rem
+const CARD_HEIGHT = 'var(--height-card-chart-prof)' // 21.375rem
 
+// Los ratios se calculan sobre el 100% del contenedor (que ya tiene min() aplicado)
+// Esto evita expresiones CSS complejas que el navegador no puede procesar
 const widthWithRatio = (ratioVar: string) =>
-  `min(calc(${CARD_WIDTH_BASE} * var(${ratioVar})), calc(${CARD_WIDTH_LIMIT} * var(${ratioVar})))`
+  `calc(100% * var(${ratioVar}))`
 
 const heightWithRatio = (ratioVar: string) =>
-  `min(calc(${CARD_HEIGHT_BASE} * var(${ratioVar})), calc(${CARD_HEIGHT_LIMIT} * var(${ratioVar})))`
+  `calc(100% * var(${ratioVar}))`
 
 const bottomWithRatio = (ratioVar: string) =>
-  `min(calc(${CARD_HEIGHT_BASE} * (1 - var(${ratioVar}))), calc(${CARD_HEIGHT_LIMIT} * (1 - var(${ratioVar}))))`
+  `calc(100% * (1 - var(${ratioVar})))`
 
 const AXIS_LABELS = [350, 300, 250, 200, 150, 100, 50, 0]
 const PROFESSIONAL_LABELS = [
@@ -57,13 +57,13 @@ const BARS = [
 
 export default function ProfessionalBars() {
   const cardStyles: CSSProperties = {
-    width: CARD_WIDTH_CLAMP,
-    height: CARD_HEIGHT_CLAMP
+    width: `min(${CARD_WIDTH}, var(--chart-prof-width-limit))`,
+    height: `min(${CARD_HEIGHT}, var(--chart-prof-height-limit))`
   }
 
   return (
     <section
-      className='relative flex flex-col overflow-clip rounded-lg bg-surface p-[1rem] shadow-elevation-card'
+      className='relative flex flex-col overflow-hidden rounded-lg bg-surface p-[1rem] shadow-elevation-card'
       style={cardStyles}
     >
       <header className='mb-[2.75rem] flex items-center justify-between'>
@@ -78,8 +78,7 @@ export default function ProfessionalBars() {
       </header>
 
       <div
-        className='relative w-full'
-        style={{ height: heightWithRatio('--chart-prof-content-height-ratio') }}
+        className='relative h-full w-full'
       >
         {/* Y-axis labels */}
         <div
