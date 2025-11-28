@@ -54,22 +54,35 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
   React.useEffect(() => {
     async function load() {
       if (!patientId) return
-      // Patient core
+      // Patient core data
       const { data: p } = await supabase
         .from('patients')
         .select(
-          'first_name, last_name, email, phone_number, national_id, address_country, preferred_language, occupation, date_of_birth, avatar_url, emergency_contact_name, emergency_contact_email, emergency_contact_phone'
+          'first_name, last_name, email, phone_number, national_id, address_country, preferred_language, occupation, date_of_birth, avatar_url, emergency_contact_name, emergency_contact_email, emergency_contact_phone, primary_contact_id'
         )
         .eq('id', patientId)
         .maybeSingle()
+      
+      // Also fetch primary contact info from contacts table (new schema)
+      let primaryContact: { full_name?: string; phone_primary?: string; email?: string; address_country?: string } | null = null
+      if (p?.primary_contact_id) {
+        const { data: contact } = await supabase
+          .from('contacts')
+          .select('full_name, phone_primary, phone_alt, email, address_country')
+          .eq('id', p.primary_contact_id)
+          .maybeSingle()
+        primaryContact = contact
+      }
+      
       if (p) {
         setDisplayName(
           [p.first_name, p.last_name].filter(Boolean).join(' ') || '—'
         )
-        setEmail(p.email ?? '—')
-        setPhone(p.phone_number ?? '—')
+        // Prefer contact table data, fallback to patient table (legacy)
+        setEmail(primaryContact?.email ?? p.email ?? '—')
+        setPhone(primaryContact?.phone_primary ?? p.phone_number ?? '—')
         setDni(p.national_id ?? '—')
-        setCountry(p.address_country ?? '—')
+        setCountry(primaryContact?.address_country ?? p.address_country ?? '—')
         setPreferredLanguage(p.preferred_language ?? '—')
         setOccupation(p.occupation ?? '—')
         setEmergencyName(p.emergency_contact_name ?? '—')

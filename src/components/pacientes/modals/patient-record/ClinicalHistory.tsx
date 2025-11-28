@@ -1905,7 +1905,7 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                 const statusTone: 'success' | 'info' | 'danger' | 'default' =
                   appt.status === 'confirmed'
                     ? 'success'
-                    : appt.status === 'not_accepted'
+                    : appt.status === 'not_accepted' || appt.status === 'cancelled' || appt.status === 'no_show'
                       ? 'danger'
                       : appt.status === 'scheduled'
                         ? 'info'
@@ -1915,6 +1915,8 @@ export default function ClinicalHistory({ onClose, patientId }: ClinicalHistoryP
                     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                     : appt.status === 'not_accepted'
                       ? 'border-rose-200 bg-rose-50 text-rose-700'
+                    : appt.status === 'cancelled' || appt.status === 'no_show'
+                      ? 'border-neutral-300 bg-neutral-100 text-neutral-500 line-through'
                     : appt.status === 'scheduled'
                       ? 'border-sky-200 bg-sky-50 text-sky-700'
                       : 'border-neutral-200 bg-neutral-50 text-neutral-700'

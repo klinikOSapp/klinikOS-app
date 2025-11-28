@@ -2,7 +2,6 @@
 
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import CloseRounded from '@mui/icons-material/CloseRounded'
-import FilterAltRounded from '@mui/icons-material/FilterAltRounded'
 import PlayArrowRounded from '@mui/icons-material/PlayArrowRounded'
 import RefreshRounded from '@mui/icons-material/RefreshRounded'
 import SearchRounded from '@mui/icons-material/SearchRounded'
@@ -49,6 +48,12 @@ type VoiceCallRow = {
   } | null
   agentName: string
   callStatus: string
+  // New: caller contact info
+  callerContactId?: string | null
+  callerContactName?: string | null
+  // Urgency info
+  isUrgent?: boolean
+  urgencyLevel?: string | null
 }
 
 type FiltersState = {
@@ -214,7 +219,7 @@ export default function ManagerPage() {
     const { data: callRows, error: callError } = await supabase
       .from('calls')
       .select(
-        'id, external_call_id, clinic_id, initial_clinic_id, patient_id, from_number, status, call_outcome, recording_url, duration_seconds, intent_summary, metadata'
+        'id, external_call_id, clinic_id, initial_clinic_id, patient_id, from_number, status, call_outcome, recording_url, duration_seconds, intent_summary, metadata, caller_contact_id, is_urgent, urgency_level'
       )
       .in('id', callIds)
 
@@ -230,8 +235,12 @@ export default function ManagerPage() {
     const patientIds = Array.from(
       new Set((callRows ?? []).map((c) => c.patient_id).filter(Boolean))
     )
+    // Fetch caller contacts
+    const callerContactIds = Array.from(
+      new Set((callRows ?? []).map((c) => c.caller_contact_id).filter(Boolean))
+    )
 
-    const [clinicsRes, patientsRes, appointmentsRes, holdsRes] = await Promise.all([
+    const [clinicsRes, patientsRes, appointmentsRes, holdsRes, contactsRes] = await Promise.all([
       clinicIds.length
         ? supabase.from('clinics').select('id, name').in('id', clinicIds)
         : Promise.resolve({ data: [], error: null }),
@@ -250,13 +259,17 @@ export default function ManagerPage() {
         .select(
           'id, public_ref, status, held_by_call_id, hold_expires_at, start_time, end_time'
         )
-        .in('held_by_call_id', callIds)
+        .in('held_by_call_id', callIds),
+      callerContactIds.length
+        ? supabase.from('contacts').select('id, full_name, phone_primary').in('id', callerContactIds)
+        : Promise.resolve({ data: [], error: null })
     ])
 
     if (clinicsRes.error) throw clinicsRes.error
     if (patientsRes.error) throw patientsRes.error
     if (appointmentsRes.error) throw appointmentsRes.error
     if (holdsRes.error) throw holdsRes.error
+    if (contactsRes.error) throw contactsRes.error
 
     const callMap = new Map((callRows ?? []).map((row) => [row.id, row]))
     const clinicsMap = new Map(
@@ -264,6 +277,9 @@ export default function ManagerPage() {
     )
     const patientsMap = new Map(
       (patientsRes.data ?? []).map((patient) => [patient.id, patient])
+    )
+    const contactsMap = new Map(
+      (contactsRes.data ?? []).map((contact) => [contact.id, contact])
     )
     const appointmentMap = new Map<number, (typeof appointmentsRes.data)[number]>()
     for (const appt of appointmentsRes.data ?? []) {
@@ -332,6 +348,19 @@ export default function ManagerPage() {
         const callStatus =
           callRecord.status || payload?.call?.call_status || eventRow.event_type || 'unknown'
 
+        // Get caller contact info
+        const callerContact = callRecord.caller_contact_id
+          ? contactsMap.get(callRecord.caller_contact_id)
+          : null
+
+        // Check for urgency from call record or from post-call analysis
+        const isUrgent = callRecord.is_urgent || 
+          callReason?.toLowerCase() === 'emergency' ||
+          payload?.call?.call_analysis?.custom_analysis_data?.urgency_level === 'urgent' ||
+          payload?.call?.call_analysis?.custom_analysis_data?.is_emergency === true
+        const urgencyLevel = callRecord.urgency_level ?? 
+          payload?.call?.call_analysis?.custom_analysis_data?.urgency_level ?? null
+
         return {
           eventId: eventRow.id,
           callRowId: callId,
@@ -343,7 +372,7 @@ export default function ManagerPage() {
           clinicName: clinic?.name ?? 'Clínica sin nombre',
           patientId: patient?.id,
           patientName,
-          patientPhone,
+          patientPhone: callerContact?.phone_primary ?? patientPhone,
           callReason,
           durationSeconds: Number.isFinite(durationSeconds) ? durationSeconds : 0,
           summary,
@@ -364,7 +393,11 @@ export default function ManagerPage() {
               }
             : null,
           agentName,
-          callStatus
+          callStatus,
+          callerContactId: callRecord.caller_contact_id,
+          callerContactName: callerContact?.full_name ?? null,
+          isUrgent,
+          urgencyLevel
         } as VoiceCallRow
       })
       .filter((row): row is VoiceCallRow => Boolean(row))
@@ -593,8 +626,19 @@ export default function ManagerPage() {
                 </td>
                 <td className='px-4 py-3 align-top'>
                   {call.callReason ? (
-                    <span className='inline-flex rounded-full bg-neutral-100 px-2 py-1 text-xs font-medium text-neutral-700'>
+                    <span 
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                        call.isUrgent || call.callReason?.toLowerCase() === 'emergency'
+                          ? 'bg-red-100 text-red-700 ring-1 ring-red-200'
+                          : 'bg-neutral-100 text-neutral-700'
+                      }`}
+                    >
+                      {call.isUrgent && '🚨 '}
                       {call.callReason}
+                    </span>
+                  ) : call.isUrgent ? (
+                    <span className='inline-flex rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-red-200'>
+                      🚨 Urgent
                     </span>
                   ) : (
                     <span className='text-sm text-neutral-500'>—</span>
@@ -842,7 +886,16 @@ function CallDetailsModal({
               label='Estado'
               value={STATUS_META[call.status].label}
             />
-            <DetailField label='Motivo' value={call.callReason ?? '—'} />
+            <DetailField 
+              label='Motivo' 
+              value={
+                <span className={call.isUrgent ? 'text-red-600 font-semibold' : ''}>
+                  {call.isUrgent && '🚨 '}
+                  {call.callReason ?? '—'}
+                  {call.isUrgent}
+                </span>
+              } 
+            />
           </div>
           <section className='rounded-xl border border-neutral-200 bg-neutral-50 p-4'>
             <h3 className='text-base font-semibold text-neutral-900'>Resumen</h3>

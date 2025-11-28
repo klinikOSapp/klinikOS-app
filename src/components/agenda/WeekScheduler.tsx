@@ -14,8 +14,10 @@ import type {
   MouseEvent as ReactMouseEvent,
   ReactElement
 } from 'react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
 import AppointmentDetailOverlay from './AppointmentDetailOverlay'
 import AppointmentSummaryCard from './AppointmentSummaryCard'
 import CreateAppointmentModal from './CreateAppointmentModal'
@@ -29,6 +31,49 @@ import type {
   EventSelection,
   Weekday
 } from './types'
+
+// Database types for appointments
+type DbAppointment = {
+  id: number
+  clinic_id: string
+  patient_id: string
+  box_id: string | null
+  service_id: number | null
+  scheduled_start_time: string
+  scheduled_end_time: string | null
+  status: string
+  public_ref: string | null
+  notes: string | null
+  patients?: { first_name: string; last_name: string; phone_number: string | null; email: string | null } | null
+  boxes?: { name: string } | null
+  service_catalog?: { name: string; color_hex: string | null } | null
+}
+
+type DbAppointmentHold = {
+  id: number
+  clinic_id: string
+  patient_id: string | null
+  box_id: string
+  suggested_service_id: number | null
+  start_time: string
+  end_time: string
+  status: string
+  public_ref: string | null
+  patients?: { first_name: string; last_name: string } | null
+  boxes?: { name: string } | null
+  service_catalog?: { name: string; color_hex: string | null } | null
+}
+
+type DbBox = {
+  id: string
+  name: string
+  clinic_id: string
+}
+
+type DbStaff = {
+  id: string
+  full_name: string
+}
 
 type HeaderCell = {
   id: Weekday
@@ -126,16 +171,96 @@ const VIEW_OPTIONS: { id: ViewOption; label: string }[] = [
   { id: 'mes', label: 'Mes' }
 ]
 
-const PROFESSIONAL_OPTIONS = [
-  { id: 'profesional-1', label: 'Profesional 1' },
-  { id: 'profesional-2', label: 'Profesional 2' },
-  { id: 'profesional-3', label: 'Profesional 3' }
+// These will be populated from database
+const DEFAULT_PROFESSIONAL_OPTIONS = [
+  { id: 'profesional-1', label: 'Profesional 1' }
 ]
 
-const BOX_OPTIONS = [
-  { id: 'box-1', label: 'Box 1' },
-  { id: 'box-2', label: 'Box 2' }
+const DEFAULT_BOX_OPTIONS = [
+  { id: 'box-1', label: 'Box 1' }
 ]
+
+// Color palette for appointments based on service or status
+const APPOINTMENT_COLORS: Record<string, string> = {
+  confirmed: 'bg-[var(--color-brand-100)]',
+  scheduled: 'bg-[rgba(86,145,255,0.2)]',
+  hold: 'bg-[#fbf3e9]',
+  completed: 'bg-[#e8f5e9]',
+  cancelled: 'bg-[#fbe9e9]',
+  no_show: 'bg-[#fff3e0]',
+  default: 'bg-[#f5f5f5]'
+}
+
+// Helper to convert time to slot position (based on 9:00 start, 30min slots)
+function timeToSlotPosition(timeStr: string): string {
+  const date = new Date(timeStr)
+  const hours = date.getHours()
+  const minutes = date.getMinutes()
+  
+  // Calculate slots from 9:00 (each slot is 30 min = 2.875rem height)
+  const slotHeight = 2.875 // rem per 30 min slot
+  const startHour = 9
+  const totalMinutesFrom9 = (hours - startHour) * 60 + minutes
+  const slots = totalMinutesFrom9 / 30
+  
+  // Add base offset (header area)
+  const baseOffset = 1.4375 // rem - matches original mock data
+  return `${baseOffset + slots * slotHeight}rem`
+}
+
+// Helper to calculate event height based on duration
+function durationToHeight(startStr: string, endStr: string | null): string {
+  if (!endStr) return '2.875rem' // Default 30 min
+  
+  const start = new Date(startStr)
+  const end = new Date(endStr)
+  const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60)
+  
+  // Each 30 min = 2.875rem
+  const slotHeight = 2.875
+  const slots = durationMinutes / 30
+  return `${Math.max(2.875, slots * slotHeight)}rem`
+}
+
+// Helper to get weekday from date
+function getWeekdayFromDate(date: Date): Weekday {
+  const days: Weekday[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  return days[date.getDay()]
+}
+
+// Helper to format time range
+function formatTimeRange(startStr: string, endStr: string | null): string {
+  const start = new Date(startStr)
+  const startTime = start.toLocaleTimeString(DEFAULT_LOCALE, {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: DEFAULT_TIMEZONE
+  })
+  
+  if (!endStr) return startTime
+  
+  const end = new Date(endStr)
+  const endTime = end.toLocaleTimeString(DEFAULT_LOCALE, {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: DEFAULT_TIMEZONE
+  })
+  
+  const durationMinutes = Math.round((end.getTime() - start.getTime()) / (1000 * 60))
+  return `${startTime} - ${endTime} (${durationMinutes} min)`
+}
+
+// Helper to format date for display
+function formatDateForDisplay(dateStr: string): string {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString(DEFAULT_LOCALE, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: DEFAULT_TIMEZONE
+  })
+}
 
 const DATE_BY_DAY: Record<Weekday, string> = {
   monday: 'Lunes, 14 de Octubre 2024',
@@ -797,21 +922,30 @@ const MONTH_EVENTS = [
 ]
 
 export default function WeekScheduler() {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  
   const [hovered, setHovered] = useState<EventSelection>(null)
   const [active, setActive] = useState<EventSelection>(null)
   const [viewOption, setViewOption] = useState<ViewOption>('semana')
   const [dayPeriod, setDayPeriod] = useState<DayPeriod>('full')
-  const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>([
-    'profesional-1'
-  ])
-  const [selectedBoxes, setSelectedBoxes] = useState<string[]>(
-    BOX_OPTIONS.map((option) => option.id)
-  )
   const [openDropdown, setOpenDropdown] = useState<
     null | 'view' | 'professional' | 'box'
   >(null)
   const [isParteDiarioModalOpen, setIsParteDiarioModalOpen] = useState(false)
   const [isCreateAppointmentModalOpen, setIsCreateAppointmentModalOpen] = useState(false)
+  
+  // Data state
+  const [clinicId, setClinicId] = useState<string | null>(null)
+  const [appointments, setAppointments] = useState<DbAppointment[]>([])
+  const [holds, setHolds] = useState<DbAppointmentHold[]>([])
+  const [boxes, setBoxes] = useState<DbBox[]>([])
+  const [staff, setStaff] = useState<DbStaff[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0) // Used to trigger re-fetch
+  
+  // Filter state - populated from real data
+  const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>([])
+  const [selectedBoxes, setSelectedBoxes] = useState<string[]>([])
 
   // Week navigation state - starts with current week
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
@@ -836,6 +970,254 @@ export default function WeekScheduler() {
   const viewDropdownId = useId()
   const professionalDropdownId = useId()
   const boxDropdownId = useId()
+  
+  // Compute week end date
+  const currentWeekEnd = useMemo(() => {
+    const end = new Date(currentWeekStart)
+    end.setDate(currentWeekStart.getDate() + 6)
+    end.setHours(23, 59, 59, 999)
+    return end
+  }, [currentWeekStart])
+  
+  // Fetch clinic and initial data
+  useEffect(() => {
+    async function init() {
+      setIsLoading(true)
+      try {
+        // Get clinic ID
+        const { data: clinics } = await supabase.rpc('get_my_clinics')
+        const cId = Array.isArray(clinics) && clinics.length > 0 ? clinics[0] : null
+        setClinicId(cId)
+        
+        if (cId) {
+          // Fetch boxes
+          const { data: boxData } = await supabase
+            .from('boxes')
+            .select('id, name, clinic_id')
+            .eq('clinic_id', cId)
+          setBoxes(boxData ?? [])
+          setSelectedBoxes((boxData ?? []).map(b => b.id))
+          
+          // Fetch staff
+          const { data: staffData } = await supabase
+            .from('staff_clinics')
+            .select('staff_id, staff:staff_id(id, full_name)')
+            .eq('clinic_id', cId)
+          const staffList = (staffData ?? [])
+            .map(s => s.staff as unknown as DbStaff)
+            .filter(Boolean)
+          setStaff(staffList)
+          setSelectedProfessionals(staffList.map(s => s.id))
+        }
+      } catch (error) {
+        console.error('Error initializing agenda:', error)
+      }
+      setIsLoading(false)
+    }
+    void init()
+  }, [supabase])
+  
+  // Fetch appointments when week changes
+  useEffect(() => {
+    async function fetchAppointments() {
+      if (!clinicId) return
+      
+      const startIso = currentWeekStart.toISOString()
+      const endIso = currentWeekEnd.toISOString()
+      
+      // Fetch appointments
+      const { data: apptData } = await supabase
+        .from('appointments')
+        .select(`
+          id, clinic_id, patient_id, box_id, service_id,
+          scheduled_start_time, scheduled_end_time, status, public_ref, notes,
+          patients (first_name, last_name, phone_number, email),
+          boxes (name),
+          service_catalog (name, color_hex)
+        `)
+        .eq('clinic_id', clinicId)
+        .gte('scheduled_start_time', startIso)
+        .lte('scheduled_start_time', endIso)
+        .not('status', 'in', '("cancelled","no_show")')
+        .order('scheduled_start_time', { ascending: true })
+      
+      setAppointments((apptData as DbAppointment[]) ?? [])
+      
+      // Fetch holds
+      const { data: holdData } = await supabase
+        .from('appointment_holds')
+        .select(`
+          id, clinic_id, patient_id, box_id, suggested_service_id,
+          start_time, end_time, status, public_ref,
+          patients (first_name, last_name),
+          boxes (name),
+          service_catalog:suggested_service_id (name, color_hex)
+        `)
+        .eq('clinic_id', clinicId)
+        .eq('status', 'held')
+        .gte('start_time', startIso)
+        .lte('start_time', endIso)
+        .order('start_time', { ascending: true })
+      
+      setHolds((holdData as DbAppointmentHold[]) ?? [])
+    }
+    
+    void fetchAppointments()
+  }, [supabase, clinicId, currentWeekStart, currentWeekEnd, refreshKey])
+  
+  // Convert appointments to AgendaEvents grouped by day
+  const eventsByDay = useMemo((): Record<Weekday, AgendaEvent[]> => {
+    const result: Record<Weekday, AgendaEvent[]> = {
+      monday: [],
+      tuesday: [],
+      wednesday: [],
+      thursday: [],
+      friday: [],
+      saturday: [],
+      sunday: []
+    }
+    
+    // Filter by selected boxes
+    const filteredAppointments = appointments.filter(
+      appt => !appt.box_id || selectedBoxes.includes(appt.box_id)
+    )
+    
+    // Convert appointments to events
+    for (const appt of filteredAppointments) {
+      const startDate = new Date(appt.scheduled_start_time)
+      const weekday = getWeekdayFromDate(startDate)
+      
+      const patientName = appt.patients
+        ? `${appt.patients.first_name} ${appt.patients.last_name}`
+        : 'Paciente'
+      const serviceName = appt.service_catalog?.name ?? 'Cita'
+      const boxName = appt.boxes?.name ?? 'Sin box'
+      const colorClass = APPOINTMENT_COLORS[appt.status] ?? APPOINTMENT_COLORS.default
+      
+      const event: AgendaEvent = {
+        id: `appt-${appt.id}`,
+        top: timeToSlotPosition(appt.scheduled_start_time),
+        height: durationToHeight(appt.scheduled_start_time, appt.scheduled_end_time),
+        title: serviceName,
+        patient: patientName,
+        box: boxName,
+        timeRange: formatTimeRange(appt.scheduled_start_time, appt.scheduled_end_time),
+        backgroundClass: colorClass,
+        borderClass: appt.status === 'confirmed' ? 'border-2 border-brand-500' : undefined,
+        detail: {
+          title: `${serviceName} · ${appt.public_ref ?? ''}`,
+          date: formatDateForDisplay(appt.scheduled_start_time),
+          duration: formatTimeRange(appt.scheduled_start_time, appt.scheduled_end_time),
+          patientFull: patientName,
+          patientPhone: appt.patients?.phone_number ?? undefined,
+          patientEmail: appt.patients?.email ?? undefined,
+          professional: 'Profesional asignado',
+          notes: appt.notes ?? undefined,
+          locationLabel: 'Fecha y ubicación',
+          patientLabel: 'Paciente',
+          professionalLabel: 'Profesional',
+          economicLabel: 'Económico',
+          notesLabel: 'Notas'
+        }
+      }
+      
+      result[weekday].push(event)
+    }
+    
+    // Convert holds to events
+    const filteredHolds = holds.filter(
+      hold => selectedBoxes.includes(hold.box_id)
+    )
+    
+    for (const hold of filteredHolds) {
+      const startDate = new Date(hold.start_time)
+      const weekday = getWeekdayFromDate(startDate)
+      
+      const patientName = hold.patients
+        ? `${hold.patients.first_name} ${hold.patients.last_name}`
+        : 'Pendiente confirmar'
+      const serviceName = hold.service_catalog?.name ?? 'Reserva'
+      const boxName = hold.boxes?.name ?? 'Sin box'
+      
+      const event: AgendaEvent = {
+        id: `hold-${hold.id}`,
+        top: timeToSlotPosition(hold.start_time),
+        height: durationToHeight(hold.start_time, hold.end_time),
+        title: `${serviceName} (Reserva)`,
+        patient: patientName,
+        box: boxName,
+        timeRange: formatTimeRange(hold.start_time, hold.end_time),
+        backgroundClass: APPOINTMENT_COLORS.hold,
+        detail: {
+          title: `${serviceName} · Reserva · ${hold.public_ref ?? ''}`,
+          date: formatDateForDisplay(hold.start_time),
+          duration: formatTimeRange(hold.start_time, hold.end_time),
+          patientFull: patientName,
+          professional: 'Por asignar',
+          locationLabel: 'Fecha y ubicación',
+          patientLabel: 'Paciente',
+          professionalLabel: 'Profesional'
+        }
+      }
+      
+      result[weekday].push(event)
+    }
+    
+    return result
+  }, [appointments, holds, selectedBoxes])
+  
+  // Dynamic box options from real data
+  const BOX_OPTIONS = useMemo(() => {
+    return boxes.map(box => ({ id: box.id, label: box.name }))
+  }, [boxes])
+  
+  // Dynamic professional options from real data
+  const PROFESSIONAL_OPTIONS = useMemo(() => {
+    return staff.map(s => ({ id: s.id, label: s.full_name }))
+  }, [staff])
+  
+  // Dynamic day columns with real events
+  const dayColumns = useMemo((): DayColumn[] => {
+    return [
+      { id: 'monday', leftVar: '--scheduler-day-left-mon', widthVar: '--scheduler-day-width-first', events: eventsByDay.monday },
+      { id: 'tuesday', leftVar: '--scheduler-day-left-tue', widthVar: '--scheduler-day-width', events: eventsByDay.tuesday },
+      { id: 'wednesday', leftVar: '--scheduler-day-left-wed', widthVar: '--scheduler-day-width-first', events: eventsByDay.wednesday },
+      { id: 'thursday', leftVar: '--scheduler-day-left-thu', widthVar: '--scheduler-day-width', events: eventsByDay.thursday },
+      { id: 'friday', leftVar: '--scheduler-day-left-fri', widthVar: '--scheduler-day-width', events: eventsByDay.friday },
+      { id: 'saturday', leftVar: '--scheduler-day-left-sat', widthVar: '--scheduler-day-width', events: eventsByDay.saturday },
+      { id: 'sunday', leftVar: '--scheduler-day-left-sun', widthVar: '--scheduler-day-width', events: eventsByDay.sunday }
+    ]
+  }, [eventsByDay])
+  
+  // Dynamic header cells with current week dates
+  const headerCells = useMemo((): HeaderCell[] => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    return [
+      { id: 'monday', leftVar: '--scheduler-header-left-mon', widthVar: '--scheduler-header-width-first' },
+      { id: 'tuesday', leftVar: '--scheduler-header-left-tue', widthVar: '--scheduler-header-width' },
+      { id: 'wednesday', leftVar: '--scheduler-header-left-wed', widthVar: '--scheduler-header-width' },
+      { id: 'thursday', leftVar: '--scheduler-header-left-thu', widthVar: '--scheduler-header-width' },
+      { id: 'friday', leftVar: '--scheduler-header-left-fri', widthVar: '--scheduler-header-width' },
+      { id: 'saturday', leftVar: '--scheduler-header-left-sat', widthVar: '--scheduler-header-width' },
+      { id: 'sunday', leftVar: '--scheduler-header-left-sun', widthVar: '--scheduler-header-width' }
+    ].map((cell, index) => {
+      const date = new Date(currentWeekStart)
+      date.setDate(currentWeekStart.getDate() + index)
+      
+      const isToday = date.getTime() === today.getTime()
+      const dayNum = date.getDate()
+      const dayName = date.toLocaleDateString(DEFAULT_LOCALE, { weekday: 'long', timeZone: DEFAULT_TIMEZONE })
+      const capitalizedDay = dayName.charAt(0).toUpperCase() + dayName.slice(1)
+      
+      return {
+        ...cell,
+        label: `${dayNum} ${capitalizedDay}`,
+        tone: isToday ? 'brand' : 'primary'
+      } as HeaderCell
+    })
+  }, [currentWeekStart])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -988,35 +1370,8 @@ export default function WeekScheduler() {
     return `${day} ${month} ${year}`
   }
 
-  // Generate header cells with actual dates
-  const getHeaderCells = (): typeof HEADER_CELLS => {
-    const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-    const weekdayIds: Weekday[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    return days.map((dayName, index) => {
-      const date = new Date(currentWeekStart)
-      date.setDate(currentWeekStart.getDate() + index)
-      const dayNumber = date.getDate()
-
-      // Determine tone based on date comparison
-      let tone: 'neutral' | 'primary' | 'brand' = 'primary'
-      if (date.getTime() === today.getTime()) {
-        tone = 'brand' // Today
-      } else if (date < today) {
-        tone = 'neutral' // Past
-      }
-
-      return {
-        ...HEADER_CELLS[index],
-        label: `${dayNumber} ${dayName}`,
-        id: weekdayIds[index],
-        tone
-      }
-    })
-  }
+  // Use the memoized headerCells instead of recalculating
+  const getHeaderCells = () => headerCells
 
   const handleHover = (state: EventSelection) => {
     setHovered(state)
@@ -1202,10 +1557,15 @@ export default function WeekScheduler() {
 
           {/* Scrollable Content Area */}
           <div className='relative flex-1 overflow-y-auto bg-[var(--color-neutral-0)]'>
+            {isLoading ? (
+              <div className='flex h-full items-center justify-center'>
+                <p className='text-body-md text-neutral-500'>Cargando agenda...</p>
+              </div>
+            ) : (
             <div className='relative' style={{ height: getContentHeight(TIME_LABELS.length) }}>
               <TimeColumn />
 
-          {DAY_COLUMNS.map((column) => (
+          {dayColumns.map((column) => (
             <DayGrid
               key={column.id}
               column={column}
@@ -1318,6 +1678,7 @@ export default function WeekScheduler() {
                 />
               ) : null}
             </div>
+            )}
           </div>
         </>
       )}
@@ -1332,10 +1693,11 @@ export default function WeekScheduler() {
       <CreateAppointmentModal
         isOpen={isCreateAppointmentModalOpen}
         onClose={() => setIsCreateAppointmentModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('Nueva cita creada:', data)
+        clinicId={clinicId}
+        onSubmit={() => {
           setIsCreateAppointmentModalOpen(false)
-          // TODO: Integrar con backend para guardar la cita
+          // Trigger re-fetch of appointments
+          setRefreshKey(k => k + 1)
         }}
       />
     </section>

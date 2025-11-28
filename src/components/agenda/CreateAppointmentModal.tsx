@@ -1,11 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 type CreateAppointmentModalProps = {
   isOpen: boolean
   onClose: () => void
   onSubmit?: (data: AppointmentFormData) => void
+  clinicId?: string | null
 }
 
 export type AppointmentFormData = {
@@ -16,13 +18,22 @@ export type AppointmentFormData = {
   presupuesto: string
   fecha: string
   hora: string
+  box: string
 }
+
+type ServiceOption = { value: string; label: string; duration: number }
+type PatientOption = { value: string; label: string }
+type StaffOption = { value: string; label: string }
+type BoxOption = { value: string; label: string }
 
 export default function CreateAppointmentModal({
   isOpen,
   onClose,
   onSubmit,
+  clinicId,
 }: CreateAppointmentModalProps) {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  
   const [formData, setFormData] = useState<AppointmentFormData>({
     servicio: '',
     paciente: '',
@@ -31,44 +42,133 @@ export default function CreateAppointmentModal({
     presupuesto: '',
     fecha: '',
     hora: '',
+    box: '',
   })
+  
+  // Data from database
+  const [servicios, setServicios] = useState<ServiceOption[]>([])
+  const [pacientes, setPacientes] = useState<PatientOption[]>([])
+  const [responsables, setResponsables] = useState<StaffOption[]>([])
+  const [boxes, setBoxes] = useState<BoxOption[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  
+  // Fetch data when modal opens
+  useEffect(() => {
+    if (!isOpen || !clinicId) return
+    
+    async function fetchData() {
+      // Fetch services
+      const { data: serviceData } = await supabase
+        .from('service_catalog')
+        .select('id, name, default_duration_minutes')
+        .eq('clinic_id', clinicId)
+        .eq('is_active', true)
+        .order('name')
+      
+      setServicios((serviceData ?? []).map(s => ({
+        value: String(s.id),
+        label: s.name,
+        duration: s.default_duration_minutes ?? 30
+      })))
+      
+      // Fetch patients
+      const { data: patientData } = await supabase
+        .from('patients')
+        .select('id, first_name, last_name')
+        .eq('clinic_id', clinicId)
+        .order('first_name')
+        .limit(100)
+      
+      setPacientes((patientData ?? []).map(p => ({
+        value: p.id,
+        label: `${p.first_name} ${p.last_name}`
+      })))
+      
+      // Fetch staff
+      const { data: staffData } = await supabase
+        .from('staff_clinics')
+        .select('staff_id, staff:staff_id(id, full_name)')
+        .eq('clinic_id', clinicId)
+      
+      setResponsables((staffData ?? [])
+        .map(s => s.staff as unknown as { id: string; full_name: string })
+        .filter(Boolean)
+        .map(s => ({ value: s.id, label: s.full_name })))
+      
+      // Fetch boxes
+      const { data: boxData } = await supabase
+        .from('boxes')
+        .select('id, name')
+        .eq('clinic_id', clinicId)
+        .order('name')
+      
+      setBoxes((boxData ?? []).map(b => ({
+        value: b.id,
+        label: b.name
+      })))
+    }
+    
+    void fetchData()
+  }, [isOpen, clinicId, supabase])
 
-  const handleSubmit = () => {
-    onSubmit?.(formData)
-    // Reset form
-    setFormData({
-      servicio: '',
-      paciente: '',
-      responsable: '',
-      observaciones: '',
-      presupuesto: '',
-      fecha: '',
-      hora: '',
-    })
+  const handleSubmit = async () => {
+    if (!clinicId || !formData.paciente || !formData.fecha || !formData.hora || !formData.box) {
+      setError('Por favor completa todos los campos requeridos')
+      return
+    }
+    
+    setIsSubmitting(true)
+    setError(null)
+    
+    try {
+      // Calculate end time based on service duration
+      const service = servicios.find(s => s.value === formData.servicio)
+      const durationMinutes = service?.duration ?? 30
+      
+      const startDateTime = new Date(`${formData.fecha}T${formData.hora}`)
+      const endDateTime = new Date(startDateTime.getTime() + durationMinutes * 60 * 1000)
+      
+      const { error: insertError } = await supabase
+        .from('appointments')
+        .insert({
+          clinic_id: clinicId,
+          patient_id: formData.paciente,
+          box_id: formData.box,
+          service_id: formData.servicio ? Number(formData.servicio) : null,
+          scheduled_start_time: startDateTime.toISOString(),
+          scheduled_end_time: endDateTime.toISOString(),
+          status: 'scheduled',
+          notes: formData.observaciones || null,
+          source: 'manual'
+        })
+      
+      if (insertError) throw insertError
+      
+      onSubmit?.(formData)
+      
+      // Reset form
+      setFormData({
+        servicio: '',
+        paciente: '',
+        responsable: '',
+        observaciones: '',
+        presupuesto: '',
+        fecha: '',
+        hora: '',
+        box: '',
+      })
+    } catch (err) {
+      console.error('Error creating appointment:', err)
+      setError('Error al crear la cita. Por favor intenta de nuevo.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (!isOpen) return null
 
-  // Mock data - replace with real data from your backend
-  const servicios = [
-    { value: 'consulta', label: 'Consulta' },
-    { value: 'limpieza', label: 'Limpieza dental' },
-    { value: 'ortodoncia', label: 'Ortodoncia' },
-    { value: 'endodoncia', label: 'Endodoncia' },
-  ]
-
-  const pacientes = [
-    { value: '1', label: 'Juan Pérez' },
-    { value: '2', label: 'María García' },
-    { value: '3', label: 'Carlos Rodríguez' },
-  ]
-
-  const responsables = [
-    { value: 'dr1', label: 'Dr. Antonio López' },
-    { value: 'dr2', label: 'Dra. Carmen Sánchez' },
-    { value: 'dr3', label: 'Dr. Miguel Torres' },
-  ]
-
+  // Legacy presupuestos - keep for UI but not functional yet
   const presupuestos = [
     { value: 'p1', label: 'Presupuesto #001' },
     { value: 'p2', label: 'Presupuesto #002' },
@@ -357,23 +457,87 @@ export default function CreateAppointmentModal({
           }}
         />
 
-        {/* Add Button - top: 892px (55.75rem) */}
+        {/* Box selector - between Hora and separator */}
+        <p
+          className='absolute font-normal text-base leading-6 text-[#24282c]'
+          style={{
+            left: 'calc(26.92% + 0.375rem)',
+            top: '51.4375rem',
+          }}
+        >
+          Box / Gabinete
+        </p>
+        <div
+          className='absolute'
+          style={{
+            left: 'calc(44.96% + 0.8rem)',
+            top: '51.4375rem',
+            width: '19.1875rem',
+          }}
+        >
+          <select
+            value={formData.box}
+            onChange={(e) => setFormData({ ...formData, box: e.target.value })}
+            className='h-[3rem] w-full appearance-none rounded-lg border-[0.5px] border-solid border-[#cbd3d9] bg-[#f8fafb] px-[0.625rem] py-2 pr-8 font-normal text-base leading-6 text-[#aeb8c2] focus:text-[#24282c] focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-opacity-50 cursor-pointer'
+          >
+            <option value=''>Seleccionar box</option>
+            {boxes.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <div className='pointer-events-none absolute right-2 top-1/2 -translate-y-1/2'>
+            <span className='material-symbols-rounded text-2xl text-[#6d7783]'>
+              keyboard_arrow_down
+            </span>
+          </div>
+        </div>
+
+        {/* Error message */}
+        {error && (
+          <p
+            className='absolute font-normal text-sm leading-5 text-red-600'
+            style={{
+              left: 'calc(44.96% + 0.8rem)',
+              top: '54.5rem',
+              width: '19.1875rem',
+            }}
+          >
+            {error}
+          </p>
+        )}
+
+        {/* Separator Line - adjusted */}
+        <div
+          className='absolute h-px bg-[#cbd3d9]'
+          style={{
+            left: 'calc(26.92% + 0.375rem)',
+            top: '55.75rem',
+            width: '31.5rem',
+          }}
+        />
+
+        {/* Add Button - adjusted */}
         <button
           onClick={handleSubmit}
-          className='absolute flex items-center justify-center gap-2 rounded-[8.5rem] border border-solid border-[#cbd3d9] bg-[#51d6c7] px-4 py-2 transition-all hover:bg-[#3fb7ab] active:scale-95'
+          disabled={isSubmitting}
+          className='absolute flex items-center justify-center gap-2 rounded-[8.5rem] border border-solid border-[#cbd3d9] bg-[#51d6c7] px-4 py-2 transition-all hover:bg-[#3fb7ab] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed'
           style={{
             left: 'calc(50% + 2.3125rem)',
-            top: '55.75rem',
+            top: '57.25rem',
             width: '13.4375rem',
             height: '2.5rem',
           }}
         >
           <span className='font-medium text-base leading-6 text-[#1e4947]'>
-            Añadir
+            {isSubmitting ? 'Guardando...' : 'Añadir'}
           </span>
-          <span className='material-symbols-rounded text-2xl text-[#1e4947]'>
-            arrow_forward
-          </span>
+          {!isSubmitting && (
+            <span className='material-symbols-rounded text-2xl text-[#1e4947]'>
+              arrow_forward
+            </span>
+          )}
         </button>
       </div>
     </div>

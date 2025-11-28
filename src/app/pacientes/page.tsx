@@ -228,7 +228,7 @@ export default function PacientesPage() {
       }
       setSelectedClinicId(clinicId)
 
-      // Fetch patients
+      // Fetch patients with primary contact info
       type DbPatient = {
         id: string
         first_name: string
@@ -236,10 +236,15 @@ export default function PacientesPage() {
         phone_number: string | null
         email: string | null
         national_id?: string | null
+        primary_contact_id?: string | null
+        contacts?: { phone_primary: string | null; email: string | null } | null
       }
       const { data, error } = await supabase
         .from('patients')
-        .select('id, first_name, last_name, phone_number, email, national_id')
+        .select(`
+          id, first_name, last_name, phone_number, email, national_id, primary_contact_id,
+          contacts!primary_contact_id (phone_primary, email)
+        `)
         .eq('clinic_id', clinicId)
         .limit(50)
       if (error) {
@@ -320,11 +325,11 @@ export default function PacientesPage() {
           }
         }
 
-        // Map rows
+        // Map rows - prefer contact phone over patient phone (new schema)
         const mapped: PatientRow[] = patients.map((p, i) => ({
           id: p.id,
           name: [p.first_name, p.last_name].filter(Boolean).join(' ') || '—',
-          phone: p.phone_number ?? '—',
+          phone: (p.contacts as any)?.phone_primary ?? p.phone_number ?? '—',
           nextDate: nextByPatient.get(p.id) ?? '—',
           status: statusByPatient.get(p.id) ?? 'Activo',
           checkin: checkinByPatient.get(p.id) ?? 'Pendiente',
