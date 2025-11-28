@@ -354,12 +354,14 @@ export default function ManagerPage() {
           : null
 
         // Check for urgency from call record or from post-call analysis
+        // ONLY trust structured fields - no keyword matching to avoid false positives
+        const customAnalysisData = payload?.call?.call_analysis?.custom_analysis_data ?? {}
         const isUrgent = callRecord.is_urgent || 
-          callReason?.toLowerCase() === 'emergency' ||
-          payload?.call?.call_analysis?.custom_analysis_data?.urgency_level === 'urgent' ||
-          payload?.call?.call_analysis?.custom_analysis_data?.is_emergency === true
+          customAnalysisData?.call_reason?.toLowerCase() === 'emergency' ||
+          customAnalysisData?.urgency_level?.toLowerCase() === 'urgent' ||
+          customAnalysisData?.is_emergency === true
         const urgencyLevel = callRecord.urgency_level ?? 
-          payload?.call?.call_analysis?.custom_analysis_data?.urgency_level ?? null
+          customAnalysisData?.urgency_level ?? null
 
         return {
           eventId: eventRow.id,
