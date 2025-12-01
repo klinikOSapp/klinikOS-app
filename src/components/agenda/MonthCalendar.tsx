@@ -3,41 +3,65 @@
 import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
 import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
 import MonitorHeartRounded from '@mui/icons-material/MonitorHeartRounded'
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
 import AppointmentDetailOverlay from './AppointmentDetailOverlay'
 import type { EventDetail } from './types'
 
 const WEEKDAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 const OVERLAY_GUTTER = '1rem'
 
+// Database types
+type DbAppointment = {
+  id: number
+  clinic_id: string
+  patient_id: string
+  box_id: string | null
+  service_id: number | null
+  scheduled_start_time: string
+  scheduled_end_time: string | null
+  status: string
+  public_ref: string | null
+  notes: string | null
+  patients?: { first_name: string; last_name: string; phone_number: string | null; email: string | null } | null
+  boxes?: { name_or_number: string } | null
+  service_catalog?: { name: string } | null
+  appointment_staff?: Array<{ staff_id: string; staff?: { full_name: string } | null }> | null
+}
+
+// Color palette for appointments based on status
+const APPOINTMENT_COLORS: Record<string, string> = {
+  confirmed: 'var(--color-brand-100)',
+  scheduled: 'var(--color-event-teal)',
+  hold: 'var(--color-event-purple)',
+  completed: 'var(--color-event-teal)',
+  cancelled: 'var(--color-event-coral)',
+  no_show: 'var(--color-event-coral)',
+  default: 'var(--color-neutral-200)'
+}
+
 // Positioning functions for smart overlay placement
 function getOverlayTop(dayIndex: number, totalWeeks: number): string {
-  // Calculate which week this day is in (0-4 typically)
   const weekIndex = Math.floor(dayIndex / 7)
   const weekPercentage = (weekIndex / totalWeeks) * 100
 
-  // Position in the middle of the cell vertically
   return `calc(var(--scheduler-day-header-height) + ${weekPercentage}%)`
 }
 
 function getOverlayLeft(dayIndex: number): string {
-  // Calculate which column (0-6 for Mon-Sun)
   const dayOfWeek = dayIndex % 7
 
-  // If in the last 3 days of week (Fri, Sat, Sun = 4, 5, 6), place overlay to the LEFT
   const isRightColumn = dayOfWeek >= 4
 
   if (isRightColumn) {
-    // Place overlay to the LEFT
-    // Calculate column position as percentage: dayOfWeek / 7 * 100
     const columnPercent = (dayOfWeek / 7) * 100
     return `max(1rem, calc(${columnPercent}% - var(--scheduler-overlay-width) - ${OVERLAY_GUTTER}))`
   }
 
-  // For left/middle columns, place overlay to the RIGHT
   const columnPercent = (dayOfWeek / 7) * 100
-  const columnWidth = (1 / 7) * 100 // ~14.28%
+  const columnWidth = (1 / 7) * 100
   return `calc(${columnPercent}% + ${columnWidth}% + ${OVERLAY_GUTTER})`
 }
 
@@ -56,12 +80,57 @@ function getSmartOverlayPosition(
   }
 }
 
+// Helper to format time
+function formatTime(dateStr: string): string {
+  const date = new Date(dateStr)
+  return date.toLocaleTimeString(DEFAULT_LOCALE, {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: DEFAULT_TIMEZONE
+  })
+}
+
+// Helper to format time range
+function formatTimeRange(startStr: string, endStr: string | null): string {
+  const start = new Date(startStr)
+  const startTime = start.toLocaleTimeString(DEFAULT_LOCALE, {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: DEFAULT_TIMEZONE
+  })
+  
+  if (!endStr) return startTime
+  
+  const end = new Date(endStr)
+  const endTime = end.toLocaleTimeString(DEFAULT_LOCALE, {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: DEFAULT_TIMEZONE
+  })
+  
+  const durationMinutes = Math.round((end.getTime() - start.getTime()) / (1000 * 60))
+  return `${startTime} - ${endTime} (${durationMinutes} min)`
+}
+
+// Helper to format date for display
+function formatDateForDisplay(dateStr: string): string {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString(DEFAULT_LOCALE, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: DEFAULT_TIMEZONE
+  })
+}
+
 type MonthEvent = {
   id: string
   label: string
   bgColor: string
   detail?: EventDetail
   box?: string
+  status?: string
 }
 
 type MonthEventSelection = {
@@ -69,90 +138,9 @@ type MonthEventSelection = {
   dayIndex: number
 } | null
 
-// Helper function to create event details
-function createEventDetail(title: string, box: string): EventDetail {
-  return {
-    title,
-    date: 'Lunes, 20 de Noviembre 2025',
-    duration: '13:00 - 13:30 (30 minutos)',
-    patientFull: 'Juan Pérez González',
-    patientPhone: '+34 666 777 888',
-    patientEmail: 'juan.perez@gmail.com',
-    referredBy: 'Familiar de Xus',
-    professional: 'Nombre apellidos',
-    economicAmount: '100 €',
-    economicStatus: 'Pendiente de pago',
-    notes: 'Primera limpieza del paciente',
-    locationLabel: 'Fecha y ubicación',
-    patientLabel: 'Paciente',
-    professionalLabel: 'Profesional',
-    economicLabel: 'Económico',
-    notesLabel: 'Notas'
-  }
-}
-
-// Sample events for demonstration
-const SAMPLE_EVENTS: MonthEvent[] = [
-  {
-    id: 'e1',
-    label: '13:00 Consulta médica',
-    bgColor: 'var(--color-event-purple)',
-    detail: createEventDetail('13:00 Consulta médica', 'Box 1'),
-    box: 'Box 1'
-  },
-  {
-    id: 'e2',
-    label: '13:00 Consulta médica',
-    bgColor: 'var(--color-event-purple)',
-    detail: createEventDetail('13:00 Consulta médica', 'Box 2'),
-    box: 'Box 2'
-  },
-  {
-    id: 'e3',
-    label: '13:00 Consulta médica',
-    bgColor: 'var(--color-event-teal)',
-    detail: createEventDetail('13:00 Consulta médica', 'Box 1'),
-    box: 'Box 1'
-  },
-  {
-    id: 'e4',
-    label: '13:00 Consulta médica',
-    bgColor: 'var(--color-event-teal)',
-    detail: createEventDetail('13:00 Consulta médica', 'Box 2'),
-    box: 'Box 2'
-  },
-  {
-    id: 'e5',
-    label: '13:00 Consulta médica',
-    bgColor: 'var(--color-event-teal)',
-    detail: createEventDetail('13:00 Consulta médica', 'Box 1'),
-    box: 'Box 1'
-  },
-  {
-    id: 'e6',
-    label: '13:00 Consulta médica',
-    bgColor: 'var(--color-event-teal)',
-    detail: createEventDetail('13:00 Consulta médica', 'Box 2'),
-    box: 'Box 2'
-  },
-  {
-    id: 'e7',
-    label: '13:00 Consulta médica',
-    bgColor: 'var(--color-event-purple)',
-    detail: createEventDetail('13:00 Consulta médica', 'Box 1'),
-    box: 'Box 1'
-  },
-  {
-    id: 'e8',
-    label: '13:00 Consulta médica',
-    bgColor: 'var(--color-event-coral)',
-    detail: createEventDetail('13:00 Consulta médica', 'Box 2'),
-    box: 'Box 2'
-  }
-]
-
 type DayCell = {
   day: number | string
+  date: Date
   isCurrentMonth: boolean
   isToday: boolean
   isSunday: boolean
@@ -181,7 +169,7 @@ function HeaderLabels() {
   )
 }
 
-function MonthEvent({
+function MonthEventCard({
   event,
   onHover,
   onLeave,
@@ -202,6 +190,8 @@ function MonthEvent({
     ? 'border-2 border-[var(--color-brand-300)]'
     : 'border-2 border-transparent'
 
+  const isCancelled = event.status === 'cancelled' || event.status === 'no_show'
+
   return (
     <button
       type='button'
@@ -221,7 +211,8 @@ function MonthEvent({
       }}
       className={[
         'flex items-center justify-center rounded-[var(--month-event-radius)] p-[var(--month-event-padding)] text-body-sm font-normal text-[var(--color-neutral-900)] transition-all duration-150',
-        stateClasses
+        stateClasses,
+        isCancelled ? 'opacity-50' : ''
       ].join(' ')}
       style={{
         position: 'absolute',
@@ -233,12 +224,12 @@ function MonthEvent({
         backgroundColor: event.bgColor
       }}
     >
-      <p className='truncate text-center'>{event.label}</p>
+      <p className={`truncate text-center ${isCancelled ? 'line-through' : ''}`}>{event.label}</p>
     </button>
   )
 }
 
-function DayCell({
+function DayCellComponent({
   cell,
   dayIndex,
   onHover,
@@ -253,7 +244,6 @@ function DayCell({
   activeId?: string | null
   hoveredId?: string | null
 }) {
-  // Aplicar patrón de puntos a: días fuera del mes O domingos
   const shouldHaveDots = !cell.isCurrentMonth || cell.isSunday
   
   const bgClass = shouldHaveDots ? '' : 'bg-[var(--color-neutral-0)]'
@@ -271,6 +261,10 @@ function DayCell({
   const dayTextClass = cell.isToday
     ? 'font-bold text-[var(--color-brand-500)]'
     : 'font-normal text-[var(--color-neutral-600)]'
+
+  // Show count if more than 1 event
+  const eventCount = cell.events.length
+  const displayEvent = cell.events[0]
 
   return (
     <div
@@ -292,17 +286,31 @@ function DayCell({
       >
         {cell.day}
       </p>
-      {cell.events.map((event) => (
-        <MonthEvent
-          key={event.id}
-          event={event}
-          onHover={() => onHover({ event, dayIndex })}
+      
+      {/* Show first event */}
+      {displayEvent && (
+        <MonthEventCard
+          event={displayEvent}
+          onHover={() => onHover({ event: displayEvent, dayIndex })}
           onLeave={() => onHover(null)}
-          onActivate={() => onActivate({ event, dayIndex })}
-          isActive={activeId === event.id}
-          isHovered={hoveredId === event.id && activeId !== event.id}
+          onActivate={() => onActivate({ event: displayEvent, dayIndex })}
+          isActive={activeId === displayEvent.id}
+          isHovered={hoveredId === displayEvent.id && activeId !== displayEvent.id}
         />
-      ))}
+      )}
+      
+      {/* Show +N more indicator */}
+      {eventCount > 1 && (
+        <p
+          className='absolute text-xs font-medium text-[var(--color-neutral-600)]'
+          style={{
+            bottom: '0.25rem',
+            right: '0.5rem'
+          }}
+        >
+          +{eventCount - 1} más
+        </p>
+      )}
     </div>
   )
 }
@@ -340,7 +348,7 @@ function MonthGrid({
           {week.map((cell, dayIndex) => {
             const globalDayIndex = weekIndex * 7 + dayIndex
             return (
-              <DayCell
+              <DayCellComponent
                 key={`${weekIndex}-${dayIndex}`}
                 cell={cell}
                 dayIndex={globalDayIndex}
@@ -359,20 +367,24 @@ function MonthGrid({
 
 interface MonthCalendarProps {
   currentMonth?: Date
-  events?: Array<{
-    id: string
-    date: Date
-    title: string
-    bgColor: string
-  }>
+  clinicId?: string | null
+  selectedBoxes?: string[]
 }
 
 export default function MonthCalendar({
   currentMonth: propCurrentMonth,
-  events = []
+  clinicId: propClinicId,
+  selectedBoxes
 }: MonthCalendarProps) {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  
   const [hovered, setHovered] = useState<MonthEventSelection>(null)
   const [active, setActive] = useState<MonthEventSelection>(null)
+  
+  // Data state
+  const [clinicId, setClinicId] = useState<string | null>(propClinicId ?? null)
+  const [appointments, setAppointments] = useState<DbAppointment[]>([])
+  const [isLoading, setIsLoading] = useState(!propClinicId) // Only loading if we need to fetch clinicId
 
   // Use prop if provided, otherwise use internal state
   const [internalMonth] = useState<Date>(() => {
@@ -397,26 +409,111 @@ export default function MonthCalendar({
     setActive(null)
   }
 
-  // Generate calendar data dynamically
-  const generateCalendarData = (): DayCell[][] => {
+  // Fetch clinic on mount (only if not provided via props)
+  useEffect(() => {
+    async function init() {
+      if (propClinicId) {
+        // If clinicId is provided via props, use it directly
+        setClinicId(propClinicId)
+        setIsLoading(false)
+        return
+      }
+      
+      setIsLoading(true)
+      try {
+        const { data: clinics } = await supabase.rpc('get_my_clinics')
+        const cId = Array.isArray(clinics) && clinics.length > 0 ? clinics[0] : null
+        setClinicId(cId)
+      } catch (error) {
+        console.error('Error initializing month calendar:', error)
+      }
+      setIsLoading(false)
+    }
+    void init()
+  }, [supabase, propClinicId])
+
+  // Fetch appointments for the month
+  useEffect(() => {
+    async function fetchAppointments() {
+      if (!clinicId) return
+      
+      const year = currentMonth.getFullYear()
+      const month = currentMonth.getMonth()
+      
+      // Get first day of month and last day
+      const monthStart = new Date(year, month, 1)
+      const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999)
+      
+      // Extend to include days from previous/next month shown in calendar
+      const firstDayWeekday = monthStart.getDay()
+      const daysFromPrevMonth = firstDayWeekday === 0 ? 6 : firstDayWeekday - 1
+      const calendarStart = new Date(monthStart)
+      calendarStart.setDate(calendarStart.getDate() - daysFromPrevMonth)
+      
+      const lastDayWeekday = monthEnd.getDay()
+      const daysFromNextMonth = lastDayWeekday === 0 ? 0 : 7 - lastDayWeekday
+      const calendarEnd = new Date(monthEnd)
+      calendarEnd.setDate(calendarEnd.getDate() + daysFromNextMonth)
+      
+      const startIso = calendarStart.toISOString()
+      const endIso = calendarEnd.toISOString()
+      
+      // Build query - fetch ALL appointments (including cancelled) for visibility
+      let query = supabase
+        .from('appointments')
+        .select(`
+          id, clinic_id, patient_id, box_id, service_id,
+          scheduled_start_time, scheduled_end_time, status, public_ref, notes,
+          patients (first_name, last_name, phone_number, email),
+          boxes (name_or_number),
+          service_catalog (name),
+          appointment_staff (staff_id, staff:staff_id(full_name))
+        `)
+        .eq('clinic_id', clinicId)
+        .gte('scheduled_start_time', startIso)
+        .lte('scheduled_start_time', endIso)
+        .order('scheduled_start_time', { ascending: true })
+      
+      // Filter by boxes if specified
+      if (selectedBoxes && selectedBoxes.length > 0) {
+        query = query.in('box_id', selectedBoxes)
+      }
+      
+      const { data: apptData } = await query
+      
+      setAppointments((apptData as DbAppointment[]) ?? [])
+    }
+    
+    void fetchAppointments()
+  }, [supabase, clinicId, currentMonth, selectedBoxes])
+
+  // Generate calendar data dynamically with real appointments
+  const { calendarData, totalWeeks } = useMemo(() => {
     const year = currentMonth.getFullYear()
     const month = currentMonth.getMonth()
 
-    // Get first day of the month (0 = Sunday, 1 = Monday, etc.)
     const firstDayOfMonth = new Date(year, month, 1)
     let firstDayWeekday = firstDayOfMonth.getDay()
-    // Convert Sunday (0) to 7, and adjust so Monday = 1
     firstDayWeekday = firstDayWeekday === 0 ? 7 : firstDayWeekday
 
-    // Get last day of the month
     const lastDayOfMonth = new Date(year, month + 1, 0).getDate()
-
-    // Get last day of previous month
     const lastDayOfPrevMonth = new Date(year, month, 0).getDate()
 
-    // Today for comparison
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+
+    // Group appointments by date (using timezone-aware date extraction)
+    const appointmentsByDate = new Map<string, DbAppointment[]>()
+    for (const appt of appointments) {
+      // Parse the date in the clinic's timezone to get the correct local date
+      const date = new Date(appt.scheduled_start_time)
+      // Format as YYYY-MM-DD in the local timezone
+      const dateKey = date.toLocaleDateString('en-CA', { timeZone: DEFAULT_TIMEZONE }) // en-CA gives YYYY-MM-DD format
+      if (!appointmentsByDate.has(dateKey)) {
+        appointmentsByDate.set(dateKey, [])
+      }
+      appointmentsByDate.get(dateKey)!.push(appt)
+    }
 
     const weeks: DayCell[][] = []
     let currentWeek: DayCell[] = []
@@ -425,11 +522,12 @@ export default function MonthCalendar({
     const daysFromPrevMonth = firstDayWeekday - 1
     for (let i = daysFromPrevMonth; i > 0; i--) {
       const day = lastDayOfPrevMonth - i + 1
-      const prevMonthDate = new Date(year, month - 1, day)
-      const isSunday = prevMonthDate.getDay() === 0
+      const cellDate = new Date(year, month - 1, day)
+      const isSunday = cellDate.getDay() === 0
       
       currentWeek.push({
         day,
+        date: cellDate,
         isCurrentMonth: false,
         isToday: false,
         isSunday,
@@ -447,35 +545,54 @@ export default function MonthCalendar({
         ? `${day} ${currentMonth.toLocaleString('es-ES', { month: 'long' })}`
         : day
 
-      // Add sample events to specific days for demonstration
-      let dayEvents: MonthEvent[] = []
-      if (day === 7 && today.getTime() === cellDate.getTime()) {
-        // Today gets event 1
-        dayEvents = [SAMPLE_EVENTS[0]]
-      } else if (day === 9) {
-        dayEvents = [SAMPLE_EVENTS[1]]
-      } else if (day === 10) {
-        dayEvents = [SAMPLE_EVENTS[2]]
-      } else if (day === 13) {
-        dayEvents = [SAMPLE_EVENTS[3]]
-      } else if (day === 14) {
-        dayEvents = [SAMPLE_EVENTS[4]]
-      } else if (day === 15) {
-        dayEvents = [SAMPLE_EVENTS[5]]
-      } else if (day === 17) {
-        dayEvents = [SAMPLE_EVENTS[6]]
-      } else if (day === 22) {
-        dayEvents = [SAMPLE_EVENTS[7]]
-      }
+      // Get appointments for this day (use same YYYY-MM-DD format)
+      const dateKey = cellDate.toLocaleDateString('en-CA', { timeZone: DEFAULT_TIMEZONE })
+      const dayAppointments = appointmentsByDate.get(dateKey) ?? []
+      
+      const events: MonthEvent[] = dayAppointments.map(appt => {
+        const patientName = appt.patients
+          ? `${appt.patients.first_name} ${appt.patients.last_name}`
+          : 'Paciente'
+        const serviceName = appt.service_catalog?.name ?? 'Cita'
+        const boxName = appt.boxes?.name_or_number ?? 'Sin box'
+        const staffNames = appt.appointment_staff
+          ?.map(as => as.staff?.full_name)
+          .filter(Boolean)
+          .join(', ') ?? 'Por asignar'
+        
+        return {
+          id: `appt-${appt.id}`,
+          label: `${formatTime(appt.scheduled_start_time)} ${serviceName}`,
+          bgColor: APPOINTMENT_COLORS[appt.status] ?? APPOINTMENT_COLORS.default,
+          status: appt.status,
+          box: boxName,
+          detail: {
+            title: `${serviceName} · ${appt.public_ref ?? ''}`,
+            date: formatDateForDisplay(appt.scheduled_start_time),
+            duration: formatTimeRange(appt.scheduled_start_time, appt.scheduled_end_time),
+            patientFull: patientName,
+            patientPhone: appt.patients?.phone_number ?? undefined,
+            patientEmail: appt.patients?.email ?? undefined,
+            professional: staffNames,
+            notes: appt.notes ?? undefined,
+            locationLabel: 'Fecha y ubicación',
+            patientLabel: 'Paciente',
+            professionalLabel: 'Profesional',
+            economicLabel: 'Económico',
+            notesLabel: 'Notas'
+          }
+        }
+      })
 
       const isSunday = cellDate.getDay() === 0
       
       currentWeek.push({
         day: displayDay,
+        date: cellDate,
         isCurrentMonth: true,
         isToday: cellDate.getTime() === today.getTime(),
         isSunday,
-        events: dayEvents
+        events
       })
 
       if (currentWeek.length === 7) {
@@ -488,11 +605,12 @@ export default function MonthCalendar({
     if (currentWeek.length > 0) {
       let nextMonthDay = 1
       while (currentWeek.length < 7) {
-        const nextMonthDate = new Date(year, month + 1, nextMonthDay)
-        const isSunday = nextMonthDate.getDay() === 0
+        const cellDate = new Date(year, month + 1, nextMonthDay)
+        const isSunday = cellDate.getDay() === 0
         
         currentWeek.push({
           day: nextMonthDay++,
+          date: cellDate,
           isCurrentMonth: false,
           isToday: false,
           isSunday,
@@ -502,14 +620,19 @@ export default function MonthCalendar({
       weeks.push(currentWeek)
     }
 
-    return weeks
-  }
-
-  const calendarData = generateCalendarData()
-  const totalWeeks = calendarData.length
+    return { calendarData: weeks, totalWeeks: weeks.length }
+  }, [currentMonth, appointments])
 
   const overlaySource = active
   const activeDetail = overlaySource?.event.detail
+
+  if (isLoading) {
+    return (
+      <div className='relative flex h-full w-full items-center justify-center'>
+        <p className='text-body-md text-neutral-500'>Cargando calendario...</p>
+      </div>
+    )
+  }
 
   return (
     <div className='relative h-full w-full' onClick={handleRootClick}>
@@ -626,4 +749,3 @@ export default function MonthCalendar({
     </div>
   )
 }
-

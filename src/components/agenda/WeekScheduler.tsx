@@ -18,6 +18,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
+import { useUserRole } from '@/context/role-context'
 import AppointmentDetailOverlay from './AppointmentDetailOverlay'
 import AppointmentSummaryCard from './AppointmentSummaryCard'
 import CreateAppointmentModal from './CreateAppointmentModal'
@@ -45,8 +46,8 @@ type DbAppointment = {
   public_ref: string | null
   notes: string | null
   patients?: { first_name: string; last_name: string; phone_number: string | null; email: string | null } | null
-  boxes?: { name: string } | null
-  service_catalog?: { name: string; color_hex: string | null } | null
+  boxes?: { name_or_number: string } | null
+  service_catalog?: { name: string } | null
 }
 
 type DbAppointmentHold = {
@@ -60,13 +61,13 @@ type DbAppointmentHold = {
   status: string
   public_ref: string | null
   patients?: { first_name: string; last_name: string } | null
-  boxes?: { name: string } | null
-  service_catalog?: { name: string; color_hex: string | null } | null
+  boxes?: { name_or_number: string } | null
+  service_catalog?: { name: string } | null
 }
 
 type DbBox = {
   id: string
-  name: string
+  name_or_number: string
   clinic_id: string
 }
 
@@ -923,6 +924,7 @@ const MONTH_EVENTS = [
 
 export default function WeekScheduler() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const { canManageAppointments } = useUserRole()
   
   const [hovered, setHovered] = useState<EventSelection>(null)
   const [active, setActive] = useState<EventSelection>(null)
@@ -990,11 +992,17 @@ export default function WeekScheduler() {
         setClinicId(cId)
         
         if (cId) {
-          // Fetch boxes
-          const { data: boxData } = await supabase
+          // Fetch boxes - note: column is 'name_or_number' not 'name'
+          const { data: boxData, error: boxError } = await supabase
             .from('boxes')
-            .select('id, name, clinic_id')
+            .select('id, name_or_number, clinic_id')
             .eq('clinic_id', cId)
+          
+          if (boxError) {
+            console.error('Error fetching boxes:', boxError)
+          }
+          console.log('Fetched boxes:', { clinicId: cId, boxes: boxData })
+          
           setBoxes(boxData ?? [])
           setSelectedBoxes((boxData ?? []).map(b => b.id))
           
@@ -1022,24 +1030,33 @@ export default function WeekScheduler() {
     async function fetchAppointments() {
       if (!clinicId) return
       
+      // Use ISO strings - the DB stores in UTC and we query in UTC
+      // currentWeekStart/End are already set to local midnight, toISOString converts to UTC
       const startIso = currentWeekStart.toISOString()
       const endIso = currentWeekEnd.toISOString()
       
+      console.log('Fetching appointments:', { clinicId, startIso, endIso })
+      
       // Fetch appointments
-      const { data: apptData } = await supabase
+      const { data: apptData, error: apptError } = await supabase
         .from('appointments')
         .select(`
           id, clinic_id, patient_id, box_id, service_id,
           scheduled_start_time, scheduled_end_time, status, public_ref, notes,
           patients (first_name, last_name, phone_number, email),
-          boxes (name),
-          service_catalog (name, color_hex)
+          boxes (name_or_number),
+          service_catalog (name)
         `)
         .eq('clinic_id', clinicId)
         .gte('scheduled_start_time', startIso)
         .lte('scheduled_start_time', endIso)
         .not('status', 'in', '("cancelled","no_show")')
         .order('scheduled_start_time', { ascending: true })
+      
+      if (apptError) {
+        console.error('Error fetching appointments:', apptError)
+      }
+      console.log('Fetched appointments:', { count: apptData?.length, data: apptData })
       
       setAppointments((apptData as DbAppointment[]) ?? [])
       
@@ -1050,8 +1067,8 @@ export default function WeekScheduler() {
           id, clinic_id, patient_id, box_id, suggested_service_id,
           start_time, end_time, status, public_ref,
           patients (first_name, last_name),
-          boxes (name),
-          service_catalog:suggested_service_id (name, color_hex)
+          boxes (name_or_number),
+          service_catalog:suggested_service_id (name)
         `)
         .eq('clinic_id', clinicId)
         .eq('status', 'held')
@@ -1091,7 +1108,7 @@ export default function WeekScheduler() {
         ? `${appt.patients.first_name} ${appt.patients.last_name}`
         : 'Paciente'
       const serviceName = appt.service_catalog?.name ?? 'Cita'
-      const boxName = appt.boxes?.name ?? 'Sin box'
+      const boxName = appt.boxes?.name_or_number ?? 'Sin box'
       const colorClass = APPOINTMENT_COLORS[appt.status] ?? APPOINTMENT_COLORS.default
       
       const event: AgendaEvent = {
@@ -1137,7 +1154,7 @@ export default function WeekScheduler() {
         ? `${hold.patients.first_name} ${hold.patients.last_name}`
         : 'Pendiente confirmar'
       const serviceName = hold.service_catalog?.name ?? 'Reserva'
-      const boxName = hold.boxes?.name ?? 'Sin box'
+      const boxName = hold.boxes?.name_or_number ?? 'Sin box'
       
       const event: AgendaEvent = {
         id: `hold-${hold.id}`,
@@ -1168,7 +1185,7 @@ export default function WeekScheduler() {
   
   // Dynamic box options from real data
   const BOX_OPTIONS = useMemo(() => {
-    return boxes.map(box => ({ id: box.id, label: box.name }))
+    return boxes.map(box => ({ id: box.id, label: box.name_or_number }))
   }, [boxes])
   
   // Dynamic professional options from real data
@@ -1524,17 +1541,20 @@ export default function WeekScheduler() {
               />
             }
           />
-          <button
-            onClick={() => setIsCreateAppointmentModalOpen(true)}
-            className='flex items-center gap-2 rounded-full bg-brand-500 px-4 py-2 transition-all hover:bg-brand-600 active:scale-95'
-          >
-            <span className='material-symbols-rounded text-xl text-brand-900'>
-              add
-            </span>
-            <span className='font-medium text-sm text-brand-900'>
-              Añadir cita
-            </span>
-          </button>
+          {/* Only show "Añadir cita" button for roles that can manage appointments (recepcion, gerencia) */}
+          {canManageAppointments && (
+            <button
+              onClick={() => setIsCreateAppointmentModalOpen(true)}
+              className='flex items-center gap-2 rounded-full bg-brand-500 px-4 py-2 transition-all hover:bg-brand-600 active:scale-95'
+            >
+              <span className='material-symbols-rounded text-xl text-brand-900'>
+                add
+              </span>
+              <span className='font-medium text-sm text-brand-900'>
+                Añadir cita
+              </span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -1542,12 +1562,22 @@ export default function WeekScheduler() {
       {viewOption === 'mes' ? (
         /* Vista Mensual */
         <div className='relative flex-1 overflow-hidden bg-[var(--color-neutral-0)]'>
-          <MonthCalendar currentMonth={currentMonth} />
+          <MonthCalendar 
+            currentMonth={currentMonth} 
+            clinicId={clinicId}
+            selectedBoxes={selectedBoxes}
+          />
         </div>
       ) : viewOption === 'dia' ? (
         /* Vista Diaria - Con scroll vertical */
         <div className='relative flex-1 overflow-x-visible overflow-y-auto bg-[var(--color-neutral-0)]'>
-          <DayCalendar period={dayPeriod} />
+          <DayCalendar 
+            period={dayPeriod} 
+            currentDate={currentWeekStart}
+            clinicId={clinicId}
+            selectedBoxes={selectedBoxes}
+            boxes={boxes}
+          />
         </div>
       ) : (
         /* Vista Semanal */
@@ -1560,6 +1590,13 @@ export default function WeekScheduler() {
             {isLoading ? (
               <div className='flex h-full items-center justify-center'>
                 <p className='text-body-md text-neutral-500'>Cargando agenda...</p>
+              </div>
+            ) : appointments.length === 0 && boxes.length === 0 ? (
+              <div className='flex h-full flex-col items-center justify-center gap-2'>
+                <p className='text-body-md text-neutral-500'>No hay datos disponibles</p>
+                <p className='text-body-sm text-neutral-400'>
+                  Clinic: {clinicId ?? 'ninguno'} | Boxes: {boxes.length} | Citas: {appointments.length}
+                </p>
               </div>
             ) : (
             <div className='relative' style={{ height: getContentHeight(TIME_LABELS.length) }}>
