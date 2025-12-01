@@ -34,7 +34,42 @@ import type {
   Weekday
 } from './types'
 
-// Database types for appointments
+// Database types for appointments (from RPC get_appointments_calendar)
+type RpcAppointment = {
+  id: number
+  scheduled_start_time: string
+  scheduled_end_time: string | null
+  duration_minutes: number
+  status: string
+  public_ref: string | null
+  notes: string | null
+  source: string | null
+  // Box info
+  box_id: string | null
+  box_name: string | null
+  // Patient info
+  patient_id: string
+  patient_name: string | null
+  patient_phone: string | null
+  patient_email: string | null
+  patient_lead_source: string | null
+  // Service info
+  service_id: number | null
+  service_name: string | null
+  // Staff assignments as JSONB array
+  staff_assigned: Array<{ staff_id: string; full_name: string }> | null
+  // Clinical notes as JSONB array (includes SOAP data)
+  clinical_notes: Array<{
+    id: number
+    note_type: string
+    content: string
+    content_json?: { S?: string; O?: string; A?: string; P?: string } | null
+    created_at: string
+    staff_full_name: string | null
+  }> | null
+}
+
+// Legacy type kept for holds which don't use RPC yet
 type DbAppointment = {
   id: number
   clinic_id: string
@@ -970,7 +1005,7 @@ export default function WeekScheduler() {
   
   // Data state
   const [clinicId, setClinicId] = useState<string | null>(null)
-  const [appointments, setAppointments] = useState<DbAppointment[]>([])
+  const [appointments, setAppointments] = useState<RpcAppointment[]>([])
   const [holds, setHolds] = useState<DbAppointmentHold[]>([])
   const [boxes, setBoxes] = useState<DbBox[]>([])
   const [staff, setStaff] = useState<DbStaff[]>([])
@@ -1063,46 +1098,42 @@ export default function WeekScheduler() {
     void init()
   }, [supabase])
   
-  // Fetch appointments when week changes
+  // Fetch appointments when week changes using RPC for optimized query
   useEffect(() => {
     async function fetchAppointments() {
       if (!clinicId) return
       
-      // Use ISO strings - the DB stores in UTC and we query in UTC
-      // currentWeekStart/End are already set to local midnight, toISOString converts to UTC
-      const startIso = currentWeekStart.toISOString()
-      const endIso = currentWeekEnd.toISOString()
+      // Format dates as YYYY-MM-DD in local timezone (not UTC!) to avoid date shift
+      const formatLocalDate = (d: Date) => {
+        const year = d.getFullYear()
+        const month = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
       
-      // Fetch appointments with staff assignments, notes, patient lead_source, and contact info
-      // Note: appointment_notes and clinical_notes have RLS - only clinical staff (doctor, higienista, gerencia) can read
+      const startDate = formatLocalDate(currentWeekStart)
+      const endDate = formatLocalDate(currentWeekEnd)
+      
+      // Use optimized RPC function - returns all data in a single call
       const { data: apptData, error: apptError } = await supabase
-        .from('appointments')
-        .select(`
-          id, clinic_id, patient_id, box_id, service_id,
-          scheduled_start_time, scheduled_end_time, status, public_ref, notes, source,
-          patients (
-            first_name, last_name, phone_number, email, lead_source,
-            patient_contacts (is_primary, contacts (phone_primary, email))
-          ),
-          boxes (name_or_number),
-          service_catalog (name),
-          appointment_staff (staff_id, staff:staff_id (id, full_name)),
-          appointment_notes (id, note_type, content, content_json, created_at, staff:staff_id (full_name)),
-          clinical_notes (id, note_type, content, created_at, staff:staff_id (full_name))
-        `)
-        .eq('clinic_id', clinicId)
-        .gte('scheduled_start_time', startIso)
-        .lte('scheduled_start_time', endIso)
-        .not('status', 'in', '("cancelled","no_show")')
-        .order('scheduled_start_time', { ascending: true })
+        .rpc('get_appointments_calendar', {
+          p_clinic_id: clinicId,
+          p_start_date: startDate,
+          p_end_date: endDate,
+          p_staff_id: null,  // No server-side filter, we filter in frontend
+          p_box_id: null     // No server-side filter, we filter in frontend
+        })
       
       if (apptError) {
         console.error('Error fetching appointments:', apptError)
       }
       
-      setAppointments((apptData as DbAppointment[]) ?? [])
+      setAppointments((apptData as RpcAppointment[]) ?? [])
       
-      // Fetch holds
+      // Fetch holds (still using direct query as they're simpler)
+      const startIso = currentWeekStart.toISOString()
+      const endIso = currentWeekEnd.toISOString()
+      
       const { data: holdData } = await supabase
         .from('appointment_holds')
         .select(`
@@ -1142,8 +1173,8 @@ export default function WeekScheduler() {
       // Box filter
       const boxMatch = !appt.box_id || selectedBoxes.includes(appt.box_id)
       
-      // Check if appointment has no staff assigned
-      const hasNoStaff = !appt.appointment_staff || appt.appointment_staff.length === 0
+      // Check if appointment has no staff assigned (RPC returns staff_assigned as array)
+      const hasNoStaff = !appt.staff_assigned || appt.staff_assigned.length === 0
       
       // Professional filter logic:
       // - If no professionals selected, show nothing (user unchecked all)
@@ -1159,9 +1190,9 @@ export default function WeekScheduler() {
         if (selectedProfessionals.includes(UNASSIGNED_ID) && hasNoStaff) {
           professionalMatch = true
         }
-        // Check if any selected staff member is assigned to this appointment
-        if (appt.appointment_staff && appt.appointment_staff.some(
-          as => as.staff?.id && selectedProfessionals.includes(as.staff.id)
+        // Check if any selected staff member is assigned to this appointment (RPC format)
+        if (appt.staff_assigned && appt.staff_assigned.some(
+          s => s.staff_id && selectedProfessionals.includes(s.staff_id)
         )) {
           professionalMatch = true
         }
@@ -1170,21 +1201,20 @@ export default function WeekScheduler() {
       return boxMatch && professionalMatch
     })
     
-    // Convert appointments to events
+    // Convert appointments to events (using RPC data structure)
     for (const appt of filteredAppointments) {
       const startDate = new Date(appt.scheduled_start_time)
       const weekday = getWeekdayFromDate(startDate)
       
-      const patientName = appt.patients
-        ? `${appt.patients.first_name} ${appt.patients.last_name}`
-        : 'Paciente'
-      const serviceName = appt.service_catalog?.name ?? 'Cita'
-      const boxName = appt.boxes?.name_or_number ?? 'Sin box'
+      // RPC returns patient_name directly
+      const patientName = appt.patient_name ?? 'Paciente'
+      const serviceName = appt.service_name ?? 'Cita'
+      const boxName = appt.box_name ?? 'Sin box'
       const colorClass = APPOINTMENT_COLORS[appt.status] ?? APPOINTMENT_COLORS.default
       
-      // Get assigned staff names
-      const assignedStaff = appt.appointment_staff
-        ?.map(as => as.staff?.full_name)
+      // Get assigned staff names (RPC format)
+      const assignedStaff = appt.staff_assigned
+        ?.map(s => s.full_name)
         .filter(Boolean)
         .join(', ') || 'Por asignar'
       
@@ -1202,20 +1232,15 @@ export default function WeekScheduler() {
           })
         : undefined
       
-      // Get lead source from patient (referral source)
-      const leadSource = appt.patients?.lead_source ?? undefined
+      // RPC returns patient_lead_source directly
+      const leadSource = appt.patient_lead_source ?? undefined
       
-      // Get phone and email from primary contact, fallback to patient table
-      const primaryContact = appt.patients?.patient_contacts?.find(pc => pc.is_primary)?.contacts
-      const patientPhone = primaryContact?.phone_primary ?? appt.patients?.phone_number ?? undefined
-      const patientEmail = primaryContact?.email ?? appt.patients?.email ?? undefined
+      // RPC returns patient_phone and patient_email directly (already resolved from contacts)
+      const patientPhone = appt.patient_phone ?? undefined
+      const patientEmail = appt.patient_email ?? undefined
       
-      // Get clinical notes from appointment_notes AND clinical_notes tables
-      // Note: These tables have RLS - only clinical staff can read
-      const allNotes = [
-        ...(appt.appointment_notes ?? []),
-        ...(appt.clinical_notes ?? [])
-      ]
+      // Get clinical notes from RPC (already aggregated)
+      const allNotes = appt.clinical_notes ?? []
       
       // Build structured clinical notes for display
       const clinicalNotesStructured: ClinicalNoteDisplay[] = allNotes.map(n => {
@@ -1226,21 +1251,47 @@ export default function WeekScheduler() {
               timeZone: DEFAULT_TIMEZONE 
             })
           : undefined
-        const createdBy = n.staff?.full_name ?? undefined
+        const createdBy = n.staff_full_name ?? undefined
         
-        // Check if it's a SOAP note (has content_json with S/O/A/P fields)
-        const contentJson = 'content_json' in n ? n.content_json : null
-        if (n.note_type === 'SOAP' && contentJson) {
+        // Check if it's a SOAP note - either by note_type OR by having content_json with S/O/A/P fields
+        const contentJson = n.content_json
+        const isSoapNoteType = n.note_type === 'SOAP' || n.note_type === 'soap'
+        const hasSoapStructure = contentJson && (contentJson.S || contentJson.O || contentJson.A || contentJson.P)
+        
+        // If it's a SOAP note type but no content_json, try to parse from content text
+        // Format might be "S: xxx O: xxx A: xxx P: xxx"
+        let soapData: { S?: string; O?: string; A?: string; P?: string } | null = null
+        if (isSoapNoteType) {
+          if (hasSoapStructure) {
+            soapData = contentJson
+          } else if (n.content) {
+            // Try to parse SOAP from text content
+            const sMatch = n.content.match(/S:\s*([^OAP]+?)(?=\s*[OAP]:|$)/i)
+            const oMatch = n.content.match(/O:\s*([^SAP]+?)(?=\s*[SAP]:|$)/i)
+            const aMatch = n.content.match(/A:\s*([^SOP]+?)(?=\s*[SOP]:|$)/i)
+            const pMatch = n.content.match(/P:\s*(.+?)$/i)
+            if (sMatch || oMatch || aMatch || pMatch) {
+              soapData = {
+                S: sMatch?.[1]?.trim(),
+                O: oMatch?.[1]?.trim(),
+                A: aMatch?.[1]?.trim(),
+                P: pMatch?.[1]?.trim()
+              }
+            }
+          }
+        }
+        
+        if (soapData) {
           return {
             type: 'SOAP',
             content: n.content,
             createdAt,
             createdBy,
             soap: {
-              S: contentJson.S,
-              O: contentJson.O,
-              A: contentJson.A,
-              P: contentJson.P,
+              S: soapData.S,
+              O: soapData.O,
+              A: soapData.A,
+              P: soapData.P,
               createdAt,
               createdBy
             }

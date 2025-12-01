@@ -18,47 +18,38 @@ type DbStaff = {
   full_name: string
 }
 
-type DbAppointment = {
+// RPC return type from get_appointments_calendar
+type RpcAppointment = {
   id: number
   scheduled_start_time: string
   scheduled_end_time: string | null
+  duration_minutes: number
   status: string
   public_ref: string | null
   notes: string | null
-  patients?: { 
-    first_name: string
-    last_name: string
-    phone_number: string | null
-    email: string | null
-    lead_source: string | null
-    patient_contacts?: Array<{
-      is_primary: boolean
-      contacts?: {
-        phone_primary: string | null
-        email: string | null
-      } | null
-    }> | null
-  } | null
-  boxes?: { name_or_number: string } | null
-  service_catalog?: { name: string } | null
-  appointment_staff?: Array<{ 
-    staff_id: string
-    staff?: { full_name: string } | null 
-  }> | null
-  appointment_notes?: Array<{ 
+  source: string | null
+  // Box info
+  box_id: string | null
+  box_name: string | null
+  // Patient info
+  patient_id: string
+  patient_name: string | null
+  patient_phone: string | null
+  patient_email: string | null
+  patient_lead_source: string | null
+  // Service info
+  service_id: number | null
+  service_name: string | null
+  // Staff assignments as JSONB array
+  staff_assigned: Array<{ staff_id: string; full_name: string }> | null
+  // Clinical notes as JSONB array (includes SOAP data)
+  clinical_notes: Array<{
     id: number
     note_type: string
     content: string
     content_json?: { S?: string; O?: string; A?: string; P?: string } | null
     created_at: string
-    staff?: { full_name: string } | null
-  }> | null
-  clinical_notes?: Array<{ 
-    id: number
-    note_type: string
-    content: string
-    created_at: string
-    staff?: { full_name: string } | null
+    staff_full_name: string | null
   }> | null
 }
 
@@ -139,55 +130,47 @@ export default function ParteDiarioModal({
     setIsGenerating(true)
     
     try {
-      // Get date range
+      // Get date range - use local date formatting to avoid timezone issues
       const sortedDates = [...selectedDates].sort((a, b) => a.getTime() - b.getTime())
-      const startDate = new Date(sortedDates[0])
-      startDate.setHours(0, 0, 0, 0)
-      const endDate = new Date(sortedDates[sortedDates.length - 1])
-      endDate.setHours(23, 59, 59, 999)
       
-      // Build query - include patient_contacts for contact info, lead_source, and clinical notes
-      let query = supabase
-        .from('appointments')
-        .select(`
-          id, scheduled_start_time, scheduled_end_time, status, public_ref, notes,
-          patients (
-            first_name, last_name, phone_number, email, lead_source,
-            patient_contacts (is_primary, contacts (phone_primary, email))
-          ),
-          boxes (name_or_number),
-          service_catalog (name),
-          appointment_staff (staff_id, staff:staff_id(full_name)),
-          appointment_notes (id, note_type, content, content_json, created_at, staff:staff_id (full_name)),
-          clinical_notes (id, note_type, content, created_at, staff:staff_id (full_name))
-        `)
-        .eq('clinic_id', clinicId)
-        .gte('scheduled_start_time', startDate.toISOString())
-        .lte('scheduled_start_time', endDate.toISOString())
-        .not('status', 'in', '("cancelled","no_show")')
-        .order('scheduled_start_time', { ascending: true })
-      
-      // Filter by professional if selected
-      if (selectedProfesional) {
-        // We need to filter appointments that have this staff assigned
-        // This is done client-side since appointment_staff is a join table
+      // Format dates as YYYY-MM-DD in local timezone (not UTC!)
+      const formatLocalDate = (d: Date) => {
+        const year = d.getFullYear()
+        const month = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
       }
       
-      const { data: appointments } = await query
+      const startDate = formatLocalDate(sortedDates[0])
+      const endDate = formatLocalDate(sortedDates[sortedDates.length - 1])
       
-      // Filter by professional client-side if needed
-      let filteredAppointments = (appointments as DbAppointment[]) ?? []
-      if (selectedProfesional) {
-        filteredAppointments = filteredAppointments.filter(appt => 
-          appt.appointment_staff?.some(as => as.staff_id === selectedProfesional)
-        )
+      console.log('Fetching appointments for date range:', { startDate, endDate })
+      
+      // Use optimized RPC function - returns all data in a single call
+      const { data: appointments, error } = await supabase
+        .rpc('get_appointments_calendar', {
+          p_clinic_id: clinicId,
+          p_start_date: startDate,
+          p_end_date: endDate,
+          p_staff_id: selectedProfesional || null,  // Server-side filter if professional selected
+          p_box_id: null
+        })
+      
+      if (error) {
+        console.error('Error fetching appointments:', error)
+        setIsGenerating(false)
+        return
       }
       
-      // Group appointments by date
-      const appointmentsByDate = new Map<string, DbAppointment[]>()
+      const filteredAppointments = (appointments as RpcAppointment[]) ?? []
+      console.log('Fetched appointments:', filteredAppointments.length)
+      
+      // Group appointments by date - use local timezone for grouping
+      const appointmentsByDate = new Map<string, RpcAppointment[]>()
       for (const appt of filteredAppointments) {
+        // Parse the UTC time and format in local timezone
         const date = new Date(appt.scheduled_start_time)
-        const dateKey = date.toISOString().split('T')[0]
+        const dateKey = date.toLocaleDateString('en-CA', { timeZone: DEFAULT_TIMEZONE }) // YYYY-MM-DD format
         if (!appointmentsByDate.has(dateKey)) {
           appointmentsByDate.set(dateKey, [])
         }
@@ -206,13 +189,17 @@ export default function ParteDiarioModal({
         timeZone: DEFAULT_TIMEZONE
       })
       
-      // Count stats
+      // Format date range for header
+      const startDateFormatted = formatDate(sortedDates[0])
+      const endDateFormatted = formatDate(sortedDates[sortedDates.length - 1])
+      
+      // Count stats (using RPC format)
       const totalAppointments = filteredAppointments.length
       const uniqueProfessionals = new Set(
-        filteredAppointments.flatMap(a => a.appointment_staff?.map(as => as.staff_id) ?? [])
+        filteredAppointments.flatMap(a => a.staff_assigned?.map(s => s.staff_id) ?? [])
       ).size
       const uniqueBoxes = new Set(
-        filteredAppointments.map(a => a.boxes?.name_or_number).filter(Boolean)
+        filteredAppointments.map(a => a.box_name).filter(Boolean)
       ).size
       
       let htmlContent = `
@@ -386,40 +373,47 @@ export default function ParteDiarioModal({
     </div>
     <div class="meta">
       <p>Generado: ${generatedAt}</p>
-      <p>Periodo: ${formatDate(startDate)} - ${formatDate(endDate)}</p>
+      <p>Periodo: ${startDateFormatted} - ${endDateFormatted}</p>
     </div>
   </div>
 `
       
       // Add appointments by date
       for (const [dateKey, dayAppointments] of appointmentsByDate) {
-        const date = new Date(dateKey + 'T00:00:00')
+        // Parse dateKey (YYYY-MM-DD) and format directly without Date object to avoid timezone issues
+        const [year, month, day] = dateKey.split('-').map(Number)
+        const dateObj = new Date(year, month - 1, day)
+        // Format the date header directly without timezone conversion
+        const dateHeader = dateObj.toLocaleDateString(DEFAULT_LOCALE, {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+          // Note: NO timeZone here - we want to display the date as-is
+        })
         htmlContent += `
   <div class="section">
-    <div class="date-header">${formatDate(date)}</div>
+    <div class="date-header">${dateHeader}</div>
 `
         for (const appt of dayAppointments) {
-          const patientName = appt.patients 
-            ? `${appt.patients.first_name} ${appt.patients.last_name}`
-            : 'Sin paciente'
-          const staffNames = appt.appointment_staff
-            ?.map(as => as.staff?.full_name)
+          // RPC returns patient_name directly
+          const patientName = appt.patient_name ?? 'Sin paciente'
+          
+          // RPC returns staff_assigned as array
+          const staffNames = appt.staff_assigned
+            ?.map(s => s.full_name)
             .filter(Boolean)
             .join(', ') ?? 'Sin asignar'
           
-          // Get phone and email from primary contact, fallback to patient table
-          const primaryContact = appt.patients?.patient_contacts?.find(pc => pc.is_primary)?.contacts
-          const patientPhone = primaryContact?.phone_primary ?? appt.patients?.phone_number ?? '-'
-          const patientEmail = primaryContact?.email ?? appt.patients?.email ?? '-'
+          // RPC returns patient_phone and patient_email directly
+          const patientPhone = appt.patient_phone ?? '-'
+          const patientEmail = appt.patient_email ?? '-'
           
-          // Get lead_source (referral source)
-          const leadSource = appt.patients?.lead_source ?? null
+          // RPC returns patient_lead_source directly
+          const leadSource = appt.patient_lead_source ?? null
           
-          // Get clinical notes from both tables
-          const allNotes = [
-            ...(appt.appointment_notes ?? []),
-            ...(appt.clinical_notes ?? [])
-          ]
+          // RPC returns clinical_notes as JSONB array
+          const allNotes = appt.clinical_notes ?? []
           
           // Build clinical notes HTML with SOAP format support
           let clinicalNotesHtml = ''
@@ -429,15 +423,41 @@ export default function ParteDiarioModal({
               const createdAt = note.created_at 
                 ? new Date(note.created_at).toLocaleDateString('es-ES', { 
                     day: '2-digit', month: '2-digit', year: 'numeric',
-                    hour: '2-digit', minute: '2-digit'
+                    hour: '2-digit', minute: '2-digit',
+                    timeZone: DEFAULT_TIMEZONE
                   })
                 : ''
-              const createdBy = note.staff?.full_name ?? ''
+              const createdBy = note.staff_full_name ?? ''
               const metaInfo = [createdAt, createdBy].filter(Boolean).join(' • ')
               
-              // Check if it's a SOAP note with content_json
-              const contentJson = 'content_json' in note ? note.content_json : null
-              if (note.note_type === 'SOAP' && contentJson) {
+              // Check if it's a SOAP note - either by note_type OR by having content_json with S/O/A/P
+              const contentJson = note.content_json
+              const isSoapNoteType = note.note_type === 'SOAP' || note.note_type === 'soap'
+              const hasSoapStructure = contentJson && (contentJson.S || contentJson.O || contentJson.A || contentJson.P)
+              
+              // If it's a SOAP note type but no content_json, try to parse from content text
+              let soapData: { S?: string; O?: string; A?: string; P?: string } | null = null
+              if (isSoapNoteType) {
+                if (hasSoapStructure) {
+                  soapData = contentJson
+                } else if (note.content) {
+                  // Try to parse SOAP from text content (format: "S: xxx O: xxx A: xxx P: xxx")
+                  const sMatch = note.content.match(/S:\s*([^OAP]+?)(?=\s*[OAP]:|$)/i)
+                  const oMatch = note.content.match(/O:\s*([^SAP]+?)(?=\s*[SAP]:|$)/i)
+                  const aMatch = note.content.match(/A:\s*([^SOP]+?)(?=\s*[SOP]:|$)/i)
+                  const pMatch = note.content.match(/P:\s*(.+?)$/i)
+                  if (sMatch || oMatch || aMatch || pMatch) {
+                    soapData = {
+                      S: sMatch?.[1]?.trim(),
+                      O: oMatch?.[1]?.trim(),
+                      A: aMatch?.[1]?.trim(),
+                      P: pMatch?.[1]?.trim()
+                    }
+                  }
+                }
+              }
+              
+              if (soapData) {
                 clinicalNotesHtml += `
                   <div class="soap-note">
                     ${metaInfo ? `<div class="note-meta">${metaInfo}</div>` : ''}
@@ -445,22 +465,22 @@ export default function ParteDiarioModal({
                       <div class="soap-item">
                         <div class="soap-label">Subjetivo</div>
                         <div class="soap-sublabel">¿Por qué viene?</div>
-                        <div class="soap-value">${contentJson.S || '-'}</div>
+                        <div class="soap-value">${soapData.S || '-'}</div>
                       </div>
                       <div class="soap-item">
                         <div class="soap-label">Objetivo</div>
                         <div class="soap-sublabel">¿Qué tiene?</div>
-                        <div class="soap-value">${contentJson.O || '-'}</div>
+                        <div class="soap-value">${soapData.O || '-'}</div>
                       </div>
                       <div class="soap-item">
                         <div class="soap-label">Evaluación</div>
                         <div class="soap-sublabel">¿Qué le hacemos?</div>
-                        <div class="soap-value">${contentJson.A || '-'}</div>
+                        <div class="soap-value">${soapData.A || '-'}</div>
                       </div>
                       <div class="soap-item">
                         <div class="soap-label">Plan</div>
                         <div class="soap-sublabel">Tratamiento a seguir</div>
-                        <div class="soap-value">${contentJson.P || '-'}</div>
+                        <div class="soap-value">${soapData.P || '-'}</div>
                       </div>
                     </div>
                   </div>`
@@ -480,8 +500,8 @@ export default function ParteDiarioModal({
     <div class="appointment-card">
       <div>
         <span class="time">${formatTime(appt.scheduled_start_time)}${endTimeStr}</span>
-        <span class="service">${appt.service_catalog?.name ?? 'Cita'}</span>
-        ${appt.boxes?.name_or_number ? `<span style="margin-left: 10px; color: #888;">(${appt.boxes.name_or_number})</span>` : ''}
+        <span class="service">${appt.service_name ?? 'Cita'}</span>
+        ${appt.box_name ? `<span style="margin-left: 10px; color: #888;">(${appt.box_name})</span>` : ''}
       </div>
       <div class="details">
         <div class="detail-item">
