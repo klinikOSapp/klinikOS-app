@@ -30,12 +30,35 @@ type DbAppointment = {
     last_name: string
     phone_number: string | null
     email: string | null
+    lead_source: string | null
+    patient_contacts?: Array<{
+      is_primary: boolean
+      contacts?: {
+        phone_primary: string | null
+        email: string | null
+      } | null
+    }> | null
   } | null
   boxes?: { name_or_number: string } | null
   service_catalog?: { name: string } | null
   appointment_staff?: Array<{ 
     staff_id: string
     staff?: { full_name: string } | null 
+  }> | null
+  appointment_notes?: Array<{ 
+    id: number
+    note_type: string
+    content: string
+    content_json?: { S?: string; O?: string; A?: string; P?: string } | null
+    created_at: string
+    staff?: { full_name: string } | null
+  }> | null
+  clinical_notes?: Array<{ 
+    id: number
+    note_type: string
+    content: string
+    created_at: string
+    staff?: { full_name: string } | null
   }> | null
 }
 
@@ -95,15 +118,14 @@ export default function ParteDiarioModal({
           .single()
         if (clinicData) setClinicName(clinicData.name)
         
-        // Fetch staff
+        // Fetch staff using RPC function (bypasses RLS)
         const { data: staffData } = await supabase
-          .from('staff_clinics')
-          .select('staff_id, staff:staff_id(id, full_name)')
-          .eq('clinic_id', cId)
+          .rpc('get_clinic_staff', { clinic: cId })
         
-        const staffList = (staffData ?? [])
-          .map(s => s.staff as unknown as DbStaff)
-          .filter(Boolean)
+        const staffList: DbStaff[] = (staffData ?? []).map((s: { id: string; full_name: string }) => ({
+          id: s.id,
+          full_name: s.full_name
+        }))
         setStaff(staffList)
       }
     }
@@ -124,15 +146,20 @@ export default function ParteDiarioModal({
       const endDate = new Date(sortedDates[sortedDates.length - 1])
       endDate.setHours(23, 59, 59, 999)
       
-      // Build query
+      // Build query - include patient_contacts for contact info, lead_source, and clinical notes
       let query = supabase
         .from('appointments')
         .select(`
           id, scheduled_start_time, scheduled_end_time, status, public_ref, notes,
-          patients (first_name, last_name, phone_number, email),
+          patients (
+            first_name, last_name, phone_number, email, lead_source,
+            patient_contacts (is_primary, contacts (phone_primary, email))
+          ),
           boxes (name_or_number),
           service_catalog (name),
-          appointment_staff (staff_id, staff:staff_id(full_name))
+          appointment_staff (staff_id, staff:staff_id(full_name)),
+          appointment_notes (id, note_type, content, content_json, created_at, staff:staff_id (full_name)),
+          clinical_notes (id, note_type, content, created_at, staff:staff_id (full_name))
         `)
         .eq('clinic_id', clinicId)
         .gte('scheduled_start_time', startDate.toISOString())
@@ -270,6 +297,54 @@ export default function ParteDiarioModal({
       font-style: italic;
       color: #666;
     }
+    .appointment-card .clinical-notes {
+      margin-top: 8px;
+      padding: 8px;
+      background: #f0fdf4;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #166534;
+    }
+    .appointment-card .note-meta {
+      font-size: 10px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+    .appointment-card .soap-note {
+      margin-top: 8px;
+      padding: 8px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+    }
+    .appointment-card .soap-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .appointment-card .soap-item {
+      padding: 8px;
+      background: white;
+      border-radius: 4px;
+    }
+    .appointment-card .soap-label {
+      font-weight: 600;
+      color: #374151;
+      font-size: 12px;
+    }
+    .appointment-card .soap-sublabel {
+      font-size: 10px;
+      color: #9ca3af;
+      margin-bottom: 4px;
+    }
+    .appointment-card .soap-value {
+      font-size: 12px;
+      color: #111827;
+    }
+    .appointment-card .regular-note {
+      margin-top: 8px;
+    }
     .footer {
       margin-top: 30px;
       padding-top: 15px;
@@ -332,10 +407,79 @@ export default function ParteDiarioModal({
             .filter(Boolean)
             .join(', ') ?? 'Sin asignar'
           
+          // Get phone and email from primary contact, fallback to patient table
+          const primaryContact = appt.patients?.patient_contacts?.find(pc => pc.is_primary)?.contacts
+          const patientPhone = primaryContact?.phone_primary ?? appt.patients?.phone_number ?? '-'
+          const patientEmail = primaryContact?.email ?? appt.patients?.email ?? '-'
+          
+          // Get lead_source (referral source)
+          const leadSource = appt.patients?.lead_source ?? null
+          
+          // Get clinical notes from both tables
+          const allNotes = [
+            ...(appt.appointment_notes ?? []),
+            ...(appt.clinical_notes ?? [])
+          ]
+          
+          // Build clinical notes HTML with SOAP format support
+          let clinicalNotesHtml = ''
+          if (allNotes.length > 0) {
+            clinicalNotesHtml = '<div class="clinical-notes"><strong>Notas clínicas:</strong>'
+            for (const note of allNotes) {
+              const createdAt = note.created_at 
+                ? new Date(note.created_at).toLocaleDateString('es-ES', { 
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                  })
+                : ''
+              const createdBy = note.staff?.full_name ?? ''
+              const metaInfo = [createdAt, createdBy].filter(Boolean).join(' • ')
+              
+              // Check if it's a SOAP note with content_json
+              const contentJson = 'content_json' in note ? note.content_json : null
+              if (note.note_type === 'SOAP' && contentJson) {
+                clinicalNotesHtml += `
+                  <div class="soap-note">
+                    ${metaInfo ? `<div class="note-meta">${metaInfo}</div>` : ''}
+                    <div class="soap-grid">
+                      <div class="soap-item">
+                        <div class="soap-label">Subjetivo</div>
+                        <div class="soap-sublabel">¿Por qué viene?</div>
+                        <div class="soap-value">${contentJson.S || '-'}</div>
+                      </div>
+                      <div class="soap-item">
+                        <div class="soap-label">Objetivo</div>
+                        <div class="soap-sublabel">¿Qué tiene?</div>
+                        <div class="soap-value">${contentJson.O || '-'}</div>
+                      </div>
+                      <div class="soap-item">
+                        <div class="soap-label">Evaluación</div>
+                        <div class="soap-sublabel">¿Qué le hacemos?</div>
+                        <div class="soap-value">${contentJson.A || '-'}</div>
+                      </div>
+                      <div class="soap-item">
+                        <div class="soap-label">Plan</div>
+                        <div class="soap-sublabel">Tratamiento a seguir</div>
+                        <div class="soap-value">${contentJson.P || '-'}</div>
+                      </div>
+                    </div>
+                  </div>`
+              } else {
+                clinicalNotesHtml += `
+                  <div class="regular-note">
+                    ${metaInfo ? `<div class="note-meta">${metaInfo}</div>` : ''}
+                    <div>[${note.note_type}] ${note.content}</div>
+                  </div>`
+              }
+            }
+            clinicalNotesHtml += '</div>'
+          }
+          
+          const endTimeStr = appt.scheduled_end_time ? ` - ${formatTime(appt.scheduled_end_time)}` : ''
           htmlContent += `
     <div class="appointment-card">
       <div>
-        <span class="time">${formatTime(appt.scheduled_start_time)}</span>
+        <span class="time">${formatTime(appt.scheduled_start_time)}${endTimeStr}</span>
         <span class="service">${appt.service_catalog?.name ?? 'Cita'}</span>
         ${appt.boxes?.name_or_number ? `<span style="margin-left: 10px; color: #888;">(${appt.boxes.name_or_number})</span>` : ''}
       </div>
@@ -346,18 +490,20 @@ export default function ParteDiarioModal({
         </div>
         <div class="detail-item">
           <span class="label">Teléfono:</span>
-          <span>${appt.patients?.phone_number ?? '-'}</span>
+          <span>${patientPhone}</span>
         </div>
         <div class="detail-item">
           <span class="label">Email:</span>
-          <span>${appt.patients?.email ?? '-'}</span>
+          <span>${patientEmail}</span>
         </div>
+        ${leadSource ? `<div class="detail-item"><span class="label">Referido por:</span><span>${leadSource}</span></div>` : ''}
         <div class="detail-item">
           <span class="label">Profesional:</span>
           <span>${staffNames}</span>
         </div>
       </div>
-      ${appt.notes ? `<div class="notes">${appt.notes}</div>` : ''}
+      ${appt.notes ? `<div class="notes"><strong>Notas de cita:</strong> ${appt.notes}</div>` : ''}
+      ${clinicalNotesHtml}
     </div>
 `
         }
@@ -485,7 +631,7 @@ export default function ParteDiarioModal({
                     {staff.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.full_name}
-                      </option>
+                    </option>
                     ))}
                   </select>
                   <KeyboardArrowDownRounded

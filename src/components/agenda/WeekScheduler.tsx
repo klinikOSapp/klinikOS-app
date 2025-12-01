@@ -27,6 +27,7 @@ import MonthCalendar from './MonthCalendar'
 import ParteDiarioModal from './ParteDiarioModal'
 import type {
   AgendaEvent,
+  ClinicalNoteDisplay,
   DayColumn,
   EventDetail,
   EventSelection,
@@ -45,9 +46,40 @@ type DbAppointment = {
   status: string
   public_ref: string | null
   notes: string | null
-  patients?: { first_name: string; last_name: string; phone_number: string | null; email: string | null } | null
+  source: string | null
+  patients?: { 
+    first_name: string
+    last_name: string
+    phone_number: string | null
+    email: string | null
+    lead_source: string | null
+    // Primary contact info via patient_contacts join
+    patient_contacts?: Array<{
+      is_primary: boolean
+      contacts?: {
+        phone_primary: string | null
+        email: string | null
+      } | null
+    }> | null
+  } | null
   boxes?: { name_or_number: string } | null
   service_catalog?: { name: string } | null
+  appointment_staff?: Array<{ staff_id: string; staff?: { id: string; full_name: string } | null }> | null
+  appointment_notes?: Array<{ 
+    id: number
+    note_type: string
+    content: string
+    content_json?: { S?: string; O?: string; A?: string; P?: string } | null
+    created_at: string
+    staff?: { full_name: string } | null
+  }> | null
+  clinical_notes?: Array<{ 
+    id: number
+    note_type: string
+    content: string
+    created_at: string
+    staff?: { full_name: string } | null
+  }> | null
 }
 
 type DbAppointmentHold = {
@@ -924,7 +956,7 @@ const MONTH_EVENTS = [
 
 export default function WeekScheduler() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
-  const { canManageAppointments } = useUserRole()
+  const { canManageAppointments, canAssignStaff } = useUserRole()
   
   const [hovered, setHovered] = useState<EventSelection>(null)
   const [active, setActive] = useState<EventSelection>(null)
@@ -1001,21 +1033,27 @@ export default function WeekScheduler() {
           if (boxError) {
             console.error('Error fetching boxes:', boxError)
           }
-          console.log('Fetched boxes:', { clinicId: cId, boxes: boxData })
           
           setBoxes(boxData ?? [])
           setSelectedBoxes((boxData ?? []).map(b => b.id))
           
-          // Fetch staff
-          const { data: staffData } = await supabase
-            .from('staff_clinics')
-            .select('staff_id, staff:staff_id(id, full_name)')
-            .eq('clinic_id', cId)
-          const staffList = (staffData ?? [])
-            .map(s => s.staff as unknown as DbStaff)
-            .filter(Boolean)
+          // Fetch staff using RPC function (bypasses RLS)
+          const { data: staffData, error: staffError } = await supabase
+            .rpc('get_clinic_staff', { clinic: cId })
+          
+          if (staffError) {
+            console.error('Error fetching staff:', staffError)
+          }
+          
+          // RPC returns array of { id, full_name } directly
+          const staffList: DbStaff[] = (staffData ?? []).map((s: { id: string; full_name: string }) => ({
+            id: s.id,
+            full_name: s.full_name
+          }))
+          
           setStaff(staffList)
-          setSelectedProfessionals(staffList.map(s => s.id))
+          // Include "unassigned" option in initial selection
+          setSelectedProfessionals(['__unassigned__', ...staffList.map(s => s.id)])
         }
       } catch (error) {
         console.error('Error initializing agenda:', error)
@@ -1035,17 +1073,22 @@ export default function WeekScheduler() {
       const startIso = currentWeekStart.toISOString()
       const endIso = currentWeekEnd.toISOString()
       
-      console.log('Fetching appointments:', { clinicId, startIso, endIso })
-      
-      // Fetch appointments
+      // Fetch appointments with staff assignments, notes, patient lead_source, and contact info
+      // Note: appointment_notes and clinical_notes have RLS - only clinical staff (doctor, higienista, gerencia) can read
       const { data: apptData, error: apptError } = await supabase
         .from('appointments')
         .select(`
           id, clinic_id, patient_id, box_id, service_id,
-          scheduled_start_time, scheduled_end_time, status, public_ref, notes,
-          patients (first_name, last_name, phone_number, email),
+          scheduled_start_time, scheduled_end_time, status, public_ref, notes, source,
+          patients (
+            first_name, last_name, phone_number, email, lead_source,
+            patient_contacts (is_primary, contacts (phone_primary, email))
+          ),
           boxes (name_or_number),
-          service_catalog (name)
+          service_catalog (name),
+          appointment_staff (staff_id, staff:staff_id (id, full_name)),
+          appointment_notes (id, note_type, content, content_json, created_at, staff:staff_id (full_name)),
+          clinical_notes (id, note_type, content, created_at, staff:staff_id (full_name))
         `)
         .eq('clinic_id', clinicId)
         .gte('scheduled_start_time', startIso)
@@ -1056,7 +1099,6 @@ export default function WeekScheduler() {
       if (apptError) {
         console.error('Error fetching appointments:', apptError)
       }
-      console.log('Fetched appointments:', { count: apptData?.length, data: apptData })
       
       setAppointments((apptData as DbAppointment[]) ?? [])
       
@@ -1094,10 +1136,39 @@ export default function WeekScheduler() {
       sunday: []
     }
     
-    // Filter by selected boxes
-    const filteredAppointments = appointments.filter(
-      appt => !appt.box_id || selectedBoxes.includes(appt.box_id)
-    )
+    // Filter by selected boxes and professionals
+    const UNASSIGNED_ID = '__unassigned__'
+    const filteredAppointments = appointments.filter(appt => {
+      // Box filter
+      const boxMatch = !appt.box_id || selectedBoxes.includes(appt.box_id)
+      
+      // Check if appointment has no staff assigned
+      const hasNoStaff = !appt.appointment_staff || appt.appointment_staff.length === 0
+      
+      // Professional filter logic:
+      // - If no professionals selected, show nothing (user unchecked all)
+      // - If "unassigned" is selected and appointment has no staff, show it
+      // - If a staff member is selected and appointment has that staff, show it
+      let professionalMatch = false
+      
+      if (selectedProfessionals.length === 0) {
+        // No filters selected - show nothing
+        professionalMatch = false
+      } else {
+        // Check if "unassigned" filter is selected and appointment has no staff
+        if (selectedProfessionals.includes(UNASSIGNED_ID) && hasNoStaff) {
+          professionalMatch = true
+        }
+        // Check if any selected staff member is assigned to this appointment
+        if (appt.appointment_staff && appt.appointment_staff.some(
+          as => as.staff?.id && selectedProfessionals.includes(as.staff.id)
+        )) {
+          professionalMatch = true
+        }
+      }
+      
+      return boxMatch && professionalMatch
+    })
     
     // Convert appointments to events
     for (const appt of filteredAppointments) {
@@ -1110,6 +1181,84 @@ export default function WeekScheduler() {
       const serviceName = appt.service_catalog?.name ?? 'Cita'
       const boxName = appt.boxes?.name_or_number ?? 'Sin box'
       const colorClass = APPOINTMENT_COLORS[appt.status] ?? APPOINTMENT_COLORS.default
+      
+      // Get assigned staff names
+      const assignedStaff = appt.appointment_staff
+        ?.map(as => as.staff?.full_name)
+        .filter(Boolean)
+        .join(', ') || 'Por asignar'
+      
+      // Format start and end times
+      const startTime = new Date(appt.scheduled_start_time).toLocaleTimeString(DEFAULT_LOCALE, {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: DEFAULT_TIMEZONE
+      })
+      const endTime = appt.scheduled_end_time 
+        ? new Date(appt.scheduled_end_time).toLocaleTimeString(DEFAULT_LOCALE, {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: DEFAULT_TIMEZONE
+          })
+        : undefined
+      
+      // Get lead source from patient (referral source)
+      const leadSource = appt.patients?.lead_source ?? undefined
+      
+      // Get phone and email from primary contact, fallback to patient table
+      const primaryContact = appt.patients?.patient_contacts?.find(pc => pc.is_primary)?.contacts
+      const patientPhone = primaryContact?.phone_primary ?? appt.patients?.phone_number ?? undefined
+      const patientEmail = primaryContact?.email ?? appt.patients?.email ?? undefined
+      
+      // Get clinical notes from appointment_notes AND clinical_notes tables
+      // Note: These tables have RLS - only clinical staff can read
+      const allNotes = [
+        ...(appt.appointment_notes ?? []),
+        ...(appt.clinical_notes ?? [])
+      ]
+      
+      // Build structured clinical notes for display
+      const clinicalNotesStructured: ClinicalNoteDisplay[] = allNotes.map(n => {
+        const createdAt = n.created_at 
+          ? new Date(n.created_at).toLocaleDateString(DEFAULT_LOCALE, { 
+              day: '2-digit', month: '2-digit', year: 'numeric',
+              hour: '2-digit', minute: '2-digit',
+              timeZone: DEFAULT_TIMEZONE 
+            })
+          : undefined
+        const createdBy = n.staff?.full_name ?? undefined
+        
+        // Check if it's a SOAP note (has content_json with S/O/A/P fields)
+        const contentJson = 'content_json' in n ? n.content_json : null
+        if (n.note_type === 'SOAP' && contentJson) {
+          return {
+            type: 'SOAP',
+            content: n.content,
+            createdAt,
+            createdBy,
+            soap: {
+              S: contentJson.S,
+              O: contentJson.O,
+              A: contentJson.A,
+              P: contentJson.P,
+              createdAt,
+              createdBy
+            }
+          }
+        }
+        
+        return {
+          type: n.note_type,
+          content: n.content,
+          createdAt,
+          createdBy
+        }
+      })
+      
+      // Legacy string format for backward compatibility
+      const clinicalNotes = allNotes.length > 0
+        ? allNotes.map(n => `[${n.note_type}] ${n.content}`).join('\n')
+        : undefined
       
       const event: AgendaEvent = {
         id: `appt-${appt.id}`,
@@ -1125,16 +1274,24 @@ export default function WeekScheduler() {
           title: `${serviceName} · ${appt.public_ref ?? ''}`,
           date: formatDateForDisplay(appt.scheduled_start_time),
           duration: formatTimeRange(appt.scheduled_start_time, appt.scheduled_end_time),
+          startTime,
+          endTime,
           patientFull: patientName,
-          patientPhone: appt.patients?.phone_number ?? undefined,
-          patientEmail: appt.patients?.email ?? undefined,
-          professional: 'Profesional asignado',
-          notes: appt.notes ?? undefined,
+          patientPhone, // From primary contact or patient table
+          patientEmail, // From primary contact or patient table
+          referredBy: leadSource, // Patient's lead_source as referral
+          professional: assignedStaff,
+          notes: appt.notes ?? undefined, // Appointment notes field
+          clinicalNotes, // Legacy string format
+          clinicalNotesStructured: clinicalNotesStructured.length > 0 ? clinicalNotesStructured : undefined,
           locationLabel: 'Fecha y ubicación',
           patientLabel: 'Paciente',
           professionalLabel: 'Profesional',
           economicLabel: 'Económico',
-          notesLabel: 'Notas'
+          notesLabel: 'Notas',
+          // Add appointment data for action buttons
+          appointmentId: appt.id,
+          appointmentStatus: appt.status
         }
       }
       
@@ -1181,7 +1338,7 @@ export default function WeekScheduler() {
     }
     
     return result
-  }, [appointments, holds, selectedBoxes])
+  }, [appointments, holds, selectedBoxes, selectedProfessionals])
   
   // Dynamic box options from real data
   const BOX_OPTIONS = useMemo(() => {
@@ -1189,8 +1346,13 @@ export default function WeekScheduler() {
   }, [boxes])
   
   // Dynamic professional options from real data
+  // Include a special "unassigned" option for appointments without staff
+  const UNASSIGNED_STAFF_ID = '__unassigned__'
   const PROFESSIONAL_OPTIONS = useMemo(() => {
-    return staff.map(s => ({ id: s.id, label: s.full_name }))
+    return [
+      { id: UNASSIGNED_STAFF_ID, label: '🚫 Sin asignar' },
+      ...staff.map(s => ({ id: s.id, label: s.full_name }))
+    ]
   }, [staff])
   
   // Dynamic day columns with real events
@@ -1207,6 +1369,9 @@ export default function WeekScheduler() {
   }, [eventsByDay])
   
   // Dynamic header cells with current week dates
+  // Use explicit Spanish day names to avoid locale inconsistencies
+  const SPANISH_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+  
   const headerCells = useMemo((): HeaderCell[] => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -1220,17 +1385,17 @@ export default function WeekScheduler() {
       { id: 'saturday', leftVar: '--scheduler-header-left-sat', widthVar: '--scheduler-header-width' },
       { id: 'sunday', leftVar: '--scheduler-header-left-sun', widthVar: '--scheduler-header-width' }
     ].map((cell, index) => {
-      const date = new Date(currentWeekStart)
+      // Create date for this day of the week (Monday = index 0, Sunday = index 6)
+      const date = new Date(currentWeekStart.getTime())
       date.setDate(currentWeekStart.getDate() + index)
       
-      const isToday = date.getTime() === today.getTime()
+      const isToday = date.toDateString() === today.toDateString()
       const dayNum = date.getDate()
-      const dayName = date.toLocaleDateString(DEFAULT_LOCALE, { weekday: 'long', timeZone: DEFAULT_TIMEZONE })
-      const capitalizedDay = dayName.charAt(0).toUpperCase() + dayName.slice(1)
+      const dayName = SPANISH_DAYS[index]
       
       return {
         ...cell,
-        label: `${dayNum} ${capitalizedDay}`,
+        label: `${dayNum} ${dayName}`,
         tone: isToday ? 'brand' : 'primary'
       } as HeaderCell
     })
@@ -1405,6 +1570,50 @@ export default function WeekScheduler() {
     setActive(null)
     setOpenDropdown(null)
   }
+
+  // Action handlers for appointment overlay
+  const handleModifyAppointment = useCallback((appointmentId: number) => {
+    // For now, show a confirmation and navigate to edit
+    // In the future, this could open a modal
+    const confirmed = window.confirm('¿Desea modificar esta cita? Se abrirá el formulario de edición.')
+    if (confirmed) {
+      // TODO: Implement modify appointment modal or navigation
+      console.log('Modify appointment:', appointmentId)
+      alert('Funcionalidad de modificación en desarrollo. Por favor, use el panel de administración.')
+    }
+  }, [])
+
+  const handleCancelAppointment = useCallback(async (appointmentId: number) => {
+    const confirmed = window.confirm('¿Está seguro de que desea cancelar esta cita?')
+    if (confirmed) {
+      try {
+        // Use RPC function to avoid CORS issues with direct PATCH
+        const { data, error } = await supabase
+          .rpc('cancel_appointment', { p_appointment_id: appointmentId })
+        
+        if (error) {
+          console.error('Error cancelling appointment:', error)
+          alert('Error al cancelar la cita: ' + error.message)
+        } else if (data && !data.success) {
+          alert('Error al cancelar la cita: ' + (data.error || 'Unknown error'))
+        } else {
+          // Close overlay and refresh
+          setActive(null)
+          setRefreshKey(k => k + 1)
+        }
+      } catch (err) {
+        console.error('Error cancelling appointment:', err)
+        alert('Error al cancelar la cita')
+      }
+    }
+  }, [supabase])
+
+  const handleAssignStaff = useCallback((appointmentId: number) => {
+    // For now, show a message
+    // In the future, this could open a staff assignment modal
+    console.log('Assign staff to appointment:', appointmentId)
+    alert('Funcionalidad de asignación de personal en desarrollo. Por favor, use el panel de administración.')
+  }, [])
 
   return (
     <section
@@ -1591,13 +1800,6 @@ export default function WeekScheduler() {
               <div className='flex h-full items-center justify-center'>
                 <p className='text-body-md text-neutral-500'>Cargando agenda...</p>
               </div>
-            ) : appointments.length === 0 && boxes.length === 0 ? (
-              <div className='flex h-full flex-col items-center justify-center gap-2'>
-                <p className='text-body-md text-neutral-500'>No hay datos disponibles</p>
-                <p className='text-body-sm text-neutral-400'>
-                  Clinic: {clinicId ?? 'ninguno'} | Boxes: {boxes.length} | Citas: {appointments.length}
-                </p>
-              </div>
             ) : (
             <div className='relative' style={{ height: getContentHeight(TIME_LABELS.length) }}>
               <TimeColumn />
@@ -1712,6 +1914,12 @@ export default function WeekScheduler() {
                   detail={activeDetail}
                   box={overlaySource.event.box}
                   position={overlayPosition}
+                  canModify={canManageAppointments}
+                  canCancel={canManageAppointments}
+                  canAssignStaff={canAssignStaff}
+                  onModify={handleModifyAppointment}
+                  onCancel={handleCancelAppointment}
+                  onAssignStaff={handleAssignStaff}
                 />
               ) : null}
             </div>
