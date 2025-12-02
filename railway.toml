@@ -1,6 +1,8 @@
 [build]
-builder = "nixpacks"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
-[build.nixpacks]
-nixPkgs = ["nodejs_20"]
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 300
 
