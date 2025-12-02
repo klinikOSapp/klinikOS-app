@@ -2,6 +2,11 @@
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
+# Pass env vars as Docker build arguments
+[build.args]
+NEXT_PUBLIC_SUPABASE_URL = "${{NEXT_PUBLIC_SUPABASE_URL}}"
+NEXT_PUBLIC_SUPABASE_ANON_KEY = "${{NEXT_PUBLIC_SUPABASE_ANON_KEY}}"
+
 [deploy]
 healthcheckPath = "/"
 healthcheckTimeout = 300

@@ -3,6 +3,14 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Build arguments for Next.js public env vars (needed at build time)
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+# Make them available as env vars during build
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+
 # Install pnpm directly (bypass corepack)
 RUN npm install -g pnpm@10.15.1
 
