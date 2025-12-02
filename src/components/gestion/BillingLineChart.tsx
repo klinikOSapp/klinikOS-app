@@ -180,7 +180,6 @@ export default function BillingLineChart({
                   r={6}
                   fill='var(--color-warning-200, #FFD188)'
                   stroke='var(--color-warning-200, #FFD188)'
-                  isFront
                 />
                 {/* Línea vertical destacada en "Oct" como en la maqueta */}
                 <ReferenceLine

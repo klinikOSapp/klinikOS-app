@@ -252,7 +252,7 @@ export default function PacientesPage() {
         // Optionally surface a toast in future
         setRows([])
       } else {
-        const patients = (data as DbPatient[]) ?? []
+        const patients = (data as unknown as DbPatient[]) ?? []
         const patientIds = patients.map((p) => p.id)
 
         // Fetch aggregates

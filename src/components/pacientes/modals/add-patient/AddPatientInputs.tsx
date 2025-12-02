@@ -170,7 +170,7 @@ export function AutocompleteInput({
   const [isLoading, setIsLoading] = React.useState(false)
   const [showSuggestions, setShowSuggestions] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
-  const debounceTimer = React.useRef<NodeJS.Timeout>()
+  const debounceTimer = React.useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Cerrar sugerencias al hacer clic fuera
   React.useEffect(() => {

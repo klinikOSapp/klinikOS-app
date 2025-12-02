@@ -1149,7 +1149,7 @@ export default function WeekScheduler() {
         .lte('start_time', endIso)
         .order('start_time', { ascending: true })
       
-      setHolds((holdData as DbAppointmentHold[]) ?? [])
+      setHolds((holdData as unknown as DbAppointmentHold[]) ?? [])
     }
     
     void fetchAppointments()

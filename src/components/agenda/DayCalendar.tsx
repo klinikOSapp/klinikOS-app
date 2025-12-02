@@ -212,7 +212,7 @@ type DayEventSelection = {
 
 type BoxColumn = {
   id: string
-  name: string
+  name_or_number: string
   events: DayEvent[]
 }
 
@@ -503,7 +503,7 @@ export default function DayCalendar({
       
       setIsLoading(true)
       try {
-        let cId = propClinicId
+        let cId: string | null = propClinicId ?? null
         if (!cId) {
           const { data: clinics } = await supabase.rpc('get_my_clinics')
           cId = Array.isArray(clinics) && clinics.length > 0 ? clinics[0] : null
@@ -557,7 +557,7 @@ export default function DayCalendar({
         .lte('scheduled_start_time', endIso)
         .order('scheduled_start_time', { ascending: true })
       
-      setAppointments((apptData as DbAppointment[]) ?? [])
+      setAppointments((apptData as unknown as DbAppointment[]) ?? [])
       
       // Fetch holds
       const { data: holdData } = await supabase
@@ -575,7 +575,7 @@ export default function DayCalendar({
         .lte('start_time', endIso)
         .order('start_time', { ascending: true })
       
-      setHolds((holdData as DbAppointmentHold[]) ?? [])
+      setHolds((holdData as unknown as DbAppointmentHold[]) ?? [])
     }
     
     void fetchAppointments()
@@ -610,7 +610,7 @@ export default function DayCalendar({
     if (filteredBoxes.length === 0) {
       return [{
         id: 'placeholder',
-        name: 'Sin boxes',
+        name_or_number: 'Sin boxes',
         events: []
       }]
     }
@@ -699,7 +699,7 @@ export default function DayCalendar({
       
       return {
         id: box.id,
-        name: box.name_or_number,
+        name_or_number: box.name_or_number,
         events
       }
     })

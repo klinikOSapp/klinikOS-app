@@ -1,3 +1,5 @@
+'use client'
+
 import CallRounded from '@mui/icons-material/CallRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import MailRounded from '@mui/icons-material/MailRounded'

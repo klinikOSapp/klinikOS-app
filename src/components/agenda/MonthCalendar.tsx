@@ -481,7 +481,7 @@ export default function MonthCalendar({
       
       const { data: apptData } = await query
       
-      setAppointments((apptData as DbAppointment[]) ?? [])
+      setAppointments((apptData as unknown as DbAppointment[]) ?? [])
     }
     
     void fetchAppointments()

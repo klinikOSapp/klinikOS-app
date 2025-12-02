@@ -18,7 +18,7 @@ const thirdRowStyles = {
   '--height-card-chart-fluid-base': 'clamp(17.6rem, 34vh, 23.25rem)',
   '--chart-prof-height-limit': '34vh',
   '--accounting-height-limit': '34vh'
-} satisfies CSSProperties
+} as CSSProperties
 
 export default function GestionPage() {
   const router = useRouter()

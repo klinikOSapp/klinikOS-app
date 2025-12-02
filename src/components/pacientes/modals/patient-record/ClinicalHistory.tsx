@@ -33,7 +33,6 @@ type AppointmentRecord = {
   notes?: string | null
   public_ref?: string | null
   service_catalog?: { name?: string | null; category?: string | null } | null
-  service_catalog?: { name?: string | null; category?: string | null } | null
 }
 
 type AppointmentHoldRecord = {
@@ -49,7 +48,7 @@ type AppointmentHoldRecord = {
   summary_text?: string | null
   summary_json?: Record<string, any> | null
   suggested_service_id?: number | null
-  service_catalog?: { name?: string | null } | null
+  service_catalog?: { name?: string | null; category?: string | null } | null
   box_id?: string | null
   held_by_call_id?: number | null
 }
@@ -131,7 +130,7 @@ const parseSummary = (value: any): string | null => {
 }
 
 const getServiceLabel = (record?: {
-  service_catalog?: { name?: string | null } | null
+  service_catalog?: { name?: string | null; category?: string | null } | null
   service_type?: string | null
 }): string => {
   if (!record) return 'Consulta'

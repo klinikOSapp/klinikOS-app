@@ -93,7 +93,7 @@ export default function ParteDiarioModal({
     if (!isOpen) return
     
     async function init() {
-      let cId = propClinicId
+      let cId: string | null = propClinicId ?? null
       if (!cId) {
         const { data: clinics } = await supabase.rpc('get_my_clinics')
         cId = Array.isArray(clinics) && clinics.length > 0 ? clinics[0] : null
