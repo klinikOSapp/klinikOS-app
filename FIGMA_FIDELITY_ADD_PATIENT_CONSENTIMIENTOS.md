@@ -20,7 +20,7 @@ El paso de Consentimientos del modal de creación de paciente ha sido **completa
 
 ## 📊 Tabla de Conversión de Medidas (de Figma MCP)
 
-### Container Principal
+### Container Principal.
 
 | Componente | Figma (px) | ÷ 16 = Rem | Código Implementado | Estado |
 |------------|------------|------------|---------------------|--------|
