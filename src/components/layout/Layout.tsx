@@ -1,6 +1,6 @@
 'use client'
 
-import { RoleContext, UserRole } from '@/context/role-context'
+import { RoleContext, UserRole, AllPermissions, ModulePermissions } from '@/context/role-context'
 import { getSignedUrl } from '@/lib/storage'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { LayoutProps } from '@/types/layout'
@@ -18,7 +18,15 @@ type StaffProfile = {
   id: string
   full_name: string | null
   avatar_url: string | null
-  contact_info: Record<string, any> | null
+  contact_info: Record<string, unknown> | null
+}
+
+type RoleInfo = {
+  roleId: number | null
+  roleName: string | null
+  roleDisplayName: string | null
+  isSystemRole: boolean
+  permissions: AllPermissions
 }
 
 export default function Layout({ children }: LayoutProps) {
@@ -54,54 +62,92 @@ export default function Layout({ children }: LayoutProps) {
   const [avatarUrl, setAvatarUrl] = React.useState<string | undefined>(undefined)
   const [accountOpen, setAccountOpen] = React.useState(false)
   const [isManager, setIsManager] = React.useState(false)
-  const [userRole, setUserRole] = React.useState<UserRole>(null)
-
-  const resolveRolePriority = React.useCallback((current: UserRole, candidate: UserRole) => {
-    if (!candidate) return current
-    if (!current) return candidate
-    const priority = ['gerencia', 'recepcion', 'doctor', 'higienista'] as const
-    const currentIdx = priority.indexOf(current as (typeof priority)[number])
-    const candidateIdx = priority.indexOf(candidate as (typeof priority)[number])
-    if (candidateIdx === -1) return current
-    if (currentIdx === -1 || candidateIdx < currentIdx) {
-      return candidate
-    }
-    return current
-  }, [])
+  const [isLoading, setIsLoading] = React.useState(true)
+  
+  // New permission-based state
+  const [roleInfo, setRoleInfo] = React.useState<RoleInfo>({
+    roleId: null,
+    roleName: null,
+    roleDisplayName: null,
+    isSystemRole: false,
+    permissions: {}
+  })
 
   React.useEffect(() => {
     let active = true
+    
+    async function fetchRoleInfo(clinicId: string) {
+      try {
+        // Use new get_my_role_info RPC
+        const { data, error } = await supabase
+          .rpc('get_my_role_info', { p_clinic_id: clinicId })
+          .single()
+
+        if (!active) return
+        
+        if (error) {
+          console.error('Error fetching role info:', error)
+          // Fallback to old method
+          const { data: legacyRole } = await supabase.rpc('get_my_role_in_clinic', {
+            p_clinic_id: clinicId
+          })
+          if (legacyRole) {
+            setRoleInfo({
+              roleId: null,
+              roleName: legacyRole as string,
+              roleDisplayName: legacyRole as string,
+              isSystemRole: true,
+              permissions: getFallbackPermissions(legacyRole as UserRole)
+            })
+            setIsManager(legacyRole === 'gerencia')
+          }
+          return
+        }
+
+        if (data) {
+          setRoleInfo({
+            roleId: data.role_id,
+            roleName: data.role_name,
+            roleDisplayName: data.role_display_name,
+            isSystemRole: data.is_system_role,
+            permissions: data.permissions || {}
+          })
+          setIsManager(data.role_name === 'gerencia')
+        }
+      } catch (error) {
+        console.error('Error in fetchRoleInfo:', error)
+      }
+    }
+    
     async function determineRoleAccess() {
       try {
         const { data: clinics, error } = await supabase.rpc('get_my_clinics')
         if (!active) return
         if (error || !Array.isArray(clinics) || clinics.length === 0) {
           setIsManager(false)
-          setUserRole(null)
+          setRoleInfo({
+            roleId: null,
+            roleName: null,
+            roleDisplayName: null,
+            isSystemRole: false,
+            permissions: {}
+          })
           return
         }
-        let resolvedRole: UserRole = null
-        for (const clinicId of clinics as string[]) {
-          if (!clinicId) continue
-          const { data: role, error: roleError } = await supabase.rpc('get_my_role_in_clinic', {
-            p_clinic_id: clinicId
-          })
-          if (!active) return
-          if (roleError || !role) {
-            continue
-          }
-          resolvedRole = resolveRolePriority(resolvedRole, role as UserRole)
-          if (resolvedRole === 'gerencia') {
-            break
-          }
+        
+        // Get role info for first clinic
+        const firstClinicId = clinics[0] as string
+        if (firstClinicId) {
+          await fetchRoleInfo(firstClinicId)
         }
-        setIsManager(resolvedRole === 'gerencia')
-        setUserRole(resolvedRole)
       } catch (error) {
         if (active) {
-          console.error('Error determining manager privileges', error)
+          console.error('Error determining role access', error)
           setIsManager(false)
-          setUserRole(null)
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false)
         }
       }
     }
@@ -117,6 +163,7 @@ export default function Layout({ children }: LayoutProps) {
         setDisplayName('Usuario')
         setAvatarUrl(undefined)
         setIsManager(false)
+        setIsLoading(false)
         return
       }
       setUser(user)
@@ -168,7 +215,7 @@ export default function Layout({ children }: LayoutProps) {
     return () => {
       active = false
     }
-  }, [resolveRolePriority, supabase])
+  }, [supabase])
 
   const handleProfileUpdated = React.useCallback(
     async ({ fullName, avatarUrl: path }: { fullName: string; avatarUrl?: string | null }) => {
@@ -190,14 +237,34 @@ export default function Layout({ children }: LayoutProps) {
     []
   )
 
+  // Helper function to check permissions
+  const can = React.useCallback(
+    (module: keyof AllPermissions, action: keyof ModulePermissions): boolean => {
+      const modulePerms = roleInfo.permissions[module]
+      if (!modulePerms) return false
+      return modulePerms[action] ?? false
+    },
+    [roleInfo.permissions]
+  )
+
   const roleContextValue = React.useMemo(
     () => ({
-      role: userRole,
-      canViewFinancials: userRole === 'gerencia' || userRole === 'recepcion',
-      canManageAppointments: userRole === 'gerencia' || userRole === 'recepcion',
-      canAssignStaff: userRole === 'gerencia' || userRole === 'recepcion'
+      // Legacy properties (backwards compatibility)
+      role: roleInfo.roleName as UserRole,
+      canViewFinancials: can('invoices', 'view') || can('payments', 'view') || can('expenses', 'view'),
+      canManageAppointments: can('appointments', 'create') || can('appointments', 'edit'),
+      canAssignStaff: can('staff', 'edit'),
+      
+      // New permission-based properties
+      roleId: roleInfo.roleId,
+      roleName: roleInfo.roleName,
+      roleDisplayName: roleInfo.roleDisplayName,
+      isSystemRole: roleInfo.isSystemRole,
+      permissions: roleInfo.permissions,
+      can,
+      isLoading
     }),
-    [userRole]
+    [roleInfo, can, isLoading]
   )
 
   const showCta = roleContextValue.canManageAppointments
@@ -231,4 +298,47 @@ export default function Layout({ children }: LayoutProps) {
       </RoleContext.Provider>
     </div>
   )
+}
+
+// Fallback permissions for legacy roles (used when get_my_role_info fails)
+function getFallbackPermissions(role: UserRole): AllPermissions {
+  switch (role) {
+    case 'gerencia':
+      return {
+        patients: { view: true, create: true, edit: true, delete: true },
+        appointments: { view: true, create: true, edit: true, delete: true },
+        clinical_notes: { view: true, create: true, edit: true, delete: true },
+        invoices: { view: true, create: true, edit: true, delete: true },
+        payments: { view: true, create: true, edit: true, delete: true },
+        staff: { view: true, create: true, edit: true, delete: true },
+        settings: { view: true, create: true, edit: true, delete: true },
+        reports: { view: true, create: false, edit: false, delete: false },
+        expenses: { view: true, create: true, edit: true, delete: true },
+        calls: { view: true, create: true, edit: true, delete: true },
+        leads: { view: true, create: true, edit: true, delete: true }
+      }
+    case 'recepcion':
+      return {
+        patients: { view: true, create: true, edit: true, delete: false },
+        appointments: { view: true, create: true, edit: true, delete: true },
+        clinical_notes: { view: true, create: false, edit: false, delete: false },
+        invoices: { view: true, create: true, edit: true, delete: false },
+        payments: { view: true, create: true, edit: false, delete: false },
+        staff: { view: true, create: false, edit: false, delete: false },
+        reports: { view: true, create: false, edit: false, delete: false },
+        calls: { view: true, create: true, edit: true, delete: false },
+        leads: { view: true, create: true, edit: true, delete: false }
+      }
+    case 'doctor':
+    case 'higienista':
+      return {
+        patients: { view: true, create: false, edit: true, delete: false, custom: { medical_only: true } },
+        appointments: { view: true, create: false, edit: false, delete: false },
+        clinical_notes: { view: true, create: true, edit: true, delete: false },
+        staff: { view: true, create: false, edit: false, delete: false },
+        reports: { view: true, create: false, edit: false, delete: false }
+      }
+    default:
+      return {}
+  }
 }

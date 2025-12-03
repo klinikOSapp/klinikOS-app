@@ -11,32 +11,45 @@ export default function Sidebar({
   itemsBottom,
   cta,
   collapsed,
-  onToggleCollapsed
 }: SidebarProps) {
-  const { role, canViewFinancials } = useUserRole()
+  const { role, roleDisplayName, can } = useUserRole()
   const widthClass = collapsed
     ? 'w-[var(--spacing-sidebar-collapsed)]'
     : 'w-[var(--spacing-sidebar)]'
+  
   const filteredTop = React.useMemo(
     () =>
       itemsTop.filter((item) => {
+        if (item.id === 'agenda') {
+          return can('appointments', 'view')
+        }
         if (item.id === 'caja') {
-          return canViewFinancials
+          return can('invoices', 'view') || can('payments', 'view')
+        }
+        if (item.id === 'pacientes') {
+          return can('patients', 'view')
         }
         return true
       }),
-    [itemsTop, canViewFinancials]
+    [itemsTop, can]
   )
+  
   const filteredBottom = React.useMemo(
     () =>
       itemsBottom?.filter((item) => {
         if (item.id === 'gestion') {
-          return role === 'gerencia'
+          // Only gerencia can access Gestión
+          return can('settings', 'view') || can('expenses', 'view')
         }
         return true
       }) ?? [],
-    [itemsBottom, role]
+    [itemsBottom, can]
   )
+  
+  // Display role name - prefer displayName, fallback to role
+  const displayRole = roleDisplayName 
+    || (role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Usuario')
+  
   return (
     <aside
       className={[
@@ -64,7 +77,7 @@ export default function Sidebar({
         )}
         <div className='mt-8'>
           <p className='text-body-md text-neutral-600'>
-            {role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Administración'}
+            {displayRole}
           </p>
           <nav className='mt-2 grid gap-0 -mx-6'>
             {filteredTop.map((it) => (
