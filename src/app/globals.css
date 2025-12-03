@@ -721,6 +721,18 @@ body {
     -ms-overflow-style: none; /* IE & Edge */
     scrollbar-width: none; /* Firefox */
   }
+
+  .border-hairline {
+    border: 0.5px solid rgba(203, 211, 217, 0.6);
+  }
+
+  .border-hairline-r {
+    border-right: 0.5px solid rgba(203, 211, 217, 0.6);
+  }
+
+  .border-hairline-b {
+    border-bottom: 0.5px solid rgba(203, 211, 217, 0.6);
+  }
 }
 
 /* Dashboard gaps at ≥1600px (incl. 1920px): force 1rem horizontally and vertically between cards */

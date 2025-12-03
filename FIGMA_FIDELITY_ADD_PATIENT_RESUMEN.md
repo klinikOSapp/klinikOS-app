@@ -424,3 +424,5 @@ function ResumenItem({ label, checked, negative, top }) {
 
 ✅ **El paso Resumen ahora cumple al 100% con el diseño de Figma.**
 
+
+

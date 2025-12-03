@@ -455,3 +455,5 @@ El contenedor tiene scroll interno, por lo que el contenido no necesita viewport
 
 ✅ **El paso Consentimientos ahora cumple al 100% con el diseño de Figma.**
 
+
+

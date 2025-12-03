@@ -456,7 +456,7 @@ function TimeColumn({ timeLabels }: { timeLabels: string[] }) {
       <div
         className='grid h-full'
         style={{
-          gridTemplateRows: `repeat(${timeLabels.length}, 1fr)`
+          gridTemplateRows: `repeat(${timeLabels.length}, minmax(var(--scheduler-slot-height-half), 1fr))`
         }}
       >
         {timeLabels.map((time, index) => (
@@ -579,7 +579,7 @@ function BoxColumn({
   hoveredId?: string | null
 }) {
   return (
-    <div className='relative flex-1 overflow-hidden border-r border-b border-[var(--color-border-default)] bg-[var(--color-neutral-0)]'>
+    <div className='relative flex-1 overflow-hidden border-r border-[var(--color-border-default)] bg-[var(--color-neutral-0)]'>
       {/* Eventos */}
       {column.events.map((event) => (
         <DayEvent
@@ -643,25 +643,48 @@ function DayGrid({
 
   return (
     <div
-      className='absolute grid w-full'
+      className='absolute w-full'
       style={{
         left: 'var(--day-time-column-width)',
         top: 'var(--scheduler-day-header-height)',
         width: 'calc(100% - var(--day-time-column-width))',
-        height: 'calc(100% - var(--scheduler-day-header-height))',
-        gridTemplateRows: `repeat(${filteredSlots.length}, 1fr)`
+        height: 'calc(100% - var(--scheduler-day-header-height))'
       }}
     >
-      {filteredSlots.map((slot, index) => (
-        <TimeSlotRow
-          key={index}
-          slot={slot}
-          onHover={onHover}
-          onActivate={onActivate}
-          activeId={activeId}
-          hoveredId={hoveredId}
-        />
-      ))}
+      {/* Rejilla de líneas cada 30 minutos (misma que vista semanal) */}
+      <div className='pointer-events-none absolute inset-0 z-[1]'>
+        <div
+          className='grid h-full'
+          style={{
+            gridTemplateRows: `repeat(${timeLabels.length}, minmax(var(--scheduler-slot-height-half), 1fr))`
+          }}
+        >
+          {timeLabels.map((_, index) => (
+            <div
+              key={index}
+              className='border-b border-[var(--color-border-default)]'
+            />
+          ))}
+        </div>
+      </div>
+
+      <div
+        className='grid h-full'
+        style={{
+          gridTemplateRows: `repeat(${filteredSlots.length}, 1fr)`
+        }}
+      >
+        {filteredSlots.map((slot, index) => (
+          <TimeSlotRow
+            key={index}
+            slot={slot}
+            onHover={onHover}
+            onActivate={onActivate}
+            activeId={activeId}
+            hoveredId={hoveredId}
+          />
+        ))}
+      </div>
     </div>
   )
 }
@@ -712,8 +735,8 @@ export default function DayCalendar({ period = 'full' }: DayCalendarProps) {
 
   const filteredTimeLabels = getFilteredTimeLabels()
 
-  // Calcular altura mínima basada en slots filtrados
-  const minHeight = `calc(${filteredTimeLabels.length} * var(--scheduler-slot-height-half) + var(--scheduler-day-header-height))`
+  // Altura mínima basada en la jornada completa para que los segmentos puedan expandirse
+  const fullDayHeight = `calc(${TIME_LABELS.length} * var(--scheduler-slot-height-half) + var(--scheduler-day-header-height))`
 
   const overlaySource = active
   const activeDetail = overlaySource?.event.detail
@@ -721,7 +744,7 @@ export default function DayCalendar({ period = 'full' }: DayCalendarProps) {
   return (
     <div
       className='relative h-full w-full'
-      style={{ minHeight }}
+      style={{ minHeight: fullDayHeight }}
       onClick={handleRootClick}
     >
       <BoxHeaders />
