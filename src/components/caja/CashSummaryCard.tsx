@@ -1,6 +1,6 @@
 'use client'
 
-import type { CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 
 type SummaryCard = {
@@ -58,13 +58,16 @@ const SUMMARY_GRID_WIDTH_REM =
 const DONUT_CARD_WIDTH_REM = 36.8125 // 589px
 const DONUT_CARD_HEIGHT_REM = 15.5 // 248px
 const DONUT_CARD_MIN_HEIGHT_REM = DONUT_CARD_HEIGHT_REM
+const DONUT_MAX_WIDTH_PX = 480 // 30rem
+const DONUT_MIN_WIDTH_PX = 240 // 15rem
+const DONUT_HEIGHT_RATIO = 186 / 307
+const DONUT_HORIZONTAL_SAFE_SPACE_PX = 32
 
 const pxToRem = (px: number) => px / 16
 
 const DONUT_LABEL_OFFSET_REM = pxToRem(16)
 const DONUT_VALUE = 1200
 const DONUT_TARGET = 1800
-const DONUT_CHART_SIZE_REM = 30
 const DONUT_DATA = [
   { name: 'actual', value: DONUT_VALUE, color: 'var(--color-brand-500)' },
   {
@@ -105,7 +108,7 @@ export default function CashSummaryCard() {
         </button>
       </header>
 
-      <div className='mt-gapmd flex flex-col gap-gapmd xl:flex-row xl:items-start'>
+      <div className='mt-gapmd flex flex-nowrap items-start gap-gapmd overflow-x-auto pb-[min(0.5rem,1vw)]'>
         <div className='grid flex-none' style={summaryGridStyles}>
           {SUMMARY_CARDS.map((card) => (
             <SummaryInsightCard key={card.id} card={card} />
@@ -144,10 +147,10 @@ function SummaryInsightCard({ card }: { card: SummaryCard }) {
             {card.title}
           </div>
           <div className='flex items-baseline justify-between gap-[0.5rem]'>
-            <p className='text-[min(1.75rem,5vw)] leading-[min(2.25rem,6vw)] text-neutral-600'>
+            <p className='text-[min(1.75rem,5vw)] leading-[min(2.25rem,6vw)] text-neutral-600 whitespace-nowrap'>
               {card.value}
             </p>
-            <div className='flex items-center gap-[0.25rem] text-[min(0.75rem,3.5vw)] font-medium text-brand-500'>
+            <div className='flex items-center gap-[0.25rem] text-[min(0.75rem,3.5vw)] font-medium text-brand-500 whitespace-nowrap'>
               {card.delta}
               <span className='material-symbols-rounded text-[1rem] leading-4'>
                 arrow_outward
@@ -161,6 +164,41 @@ function SummaryInsightCard({ card }: { card: SummaryCard }) {
 }
 
 function CashDonutGauge() {
+  const donutCardRef = useRef<HTMLDivElement | null>(null)
+  const [chartDimensions, setChartDimensions] = useState(() => {
+    const widthPx = DONUT_MAX_WIDTH_PX
+    return {
+      widthPx,
+      heightPx: widthPx * DONUT_HEIGHT_RATIO
+    }
+  })
+
+  useEffect(() => {
+    const node = donutCardRef.current
+    if (!node || typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      const availableWidth =
+        entry.contentRect.width - DONUT_HORIZONTAL_SAFE_SPACE_PX
+      const widthPx = Math.min(
+        DONUT_MAX_WIDTH_PX,
+        Math.max(DONUT_MIN_WIDTH_PX, availableWidth)
+      )
+      const heightPx = widthPx * DONUT_HEIGHT_RATIO
+
+      setChartDimensions((prev) =>
+        prev.widthPx === widthPx && prev.heightPx === heightPx
+          ? prev
+          : { widthPx, heightPx }
+      )
+    })
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
   const donutCardStyles: CSSProperties = {
     width: `min(${DONUT_CARD_WIDTH_REM}rem, 100%)`,
     minHeight: `min(${DONUT_CARD_MIN_HEIGHT_REM}rem, calc(${CARD_HEIGHT_REM}rem - 4rem))`,
@@ -174,8 +212,8 @@ function CashDonutGauge() {
     left: '50%',
     top: '27.5%',
     transform: 'translate(-50%, -55%)',
-    width: `min(${DONUT_CHART_SIZE_REM}rem, calc(170%))`,
-    height: `min(${DONUT_CHART_SIZE_REM * 1.3}rem, calc(170%))`
+    width: `${pxToRem(chartDimensions.widthPx)}rem`,
+    height: `${pxToRem(chartDimensions.heightPx)}rem`
   }
 
   const valueStackStyles: CSSProperties = {
@@ -187,7 +225,11 @@ function CashDonutGauge() {
   }
 
   return (
-    <div className='relative rounded-lg bg-surface' style={donutCardStyles}>
+    <div
+      ref={donutCardRef}
+      className='relative flex-none rounded-lg bg-surface'
+      style={donutCardStyles}
+    >
       <p
         className='absolute text-[min(0.6875rem,3vw)] font-medium leading-[min(1rem,3vw)] text-neutral-600'
         style={{

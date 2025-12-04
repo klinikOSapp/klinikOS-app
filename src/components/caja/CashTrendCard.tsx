@@ -1,28 +1,10 @@
 'use client'
 
 import type { CSSProperties } from 'react'
+import { useMemo } from 'react'
+import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
+import type { CashTimeScale } from '@/components/caja/cajaTypes'
 
-const CHART_SERIES = [
-  { hour: '9:00', actual: 2 },
-  { hour: '10:00', actual: 9 },
-  { hour: '11:00', actual: 18 },
-  { hour: '12:00', actual: 26 },
-  { hour: '13:00', actual: 33 },
-  { hour: '14:00', actual: 38 },
-  { hour: '15:00', actual: 40 },
-  { hour: '16:00', actual: 41 }
-]
-
-const X_AXIS_LABELS = [
-  '9:00',
-  '10:00',
-  '11:00',
-  '12:00',
-  '13:00',
-  '14:00',
-  '15:00',
-  '16:00'
-]
 const Y_AXIS_LABELS = ['50K', '40K', '30K', '20K', '10K', 'º']
 
 const CARD_WIDTH_PX = 523
@@ -39,6 +21,7 @@ const X_AXIS_TOP_PX = 302
 const CHIP_LEFT_PX = 64
 const CHIP_FACT_TOP_PX = 66
 const CHIP_OBJ_TOP_PX = 98
+const TARGET_VALUE_EUR = 30000
 
 const percentOfWidth = (px: number) => `${(px / CARD_WIDTH_PX) * 100}%`
 const percentOfHeight = (px: number) => `${(px / CARD_HEIGHT_PX) * 100}%`
@@ -73,36 +56,6 @@ const chartCanvas = {
   height: GRID_HEIGHT_PX,
   maxValue: 50
 }
-
-const chartPoints = CHART_SERIES.map((point, index) => {
-  const x = (index / (CHART_SERIES.length - 1)) * chartCanvas.width
-  const y =
-    chartCanvas.height -
-    (point.actual / chartCanvas.maxValue) * chartCanvas.height
-  return { x, y }
-})
-
-const targetHour = '14:00'
-const targetPointIndex = CHART_SERIES.findIndex(
-  (point) => point.hour === targetHour
-)
-const clippedChartPoints =
-  targetPointIndex >= 0
-    ? chartPoints.slice(0, targetPointIndex + 1)
-    : chartPoints
-
-const linePathD = clippedChartPoints.reduce((acc, point, index) => {
-  const command = `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(
-    2
-  )} ${point.y.toFixed(2)}`
-  return `${acc} ${command}`.trim()
-}, '')
-
-const verticalLineLeftPercent = percentOfWidth(
-  GRID_LEFT_PX +
-    ((X_AXIS_LABELS.indexOf('14:00') / (X_AXIS_LABELS.length - 1)) *
-      GRID_WIDTH_PX || 0)
-)
 
 const HEADER_RECT = {
   left: CARD_PADDING_PX,
@@ -141,8 +94,46 @@ const GRID_RECT = {
   height: GRID_HEIGHT_PX
 }
 const GRID_FILL_RECT = { left: 0, top: 160, width: GRID_WIDTH_PX, height: 68 }
+const TARGET_RATIO = TARGET_VALUE_EUR / (chartCanvas.maxValue * 1000)
 
-export default function CashTrendCard() {
+type SeriesPoint = {
+  label: string
+  actual: number
+}
+
+type SeriesResult = {
+  labels: string[]
+  dataPoints: SeriesPoint[]
+  highlightIndex: number
+}
+
+type CashTrendCardProps = {
+  timeScale: CashTimeScale
+  anchorDate: Date
+}
+
+export default function CashTrendCard({ timeScale, anchorDate }: CashTrendCardProps) {
+  const series = useMemo(
+    () => buildSeries(timeScale, anchorDate),
+    [timeScale, anchorDate]
+  )
+
+  const chartLineData = useMemo(
+    () =>
+      series.dataPoints.map((point, index) => ({
+        ...point,
+        clippedActual: index <= series.highlightIndex ? point.actual : null
+      })),
+    [series]
+  )
+
+  const verticalLineLeftPercent = useMemo(() => {
+    const denominator = Math.max(series.labels.length - 1, 1)
+    return percentOfWidth(
+      GRID_LEFT_PX + ((series.highlightIndex / denominator) * GRID_WIDTH_PX || 0)
+    )
+  }, [series])
+
   const cardStyles: CSSProperties = {
     width: `min(${TREND_CARD_WIDTH_REM}rem, 95vw)`,
     aspectRatio: `${CARD_WIDTH_PX} / ${CARD_HEIGHT_PX}`,
@@ -173,7 +164,7 @@ export default function CashTrendCard() {
 
         <div
           className='absolute inline-flex items-center gap-[0.25rem] rounded-pill border border-brandSemantic px-[0.5rem] py-[0.25rem] text-label-md font-normal text-brandSemantic'
-          style={rectToStyle(FACT_CHIP_RECT)}
+          style={{ ...rectToStyle(FACT_CHIP_RECT), whiteSpace: 'nowrap' }}
         >
           <span>Facturado:</span>
           <span className='font-bold text-brandSemantic'>38.000 €</span>
@@ -184,11 +175,17 @@ export default function CashTrendCard() {
           style={{
             ...rectToStyle(TARGET_CHIP_RECT),
             backgroundColor: 'rgba(81, 214, 199, 0.1)',
-            color: 'var(--color-neutral-600)'
+            color: 'var(--color-neutral-600)',
+            whiteSpace: 'nowrap'
           }}
         >
           <span>Objetivo:</span>
-          <span className='font-bold text-neutral-900'>14.000 €</span>
+          <span className='font-bold text-neutral-900'>
+            {TARGET_VALUE_EUR.toLocaleString('es-ES', {
+              minimumFractionDigits: 0
+            })}{' '}
+            €
+          </span>
         </div>
 
         <div
@@ -204,7 +201,7 @@ export default function CashTrendCard() {
           className='absolute flex items-center justify-between text-label-md font-normal text-neutral-400'
           style={rectToStyle(X_AXIS_RECT)}
         >
-          {X_AXIS_LABELS.map((label) => (
+          {series.labels.map((label) => (
             <span key={label}>{label}</span>
           ))}
         </div>
@@ -214,26 +211,29 @@ export default function CashTrendCard() {
             className='absolute'
             style={{
               left: percentOfGridWidth(GRID_FILL_RECT.left),
-              top: percentOfGridHeight(GRID_FILL_RECT.top),
+              top: `${(1 - TARGET_RATIO) * 100}%`,
               width: percentOfGridWidth(GRID_FILL_RECT.width),
-              height: percentOfGridHeight(GRID_FILL_RECT.height),
+              height: `${TARGET_RATIO * 100}%`,
               backgroundColor: 'rgba(81, 214, 199, 0.12)'
             }}
           />
           <ChartGrid />
-          <svg
-            viewBox={`0 0 ${chartCanvas.width} ${chartCanvas.height}`}
-            className='absolute inset-0'
-            preserveAspectRatio='none'
-          >
-            <path
-              d={linePathD}
-              fill='none'
-              stroke='var(--color-brand-500)'
-              strokeWidth={3}
-              strokeLinecap='round'
-            />
-          </svg>
+          <ResponsiveContainer width='100%' height='100%'>
+            <LineChart data={chartLineData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+              <YAxis type='number' domain={[0, 50]} hide />
+              <XAxis dataKey='label' type='category' hide />
+              <Line
+                type='monotone'
+                dataKey='clippedActual'
+                stroke='var(--color-brand-500)'
+                strokeWidth={3}
+                dot={false}
+                animationDuration={1100}
+                animationBegin={200}
+                isAnimationActive
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
 
         <div
@@ -285,3 +285,107 @@ function ChartGrid() {
     </svg>
   )
 }
+
+function buildSeries(scale: CashTimeScale, anchorDate: Date): SeriesResult {
+  switch (scale) {
+    case 'week':
+      return buildWeeklySeries(anchorDate)
+    case 'month':
+      return buildMonthlySeries(anchorDate)
+    case 'day':
+    default:
+      return buildDailySeries(anchorDate)
+  }
+}
+
+function buildDailySeries(anchorDate: Date): SeriesResult {
+  const formatter = new Intl.DateTimeFormat('es-ES', {
+    weekday: 'short',
+    day: 'numeric'
+  })
+  const dataPoints: SeriesPoint[] = []
+  for (let delta = 6; delta >= 0; delta--) {
+    const date = addDays(anchorDate, -delta)
+    dataPoints.push({
+      label: formatter.format(date),
+      actual: generateValue(date, 1.4, 12)
+    })
+  }
+  return {
+    labels: dataPoints.map((point) => point.label),
+    dataPoints,
+    highlightIndex: dataPoints.length - 1
+  }
+}
+
+function buildWeeklySeries(anchorDate: Date): SeriesResult {
+  const dataPoints: SeriesPoint[] = []
+  for (let delta = 3; delta >= 0; delta--) {
+    const start = startOfWeek(addDays(anchorDate, -7 * delta))
+    const weekNumber = getWeekOfYear(start)
+    dataPoints.push({
+      label: `Sem ${weekNumber}`,
+      actual: generateValue(start, 2.2, 18)
+    })
+  }
+  return {
+    labels: dataPoints.map((point) => point.label),
+    dataPoints,
+    highlightIndex: dataPoints.length - 1
+  }
+}
+
+function buildMonthlySeries(anchorDate: Date): SeriesResult {
+  const formatter = new Intl.DateTimeFormat('es-ES', { month: 'short' })
+  const dataPoints: SeriesPoint[] = []
+  for (let delta = 5; delta >= 0; delta--) {
+    const date = addMonths(anchorDate, -delta)
+    dataPoints.push({
+      label: formatter.format(date),
+      actual: generateValue(date, 2.5, 20)
+    })
+  }
+  return {
+    labels: dataPoints.map((point) => point.label),
+    dataPoints,
+    highlightIndex: dataPoints.length - 1
+  }
+}
+
+function addDays(date: Date, amount: number) {
+  const copy = new Date(date)
+  copy.setDate(copy.getDate() + amount)
+  return copy
+}
+
+function addMonths(date: Date, amount: number) {
+  const copy = new Date(date)
+  copy.setMonth(copy.getMonth() + amount)
+  return copy
+}
+
+function startOfWeek(date: Date) {
+  const copy = new Date(date)
+  const day = copy.getDay() || 7
+  if (day !== 1) {
+    copy.setDate(copy.getDate() - (day - 1))
+  }
+  return copy
+}
+
+function getWeekOfYear(date: Date) {
+  const firstDayOfYear = new Date(date.getFullYear(), 0, 1)
+  const pastDaysOfYear = Math.floor(
+    (Number(date) - Number(firstDayOfYear)) / 86400000
+  )
+  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)
+}
+
+function generateValue(date: Date, slope: number, base: number) {
+  const seed = date.getDate() + date.getMonth() * 31
+  const noise = ((seed * 11) % 7) * 0.6
+  const trend = ((date.getMonth() % 6) + 1) * slope
+  const value = Math.min(48, Math.max(8, base + trend + noise))
+  return Math.round((value + Number.EPSILON) * 10) / 10
+}
+
