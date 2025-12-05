@@ -14,10 +14,34 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = React.useState(true)
   const [showPassword, setShowPassword] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = React.useState(false)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
 
   function validateEmail(value: string) {
     return /.+@.+\..+/.test(value)
+  }
+
+  async function handleGoogleSignIn() {
+    setErrorMessage(null)
+    setIsGoogleLoading(true)
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo:
+            typeof window !== 'undefined'
+              ? `${window.location.origin}/auth/callback`
+              : undefined
+        }
+      })
+      if (error) {
+        setErrorMessage(error.message)
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message ?? 'Error al iniciar sesión con Google.')
+    } finally {
+      setIsGoogleLoading(false)
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -56,21 +80,19 @@ export default function LoginPage() {
     >
       <div className='absolute inset-0 grid place-items-center px-fluid-md'>
         <div
-          className='backdrop-blur-[var(--blur-landing)] bg-[var(--color-surface-overlay)] w-full relative overflow-hidden mx-auto'
+          className='backdrop-blur-[var(--blur-landing)] bg-[var(--color-surface-overlay)] w-full relative mx-auto'
           style={{
             width: 'min(var(--modal-card-width), 100%)',
-            height: 'min(var(--modal-card-height), var(--modal-max-h))',
             borderRadius: 'var(--modal-radius-lg)',
             boxShadow: 'var(--modal-shadow)'
           }}
         >
           <div
-            className='h-full grid px-fluid-lg'
+            className='grid px-fluid-lg'
             style={{
-              paddingTop: 'var(--landing-top-gap)',
-              rowGap: 'var(--landing-gap-lg)',
-              paddingBottom: 'var(--landing-bottom-gap)',
-              gridTemplateRows: 'auto auto 1fr auto'
+              paddingTop: '1.5rem',
+              rowGap: '0.75rem',
+              paddingBottom: '1.5rem'
             }}
           >
             <div className='grid place-items-center'>
@@ -79,7 +101,7 @@ export default function LoginPage() {
                 alt='klinikOS'
                 width={0}
                 height={0}
-                style={{ width: 'var(--landing-hero-size)', height: 'auto' }}
+                style={{ width: '5.5rem', height: 'auto' }}
               />
             </div>
 
@@ -87,42 +109,67 @@ export default function LoginPage() {
               <h1
                 className='font-inter text-neutral-900'
                 style={{
-                  fontSize: 'var(--text-title-landing)',
-                  lineHeight: 'var(--leading-title-landing)',
+                  fontSize: '1.5rem',
+                  lineHeight: '1.2',
                   fontWeight: 500
                 }}
               >
                 Accede a klinikOS
               </h1>
-              <p className='mt-gapsm text-body-md text-neutral-900'>
+              <p className='mt-1 text-body-sm text-neutral-900'>
                 Introduce tus credenciales para continuar
               </p>
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-              className='grid gap-gapmd justify-self-center w-full'
+            <div
+              className='grid gap-3 justify-self-center w-full'
               style={{ maxWidth: 'var(--modal-actions-width)' }}
             >
               {errorMessage ? (
-                <div className='rounded-xl border border-error-200 bg-error-50 text-error-600 px-fluid-md py-[0.5rem] text-body-sm'>
+                <div className='rounded-xl border border-error-200 bg-error-50 text-error-600 px-3 py-2 text-body-sm'>
                   {errorMessage}
                 </div>
               ) : null}
 
-              <div className='space-y-gapsm'>
+              {/* Google Sign-In Button */}
+              <button
+                type='button'
+                onClick={handleGoogleSignIn}
+                disabled={isGoogleLoading}
+                className='w-full flex items-center justify-center gap-3 rounded-[var(--radius-pill)] bg-[#f4f8fa] hover:bg-neutral-100 text-neutral-900 text-body-md font-inter shadow-[var(--shadow-button-soft)] disabled:opacity-70 disabled:cursor-not-allowed transition-colors'
+                style={{ height: '2.75rem' }}
+              >
+                <Image
+                  src='/google-icon-logo-svgrepo-com.svg'
+                  alt='Google'
+                  width={20}
+                  height={20}
+                />
+                {isGoogleLoading ? 'Conectando...' : 'Continuar con Google'}
+              </button>
+
+              {/* Divider */}
+              <div className='flex items-center gap-3'>
+                <span className='h-px flex-1 bg-neutral-300' />
+                <span className='text-body-sm text-neutral-500'>o</span>
+                <span className='h-px flex-1 bg-neutral-300' />
+              </div>
+            </div>
+
+            <form
+              onSubmit={handleSubmit}
+              className='grid gap-3 justify-self-center w-full'
+              style={{ maxWidth: 'var(--modal-actions-width)' }}
+            >
+              <div className='space-y-1'>
                 <label
                   htmlFor='email'
-                  className='text-label-md text-neutral-700'
+                  className='text-label-sm text-neutral-700'
                 >
                   Email
                 </label>
                 <div
-                  className='border border-neutral-300 rounded-lg bg-[var(--color-neutral-0)] flex items-center'
-                  style={{
-                    height: 'var(--input-height-lg)',
-                    padding: 'var(--input-padding-y) var(--input-padding-x)'
-                  }}
+                  className='border border-neutral-300 rounded-lg bg-[var(--color-neutral-0)] flex items-center h-11 px-3'
                 >
                   <input
                     id='email'
@@ -133,25 +180,21 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder='tucuenta@ejemplo.com'
-                    className='w-full bg-transparent outline-none text-body-md text-neutral-900 placeholder-neutral-500'
+                    className='w-full bg-transparent outline-none text-body-sm text-neutral-900 placeholder-neutral-500'
                   />
                 </div>
               </div>
 
-              <div className='space-y-gapsm'>
+              <div className='space-y-1'>
                 <label
                   htmlFor='password'
-                  className='text-label-md text-neutral-700'
+                  className='text-label-sm text-neutral-700'
                 >
                   Contraseña
                 </label>
                 <div className='relative'>
                   <div
-                    className='border border-neutral-300 rounded-lg bg-[var(--color-neutral-0)] flex items-center pr-[6rem]'
-                    style={{
-                      height: 'var(--input-height-lg)',
-                      padding: 'var(--input-padding-y) var(--input-padding-x)'
-                    }}
+                    className='border border-neutral-300 rounded-lg bg-[var(--color-neutral-0)] flex items-center h-11 px-3 pr-[5rem]'
                   >
                     <input
                       id='password'
@@ -162,13 +205,13 @@ export default function LoginPage() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder='••••••••'
-                      className='w-full bg-transparent outline-none text-body-md text-neutral-900 placeholder-neutral-500'
+                      className='w-full bg-transparent outline-none text-body-sm text-neutral-900 placeholder-neutral-500'
                     />
                   </div>
                   <button
                     type='button'
                     onClick={() => setShowPassword((s) => !s)}
-                    className='absolute inset-y-0 right-2 my-1 px-2 text-label-md text-neutral-700 rounded-xl hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-brand-200'
+                    className='absolute inset-y-0 right-2 my-1 px-2 text-label-sm text-neutral-700 rounded-lg hover:bg-neutral-50 focus:outline-none'
                     aria-label={
                       showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'
                     }
@@ -179,7 +222,7 @@ export default function LoginPage() {
               </div>
 
               <div className='flex items-center justify-between'>
-                <label className='flex items-center gap-gapsm text-label-md text-neutral-700'>
+                <label className='flex items-center gap-2 text-label-sm text-neutral-700'>
                   <input
                     type='checkbox'
                     checked={rememberMe}
@@ -190,7 +233,7 @@ export default function LoginPage() {
                 </label>
                 <a
                   href='#'
-                  className='text-label-md text-brand-700 hover:text-brand-800'
+                  className='text-label-sm text-brand-700 hover:text-brand-800'
                 >
                   ¿Olvidaste tu contraseña?
                 </a>
@@ -199,14 +242,13 @@ export default function LoginPage() {
               <button
                 type='submit'
                 disabled={isLoading}
-                className='w-full rounded-[var(--radius-pill)] bg-brand-600 hover:bg-brand-700 text-neutral-0 text-body-md font-inter shadow-cta disabled:opacity-70 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-brand-200'
-                style={{ height: 'var(--modal-cta-height)' }}
+                className='w-full rounded-[var(--radius-pill)] bg-brand-600 hover:bg-brand-700 text-neutral-0 text-body-sm font-inter shadow-cta disabled:opacity-70 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-brand-200 h-11'
               >
                 {isLoading ? 'Accediendo…' : 'Acceder'}
               </button>
             </form>
 
-            <p className='w-full text-center text-[14px] leading-5 text-neutral-900'>
+            <p className='w-full text-center text-[13px] leading-5 text-neutral-900'>
               ¿No tienes cuenta?{' '}
               <Link href='/register' className='text-brand-500'>
                 Crear una cuenta
@@ -214,19 +256,19 @@ export default function LoginPage() {
             </p>
 
             <div className='text-center'>
-              <span className='text-label-sm text-neutral-600'>
+              <span className='text-[11px] text-neutral-600'>
                 Al continuar aceptas nuestros
               </span>{' '}
               <a
                 href='#'
-                className='text-label-sm text-brand-700 hover:text-brand-800'
+                className='text-[11px] text-brand-700 hover:text-brand-800'
               >
                 Términos
               </a>{' '}
-              <span className='text-label-sm text-neutral-600'>y</span>{' '}
+              <span className='text-[11px] text-neutral-600'>y</span>{' '}
               <a
                 href='#'
-                className='text-label-sm text-brand-700 hover:text-brand-800'
+                className='text-[11px] text-brand-700 hover:text-brand-800'
               >
                 Privacidad
               </a>

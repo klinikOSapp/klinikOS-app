@@ -16,7 +16,7 @@ export default function RegisterPage() {
       options: {
         redirectTo:
           typeof window !== 'undefined'
-            ? `${window.location.origin}/pacientes`
+            ? `${window.location.origin}/auth/callback`
             : undefined
       }
     })
