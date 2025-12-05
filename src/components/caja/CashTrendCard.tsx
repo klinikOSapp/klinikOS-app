@@ -1,7 +1,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
 
@@ -9,6 +9,7 @@ const Y_AXIS_LABELS = ['50K', '40K', '30K', '20K', '10K', 'º']
 
 const CARD_WIDTH_PX = 523
 const CARD_HEIGHT_PX = 342
+const CARD_HEIGHT_REM = CARD_HEIGHT_PX / 16
 const TREND_CARD_WIDTH_REM = 32.6875 // 523px
 const GRID_WIDTH_PX = 451
 const GRID_HEIGHT_PX = 228
@@ -110,9 +111,14 @@ type SeriesResult = {
 type CashTrendCardProps = {
   timeScale: CashTimeScale
   anchorDate: Date
+  targetHeightRem?: number | null
 }
 
-export default function CashTrendCard({ timeScale, anchorDate }: CashTrendCardProps) {
+export default function CashTrendCard({
+  timeScale,
+  anchorDate,
+  targetHeightRem
+}: CashTrendCardProps) {
   const series = useMemo(
     () => buildSeries(timeScale, anchorDate),
     [timeScale, anchorDate]
@@ -135,17 +141,41 @@ export default function CashTrendCard({ timeScale, anchorDate }: CashTrendCardPr
   }, [series])
 
   const cardStyles: CSSProperties = {
-    width: `min(${TREND_CARD_WIDTH_REM}rem, 95vw)`,
-    aspectRatio: `${CARD_WIDTH_PX} / ${CARD_HEIGHT_PX}`,
-    overflow: 'hidden'
+    width: '100%',
+    height: targetHeightRem ? `${targetHeightRem}rem` : `min(${CARD_HEIGHT_REM}rem, 100%)`,
+    overflow: 'hidden',
+    position: 'relative'
   }
+
+  const [scale, setScale] = useState(1)
+  const frameRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const node = frameRef.current
+    if (!node || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return
+      const widthRatio = entry.contentRect.width / CARD_WIDTH_PX
+      const heightRatio = entry.contentRect.height / CARD_HEIGHT_PX
+      setScale(Math.min(widthRatio, heightRatio))
+    })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [targetHeightRem])
 
   return (
     <article
       className='relative rounded-lg bg-surface shadow-elevation-card'
       style={cardStyles}
     >
-      <div className='relative h-full w-full'>
+      <div
+        ref={frameRef}
+        className='relative h-full w-full'
+        style={{
+          minHeight: CARD_HEIGHT_REM * scale,
+          minWidth: CARD_WIDTH_PX * scale
+        }}
+      >
         <header
           className='absolute flex items-center justify-between'
           style={rectToStyle(HEADER_RECT)}

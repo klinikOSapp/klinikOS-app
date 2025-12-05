@@ -6,11 +6,15 @@ import CashSummaryCard from '@/components/caja/CashSummaryCard'
 import CashToolbar from '@/components/caja/CashToolbar'
 import CashTrendCard from '@/components/caja/CashTrendCard'
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+
+const SUMMARY_CARD_WIDTH_REM = 66.8125 // 1069px
+const TREND_CARD_MIN_WIDTH_REM = 32.6875 // 523px
 
 export default function CajaPage() {
   const [timeScale, setTimeScale] = useState<CashTimeScale>('day')
   const [anchorDate, setAnchorDate] = useState(() => new Date())
+  const [summaryHeightRem, setSummaryHeightRem] = useState<number | null>(null)
 
   const dateLabel = useMemo(
     () => formatToolbarLabel(anchorDate, timeScale),
@@ -26,30 +30,45 @@ export default function CajaPage() {
     setAnchorDate(new Date())
   }
 
+  const handleSummaryHeight = useCallback((heightRem: number) => {
+    setSummaryHeightRem((prev) =>
+      prev !== null && Math.abs(prev - heightRem) < 0.01 ? prev : heightRem
+    )
+  }, [])
+
   return (
     <ClientLayout>
-      <div className='bg-surface-app min-h-screen overflow-auto pb-plnav'>
-        <div className='container-page py-fluid-md pb-plnav'>
-          <CashToolbar
-            dateLabel={dateLabel}
-            onNavigateNext={() => handleNavigate(1)}
-            onNavigatePrevious={() => handleNavigate(-1)}
-            timeScale={timeScale}
-            onTimeScaleChange={handleTimeScaleChange}
-          />
-          <div className='mt-header-stack flex justify-center'>
-            <div
-              className='grid gap-gapmd'
-              style={{
-                gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)',
-                width: 'min(99.5rem, 95vw)'
-              }}
-            >
-              <CashSummaryCard />
-              <CashTrendCard timeScale={timeScale} anchorDate={anchorDate} />
+      <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-surface-app rounded-tl-[var(--radius-xl)] px-[min(1.5rem,2vw)] py-[min(1.5rem,2vw)] flex flex-col overflow-hidden'>
+        <CashToolbar
+          dateLabel={dateLabel}
+          onNavigateNext={() => handleNavigate(1)}
+          onNavigatePrevious={() => handleNavigate(-1)}
+          timeScale={timeScale}
+          onTimeScaleChange={handleTimeScaleChange}
+        />
+
+        <div className='mt-header-stack flex flex-col flex-1 overflow-hidden gap-[min(1.5rem,2vw)]'>
+          <div
+            className='flex flex-col gap-[min(1.5rem,2vw)] xl:grid xl:items-stretch'
+            style={{
+              gridTemplateColumns: `minmax(0, ${SUMMARY_CARD_WIDTH_REM}rem) minmax(${TREND_CARD_MIN_WIDTH_REM}rem, 1fr)`
+            }}
+          >
+            <div className='w-full'>
+              <CashSummaryCard onHeightChange={handleSummaryHeight} />
+            </div>
+            <div className='w-full'>
+              <CashTrendCard
+                timeScale={timeScale}
+                anchorDate={anchorDate}
+                targetHeightRem={summaryHeightRem ?? undefined}
+              />
             </div>
           </div>
-          <CashMovementsTable />
+
+          <div className='flex-1 overflow-y-auto pr-[min(0.5rem,1vw)]'>
+            <CashMovementsTable />
+          </div>
         </div>
       </div>
     </ClientLayout>

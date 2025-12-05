@@ -154,16 +154,21 @@ const TABLE_GRID_TEMPLATE = [
 
 const CELL_BORDER_CLASS = 'border-hairline-r'
 
+const HEADER_TEXT_CLASS =
+  'text-body-md font-normal text-[var(--color-neutral-600)]'
+
+const HEADER_BASE_CELL_CLASS = `${CELL_BORDER_CLASS} flex items-center py-1 pl-[0.5rem] pr-2 ${HEADER_TEXT_CLASS}`
+
 const HEADER_CELL_CLASSES = [
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  'text-right pr-[0.25rem]'
+  `${HEADER_BASE_CELL_CLASS} text-left`,
+  `${HEADER_BASE_CELL_CLASS} text-left`,
+  `${HEADER_BASE_CELL_CLASS} text-left`,
+  `${HEADER_BASE_CELL_CLASS} text-left`,
+  `${HEADER_BASE_CELL_CLASS} text-left`,
+  `${HEADER_BASE_CELL_CLASS} text-left`,
+  `${HEADER_BASE_CELL_CLASS} text-left`,
+  `${HEADER_BASE_CELL_CLASS} text-left`,
+  `flex items-center justify-end pr-[0.25rem] ${HEADER_TEXT_CLASS}`
 ] as const
 
 const ROW_CELL_CLASSES = [
@@ -232,46 +237,47 @@ export default function CashMovementsTable() {
 
   return (
     <section
-      className='px-[1.5rem]'
+      className='flex h-full flex-col'
       style={{
-        marginTop: 'min(2.1875rem, 3vh)',
-        width: `min(${TABLE_WIDTH_REM}rem, 100%)`
+        marginTop: 'min(0.875rem, 1.2vh)',
+        width: '100%'
       }}
     >
-        <div className='flex flex-wrap items-center gap-gapsm'>
-          <SearchInput value={query} onChange={setQuery} />
-          <div className='ml-auto flex flex-wrap items-center gap-gapsm'>
+      <div className='flex flex-wrap items-center gap-gapsm'>
+        <SearchInput value={query} onChange={setQuery} />
+        <div className='ml-auto flex flex-wrap items-center gap-gapsm'>
+          <FilterChip
+            label='Todos'
+            icon='filter_alt'
+            active={activePaymentFilters.length === 0}
+            onClick={clearFilters}
+          />
+          {PAYMENT_FILTERS.map((filter) => (
             <FilterChip
-              label='Todos'
-              icon='filter_alt'
-              active={activePaymentFilters.length === 0}
-              onClick={clearFilters}
+              key={filter}
+              label={filter}
+              active={activePaymentFilters.includes(filter)}
+              onClick={() => toggleFilter(filter)}
             />
-            {PAYMENT_FILTERS.map((filter) => (
-              <FilterChip
-                key={filter}
-                label={filter}
-                active={activePaymentFilters.includes(filter)}
-                onClick={() => toggleFilter(filter)}
-              />
-            ))}
-          </div>
+          ))}
         </div>
+      </div>
 
-        <div className='mt-6 overflow-x-auto'>
-            <div className='min-w-[101rem]'>
-              <div
-                className='grid border-hairline-b pb-[0.5rem] text-label-sm font-medium text-neutral-600'
-                style={{ gridTemplateColumns: TABLE_GRID_TEMPLATE }}
-              >
-              <div className={`${HEADER_CELL_CLASSES[0]} flex items-center`}>Hora</div>
-              <div className={`${HEADER_CELL_CLASSES[1]} flex items-center`}>Paciente</div>
-              <div className={`${HEADER_CELL_CLASSES[2]} flex items-center`}>Concepto</div>
-              <div className={`${HEADER_CELL_CLASSES[3]} flex items-center`}>Cantidad</div>
-              <div className={`${HEADER_CELL_CLASSES[4]} flex items-center`}>Estado</div>
-              <div className={`${HEADER_CELL_CLASSES[5]} flex items-center`}>Producido</div>
-              <div className={`${HEADER_CELL_CLASSES[6]} flex items-center`}>Método</div>
-              <div className={`${HEADER_CELL_CLASSES[7]} flex items-center`}>Aseguradora</div>
+      <div className='mt-6 flex-1 overflow-hidden rounded-lg'>
+        <div className='h-full overflow-auto overflow-x-auto'>
+          <div className='min-w-[101rem]'>
+            <div
+              className='grid border-hairline-b pb-[0.5rem]'
+              style={{ gridTemplateColumns: TABLE_GRID_TEMPLATE }}
+            >
+              <div className={HEADER_CELL_CLASSES[0]}>Hora</div>
+              <div className={HEADER_CELL_CLASSES[1]}>Paciente</div>
+              <div className={HEADER_CELL_CLASSES[2]}>Concepto</div>
+              <div className={HEADER_CELL_CLASSES[3]}>Cantidad</div>
+              <div className={HEADER_CELL_CLASSES[4]}>Estado</div>
+              <div className={HEADER_CELL_CLASSES[5]}>Producido</div>
+              <div className={HEADER_CELL_CLASSES[6]}>Método</div>
+              <div className={HEADER_CELL_CLASSES[7]}>Aseguradora</div>
               <div className={`${HEADER_CELL_CLASSES[8]} text-[0.75rem] font-normal text-neutral-500`}>
                 Acciones
               </div>
@@ -310,17 +316,18 @@ export default function CashMovementsTable() {
             </div>
           </div>
         </div>
+      </div>
 
-        <div className='flex-shrink-0 mt-4 flex items-center justify-end gap-3 text-body-sm text-[var(--color-neutral-900)]'>
-          <PaginationIcon icon='first_page' ariaLabel='Primera página' />
-          <PaginationIcon icon='chevron_left' ariaLabel='Página anterior' />
-          <span className='font-bold underline'>1</span>
-          <span>2</span>
-          <span>…</span>
-          <span>12</span>
-          <PaginationIcon icon='chevron_right' ariaLabel='Página siguiente' />
-          <PaginationIcon icon='last_page' ariaLabel='Última página' />
-        </div>
+      <div className='flex-shrink-0 mt-4 flex items-center justify-end gap-3 text-body-sm text-[var(--color-neutral-900)]'>
+        <PaginationIcon icon='first_page' ariaLabel='Primera página' />
+        <PaginationIcon icon='chevron_left' ariaLabel='Página anterior' />
+        <span className='font-bold underline'>1</span>
+        <span>2</span>
+        <span>…</span>
+        <span>12</span>
+        <PaginationIcon icon='chevron_right' ariaLabel='Página siguiente' />
+        <PaginationIcon icon='last_page' ariaLabel='Última página' />
+      </div>
     </section>
   )
 }

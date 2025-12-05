@@ -48,7 +48,9 @@ const SUMMARY_CARDS: SummaryCard[] = [
 ]
 
 const CARD_HEIGHT_REM = 21.375 // 342px
+const CARD_HEIGHT_PX = 342
 const INCOME_CARD_WIDTH_REM = 66.8125 // 1069px
+const INCOME_CARD_WIDTH_PX = 1069
 const SUMMARY_CARD_WIDTH_REM = 12.375 // 198px
 const SUMMARY_CARD_HEIGHT_REM = 7.25 // 116px
 const SUMMARY_CARD_COLUMN_GAP_REM = 1.375 // 22px
@@ -77,44 +79,88 @@ const DONUT_DATA = [
   }
 ]
 
-export default function CashSummaryCard() {
+type CashSummaryCardProps = {
+  onHeightChange?: (heightRem: number) => void
+}
+
+export default function CashSummaryCard({
+  onHeightChange
+}: CashSummaryCardProps) {
+  const cardRef = useRef<HTMLDivElement | null>(null)
+  const [scale, setScale] = useState(1)
+
+  useEffect(() => {
+    const node = cardRef.current
+    if (!node || typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return
+      const ratio = Math.min(1, entry.contentRect.width / INCOME_CARD_WIDTH_PX)
+      setScale(ratio)
+    })
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  const scaledHeightRem = CARD_HEIGHT_REM * scale
+
   const sharedCardStyles: CSSProperties = {
-    minHeight: `min(${CARD_HEIGHT_REM}rem, calc(100vh - 10rem))`,
-    maxWidth: `min(${INCOME_CARD_WIDTH_REM}rem, 100%)`
+    width: '100%',
+    maxWidth: `${INCOME_CARD_WIDTH_REM}rem`,
+    height: `${scaledHeightRem}rem`,
+    overflow: 'hidden'
   }
 
+  useEffect(() => {
+    onHeightChange?.(scaledHeightRem)
+  }, [scaledHeightRem, onHeightChange])
+
   const summaryGridStyles: CSSProperties = {
-    columnGap: `min(${SUMMARY_CARD_COLUMN_GAP_REM}rem, 5vw)`,
-    rowGap: `min(${SUMMARY_CARD_ROW_GAP_REM}rem, 3vw)`,
-    gridTemplateColumns: `repeat(2, min(${SUMMARY_CARD_WIDTH_REM}rem, 45vw))`,
-    width: `min(${SUMMARY_GRID_WIDTH_REM}rem, 100%)`
+    columnGap: `${SUMMARY_CARD_COLUMN_GAP_REM}rem`,
+    rowGap: `${SUMMARY_CARD_ROW_GAP_REM}rem`,
+    gridTemplateColumns: `repeat(2, ${SUMMARY_CARD_WIDTH_REM}rem)`,
+    width: `${SUMMARY_GRID_WIDTH_REM}rem`
   }
 
   return (
     <article
-      className='w-full rounded-lg bg-surface px-[1.5rem] py-[1.5rem] shadow-elevation-card'
+      ref={cardRef}
+      className='relative w-full rounded-lg bg-surface shadow-elevation-card'
       style={sharedCardStyles}
     >
-      <header className='flex items-center justify-between'>
-        <h2 className='text-title-sm font-medium text-fg'>Ingresos</h2>
-        <button
-          type='button'
-          className='inline-flex items-center gap-[0.25rem] text-label-sm text-fg-secondary'
-        >
-          2024
-          <span className='material-symbols-rounded text-[1rem] leading-4'>
-            arrow_drop_down
-          </span>
-        </button>
-      </header>
+      <div
+        className='flex flex-col px-[1.5rem] py-[1rem]'
+        style={{
+          width: `${INCOME_CARD_WIDTH_REM}rem`,
+          height: `${CARD_HEIGHT_REM}rem`,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left'
+        }}
+      >
+        <header className='flex items-center justify-between'>
+          <h2 className='text-title-sm font-medium text-fg'>Ingresos</h2>
+          <button
+            type='button'
+            className='inline-flex items-center gap-[0.25rem] text-label-sm text-fg-secondary'
+          >
+            2024
+            <span className='material-symbols-rounded text-[1rem] leading-4'>
+              arrow_drop_down
+            </span>
+          </button>
+        </header>
 
-      <div className='mt-gapmd flex flex-nowrap items-start gap-gapmd overflow-x-auto pb-[min(0.5rem,1vw)]'>
-        <div className='grid flex-none' style={summaryGridStyles}>
-          {SUMMARY_CARDS.map((card) => (
-            <SummaryInsightCard key={card.id} card={card} />
-          ))}
+        <div className='mt-[1rem] flex flex-1 gap-gapmd'>
+          <div className='grid flex-none' style={summaryGridStyles}>
+            {SUMMARY_CARDS.map((card) => (
+              <SummaryInsightCard key={card.id} card={card} />
+            ))}
+          </div>
+          <div className='flex flex-1 min-h-0'>
+            <CashDonutGauge />
+          </div>
         </div>
-        <CashDonutGauge />
       </div>
     </article>
   )
@@ -123,8 +169,8 @@ export default function CashSummaryCard() {
 function SummaryInsightCard({ card }: { card: SummaryCard }) {
   const cardStyles: CSSProperties = {
     backgroundColor: card.color,
-    height: `min(${SUMMARY_CARD_HEIGHT_REM}rem, 18vh)`,
-    width: `min(${SUMMARY_CARD_WIDTH_REM}rem, 100%)`
+    height: `${SUMMARY_CARD_HEIGHT_REM}rem`,
+    width: `${SUMMARY_CARD_WIDTH_REM}rem`
   }
 
   return (
@@ -132,8 +178,8 @@ function SummaryInsightCard({ card }: { card: SummaryCard }) {
       className='flex h-full flex-col rounded-lg p-[0.5rem]'
       style={cardStyles}
     >
-      <div className='flex h-full flex-col gap-[min(1.5rem,4vw)]'>
-        <div className='flex items-center justify-between text-[min(0.6875rem,3vw)] font-medium leading-[min(1rem,3vw)] text-neutral-600'>
+      <div className='flex h-full flex-col gap-[1.5rem]'>
+        <div className='flex items-center justify-between text-[0.6875rem] font-medium leading-[1rem] text-neutral-600'>
           <span
             className='material-symbols-rounded text-[1rem] leading-4 text-neutral-600'
             aria-hidden
@@ -142,15 +188,15 @@ function SummaryInsightCard({ card }: { card: SummaryCard }) {
           </span>
           <span>Hoy</span>
         </div>
-        <div className='flex flex-col gap-[min(0.25rem,1vw)] text-neutral-600'>
-          <div className='font-medium text-[min(0.6875rem,3vw)] leading-[min(1rem,3vw)]'>
+        <div className='flex flex-col gap-[0.25rem] text-neutral-600'>
+          <div className='font-medium text-[0.6875rem] leading-[1rem]'>
             {card.title}
           </div>
           <div className='flex items-baseline justify-between gap-[0.5rem]'>
-            <p className='text-[min(1.75rem,5vw)] leading-[min(2.25rem,6vw)] text-neutral-600 whitespace-nowrap'>
+            <p className='text-[1.75rem] leading-[2.25rem] text-neutral-600 whitespace-nowrap'>
               {card.value}
             </p>
-            <div className='flex items-center gap-[0.25rem] text-[min(0.75rem,3.5vw)] font-medium text-brand-500 whitespace-nowrap'>
+            <div className='flex items-center gap-[0.25rem] text-[0.75rem] font-medium text-brand-500 whitespace-nowrap'>
               {card.delta}
               <span className='material-symbols-rounded text-[1rem] leading-4'>
                 arrow_outward
@@ -186,7 +232,12 @@ function CashDonutGauge() {
         DONUT_MAX_WIDTH_PX,
         Math.max(DONUT_MIN_WIDTH_PX, availableWidth)
       )
-      const heightPx = widthPx * DONUT_HEIGHT_RATIO
+      const maxHeightPx =
+        entry.contentRect.height - DONUT_HORIZONTAL_SAFE_SPACE_PX
+      const heightPx = Math.min(
+        widthPx * DONUT_HEIGHT_RATIO,
+        Math.max(0, maxHeightPx)
+      )
 
       setChartDimensions((prev) =>
         prev.widthPx === widthPx && prev.heightPx === heightPx
@@ -200,8 +251,8 @@ function CashDonutGauge() {
   }, [])
 
   const donutCardStyles: CSSProperties = {
-    width: `min(${DONUT_CARD_WIDTH_REM}rem, 100%)`,
-    minHeight: `min(${DONUT_CARD_MIN_HEIGHT_REM}rem, calc(${CARD_HEIGHT_REM}rem - 4rem))`,
+    width: `${DONUT_CARD_WIDTH_REM}rem`,
+    height: `${DONUT_CARD_HEIGHT_REM}rem`,
     position: 'relative',
     overflow: 'hidden',
     boxShadow: '-1px -1px 8px rgba(0,0,0,0.05), 2px 2px 8px rgba(0,0,0,0.05)'
@@ -227,11 +278,11 @@ function CashDonutGauge() {
   return (
     <div
       ref={donutCardRef}
-      className='relative flex-none rounded-lg bg-surface'
+      className='relative flex w-full items-stretch rounded-lg bg-surface'
       style={donutCardStyles}
     >
       <p
-        className='absolute text-[min(0.6875rem,3vw)] font-medium leading-[min(1rem,3vw)] text-neutral-600'
+        className='absolute text-[0.6875rem] font-medium leading-[1rem] text-neutral-600'
         style={{
           left: `${DONUT_LABEL_OFFSET_REM}rem`,
           top: `${DONUT_LABEL_OFFSET_REM}rem`
@@ -263,18 +314,18 @@ function CashDonutGauge() {
       </div>
 
       <div
-        className='absolute flex flex-col items-center gap-[min(0.25rem,1vw)] text-center text-neutral-600'
+        className='absolute flex flex-col items-center gap-[0.25rem] text-center text-neutral-600'
         style={valueStackStyles}
       >
-        <p className='text-[min(2.25rem,6vw)] leading-[min(2.75rem,7vw)] text-neutral-600'>
+        <p className='text-[2.25rem] leading-[2.75rem] text-neutral-600'>
           {DONUT_VALUE.toLocaleString('es-ES', {
             minimumFractionDigits: 0
           })}{' '}
           €
         </p>
-        <div className='flex items-baseline gap-[min(0.5rem,2vw)] text-[min(0.6875rem,3vw)] leading-[min(1rem,3vw)]'>
+        <div className='flex items-baseline gap-[0.5rem] text-[0.6875rem] leading-[1rem]'>
           <span className='font-medium'>de</span>
-          <span className='text-[min(1.125rem,4vw)] font-medium leading-[min(1.75rem,5vw)]'>
+          <span className='text-[1.125rem] font-medium leading-[1.75rem]'>
             {DONUT_TARGET.toLocaleString('es-ES', {
               minimumFractionDigits: 0
             })}{' '}
