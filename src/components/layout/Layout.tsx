@@ -29,6 +29,14 @@ type RoleInfo = {
   permissions: AllPermissions
 }
 
+type RoleInfoResponse = {
+  role_id: number
+  role_name: string
+  role_display_name: string
+  is_system_role: boolean
+  permissions: AllPermissions
+}
+
 export default function Layout({ children }: LayoutProps) {
   const itemsTop = [
     {
@@ -81,7 +89,7 @@ export default function Layout({ children }: LayoutProps) {
         // Use new get_my_role_info RPC
         const { data, error } = await supabase
           .rpc('get_my_role_info', { p_clinic_id: clinicId })
-          .single()
+          .single<RoleInfoResponse>()
 
         if (!active) return
         
