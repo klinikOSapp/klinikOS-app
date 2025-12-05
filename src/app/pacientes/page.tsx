@@ -93,20 +93,46 @@ function StatusPill({ type }: { type: 'Activo' | 'Hecho' }) {
 
 function TableHeaderCell({
   children,
-  className
+  className,
+  align = 'left'
 }: {
   children: React.ReactNode
   className?: string
+  align?: 'left' | 'right'
 }) {
   return (
     <th
+      scope='col'
       className={[
-        'text-body-md font-normal text-[var(--color-neutral-600)] text-left',
+        'border-hairline-b border-hairline-r last:border-hairline-b last:border-r-0 py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-body-md font-normal text-[var(--color-neutral-600)]',
+        align === 'right' ? 'text-right' : 'text-left',
         className
       ].join(' ')}
     >
       {children}
     </th>
+  )
+}
+
+function TableBodyCell({
+  children,
+  className,
+  align = 'left'
+}: {
+  children: React.ReactNode
+  className?: string
+  align?: 'left' | 'right'
+}) {
+  return (
+    <td
+      className={[
+        'border-hairline-b border-hairline-r last:border-hairline-b last:border-r-0 py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] align-middle text-body-md text-[var(--color-neutral-900)]',
+        align === 'right' ? 'text-right' : 'text-left',
+        className
+      ].join(' ')}
+    >
+      {children}
+    </td>
   )
 }
 
@@ -373,37 +399,37 @@ export default function PacientesPage() {
         </div>
 
         <div className='flex-1 rounded-[8px] overflow-auto'>
-          <table className='w-full table-fixed'>
+          <table className='w-full table-fixed border-collapse'>
             <thead>
               <tr>
-                <TableHeaderCell className='py-1 pr-2 w-[40px]'>
+                <TableHeaderCell className='w-[40px] pr-2'>
                   <span className='sr-only'>Seleccionar fila</span>
                 </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[200px]'>
+                <TableHeaderCell className='w-[200px] pr-2'>
                   <div className='flex items-center gap-2'>
                     <AccountCircleRounded className='size-4 text-[var(--color-neutral-700)]' />
                     <span>Paciente</span>
                   </div>
                 </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[140px]'>
+                <TableHeaderCell className='w-[140px] pr-2'>
                   Próxima cita
                 </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[120px]'>
+                <TableHeaderCell className='w-[120px] pr-2'>
                   Estado
                 </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[140px]'>
+                <TableHeaderCell className='w-[140px] pr-2'>
                   Teléfono
                 </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[100px]'>
+                <TableHeaderCell className='w-[100px] pr-2'>
                   Check-in
                 </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[100px]'>
+                <TableHeaderCell className='w-[100px] pr-2'>
                   Financiación
                 </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[100px]'>
+                <TableHeaderCell className='w-[100px] pr-2' align='right'>
                   Deuda
                 </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[140px]'>
+                <TableHeaderCell className='w-[140px] pr-2'>
                   Último contacto
                 </TableHeaderCell>
               </tr>
@@ -436,7 +462,7 @@ export default function PacientesPage() {
                   className='group hover:bg-[var(--color-neutral-50)]'
                   onClick={() => setIsFichaModalOpen(true)}
                 >
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[40px]'>
+                  <TableBodyCell className='w-[40px] pr-2'>
                     <button
                       type='button'
                       onClick={(e) => {
@@ -470,47 +496,35 @@ export default function PacientesPage() {
                       />
                       <span className='sr-only'>Seleccionar fila</span>
                     </button>
-                  </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[200px]'>
-                    <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
-                      {row.name}
-                    </p>
-                  </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[140px]'>
-                    <p className='text-body-md text-[var(--color-neutral-900)]'>
-                      {row.nextDate}
-                    </p>
-                  </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[120px]'>
+                  </TableBodyCell>
+                  <TableBodyCell className='w-[200px] pr-2'>
+                    <p className='truncate'>{row.name}</p>
+                  </TableBodyCell>
+                  <TableBodyCell className='w-[140px] pr-2'>
+                    {row.nextDate}
+                  </TableBodyCell>
+                  <TableBodyCell className='w-[120px] pr-2'>
                     <StatusPill type={row.status} />
-                  </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[140px]'>
-                    <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
-                      {row.phone}
-                    </p>
-                  </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[100px]'>
+                  </TableBodyCell>
+                  <TableBodyCell className='w-[140px] pr-2'>
+                    <p className='truncate'>{row.phone}</p>
+                  </TableBodyCell>
+                  <TableBodyCell className='w-[100px] pr-2'>
                     <span className='inline-flex items-center'>
                       <Chip color='green' rounded='full'>
                         {row.checkin}
                       </Chip>
                     </span>
-                  </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[100px]'>
-                    <p className='text-body-md text-[var(--color-neutral-900)]'>
-                      {row.financing}
-                    </p>
-                  </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[100px]'>
-                    <p className='text-body-md text-[var(--color-neutral-900)]'>
-                      {row.debt}
-                    </p>
-                  </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[140px]'>
-                    <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
-                      {row.lastContact}
-                    </p>
-                  </td>
+                  </TableBodyCell>
+                  <TableBodyCell className='w-[100px] pr-2'>
+                    {row.financing}
+                  </TableBodyCell>
+                  <TableBodyCell className='w-[100px] pr-2' align='right'>
+                    {row.debt}
+                  </TableBodyCell>
+                  <TableBodyCell className='w-[140px] pr-2'>
+                    <p className='truncate'>{row.lastContact}</p>
+                  </TableBodyCell>
                 </tr>
               ))}
             </tbody>

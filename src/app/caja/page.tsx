@@ -47,7 +47,7 @@ export default function CajaPage() {
           onTimeScaleChange={handleTimeScaleChange}
         />
 
-        <div className='mt-header-stack flex flex-col flex-1 overflow-hidden gap-[min(1.5rem,2vw)]'>
+        <div className='mt-header-stack flex flex-col flex-1 overflow-hidden gap-[min(0.75rem,1vw)]'>
           <div
             className='flex flex-col gap-[min(1.5rem,2vw)] xl:grid xl:items-stretch'
             style={{
@@ -66,9 +66,7 @@ export default function CajaPage() {
             </div>
           </div>
 
-          <div className='flex-1 overflow-y-auto pr-[min(0.5rem,1vw)]'>
-            <CashMovementsTable />
-          </div>
+          <CashMovementsTable />
         </div>
       </div>
     </ClientLayout>

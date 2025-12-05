@@ -1,7 +1,7 @@
 'use client'
 
-import type { CSSProperties, FormEvent } from 'react'
-import { useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 type InvoiceStatus = 'Aceptado' | 'Enviado'
 type ProductionState = 'Hecho' | 'Pendiente'
@@ -127,61 +127,100 @@ const SEARCH_WIDTH_REM = 23 // 368px ÷ 16
 const CONTROL_HEIGHT_REM = 2 // 32px ÷ 16
 
 const COLUMN_WIDTHS_REM = {
-  time: 6, // 96px
+  time: 5.4, // 86.4px (90% of 96px)
   patient: 17.875, // 286px
   concept: 25.75, // 412px
   amount: 10.375, // 166px
   status: 7.0625, // 113px
   produced: 10.5625, // 169px
   method: 12.5, // 200px
-  insurer: 8.6875, // 139px
-  actions: 1.5 // 24px
+  insurer: 8.6875 // 139px
 } as const
 
-const TABLE_GRID_TEMPLATE = [
-  COLUMN_WIDTHS_REM.time,
-  COLUMN_WIDTHS_REM.patient,
-  COLUMN_WIDTHS_REM.concept,
-  COLUMN_WIDTHS_REM.amount,
-  COLUMN_WIDTHS_REM.status,
-  COLUMN_WIDTHS_REM.produced,
-  COLUMN_WIDTHS_REM.method,
-  COLUMN_WIDTHS_REM.insurer,
-  COLUMN_WIDTHS_REM.actions
+type ColumnId =
+  | 'time'
+  | 'patient'
+  | 'concept'
+  | 'amount'
+  | 'status'
+  | 'produced'
+  | 'method'
+  | 'insurer'
+
+type ColumnDefinition = {
+  id: ColumnId
+  label: string
+  widthRem: number
+  align?: 'left' | 'right'
+  render: (movement: CashMovement) => React.ReactNode
+}
+
+const columns: ColumnDefinition[] = [
+  {
+    id: 'time',
+    label: 'Hora',
+    widthRem: COLUMN_WIDTHS_REM.time,
+    render: (movement) => movement.time
+  },
+  {
+    id: 'patient',
+    label: 'Paciente',
+    widthRem: COLUMN_WIDTHS_REM.patient,
+    render: (movement) => movement.patient
+  },
+  {
+    id: 'concept',
+    label: 'Concepto',
+    widthRem: COLUMN_WIDTHS_REM.concept,
+    render: (movement) => movement.concept
+  },
+  {
+    id: 'amount',
+    label: 'Cantidad',
+    widthRem: COLUMN_WIDTHS_REM.amount,
+    render: (movement) => movement.amount
+  },
+  {
+    id: 'status',
+    label: 'Estado',
+    widthRem: COLUMN_WIDTHS_REM.status,
+    render: (movement) => <StatusBadge status={movement.status} />
+  },
+  {
+    id: 'produced',
+    label: 'Producido',
+    widthRem: COLUMN_WIDTHS_REM.produced,
+    render: (movement) => <ProductionBadge state={movement.produced} />
+  },
+  {
+    id: 'method',
+    label: 'Método',
+    widthRem: COLUMN_WIDTHS_REM.method,
+    render: (movement) => movement.method
+  },
+  {
+    id: 'insurer',
+    label: 'Aseguradora',
+    widthRem: COLUMN_WIDTHS_REM.insurer,
+    render: (movement) => movement.insurer
+  }
 ]
-  .map((value) => `${value}rem`)
-  .join(' ')
 
-const CELL_BORDER_CLASS = 'border-hairline-r'
+const totalColumns = columns.length
 
-const HEADER_TEXT_CLASS =
-  'text-body-md font-normal text-[var(--color-neutral-600)]'
+const getHeaderCellClasses = (index: number, align: 'left' | 'right' = 'left') => {
+  const borders =
+    index < totalColumns - 1 ? 'border-hairline-b border-hairline-r' : 'border-hairline-b'
+  const textAlign = align === 'right' ? 'text-right' : 'text-left'
+  return `${borders} py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-body-md font-normal text-[var(--color-neutral-600)] ${textAlign}`
+}
 
-const HEADER_BASE_CELL_CLASS = `${CELL_BORDER_CLASS} flex items-center py-1 pl-[0.5rem] pr-2 ${HEADER_TEXT_CLASS}`
-
-const HEADER_CELL_CLASSES = [
-  `${HEADER_BASE_CELL_CLASS} text-left`,
-  `${HEADER_BASE_CELL_CLASS} text-left`,
-  `${HEADER_BASE_CELL_CLASS} text-left`,
-  `${HEADER_BASE_CELL_CLASS} text-left`,
-  `${HEADER_BASE_CELL_CLASS} text-left`,
-  `${HEADER_BASE_CELL_CLASS} text-left`,
-  `${HEADER_BASE_CELL_CLASS} text-left`,
-  `${HEADER_BASE_CELL_CLASS} text-left`,
-  `flex items-center justify-end pr-[0.25rem] ${HEADER_TEXT_CLASS}`
-] as const
-
-const ROW_CELL_CLASSES = [
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  `${CELL_BORDER_CLASS} pl-[0.5rem] pr-[0.75rem]`,
-  'text-right pr-[0.25rem]'
-] as const
+const getBodyCellClasses = (index: number, align: 'left' | 'right' = 'left') => {
+  const borders =
+    index < totalColumns - 1 ? 'border-hairline-b border-hairline-r' : 'border-hairline-b'
+  const textAlign = align === 'right' ? 'text-right' : 'text-left'
+  return `${borders} py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] text-body-md text-neutral-900 ${textAlign}`
+}
 
 const PAYMENT_FILTERS: PaymentCategory[] = [
   'Efectivo',
@@ -194,6 +233,32 @@ export default function CashMovementsTable() {
   const [activePaymentFilters, setActivePaymentFilters] = useState<
     PaymentCategory[]
   >([])
+  const tableContainerRef = useRef<HTMLDivElement>(null)
+  const [scaleFactor, setScaleFactor] = useState(1)
+
+  useEffect(() => {
+    const container = tableContainerRef.current
+    if (!container || typeof window === 'undefined') return
+
+    const updateScale = () => {
+      const { width } = container.getBoundingClientRect()
+      const rootFontSize =
+        parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+      const availableRem = width / rootFontSize
+      const nextScale = Math.min(1, availableRem / TABLE_WIDTH_REM)
+
+      setScaleFactor((prev) => (Math.abs(prev - nextScale) < 0.001 ? prev : nextScale))
+    }
+
+    updateScale()
+
+    const resizeObserver = new ResizeObserver(updateScale)
+    resizeObserver.observe(container)
+
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [])
 
   const toggleFilter = (filter: PaymentCategory) => {
     setActivePaymentFilters((prev) =>
@@ -204,11 +269,6 @@ export default function CashMovementsTable() {
   }
 
   const clearFilters = () => setActivePaymentFilters([])
-
-  const gridStyles: CSSProperties = {
-    gridTemplateColumns: TABLE_GRID_TEMPLATE,
-    minHeight: '2.5rem' // 40px
-  }
 
   const filteredMovements = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
@@ -237,9 +297,9 @@ export default function CashMovementsTable() {
 
   return (
     <section
-      className='flex h-full flex-col'
+      className='flex h-full flex-col flex-1 overflow-hidden'
       style={{
-        marginTop: 'min(0.875rem, 1.2vh)',
+        marginTop: 'min(0.4375rem, 0.6vh)',
         width: '100%'
       }}
     >
@@ -263,58 +323,39 @@ export default function CashMovementsTable() {
         </div>
       </div>
 
-      <div className='mt-6 flex-1 overflow-hidden rounded-lg'>
-        <div className='h-full overflow-auto overflow-x-auto'>
-          <div className='min-w-[101rem]'>
-            <div
-              className='grid border-hairline-b pb-[0.5rem]'
-              style={{ gridTemplateColumns: TABLE_GRID_TEMPLATE }}
-            >
-              <div className={HEADER_CELL_CLASSES[0]}>Hora</div>
-              <div className={HEADER_CELL_CLASSES[1]}>Paciente</div>
-              <div className={HEADER_CELL_CLASSES[2]}>Concepto</div>
-              <div className={HEADER_CELL_CLASSES[3]}>Cantidad</div>
-              <div className={HEADER_CELL_CLASSES[4]}>Estado</div>
-              <div className={HEADER_CELL_CLASSES[5]}>Producido</div>
-              <div className={HEADER_CELL_CLASSES[6]}>Método</div>
-              <div className={HEADER_CELL_CLASSES[7]}>Aseguradora</div>
-              <div className={`${HEADER_CELL_CLASSES[8]} text-[0.75rem] font-normal text-neutral-500`}>
-                Acciones
-              </div>
-            </div>
-
-            <div>
+      <div ref={tableContainerRef} className='mt-6 flex-1 overflow-hidden rounded-lg'>
+        <div className='h-full overflow-y-auto overflow-x-hidden'>
+          <table className='w-full table-fixed border-collapse text-left'>
+            <thead>
+              <tr>
+                {columns.map((column, index) => (
+                  <th
+                    key={column.id}
+                    className={getHeaderCellClasses(index, column.align)}
+                    scope='col'
+                    style={{ width: `${column.widthRem * scaleFactor}rem` }}
+                  >
+                    {column.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
               {filteredMovements.map((movement) => (
-                <div
-                  key={`${movement.time}-${movement.patient}`}
-                  className='grid border-hairline-b text-body-md text-neutral-900'
-                  style={{ ...gridStyles, gridTemplateColumns: TABLE_GRID_TEMPLATE }}
-                >
-                  <div className={`${ROW_CELL_CLASSES[0]} flex items-center`}>{movement.time}</div>
-                  <div className={`${ROW_CELL_CLASSES[1]} flex items-center`}>{movement.patient}</div>
-                  <div className={`${ROW_CELL_CLASSES[2]} flex items-center`}>{movement.concept}</div>
-                  <div className={`${ROW_CELL_CLASSES[3]} flex items-center`}>{movement.amount}</div>
-                  <div className={`${ROW_CELL_CLASSES[4]} flex items-center`}>
-                    <StatusBadge status={movement.status} />
-                  </div>
-                  <div className={`${ROW_CELL_CLASSES[5]} flex items-center`}>
-                    <ProductionBadge state={movement.produced} />
-                  </div>
-                  <div className={`${ROW_CELL_CLASSES[6]} flex items-center`}>{movement.method}</div>
-                  <div className={`${ROW_CELL_CLASSES[7]} flex items-center`}>{movement.insurer}</div>
-                  <div className={`${ROW_CELL_CLASSES[8]} flex items-center justify-end`}>
-                    <button
-                      type='button'
-                      className='inline-flex items-center justify-center rounded-full p-[0.25rem] text-neutral-500 transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic'
-                      aria-label={`Más acciones para ${movement.patient}`}
+                <tr key={`${movement.time}-${movement.patient}`}>
+                  {columns.map((column, index) => (
+                    <td
+                      key={column.id}
+                      className={getBodyCellClasses(index, column.align)}
+                      style={{ width: `${column.widthRem * scaleFactor}rem` }}
                     >
-                      <span className='material-symbols-rounded text-[1.25rem]'>more_vert</span>
-                    </button>
-                  </div>
-                </div>
+                      {column.render(movement)}
+                    </td>
+                  ))}
+                </tr>
               ))}
-            </div>
-          </div>
+            </tbody>
+          </table>
         </div>
       </div>
 
