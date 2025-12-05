@@ -6,6 +6,8 @@ import React from 'react'
 export type UserRole = 'gerencia' | 'recepcion' | 'doctor' | 'higienista' | null
 
 // New permission types
+export type PermissionAction = 'view' | 'create' | 'edit' | 'delete'
+
 export type ModulePermissions = {
   view: boolean
   create: boolean
@@ -43,7 +45,7 @@ export type RoleContextValue = {
   permissions: AllPermissions
   
   // Helper functions
-  can: (module: keyof AllPermissions, action: keyof ModulePermissions) => boolean
+  can: (module: keyof AllPermissions, action: PermissionAction) => boolean
   isLoading: boolean
 }
 
@@ -70,7 +72,7 @@ export function useUserRole() {
 }
 
 // New hook for permission checks
-export function usePermission(module: keyof AllPermissions, action: keyof ModulePermissions) {
+export function usePermission(module: keyof AllPermissions, action: PermissionAction) {
   const { can } = useUserRole()
   return can(module, action)
 }

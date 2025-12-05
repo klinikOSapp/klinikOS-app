@@ -1,6 +1,6 @@
 'use client'
 
-import { RoleContext, UserRole, AllPermissions, ModulePermissions } from '@/context/role-context'
+import { AllPermissions, PermissionAction, RoleContext, UserRole } from '@/context/role-context'
 import { getSignedUrl } from '@/lib/storage'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { LayoutProps } from '@/types/layout'
@@ -247,7 +247,7 @@ export default function Layout({ children }: LayoutProps) {
 
   // Helper function to check permissions
   const can = React.useCallback(
-    (module: keyof AllPermissions, action: keyof ModulePermissions): boolean => {
+    (module: keyof AllPermissions, action: PermissionAction): boolean => {
       const modulePerms = roleInfo.permissions[module]
       if (!modulePerms) return false
       return modulePerms[action] ?? false
