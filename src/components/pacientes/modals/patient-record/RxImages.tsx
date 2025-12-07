@@ -1,7 +1,9 @@
 import React from 'react'
-import CloseRounded from '@mui/icons-material/CloseRounded'
-import AddPhotoAlternateRounded from '@mui/icons-material/AddPhotoAlternateRounded'
-import ImageRounded from '@mui/icons-material/ImageRounded'
+import {
+  AddPhotoAlternateRounded,
+  CloseRounded,
+  ImageRounded
+} from '@/components/icons/md3'
 
 type RxImagesProps = {
   onClose?: () => void

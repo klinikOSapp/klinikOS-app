@@ -1,8 +1,10 @@
-import CallRounded from '@mui/icons-material/CallRounded'
-import CloseRounded from '@mui/icons-material/CloseRounded'
-import MailRounded from '@mui/icons-material/MailRounded'
-import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
 import React from 'react'
+import {
+  CallRounded,
+  CloseRounded,
+  MailRounded,
+  MoreVertRounded
+} from '@/components/icons/md3'
 import AvatarImageDropdown from '@/components/pacientes/AvatarImageDropdown'
 
 type ClientSummaryProps = {

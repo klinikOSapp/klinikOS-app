@@ -1,8 +1,10 @@
 'use client'
 
-import AddAPhotoRounded from '@mui/icons-material/AddAPhotoRounded'
-import PhotoCameraRounded from '@mui/icons-material/PhotoCameraRounded'
-import UploadRounded from '@mui/icons-material/UploadRounded'
+import {
+  AddAPhotoRounded,
+  PhotoCameraRounded,
+  UploadRounded
+} from '@/components/icons/md3'
 import React from 'react'
 
 export interface AvatarImageDropdownProps {

@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Image from 'next/image'
-import SettingsRounded from '@mui/icons-material/SettingsRounded'
+import { SettingsRounded } from '@/components/icons/md3'
 import { TopBarProps } from '@/types/layout'
 
 export default function TopBar({ userName, userAvatarUrl }: TopBarProps) {

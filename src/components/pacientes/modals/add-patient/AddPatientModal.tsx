@@ -1,11 +1,6 @@
 'use client'
 
-import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded'
-import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded'
-import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded'
-import CloseRounded from '@mui/icons-material/CloseRounded'
-import RadioButtonCheckedRounded from '@mui/icons-material/RadioButtonCheckedRounded'
-import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded'
+import { MD3Icon } from '@/components/icons/MD3Icon'
 import React from 'react'
 import AddPatientStepAdministrativo from './AddPatientStepAdministrativo'
 import AddPatientStepConsentimientos from './AddPatientStepConsentimientos'
@@ -52,28 +47,22 @@ function StepItem({
       <div className='relative h-[3rem] w-6'>
         <div className='absolute left-0 top-0 size-6'>
           {isCompleted ? (
-            <CheckCircleRounded
-              style={{
-                width: 24,
-                height: 24,
-                color: 'var(--color-brand-500)'
-              }}
+            <MD3Icon
+              name='CheckCircleRounded'
+              size='lg'
+              className='text-[var(--color-brand-500)]'
             />
           ) : isCurrent ? (
-            <RadioButtonCheckedRounded
-              style={{
-                width: 24,
-                height: 24,
-                color: 'var(--color-brand-500)'
-              }}
+            <MD3Icon
+              name='RadioButtonCheckedRounded'
+              size='lg'
+              className='text-[var(--color-brand-500)]'
             />
           ) : (
-            <RadioButtonUncheckedRounded
-              style={{
-                width: 24,
-                height: 24,
-                color: 'var(--color-neutral-900)'
-              }}
+            <MD3Icon
+              name='RadioButtonUncheckedRounded'
+              size='lg'
+              className='text-[var(--color-neutral-900)]'
             />
           )}
         </div>
@@ -408,7 +397,11 @@ export default function AddPatientModal({
                   onClick={onClose}
                   className='w-3.5 h-3.5'
                 >
-                  <CloseRounded className='block w-3.5 h-3.5' />
+                  <MD3Icon
+                    name='CloseRounded'
+                    size={0.875}
+                    className='text-[var(--color-neutral-900)]'
+                  />
                 </button>
               </div>
 
@@ -593,7 +586,7 @@ export default function AddPatientModal({
                   onClick={handleBack}
                   className='absolute left-[18.375rem] top-[55.75rem] inline-flex h-[2.5rem] w-[13.4375rem] items-center justify-center gap-[0.5rem] rounded-full border border-[var(--color-brand-500)] bg-[var(--color-neutral-50)] px-[1rem] text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-100)]'
                 >
-                  <ArrowBackRounded className='size-5' />
+                  <MD3Icon name='ArrowBackRounded' size='md' />
                   Volver
                 </button>
               )}
@@ -605,7 +598,7 @@ export default function AddPatientModal({
                   className='w-[13.4375rem] px-4 py-2 left-[36.4375rem] top-[55.75rem] absolute bg-[var(--color-brand-500)] rounded-[8.5rem] border border-[var(--color-brand-500)] inline-flex justify-center items-center gap-2 text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-400)]'
                 >
                   Continuar
-                  <ArrowForwardRounded className='w-6 h-6' />
+                  <MD3Icon name='ArrowForwardRounded' size='lg' />
                 </button>
               ) : (
                 <button
@@ -614,7 +607,7 @@ export default function AddPatientModal({
                   className='w-[13.4375rem] px-4 py-2 left-[36.4375rem] top-[55.75rem] absolute bg-[var(--color-brand-500)] rounded-[8.5rem] border border-[var(--color-brand-500)] inline-flex justify-center items-center gap-2 text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-400)]'
                 >
                   Crear paciente
-                  <ArrowForwardRounded className='w-6 h-6' />
+                  <MD3Icon name='ArrowForwardRounded' size='lg' />
                 </button>
               )}
             </div>

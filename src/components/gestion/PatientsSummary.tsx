@@ -18,7 +18,10 @@ export default function PatientsSummary({
   items = defaultItems
 }: PatientsSummaryProps) {
   return (
-    <section className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid w-card-stat-fluid shrink-0 px-card-pad pt-card-pad pb-card-inner'>
+    <section
+      className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 px-card-pad pt-card-pad pb-card-inner'
+      style={{ width: 'min(var(--width-card-stat-fluid), 100%)' }}
+    >
       <div
         className='w-full'
         style={{

@@ -1,12 +1,14 @@
 'use client'
 
-import AddRounded from '@mui/icons-material/AddRounded'
-import AttachEmailRounded from '@mui/icons-material/AttachEmailRounded'
-import CloseRounded from '@mui/icons-material/CloseRounded'
-import DownloadRounded from '@mui/icons-material/DownloadRounded'
-import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
-import PictureAsPdfRounded from '@mui/icons-material/PictureAsPdfRounded'
-import VisibilityRounded from '@mui/icons-material/VisibilityRounded'
+import {
+  AddRounded,
+  AttachEmailRounded,
+  CloseRounded,
+  DownloadRounded,
+  MoreVertRounded,
+  PictureAsPdfRounded,
+  VisibilityRounded
+} from '@/components/icons/md3'
 import React from 'react'
 import UploadConsentModal from './UploadConsentModal'
 

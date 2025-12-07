@@ -1118,10 +1118,10 @@ POST /patients/:id/documents         # Document upload (consent, RX, etc.)
 - `/src/components/agenda/WeekScheduler.tsx` (main)
 - `/src/components/agenda/DayCalendar.tsx`
 - `/src/components/agenda/MonthCalendar.tsx`
-- `/src/components/agenda/AppointmentDetailOverlay.tsx`
+- `/src/components/agenda/modals/AppointmentDetailOverlay.tsx`
 - `/src/components/agenda/AppointmentSummaryCard.tsx`
-- `/src/components/agenda/CreateAppointmentModal.tsx`
-- `/src/components/agenda/ParteDiarioModal.tsx`
+- `/src/components/agenda/modals/CreateAppointmentModal.tsx`
+- `/src/components/agenda/modals/ParteDiarioModal.tsx`
 - `/src/components/agenda/MultiDatePickerInput.tsx`
 - `/src/components/agenda/DateTimeInput.tsx`
 - `/src/components/agenda/InputText.tsx`

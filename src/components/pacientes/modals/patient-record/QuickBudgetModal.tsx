@@ -2,10 +2,12 @@
 
 import React from 'react'
 import { createPortal } from 'react-dom'
-import CloseRounded from '@mui/icons-material/CloseRounded'
-import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded'
-import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded'
-import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded'
+import {
+  ArrowBackRounded,
+  ArrowForwardRounded,
+  CloseRounded,
+  KeyboardArrowDownRounded
+} from '@/components/icons/md3'
 import {
   MODAL_HEIGHT_REM,
   MODAL_SCALE_FORMULA,

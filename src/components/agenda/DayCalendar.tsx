@@ -1,11 +1,9 @@
 'use client'
 
-import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
-import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
-import MonitorHeartRounded from '@mui/icons-material/MonitorHeartRounded'
+import { MD3Icon } from '@/components/icons/MD3Icon'
 import { useState } from 'react'
 
-import AppointmentDetailOverlay from './AppointmentDetailOverlay'
+import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
 import type { EventDetail } from './types'
 
 const OVERLAY_GUTTER = '1rem'
@@ -789,9 +787,10 @@ export default function DayCalendar({ period = 'full' }: DayCalendarProps) {
             {/* Fecha y ubicación */}
             <div className='flex flex-col gap-1'>
               <div className='flex items-center gap-1'>
-                <CalendarMonthRounded
+                <MD3Icon
+                  name='CalendarMonthRounded'
+                  size={1}
                   className='text-[var(--color-neutral-600)]'
-                  sx={{ fontSize: '1rem' }}
                 />
                 <p className='text-label-md font-normal text-[var(--color-neutral-600)]'>
                   Fecha y ubicación
@@ -805,9 +804,10 @@ export default function DayCalendar({ period = 'full' }: DayCalendarProps) {
             {/* Paciente */}
             <div className='flex flex-col gap-1'>
               <div className='flex items-center gap-1'>
-                <AccountCircleRounded
+                <MD3Icon
+                  name='AccountCircleRounded'
+                  size={1}
                   className='text-[var(--color-neutral-600)]'
-                  sx={{ fontSize: '1rem' }}
                 />
                 <p className='text-label-md font-normal text-[var(--color-neutral-600)]'>
                   Paciente
@@ -821,9 +821,10 @@ export default function DayCalendar({ period = 'full' }: DayCalendarProps) {
             {/* Profesional */}
             <div className='flex flex-col gap-1'>
               <div className='flex items-center gap-1'>
-                <MonitorHeartRounded
+                <MD3Icon
+                  name='MonitorHeartRounded'
+                  size={1}
                   className='text-[var(--color-neutral-600)]'
-                  sx={{ fontSize: '1rem' }}
                 />
                 <p className='text-label-md font-normal text-[var(--color-neutral-600)]'>
                   Profesional

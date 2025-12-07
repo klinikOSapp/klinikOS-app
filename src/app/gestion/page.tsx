@@ -10,9 +10,10 @@ import ProfessionalBars from '@/components/gestion/ProfessionalBars'
 import type { CSSProperties } from 'react'
 
 const thirdRowStyles = {
-  '--height-card-chart-fluid-base': 'clamp(17.6rem, 34vh, 23.25rem)',
-  '--chart-prof-height-limit': '34vh',
-  '--accounting-height-limit': '34vh'
+  '--height-card-chart-fluid-base': 'clamp(15rem, 30vh, 21.375rem)',
+  '--chart-prof-height-limit': '30vh',
+  '--accounting-height-limit': '30vh',
+  paddingBottom: '1.5rem'
 } satisfies CSSProperties
 
 export default function GestionPage() {

@@ -1,9 +1,8 @@
 'use client'
 
-import CloseRounded from '@mui/icons-material/CloseRounded'
-import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded'
+import { MD3Icon } from '@/components/icons/MD3Icon'
 import { useState } from 'react'
-import { MultiDatePickerInput } from './MultiDatePickerInput'
+import { MultiDatePickerInput } from '../MultiDatePickerInput'
 
 type ParteDiarioModalProps = {
   isOpen: boolean
@@ -66,9 +65,10 @@ export default function ParteDiarioModal({
               style={{ width: '1.5rem', height: '1.5rem' }}
               aria-label='Cerrar modal'
             >
-              <CloseRounded
+              <MD3Icon
+                name='CloseRounded'
+                size={0.875}
                 className='text-[var(--color-neutral-600)]'
-                style={{ fontSize: '0.875rem' }}
               />
             </button>
           </div>
@@ -104,9 +104,10 @@ export default function ParteDiarioModal({
                     <option value='profesional2'>Dra. Martínez Silva</option>
                     <option value='profesional3'>Dr. Rodríguez Pérez</option>
                   </select>
-                  <KeyboardArrowDownRounded
+                  <MD3Icon
+                    name='KeyboardArrowDownRounded'
+                    size='sm'
                     className='absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-neutral-600)] pointer-events-none'
-                    fontSize='small'
                   />
                 </div>
               </div>

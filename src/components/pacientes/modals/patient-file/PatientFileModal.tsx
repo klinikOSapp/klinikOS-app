@@ -1,7 +1,7 @@
 'use client'
 
 import ClinicalHistory from '@/components/pacientes/modals/patient-record/ClinicalHistory'
-import CloseRounded from '@mui/icons-material/CloseRounded'
+import { CloseRounded } from '@/components/icons/md3'
 import React from 'react'
 
 type PatientFileModalProps = {

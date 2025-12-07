@@ -1,20 +1,9 @@
 'use client'
 
 import ClientLayout from '@/app/client-layout'
+import { MD3Icon } from '@/components/icons/MD3Icon'
 import AddPatientModal from '@/components/pacientes/modals/add-patient/AddPatientModal'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
-import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
-import AddRounded from '@mui/icons-material/AddRounded'
-import CheckRounded from '@mui/icons-material/CheckRounded'
-import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
-import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
-import DeleteRounded from '@mui/icons-material/DeleteRounded'
-import FilterListRounded from '@mui/icons-material/FilterListRounded'
-import FirstPageRounded from '@mui/icons-material/FirstPageRounded'
-import LastPageRounded from '@mui/icons-material/LastPageRounded'
-import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded'
-import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
-import SearchRounded from '@mui/icons-material/SearchRounded'
 import { useRouter } from 'next/navigation'
 import React from 'react'
 
@@ -262,14 +251,14 @@ export default function PacientesPage() {
               onClick={() => setIsAddModalOpen(true)}
               className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-body-md text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
             >
-              <AddRounded className='size-5' />
+              <MD3Icon name='AddRounded' size='md' />
               <span className='font-medium'>Añadir paciente</span>
             </button>
             <button
               className='size-6 grid place-items-center text-[var(--color-neutral-900)] cursor-pointer'
               aria-label='Más opciones'
             >
-              <MoreVertRounded className='size-5' />
+              <MD3Icon name='MoreVertRounded' size='md' className='text-[var(--color-neutral-900)]' />
             </button>
           </div>
         </div>
@@ -334,15 +323,19 @@ export default function PacientesPage() {
               Check-in
             </button>
             <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
-              <DeleteRounded className='size-5' />
+              <MD3Icon name='DeleteRounded' size='md' />
             </button>
             <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
-              <MoreHorizRounded className='size-5' />
+              <MD3Icon name='MoreHorizRounded' size='md' />
             </button>
           </div>
           <div className='flex items-center gap-2'>
             <div className='flex items-center gap-2 border-b border-[var(--color-neutral-900)] px-2 py-1'>
-              <SearchRounded className='text-[var(--color-neutral-900)]' />
+              <MD3Icon
+                name='SearchRounded'
+                size='sm'
+                className='text-[var(--color-neutral-900)]'
+              />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -359,7 +352,7 @@ export default function PacientesPage() {
                   : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
               ].join(' ')}
             >
-              <FilterListRounded className='size-4' />
+              <MD3Icon name='FilterListRounded' size='sm' />
               <span>Todos</span>
             </button>
             <button
@@ -407,7 +400,11 @@ export default function PacientesPage() {
                 </TableHeaderCell>
                 <TableHeaderCell className='w-[200px] pr-2'>
                   <div className='flex items-center gap-2'>
-                    <AccountCircleRounded className='size-4 text-[var(--color-neutral-700)]' />
+                    <MD3Icon
+                      name='AccountCircleRounded'
+                      size='sm'
+                      className='text-[var(--color-neutral-700)]'
+                    />
                     <span>Paciente</span>
                   </div>
                 </TableHeaderCell>
@@ -484,11 +481,13 @@ export default function PacientesPage() {
                         ].join(' ')}
                       />
                       {/* Check icon when selected */}
-                      <CheckRounded
+                      <MD3Icon
                         aria-hidden='true'
+                        name='CheckRounded'
+                        size='sm'
                         className={[
                           'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
-                          'size-4 text-[#1E4947] transition-opacity',
+                          'text-[#1E4947] transition-opacity',
                           isPatientSelected(row.id)
                             ? 'opacity-100'
                             : 'opacity-0'
@@ -533,20 +532,20 @@ export default function PacientesPage() {
 
         <div className='flex-shrink-0 mt-4 flex items-center justify-end gap-3 text-body-sm text-[var(--color-neutral-900)]'>
           <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
-            <FirstPageRounded className='size-5' />
+            <MD3Icon name='FirstPageRounded' size='md' />
           </button>
           <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
-            <ChevronLeftRounded className='size-5' />
+            <MD3Icon name='ChevronLeftRounded' size='md' />
           </button>
           <span className='font-bold underline'>1</span>
           <span>2</span>
           <span>…</span>
           <span>12</span>
           <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
-            <ChevronRightRounded className='size-5' />
+            <MD3Icon name='ChevronRightRounded' size='md' />
           </button>
           <button className='size-6 inline-flex items-center justify-center cursor-pointer'>
-            <LastPageRounded className='size-5' />
+            <MD3Icon name='LastPageRounded' size='md' />
           </button>
         </div>
       </div>

@@ -3,7 +3,7 @@
 **Componente:** Modal "Añadir cita" (Create Appointment Modal)  
 **Fecha:** 21 de noviembre, 2025  
 **Archivos implementados:**
-- `src/components/agenda/CreateAppointmentModal.tsx`
+- `src/components/agenda/modals/CreateAppointmentModal.tsx`
 - `src/components/agenda/SelectField.tsx`
 - `src/components/agenda/InputText.tsx`
 - `src/components/agenda/DateTimeInput.tsx`

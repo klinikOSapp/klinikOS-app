@@ -1,8 +1,10 @@
 'use client'
 
-import ArrowBackIosNewRounded from '@mui/icons-material/ArrowBackIosNewRounded'
-import VisibilityOffOutlined from '@mui/icons-material/VisibilityOffOutlined'
-import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined'
+import {
+  ArrowBackIosNewRounded,
+  VisibilityOffOutlined,
+  VisibilityOutlined
+} from '@/components/icons/md3'
 import React from 'react'
 import AddProfilePhotoStep from './AddProfilePhotoStep'
 

@@ -17,7 +17,10 @@ export default function IncomeTypes({
   items = defaultItems
 }: IncomeTypesProps) {
   return (
-    <section className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid w-card-stat-fluid shrink-0 flex flex-col px-card-pad pt-card-pad pb-card-inner'>
+    <section
+      className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 flex flex-col px-card-pad pt-card-pad pb-card-inner'
+      style={{ width: 'min(var(--width-card-stat-fluid), 100%)' }}
+    >
       <div
         className='w-full'
         style={{

@@ -1,7 +1,6 @@
 'use client'
 
-import CloseRounded from '@mui/icons-material/CloseRounded'
-import UploadFileRounded from '@mui/icons-material/UploadFileRounded'
+import { CloseRounded, UploadFileRounded } from '@/components/icons/md3'
 import React from 'react'
 
 export interface UploadConsentModalProps {

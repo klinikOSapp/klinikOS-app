@@ -1,10 +1,6 @@
 'use client'
 
-import AddPhotoAlternateRounded from '@mui/icons-material/AddPhotoAlternateRounded'
-import AddRounded from '@mui/icons-material/AddRounded'
-import CloseRounded from '@mui/icons-material/CloseRounded'
-import EditRounded from '@mui/icons-material/EditRounded'
-import UploadRounded from '@mui/icons-material/UploadRounded'
+import { MD3Icon } from '@/components/icons/MD3Icon'
 import React from 'react'
 import { ToggleInput } from './AddPatientInputs'
 
@@ -54,8 +50,10 @@ export default function AddPatientStepConsentimientos() {
             type='button'
             className='w-[4.9375rem] h-[4.9375rem] rounded-[0.5rem] border border-[var(--color-neutral-300)] bg-[var(--color-neutral-200)] grid place-items-center'
           >
-            <EditRounded 
-              style={{ width: 40, height: 40, color: 'var(--color-neutral-700)' }}
+            <MD3Icon
+              name='EditRounded'
+              size={2.5}
+              className='text-[var(--color-neutral-700)]'
             />
           </button>
         </div>
@@ -69,8 +67,10 @@ export default function AddPatientStepConsentimientos() {
             type='button'
             className='w-[4.9375rem] h-[4.9375rem] rounded-[0.5rem] border border-[var(--color-neutral-300)] bg-[var(--color-neutral-200)] grid place-items-center'
           >
-            <EditRounded 
-              style={{ width: 40, height: 40, color: 'var(--color-neutral-700)' }}
+            <MD3Icon
+              name='EditRounded'
+              size={2.5}
+              className='text-[var(--color-neutral-700)]'
             />
           </button>
         </div>
@@ -116,7 +116,11 @@ export default function AddPatientStepConsentimientos() {
             >
               {derivacionFileName || 'Subir documento'}
             </span>
-            <UploadRounded className='text-[var(--color-neutral-700)]' />
+            <MD3Icon
+              name='UploadRounded'
+              size='sm'
+              className='text-[var(--color-neutral-700)]'
+            />
           </button>
           <span className='text-label-sm text-[var(--color-neutral-600)]'>
             PDF, XML, IMG, ...
@@ -152,7 +156,11 @@ export default function AddPatientStepConsentimientos() {
             >
               {informesFileName || 'Subir documento'}
             </span>
-            <UploadRounded className='text-[var(--color-neutral-700)]' />
+            <MD3Icon
+              name='UploadRounded'
+              size='sm'
+              className='text-[var(--color-neutral-700)]'
+            />
           </button>
           <input
             ref={informesInputRef}
@@ -178,7 +186,7 @@ export default function AddPatientStepConsentimientos() {
               type='button'
               className='w-full h-full grid place-items-center text-[var(--color-neutral-900)]'
             >
-              <AddPhotoAlternateRounded style={{ width: 40, height: 40 }} />
+              <MD3Icon name='AddPhotoAlternateRounded' size={2.5} />
             </button>
           </div>
         ) : (
@@ -187,8 +195,10 @@ export default function AddPatientStepConsentimientos() {
             onClick={() => rxInputRef.current?.click()}
             className='absolute left-[12.5625rem] top-[38.875rem] w-[4.9375rem] h-[4.9375rem] rounded-[0.5rem] border border-[var(--color-neutral-300)] bg-[var(--color-neutral-200)] grid place-items-center'
           >
-            <AddPhotoAlternateRounded 
-              style={{ width: 40, height: 40, color: 'var(--color-neutral-700)' }}
+            <MD3Icon
+              name='AddPhotoAlternateRounded'
+              size={2.5}
+              className='text-[var(--color-neutral-700)]'
             />
           </button>
         )}
@@ -199,8 +209,10 @@ export default function AddPatientStepConsentimientos() {
           onClick={() => rxInputRef.current?.click()}
           className='absolute left-[18.8125rem] top-[38.875rem] w-[4.9375rem] h-[4.9375rem] rounded-[0.5rem] border border-[var(--color-neutral-300)] bg-white grid place-items-center'
         >
-          <AddRounded 
-            style={{ width: 40, height: 40, color: 'var(--color-neutral-700)' }}
+          <MD3Icon
+            name='AddRounded'
+            size={2.5}
+            className='text-[var(--color-neutral-700)]'
           />
         </button>
         <input
@@ -222,8 +234,10 @@ export default function AddPatientStepConsentimientos() {
           onClick={() => fotosInputRef.current?.click()}
           className='absolute left-[12.5625rem] top-[47.5625rem] w-[4.9375rem] h-[4.9375rem] rounded-[0.5rem] border border-[var(--color-neutral-300)] bg-[var(--color-neutral-200)] grid place-items-center'
         >
-          <AddPhotoAlternateRounded 
-            style={{ width: 40, height: 40, color: 'var(--color-neutral-700)' }}
+          <MD3Icon
+            name='AddPhotoAlternateRounded'
+            size={2.5}
+            className='text-[var(--color-neutral-700)]'
           />
         </button>
         <input

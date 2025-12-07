@@ -1,19 +1,21 @@
 'use client'
 
-import AddRounded from '@mui/icons-material/AddRounded'
-import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded'
-import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded'
-import CheckBoxOutlineBlankRounded from '@mui/icons-material/CheckBoxOutlineBlankRounded'
-import CheckBoxRounded from '@mui/icons-material/CheckBoxRounded'
-import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded'
-import CloseRounded from '@mui/icons-material/CloseRounded'
-import CloudDownloadRounded from '@mui/icons-material/CloudDownloadRounded'
-import CloudUploadRounded from '@mui/icons-material/CloudUploadRounded'
-import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded'
-import MailOutlineRounded from '@mui/icons-material/MailOutlineRounded'
-import PhoneRounded from '@mui/icons-material/PhoneRounded'
-import RadioButtonCheckedRounded from '@mui/icons-material/RadioButtonCheckedRounded'
-import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded'
+import {
+  AddRounded,
+  ArrowBackRounded,
+  ArrowForwardRounded,
+  CheckBoxOutlineBlankRounded,
+  CheckBoxRounded,
+  CheckCircleRounded,
+  CloseRounded,
+  CloudDownloadRounded,
+  CloudUploadRounded,
+  KeyboardArrowDownRounded,
+  MailOutlineRounded,
+  PhoneRounded,
+  RadioButtonCheckedRounded,
+  RadioButtonUncheckedRounded
+} from '@/components/icons/md3'
 import React from 'react'
 import { createPortal } from 'react-dom'
 import OdontogramaModal from './OdontogramaModal'

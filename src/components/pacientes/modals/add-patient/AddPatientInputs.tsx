@@ -1,9 +1,6 @@
 'use client'
 
-import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
-import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
-import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
-import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded'
+import { MD3Icon } from '@/components/icons/MD3Icon'
 import React from 'react'
 import { createPortal } from 'react-dom'
 
@@ -91,7 +88,9 @@ export function SelectInput({
         >
           {displayText}
         </span>
-        <KeyboardArrowDownRounded
+        <MD3Icon
+          name='KeyboardArrowDownRounded'
+          size='sm'
           className={`text-[var(--color-neutral-700)] transition-transform ${
             isOpen ? 'rotate-180' : ''
           }`}
@@ -635,7 +634,7 @@ export function DatePickerInput({
           onClick={() => setCalendarOpen((v) => !v)}
           className='p-1 rounded hover:bg-[var(--color-neutral-100)]'
         >
-          <CalendarMonthRounded className='w-6 h-6' />
+          <MD3Icon name='CalendarMonthRounded' size='md' />
         </button>
         {calendarOpen &&
           popoverPos &&
@@ -658,7 +657,11 @@ export function DatePickerInput({
                     onClick={prevMonth}
                   >
                     <div className='w-10 h-10 rounded-full grid place-items-center'>
-                      <ChevronLeftRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
+                      <MD3Icon
+                        name='ChevronLeftRounded'
+                        size='lg'
+                        className='text-[var(--color-neutral-900)]'
+                      />
                     </div>
                   </button>
                   <div className='relative ml-1'>
@@ -673,7 +676,11 @@ export function DatePickerInput({
                       <span className='text-body-sm font-medium text-[var(--color-neutral-700)]'>
                         {monthLabels[viewMonth]}
                       </span>
-                      <KeyboardArrowDownRounded className='w-[18px] h-[18px] text-[var(--color-neutral-700)]' />
+                      <MD3Icon
+                        name='KeyboardArrowDownRounded'
+                        size='md'
+                        className='text-[var(--color-neutral-700)]'
+                      />
                     </button>
                     {showMonthMenu && (
                       <div className='absolute left-0 top-[calc(100%+4px)] z-10 w-32 max-h-60 overflow-auto bg-[var(--color-surface-popover)] rounded-[0.75rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)]'>
@@ -703,7 +710,11 @@ export function DatePickerInput({
                     onClick={nextMonth}
                   >
                     <div className='w-10 h-10 rounded-full grid place-items-center'>
-                      <ChevronRightRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
+                      <MD3Icon
+                        name='ChevronRightRounded'
+                        size='lg'
+                        className='text-[var(--color-neutral-900)]'
+                      />
                     </div>
                   </button>
                 </div>
@@ -714,7 +725,11 @@ export function DatePickerInput({
                     onClick={prevYear}
                   >
                     <div className='w-10 h-10 rounded-full grid place-items-center'>
-                      <ChevronLeftRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
+                      <MD3Icon
+                        name='ChevronLeftRounded'
+                        size='lg'
+                        className='text-[var(--color-neutral-900)]'
+                      />
                     </div>
                   </button>
                   <div className='relative ml-1'>
@@ -729,7 +744,11 @@ export function DatePickerInput({
                       <span className='text-body-sm font-medium text-[var(--color-neutral-700)]'>
                         {viewYear}
                       </span>
-                      <KeyboardArrowDownRounded className='w-[18px] h-[18px] text-[var(--color-neutral-700)]' />
+                      <MD3Icon
+                        name='KeyboardArrowDownRounded'
+                        size='md'
+                        className='text-[var(--color-neutral-700)]'
+                      />
                     </button>
                     {showYearMenu && (
                       <div className='absolute left-0 top-[calc(100%+4px)] z-10 w-28 max-h-60 overflow-auto bg-[var(--color-surface-popover)] rounded-[0.75rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)]'>
@@ -762,7 +781,11 @@ export function DatePickerInput({
                     onClick={nextYear}
                   >
                     <div className='w-10 h-10 rounded-full grid place-items-center'>
-                      <ChevronRightRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
+                      <MD3Icon
+                        name='ChevronRightRounded'
+                        size='lg'
+                        className='text-[var(--color-neutral-900)]'
+                      />
                     </div>
                   </button>
                 </div>

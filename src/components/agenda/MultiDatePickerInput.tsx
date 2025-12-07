@@ -1,8 +1,6 @@
 'use client'
 
-import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
-import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
-import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded'
+import { MD3Icon } from '@/components/icons/MD3Icon'
 import React from 'react'
 import { createPortal } from 'react-dom'
 
@@ -215,9 +213,10 @@ export function MultiDatePickerInput({
         }}
       >
         {formatSelectedDates()}
-        <KeyboardArrowDownRounded
+        <MD3Icon
+          name='KeyboardArrowDownRounded'
+          size='sm'
           className='absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-neutral-600)] pointer-events-none'
-          fontSize='small'
         />
       </button>
 
@@ -242,7 +241,11 @@ export function MultiDatePickerInput({
                   onClick={prevMonth}
                 >
                   <div className='w-10 h-10 rounded-full grid place-items-center'>
-                    <ChevronLeftRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
+                    <MD3Icon
+                      name='ChevronLeftRounded'
+                      size='lg'
+                      className='text-[var(--color-neutral-900)]'
+                    />
                   </div>
                 </button>
                 <div className='relative ml-1'>
@@ -257,7 +260,11 @@ export function MultiDatePickerInput({
                     <span className='text-body-sm font-medium text-[var(--color-neutral-700)]'>
                       {monthLabels[viewMonth]}
                     </span>
-                    <KeyboardArrowDownRounded className='w-[18px] h-[18px] text-[var(--color-neutral-700)]' />
+                    <MD3Icon
+                      name='KeyboardArrowDownRounded'
+                      size='md'
+                      className='text-[var(--color-neutral-700)]'
+                    />
                   </button>
                   {showMonthMenu && (
                     <div className='absolute left-0 top-[calc(100%+4px)] z-10 w-32 max-h-60 overflow-auto bg-[var(--color-surface-popover)] rounded-[0.75rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)]'>
@@ -287,7 +294,11 @@ export function MultiDatePickerInput({
                   onClick={nextMonth}
                 >
                   <div className='w-10 h-10 rounded-full grid place-items-center'>
-                    <ChevronRightRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
+                    <MD3Icon
+                      name='ChevronRightRounded'
+                      size='lg'
+                      className='text-[var(--color-neutral-900)]'
+                    />
                   </div>
                 </button>
               </div>
@@ -298,7 +309,11 @@ export function MultiDatePickerInput({
                   onClick={prevYear}
                 >
                   <div className='w-10 h-10 rounded-full grid place-items-center'>
-                    <ChevronLeftRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
+                    <MD3Icon
+                      name='ChevronLeftRounded'
+                      size='lg'
+                      className='text-[var(--color-neutral-900)]'
+                    />
                   </div>
                 </button>
                 <div className='relative ml-1'>
@@ -313,7 +328,11 @@ export function MultiDatePickerInput({
                     <span className='text-body-sm font-medium text-[var(--color-neutral-700)]'>
                       {viewYear}
                     </span>
-                    <KeyboardArrowDownRounded className='w-[18px] h-[18px] text-[var(--color-neutral-700)]' />
+                    <MD3Icon
+                      name='KeyboardArrowDownRounded'
+                      size='md'
+                      className='text-[var(--color-neutral-700)]'
+                    />
                   </button>
                   {showYearMenu && (
                     <div className='absolute left-0 top-[calc(100%+4px)] z-10 w-28 max-h-60 overflow-auto bg-[var(--color-surface-popover)] rounded-[0.75rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)]'>
@@ -346,7 +365,11 @@ export function MultiDatePickerInput({
                   onClick={nextYear}
                 >
                   <div className='w-10 h-10 rounded-full grid place-items-center'>
-                    <ChevronRightRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
+                    <MD3Icon
+                      name='ChevronRightRounded'
+                      size='lg'
+                      className='text-[var(--color-neutral-900)]'
+                    />
                   </div>
                 </button>
               </div>

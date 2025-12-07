@@ -3,10 +3,12 @@
 import React from 'react'
 import TopBar from './TopBar'
 import Sidebar from './Sidebar'
-import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
-import BarChartRounded from '@mui/icons-material/BarChartRounded'
-import BadgeRounded from '@mui/icons-material/BadgeRounded'
-import SellRounded from '@mui/icons-material/SellRounded'
+import {
+  BadgeRounded,
+  BarChartRounded,
+  CalendarMonthRounded,
+  SellRounded
+} from '@/components/icons/md3'
 import { LayoutProps } from '@/types/layout'
 
 export default function Layout({ children }: LayoutProps) {

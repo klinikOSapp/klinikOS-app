@@ -1,12 +1,6 @@
 'use client'
 
-import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
-import ArticleRounded from '@mui/icons-material/ArticleRounded'
-import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
-import EmailRounded from '@mui/icons-material/EmailRounded'
-import EuroRounded from '@mui/icons-material/EuroRounded'
-import MonitorHeartRounded from '@mui/icons-material/MonitorHeartRounded'
-import PhoneRounded from '@mui/icons-material/PhoneRounded'
+import { MD3Icon } from '@/components/icons/MD3Icon'
 import type { CSSProperties } from 'react'
 import type { EventDetail } from './types'
 
@@ -63,9 +57,10 @@ export default function AppointmentDetailOverlay({
         {/* Fecha y ubicación - top: 16px from Figma */}
         <OverlaySection
           icon={
-            <CalendarMonthRounded
+            <MD3Icon
+              name='CalendarMonthRounded'
+              size='inherit'
               className='text-[var(--color-neutral-600)]'
-              fontSize='inherit'
             />
           }
           label={detail.locationLabel}
@@ -85,9 +80,10 @@ export default function AppointmentDetailOverlay({
         {/* Paciente - top: 108px from Figma */}
         <OverlaySection
           icon={
-            <AccountCircleRounded
+            <MD3Icon
+              name='AccountCircleRounded'
+              size='inherit'
               className='text-[var(--color-neutral-600)]'
-              fontSize='inherit'
             />
           }
           label={detail.patientLabel}
@@ -101,9 +97,10 @@ export default function AppointmentDetailOverlay({
                 className='flex items-center text-sm font-normal text-[var(--color-neutral-900)] leading-5'
                 style={{ gap: 'var(--scheduler-overlay-contact-gap)' }}
               >
-                <PhoneRounded
+                <MD3Icon
+                  name='PhoneRounded'
+                  size={1}
                   className='text-[var(--color-neutral-600)]'
-                  sx={{ fontSize: '1rem' }}
                 />
                 <span>{detail.patientPhone}</span>
               </div>
@@ -113,9 +110,10 @@ export default function AppointmentDetailOverlay({
                 className='flex items-center text-sm font-normal text-[var(--color-neutral-900)] leading-5'
                 style={{ gap: 'var(--scheduler-overlay-contact-gap)' }}
               >
-                <EmailRounded
+                <MD3Icon
+                  name='EmailRounded'
+                  size={1}
                   className='text-[var(--color-neutral-600)]'
-                  sx={{ fontSize: '1rem' }}
                 />
                 <span>{detail.patientEmail}</span>
               </div>
@@ -136,9 +134,10 @@ export default function AppointmentDetailOverlay({
         {/* Profesional - top: 248px from Figma */}
         <OverlaySection
           icon={
-            <MonitorHeartRounded
+            <MD3Icon
+              name='MonitorHeartRounded'
+              size='inherit'
               className='text-[var(--color-neutral-600)]'
-              fontSize='inherit'
             />
           }
           label={detail.professionalLabel}
@@ -164,9 +163,10 @@ export default function AppointmentDetailOverlay({
         {(detail.economicAmount || detail.economicStatus) && (
           <OverlaySection
             icon={
-              <AccountCircleRounded
+              <MD3Icon
+                name='AccountCircleRounded'
+                size='inherit'
                 className='text-[var(--color-neutral-600)]'
-                fontSize='inherit'
               />
             }
             label={detail.economicLabel || 'Económico'}
@@ -177,10 +177,11 @@ export default function AppointmentDetailOverlay({
                   className='flex items-center text-sm font-normal text-[var(--color-neutral-900)] leading-5'
                   style={{ gap: 'var(--scheduler-overlay-contact-gap)' }}
                 >
-                  <EuroRounded
-                    className='text-[var(--color-neutral-600)]'
-                    sx={{ fontSize: '1rem' }}
-                  />
+                <MD3Icon
+                  name='EuroRounded'
+                  size={1}
+                  className='text-[var(--color-neutral-600)]'
+                />
                   <span>{detail.economicAmount}</span>
                 </div>
               )}
@@ -197,9 +198,10 @@ export default function AppointmentDetailOverlay({
         {detail.notes && (
           <OverlaySection
             icon={
-              <ArticleRounded
+              <MD3Icon
+                name='ArticleRounded'
+                size='inherit'
                 className='text-[var(--color-neutral-600)]'
-                fontSize='inherit'
               />
             }
             label={detail.notesLabel || 'Notas'}

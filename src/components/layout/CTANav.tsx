@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import AddRounded from '@mui/icons-material/AddRounded'
+import { AddRounded } from '@/components/icons/md3'
 
 export interface CTANavProps {
   label: string

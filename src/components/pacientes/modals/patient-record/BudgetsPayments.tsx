@@ -1,12 +1,14 @@
-import AddRounded from '@mui/icons-material/AddRounded'
-import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
-import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
-import CloseRounded from '@mui/icons-material/CloseRounded'
-import ElectricBoltRounded from '@mui/icons-material/ElectricBoltRounded'
-import FilterListRounded from '@mui/icons-material/FilterListRounded'
-import FirstPageRounded from '@mui/icons-material/FirstPageRounded'
-import LastPageRounded from '@mui/icons-material/LastPageRounded'
-import SearchRounded from '@mui/icons-material/SearchRounded'
+import {
+  AddRounded,
+  ChevronLeftRounded,
+  ChevronRightRounded,
+  CloseRounded,
+  ElectricBoltRounded,
+  FilterListRounded,
+  FirstPageRounded,
+  LastPageRounded,
+  SearchRounded
+} from '@/components/icons/md3'
 import React from 'react'
 import ProposalCreationModal from './ProposalCreationModal'
 import { QuickBudgetModal, type QuickBudgetOption } from './QuickBudgetModal'

@@ -11,11 +11,11 @@ export default function ProductionTotalCard({
 }: ProductionTotalCardProps) {
   return (
     <section
-      className='bg-brand-900 text-fg-inverse text-[var(--color-text-inverse)] rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 justify-self-stretch overflow-hidden'
+      className='bg-brand-900 text-fg-inverse text-[var(--color-text-inverse)] rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 overflow-hidden'
       style={{ width: 'min(var(--width-card-stat-fluid), 100%)' }}
     >
-      <div className='flex h-full flex-col gap-[min(1.46875rem,2.25vw)] p-[min(1rem,1.5vw)] text-[var(--color-text-inverse)]'>
-        <header className='flex shrink-0 items-baseline gap-[min(1rem,1.5vw)]'>
+      <div className='flex h-full flex-col gap-card-gap p-card-pad text-[var(--color-text-inverse)]'>
+        <header className='flex shrink-0 items-baseline gap-[1rem]'>
           <h3 className='text-title-sm font-medium text-[var(--color-text-inverse)]'>
             Producción total
           </h3>
@@ -23,15 +23,15 @@ export default function ProductionTotalCard({
             {periodLabel}
           </div>
         </header>
-        <div className='flex flex-wrap items-baseline gap-[min(1rem,1.5vw)] text-[var(--color-text-inverse)]'>
+        <div className='flex flex-wrap items-baseline gap-[1rem] text-[var(--color-text-inverse)]'>
           <div className='text-display-lg text-[var(--color-text-inverse)]'>
             {value}
           </div>
-          <div className='flex items-center gap-[min(0.5rem,1vw)]'>
+          <div className='flex items-center gap-card-row'>
             <span className='text-body-lg text-[var(--color-brand-500)]'>
               {delta}
             </span>
-            <span className='material-symbols-rounded text-[var(--color-brand-500)] text-[min(1.5rem,2vw)] leading-[min(1.5rem,2vw)]'>
+            <span className='material-symbols-rounded text-[var(--color-brand-500)] text-[1.5rem] leading-[1.5rem]'>
               arrow_outward
             </span>
           </div>

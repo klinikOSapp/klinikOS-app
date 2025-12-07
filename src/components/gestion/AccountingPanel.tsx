@@ -1,218 +1,235 @@
 import type { CSSProperties } from 'react'
 
-const CARD_WIDTH_BASE = 'var(--width-card-chart-lg-fluid)'
-const CARD_HEIGHT_BASE = 'var(--height-card-chart-fluid)'
+const CARD_WIDTH = 'var(--width-card-chart-lg-fluid)'
+const CARD_HEIGHT_CLAMP = 'clamp(18rem, 35vh, 24.6rem)'
 const CARD_WIDTH_LIMIT = 'var(--accounting-width-limit)'
 const CARD_HEIGHT_LIMIT = 'var(--accounting-height-limit)'
-const CARD_WIDTH_CLAMP = `min(${CARD_WIDTH_BASE}, ${CARD_WIDTH_LIMIT})`
-const CARD_HEIGHT_CLAMP = `min(${CARD_HEIGHT_BASE}, ${CARD_HEIGHT_LIMIT})`
 
-const columnHeightPx = 262
-const fixedOffsetPercent = `${((75 / columnHeightPx) * 100).toFixed(3)}%`
-const fixedHeightPercent = `${((187 / columnHeightPx) * 100).toFixed(3)}%`
-const variableOffsetPercent = `${((154 / columnHeightPx) * 100).toFixed(3)}%`
-const variableHeightPercent = `${((108 / columnHeightPx) * 100).toFixed(3)}%`
-
-const widthValue = (px: number) => {
+const toWidth = (px: number) => {
   const ratio = (px / 1069).toFixed(6)
-  return `min(calc(${CARD_WIDTH_BASE} * ${ratio}), calc(${CARD_WIDTH_LIMIT} * ${ratio}))`
+  return `min(calc(${CARD_WIDTH} * ${ratio}), calc(${CARD_WIDTH_LIMIT} * ${ratio}))`
 }
 
-const heightValue = (px: number) => {
+const toHeight = (px: number) => {
   const ratio = (px / 342).toFixed(6)
-  return `min(calc(${CARD_HEIGHT_BASE} * ${ratio}), calc(${CARD_HEIGHT_LIMIT} * ${ratio}))`
+  return `min(calc(${CARD_HEIGHT_CLAMP} * ${ratio}), calc(${CARD_HEIGHT_LIMIT} * ${ratio}))`
 }
+
+const KPI_CARDS = [
+  {
+    title: 'Producido',
+    value: '1.200 €',
+    delta: '+ 12%',
+    bg: 'var(--color-info-50)',
+    icon: 'savings',
+    left: 16,
+    top: 64,
+    width: 198
+  },
+  {
+    title: 'Facturado',
+    value: '1.200 €',
+    delta: '+ 12%',
+    bg: 'var(--color-brand-50)',
+    icon: 'receipt_long',
+    left: 236,
+    top: 64,
+    width: 198
+  },
+  {
+    title: 'Cobrado',
+    value: '1.200 €',
+    delta: '+ 12%',
+    bg: 'var(--color-brand-50)',
+    icon: 'check',
+    left: 16,
+    top: 196,
+    width: 198
+  },
+  {
+    title: 'Sin facturar',
+    value: '-1.200 €',
+    delta: '+ 12%',
+    bg: 'var(--color-warning-50)',
+    icon: 'savings',
+    left: 236,
+    top: 196,
+    width: 204
+  }
+] as const
+
+const SIDE_STACK = [
+  {
+    title: 'Total facturación',
+    value: '60.000 €',
+    top: 64,
+    height: 248,
+    bg: 'var(--color-brand-50)',
+    percent: undefined,
+    textClass: 'text-fg-secondary'
+  },
+  {
+    title: 'Gastos fijos',
+    value: '36.000 €',
+    top: 135,
+    height: 177,
+    bg: 'var(--color-brand-200)',
+    percent: '62%',
+    textClass: 'text-fg-secondary'
+  },
+  {
+    title: 'Gastos Variables',
+    value: '18.000 €',
+    top: 210,
+    height: 102,
+    bg: 'var(--color-brand-500)',
+    percent: '32%',
+    textClass: 'text-fg-inverse'
+  }
+] as const
+
+const DONUT_VIEWBOX = { width: 200, height: 120 }
+const DONUT_RADIUS = 90
+const DONUT_PROGRESS = 1200 / 1800
 
 export default function AccountingPanel() {
-  const cardStyles: CSSProperties = {
-    width: CARD_WIDTH_CLAMP,
-    height: CARD_HEIGHT_CLAMP
+  const sectionStyle: CSSProperties = {
+    width: `min(${CARD_WIDTH}, ${CARD_WIDTH_LIMIT})`,
+    height: `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`
   }
 
-  const headerStyles: CSSProperties = {
-    left: widthValue(16),
-    right: widthValue(16),
-    top: heightValue(16)
-  }
-
-  const columnStyles: CSSProperties = {
-    left: widthValue(16),
-    top: heightValue(56),
-    width: widthValue(214),
-    height: heightValue(columnHeightPx)
-  }
-
-  const summaryStyles: CSSProperties = {
-    left: widthValue(266),
-    top: heightValue(56),
-    width: widthValue(240),
-    height: heightValue(120)
-  }
-
-  const fixedCardStyles: CSSProperties = {
-    left: widthValue(535),
-    top: heightValue(56),
-    width: widthValue(240),
-    height: heightValue(240)
-  }
-
-  const variableCardStyles: CSSProperties = {
-    left: widthValue(804),
-    top: heightValue(56),
-    width: widthValue(240),
-    height: heightValue(212)
-  }
+  const pathLength = Math.PI * DONUT_RADIUS
+  const donutDashoffset = pathLength * (1 - DONUT_PROGRESS)
 
   return (
     <section
       className='relative overflow-clip rounded-lg bg-surface shadow-elevation-card'
-      style={cardStyles}
+      style={sectionStyle}
     >
       <header
-        className='absolute flex items-center text-title-sm font-medium text-fg'
-        style={headerStyles}
+        className='absolute flex items-baseline justify-between text-title-sm font-medium text-fg'
+        style={{
+          left: toWidth(16),
+          right: toWidth(16),
+          top: toHeight(16)
+        }}
       >
-        <h3>Contabilidad</h3>
+        <span>Ingresos</span>
+        <button
+          type='button'
+          className='flex items-center gap-card-metric text-label-md text-fg'
+        >
+          2024
+          <span className='material-symbols-rounded text-[1rem] leading-none'>
+            arrow_drop_down
+          </span>
+        </button>
       </header>
 
-      {/* Left stacked column */}
-      <div className='absolute' style={columnStyles}>
-        <div className='relative h-full'>
-          <div className='absolute inset-x-0 top-0 bottom-0 overflow-clip rounded-t-2xl bg-surface-accent'>
-            <div className='flex h-full flex-col justify-between p-gapsm text-fg-secondary'>
-              <p className='text-label-sm'>Total facturación</p>
-              <p className='text-title-sm font-medium text-right'>60.000 €</p>
-            </div>
+      {KPI_CARDS.map((card) => (
+        <article
+          key={card.title}
+          className='absolute flex flex-col rounded-lg p-card-pad'
+          style={{
+            left: toWidth(card.left),
+            top: toHeight(card.top),
+            width: toWidth(card.width),
+            height: toHeight(116),
+            backgroundColor: card.bg
+          }}
+        >
+          <header className='flex items-center justify-between text-label-md text-fg-secondary'>
+            <span className='material-symbols-rounded text-fg text-[1.25rem]'>
+              {card.icon}
+            </span>
+            <span className='text-[0.6875rem] font-medium leading-4 text-fg-secondary'>
+              Hoy
+            </span>
+          </header>
+          <div className='mt-gapsm text-label-md text-fg-secondary'>{card.title}</div>
+          <div className='mt-[0.25rem] text-headline-sm text-fg-secondary'>
+            {card.value}
           </div>
-
-          <div
-            className='absolute left-0 right-0 overflow-clip rounded-t-2xl bg-brand-200'
-            style={{ top: fixedOffsetPercent, height: fixedHeightPercent }}
-          >
-            <div className='flex h-full flex-col justify-between p-gapsm text-fg-secondary'>
-              <div className='flex items-center justify-between text-label-sm'>
-                <span>Gastos fijos</span>
-                <span className='font-medium'>62%</span>
-              </div>
-              <p className='text-title-sm font-medium text-right'>36.000 €</p>
-            </div>
+          <div className='mt-[0.25rem] flex items-center gap-card-metric'>
+            <span className='text-body-sm text-brandSemantic'>{card.delta}</span>
+            <span className='material-symbols-rounded text-[1rem] leading-none text-brandSemantic'>
+              arrow_outward
+            </span>
           </div>
+        </article>
+      ))}
 
-          <div
-            className='absolute left-0 right-0 overflow-clip bg-brandSemantic'
-            style={{
-              top: variableOffsetPercent,
-              height: variableHeightPercent
-            }}
+      <div
+        className='absolute rounded-lg bg-surface shadow-[0px_4px_24px_rgba(36,40,44,0.08)]'
+        style={{
+          left: toWidth(464),
+          top: toHeight(64),
+          width: toWidth(400),
+          height: toHeight(248),
+          padding: '1rem'
+        }}
+      >
+        <p className='text-label-md text-fg-secondary'>Facturado</p>
+        <div
+          className='relative mx-auto mt-[1rem] flex items-center justify-center'
+          style={{
+            width: toWidth(307),
+            height: toHeight(210)
+          }}
+        >
+          <svg
+            viewBox={`0 0 ${DONUT_VIEWBOX.width} ${DONUT_VIEWBOX.height}`}
+            className='h-full w-full'
           >
-            <div className='flex h-full flex-col justify-between p-gapsm text-fg-inverse'>
-              <div className='flex items-center justify-between text-label-sm'>
-                <span>Gastos Variables</span>
-                <span className='font-medium'>32%</span>
-              </div>
-              <p className='text-title-sm font-medium text-right'>18.000 €</p>
-            </div>
+            <path
+              d='M10 110 A90 90 0 0 1 190 110'
+              stroke='var(--color-brand-50)'
+              strokeWidth={20}
+              strokeLinecap='round'
+              fill='transparent'
+            />
+            <path
+              d='M10 110 A90 90 0 0 1 190 110'
+              stroke='var(--color-brand-500)'
+              strokeWidth={20}
+              strokeLinecap='round'
+              fill='transparent'
+              strokeDasharray={pathLength}
+              strokeDashoffset={donutDashoffset}
+            />
+          </svg>
+          <div className='absolute flex flex-col items-center gap-card-row text-center'>
+            <p className='text-headline-lg text-fg-secondary'>1.200 €</p>
+            <p className='text-label-md text-fg-secondary'>
+              de <span className='font-medium'>1.800 €</span>
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Resumen del mes */}
-      <div
-        className='absolute border border-border rounded-2xl bg-surface p-fluid-sm'
-        style={summaryStyles}
-      >
-        <h3 className='text-title-sm font-medium text-fg mb-fluid-sm'>
-          Resumen del mes
-        </h3>
-        <dl className='space-y-gapsm'>
-          <div className='flex justify-between text-label-sm text-fg'>
-            <dt>Facturado:</dt>
-            <dd className='text-body-sm'>60.000 €</dd>
+      {SIDE_STACK.map((item) => (
+        <div
+          key={item.title}
+          className='absolute rounded-[1rem] px-card-pad py-card-pad'
+          style={{
+            left: toWidth(880),
+            top: toHeight(item.top),
+            width: toWidth(173),
+            height: toHeight(item.height),
+            backgroundColor: item.bg
+          }}
+        >
+          <div className='flex items-center justify-between text-label-md'>
+            <span className={item.textClass}>{item.title}</span>
+            {item.percent ? (
+              <span className={`${item.textClass} font-medium`}>{item.percent}</span>
+            ) : null}
           </div>
-          <div className='flex justify-between text-label-sm text-fg'>
-            <dt>Gastos totales:</dt>
-            <dd className='text-body-sm'>-30.000 €</dd>
-          </div>
-        </dl>
-      </div>
-
-      {/* Gastos fijos */}
-      <div
-        className='absolute border border-border rounded-2xl bg-surface p-fluid-sm'
-        style={fixedCardStyles}
-      >
-        <h3 className='text-title-sm font-medium text-fg mb-fluid-sm'>
-          Gastos fijos
-        </h3>
-        <dl className='flex h-full flex-col justify-between'>
-          <div className='space-y-gapsm'>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Nóminas:</dt>
-              <dd className='text-body-sm'>15.000 €</dd>
-            </div>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Alquiler:</dt>
-              <dd className='text-body-sm'>3.000 €</dd>
-            </div>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Servicios:</dt>
-              <dd className='text-body-sm'>500 €</dd>
-            </div>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Seguros:</dt>
-              <dd className='text-body-sm'>300 €</dd>
-            </div>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Otros:</dt>
-              <dd className='text-body-sm'>200 €</dd>
-            </div>
-          </div>
-          <div>
-            <div className='my-gapsm h-px bg-border' />
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Total</dt>
-              <dd className='text-body-sm'>18.500 €</dd>
-            </div>
-          </div>
-        </dl>
-      </div>
-
-      {/* Gastos variables */}
-      <div
-        className='absolute border border-border rounded-2xl bg-surface p-fluid-sm'
-        style={variableCardStyles}
-      >
-        <h3 className='text-title-sm font-medium text-fg mb-fluid-sm'>
-          Gastos variables
-        </h3>
-        <dl className='flex h-full flex-col justify-between'>
-          <div className='space-y-gapsm'>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Implantes:</dt>
-              <dd className='text-body-sm'>8.000 €</dd>
-            </div>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Mat. conservadora:</dt>
-              <dd className='text-body-sm'>2.500 €</dd>
-            </div>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Mat. Ortodoncia:</dt>
-              <dd className='text-body-sm'>1.000 €</dd>
-            </div>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Otros:</dt>
-              <dd className='text-body-sm'>200 €</dd>
-            </div>
-          </div>
-          <div>
-            <div className='my-gapsm h-px bg-border' />
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Total</dt>
-              <dd className='text-body-sm'>11.500 €</dd>
-            </div>
-          </div>
-        </dl>
-      </div>
+          <p className={`mt-[1.75rem] text-headline-sm font-medium ${item.textClass}`}>
+            {item.value}
+          </p>
+        </div>
+      ))}
     </section>
   )
 }

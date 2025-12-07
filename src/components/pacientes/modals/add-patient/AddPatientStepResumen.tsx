@@ -1,9 +1,6 @@
 'use client'
 
-import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded'
-import CancelRounded from '@mui/icons-material/CancelRounded'
-import MailOutlineRounded from '@mui/icons-material/MailOutlineRounded'
-import PhoneRounded from '@mui/icons-material/PhoneRounded'
+import { MD3Icon } from '@/components/icons/MD3Icon'
 
 type Props = {
   // Datos básicos
@@ -40,13 +37,21 @@ export default function AddPatientStepResumen({
             {fullName}
           </p>
           <div className='flex items-center gap-2'>
-            <MailOutlineRounded className='size-6 text-[var(--color-neutral-900)]' />
+            <MD3Icon
+              name='MailOutlineRounded'
+              size='md'
+              className='text-[var(--color-neutral-900)]'
+            />
             <p className='text-body-md text-[var(--color-neutral-900)]'>
               {email || 'Email no proporcionado'}
             </p>
           </div>
           <div className='flex items-center gap-2'>
-            <PhoneRounded className='size-6 text-[var(--color-neutral-900)]' />
+            <MD3Icon
+              name='PhoneRounded'
+              size='md'
+              className='text-[var(--color-neutral-900)]'
+            />
             <p className='text-body-md text-[var(--color-neutral-900)]'>
               {telefono || 'Teléfono no proporcionado'}
             </p>
@@ -134,20 +139,16 @@ function ResumenItem({
       style={{ top }}
     >
       {showCheck ? (
-        <CheckCircleRounded 
-          style={{
-            width: 24,
-            height: 24,
-            color: 'var(--color-brand-500)'
-          }}
+        <MD3Icon
+          name='CheckCircleRounded'
+          size='lg'
+          className='text-[var(--color-brand-500)]'
         />
       ) : (
-        <CancelRounded
-          style={{
-            width: 24,
-            height: 24,
-            color: 'var(--color-neutral-900)'
-          }}
+        <MD3Icon
+          name='CancelRounded'
+          size='lg'
+          className='text-[var(--color-neutral-900)]'
         />
       )}
       <span className='text-body-md text-[var(--color-neutral-900)]'>

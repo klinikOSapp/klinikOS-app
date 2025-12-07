@@ -1,27 +1,21 @@
 'use client'
 
-import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
-import ArrowBackIosNewRounded from '@mui/icons-material/ArrowBackIosNewRounded'
-import ArrowForwardIosRounded from '@mui/icons-material/ArrowForwardIosRounded'
-import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
-import CheckRounded from '@mui/icons-material/CheckRounded'
-import DescriptionRounded from '@mui/icons-material/DescriptionRounded'
-import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded'
-import MonitorHeartRounded from '@mui/icons-material/MonitorHeartRounded'
-import PrintRounded from '@mui/icons-material/PrintRounded'
+import { MD3Icon } from '@/components/icons/MD3Icon'
 import type {
   CSSProperties,
   MouseEvent as ReactMouseEvent,
   ReactElement
 } from 'react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
-import AppointmentDetailOverlay from './AppointmentDetailOverlay'
+import type { AppointmentFormData } from './modals/CreateAppointmentModal'
+
+import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
 import AppointmentSummaryCard from './AppointmentSummaryCard'
-import CreateAppointmentModal from './CreateAppointmentModal'
+import CreateAppointmentModal from './modals/CreateAppointmentModal'
 import DayCalendar from './DayCalendar'
 import MonthCalendar from './MonthCalendar'
-import ParteDiarioModal from './ParteDiarioModal'
+import ParteDiarioModal from './modals/ParteDiarioModal'
 import type {
   AgendaEvent,
   DayColumn,
@@ -65,6 +59,23 @@ const TIME_LABELS = [
   '19:30',
   '20:00'
 ]
+
+const WEEKDAY_ORDER: Weekday[] = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday'
+]
+
+const normalizeTimeLabel = (label: string): string => {
+  const [hoursPart = '00', minutesPart = '00'] = label.split(':')
+  const hours = hoursPart.padStart(2, '0')
+  const minutes = minutesPart.padStart(2, '0')
+  return `${hours}:${minutes}`
+}
 
 const HEADER_CELLS: HeaderCell[] = [
   {
@@ -401,9 +412,9 @@ function NavigationArrow({
       className='h-[2.5rem] w-[3.5rem] rounded-full border border-[var(--color-border-default)] bg-[var(--color-neutral-50)] text-[var(--color-neutral-600)] transition-colors duration-150 hover:bg-[var(--color-brand-0)]'
     >
       {direction === 'previous' ? (
-        <ArrowBackIosNewRounded fontSize='small' />
+        <MD3Icon name='ArrowBackIosNewRounded' size='sm' />
       ) : (
-        <ArrowForwardIosRounded fontSize='small' />
+        <MD3Icon name='ArrowForwardIosRounded' size='sm' />
       )}
     </button>
   )
@@ -458,9 +469,10 @@ function ToolbarChip({
   const iconNode =
     icon ??
     (
-      <ArrowForwardIosRounded
+      <MD3Icon
+        name='ArrowForwardIosRounded'
+        size='inherit'
         className='text-[var(--color-neutral-400)]'
-        fontSize='inherit'
       />
     )
 
@@ -631,7 +643,7 @@ function MultiSelectDropdown({
               ].join(' ')}
             >
               {isChecked ? (
-                <CheckRounded sx={{ fontSize: '1rem' }} />
+                <MD3Icon name='CheckRounded' size={1} />
               ) : null}
             </span>
             <span className='text-nowrap'>{option.label}</span>
@@ -713,18 +725,25 @@ function TimeColumn() {
 }
 
 
+type DaySlotSelection = {
+  column: DayColumn
+  slotIndex: number
+}
+
 function DayGrid({
   column,
   activeSelection,
   hoveredId,
   onHover,
-  onActivate
+  onActivate,
+  onSlotSelect
 }: {
   column: DayColumn
   activeSelection: EventSelection
   hoveredId?: string | null
   onHover: (selection: EventSelection) => void
   onActivate: (selection: EventSelection) => void
+  onSlotSelect?: (selection: DaySlotSelection) => void
 }) {
   // Domingo con patrón de puntos SVG
   const isSunday = column.id === 'sunday'
@@ -738,6 +757,27 @@ function DayGrid({
       }
     : {}
 
+  const handleGridClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!onSlotSelect) return
+    const target = event.target as HTMLElement | null
+    if (target && target.closest('[data-appointment-card="true"]')) {
+      return
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect()
+    if (rect.height <= 0) return
+
+    const relativeY = event.clientY - rect.top
+    const slotHeight = rect.height / TIME_LABELS.length
+    if (slotHeight <= 0) return
+
+    const rawIndex = Math.floor(relativeY / slotHeight)
+    const slotIndex = Math.min(Math.max(rawIndex, 0), TIME_LABELS.length - 1)
+
+    event.stopPropagation()
+    onSlotSelect({ column, slotIndex })
+  }
+
   return (
     <div
       className={`absolute border-r border-[var(--color-border-default)] ${isSunday ? '' : 'bg-[var(--color-neutral-0)]'}`}
@@ -748,6 +788,7 @@ function DayGrid({
         height: '100%',
         ...sundayStyle
       }}
+      onClick={handleGridClick}
     >
       {/* Líneas horizontales para cada media hora */}
       <div
@@ -812,6 +853,9 @@ export default function WeekScheduler() {
   >(null)
   const [isParteDiarioModalOpen, setIsParteDiarioModalOpen] = useState(false)
   const [isCreateAppointmentModalOpen, setIsCreateAppointmentModalOpen] = useState(false)
+  const [appointmentPrefill, setAppointmentPrefill] = useState<
+    Partial<AppointmentFormData> | null
+  >(null)
 
   // Week navigation state - starts with current week
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
@@ -1034,6 +1078,38 @@ export default function WeekScheduler() {
     setOpenDropdown(null)
   }
 
+  const openCreateAppointmentModal = useCallback(
+    (prefill?: Partial<AppointmentFormData>) => {
+      setAppointmentPrefill(prefill ?? null)
+      setIsCreateAppointmentModalOpen(true)
+    },
+    []
+  )
+
+  const handleCreateModalClose = useCallback(() => {
+    setIsCreateAppointmentModalOpen(false)
+    setAppointmentPrefill(null)
+  }, [])
+
+  const handleDaySlotSelect = useCallback(
+    ({ column, slotIndex }: DaySlotSelection) => {
+      const dayOffset = WEEKDAY_ORDER.indexOf(column.id)
+      const safeOffset = dayOffset >= 0 ? dayOffset : 0
+      const slotLabel =
+        TIME_LABELS[Math.min(Math.max(slotIndex, 0), TIME_LABELS.length - 1)]
+      const normalizedTime = normalizeTimeLabel(slotLabel)
+
+      const slotDate = new Date(currentWeekStart)
+      slotDate.setDate(currentWeekStart.getDate() + safeOffset)
+
+      openCreateAppointmentModal({
+        fecha: slotDate.toLocaleDateString('en-CA'),
+        hora: normalizedTime
+      })
+    },
+    [currentWeekStart, openCreateAppointmentModal]
+  )
+
   return (
     <section
       className='relative flex h-full w-full flex-col rounded-tl-[var(--radius-xl)] border border-[var(--color-border-default)] bg-[var(--color-neutral-50)]'
@@ -1080,9 +1156,10 @@ export default function WeekScheduler() {
                 onClick={handleViewChipClick}
                 isActive={openDropdown === 'view'}
                 icon={
-                  <KeyboardArrowDownRounded
+                  <MD3Icon
+                    name='KeyboardArrowDownRounded'
+                    size='inherit'
                     className='text-[var(--color-neutral-400)]'
-                    fontSize='inherit'
                   />
                 }
                 ariaExpanded={openDropdown === 'view'}
@@ -1103,9 +1180,10 @@ export default function WeekScheduler() {
                 onClick={handleProfessionalChipClick}
                 isActive={openDropdown === 'professional'}
                 icon={
-                  <KeyboardArrowDownRounded
+                  <MD3Icon
+                    name='KeyboardArrowDownRounded'
+                    size='inherit'
                     className='text-[var(--color-neutral-400)]'
-                    fontSize='inherit'
                   />
                 }
                 ariaExpanded={openDropdown === 'professional'}
@@ -1128,9 +1206,10 @@ export default function WeekScheduler() {
                   onClick={handleBoxChipClick}
                   isActive={openDropdown === 'box'}
                   icon={
-                    <KeyboardArrowDownRounded
+                    <MD3Icon
+                      name='KeyboardArrowDownRounded'
+                      size='inherit'
                       className='text-[var(--color-neutral-400)]'
-                      fontSize='inherit'
                     />
                   }
                   ariaExpanded={openDropdown === 'box'}
@@ -1153,9 +1232,10 @@ export default function WeekScheduler() {
           <ToolbarAction
             label='Parte diario'
             icon={
-              <DescriptionRounded
+              <MD3Icon
+                name='DescriptionRounded'
+                size='sm'
                 className='text-[var(--color-neutral-600)]'
-                fontSize='small'
               />
             }
             onClick={() => setIsParteDiarioModalOpen(true)}
@@ -1163,14 +1243,15 @@ export default function WeekScheduler() {
           <ToolbarAction
             label='Imprimir'
             icon={
-              <PrintRounded
+              <MD3Icon
+                name='PrintRounded'
+                size='sm'
                 className='text-[var(--color-neutral-600)]'
-                fontSize='small'
               />
             }
           />
           <button
-            onClick={() => setIsCreateAppointmentModalOpen(true)}
+            onClick={() => openCreateAppointmentModal()}
             className='flex items-center gap-2 rounded-full bg-brand-500 px-4 py-2 transition-all hover:bg-brand-600 active:scale-95'
           >
             <span className='material-symbols-rounded text-xl text-brand-900'>
@@ -1213,6 +1294,7 @@ export default function WeekScheduler() {
               onActivate={handleActivate}
               activeSelection={active}
               hoveredId={hovered?.event.id}
+              onSlotSelect={handleDaySlotSelect}
             />
           ))}
 
@@ -1251,9 +1333,10 @@ export default function WeekScheduler() {
                     {/* Fecha y ubicación */}
                     <div className='flex flex-col gap-1'>
                       <div className='flex items-center gap-1'>
-                        <CalendarMonthRounded
+                        <MD3Icon
+                          name='CalendarMonthRounded'
+                          size={1}
                           className='text-[var(--color-neutral-600)]'
-                          sx={{ fontSize: '1rem' }}
                         />
                         <p className='text-label-md font-normal text-[var(--color-neutral-600)]'>
                           Fecha y ubicación
@@ -1267,9 +1350,10 @@ export default function WeekScheduler() {
                     {/* Paciente */}
                     <div className='flex flex-col gap-1'>
                       <div className='flex items-center gap-1'>
-                        <AccountCircleRounded
+                        <MD3Icon
+                          name='AccountCircleRounded'
+                          size={1}
                           className='text-[var(--color-neutral-600)]'
-                          sx={{ fontSize: '1rem' }}
                         />
                         <p className='text-label-md font-normal text-[var(--color-neutral-600)]'>
                           Paciente
@@ -1283,9 +1367,10 @@ export default function WeekScheduler() {
                     {/* Profesional */}
                     <div className='flex flex-col gap-1'>
                       <div className='flex items-center gap-1'>
-                        <MonitorHeartRounded
+                        <MD3Icon
+                          name='MonitorHeartRounded'
+                          size={1}
                           className='text-[var(--color-neutral-600)]'
-                          sx={{ fontSize: '1rem' }}
                         />
                         <p className='text-label-md font-normal text-[var(--color-neutral-600)]'>
                           Profesional
@@ -1331,10 +1416,11 @@ export default function WeekScheduler() {
       {/* Create Appointment Modal */}
       <CreateAppointmentModal
         isOpen={isCreateAppointmentModalOpen}
-        onClose={() => setIsCreateAppointmentModalOpen(false)}
+        onClose={handleCreateModalClose}
+        initialData={appointmentPrefill ?? undefined}
         onSubmit={(data) => {
           console.log('Nueva cita creada:', data)
-          setIsCreateAppointmentModalOpen(false)
+          handleCreateModalClose()
           // TODO: Integrar con backend para guardar la cita
         }}
       />

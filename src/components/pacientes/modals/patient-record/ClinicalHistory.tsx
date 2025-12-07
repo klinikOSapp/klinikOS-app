@@ -1,13 +1,16 @@
 'use client'
-import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
-import AddRounded from '@mui/icons-material/AddRounded'
-import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
-import CloseRounded from '@mui/icons-material/CloseRounded'
-import DownloadRounded from '@mui/icons-material/DownloadRounded'
-import EditRounded from '@mui/icons-material/EditRounded'
-import ImageRounded from '@mui/icons-material/ImageRounded'
-import PlaceRounded from '@mui/icons-material/PlaceRounded'
+
 import React from 'react'
+import {
+  AccountCircleRounded,
+  AddRounded,
+  CalendarMonthRounded,
+  CloseRounded,
+  DownloadRounded,
+  EditRounded,
+  ImageRounded,
+  PlaceRounded
+} from '@/components/icons/md3'
 import SelectorCard from '@/components/pacientes/SelectorCard'
 
 type ClinicalHistoryProps = {
