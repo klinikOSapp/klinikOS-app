@@ -131,33 +131,42 @@ const APPOINTMENT_COLORS: Record<string, string> = {
   default: '#f5f5f5'
 }
 
+const tzFormatter = new Intl.DateTimeFormat('en-GB', {
+  timeZone: DEFAULT_TIMEZONE,
+  hour: 'numeric',
+  minute: 'numeric',
+  hour12: false
+})
+
+function getHoursMinutesInClinicTZ(timeStr: string) {
+  const parts = tzFormatter.formatToParts(new Date(timeStr))
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0')
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0')
+  return { hour, minute }
+}
+
 // Helper to convert time to slot position (based on 9:00 start, 30min slots)
 function timeToSlotPosition(timeStr: string): string {
-  const date = new Date(timeStr)
-  const hours = date.getHours()
-  const minutes = date.getMinutes()
+  const { hour, minute } = getHoursMinutesInClinicTZ(timeStr)
   
-  // Calculate slots from 9:00 (each slot is 30 min = 2.875rem height)
-  const slotHeight = 2.875 // rem per 30 min slot
+  // Calculate slots from 9:00 (each slot is 30 min; height comes from CSS var)
   const startHour = 9
-  const totalMinutesFrom9 = (hours - startHour) * 60 + minutes
+  const totalMinutesFrom9 = (hour - startHour) * 60 + minute
   const slots = totalMinutesFrom9 / 30
   
-  return `${Math.max(0, slots * slotHeight)}rem`
+  return `calc(${Math.max(0, slots)} * var(--scheduler-slot-height-half))`
 }
 
 // Helper to calculate event height based on duration
 function durationToHeight(startStr: string, endStr: string | null): string {
-  if (!endStr) return '2.875rem' // Default 30 min
+  if (!endStr) return 'calc(1 * var(--scheduler-slot-height-half))' // Default 30 min
   
   const start = new Date(startStr)
   const end = new Date(endStr)
   const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60)
   
-  // Each 30 min = 2.875rem
-  const slotHeight = 2.875
   const slots = durationMinutes / 30
-  return `${Math.max(2.875, slots * slotHeight)}rem`
+  return `calc(${Math.max(1, slots)} * var(--scheduler-slot-height-half))`
 }
 
 // Helper to format time range
@@ -441,6 +450,7 @@ interface DayCalendarProps {
   clinicId?: string | null
   selectedBoxes?: string[]
   boxes?: DbBox[] // Pass boxes from parent to avoid duplicate fetching
+  canManageAppointments?: boolean
 }
 
 export default function DayCalendar({ 
@@ -448,7 +458,8 @@ export default function DayCalendar({
   currentDate,
   clinicId: propClinicId,
   selectedBoxes: propSelectedBoxes,
-  boxes: propBoxes
+  boxes: propBoxes,
+  canManageAppointments = false
 }: DayCalendarProps) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   
@@ -692,7 +703,9 @@ export default function DayCalendar({
             professional: 'Por asignar',
             locationLabel: 'Fecha y ubicación',
             patientLabel: 'Paciente',
-            professionalLabel: 'Profesional'
+            professionalLabel: 'Profesional',
+            appointmentHoldId: hold.id,
+            appointmentStatus: hold.status
           }
         })
       }
@@ -839,6 +852,24 @@ export default function DayCalendar({
             detail={activeDetail}
             box={overlaySource.event.box || ''}
             position={position}
+            onCancelHold={
+              canManageAppointments && activeDetail.appointmentHoldId
+                ? async (holdId: number) => {
+                    await supabase.from('appointment_holds').delete().eq('id', holdId)
+                    setRefreshKey((k) => k + 1)
+                    setActive(null)
+                  }
+                : undefined
+            }
+            onConfirmHold={
+              canManageAppointments && activeDetail.appointmentHoldId
+                ? async (holdId: number) => {
+                    await supabase.from('appointment_holds').update({ status: 'confirmed' }).eq('id', holdId)
+                    setRefreshKey((k) => k + 1)
+                    setActive(null)
+                  }
+                : undefined
+            }
           />
         )
       })()}

@@ -4,6 +4,7 @@ import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
 import ArticleRounded from '@mui/icons-material/ArticleRounded'
 import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
 import CancelRounded from '@mui/icons-material/CancelRounded'
+import CheckRounded from '@mui/icons-material/CheckRounded'
 import EditRounded from '@mui/icons-material/EditRounded'
 import EmailRounded from '@mui/icons-material/EmailRounded'
 import EuroRounded from '@mui/icons-material/EuroRounded'
@@ -21,6 +22,10 @@ export interface AppointmentDetailOverlayProps {
   onModify?: (appointmentId: number) => void
   onCancel?: (appointmentId: number) => void
   onAssignStaff?: (appointmentId: number) => void
+  // Hold handlers
+  onCancelHold?: (holdId: number) => void
+  onConfirmHold?: (holdId: number) => void
+  onModifyHold?: (holdId: number) => void
   // Permissions
   canModify?: boolean
   canCancel?: boolean
@@ -39,11 +44,17 @@ export default function AppointmentDetailOverlay({
   onModify,
   onCancel,
   onAssignStaff,
+  onCancelHold,
+  onConfirmHold,
+  onModifyHold,
   canModify = false,
   canCancel = false,
   canAssignStaff = false
 }: AppointmentDetailOverlayProps) {
-  const hasActions = (canModify || canCancel || canAssignStaff) && detail.appointmentId
+  const isHold = Boolean(detail.appointmentHoldId)
+  const hasActions =
+    (isHold && (onCancelHold || onConfirmHold || onModifyHold)) ||
+    ((canModify || canCancel || canAssignStaff) && detail.appointmentId)
   
   return (
     <div
@@ -72,7 +83,7 @@ export default function AppointmentDetailOverlay({
       {/* Action Buttons - Only shown for users with permissions */}
       {hasActions && (
         <div className='flex items-center gap-2 border-b border-[var(--color-border-default)] px-[var(--scheduler-overlay-body-pad-x)] py-2'>
-          {canModify && detail.appointmentStatus !== 'cancelled' && (
+          {detail.appointmentId && canModify && detail.appointmentStatus !== 'cancelled' && (
             <button
               type='button'
               onClick={() => detail.appointmentId && onModify?.(detail.appointmentId)}
@@ -82,7 +93,17 @@ export default function AppointmentDetailOverlay({
               <span>Modificar</span>
             </button>
           )}
-          {canCancel && detail.appointmentStatus !== 'cancelled' && (
+          {detail.appointmentHoldId && onModifyHold && (
+            <button
+              type='button'
+              onClick={() => detail.appointmentHoldId && onModifyHold(detail.appointmentHoldId)}
+              className='flex items-center gap-1.5 rounded-md bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-100'
+            >
+              <EditRounded sx={{ fontSize: '1rem' }} />
+              <span>Modificar</span>
+            </button>
+          )}
+          {detail.appointmentId && canCancel && detail.appointmentStatus !== 'cancelled' && (
             <button
               type='button'
               onClick={() => detail.appointmentId && onCancel?.(detail.appointmentId)}
@@ -92,7 +113,27 @@ export default function AppointmentDetailOverlay({
               <span>Cancelar</span>
             </button>
           )}
-          {canAssignStaff && detail.appointmentStatus !== 'cancelled' && (
+          {detail.appointmentHoldId && onCancelHold && (
+            <button
+              type='button'
+              onClick={() => detail.appointmentHoldId && onCancelHold(detail.appointmentHoldId)}
+              className='flex items-center gap-1.5 rounded-md bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-100'
+            >
+              <CancelRounded sx={{ fontSize: '1rem' }} />
+              <span>Cancelar</span>
+            </button>
+          )}
+          {detail.appointmentHoldId && onConfirmHold && (
+            <button
+              type='button'
+              onClick={() => detail.appointmentHoldId && onConfirmHold(detail.appointmentHoldId)}
+              className='flex items-center gap-1.5 rounded-md bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700 transition-colors hover:bg-green-100'
+            >
+              <CheckRounded sx={{ fontSize: '1rem' }} />
+              <span>Confirmar</span>
+            </button>
+          )}
+          {detail.appointmentId && canAssignStaff && detail.appointmentStatus !== 'cancelled' && (
             <button
               type='button'
               onClick={() => detail.appointmentId && onAssignStaff?.(detail.appointmentId)}

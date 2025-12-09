@@ -74,7 +74,7 @@ function Chip({
   )
 }
 
-function StatusPill({ type }: { type: 'Activo' | 'Hecho' }) {
+function StatusPill({ type }: { type: 'Activo' | 'Inactivo' }) {
   if (type === 'Activo') {
     return (
       <span className='inline-flex items-center'>
@@ -86,8 +86,8 @@ function StatusPill({ type }: { type: 'Activo' | 'Hecho' }) {
   }
   return (
     <span className='inline-flex items-center'>
-      <Chip color='green' rounded='full' size='md'>
-        Hecho
+      <Chip color='gray' rounded='full' size='md'>
+        Inactivo
       </Chip>
     </span>
   )
@@ -288,6 +288,24 @@ export default function PacientesPage() {
           }
         }
 
+        // Last visit within past year for Active/Inactive
+        const oneYearAgo = new Date()
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+        const { data: pastAppts } = await supabase
+          .from('appointments')
+          .select('patient_id, scheduled_start_time')
+          .in('patient_id', patientIds)
+          .lt('scheduled_start_time', nowIso)
+          .order('scheduled_start_time', { ascending: false })
+        const lastVisitByPatient = new Map<string, Date>()
+        if (Array.isArray(pastAppts)) {
+          for (const appt of pastAppts) {
+            if (!lastVisitByPatient.has(appt.patient_id)) {
+              lastVisitByPatient.set(appt.patient_id, new Date(appt.scheduled_start_time))
+            }
+          }
+        }
+
         // Debt per patient (invoices open/overdue)
         const { data: invs } = await supabase
           .from('invoices')
@@ -326,21 +344,34 @@ export default function PacientesPage() {
         }
 
         // Map rows - prefer contact phone over patient phone (new schema)
-        const mapped: PatientRow[] = patients.map((p, i) => ({
-          id: p.id,
-          name: [p.first_name, p.last_name].filter(Boolean).join(' ') || '—',
-          phone: (p.contacts as any)?.phone_primary ?? p.phone_number ?? '—',
-          nextDate: nextByPatient.get(p.id) ?? '—',
-          status: statusByPatient.get(p.id) ?? 'Activo',
-          checkin: checkinByPatient.get(p.id) ?? 'Pendiente',
-          financing: 'No',
-          debt:
-            debtByPatient.get(p.id) !== undefined
-              ? `${debtByPatient.get(p.id)!.toFixed(2)}€`
-              : '—',
-          lastContact: lastContactByPatient.get(p.id) ?? '—',
-          tags: i % 2 === 0 ? ['activo'] : undefined
-        }))
+        const mapped: PatientRow[] = patients.map((p) => {
+          const debt = debtByPatient.get(p.id)
+          const hasDebt = typeof debt === 'number' && debt > 0
+          const hasUpcoming = nextByPatient.has(p.id)
+          const lastVisit = lastVisitByPatient.get(p.id)
+          const isActive =
+            lastVisit !== undefined ? lastVisit.getTime() >= oneYearAgo.getTime() : false
+          const status: 'Activo' | 'Inactivo' = isActive ? 'Activo' : 'Inactivo'
+          const tags: PatientRow['tags'] = []
+
+          if (hasDebt) tags.push('deuda')
+          if (status === 'Activo') tags.push('activo')
+          // Treat patients without an upcoming appointment as recall candidates
+          if (!hasUpcoming) tags.push('recall')
+
+          return {
+            id: p.id,
+            name: [p.first_name, p.last_name].filter(Boolean).join(' ') || '—',
+            phone: (p.contacts as any)?.phone_primary ?? p.phone_number ?? '—',
+            nextDate: nextByPatient.get(p.id) ?? '—',
+            status,
+            checkin: checkinByPatient.get(p.id) ?? 'Pendiente',
+            financing: 'No',
+            debt: hasDebt ? `${debt!.toFixed(2)}€` : '—',
+            lastContact: lastContactByPatient.get(p.id) ?? '—',
+            tags: tags.length > 0 ? tags : undefined
+          }
+        })
         setRows(mapped)
 
         // KPIs
@@ -629,7 +660,8 @@ export default function PacientesPage() {
                     activos: 'activo',
                     recall: 'recall'
                   }
-                  return selectedFilters.some((k) =>
+                  // Require that the patient has ALL active filters (overlap of buttons)
+                  return selectedFilters.every((k) =>
                     p.tags?.includes(tagMap[k])
                   )
                 })()

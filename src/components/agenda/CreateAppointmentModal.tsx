@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 type CreateAppointmentModalProps = {
   isOpen: boolean
   onClose: () => void
   onSubmit?: (data: AppointmentFormData) => void
   clinicId?: string | null
+  appointment?: AppointmentForEdit
+  defaults?: Partial<AppointmentFormData> & { start_iso?: string }
 }
 
 export type AppointmentFormData = {
@@ -26,13 +28,28 @@ type PatientOption = { value: string; label: string }
 type StaffOption = { value: string; label: string }
 type BoxOption = { value: string; label: string }
 
+type AppointmentForEdit = {
+  id: number
+  patient_id: string
+  service_id: number | null
+  box_id: string | null
+  scheduled_start_time: string
+  scheduled_end_time: string | null
+  notes: string | null
+  status?: string | null
+}
+
 export default function CreateAppointmentModal({
   isOpen,
   onClose,
   onSubmit,
   clinicId,
+  appointment,
+  defaults = {}
 }: CreateAppointmentModalProps) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const isEditing = Boolean(appointment)
+  const defaultsAppliedRef = useRef(false)
   
   const [formData, setFormData] = useState<AppointmentFormData>({
     servicio: '',
@@ -99,18 +116,75 @@ export default function CreateAppointmentModal({
       // Fetch boxes
       const { data: boxData } = await supabase
         .from('boxes')
-        .select('id, name')
+        .select('id, name_or_number')
         .eq('clinic_id', clinicId)
-        .order('name')
+        .order('name_or_number')
       
       setBoxes((boxData ?? []).map(b => ({
         value: b.id,
-        label: b.name
+        label: (b as { name?: string; name_or_number?: string }).name_or_number ?? (b as { name?: string }).name ?? ''
       })))
     }
     
     void fetchData()
   }, [isOpen, clinicId, supabase])
+
+  // Prefill form when editing
+  useEffect(() => {
+    if (!appointment) return
+    const start = new Date(appointment.scheduled_start_time)
+    const dateStr = start.toISOString().slice(0, 10)
+    const timeStr = start.toTimeString().slice(0, 5)
+
+    setFormData({
+      servicio: appointment.service_id ? String(appointment.service_id) : '',
+      paciente: appointment.patient_id,
+      responsable: '',
+      observaciones: appointment.notes ?? '',
+      presupuesto: '',
+      fecha: dateStr,
+      hora: timeStr,
+      box: appointment.box_id ?? ''
+    })
+  }, [appointment])
+
+  // Reset flag when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      defaultsAppliedRef.current = false
+    }
+  }, [isOpen])
+
+  // Prefill defaults (e.g., from holds) once per open, only when not editing an existing appointment
+  useEffect(() => {
+    if (appointment || defaultsAppliedRef.current) return
+    const hasDefaults =
+      defaults.servicio || defaults.paciente || defaults.box || defaults.start_iso
+    if (!hasDefaults) return
+
+    let fecha = ''
+    let hora = ''
+    if (defaults.start_iso) {
+      const d = new Date(defaults.start_iso)
+      fecha = d.toISOString().slice(0, 10)
+      hora = d.toTimeString().slice(0, 5)
+    }
+    setFormData((prev) => ({
+      ...prev,
+      servicio: defaults.servicio ?? prev.servicio,
+      paciente: defaults.paciente ?? prev.paciente,
+      box: defaults.box ?? prev.box,
+      fecha: fecha || prev.fecha,
+      hora: hora || prev.hora
+    }))
+    defaultsAppliedRef.current = true
+  }, [
+    appointment,
+    defaults.box,
+    defaults.paciente,
+    defaults.servicio,
+    defaults.start_iso
+  ])
 
   const handleSubmit = async () => {
     if (!clinicId || !formData.paciente || !formData.fecha || !formData.hora || !formData.box) {
@@ -129,22 +203,33 @@ export default function CreateAppointmentModal({
       const startDateTime = new Date(`${formData.fecha}T${formData.hora}`)
       const endDateTime = new Date(startDateTime.getTime() + durationMinutes * 60 * 1000)
       
-      const { error: insertError } = await supabase
-        .from('appointments')
-        .insert({
-          clinic_id: clinicId,
-          patient_id: formData.paciente,
-          box_id: formData.box,
-          service_id: formData.servicio ? Number(formData.servicio) : null,
-          scheduled_start_time: startDateTime.toISOString(),
-          scheduled_end_time: endDateTime.toISOString(),
-          status: 'scheduled',
-          notes: formData.observaciones || null,
-          source: 'manual'
-        })
-      
-      if (insertError) throw insertError
-      
+      const payload = {
+        clinic_id: clinicId,
+        patient_id: formData.paciente,
+        box_id: formData.box,
+        service_id: formData.servicio ? Number(formData.servicio) : null,
+        scheduled_start_time: startDateTime.toISOString(),
+        scheduled_end_time: endDateTime.toISOString(),
+        notes: formData.observaciones || null,
+        source: 'manual'
+      }
+
+      if (appointment) {
+        const { error: updateError } = await supabase
+          .from('appointments')
+          .update(payload)
+          .eq('id', appointment.id)
+        if (updateError) throw updateError
+      } else {
+        const { error: insertError } = await supabase
+          .from('appointments')
+          .insert({
+            ...payload,
+            status: 'scheduled'
+          })
+        if (insertError) throw insertError
+      }
+
       onSubmit?.(formData)
       
       // Reset form
@@ -187,7 +272,7 @@ export default function CreateAppointmentModal({
         {/* Header Bar - 56px height, border bottom */}
         <div className='absolute left-0 top-0 flex h-[3.5rem] w-full items-center justify-between border-b border-solid border-[#cbd3d9] px-8 bg-[#f8fafb]'>
           <p className='font-medium text-[1.125rem] leading-[1.75rem] text-[#24282c]'>
-            Añadir cita
+            {isEditing ? 'Editar cita' : 'Añadir cita'}
           </p>
           <button
             onClick={onClose}
@@ -209,7 +294,7 @@ export default function CreateAppointmentModal({
           }}
         >
           <p className='font-medium text-[1.5rem] leading-[2rem] text-[#24282c]'>
-            Añadir una cita al calendario
+            {isEditing ? 'Editar cita del calendario' : 'Añadir una cita al calendario'}
           </p>
         </div>
 
@@ -531,7 +616,7 @@ export default function CreateAppointmentModal({
           }}
         >
           <span className='font-medium text-base leading-6 text-[#1e4947]'>
-            {isSubmitting ? 'Guardando...' : 'Añadir'}
+            {isSubmitting ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Añadir'}
           </span>
           {!isSubmitting && (
             <span className='material-symbols-rounded text-2xl text-[#1e4947]'>

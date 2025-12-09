@@ -86,6 +86,14 @@ export default function AppointmentSummaryCard({
           </p>
         </div>
       </div>
+      <p
+        className='overflow-hidden text-ellipsis whitespace-nowrap text-label-sm text-[var(--color-neutral-700)]'
+        style={{
+          lineHeight: 'var(--leading-label-md)'
+        }}
+      >
+        {event.timeRange}
+      </p>
     </button>
   )
 }

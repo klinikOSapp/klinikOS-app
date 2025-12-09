@@ -259,35 +259,43 @@ const APPOINTMENT_COLORS: Record<string, string> = {
   default: 'bg-[#f5f5f5]'
 }
 
+const tzFormatter = new Intl.DateTimeFormat('en-GB', {
+  timeZone: DEFAULT_TIMEZONE,
+  hour: 'numeric',
+  minute: 'numeric',
+  hour12: false
+})
+
+function getHoursMinutesInClinicTZ(timeStr: string) {
+  const parts = tzFormatter.formatToParts(new Date(timeStr))
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0')
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0')
+  return { hour, minute }
+}
+
 // Helper to convert time to slot position (based on 9:00 start, 30min slots)
 function timeToSlotPosition(timeStr: string): string {
-  const date = new Date(timeStr)
-  const hours = date.getHours()
-  const minutes = date.getMinutes()
-  
-  // Calculate slots from 9:00 (each slot is 30 min = 2.875rem height)
-  const slotHeight = 2.875 // rem per 30 min slot
+  const { hour, minute } = getHoursMinutesInClinicTZ(timeStr)
+
+  // Calculate slots from 9:00 (each slot is 30 min; height comes from CSS var)
   const startHour = 9
-  const totalMinutesFrom9 = (hours - startHour) * 60 + minutes
+  const totalMinutesFrom9 = (hour - startHour) * 60 + minute
   const slots = totalMinutesFrom9 / 30
-  
-  // Add base offset (header area)
-  const baseOffset = 1.4375 // rem - matches original mock data
-  return `${baseOffset + slots * slotHeight}rem`
+
+  // Use the same slot height defined in CSS to keep grid and cards aligned
+  return `calc(${Math.max(0, slots)} * var(--scheduler-slot-height-half))`
 }
 
 // Helper to calculate event height based on duration
 function durationToHeight(startStr: string, endStr: string | null): string {
-  if (!endStr) return '2.875rem' // Default 30 min
-  
+  if (!endStr) return 'calc(1 * var(--scheduler-slot-height-half))' // Default 30 min
+
   const start = new Date(startStr)
   const end = new Date(endStr)
   const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60)
-  
-  // Each 30 min = 2.875rem
-  const slotHeight = 2.875
+
   const slots = durationMinutes / 30
-  return `${Math.max(2.875, slots * slotHeight)}rem`
+  return `calc(${Math.max(1, slots)} * var(--scheduler-slot-height-half))`
 }
 
 // Helper to get weekday from date
@@ -1011,6 +1019,10 @@ export default function WeekScheduler() {
   const [staff, setStaff] = useState<DbStaff[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0) // Used to trigger re-fetch
+  const [appointmentToEdit, setAppointmentToEdit] = useState<RpcAppointment | null>(
+    null
+  )
+  const [holdToConvert, setHoldToConvert] = useState<DbAppointmentHold | null>(null)
   
   // Filter state - populated from real data
   const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>([])
@@ -1381,7 +1393,9 @@ export default function WeekScheduler() {
           professional: 'Por asignar',
           locationLabel: 'Fecha y ubicación',
           patientLabel: 'Paciente',
-          professionalLabel: 'Profesional'
+          professionalLabel: 'Profesional',
+          appointmentHoldId: hold.id,
+          appointmentStatus: hold.status
         }
       }
       
@@ -1623,16 +1637,32 @@ export default function WeekScheduler() {
   }
 
   // Action handlers for appointment overlay
-  const handleModifyAppointment = useCallback((appointmentId: number) => {
-    // For now, show a confirmation and navigate to edit
-    // In the future, this could open a modal
-    const confirmed = window.confirm('¿Desea modificar esta cita? Se abrirá el formulario de edición.')
-    if (confirmed) {
-      // TODO: Implement modify appointment modal or navigation
-      console.log('Modify appointment:', appointmentId)
-      alert('Funcionalidad de modificación en desarrollo. Por favor, use el panel de administración.')
-    }
-  }, [])
+  const handleModifyAppointment = useCallback(
+    (appointmentId: number) => {
+      const appt = appointments.find((a) => a.id === appointmentId)
+      if (!appt) {
+        alert('No se encontró la cita seleccionada')
+        return
+      }
+      setActive(null)
+      setHovered(null)
+      setAppointmentToEdit(appt)
+      setIsCreateAppointmentModalOpen(true)
+    },
+    [appointments]
+  )
+
+  const handleModifyHold = useCallback(
+    (holdId: number) => {
+      const hold = holds.find((h) => h.id === holdId)
+      if (!hold) return
+      setActive(null)
+      setHovered(null)
+      setHoldToConvert(hold)
+      setIsCreateAppointmentModalOpen(true)
+    },
+    [holds]
+  )
 
   const handleCancelAppointment = useCallback(async (appointmentId: number) => {
     const confirmed = window.confirm('¿Está seguro de que desea cancelar esta cita?')
@@ -1658,6 +1688,34 @@ export default function WeekScheduler() {
       }
     }
   }, [supabase])
+
+  const handleCancelHold = useCallback(
+    async (holdId: number) => {
+      if (!clinicId) return
+      const confirmed = window.confirm('¿Cancelar esta reserva?')
+      if (!confirmed) return
+      await supabase.from('appointment_holds').delete().eq('id', holdId).eq('clinic_id', clinicId)
+      setRefreshKey((k) => k + 1)
+      setActive(null)
+    },
+    [supabase, clinicId]
+  )
+
+  const handleConfirmHold = useCallback(
+    async (holdId: number) => {
+      if (!clinicId) return
+      const confirmed = window.confirm('¿Confirmar esta reserva?')
+      if (!confirmed) return
+      await supabase
+        .from('appointment_holds')
+        .update({ status: 'confirmed' })
+        .eq('id', holdId)
+        .eq('clinic_id', clinicId)
+      setRefreshKey((k) => k + 1)
+      setActive(null)
+    },
+    [supabase, clinicId]
+  )
 
   const handleAssignStaff = useCallback((appointmentId: number) => {
     // For now, show a message
@@ -1971,6 +2029,9 @@ export default function WeekScheduler() {
                   onModify={handleModifyAppointment}
                   onCancel={handleCancelAppointment}
                   onAssignStaff={handleAssignStaff}
+                  onCancelHold={handleCancelHold}
+                  onConfirmHold={handleConfirmHold}
+                  onModifyHold={handleModifyHold}
                 />
               ) : null}
             </div>
@@ -1988,10 +2049,45 @@ export default function WeekScheduler() {
       {/* Create Appointment Modal */}
       <CreateAppointmentModal
         isOpen={isCreateAppointmentModalOpen}
-        onClose={() => setIsCreateAppointmentModalOpen(false)}
+        onClose={() => {
+          setIsCreateAppointmentModalOpen(false)
+          setAppointmentToEdit(null)
+          setHoldToConvert(null)
+        }}
         clinicId={clinicId}
+        defaults={
+          holdToConvert
+            ? {
+                paciente: holdToConvert.patient_id ?? '',
+                servicio: holdToConvert.suggested_service_id
+                  ? String(holdToConvert.suggested_service_id)
+                  : '',
+                box: holdToConvert.box_id,
+                start_iso: holdToConvert.start_time
+              }
+            : undefined
+        }
+        appointment={
+          appointmentToEdit
+            ? {
+                id: appointmentToEdit.id,
+                patient_id: appointmentToEdit.patient_id,
+                service_id: appointmentToEdit.service_id,
+                box_id: appointmentToEdit.box_id,
+                scheduled_start_time: appointmentToEdit.scheduled_start_time,
+                scheduled_end_time: appointmentToEdit.scheduled_end_time,
+                notes: appointmentToEdit.notes,
+                status: appointmentToEdit.status
+              }
+            : undefined
+        }
         onSubmit={() => {
           setIsCreateAppointmentModalOpen(false)
+          setAppointmentToEdit(null)
+          if (holdToConvert) {
+            void supabase.from('appointment_holds').delete().eq('id', holdToConvert.id)
+            setHoldToConvert(null)
+          }
           // Trigger re-fetch of appointments
           setRefreshKey(k => k + 1)
         }}

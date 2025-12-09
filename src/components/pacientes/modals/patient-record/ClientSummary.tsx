@@ -8,6 +8,18 @@ import React from 'react'
 import AvatarImageDropdown from '@/components/pacientes/AvatarImageDropdown'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { uploadPatientFile, getSignedUrl } from '@/lib/storage'
+import TextField from '@mui/material/TextField'
+import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className='space-y-3'>
+      <h3 className='text-xl font-medium text-[#24282c]'>{title}</h3>
+      {children}
+    </div>
+  )
+}
 
 type ClientSummaryProps = {
   onClose?: () => void
@@ -23,18 +35,18 @@ type PatientAlert = {
   description?: string | null
 }
 
-const ALERT_SEVERITY_STYLES: Record<AlertSeverity, { bg: string; text: string; dot: string }> = {
-  high: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
-  medium: { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
-  low: { bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500' }
-}
-
 const ALERT_CATEGORY_LABELS: Record<string, string> = {
   allergy: 'Alergias',
-  condition: 'Condiciones',
-  habit: 'Hábitos',
   accessibility: 'Accesibilidad',
-  general: 'Alertas'
+  habit: 'Hábitos',
+  general: 'General'
+}
+const ALERT_CATEGORIES = ['allergy', 'accessibility', 'habit'] as const
+
+const CATEGORY_CHIP_COLORS: Record<string, { bg: string; text: string; border?: string }> = {
+  allergy: { bg: '#FEE2E2', text: '#B91C1C', border: '#FCA5A5' }, // red
+  accessibility: { bg: '#FEF3C7', text: '#B45309', border: '#FCD34D' }, // amber/yellow
+  habit: { bg: '#FFEDD5', text: '#C2410C', border: '#FDBA74' } // orange
 }
 
 export default function ClientSummary({ onClose, patientId }: ClientSummaryProps) {
@@ -52,6 +64,33 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
   const [emergencyName, setEmergencyName] = React.useState<string>('—')
   const [emergencyEmail, setEmergencyEmail] = React.useState<string>('—')
   const [emergencyPhone, setEmergencyPhone] = React.useState<string>('—')
+  const [isEditing, setIsEditing] = React.useState(false)
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [alertTagsByCat, setAlertTagsByCat] = React.useState<Record<string, string[]>>({
+    allergy: [],
+    accessibility: [],
+    habit: []
+  })
+  const [activeAlertCat, setActiveAlertCat] = React.useState<(typeof ALERT_CATEGORIES)[number]>('allergy')
+  const [pendingAlertInput, setPendingAlertInput] = React.useState('')
+  const initialAlertsRef = React.useRef<Record<string, string[]>>({
+    allergy: [],
+    accessibility: [],
+    habit: []
+  })
+  const [form, setForm] = React.useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    nationalId: '',
+    country: '',
+    preferredLanguage: '',
+    occupation: '',
+    emergencyName: '',
+    emergencyEmail: '',
+    emergencyPhone: ''
+  })
 
   React.useEffect(() => {
     async function load() {
@@ -90,6 +129,19 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
         setEmergencyName(p.emergency_contact_name ?? '—')
         setEmergencyEmail(p.emergency_contact_email ?? '—')
         setEmergencyPhone(p.emergency_contact_phone ?? '—')
+        setForm({
+          firstName: p.first_name ?? '',
+          lastName: p.last_name ?? '',
+          email: primaryContact?.email ?? p.email ?? '',
+          phone: primaryContact?.phone_primary ?? p.phone_number ?? '',
+          nationalId: p.national_id ?? '',
+          country: primaryContact?.address_country ?? p.address_country ?? '',
+          preferredLanguage: p.preferred_language ?? '',
+          occupation: p.occupation ?? '',
+          emergencyName: p.emergency_contact_name ?? '',
+          emergencyEmail: p.emergency_contact_email ?? '',
+          emergencyPhone: p.emergency_contact_phone ?? ''
+        })
         if (p.avatar_url) {
           try {
             const signed = await getSignedUrl(p.avatar_url)
@@ -139,8 +191,23 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
           })
           .filter(Boolean)
         setAlerts(normalized)
+        const grouped: Record<string, string[]> = {
+          allergy: [],
+          accessibility: [],
+          habit: []
+        }
+        normalized.forEach((a) => {
+          const cat = (a.category as string) || 'allergy'
+          const key = ALERT_CATEGORIES.includes(cat as any) ? cat : 'allergy'
+          if (a.label) grouped[key].push(a.label)
+        })
+        setAlertTagsByCat(grouped)
+        initialAlertsRef.current = grouped
       } else {
         setAlerts([])
+        const empty = { allergy: [], accessibility: [], habit: [] }
+        setAlertTagsByCat(empty)
+        initialAlertsRef.current = empty
       }
     }
     void load()
@@ -165,7 +232,14 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
         file,
         kind: 'avatar'
       })
-      await supabase.from('patients').update({ avatar_url: path }).eq('id', patientId)
+      await fetch('/api/patients/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId,
+          patient: { avatar_url: path }
+        })
+      })
       try {
         const signed = await getSignedUrl(path)
         setAvatarPreviewUrl(signed)
@@ -181,368 +255,405 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
       if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current)
     }
   }, [])
-  const groupedAlerts = React.useMemo(() => {
-    if (!alerts.length) return []
-    const map = new Map<string, PatientAlert[]>()
-    alerts.forEach((alert) => {
-      const key = alert.category ?? 'general'
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(alert)
-    })
-    return Array.from(map.entries()).map(([category, items]) => ({
-      category,
-      items
-    }))
-  }, [alerts])
+
+  const AlertRow = ({
+    cat,
+    label
+  }: {
+    cat: (typeof ALERT_CATEGORIES)[number]
+    label: string
+  }) => {
+    const items = alertTagsByCat[cat] ?? []
+    const colors = CATEGORY_CHIP_COLORS[cat]
+    return (
+      <div className='flex flex-wrap items-center gap-2 text-sm'>
+        <span className='text-xs font-medium text-[#8a95a1]'>{label}:</span>
+        {items.length === 0 ? (
+          <span className='text-xs text-[#c1c7d0]'>Sin alertas</span>
+        ) : (
+          items.map((tag, idx) => (
+            <span
+              key={`${cat}-${tag}-${idx}`}
+              className='inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs'
+              style={{
+                backgroundColor: colors.bg,
+                color: colors.text,
+                border: colors.border ? `1px solid ${colors.border}` : undefined
+              }}
+            >
+              <span
+                className='inline-block size-2 rounded-full'
+                style={{ backgroundColor: colors.text, opacity: 0.7 }}
+              />
+              <span className='leading-tight'>{tag}</span>
+            </span>
+          ))
+        )}
+      </div>
+    )
+  }
 
   return (
     <div
-      className='relative bg-[#f8fafb] overflow-hidden w-[74.75rem] h-[56.25rem]'
-      data-node-id='423:822'
+      className='relative bg-[#f8fafb] overflow-hidden w-full h-full p-6'
     >
       <button
         type='button'
         aria-label='Cerrar'
         onClick={onClose}
-        className='absolute size-[1.5rem] top-[1rem] cursor-pointer'
+        className='absolute size-[1.5rem] top-[1rem] right-[1rem] cursor-pointer'
         data-name='close'
         data-node-id='410:779'
-        style={{ left: 'calc(93.75% + 2.172rem)' }}
       >
         <CloseRounded className='size-6 text-[#24282c]' />
       </button>
-      <div
-        className='absolute content-stretch flex gap-[1.5rem] items-center left-[2rem] top-[3rem]'
-        data-node-id='426:854'
-      >
-        <div className='relative shrink-0'>
-          <div
-            className='rounded-[12.5rem] size-[6rem] overflow-hidden bg-[var(--color-neutral-600)]'
-            data-node-id='423:829'
-          >
-            {avatarPreviewUrl ? (
-              <img
-                src={avatarPreviewUrl}
-                alt=''
-                className='w-full h-full object-cover'
-                loading='lazy'
-              />
-            ) : null}
-          </div>
-          <div className='absolute -bottom-1 -right-1'>
-            <AvatarImageDropdown
-              previewUrl={avatarPreviewUrl ?? undefined}
-              onCaptureFromCamera={async (f) => {
-                setPreviewFromFile(f)
-                await saveAvatar(f)
-              }}
-              onUploadFromDevice={async (f) => {
-                setPreviewFromFile(f)
-                await saveAvatar(f)
-              }}
-            />
-          </div>
-        </div>
-        <div
-          className='content-stretch flex flex-col gap-[0.5rem] items-start relative shrink-0 w-[14.25rem]'
-          data-node-id='426:853'
-        >
-          <p
-            className="font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] min-w-full not-italic relative shrink-0 text-[#24282c] text-[1.5rem]"
-            data-node-id='426:830'
-            style={{ width: 'min-content' }}
-          >
-            {displayName}
-          </p>
-          <div
-            className='content-stretch flex gap-[0.5rem] items-center relative shrink-0 w-full'
-            data-node-id='426:848'
-          >
-            <div
-              className='relative shrink-0 size-[1.5rem]'
-              data-name='mail'
-              data-node-id='426:837'
-            >
-              <MailRounded className='size-6 text-[#24282c]' />
-            </div>
-            <p
-              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic relative shrink-0 text-[#24282c] text-[1rem] text-nowrap whitespace-pre"
-              data-node-id='426:831'
-            >
-              {email}
-            </p>
-          </div>
-          <div
-            className='content-stretch flex gap-[0.5rem] items-center relative shrink-0'
-            data-node-id='426:849'
-          >
-            <div
-              className='relative shrink-0 size-[1.5rem]'
-              data-name='call'
-              data-node-id='426:847'
-            >
-              <CallRounded className='size-6 text-[#24282c]' />
-            </div>
-            <p
-              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic relative shrink-0 text-[#24282c] text-[1rem] text-nowrap whitespace-pre"
-              data-node-id='426:838'
-            >
-              {phone}
-            </p>
-          </div>
-        </div>
-      </div>
-      <div
-        className='absolute left-[2.25rem] top-[11.5rem] w-[70.5rem] border-t border-[#e2e7ea]'
-        data-node-id='426:850'
-      />
-      <div
-        className='absolute flex flex-col gap-[0.75rem] top-[3rem] w-[30.25rem]'
-        style={{ left: 'calc(43.75% + 0.797rem)' }}
-      >
-        <div className='flex flex-col gap-[0.5rem]'>
-          {groupedAlerts.length === 0 ? (
-            <div className='flex items-center gap-[0.5rem]'>
-              <p className="font-['Inter:Medium',_sans-serif] font-medium leading-[1rem] text-[#8a95a1] text-[0.75rem] whitespace-pre">
-                Alergias:
-              </p>
-              <span className="font-['Inter:Regular',_sans-serif] text-[0.75rem] text-[#8a95a1]">
-                Sin alertas registradas
-              </span>
-            </div>
-          ) : (
-            groupedAlerts.map(({ category, items }) => {
-              const label = ALERT_CATEGORY_LABELS[category] ?? ALERT_CATEGORY_LABELS.general
-              return (
-                <div key={category} className='flex flex-wrap items-center gap-[0.5rem]'>
-                  <p className="font-['Inter:Medium',_sans-serif] font-medium leading-[1rem] text-[#8a95a1] text-[0.75rem] whitespace-pre">
-                    {label}:
-                  </p>
-                  {items.map((alert, idx) => {
-                    const styles = ALERT_SEVERITY_STYLES[alert.severity] || ALERT_SEVERITY_STYLES.medium
-                    return (
-                      <div
-                        key={`${category}-${alert.label}-${idx}`}
-                        className={`flex items-center gap-[0.375rem] px-[0.5rem] py-[0.25rem] rounded-[6rem] ${styles.bg}`}
-                      >
-                        <span className={`inline-block size-2 rounded-full ${styles.dot}`} />
-                        <span className={`font-['Inter:Medium',_sans-serif] text-[0.75rem] ${styles.text}`}>
-                          {alert.label}
-                        </span>
-                      </div>
-                    )
-                  })}
+      <div className='flex flex-col gap-6 h-full overflow-auto'>
+        <div className='flex flex-col gap-4'>
+          <div className='flex flex-wrap items-start gap-6 justify-between'>
+            <div className='flex items-center gap-4 min-w-[20rem]'>
+              <div className='relative shrink-0'>
+                <div className='rounded-[12.5rem] size-[6rem] overflow-hidden bg-[var(--color-neutral-600)]'>
+                  {avatarPreviewUrl ? (
+                    <img
+                      src={avatarPreviewUrl}
+                      alt=''
+                      className='w-full h-full object-cover'
+                      loading='lazy'
+                    />
+                  ) : null}
                 </div>
-              )
-            })
-          )}
+                <div className='absolute -bottom-1 -right-1'>
+                  <AvatarImageDropdown
+                    previewUrl={avatarPreviewUrl ?? undefined}
+                    onCaptureFromCamera={async (f) => {
+                      setPreviewFromFile(f)
+                      await saveAvatar(f)
+                    }}
+                    onUploadFromDevice={async (f) => {
+                      setPreviewFromFile(f)
+                      await saveAvatar(f)
+                    }}
+                  />
+                </div>
+              </div>
+              <div className='flex flex-col gap-2'>
+                <p className='text-2xl font-medium text-[#24282c]'>{displayName}</p>
+                <div className='flex items-center gap-2 text-[#24282c]'>
+                  <MailRounded className='size-5' />
+                  <span className='text-sm'>{email}</span>
+                </div>
+                <div className='flex items-center gap-2 text-[#24282c]'>
+                  <CallRounded className='size-5' />
+                  <span className='text-sm'>{phone}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className='flex-1 min-w-[22rem] flex flex-col gap-2'>
+              <AlertRow cat='allergy' label='Alergias' />
+              <AlertRow cat='accessibility' label='Accesibilidad' />
+              <AlertRow cat='habit' label='Hábitos' />
+              <div className='bg-[#e2e7ea] rounded-lg px-3 py-2 text-sm text-[#aeb8c2]'>
+                Añadir comentario sobre el paciente
+              </div>
+            </div>
+
+            <div className='flex items-center gap-3 self-start'>
+              <Button
+                variant='outlined'
+                size='small'
+                onClick={() => setIsEditing((prev) => !prev)}
+              >
+                {isEditing ? 'Cancelar' : 'Editar'}
+              </Button>
+              <MoreVertRounded className='size-6 text-[#24282c]' />
+            </div>
+          </div>
         </div>
-        <div className='bg-[#e2e7ea] h-[3.5rem] overflow-clip rounded-[0.5rem]'>
-          <p className="font-['Inter:Regular',_sans-serif] font-normal leading-[1rem] text-[#aeb8c2] text-[0.75rem] text-nowrap px-[0.5rem] pt-[0.5rem]">
-            Añadir comentario sobre el paciente
-          </p>
+
+        <hr className='border-[#e1e7ec]' />
+
+        <div className='grid gap-10'>
+          <div className='grid md:grid-cols-2 gap-10'>
+            <Section title='General'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-[#535c66]'>
+                <LabelValue label='Fecha de nacimiento' value={dobText} />
+                <LabelValue label='Edad' value={ageText} />
+                <LabelValue label='DNI/NIE' value={dni} />
+                <LabelValue label='País' value={country} />
+              </div>
+            </Section>
+
+            <Section title='Consulta'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-[#535c66]'>
+                <LabelValue label='Estado' value='Pre-registro' />
+                <LabelValue label='Motivo de la consulta' value='—' />
+              </div>
+            </Section>
+          </div>
+
+          <div className='grid md:grid-cols-2 gap-10'>
+            <Section title='Información adicional'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-[#535c66]'>
+                <LabelValue label='Origen del cliente' value='Recomendación' />
+                <LabelValue label='Recomendado por' value='Sonia Pujante' />
+                <LabelValue label='Ocupación' value={occupation} />
+                <LabelValue label='Idioma de preferencia' value={preferredLanguage} />
+              </div>
+            </Section>
+
+            <Section title='Contacto de emergencia'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-[#535c66]'>
+                <LabelValue label='Nombre' value={emergencyName} />
+                <LabelValue label='Email' value={emergencyEmail} />
+                <LabelValue label='Teléfono' value={emergencyPhone} />
+              </div>
+            </Section>
+          </div>
         </div>
       </div>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] left-[2rem] not-italic text-[#24282c] text-[1.5rem] text-nowrap top-[14rem] whitespace-pre"
-        data-node-id='426:864'
-      >
-        General
-      </p>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] not-italic text-[#24282c] text-[1.5rem] text-nowrap top-[14rem] whitespace-pre"
-        data-node-id='426:909'
-        style={{ left: 'calc(43.75% + 0.797rem)' }}
-      >
-        Consulta
-      </p>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] left-[2rem] not-italic text-[#24282c] text-[1.5rem] text-nowrap top-[27rem] whitespace-pre"
-        data-node-id='426:876'
-      >
-        Información adicional
-      </p>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] left-[2rem] not-italic text-[#24282c] text-[1.5rem] text-nowrap top-[40rem] whitespace-pre"
-        data-node-id='426:885'
-      >
-        Contacto de emergencia
-      </p>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] not-italic text-[#8a95a1] text-[1rem] text-nowrap top-[17rem] whitespace-pre"
-        data-node-id='426:868'
-        style={{ left: 'calc(18.75% + 1.922rem)' }}
-      >
-        Edad
-      </p>
-      <p
-        className='absolute font-["Inter:Medium",_sans-serif] font-medium leading-[1.5rem] not-italic text-[#24282c] text-[1rem] top-[30rem] w-[11.813rem]'
-        data-node-id='426:877'
-        style={{ left: 'calc(18.75% + 1.922rem)' }}
-      >
-        Recomendado por:
-      </p>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[17rem] whitespace-pre"
-        data-node-id='426:870'
-      >
-        Fecha de nacimiento
-      </p>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[17rem] whitespace-pre"
-        data-node-id='426:911'
-        style={{ left: 'calc(43.75% + 0.797rem)' }}
-      >
-        Estado
-      </p>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[30rem] whitespace-pre"
-        data-node-id='426:878'
-      >
-        Origen del cliente
-      </p>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[43rem] whitespace-pre"
-        data-node-id='426:887'
-      >
-        {emergencyName}
-      </p>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[21.5rem] whitespace-pre"
-        data-node-id='426:872'
-      >
-        DNI/NIE
-      </p>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[21.5rem] whitespace-pre"
-        data-node-id='426:912'
-        style={{ left: 'calc(43.75% + 0.797rem)' }}
-      >
-        Motivo de la consulta
-      </p>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[34.5rem] whitespace-pre"
-        data-node-id='426:879'
-      >
-        Ocupación
-      </p>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[21.5rem] whitespace-pre"
-        data-node-id='426:874'
-        style={{ left: 'calc(18.75% + 1.922rem)' }}
-      >
-        Pais
-      </p>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[34.5rem] whitespace-pre"
-        data-node-id='426:880'
-        style={{ left: 'calc(18.75% + 1.922rem)' }}
-      >
-        Idioma de preferencia
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[18.75rem] whitespace-pre"
-        data-node-id='426:869'
-        style={{ left: 'calc(18.75% + 1.922rem)' }}
-      >
-        {ageText}
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[31.75rem] whitespace-pre"
-        data-node-id='426:881'
-        style={{ left: 'calc(18.75% + 1.922rem)' }}
-      >
-        Sonia Pujante
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[18.75rem] whitespace-pre"
-        data-node-id='426:871'
-      >
-        {dobText}
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[18.75rem] whitespace-pre"
-        data-node-id='426:915'
-        style={{ left: 'calc(43.75% + 0.797rem)' }}
-      >
-        Pre-registro
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[31.75rem] whitespace-pre"
-        data-node-id='426:882'
-      >
-        Recomendación
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[44.75rem] whitespace-pre"
-        data-node-id='426:891'
-      >
-        {emergencyEmail}
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[46.25rem] whitespace-pre"
-        data-node-id='426:894'
-      >
-        {emergencyPhone}
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[23.25rem] whitespace-pre"
-        data-node-id='426:873'
-      >
-        {dni}
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[23.25rem] w-[30.25rem]"
-        data-node-id='426:916'
-        style={{ left: 'calc(43.75% + 0.797rem)' }}
-      >
-        Sufre de sensibilidad dental y necesita hacerse su limpieza bucal anual
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[36.25rem] whitespace-pre"
-        data-node-id='426:883'
-      >
-        {occupation}
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[23.25rem] whitespace-pre"
-        data-node-id='426:875'
-        style={{ left: 'calc(18.75% + 1.922rem)' }}
-      >
-        {country}
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[36.25rem] whitespace-pre"
-        data-node-id='426:884'
-        style={{ left: 'calc(18.75% + 1.922rem)' }}
-      >
-        {preferredLanguage}
-      </p>
-      <div
-        className='absolute bg-[#f8fafb] box-border content-stretch flex gap-[0.5rem] items-center justify-center px-[0.5rem] py-[0.25rem] rounded-[1rem] top-[14.125rem]'
-        data-name='Remember - Button'
-        data-node-id='426:905'
-        style={{ left: 'calc(87.5% + 1.906rem)' }}
-      >
-        <div
-          aria-hidden='true'
-          className='absolute border border-[#51d6c7] border-solid inset-0 pointer-events-none rounded-[1rem]'
-        />
-        <p
-          className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic relative shrink-0 text-[#1e4947] text-[0.875rem] text-nowrap whitespace-pre"
-          data-node-id='I426:905;236:963'
-        >
-          Editar
-        </p>
-      </div>
-      <div
-        className='absolute size-[1.5rem] top-[14.25rem]'
-        data-name='more_vert'
-        data-node-id='426:923'
-        style={{ left: 'calc(93.75% + 1.172rem)' }}
-      >
-        <MoreVertRounded className='size-6 text-[#24282c]' />
-      </div>
+
+      {isEditing && (
+        <div className='absolute inset-0 bg-black/30 backdrop-blur-[2px] flex items-center justify-center p-6'>
+          <div className='bg-white rounded-lg shadow-lg w-full max-w-3xl p-6 space-y-4'>
+            <div className='flex items-center justify-between'>
+              <h3 className='text-lg font-medium text-[#24282c]'>Editar datos del paciente</h3>
+              <button onClick={() => setIsEditing(false)} aria-label='Cerrar'>
+                <CloseRounded className='size-5 text-[#24282c]' />
+              </button>
+            </div>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              <TextField
+                label='Nombre'
+                size='small'
+                value={form.firstName}
+                onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+              />
+              <TextField
+                label='Apellidos'
+                size='small'
+                value={form.lastName}
+                onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+              />
+              <TextField
+                label='Email'
+                size='small'
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              />
+              <TextField
+                label='Teléfono'
+                size='small'
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              />
+              <TextField
+                label='DNI/NIE'
+                size='small'
+                value={form.nationalId}
+                onChange={(e) => setForm((f) => ({ ...f, nationalId: e.target.value }))}
+              />
+              <TextField
+                label='País'
+                size='small'
+                value={form.country}
+                onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
+              />
+              <TextField
+                label='Idioma preferido'
+                size='small'
+                value={form.preferredLanguage}
+                onChange={(e) => setForm((f) => ({ ...f, preferredLanguage: e.target.value }))}
+              />
+              <TextField
+                label='Ocupación'
+                size='small'
+                value={form.occupation}
+                onChange={(e) => setForm((f) => ({ ...f, occupation: e.target.value }))}
+              />
+              <TextField
+                label='Contacto emergencia - Nombre'
+                size='small'
+                value={form.emergencyName}
+                onChange={(e) => setForm((f) => ({ ...f, emergencyName: e.target.value }))}
+              />
+              <TextField
+                label='Contacto emergencia - Email'
+                size='small'
+                value={form.emergencyEmail}
+                onChange={(e) => setForm((f) => ({ ...f, emergencyEmail: e.target.value }))}
+              />
+              <TextField
+                label='Contacto emergencia - Teléfono'
+                size='small'
+                value={form.emergencyPhone}
+                onChange={(e) => setForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
+              />
+            </div>
+            <div className='space-y-2'>
+              <p className='text-sm font-medium text-[#24282c]'>Alertas</p>
+              <div className='flex items-center gap-2 flex-wrap'>
+                {ALERT_CATEGORIES.map((cat) => {
+                  const label = ALERT_CATEGORY_LABELS[cat]
+                  const isActive = activeAlertCat === cat
+                  return (
+                    <button
+                      key={cat}
+                      type='button'
+                      onClick={() => setActiveAlertCat(cat)}
+                      className={`px-3 py-1 rounded-full text-sm border ${
+                        isActive
+                          ? 'bg-[#1e4947] text-white border-[#1e4947]'
+                          : 'bg-white text-[#1e4947] border-[#1e4947]'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className='flex flex-wrap gap-2'>
+                {(alertTagsByCat[activeAlertCat] ?? []).map((tag) => (
+                  <Chip
+                    key={`${activeAlertCat}-${tag}`}
+                    label={tag}
+                    onDelete={() =>
+                      setAlertTagsByCat((prev) => ({
+                        ...prev,
+                        [activeAlertCat]: prev[activeAlertCat].filter((t) => t !== tag)
+                      }))
+                    }
+                    variant='outlined'
+                    className='!text-sm'
+                    sx={{
+                      backgroundColor: CATEGORY_CHIP_COLORS[activeAlertCat].bg,
+                      color: CATEGORY_CHIP_COLORS[activeAlertCat].text,
+                      borderColor: CATEGORY_CHIP_COLORS[activeAlertCat].border
+                    }}
+                  />
+                ))}
+              </div>
+              <TextField
+                label='Añadir alerta (separa con coma o Enter)'
+                size='small'
+                value={pendingAlertInput}
+                onChange={(e) => setPendingAlertInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault()
+                    const value = pendingAlertInput.trim().replace(/,$/, '')
+                    if (value) {
+                      setAlertTagsByCat((prev) => {
+                        const exists = prev[activeAlertCat]?.includes(value)
+                        if (exists) return prev
+                        return {
+                          ...prev,
+                          [activeAlertCat]: [...(prev[activeAlertCat] ?? []), value]
+                        }
+                      })
+                    }
+                    setPendingAlertInput('')
+                  }
+                }}
+                placeholder='Ej: penicilina, latex, embarazo'
+                fullWidth
+              />
+            </div>
+            <div className='flex justify-end gap-2'>
+              <Button
+                onClick={() => {
+                  setIsEditing(false)
+                  setAlertTagsByCat(initialAlertsRef.current)
+                  setPendingAlertInput('')
+                }}
+                disabled={isSaving}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant='contained'
+                onClick={async () => {
+                  if (!patientId) return
+                  setIsSaving(true)
+                  const alertsPayload = Object.entries(alertTagsByCat).flatMap(([cat, values]) =>
+                    values.map((label) => ({
+                      label,
+                      category: cat
+                    }))
+                  )
+
+                  const res = await fetch('/api/patients/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      patientId,
+                      patient: {
+                        first_name: form.firstName || null,
+                        last_name: form.lastName || null,
+                        email: form.email || null,
+                        phone_number: form.phone || null,
+                        national_id: form.nationalId || null,
+                        address_country: form.country || null,
+                        preferred_language: form.preferredLanguage || null,
+                        occupation: form.occupation || null,
+                        emergency_contact_name: form.emergencyName || null,
+                        emergency_contact_email: form.emergencyEmail || null,
+                        emergency_contact_phone: form.emergencyPhone || null
+                      },
+                      alerts: alertsPayload
+                    })
+                  })
+
+                  if (!res.ok) {
+                    const data = await res.json().catch(() => ({}))
+                    console.error(data?.error || 'No se pudo guardar el paciente')
+                    setIsSaving(false)
+                    return
+                  }
+
+                  // Update local state with saved values
+                  setDisplayName([form.firstName, form.lastName].filter(Boolean).join(' ') || '—')
+                  setEmail(form.email || '—')
+                  setPhone(form.phone || '—')
+                  setDni(form.nationalId || '—')
+                  setCountry(form.country || '—')
+                  setPreferredLanguage(form.preferredLanguage || '—')
+                  setOccupation(form.occupation || '—')
+                  setEmergencyName(form.emergencyName || '—')
+                  setEmergencyEmail(form.emergencyEmail || '—')
+                  setEmergencyPhone(form.emergencyPhone || '—')
+                  const newAlerts = Object.entries(alertTagsByCat).flatMap(([cat, values]) =>
+                    values.map(
+                      (label) =>
+                        ({
+                          label,
+                          severity: 'medium',
+                          category: cat
+                        } as PatientAlert)
+                    )
+                  )
+                  setAlerts(newAlerts)
+                  initialAlertsRef.current = { ...alertTagsByCat }
+                  setIsSaving(false)
+                  setIsEditing(false)
+                }}
+                disabled={isSaving}
+              >
+                {isSaving ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LabelValue({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className='flex flex-col gap-1'>
+      <span className='text-xs font-medium text-[#8a95a1]'>{label}</span>
+      <span className='text-sm text-[#535c66]'>{value || '—'}</span>
     </div>
   )
 }
