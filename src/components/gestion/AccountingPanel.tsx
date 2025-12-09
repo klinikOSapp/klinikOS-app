@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 
 const CARD_WIDTH = 'var(--width-card-chart-lg-fluid)'
-const CARD_HEIGHT_CLAMP = 'clamp(18rem, 35vh, 24.6rem)'
+const CARD_HEIGHT_CLAMP = 'clamp(15rem, 34vh, 21.375rem)'
 const CARD_WIDTH_LIMIT = 'var(--accounting-width-limit)'
 const CARD_HEIGHT_LIMIT = 'var(--accounting-height-limit)'
 
@@ -94,7 +94,8 @@ const DONUT_PROGRESS = 1200 / 1800
 
 export default function AccountingPanel() {
   const sectionStyle: CSSProperties = {
-    width: `min(${CARD_WIDTH}, ${CARD_WIDTH_LIMIT})`,
+    width: '100%',
+    maxWidth: `min(${CARD_WIDTH}, ${CARD_WIDTH_LIMIT})`,
     height: `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`
   }
 
@@ -103,7 +104,7 @@ export default function AccountingPanel() {
 
   return (
     <section
-      className='relative overflow-clip rounded-lg bg-surface shadow-elevation-card'
+      className='relative min-w-0 overflow-clip rounded-lg bg-surface shadow-elevation-card'
       style={sectionStyle}
     >
       <header

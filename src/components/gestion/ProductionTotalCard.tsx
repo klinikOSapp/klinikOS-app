@@ -11,8 +11,11 @@ export default function ProductionTotalCard({
 }: ProductionTotalCardProps) {
   return (
     <section
-      className='bg-brand-900 text-fg-inverse text-[var(--color-text-inverse)] rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 overflow-hidden'
-      style={{ width: 'min(var(--width-card-stat-fluid), 100%)' }}
+      className='bg-brand-900 text-fg-inverse text-[var(--color-text-inverse)] rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 overflow-hidden min-w-0'
+      style={{
+        width: '100%',
+        maxWidth: 'min(var(--width-card-chart-lg-fluid), 100%)'
+      }}
     >
       <div className='flex h-full flex-col gap-card-gap p-card-pad text-[var(--color-text-inverse)]'>
         <header className='flex shrink-0 items-baseline gap-[1rem]'>

@@ -57,13 +57,14 @@ const BARS = [
 
 export default function ProfessionalBars() {
   const cardStyles: CSSProperties = {
-    width: `min(${CARD_WIDTH}, var(--chart-prof-width-limit))`,
+    width: '100%',
+    maxWidth: `min(${CARD_WIDTH}, var(--chart-prof-width-limit))`,
     height: `min(${CARD_HEIGHT}, var(--chart-prof-height-limit))`
   }
 
   return (
     <section
-      className='relative flex flex-col overflow-hidden rounded-lg bg-surface p-[1rem] shadow-elevation-card'
+      className='relative flex flex-col overflow-hidden rounded-lg bg-surface p-[1rem] shadow-elevation-card min-w-0'
       style={cardStyles}
     >
       <header className='mb-[2.75rem] flex items-center justify-between'>
