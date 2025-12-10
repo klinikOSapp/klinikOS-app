@@ -54,6 +54,7 @@ export type EventDetail = {
   }
   // For action buttons
   appointmentId?: number
+  appointmentHoldId?: number
   appointmentStatus?: string
 }
 

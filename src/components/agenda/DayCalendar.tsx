@@ -472,6 +472,7 @@ export default function DayCalendar({
   const [holds, setHolds] = useState<DbAppointmentHold[]>([])
   const [boxes, setBoxes] = useState<DbBox[]>(propBoxes ?? [])
   const [isLoading, setIsLoading] = useState(!propClinicId)
+  const [refreshKey, setRefreshKey] = useState(0)
   
   // Current day
   const [displayDate] = useState<Date>(() => {
@@ -590,7 +591,7 @@ export default function DayCalendar({
     }
     
     void fetchAppointments()
-  }, [supabase, clinicId, currentDate, displayDate])
+  }, [supabase, clinicId, currentDate, displayDate, refreshKey])
 
   // Filter time labels based on period
   const getFilteredTimeLabels = () => {

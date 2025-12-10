@@ -74,12 +74,21 @@ function Chip({
   )
 }
 
-function StatusPill({ type }: { type: 'Activo' | 'Inactivo' }) {
+function StatusPill({ type }: { type: 'Activo' | 'Inactivo' | 'Hecho' }) {
   if (type === 'Activo') {
     return (
       <span className='inline-flex items-center'>
         <Chip color='sky' size='md'>
           Activo
+        </Chip>
+      </span>
+    )
+  }
+  if (type === 'Hecho') {
+    return (
+      <span className='inline-flex items-center'>
+        <Chip color='green' size='md'>
+          Hecho
         </Chip>
       </span>
     )
@@ -159,7 +168,7 @@ type PatientRow = {
   id: string
   name: string
   nextDate: string
-  status: 'Activo' | 'Hecho'
+  status: 'Activo' | 'Inactivo' | 'Hecho'
   phone: string
   checkin: 'Hecho' | 'Pendiente'
   financing: 'Sí' | 'No'
