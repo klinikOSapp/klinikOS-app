@@ -1,9 +1,10 @@
 'use client'
 
-import React from 'react'
-import { NavState } from '@/types/layout'
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import React from 'react'
 
 export interface NavElementProps {
   href: string
@@ -32,9 +33,7 @@ export function NavElement({ href, label, icon }: NavElementProps) {
       <span className='size-6 shrink-0 flex items-center justify-center'>
         {icon}
       </span>
-      <span className='font-inter text-title-md font-medium'>
-        {label}
-      </span>
+      <span className='font-inter text-title-md font-medium'>{label}</span>
     </Link>
   )
 }

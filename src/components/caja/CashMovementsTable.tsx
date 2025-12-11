@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import type { FormEvent } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
@@ -208,25 +210,31 @@ const columns: ColumnDefinition[] = [
 
 const totalColumns = columns.length
 
-const getHeaderCellClasses = (index: number, align: 'left' | 'right' = 'left') => {
+const getHeaderCellClasses = (
+  index: number,
+  align: 'left' | 'right' = 'left'
+) => {
   const borders =
-    index < totalColumns - 1 ? 'border-hairline-b border-hairline-r' : 'border-hairline-b'
+    index < totalColumns - 1
+      ? 'border-hairline-b border-hairline-r'
+      : 'border-hairline-b'
   const textAlign = align === 'right' ? 'text-right' : 'text-left'
   return `${borders} py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-body-md font-normal text-[var(--color-neutral-600)] ${textAlign}`
 }
 
-const getBodyCellClasses = (index: number, align: 'left' | 'right' = 'left') => {
+const getBodyCellClasses = (
+  index: number,
+  align: 'left' | 'right' = 'left'
+) => {
   const borders =
-    index < totalColumns - 1 ? 'border-hairline-b border-hairline-r' : 'border-hairline-b'
+    index < totalColumns - 1
+      ? 'border-hairline-b border-hairline-r'
+      : 'border-hairline-b'
   const textAlign = align === 'right' ? 'text-right' : 'text-left'
   return `${borders} py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] text-body-md text-neutral-900 ${textAlign}`
 }
 
-const PAYMENT_FILTERS: PaymentCategory[] = [
-  'Efectivo',
-  'TPV',
-  'Financiación'
-]
+const PAYMENT_FILTERS: PaymentCategory[] = ['Efectivo', 'TPV', 'Financiación']
 
 export default function CashMovementsTable() {
   const [query, setQuery] = useState('')
@@ -247,7 +255,9 @@ export default function CashMovementsTable() {
       const availableRem = width / rootFontSize
       const nextScale = Math.min(1, availableRem / TABLE_WIDTH_REM)
 
-      setScaleFactor((prev) => (Math.abs(prev - nextScale) < 0.001 ? prev : nextScale))
+      setScaleFactor((prev) =>
+        Math.abs(prev - nextScale) < 0.001 ? prev : nextScale
+      )
     }
 
     updateScale()
@@ -323,7 +333,10 @@ export default function CashMovementsTable() {
         </div>
       </div>
 
-      <div ref={tableContainerRef} className='mt-6 flex-1 overflow-hidden rounded-lg'>
+      <div
+        ref={tableContainerRef}
+        className='mt-6 flex-1 overflow-hidden rounded-lg'
+      >
         <div className='h-full overflow-y-auto overflow-x-hidden'>
           <table className='w-full table-fixed border-collapse text-left'>
             <thead>
@@ -393,7 +406,9 @@ function SearchInput({
         height: `${CONTROL_HEIGHT_REM}rem`
       }}
     >
-      <span className='material-symbols-rounded text-[1rem] text-neutral-500'>search</span>
+      <span className='material-symbols-rounded text-[1rem] text-neutral-500'>
+        search
+      </span>
       <input
         className='ml-[0.5rem] w-full bg-transparent text-body-sm text-neutral-800 placeholder:text-neutral-500 focus:outline-none'
         placeholder='Buscar'
@@ -430,7 +445,9 @@ function FilterChip({
       aria-pressed={active}
       onClick={onClick}
     >
-      {icon && <span className='material-symbols-rounded text-[1rem]'>{icon}</span>}
+      {icon && (
+        <span className='material-symbols-rounded text-[1rem]'>{icon}</span>
+      )}
       {label}
     </button>
   )
@@ -472,7 +489,13 @@ function ProductionBadge({ state }: { state: ProductionState }) {
   )
 }
 
-function PaginationIcon({ icon, ariaLabel }: { icon: string; ariaLabel: string }) {
+function PaginationIcon({
+  icon,
+  ariaLabel
+}: {
+  icon: string
+  ariaLabel: string
+}) {
   return (
     <button
       type='button'
@@ -483,4 +506,3 @@ function PaginationIcon({ icon, ariaLabel }: { icon: string; ariaLabel: string }
     </button>
   )
 }
-

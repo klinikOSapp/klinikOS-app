@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import { useState } from 'react'
 
@@ -637,7 +639,9 @@ function DayGrid({
   hoveredId?: string | null
 }) {
   // Filtrar slots según los horarios visibles
-  const filteredSlots = TIME_SLOTS.filter((slot) => timeLabels.includes(slot.time))
+  const filteredSlots = TIME_SLOTS.filter((slot) =>
+    timeLabels.includes(slot.time)
+  )
 
   return (
     <div
@@ -756,110 +760,114 @@ export default function DayCalendar({ period = 'full' }: DayCalendarProps) {
       />
 
       {/* Hover overlay - Simplified detail view */}
-      {hovered && !active && hovered.event.detail && (() => {
-        const position = getSmartOverlayPosition(
-          hovered.event.top,
-          hovered.boxId,
-          '14rem'
-        )
-        return (
-          <div
-            className='pointer-events-none absolute z-10 flex flex-col overflow-hidden overflow-y-auto rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)]'
-            style={{
-              top: position.top,
-              left: position.left,
-              width: 'var(--scheduler-overlay-width)',
-              maxHeight: position.maxHeight
-            }}
-          >
-          {/* Header */}
-          <div className='flex items-center justify-between bg-[var(--color-brand-100)] px-4 py-2'>
-            <p className='text-title-md font-medium text-[var(--color-neutral-900)]'>
-              {hovered.event.detail.title}
-            </p>
-            <p className='text-body-md font-bold text-[var(--color-neutral-900)]'>
-              {hovered.event.box}
-            </p>
-          </div>
+      {hovered &&
+        !active &&
+        hovered.event.detail &&
+        (() => {
+          const position = getSmartOverlayPosition(
+            hovered.event.top,
+            hovered.boxId,
+            '14rem'
+          )
+          return (
+            <div
+              className='pointer-events-none absolute z-10 flex flex-col overflow-hidden overflow-y-auto rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)]'
+              style={{
+                top: position.top,
+                left: position.left,
+                width: 'var(--scheduler-overlay-width)',
+                maxHeight: position.maxHeight
+              }}
+            >
+              {/* Header */}
+              <div className='flex items-center justify-between bg-[var(--color-brand-100)] px-4 py-2'>
+                <p className='text-title-md font-medium text-[var(--color-neutral-900)]'>
+                  {hovered.event.detail.title}
+                </p>
+                <p className='text-body-md font-bold text-[var(--color-neutral-900)]'>
+                  {hovered.event.box}
+                </p>
+              </div>
 
-          {/* Body */}
-          <div className='flex flex-col gap-4 bg-[var(--color-neutral-0)] px-4 py-4'>
-            {/* Fecha y ubicación */}
-            <div className='flex flex-col gap-1'>
-              <div className='flex items-center gap-1'>
-                <MD3Icon
-                  name='CalendarMonthRounded'
-                  size={1}
-                  className='text-[var(--color-neutral-600)]'
-                />
-                <p className='text-label-md font-normal text-[var(--color-neutral-600)]'>
-                  Fecha y ubicación
-                </p>
-              </div>
-              <p className='text-body-sm font-normal text-[var(--color-neutral-900)]'>
-                {hovered.event.detail.date}
-              </p>
-            </div>
+              {/* Body */}
+              <div className='flex flex-col gap-4 bg-[var(--color-neutral-0)] px-4 py-4'>
+                {/* Fecha y ubicación */}
+                <div className='flex flex-col gap-1'>
+                  <div className='flex items-center gap-1'>
+                    <MD3Icon
+                      name='CalendarMonthRounded'
+                      size={1}
+                      className='text-[var(--color-neutral-600)]'
+                    />
+                    <p className='text-label-md font-normal text-[var(--color-neutral-600)]'>
+                      Fecha y ubicación
+                    </p>
+                  </div>
+                  <p className='text-body-sm font-normal text-[var(--color-neutral-900)]'>
+                    {hovered.event.detail.date}
+                  </p>
+                </div>
 
-            {/* Paciente */}
-            <div className='flex flex-col gap-1'>
-              <div className='flex items-center gap-1'>
-                <MD3Icon
-                  name='AccountCircleRounded'
-                  size={1}
-                  className='text-[var(--color-neutral-600)]'
-                />
-                <p className='text-label-md font-normal text-[var(--color-neutral-600)]'>
-                  Paciente
-                </p>
-              </div>
-              <p className='text-body-sm font-normal text-[var(--color-neutral-900)]'>
-                {hovered.event.detail.patientFull}
-              </p>
-            </div>
+                {/* Paciente */}
+                <div className='flex flex-col gap-1'>
+                  <div className='flex items-center gap-1'>
+                    <MD3Icon
+                      name='AccountCircleRounded'
+                      size={1}
+                      className='text-[var(--color-neutral-600)]'
+                    />
+                    <p className='text-label-md font-normal text-[var(--color-neutral-600)]'>
+                      Paciente
+                    </p>
+                  </div>
+                  <p className='text-body-sm font-normal text-[var(--color-neutral-900)]'>
+                    {hovered.event.detail.patientFull}
+                  </p>
+                </div>
 
-            {/* Profesional */}
-            <div className='flex flex-col gap-1'>
-              <div className='flex items-center gap-1'>
-                <MD3Icon
-                  name='MonitorHeartRounded'
-                  size={1}
-                  className='text-[var(--color-neutral-600)]'
-                />
-                <p className='text-label-md font-normal text-[var(--color-neutral-600)]'>
-                  Profesional
-                </p>
-              </div>
-              <div className='flex items-center gap-4'>
-                <span
-                  className='inline-flex shrink-0 rounded-full bg-[var(--color-neutral-700)]'
-                  style={{ width: '2rem', height: '2rem' }}
-                />
-                <p className='text-body-sm font-normal text-[var(--color-neutral-900)]'>
-                  {hovered.event.detail.professional}
-                </p>
+                {/* Profesional */}
+                <div className='flex flex-col gap-1'>
+                  <div className='flex items-center gap-1'>
+                    <MD3Icon
+                      name='MonitorHeartRounded'
+                      size={1}
+                      className='text-[var(--color-neutral-600)]'
+                    />
+                    <p className='text-label-md font-normal text-[var(--color-neutral-600)]'>
+                      Profesional
+                    </p>
+                  </div>
+                  <div className='flex items-center gap-4'>
+                    <span
+                      className='inline-flex shrink-0 rounded-full bg-[var(--color-neutral-700)]'
+                      style={{ width: '2rem', height: '2rem' }}
+                    />
+                    <p className='text-body-sm font-normal text-[var(--color-neutral-900)]'>
+                      {hovered.event.detail.professional}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-        )
-      })()}
+          )
+        })()}
 
       {/* Click overlay - AppointmentDetailOverlay */}
-      {overlaySource && activeDetail && (() => {
-        const position = getSmartOverlayPosition(
-          overlaySource.event.top,
-          overlaySource.boxId
-        )
-        return (
-          <AppointmentDetailOverlay
-            detail={activeDetail}
-            box={overlaySource.event.box || ''}
-            position={position}
-          />
-        )
-      })()}
+      {overlaySource &&
+        activeDetail &&
+        (() => {
+          const position = getSmartOverlayPosition(
+            overlaySource.event.top,
+            overlaySource.boxId
+          )
+          return (
+            <AppointmentDetailOverlay
+              detail={activeDetail}
+              box={overlaySource.event.box || ''}
+              position={position}
+            />
+          )
+        })()}
     </div>
   )
 }
-

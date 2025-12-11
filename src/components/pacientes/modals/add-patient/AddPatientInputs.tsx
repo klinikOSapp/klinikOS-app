@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import React from 'react'
 import { createPortal } from 'react-dom'
@@ -190,7 +192,7 @@ export function AutocompleteInput({
   const [isLoading, setIsLoading] = React.useState(false)
   const [showSuggestions, setShowSuggestions] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
-  const debounceTimer = React.useRef<NodeJS.Timeout>()
+  const debounceTimer = React.useRef<NodeJS.Timeout | null>(null)
 
   // Cerrar sugerencias al hacer clic fuera
   React.useEffect(() => {

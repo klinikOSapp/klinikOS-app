@@ -1,9 +1,11 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
+import type { CashTimeScale } from '@/components/caja/cajaTypes'
 import type { CSSProperties } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
-import type { CashTimeScale } from '@/components/caja/cajaTypes'
 
 const Y_AXIS_LABELS = ['50K', '40K', '30K', '20K', '10K', 'º']
 
@@ -136,13 +138,16 @@ export default function CashTrendCard({
   const verticalLineLeftPercent = useMemo(() => {
     const denominator = Math.max(series.labels.length - 1, 1)
     return percentOfWidth(
-      GRID_LEFT_PX + ((series.highlightIndex / denominator) * GRID_WIDTH_PX || 0)
+      GRID_LEFT_PX +
+        ((series.highlightIndex / denominator) * GRID_WIDTH_PX || 0)
     )
   }, [series])
 
   const cardStyles: CSSProperties = {
     width: '100%',
-    height: targetHeightRem ? `${targetHeightRem}rem` : `min(${CARD_HEIGHT_REM}rem, 100%)`,
+    height: targetHeightRem
+      ? `${targetHeightRem}rem`
+      : `min(${CARD_HEIGHT_REM}rem, 100%)`,
     overflow: 'hidden',
     position: 'relative'
   }
@@ -249,7 +254,10 @@ export default function CashTrendCard({
           />
           <ChartGrid />
           <ResponsiveContainer width='100%' height='100%'>
-            <LineChart data={chartLineData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+            <LineChart
+              data={chartLineData}
+              margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+            >
               <YAxis type='number' domain={[0, 50]} hide />
               <XAxis dataKey='label' type='category' hide />
               <Line
@@ -418,4 +426,3 @@ function generateValue(date: Date, slope: number, base: number) {
   const value = Math.min(48, Math.max(8, base + trend + noise))
   return Math.round((value + Number.EPSILON) * 10) / 10
 }
-

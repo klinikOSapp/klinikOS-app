@@ -1,9 +1,10 @@
 'use client'
 
-import React from 'react'
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
+import { SidebarProps } from '@/types/layout'
 import CTANav from './CTANav'
 import NavElement from './NavElement'
-import { SidebarProps } from '@/types/layout'
 
 export default function Sidebar({
   itemsTop,

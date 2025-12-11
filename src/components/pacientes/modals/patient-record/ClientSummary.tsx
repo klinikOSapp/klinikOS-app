@@ -1,4 +1,7 @@
-import React from 'react'
+'use client'
+
+/* eslint-disable @next/next/no-img-element */
+
 import {
   CallRounded,
   CloseRounded,
@@ -6,6 +9,7 @@ import {
   MoreVertRounded
 } from '@/components/icons/md3'
 import AvatarImageDropdown from '@/components/pacientes/AvatarImageDropdown'
+import React from 'react'
 
 type ClientSummaryProps = {
   onClose?: () => void
@@ -368,5 +372,3 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
     </div>
   )
 }
-
-

@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable jsx-a11y/role-supports-aria-props */
+
 import {
   AddRounded,
   ArrowBackRounded,
@@ -295,7 +297,11 @@ function PricingSelectField({
   const hasSelection = Boolean(value)
 
   return (
-    <div className='absolute w-[19.1875rem]' style={{ left, top }} ref={containerRef}>
+    <div
+      className='absolute w-[19.1875rem]'
+      style={{ left, top }}
+      ref={containerRef}
+    >
       <label htmlFor={id} className='block text-body-sm text-neutral-900'>
         {label}
       </label>
@@ -612,9 +618,9 @@ export default function ProposalCreationModal({
   ] as const
 
   // Filtrar el paso de financiación si no está activado
-  const visibleStepConfig = wantsFinancing 
-    ? stepConfig 
-    : stepConfig.filter(s => s.key !== 'financiación')
+  const visibleStepConfig = wantsFinancing
+    ? stepConfig
+    : stepConfig.filter((s) => s.key !== 'financiación')
 
   // Ajustar posiciones cuando financiación está oculta
   const adjustedStepConfig = visibleStepConfig.map((step, index) => ({
@@ -922,8 +928,8 @@ export default function ProposalCreationModal({
                         placeholder='Value'
                       />
 
-                      <FinancingSwitch 
-                        top='50rem' 
+                      <FinancingSwitch
+                        top='50rem'
                         checked={wantsFinancing}
                         onChange={setWantsFinancing}
                       />

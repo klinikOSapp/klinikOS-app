@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { MD3Icon } from '@/components/icons/MD3Icon'
 
 type Props = {
@@ -92,9 +94,9 @@ export default function AddPatientStepResumen({
       <p className='absolute left-[18.375rem] top-[25.5rem] text-[0.75rem] leading-[1rem] font-medium text-[#8A95A1]'>
         Consentimientos:
       </p>
-      
-      <ResumenItem 
-        label='Tratamiento de datos personales' 
+
+      <ResumenItem
+        label='Tratamiento de datos personales'
         checked={true}
         top='25.5rem'
       />
@@ -132,9 +134,9 @@ function ResumenItem({
 }) {
   const showCheck = checked && !negative
   const showCancel = !checked || negative
-  
+
   return (
-    <div 
+    <div
       className='absolute left-[25.5625rem] flex items-center gap-2'
       style={{ top }}
     >

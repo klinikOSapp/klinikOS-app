@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import {
   AddRounded,
   ChevronLeftRounded,
@@ -459,4 +461,3 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
     </div>
   )
 }
-

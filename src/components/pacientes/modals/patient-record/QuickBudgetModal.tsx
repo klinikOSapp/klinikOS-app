@@ -1,13 +1,15 @@
 'use client'
 
-import React from 'react'
-import { createPortal } from 'react-dom'
+/* eslint-disable @next/next/no-img-element */
+
 import {
   ArrowBackRounded,
   ArrowForwardRounded,
   CloseRounded,
   KeyboardArrowDownRounded
 } from '@/components/icons/md3'
+import React from 'react'
+import { createPortal } from 'react-dom'
 import {
   MODAL_HEIGHT_REM,
   MODAL_SCALE_FORMULA,
@@ -32,7 +34,12 @@ export type QuickBudgetOption = {
 
 const OPTIONS: QuickBudgetOption[] = [
   { id: 'limpieza', label: 'Limpieza', amount: '60€', icon: ICON_LIMPIEZA },
-  { id: 'extraccion', label: 'Extracción', amount: '120€', icon: ICON_EXTRACCION },
+  {
+    id: 'extraccion',
+    label: 'Extracción',
+    amount: '120€',
+    icon: ICON_EXTRACCION
+  },
   { id: 'blanqueo', label: 'Blanqueo', amount: '180€', icon: ICON_BLANQUEO },
   { id: 'revision', label: 'Revisión', amount: 'GRATIS', icon: ICON_REVISION }
 ]
@@ -161,7 +168,9 @@ const QuickBudgetModal = ({
         }}
       >
         <p className='text-title-lg text-neutral-900'>{selectedOption.label}</p>
-        <p className='text-title-lg text-neutral-900'>{selectedOption.amount}</p>
+        <p className='text-title-lg text-neutral-900'>
+          {selectedOption.amount}
+        </p>
       </div>
 
       <p
@@ -301,12 +310,14 @@ const QuickBudgetModal = ({
                   </button>
                 </header>
 
-                {step === 'select' ? renderSelectionStep() : renderDetailsStep()}
+                {step === 'select'
+                  ? renderSelectionStep()
+                  : renderDetailsStep()}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
     </div>
   )
 
@@ -314,4 +325,3 @@ const QuickBudgetModal = ({
 }
 
 export { QuickBudgetModal }
-

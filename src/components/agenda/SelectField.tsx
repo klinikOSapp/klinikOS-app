@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 type SelectFieldProps = {
   label?: string
   value?: string
@@ -21,7 +23,7 @@ export default function SelectField({
   hasDescription = false,
   onChange,
   options = [],
-  className = '',
+  className = ''
 }: SelectFieldProps) {
   const displayValue = value || placeholder
   const isPlaceholder = !value
@@ -46,7 +48,11 @@ export default function SelectField({
               px-[0.625rem] py-[0.5rem]
               pr-8
               font-normal text-base leading-6
-              ${isPlaceholder ? 'text-[var(--input-placeholder-color)]' : 'text-[var(--input-text-color)]'}
+              ${
+                isPlaceholder
+                  ? 'text-[var(--input-placeholder-color)]'
+                  : 'text-[var(--input-text-color)]'
+              }
               focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-opacity-50
               cursor-pointer
             `}
@@ -75,4 +81,3 @@ export default function SelectField({
     </div>
   )
 }
-

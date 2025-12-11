@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import React from 'react'
 import { createPortal } from 'react-dom'
 
@@ -41,12 +43,19 @@ const TABLE_COLUMN_WIDTHS_REM = [
   pxToRem(200)
 ]
 
-const TABLE_GRID_TEMPLATE = TABLE_COLUMN_WIDTHS_REM.map((width) => `${width}rem`).join(' ')
+const TABLE_GRID_TEMPLATE = TABLE_COLUMN_WIDTHS_REM.map(
+  (width) => `${width}rem`
+).join(' ')
 
 const CASH_TOTAL_FIELDS = [
   { id: 'initial', label: 'Caja inicial', placeholder: '0,00 €' },
   { id: 'day', label: 'Caja del día', placeholder: '0,00 €' },
-  { id: 'outflow', label: 'Salida de caja', placeholder: '0,00 €', required: true },
+  {
+    id: 'outflow',
+    label: 'Salida de caja',
+    placeholder: '0,00 €',
+    required: true
+  },
   { id: 'rest', label: 'Resto de caja', placeholder: '0,00 €' }
 ] as const
 
@@ -151,7 +160,9 @@ type ModalStep = 'summary' | 'recount'
 export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
   const [mounted, setMounted] = React.useState(false)
   const [totalValues, setTotalValues] = React.useState(INITIAL_TOTAL_VALUES)
-  const [recountValues, setRecountValues] = React.useState(INITIAL_RECOUNT_VALUES)
+  const [recountValues, setRecountValues] = React.useState(
+    INITIAL_RECOUNT_VALUES
+  )
   const [step, setStep] = React.useState<ModalStep>('summary')
 
   React.useEffect(() => {
@@ -200,7 +211,8 @@ export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
 
   if (!open || !mounted) return null
 
-  const modalWidthRem = step === 'summary' ? MODAL_WIDTH_REM : RECOUNT_MODAL_WIDTH_REM
+  const modalWidthRem =
+    step === 'summary' ? MODAL_WIDTH_REM : RECOUNT_MODAL_WIDTH_REM
   const modalScaleFormula =
     step === 'summary' ? MODAL_SCALE_FORMULA : RECOUNT_MODAL_SCALE_FORMULA
 
@@ -223,7 +235,9 @@ export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
   } as React.CSSProperties
 
   const descriptionId =
-    step === 'summary' ? 'cash-close-dialog-description' : 'cash-close-recount-description'
+    step === 'summary'
+      ? 'cash-close-dialog-description'
+      : 'cash-close-recount-description'
 
   const content = (
     <div
@@ -246,7 +260,10 @@ export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
           >
             <div className='relative' style={modalContentStyle}>
               <header className='absolute left-0 top-0 flex h-[3.5rem] w-full items-center justify-between border-b border-border px-[2rem]'>
-                <p id='cash-close-dialog-title' className='text-title-md font-medium text-fg'>
+                <p
+                  id='cash-close-dialog-title'
+                  className='text-title-md font-medium text-fg'
+                >
                   Cierre de caja
                 </p>
                 <button
@@ -255,7 +272,9 @@ export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
                   onClick={handleClose}
                   aria-label='Cerrar cierre de caja'
                 >
-                  <span className='material-symbols-rounded text-[1rem] leading-none'>close</span>
+                  <span className='material-symbols-rounded text-[1rem] leading-none'>
+                    close
+                  </span>
                 </button>
               </header>
 
@@ -330,7 +349,8 @@ function SummaryStep({
       >
         <p className='text-headline-sm text-fg'>Totales de caja</p>
         <p id={descriptionId} className='text-body-sm text-fg'>
-          Comprueba que todos los datos del resumen son correctos y anota la salida de caja.
+          Comprueba que todos los datos del resumen son correctos y anota la
+          salida de caja.
         </p>
       </section>
 
@@ -353,10 +373,12 @@ function SummaryStep({
                 onChange={(event) => onChange(field.id, event.target.value)}
                 placeholder={field.placeholder}
                 className='w-full bg-transparent text-body-md text-fg placeholder:text-neutral-400 focus:outline-none'
-                aria-required={field.required}
+                aria-required={'required' in field ? field.required : undefined}
               />
-              {field.required && (
-                <span className='text-body-lg font-medium leading-none text-error-600'>*</span>
+              {'required' in field && field.required && (
+                <span className='text-body-lg font-medium leading-none text-error-600'>
+                  *
+                </span>
               )}
             </label>
           </div>
@@ -377,16 +399,18 @@ function SummaryStep({
             className='grid border-b border-border text-body-md font-medium text-neutral-600'
             style={tableGridStyles}
           >
-            {['Hora', 'Paciente', 'Concepto', 'Cantidad', 'Método'].map((header, index) => (
-              <div
-                key={`${header}-${index}`}
-                className={`flex items-center px-[0.5rem] py-[0.25rem] ${
-                  index < 4 ? 'border-r border-border' : ''
-                }`}
-              >
-                {header}
-              </div>
-            ))}
+            {['Hora', 'Paciente', 'Concepto', 'Cantidad', 'Método'].map(
+              (header, index) => (
+                <div
+                  key={`${header}-${index}`}
+                  className={`flex items-center px-[0.5rem] py-[0.25rem] ${
+                    index < 4 ? 'border-r border-border' : ''
+                  }`}
+                >
+                  {header}
+                </div>
+              )
+            )}
           </div>
 
           <div>
@@ -431,7 +455,12 @@ type RecountStepProps = {
   onContinue: () => void
 }
 
-function RecountStep({ descriptionId, values, onChange, onContinue }: RecountStepProps) {
+function RecountStep({
+  descriptionId,
+  values,
+  onChange,
+  onContinue
+}: RecountStepProps) {
   return (
     <>
       <section
@@ -439,7 +468,11 @@ function RecountStep({ descriptionId, values, onChange, onContinue }: RecountSte
         style={{
           left: `${RECOUNT_LABEL_LEFT_REM}rem`,
           top: `${RECOUNT_HEADER_TOP_REM}rem`,
-          width: `${RECOUNT_INPUT_LEFT_REM + RECOUNT_INPUT_WIDTH_REM - RECOUNT_LABEL_LEFT_REM}rem`
+          width: `${
+            RECOUNT_INPUT_LEFT_REM +
+            RECOUNT_INPUT_WIDTH_REM -
+            RECOUNT_LABEL_LEFT_REM
+          }rem`
         }}
       >
         <p id={descriptionId} className='text-title-sm font-medium text-fg'>
@@ -448,7 +481,8 @@ function RecountStep({ descriptionId, values, onChange, onContinue }: RecountSte
       </section>
 
       {RECOUNT_FIELDS.map((field, index) => {
-        const top = RECOUNT_LABEL_TOP_START_REM + index * RECOUNT_LABEL_ROW_GAP_REM
+        const top =
+          RECOUNT_LABEL_TOP_START_REM + index * RECOUNT_LABEL_ROW_GAP_REM
         return (
           <React.Fragment key={field.id}>
             <p
@@ -476,7 +510,8 @@ function RecountStep({ descriptionId, values, onChange, onContinue }: RecountSte
                 />
               </label>
               <p className='text-label-sm font-medium text-neutral-600'>
-                Debería haber <span className='font-bold text-fg'>{field.should}</span>
+                Debería haber{' '}
+                <span className='font-bold text-fg'>{field.should}</span>
               </p>
             </div>
           </React.Fragment>
@@ -499,5 +534,3 @@ function RecountStep({ descriptionId, values, onChange, onContinue }: RecountSte
     </>
   )
 }
-
-

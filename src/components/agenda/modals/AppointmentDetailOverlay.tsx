@@ -2,7 +2,7 @@
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import type { CSSProperties } from 'react'
-import type { EventDetail } from './types'
+import type { EventDetail } from '../types'
 
 export interface AppointmentDetailOverlayProps {
   detail: EventDetail
@@ -177,11 +177,11 @@ export default function AppointmentDetailOverlay({
                   className='flex items-center text-sm font-normal text-[var(--color-neutral-900)] leading-5'
                   style={{ gap: 'var(--scheduler-overlay-contact-gap)' }}
                 >
-                <MD3Icon
-                  name='EuroRounded'
-                  size={1}
-                  className='text-[var(--color-neutral-600)]'
-                />
+                  <MD3Icon
+                    name='EuroRounded'
+                    size={1}
+                    className='text-[var(--color-neutral-600)]'
+                  />
                   <span>{detail.economicAmount}</span>
                 </div>
               )}

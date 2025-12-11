@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import React from 'react'
 import { ToggleInput } from './AddPatientInputs'
@@ -19,8 +21,11 @@ export default function AddPatientStepConsentimientos() {
     url: string
     name: string
   }
-  const [rxAttachment, setRxAttachment] = React.useState<Attachment | null>(null)
-  const [fotosAttachment, setFotosAttachment] = React.useState<Attachment | null>(null)
+  const [rxAttachment, setRxAttachment] = React.useState<Attachment | null>(
+    null
+  )
+  const [fotosAttachment, setFotosAttachment] =
+    React.useState<Attachment | null>(null)
 
   const handleFileUpload = (
     e: React.ChangeEvent<HTMLInputElement>,

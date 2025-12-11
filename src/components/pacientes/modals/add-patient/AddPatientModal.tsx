@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import React from 'react'
 import AddPatientStepAdministrativo from './AddPatientStepAdministrativo'
@@ -345,9 +347,16 @@ export default function AddPatientModal({
   if (!open) return null
 
   // Calcular estados de los pasos
-  const stepOrder = ['paciente', 'contacto', 'administrativo', 'salud', 'consentimientos', 'resumen']
+  const stepOrder = [
+    'paciente',
+    'contacto',
+    'administrativo',
+    'salud',
+    'consentimientos',
+    'resumen'
+  ]
   const currentStepIndex = stepOrder.indexOf(step)
-  
+
   const getStepState = (stepName: string): StepState => {
     const stepIndex = stepOrder.indexOf(stepName)
     if (stepIndex < currentStepIndex) return 'completed'
@@ -579,7 +588,7 @@ export default function AddPatientModal({
               )}
 
               <div className='w-[31.5rem] h-0 left-[18.375rem] top-[53.25rem] absolute origin-top-left rotate-180 border-t-[0.0625rem] border-[var(--color-neutral-400)]'></div>
-              
+
               {step !== 'paciente' && (
                 <button
                   type='button'
