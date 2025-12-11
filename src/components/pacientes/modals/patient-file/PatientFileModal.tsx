@@ -1,7 +1,7 @@
 'use client'
 
-import ClinicalHistory from '@/components/pacientes/modals/patient-record/ClinicalHistory'
 import { CloseRounded } from '@/components/icons/md3'
+import ClinicalHistory from '@/components/pacientes/modals/patient-record/ClinicalHistory'
 import React from 'react'
 
 type PatientFileModalProps = {
@@ -38,10 +38,10 @@ export default function PatientFileModal({
           isActive ? 'bg-[#E9FBF9]' : 'hover:bg-[var(--color-neutral-50)]'
         ].join(' ')}
       >
-        <p className="font-['Inter:Medium',_sans-serif] text-[24px] leading-[32px] text-[var(--color-neutral-900)]">
+        <p className='font-inter font-medium text-title-lg text-[var(--color-neutral-900)]'>
           {title}
         </p>
-        <p className="font-['Inter:Regular',_sans-serif] text-[14px] leading-[20px] text-[var(--color-neutral-900)]">
+        <p className='font-inter text-body-sm text-[var(--color-neutral-900)]'>
           {subtitle}
         </p>
       </button>

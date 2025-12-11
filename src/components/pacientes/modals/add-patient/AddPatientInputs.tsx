@@ -4,6 +4,25 @@ import { MD3Icon } from '@/components/icons/MD3Icon'
 import React from 'react'
 import { createPortal } from 'react-dom'
 
+type NominatimAddress = {
+  road?: string
+  street?: string
+  city?: string
+  town?: string
+  village?: string
+  postcode?: string
+  state?: string
+  province?: string
+  country?: string
+  country_code?: string
+}
+
+type NominatimSuggestion = {
+  place_id?: string | number
+  display_name?: string
+  address?: NominatimAddress
+}
+
 export function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <p className='text-body-md text-[var(--color-neutral-900)]'>{children}</p>
@@ -155,7 +174,7 @@ export function AutocompleteInput({
   required?: boolean
   value?: string
   onChange?: (v: string) => void
-  onSelect?: (suggestion: { 
+  onSelect?: (suggestion: {
     display: string
     street: string
     city: string
@@ -165,7 +184,9 @@ export function AutocompleteInput({
     countryCode: string
   }) => void
 }) {
-  const [suggestions, setSuggestions] = React.useState<any[]>([])
+  const [suggestions, setSuggestions] = React.useState<NominatimSuggestion[]>(
+    []
+  )
   const [isLoading, setIsLoading] = React.useState(false)
   const [showSuggestions, setShowSuggestions] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
@@ -211,7 +232,7 @@ export function AutocompleteInput({
           }
         }
       )
-      const data = await response.json()
+      const data = (await response.json()) as NominatimSuggestion[]
       setSuggestions(data)
       setShowSuggestions(true)
     } catch (error) {
@@ -235,7 +256,7 @@ export function AutocompleteInput({
     }, 300) // Esperar 300ms después de que el usuario deje de escribir
   }
 
-  const handleSelectSuggestion = (suggestion: any) => {
+  const handleSelectSuggestion = (suggestion: NominatimSuggestion) => {
     const address = suggestion.address || {}
     const street = address.road || address.street || ''
     const city = address.city || address.town || address.village || ''
@@ -406,20 +427,30 @@ export function DatePickerInput({
   }, [selectedDate])
 
   // Función para validar y actualizar la fecha
-  const updateDateFromInputs = React.useCallback((d: string, m: string, y: string) => {
-    if (d.length === 2 && m.length === 2 && y.length === 4) {
-      const day = parseInt(d, 10)
-      const month = parseInt(m, 10)
-      const year = parseInt(y, 10)
-      if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2100) {
-        const newDate = new Date(year, month - 1, day)
-        if (newDate.getDate() === day && newDate.getMonth() === month - 1) {
-          setSelectedDate(newDate)
-          onChange?.(newDate)
+  const updateDateFromInputs = React.useCallback(
+    (d: string, m: string, y: string) => {
+      if (d.length === 2 && m.length === 2 && y.length === 4) {
+        const day = parseInt(d, 10)
+        const month = parseInt(m, 10)
+        const year = parseInt(y, 10)
+        if (
+          day >= 1 &&
+          day <= 31 &&
+          month >= 1 &&
+          month <= 12 &&
+          year >= 1900 &&
+          year <= 2100
+        ) {
+          const newDate = new Date(year, month - 1, day)
+          if (newDate.getDate() === day && newDate.getMonth() === month - 1) {
+            setSelectedDate(newDate)
+            onChange?.(newDate)
+          }
         }
       }
-    }
-  }, [onChange])
+    },
+    [onChange]
+  )
 
   const handleDayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 2)

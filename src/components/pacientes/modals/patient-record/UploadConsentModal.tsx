@@ -78,7 +78,7 @@ export default function UploadConsentModal({
           <p className='text-title-sm text-[var(--color-neutral-900)]'>
             Consentimientos
           </p>
-          <h2 className='text-[44px] leading-[52px] font-normal text-[var(--color-neutral-900)] mt-2'>
+          <h2 className='font-inter text-display-md font-normal text-[var(--color-neutral-900)] mt-2'>
             Subir consentimiento
           </h2>
           <p className='text-body-md text-[var(--color-neutral-900)] mt-2 max-w-[620px]'>
@@ -115,7 +115,7 @@ export default function UploadConsentModal({
             aria-label='Zona para arrastrar y soltar archivos'
           >
             <UploadFileRounded className='size-20 text-[var(--color-neutral-900)]' />
-            <p className='text-[18px] leading-[28px] text-[var(--color-neutral-900)]'>
+            <p className='font-inter text-body-lg text-[var(--color-neutral-900)]'>
               Subir archivo
             </p>
             {dragInfo && (
@@ -126,7 +126,7 @@ export default function UploadConsentModal({
             <button
               type='button'
               onClick={() => fileInputRef.current?.click()}
-              className='border border-[var(--color-neutral-300)] rounded-[24px] px-3 py-2 text-[18px] leading-[28px] text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-50)]'
+              className='border border-[var(--color-neutral-300)] rounded-[24px] px-3 py-2 font-inter text-body-lg text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-50)]'
             >
               Seleccionar de tu dispositivo
             </button>

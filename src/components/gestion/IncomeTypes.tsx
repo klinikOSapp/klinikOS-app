@@ -29,10 +29,12 @@ export default function IncomeTypes({
         }}
       >
         <header className='flex items-baseline justify-between'>
-          <h3 className='text-title-sm font-medium text-fg'>Tipos de ingreso</h3>
+          <h3 className='text-title-sm font-medium text-fg'>
+            Tipos de ingreso
+          </h3>
           <div className='flex items-center gap-card-metric text-label-md text-fg'>
             <span>{yearLabel}</span>
-            <span className='material-symbols-rounded text-[16px]'>
+            <span className='material-symbols-rounded text-body-md leading-none'>
               arrow_drop_down
             </span>
           </div>
@@ -52,7 +54,9 @@ export default function IncomeTypes({
             >
               <div className='flex items-center justify-between text-label-md text-fg-secondary whitespace-nowrap'>
                 <span>{i.label}</span>
-                <span className='font-medium text-fg-secondary'>{i.percent}</span>
+                <span className='font-medium text-fg-secondary'>
+                  {i.percent}
+                </span>
               </div>
               <div className='text-headline-sm text-fg-secondary whitespace-nowrap'>
                 {i.value}
@@ -61,7 +65,7 @@ export default function IncomeTypes({
                 <span className='text-body-sm text-brandSemantic'>
                   {i.delta ?? '+ 12%'}
                 </span>
-                <span className='material-symbols-rounded text-brandSemantic text-[16px]'>
+                <span className='material-symbols-rounded text-brandSemantic text-body-md leading-none'>
                   arrow_outward
                 </span>
               </div>
