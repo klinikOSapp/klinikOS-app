@@ -55,7 +55,11 @@ export default function CajaPage() {
             }}
           >
             <div className='w-full'>
-              <CashSummaryCard onHeightChange={handleSummaryHeight} />
+              <CashSummaryCard
+                date={anchorDate}
+                timeScale={timeScale}
+                onHeightChange={handleSummaryHeight}
+              />
             </div>
             <div className='w-full'>
               <CashTrendCard
@@ -66,7 +70,7 @@ export default function CajaPage() {
             </div>
           </div>
 
-          <CashMovementsTable />
+          <CashMovementsTable date={anchorDate} timeScale={timeScale} />
         </div>
       </div>
     </ClientLayout>
@@ -136,3 +140,4 @@ function startOfWeek(date: Date) {
   }
   return copy
 }
+
