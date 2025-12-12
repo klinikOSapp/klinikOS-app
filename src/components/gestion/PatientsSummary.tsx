@@ -19,7 +19,7 @@ export default function PatientsSummary({
 }: PatientsSummaryProps) {
   return (
     <section
-      className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 px-card-pad pt-card-pad pb-card-inner'
+      className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 px-card-pad pt-0 pb-card-inner'
       style={{ width: 'min(var(--width-card-stat-fluid), 100%)' }}
     >
       <div
@@ -29,7 +29,7 @@ export default function PatientsSummary({
           marginInline: 'auto'
         }}
       >
-        <header className='flex items-baseline justify-between'>
+        <header className='mt-[1rem] flex items-baseline justify-between'>
           <h3 className='text-title-sm font-medium text-fg'>Pacientes</h3>
           <div className='flex items-center gap-card-metric text-label-md text-fg'>
             <span>{yearLabel}</span>
@@ -39,7 +39,7 @@ export default function PatientsSummary({
           </div>
         </header>
         <div
-          className='mt-header-cards grid gap-[0.75rem] justify-center'
+          className='mt-[0.9375rem] grid gap-[0.75rem] justify-center'
           style={{
             gridTemplateColumns:
               'repeat(3, min(var(--width-income-card), calc((100% - (0.75rem * 2)) / 3)))'
@@ -48,7 +48,7 @@ export default function PatientsSummary({
           {items.map((i) => (
             <div
               key={i.label}
-              className='bg-surface-app rounded-lg pt-card-pad px-card-pad pb-card-inner flex flex-col gap-card-row h-income-card w-full'
+              className='bg-surface-app rounded-lg p-card-inner flex flex-col gap-card-row h-income-card w-full'
               style={{ maxWidth: 'var(--width-income-card)' }}
             >
               <div className='flex items-center justify-between text-label-md text-fg-secondary whitespace-nowrap'>

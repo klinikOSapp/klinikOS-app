@@ -111,7 +111,7 @@
   --space-card-gap: 1.5rem; /* 24px exact gap entre cards Figma */
   --space-card-gap2: 0.6875rem; /* 11px */
   --space-card-inner: 0.5rem; /* 8px */
-  --space-header-cards: 2.4375rem; /* 39px header -> cards gap */
+  --space-header-cards: 0.9375rem; /* 15px header -> cards gap (Figma) */
   --space-card-row: 0.5rem; /* 8px between rows inside card */
   --space-card-metric: 0.25rem; /* 4px between value and KPI */
 
