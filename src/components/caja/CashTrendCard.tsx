@@ -22,7 +22,7 @@ const X_AXIS_TOP_PX = 302
 const CHIP_LEFT_PX = 64
 const CHIP_FACT_TOP_PX = 66
 const CHIP_OBJ_TOP_PX = 98
-const TARGET_VALUE_EUR = 30000
+const DEFAULT_TARGET_VALUE_EUR = 30000 // Fallback if no monthly goal set
 
 const percentOfWidth = (px: number) => `${(px / CARD_WIDTH_PX) * 100}%`
 const percentOfHeight = (px: number) => `${(px / CARD_HEIGHT_PX) * 100}%`
@@ -95,7 +95,7 @@ const GRID_RECT = {
   height: GRID_HEIGHT_PX
 }
 const GRID_FILL_RECT = { left: 0, top: 160, width: GRID_WIDTH_PX, height: 68 }
-const TARGET_RATIO = TARGET_VALUE_EUR / (chartCanvas.maxValue * 1000)
+// TARGET_RATIO will be calculated dynamically based on targetValue from API
 
 type SeriesPoint = {
   label: string
@@ -126,6 +126,7 @@ export default function CashTrendCard({
   })
   const [isLoading, setIsLoading] = useState(true)
   const [facturadoValue, setFacturadoValue] = useState(38000)
+  const [targetValue, setTargetValue] = useState(30) // In thousands (from API)
 
   // Fetch trend data from API
   useEffect(() => {
@@ -140,9 +141,13 @@ export default function CashTrendCard({
             dataPoints: data.dataPoints,
             highlightIndex: data.highlightIndex || data.dataPoints.length - 1
           })
-          // Calculate facturado from data points
+          // Calculate facturado from data points (sum of all periods shown)
           const total = data.dataPoints.reduce((sum: number, p: SeriesPoint) => sum + p.actual, 0) * 1000
           setFacturadoValue(total)
+          // Set target value from API (already in thousands)
+          if (data.targetValue !== undefined) {
+            setTargetValue(data.targetValue)
+          }
         }
         setIsLoading(false)
       })
@@ -151,6 +156,12 @@ export default function CashTrendCard({
         setIsLoading(false)
       })
   }, [timeScale, anchorDate])
+
+  // Calculate target ratio dynamically
+  const targetRatio = useMemo(() => {
+    const targetValueEur = targetValue * 1000 // Convert from thousands to EUR
+    return targetValueEur / (chartCanvas.maxValue * 1000)
+  }, [targetValue])
 
   const chartLineData = useMemo(
     () =>
@@ -241,7 +252,7 @@ export default function CashTrendCard({
         >
           <span>Objetivo:</span>
           <span className='font-bold text-neutral-900'>
-            {TARGET_VALUE_EUR.toLocaleString('es-ES', {
+            {(targetValue * 1000).toLocaleString('es-ES', {
               minimumFractionDigits: 0
             })}{' '}
             €
@@ -273,13 +284,13 @@ export default function CashTrendCard({
             <>
               <div
                 className='absolute'
-                style={{
-                  left: percentOfGridWidth(GRID_FILL_RECT.left),
-                  top: `${(1 - TARGET_RATIO) * 100}%`,
-                  width: percentOfGridWidth(GRID_FILL_RECT.width),
-                  height: `${TARGET_RATIO * 100}%`,
-                  backgroundColor: 'rgba(81, 214, 199, 0.12)'
-                }}
+            style={{
+              left: percentOfGridWidth(GRID_FILL_RECT.left),
+              top: `${(1 - targetRatio) * 100}%`,
+              width: percentOfGridWidth(GRID_FILL_RECT.width),
+              height: `${targetRatio * 100}%`,
+              backgroundColor: 'rgba(81, 214, 199, 0.12)'
+            }}
               />
               <ChartGrid />
               <ResponsiveContainer width='100%' height='100%'>

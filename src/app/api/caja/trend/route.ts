@@ -127,11 +127,43 @@ export async function GET(req: Request) {
       labels = dataPoints.map((p) => p.label)
     }
 
+    // Get monthly goal for target line
+    const currentMonth = anchorDate.getMonth() + 1
+    const currentYear = anchorDate.getFullYear()
+    const { data: monthlyGoal } = await supabase
+      .from('monthly_goals')
+      .select('revenue_goal')
+      .eq('clinic_id', clinicId)
+      .eq('year', currentYear)
+      .eq('month', currentMonth)
+      .maybeSingle()
+
+    // Calculate target based on time scale
+    let targetValue = 30000 // Default fallback
+    if (monthlyGoal?.revenue_goal) {
+      if (timeScale === 'day') {
+        // Daily target = monthly goal / days in month
+        const daysInMonth = new Date(currentYear, currentMonth, 0).getDate()
+        targetValue = Number(monthlyGoal.revenue_goal) / daysInMonth
+      } else if (timeScale === 'week') {
+        // Weekly target = monthly goal / 4.33 (average weeks per month)
+        targetValue = Number(monthlyGoal.revenue_goal) / 4.33
+      } else {
+        // Monthly target = full monthly goal
+        targetValue = Number(monthlyGoal.revenue_goal)
+      }
+      // Convert to thousands for chart display
+      targetValue = targetValue / 1000
+    } else {
+      // Fallback to 30K if no goal set
+      targetValue = 30
+    }
+
     return NextResponse.json({
       dataPoints,
       labels,
       highlightIndex: dataPoints.length - 1,
-      targetValue: 30 // 30K target
+      targetValue: Math.round(targetValue * 10) / 10 // Round to 1 decimal
     })
   } catch (error: any) {
     console.error('Error in cash trend API:', error)
