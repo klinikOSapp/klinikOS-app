@@ -54,19 +54,19 @@ export default function PatientsSummary({
               <div className='flex flex-col items-start gap-[0.5rem] w-full'>
                 <div className='flex items-center justify-between gap-[0.5rem] text-label-md text-fg-secondary whitespace-nowrap w-full'>
                   <span>{i.label}</span>
-                  <span className='font-medium text-fg'>{i.percent}</span>
+                  <span className='font-medium text-fg-secondary'>{i.percent}</span>
                 </div>
                 {i.kpi ? (
                   <div className='flex items-center gap-card-metric'>
-                    <div className='text-headline-lg text-brandSemantic'>
+                    <div className='text-headline-lg text-[var(--color-brand-500)]'>
                       {i.value}
                     </div>
-                    <span className='material-symbols-rounded text-brandSemantic text-[2.125rem] leading-none'>
+                    <span className='material-symbols-rounded text-[var(--color-brand-500)] text-[2.125rem] leading-none'>
                       arrow_outward
                     </span>
                   </div>
                 ) : (
-                  <div className='text-headline-sm text-fg-secondary'>
+                  <div className='text-headline-sm text-fg-secondary text-[var(--color-neutral-600)]'>
                     {i.value}
                   </div>
                 )}
@@ -74,10 +74,10 @@ export default function PatientsSummary({
 
               {!i.kpi && i.change ? (
                 <div className='flex items-center gap-card-metric'>
-                  <span className='text-body-sm text-brandSemantic'>
+                  <span className='text-body-sm text-[var(--color-brand-500)]'>
                     {i.change}
                   </span>
-                  <span className='material-symbols-rounded text-brandSemantic text-[1rem] leading-none'>
+                  <span className='material-symbols-rounded text-[var(--color-brand-500)] text-[1rem] leading-none'>
                     arrow_outward
                   </span>
                 </div>

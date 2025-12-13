@@ -13,7 +13,7 @@ export default function ProductionTotalCard({
     <section
       className='bg-brand-900 text-fg-inverse text-[var(--color-text-inverse)] rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 overflow-hidden min-w-0'
       style={{
-        width: 'min(var(--width-card-stat-fluid), 100%)'
+        width: 'min(var(--width-card-chart-md-fluid), 100%)'
       }}
     >
       <div className='flex h-full flex-col pl-[1rem] pr-card-pad pt-0 pb-[1rem] text-[var(--color-text-inverse)]'>

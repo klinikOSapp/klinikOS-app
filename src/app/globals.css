@@ -183,8 +183,11 @@
   /* Dashboard Component Dimensions */
   --height-card-stat: 10.1875rem; /* 163px - cards de estadísticas */
   --height-card-chart: 21.375rem; /* 342px exactos - cards con gráficos */
-  --width-card-stat: 32.6875rem; /* 523px - ancho card estadística */
+  /* Vinculamos el ancho de stats a la carta grande: 2 stats + gap = chart-lg */
   --width-card-chart-lg: 66.8125rem; /* 1069px - ancho card grande */
+  --width-card-stat: calc(
+    (var(--width-card-chart-lg) - var(--spacing-card-gap)) / 2
+  );
   --width-card-chart-md: 33.0625rem; /* 529px - ancho card mediano */
   --width-income-card: 9.75rem; /* 156px exactos - tarjeta Tipos de ingreso */
   --height-income-card: 6.25rem; /* 100px exactos - tarjeta Tipos de ingreso */
@@ -240,11 +243,10 @@
   ); /* valor por defecto, se puede sobreescribir por sección */
 
   /* Fluid widths - adapt to viewport */
-  --width-card-stat-fluid: clamp(
-    20rem,
-    27.239583vw,
-    32.6875rem
-  ); /* 320px → 523px scaled al viewport (523px ÷ 1920px) */
+  /* Cards de stats alineadas al chart grande en modo fluido */
+  --width-card-stat-fluid: calc(
+    (var(--width-card-chart-lg-fluid) - var(--spacing-card-gap)) / 2
+  );
   --width-card-chart-lg-fluid: clamp(
     40rem,
     55.677083vw,
@@ -638,10 +640,14 @@ body {
   .dashboard-grid-stats {
     display: grid;
     gap: var(--spacing-card-gap);
-    grid-template-columns: repeat(
-      3,
+    grid-template-columns:
       minmax(min(100%, var(--width-card-stat-fluid)), var(--width-card-stat))
-    );
+      minmax(min(100%, var(--width-card-stat-fluid)), var(--width-card-stat))
+      minmax(
+        min(100%, var(--width-card-chart-md-fluid)),
+        var(--width-card-chart-md)
+      );
+    justify-content: center;
   }
 
   .dashboard-grid-charts {
@@ -687,17 +693,23 @@ body {
       justify-content: center;
     }
 
-    .dashboard-grid-stats {
-      grid-template-columns: repeat(3, minmax(0, var(--width-card-stat)));
-      justify-content: center;
-    }
+  .dashboard-grid-stats {
+    grid-template-columns:
+      minmax(min(100%, var(--width-card-stat-fluid)), var(--width-card-stat))
+      minmax(min(100%, var(--width-card-stat-fluid)), var(--width-card-stat))
+      minmax(
+        min(100%, var(--width-card-chart-md-fluid)),
+        var(--width-card-chart-md)
+      );
+    justify-content: center;
+  }
   }
 }
 
 /* Utility: Standard page container */
 @layer utilities {
   .container-page {
-    --container-gutter: clamp(1rem, 3vw, var(--spacing-plnav));
+    --container-gutter: clamp(0.75rem, 2vw, 1rem);
     --dashboard-max-width: calc(
       (2 * var(--width-card-stat)) + var(--width-card-chart-lg) +
         (2 * var(--spacing-card-gap))

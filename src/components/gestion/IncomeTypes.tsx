@@ -59,15 +59,15 @@ export default function IncomeTypes({
                     {i.percent}
                   </span>
                 </div>
-                <div className='text-headline-sm text-fg-secondary whitespace-nowrap'>
+                <div className='text-headline-sm text-fg-secondary text-[var(--color-neutral-600)] whitespace-nowrap'>
                   {i.value}
                 </div>
               </div>
               <div className='flex items-center gap-card-metric whitespace-nowrap'>
-                <span className='text-body-sm text-brandSemantic'>
+                <span className='text-body-sm text-[var(--color-brand-500)]'>
                   {i.delta ?? '+ 12%'}
                 </span>
-                <span className='material-symbols-rounded text-brandSemantic text-body-md leading-none'>
+                <span className='material-symbols-rounded text-[var(--color-brand-500)] text-body-md leading-none'>
                   arrow_outward
                 </span>
               </div>
