@@ -19,16 +19,10 @@ export default function PatientsSummary({
 }: PatientsSummaryProps) {
   return (
     <section
-      className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 px-card-pad pt-0 pb-card-inner'
+      className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 px-[0.5rem] pt-0 pb-card-inner'
       style={{ width: 'min(var(--width-card-stat-fluid), 100%)' }}
     >
-      <div
-        className='w-full'
-        style={{
-          maxWidth: 'calc((var(--width-income-card) * 3) + (0.75rem * 2))',
-          marginInline: 'auto'
-        }}
-      >
+      <div className='w-full px-[0.5rem]'>
         <header className='mt-[1rem] flex items-baseline justify-between'>
           <h3 className='text-title-sm font-medium text-fg'>Pacientes</h3>
           <div className='flex items-center gap-card-metric text-label-md text-fg'>
@@ -57,8 +51,8 @@ export default function PatientsSummary({
                   <span className='font-medium text-fg-secondary'>{i.percent}</span>
                 </div>
                 {i.kpi ? (
-                  <div className='flex items-center gap-card-metric'>
-                    <div className='text-headline-lg text-[var(--color-brand-500)]'>
+                  <div className='flex items-center gap-card-metric whitespace-nowrap'>
+                    <div className='text-headline-lg text-[var(--color-brand-500)] whitespace-nowrap'>
                       {i.value}
                     </div>
                     <span className='material-symbols-rounded text-[var(--color-brand-500)] text-[2.125rem] leading-none'>

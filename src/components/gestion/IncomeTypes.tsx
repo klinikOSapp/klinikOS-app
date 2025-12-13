@@ -18,16 +18,10 @@ export default function IncomeTypes({
 }: IncomeTypesProps) {
   return (
     <section
-      className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 flex flex-col px-card-pad pt-0 pb-card-inner'
+      className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 flex flex-col px-[0.5rem] pt-0 pb-card-inner'
       style={{ width: 'min(var(--width-card-stat-fluid), 100%)' }}
     >
-      <div
-        className='w-full'
-        style={{
-          maxWidth: 'calc((var(--width-income-card) * 3) + (0.75rem * 2))',
-          marginInline: 'auto'
-        }}
-      >
+        <div className='w-full px-[0.5rem]'>
         <header className='mt-[1rem] flex items-baseline justify-between'>
           <h3 className='text-title-sm font-medium text-fg'>
             Tipos de ingreso
