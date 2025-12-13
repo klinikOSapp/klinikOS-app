@@ -49,17 +49,19 @@ export default function IncomeTypes({
           {items.map((i) => (
             <div
               key={i.label}
-              className='bg-surface-app rounded-lg p-card-inner flex flex-col gap-card-row h-income-card w-full'
+              className='bg-surface-app rounded-lg px-[0.5rem] py-[0.5rem] flex h-income-card w-full flex-col justify-between items-start text-left'
               style={{ maxWidth: 'var(--width-income-card)' }}
             >
-              <div className='flex items-center justify-between text-label-md text-fg-secondary whitespace-nowrap'>
-                <span>{i.label}</span>
-                <span className='font-medium text-fg-secondary'>
-                  {i.percent}
-                </span>
-              </div>
-              <div className='text-headline-sm text-fg-secondary whitespace-nowrap'>
-                {i.value}
+              <div className='flex flex-col items-start gap-[0.5rem] w-full'>
+                <div className='flex items-center justify-between gap-[0.5rem] text-label-md text-fg-secondary whitespace-nowrap w-full'>
+                  <span>{i.label}</span>
+                  <span className='font-medium text-fg-secondary'>
+                    {i.percent}
+                  </span>
+                </div>
+                <div className='text-headline-sm text-fg-secondary whitespace-nowrap'>
+                  {i.value}
+                </div>
               </div>
               <div className='flex items-center gap-card-metric whitespace-nowrap'>
                 <span className='text-body-sm text-brandSemantic'>
