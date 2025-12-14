@@ -1,4 +1,7 @@
+'use client'
+
 import type { CSSProperties } from 'react'
+import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 
 const CARD_WIDTH = 'var(--width-card-chart-lg-fluid)'
 const CARD_HEIGHT_CLAMP = 'clamp(15rem, 34vh, 21.375rem)'
@@ -27,7 +30,7 @@ const KPI_CARDS = [
     width: 198
   },
   {
-    title: 'Facturado',
+    title: 'Facturado o en curso',
     value: '1.200 €',
     delta: '+ 12%',
     bg: 'var(--color-brand-50)',
@@ -91,6 +94,21 @@ const SIDE_STACK = [
 const DONUT_VIEWBOX = { width: 200, height: 120 }
 const DONUT_RADIUS = 90
 const DONUT_PROGRESS = 1200 / 1800
+const DONUT_CARD_WIDTH = 400
+const DONUT_CARD_HEIGHT = 248
+const DONUT_CHART_WIDTH = 307
+const DONUT_CHART_HEIGHT = 186.093
+const DONUT_THICKNESS = 20
+const DONUT_VALUE = 1200
+const DONUT_TARGET = 1800
+const DONUT_DATA: { name: string; value: number; color: string }[] = [
+  { name: 'actual', value: DONUT_VALUE, color: 'var(--color-brand-500)' },
+  {
+    name: 'remaining',
+    value: Math.max(DONUT_TARGET - DONUT_VALUE, 0),
+    color: 'var(--color-brand-50)'
+  }
+]
 
 export default function AccountingPanel() {
   const sectionStyle: CSSProperties = {
@@ -147,12 +165,16 @@ export default function AccountingPanel() {
               Hoy
             </span>
           </header>
-          <div className='mt-gapsm text-label-md text-fg-secondary'>{card.title}</div>
+          <div className='mt-gapsm text-label-md text-fg-secondary'>
+            {card.title}
+          </div>
           <div className='mt-[0.25rem] text-headline-sm text-fg-secondary'>
             {card.value}
           </div>
           <div className='mt-[0.25rem] flex items-center gap-card-metric'>
-            <span className='text-body-sm text-brandSemantic'>{card.delta}</span>
+            <span className='text-body-sm text-brandSemantic'>
+              {card.delta}
+            </span>
             <span className='material-symbols-rounded text-[1rem] leading-none text-brandSemantic'>
               arrow_outward
             </span>
@@ -165,44 +187,69 @@ export default function AccountingPanel() {
         style={{
           left: toWidth(464),
           top: toHeight(64),
-          width: toWidth(400),
-          height: toHeight(248),
+          width: toWidth(DONUT_CARD_WIDTH),
+          height: toHeight(DONUT_CARD_HEIGHT),
           padding: '1rem'
         }}
       >
-        <p className='text-label-md text-fg-secondary'>Facturado</p>
+        <p className='text-label-md text-fg-secondary'>Cobrado</p>
         <div
           className='relative mx-auto mt-[1rem] flex items-center justify-center'
           style={{
-            width: toWidth(307),
-            height: toHeight(210)
+            width: '170%',
+            height: '170%',
+            position: 'absolute',
+            left: '50%',
+            top: '10%',
+            transform: 'translate(-50%, -50%)',
+            transformOrigin: 'center center',
+            minWidth: 0,
+            minHeight: 0
           }}
         >
-          <svg
-            viewBox={`0 0 ${DONUT_VIEWBOX.width} ${DONUT_VIEWBOX.height}`}
-            className='h-full w-full'
-          >
-            <path
-              d='M10 110 A90 90 0 0 1 190 110'
-              stroke='var(--color-brand-50)'
-              strokeWidth={20}
-              strokeLinecap='round'
-              fill='transparent'
-            />
-            <path
-              d='M10 110 A90 90 0 0 1 190 110'
-              stroke='var(--color-brand-500)'
-              strokeWidth={20}
-              strokeLinecap='round'
-              fill='transparent'
-              strokeDasharray={pathLength}
-              strokeDashoffset={donutDashoffset}
-            />
-          </svg>
-          <div className='absolute flex flex-col items-center gap-card-row text-center'>
-            <p className='text-headline-lg text-fg-secondary'>1.200 €</p>
-            <p className='text-label-md text-fg-secondary'>
-              de <span className='font-medium'>1.800 €</span>
+          <ResponsiveContainer width='100%' height='100%'>
+            <PieChart>
+              <Pie
+                data={DONUT_DATA}
+                dataKey='value'
+                startAngle={180}
+                endAngle={0}
+                innerRadius='85%'
+                outerRadius='100%'
+                cx='50%'
+                cy='100%'
+                stroke='transparent'
+              >
+                {DONUT_DATA.map((slice) => (
+                  <Cell key={slice.name} fill={slice.color} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+          <div className='absolute left-1/2 top-[78%] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-card-row text-center text-fg-secondary'>
+            <p
+              className='text-headline-lg text-fg-secondary'
+              style={{ color: 'var(--color-neutral-600)' }}
+            >
+              1.200 €
+            </p>
+            <p className='flex items-baseline gap-[0.5rem] text-label-sm leading-[1rem]'>
+              <span
+                className='font-medium'
+                style={{
+                  color: 'var(--color-neutral-600)',
+                  fontSize: '0.6875rem',
+                  lineHeight: '1rem'
+                }}
+              >
+                de
+              </span>
+              <span
+                className='text-title-sm font-medium leading-[1.75rem]'
+                style={{ color: 'var(--color-neutral-600)' }}
+              >
+                1.800 €
+              </span>
             </p>
           </div>
         </div>
@@ -211,7 +258,7 @@ export default function AccountingPanel() {
       {SIDE_STACK.map((item) => (
         <div
           key={item.title}
-          className='absolute rounded-[1rem] px-card-pad py-card-pad'
+          className='absolute rounded-[1rem] px-[0.5rem] py-[0.5rem]'
           style={{
             left: toWidth(880),
             top: toHeight(item.top),
@@ -220,13 +267,19 @@ export default function AccountingPanel() {
             backgroundColor: item.bg
           }}
         >
-          <div className='flex items-center justify-between text-label-md'>
+          <div className='flex items-center justify-between text-label-sm'>
             <span className={item.textClass}>{item.title}</span>
             {item.percent ? (
-              <span className={`${item.textClass} font-medium`}>{item.percent}</span>
+              <span className={`${item.textClass} font-medium`}>
+                {item.percent}
+              </span>
             ) : null}
           </div>
-          <p className={`mt-[1.75rem] text-headline-sm font-medium ${item.textClass}`}>
+
+          <p
+            className={`mt-[2rem] text-title-sm font-medium ${item.textClass} text-right`}
+            style={{ lineHeight: '1.5rem' }}
+          >
             {item.value}
           </p>
         </div>

@@ -1,12 +1,11 @@
 'use client'
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import {
   Line,
   LineChart,
   ReferenceDot,
-  ReferenceLine,
   ResponsiveContainer,
   XAxis,
   YAxis
@@ -16,6 +15,7 @@ type BillingLineChartProps = { yearLabel?: string }
 const CARD_HEIGHT_VAR = 'var(--height-card-chart-fluid)'
 const CARD_WIDTH_VAR = 'var(--width-card-chart-lg-fluid)'
 const CARD_WIDTH_STYLE = 'min(100%, var(--width-card-chart-lg-fluid))'
+const CARD_WIDTH_EFFECTIVE = 'min(100%, var(--width-card-chart-lg-fluid))'
 
 const ARROW_DROP_DOWN_ICON =
   'http://localhost:3845/assets/51aac0b407e0ca5efac0ce9d43e79d66ac1b1697.svg'
@@ -37,6 +37,8 @@ const CHIP_SECONDARY_TOP_RATIO = 86 / 342
 const COMPARISON_LEFT_RATIO = 911 / 1069
 const COMPARISON_TOP_RATIO = 58 / 342
 const COMPARISON_WIDTH_RATIO = 142 / 1069
+const WARNING_LINE_RATIO = 639.8 / 1069 // 63px left + 70% of 824px grid width = 639.8px
+const LINE_CLIP_PERCENT = 0.7 // lineas deben terminar al 70% del grid
 // Recharts sustituye las líneas SVG estáticas. Los datos por mes permiten dibujar
 // la línea "brand" (actual) y la "accent" (comparativa) manteniendo la estructura Figma.
 // Valores aproximados para maqueta; deben venir del backend en producción.
@@ -71,10 +73,12 @@ const MONTH_LABELS = [
   'Dic'
 ]
 
-const CURRENT_MONTH_KEY = 'Nov'
+const CURRENT_MONTH_KEY = 'Oct'
+const FOCUS_DOT_MONTH = 'May'
+const FOCUS_DOT_VALUE = 57000
 
 const toWidth = (ratio: number) =>
-  `calc(${CARD_WIDTH_VAR} * ${ratio.toFixed(6)})`
+  `calc(${CARD_WIDTH_EFFECTIVE} * ${ratio.toFixed(6)})`
 const toHeight = (ratio: number) =>
   `calc(${CARD_HEIGHT_VAR} * ${ratio.toFixed(6)})`
 
@@ -82,12 +86,28 @@ export default function BillingLineChart({
   yearLabel = '2024'
 }: BillingLineChartProps) {
   const [isMounted, setIsMounted] = useState(false)
+  const clipId = useId()
+  const chartContainerRef = useRef<HTMLDivElement | null>(null)
+  const [clipWidthPx, setClipWidthPx] = useState<number | null>(null)
   const highlightIndex = CHART_DATA.findIndex(
     (entry) => entry.month === CURRENT_MONTH_KEY
   )
   const chartData =
     highlightIndex >= 0 ? CHART_DATA.slice(0, highlightIndex + 1) : CHART_DATA
   useEffect(() => setIsMounted(true), [])
+
+  useEffect(() => {
+    const node = chartContainerRef.current
+    if (!node || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return
+      const next = entry.contentRect.width * LINE_CLIP_PERCENT
+      setClipWidthPx((prev) => (prev === next ? prev : next))
+    })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <section
       className='relative w-full overflow-clip rounded-lg bg-surface shadow-elevation-card'
@@ -127,6 +147,7 @@ export default function BillingLineChart({
       </div>
 
       <div
+        ref={chartContainerRef}
         className='absolute'
         style={{
           left: toWidth(GRID_LEFT_RATIO),
@@ -151,6 +172,16 @@ export default function BillingLineChart({
                 data={chartData}
                 margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
               >
+                <defs>
+                  <clipPath id={clipId} clipPathUnits='userSpaceOnUse'>
+                    <rect
+                      width={clipWidthPx ?? 0}
+                      height={clipWidthPx !== null ? '100%' : 0}
+                      x='0'
+                      y='0'
+                    />
+                  </clipPath>
+                </defs>
                 {/* Ejes ocultos para mantener las etiquetas personalizadas de Figma */}
                 <XAxis dataKey='month' hide />
                 <YAxis domain={[0, 90000]} hide />
@@ -164,6 +195,7 @@ export default function BillingLineChart({
                   dot={false}
                   animationDuration={1200}
                   animationBegin={150}
+                  clipPath={`url(#${clipId})`}
                 />
                 {/* Línea principal (brandSemantic) */}
                 <Line
@@ -174,27 +206,33 @@ export default function BillingLineChart({
                   dot={false}
                   animationDuration={1200}
                   animationBegin={0}
+                  clipPath={`url(#${clipId})`}
                 />
                 {/* Punto de foco en un mes concreto (aprox. a la maqueta) */}
                 <ReferenceDot
-                  x='Jun'
-                  y={33000}
+                  x={FOCUS_DOT_MONTH}
+                  y={FOCUS_DOT_VALUE}
                   r={6}
                   fill='var(--color-warning-200, #FFD188)'
                   stroke='var(--color-warning-200, #FFD188)'
-                />
-                {/* Línea vertical destacada en "Oct" como en la maqueta */}
-                <ReferenceLine
-                  x={CURRENT_MONTH_KEY}
-                  stroke='var(--color-warning-200, #FFD188)'
-                  strokeWidth={1}
-                  ifOverflow='extendDomain'
                 />
               </LineChart>
             </ResponsiveContainer>
           )}
         </div>
       </div>
+
+      <div
+        className='absolute'
+        style={{
+          left: toWidth(WARNING_LINE_RATIO),
+          top: toHeight(GRID_TOP_RATIO),
+          width: '0.0625rem', // 1px
+          height: toHeight(GRID_HEIGHT_RATIO),
+          backgroundColor: 'var(--color-warning-200, #FFD188)',
+          pointerEvents: 'none'
+        }}
+      />
 
       <div
         className='absolute'
@@ -236,28 +274,64 @@ export default function BillingLineChart({
       </div>
 
       <div
-        className='absolute flex flex-col rounded-lg bg-surface'
+        className='absolute flex flex-col rounded-lg bg-surface overflow-hidden'
         style={{
           left: toWidth(COMPARISON_LEFT_RATIO),
           top: toHeight(COMPARISON_TOP_RATIO),
           width: toWidth(COMPARISON_WIDTH_RATIO),
           height: toHeight(GRID_HEIGHT_RATIO),
-          padding: '0.625rem',
-          border: '0.03125rem solid var(--color-neutral-300, #CBD3D9)'
+          paddingTop: 'var(--space-card-pad)', // 16px
+          paddingBottom: 'var(--space-card-pad)',
+          paddingLeft: 'var(--space-card-gap2)', // 11px
+          paddingRight: 'var(--space-card-gap2)',
+          border: '0.03125rem solid var(--color-neutral-300, #CBD3D9)' // 0.5px
         }}
       >
-        <p className='text-body-sm font-medium text-neutral-600'>Oct, 2025</p>
-        <p className='mt-[0.75rem] text-headline-lg text-neutral-600'>42.000</p>
-        <div className='mt-[0.5rem] flex items-center gap-[0.5rem]'>
-          <span className='text-body-lg text-brandSemantic'>+ 6%</span>
-          <span className='material-symbols-rounded text-brandSemantic text-[1.5rem] leading-none'>
-            arrow_outward
-          </span>
+        <div className='flex flex-1 flex-col justify-between'>
+          <div className='flex flex-col gap-card-row'>
+            <p className='text-body-sm font-medium text-neutral-600'>
+              Oct, 2025
+            </p>
+            <p
+              className='text-headline-lg text-neutral-600'
+              style={{
+                fontSize: 'clamp(1.1rem, 1.8vw, 2.25rem)', // reduce mínimo
+                lineHeight: 'clamp(1.6rem, 2.4vw, 2.75rem)'
+              }}
+            >
+              42.000
+            </p>
+            <div className='flex items-center gap-card-metric'>
+              <span
+                className='text-body-lg text-brandSemantic'
+                style={{
+                  fontSize: 'clamp(0.8rem, 1.1vw, 1rem)',
+                  lineHeight: 'clamp(1.1rem, 1.7vw, 1.5rem)'
+                }}
+              >
+                + 6%
+              </span>
+              <span className='material-symbols-rounded text-brandSemantic text-[1.5rem] leading-none'>
+                arrow_outward
+              </span>
+            </div>
+          </div>
+
+          <div className='flex flex-col gap-card-row'>
+            <p className='text-label-sm font-normal text-neutral-600'>
+              Oct, 2024
+            </p>
+            <p
+              className='text-body-md font-medium text-info-200'
+              style={{
+                fontSize: 'clamp(0.7rem, 1vw, 0.95rem)',
+                lineHeight: 'clamp(1rem, 1.4vw, 1.4rem)'
+              }}
+            >
+              40.000
+            </p>
+          </div>
         </div>
-        <p className='mt-[3.25rem] text-label-sm font-normal text-neutral-600'>
-          Oct, 2024
-        </p>
-        <p className='text-title-sm font-medium text-info-200'>40.000</p>
       </div>
     </section>
   )
