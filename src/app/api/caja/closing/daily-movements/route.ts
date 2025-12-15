@@ -30,9 +30,13 @@ export async function GET(req: Request) {
 
     const clinicId = clinics[0] as string
 
-    // Get all payments for the day
-    const startDate = `${date}T00:00:00Z`
-    const endDate = `${date}T23:59:59Z`
+    // Get all payments for the day (handle timezone properly)
+    // Use date range that covers the entire day in UTC
+    // Date is already in YYYY-MM-DD format from the frontend
+    const startDate = `${date}T00:00:00.000Z`
+    const endDate = `${date}T23:59:59.999Z`
+
+    console.log(`[Daily Movements API] Fetching payments for date: ${date}, range: ${startDate} to ${endDate}`)
 
     const { data: payments, error: paymentsError } = await supabase
       .from('payments')
@@ -64,6 +68,8 @@ export async function GET(req: Request) {
       .gte('transaction_date', startDate)
       .lte('transaction_date', endDate)
       .order('transaction_date', { ascending: true })
+
+    console.log(`[Daily Movements API] Found ${payments?.length || 0} payments`)
 
     if (paymentsError) {
       console.error('Error fetching payments:', paymentsError)

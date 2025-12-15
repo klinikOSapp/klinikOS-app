@@ -44,19 +44,19 @@ const TABLE_COLUMN_WIDTHS_REM = [
 const TABLE_GRID_TEMPLATE = TABLE_COLUMN_WIDTHS_REM.map((width) => `${width}rem`).join(' ')
 
 const CASH_TOTAL_FIELDS = [
-  { id: 'initial', label: 'Caja inicial', placeholder: '0,00 €' },
-  { id: 'day', label: 'Caja del día', placeholder: '0,00 €' },
+  { id: 'initial', label: 'Caja inicial', placeholder: '0,00 €', required: false },
+  { id: 'day', label: 'Caja del día', placeholder: '0,00 €', required: false },
   { id: 'outflow', label: 'Salida de caja', placeholder: '0,00 €', required: true },
-  { id: 'rest', label: 'Resto de caja', placeholder: '0,00 €' }
+  { id: 'rest', label: 'Resto de caja', placeholder: '0,00 €', required: false }
 ] as const
 
 type CashTotalFieldId = (typeof CASH_TOTAL_FIELDS)[number]['id']
 
 const INITIAL_TOTAL_VALUES: Record<CashTotalFieldId, string> = {
-  initial: '100.00 €',
-  day: '200.00 €',
-  rest: '200.00 €',
-  outflow: '50.00 €'
+  initial: '0.00 €',
+  day: '0.00 €',
+  rest: '0.00 €',
+  outflow: '0.00 €' // Default to 0 as requested
 }
 
 type RecountFieldId = 'cash' | 'tpv' | 'transfer' | 'cheque'
@@ -164,6 +164,19 @@ type StaffMember = {
   email: string
 }
 
+// Helper function to format date in local timezone (YYYY-MM-DD)
+const formatDateForAPI = (date: Date): string => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// Helper function to create date in local timezone (avoiding timezone issues)
+const createLocalDate = (year: number, month: number, day: number): Date => {
+  return new Date(year, month, day, 12, 0, 0) // Use noon to avoid timezone edge cases
+}
+
 export function CashClosingModal({ open, onClose, date = new Date() }: CashClosingModalProps) {
   const [mounted, setMounted] = React.useState(false)
   const [totalValues, setTotalValues] = React.useState(INITIAL_TOTAL_VALUES)
@@ -201,10 +214,18 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
   React.useEffect(() => {
     if (open) {
       setStep('select')
-      const initialDate = date instanceof Date ? date : new Date()
+      // Ensure date is in local timezone (create new date at noon to avoid timezone issues)
+      const initialDate = date instanceof Date 
+        ? createLocalDate(date.getFullYear(), date.getMonth(), date.getDate())
+        : new Date()
+      console.log(`[CashClosingModal] Opening modal, initial date:`, initialDate, `Formatted:`, formatDateForAPI(initialDate))
       setSelectedDate(initialDate)
       setSelectedStaffId('')
       setStaffList([]) // Reset staff list to show loading state
+      setRecountValues(INITIAL_RECOUNT_VALUES) // Reset recount values to empty - humans must manually enter
+      setTotalValues(INITIAL_TOTAL_VALUES) // Reset total values to defaults
+      setPaymentMethodBreakdown({ cash: 0, card: 0, transfer: 0, check: 0 }) // Reset breakdown
+      setExistingClosing(null) // Reset existing closing
     }
   }, [open]) // Removed 'date' from dependencies to prevent infinite loop
 
@@ -240,7 +261,10 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
     if (!open || step !== 'summary') return
 
     setIsLoading(true)
-    const dateStr = selectedDate.toISOString().split('T')[0]
+    // Format date in local timezone to avoid UTC conversion issues
+    const dateStr = formatDateForAPI(selectedDate)
+    
+    console.log(`[CashClosingModal] Fetching data for date:`, selectedDate, `Formatted:`, dateStr)
 
     // Fetch calculated totals (starter_box_amount and daily_box_amount)
     Promise.all([
@@ -249,19 +273,34 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
       fetch(`/api/caja/closing?date=${dateStr}`).then((res) => res.json())
     ])
       .then(([totalsData, movementsData, closingData]) => {
-        // Set calculated totals
-        if (totalsData.starterBoxAmount !== undefined) {
-          setTotalValues((prev) => ({
-            ...prev,
-            initial: `${Number(totalsData.starterBoxAmount).toFixed(2)} €`
-          }))
-        }
-        if (totalsData.dailyBoxAmount !== undefined) {
-          setTotalValues((prev) => ({
-            ...prev,
-            day: `${Number(totalsData.dailyBoxAmount).toFixed(2)} €`
-          }))
-        }
+        // Calculate values from API responses
+        const initialValue = closingData.closing?.starter_box_amount !== null && closingData.closing?.starter_box_amount !== undefined
+          ? Number(closingData.closing.starter_box_amount)
+          : totalsData.starterBoxAmount !== undefined
+            ? Number(totalsData.starterBoxAmount)
+            : 0
+
+        const dayValue = closingData.closing?.daily_box_amount !== null && closingData.closing?.daily_box_amount !== undefined
+          ? Number(closingData.closing.daily_box_amount)
+          : totalsData.dailyBoxAmount !== undefined
+            ? Number(totalsData.dailyBoxAmount)
+            : 0
+
+        // Outflow defaults to 0 if no existing closing
+        const outflowValue = closingData.closing?.cash_withdrawals !== null && closingData.closing?.cash_withdrawals !== undefined
+          ? Number(closingData.closing.cash_withdrawals)
+          : 0
+
+        // Calculate rest: Caja inicial + Caja del día - Salida de caja
+        const restValue = initialValue + dayValue - outflowValue
+
+        // Set all values at once to ensure rest is calculated correctly
+        setTotalValues({
+          initial: `${initialValue.toFixed(2)} €`,
+          day: `${dayValue.toFixed(2)} €`,
+          outflow: `${outflowValue.toFixed(2)} €`,
+          rest: `${restValue.toFixed(2)} €`
+        })
 
         // Set daily movements and calculate payment method breakdown
         if (movementsData.movements) {
@@ -276,54 +315,88 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
           }
 
           movementsData.movements.forEach((movement: DailyMovement) => {
-            const amount = parseFloat(movement.amount.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
-            const method = movement.method.toLowerCase()
+            // Parse amount - handle both "200,00 €" and "200.00 €" formats
+            const amountStr = movement.amount.replace(/[^\d,.-]/g, '').replace(',', '.')
+            const amount = parseFloat(amountStr) || 0
+            const method = movement.method.toLowerCase().trim()
 
-            if (method.includes('efectivo') || method.includes('cash')) {
+            console.log(`[Payment Breakdown] Processing movement: method="${movement.method}" (normalized: "${method}"), amount=${amount}`)
+
+            // Match payment methods (case-insensitive, handle all variations)
+            // Efectivo (Cash)
+            if (method.includes('efectivo') || method === 'cash') {
               breakdown.cash += amount
-            } else if (method.includes('tpv') || method.includes('tarjeta') || method.includes('card')) {
+              console.log(`[Payment Breakdown] Matched as cash, total cash: ${breakdown.cash}`)
+            }
+            // TPV / Card / Credit/Debit Card (all card payments go to TPV)
+            else if (
+              method.includes('tpv') ||
+              method.includes('tarjeta') ||
+              method.includes('card') ||
+              method.includes('crédito') ||
+              method.includes('débito') ||
+              method.includes('credit') ||
+              method.includes('debit')
+            ) {
               breakdown.card += amount
-            } else if (method.includes('transferencia') || method.includes('transfer')) {
+              console.log(`[Payment Breakdown] Matched as card/TPV, total card: ${breakdown.card}`)
+            }
+            // Transferencia bancaria (Bank transfer)
+            else if (
+              method.includes('transferencia') ||
+              method.includes('transfer') ||
+              method.includes('bancaria') ||
+              method.includes('bank')
+            ) {
               breakdown.transfer += amount
-            } else if (method.includes('cheque') || method.includes('check')) {
+              console.log(`[Payment Breakdown] Matched as transfer, total transfer: ${breakdown.transfer}`)
+            }
+            // Cheque (Check)
+            else if (method.includes('cheque') || method === 'check') {
               breakdown.check += amount
+              console.log(`[Payment Breakdown] Matched as check, total check: ${breakdown.check}`)
+            }
+            // Financiado (Financed) - goes to card/TPV category
+            else if (method.includes('financiado') || method.includes('financed') || method.includes('financiación')) {
+              breakdown.card += amount
+              console.log(`[Payment Breakdown] Matched as financed (TPV), total card: ${breakdown.card}`)
+            }
+            // Billetera digital (Digital wallet) - goes to card/TPV category
+            else if (method.includes('billetera') || method.includes('wallet') || method.includes('digital')) {
+              breakdown.card += amount
+              console.log(`[Payment Breakdown] Matched as digital wallet (TPV), total card: ${breakdown.card}`)
+            }
+            // Criptomonedas (Cryptocurrency) - goes to transfer category
+            else if (method.includes('cripto') || method.includes('crypto')) {
+              breakdown.transfer += amount
+              console.log(`[Payment Breakdown] Matched as cryptocurrency (transfer), total transfer: ${breakdown.transfer}`)
+            }
+            // Pago a plazos (Installment payment) - goes to card/TPV category
+            else if (method.includes('plazos') || method.includes('installment') || method.includes('installments')) {
+              breakdown.card += amount
+              console.log(`[Payment Breakdown] Matched as installment (TPV), total card: ${breakdown.card}`)
+            }
+            // Unknown payment method - default to card/TPV (most common case)
+            else {
+              console.warn(`[Payment Breakdown] Unknown payment method: "${movement.method}", amount: ${amount} - defaulting to TPV`)
+              breakdown.card += amount
             }
           })
 
+          console.log(`[Payment Breakdown] Final breakdown:`, breakdown)
           setPaymentMethodBreakdown(breakdown)
+          // Note: We do NOT pre-populate recount values - humans must manually enter them
+          // The "Debería haber..." text will show the expected amount from breakdown
         }
 
         // Load existing closing data if exists
+        // Only populate recount values if there's an existing closing (user is editing/reviewing)
+        // For new closings, fields should be empty so humans can manually enter values
         if (closingData.closing) {
           setExistingClosing(closingData.closing)
 
-          // Populate form with existing data
-          if (closingData.closing.starter_box_amount !== null) {
-            setTotalValues((prev) => ({
-              ...prev,
-              initial: `${Number(closingData.closing.starter_box_amount).toFixed(2)} €`
-            }))
-          }
-          if (closingData.closing.daily_box_amount !== null) {
-            setTotalValues((prev) => ({
-              ...prev,
-              day: `${Number(closingData.closing.daily_box_amount).toFixed(2)} €`
-            }))
-          }
-          if (closingData.closing.cash_withdrawals !== null) {
-            setTotalValues((prev) => ({
-              ...prev,
-              outflow: `${Number(closingData.closing.cash_withdrawals).toFixed(2)} €`
-            }))
-          }
-          if (closingData.closing.cash_balance !== null) {
-            setTotalValues((prev) => ({
-              ...prev,
-              rest: `${Number(closingData.closing.cash_balance).toFixed(2)} €`
-            }))
-          }
-
           // Populate payment method breakdown if exists (support both English and Spanish keys)
+          // This only happens when editing an existing closing
           if (closingData.closing.payment_method_breakdown) {
             const breakdown = closingData.closing.payment_method_breakdown
             setRecountValues({
@@ -332,8 +405,10 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
               transfer: breakdown.transfer ? `${breakdown.transfer.toFixed(2)} €` : breakdown.transferencia ? `${breakdown.transferencia.toFixed(2)} €` : '',
               cheque: breakdown.check ? `${breakdown.check.toFixed(2)} €` : breakdown.cheque ? `${breakdown.cheque.toFixed(2)} €` : ''
             })
+            console.log(`[CashClosingModal] Loaded recount values from existing closing`)
           }
         }
+        // For new closings, recount values remain empty (INITIAL_RECOUNT_VALUES) so humans can manually enter
 
         setIsLoading(false)
       })
@@ -385,19 +460,87 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
     }
 
     if (step === 'summary') {
-      // Validate required field
-      if (!totalValues.outflow || totalValues.outflow === '0,00 €' || totalValues.outflow === '0.00 €') {
+      // Validate required field - allow 0 as valid value (default)
+      if (!totalValues.outflow || totalValues.outflow.trim() === '') {
         alert('Por favor, ingresa la salida de caja (requerido)')
         return
       }
+      
+      // Note: We do NOT pre-populate recount values - humans must manually enter them
+      // The "Debería haber..." text in RecountStep will show the expected amount from paymentMethodBreakdown
       setStep('recount')
       return
     }
 
     if (step === 'recount') {
+      // VALIDATION: All payment methods must be validated
+      // Critical: Efectivo (Cash) must match - blocks closure
+      // Warning: Other payment methods - flags discrepancy but allows continuation
+      
+      const discrepancies: Array<{ method: string; expected: number; actual: number }> = []
+      
+      // Validate Efectivo (Cash) - CRITICAL: Blocks closure if doesn't match
+      const expectedCash = paymentMethodBreakdown.cash
+      const actualCash = parseFloat(recountValues.cash.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+      
+      if (expectedCash > 0) {
+        // System expects cash - must match exactly (allow 0.01€ rounding)
+        if (Math.abs(actualCash - expectedCash) > 0.01) {
+          alert(`⚠️ Validación crítica: El efectivo físico (${actualCash.toFixed(2)} €) no coincide con los registros del sistema (${expectedCash.toFixed(2)} €).\n\nNo se puede completar el cierre si el efectivo no coincide. Por favor, verifica el recuento de efectivo antes de continuar.`)
+          return
+        }
+      } else if (actualCash > 0 && expectedCash === 0) {
+        // User entered cash but system shows no cash transactions - CRITICAL: blocks closure
+        alert(`⚠️ Validación crítica: Has ingresado ${actualCash.toFixed(2)} € en efectivo, pero el sistema no registra transacciones en efectivo para este día.\n\nNo se puede completar el cierre si el efectivo no coincide. Por favor, verifica el recuento de efectivo antes de continuar.`)
+        return
+      }
+      
+      // Validate TPV (Card) - WARNING: Flags discrepancy but allows continuation
+      const expectedTPV = paymentMethodBreakdown.card
+      const actualTPV = parseFloat(recountValues.tpv.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+      if (expectedTPV > 0 && Math.abs(actualTPV - expectedTPV) > 0.01) {
+        discrepancies.push({ method: 'TPV', expected: expectedTPV, actual: actualTPV })
+      } else if (actualTPV > 0 && expectedTPV === 0) {
+        discrepancies.push({ method: 'TPV', expected: expectedTPV, actual: actualTPV })
+      }
+      
+      // Validate Transferencia (Transfer) - WARNING: Flags discrepancy but allows continuation
+      const expectedTransfer = paymentMethodBreakdown.transfer
+      const actualTransfer = parseFloat(recountValues.transfer.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+      if (expectedTransfer > 0 && Math.abs(actualTransfer - expectedTransfer) > 0.01) {
+        discrepancies.push({ method: 'Transferencia', expected: expectedTransfer, actual: actualTransfer })
+      } else if (actualTransfer > 0 && expectedTransfer === 0) {
+        discrepancies.push({ method: 'Transferencia', expected: expectedTransfer, actual: actualTransfer })
+      }
+      
+      // Validate Cheque (Check) - WARNING: Flags discrepancy but allows continuation
+      const expectedCheque = paymentMethodBreakdown.check
+      const actualCheque = parseFloat(recountValues.cheque.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+      if (expectedCheque > 0 && Math.abs(actualCheque - expectedCheque) > 0.01) {
+        discrepancies.push({ method: 'Cheque', expected: expectedCheque, actual: actualCheque })
+      } else if (actualCheque > 0 && expectedCheque === 0) {
+        discrepancies.push({ method: 'Cheque', expected: expectedCheque, actual: actualCheque })
+      }
+      
+      // If there are discrepancies in non-cash payment methods, warn but allow continuation
+      if (discrepancies.length > 0) {
+        const discrepancyList = discrepancies
+          .map(d => `  • ${d.method}: Esperado ${d.expected.toFixed(2)} €, Ingresado ${d.actual.toFixed(2)} €`)
+          .join('\n')
+        
+        const confirm = window.confirm(
+          `⚠️ Advertencia: Se detectaron discrepancias en los siguientes métodos de pago:\n\n${discrepancyList}\n\nEstas discrepancias se registrarán para revisión. ¿Deseas continuar con el cierre?`
+        )
+        if (!confirm) {
+          return
+        }
+      }
+
       // Save closing data
       setIsLoading(true)
-      const dateStr = selectedDate.toISOString().split('T')[0]
+      // Format date in local timezone to avoid UTC conversion issues
+      const dateStr = formatDateForAPI(selectedDate)
+      console.log(`[CashClosingModal] Saving closing for date:`, selectedDate, `Formatted:`, dateStr)
 
       // Parse values
       const starterBoxAmount = parseFloat(totalValues.initial.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
@@ -407,7 +550,7 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
 
       // Parse payment method breakdown (using English keys)
       const breakdown: PaymentMethodBreakdown = {
-        cash: parseFloat(recountValues.cash.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
+        cash: actualCash,
         card: parseFloat(recountValues.tpv.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
         transfer: parseFloat(recountValues.transfer.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
         check: parseFloat(recountValues.cheque.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
@@ -489,7 +632,6 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
     <div
       className='fixed inset-0 z-[80] bg-black/30 backdrop-blur-[1px]'
       onClick={handleClose}
-      aria-hidden='true'
     >
       <div className='absolute inset-0 flex items-center justify-center px-[2rem] py-[2rem]'>
         <div
@@ -679,7 +821,9 @@ function SelectStep({
   }
 
   const handleDateClick = (day: number) => {
-    const newDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
+    // Create date in local timezone using helper function
+    const newDate = createLocalDate(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
+    console.log(`[Calendar] Date clicked: day=${day}, month=${calendarMonth.getMonth() + 1}, year=${calendarMonth.getFullYear()}, created date:`, newDate, `Formatted:`, formatDateForAPI(newDate))
     onDateChange(newDate)
     setIsCalendarOpen(false) // Close calendar after selection
   }
@@ -1116,14 +1260,20 @@ function RecountStep({
         </p>
       </section>
 
-      {[
-        { id: 'cash' as const, label: 'Efectivo', should: paymentMethodBreakdown.cash },
-        { id: 'tpv' as const, label: 'TPV', should: paymentMethodBreakdown.card },
-        { id: 'transfer' as const, label: 'Transferencia', should: paymentMethodBreakdown.transfer },
-        { id: 'cheque' as const, label: 'Cheque', should: paymentMethodBreakdown.check }
-      ]
-        .filter((field) => field.should > 0) // Only show methods with amounts
-        .map((field, index) => {
+      {(() => {
+        console.log(`[RecountStep] Payment method breakdown:`, paymentMethodBreakdown)
+        // Show ALL payment methods for reconciliation (even if amount is 0)
+        // This allows users to verify all payment methods, not just the ones with transactions
+        const fields = [
+          { id: 'cash' as const, label: 'Efectivo', should: paymentMethodBreakdown.cash },
+          { id: 'tpv' as const, label: 'TPV', should: paymentMethodBreakdown.card },
+          { id: 'transfer' as const, label: 'Transferencia', should: paymentMethodBreakdown.transfer },
+          { id: 'cheque' as const, label: 'Cheque', should: paymentMethodBreakdown.check }
+        ]
+        console.log(`[RecountStep] Showing ${fields.length} payment methods:`, fields.map(f => `${f.label} (${f.should})`))
+        return fields
+      })().map((field, index) => {
+          console.log(`[RecountStep] Rendering ${field.label} with amount: ${field.should}`)
           const top = RECOUNT_LABEL_TOP_START_REM + index * RECOUNT_LABEL_ROW_GAP_REM
           const shouldAmount = `${field.should.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
           return (

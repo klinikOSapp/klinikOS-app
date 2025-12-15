@@ -25,36 +25,43 @@ export async function GET(req: Request) {
 
     const clinicId = clinics[0] as string
 
-    // Calculate previous day's date
-    const closingDate = new Date(date)
-    const previousDate = new Date(closingDate)
-    previousDate.setDate(previousDate.getDate() - 1)
-    const previousDateStr = previousDate.toISOString().split('T')[0]
+    // Use the date string directly (already in YYYY-MM-DD format)
+    const closingDateStr = date
 
-    // Get previous day's cash_balance (this becomes starter_box_amount)
+    console.log(`[Calculate Totals API] Processing date: ${date}`)
+
+    // Find the most recent closing before the selected date
     const { data: previousClosing } = await supabase
       .from('daily_cash_closings')
-      .select('cash_balance')
+      .select('cash_balance, closing_date')
       .eq('clinic_id', clinicId)
-      .eq('closing_date', previousDateStr)
+      .lt('closing_date', closingDateStr) // All closings before the selected date
+      .order('closing_date', { ascending: false }) // Most recent first
+      .limit(1)
       .maybeSingle()
 
     const starterBoxAmount = previousClosing?.cash_balance || 0
+    console.log(`[Calculate Totals API] Previous closing: ${previousClosing?.closing_date || 'none'}, starter box: ${starterBoxAmount}`)
 
-    // Calculate daily_box_amount from all CASH payments on the closing date
-    const startDate = `${date}T00:00:00Z`
-    const endDate = `${date}T23:59:59Z`
+    // Calculate daily_box_amount from ALL payments on the closing date (not just cash)
+    // Note: "Caja del día" should include all payment methods for the day
+    const startDate = `${date}T00:00:00.000Z`
+    const endDate = `${date}T23:59:59.999Z`
 
-    const { data: cashPayments } = await supabase
+    console.log(`[Calculate Totals API] Fetching ALL payments for date: ${date}, range: ${startDate} to ${endDate}`)
+
+    // Fetch ALL payments for the day (not just cash) - "Caja del día" means total collected
+    const { data: allPayments } = await supabase
       .from('payments')
       .select('amount, payment_method')
       .eq('clinic_id', clinicId)
       .gte('transaction_date', startDate)
       .lte('transaction_date', endDate)
-      .or('payment_method.ilike.%cash%,payment_method.ilike.%efectivo%')
+
+    console.log(`[Calculate Totals API] Found ${allPayments?.length || 0} payments, total: ${allPayments?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0}`)
 
     const dailyBoxAmount =
-      cashPayments?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0
+      allPayments?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0
 
     return NextResponse.json({
       starterBoxAmount,
