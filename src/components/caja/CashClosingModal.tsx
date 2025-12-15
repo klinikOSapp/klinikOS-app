@@ -197,6 +197,44 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose, open])
 
+  // Reset modal state when opening (only when open changes, not date)
+  React.useEffect(() => {
+    if (open) {
+      setStep('select')
+      const initialDate = date instanceof Date ? date : new Date()
+      setSelectedDate(initialDate)
+      setSelectedStaffId('')
+      setStaffList([]) // Reset staff list to show loading state
+    }
+  }, [open]) // Removed 'date' from dependencies to prevent infinite loop
+
+  // Fetch staff list when modal opens
+  React.useEffect(() => {
+    if (!open || step !== 'select') return
+
+    let cancelled = false
+    fetch('/api/caja/closing/staff')
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return
+        if (data.staff && Array.isArray(data.staff)) {
+          setStaffList(data.staff)
+        } else {
+          console.warn('No staff data received:', data)
+          setStaffList([])
+        }
+      })
+      .catch((error) => {
+        if (cancelled) return
+        console.error('Error fetching staff:', error)
+        setStaffList([])
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, step])
+
   // Fetch daily movements, calculated totals, and existing closing data when moving to summary step
   React.useEffect(() => {
     if (!open || step !== 'summary') return
@@ -416,9 +454,9 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
   if (!open || !mounted) return null
 
   const modalWidthRem =
-    step === 'summary' ? MODAL_WIDTH_REM : step === 'recount' ? RECOUNT_MODAL_WIDTH_REM : RECOUNT_MODAL_WIDTH_REM
+    step === 'summary' ? MODAL_WIDTH_REM : step === 'recount' ? RECOUNT_MODAL_WIDTH_REM : step === 'select' ? MODAL_WIDTH_REM : RECOUNT_MODAL_WIDTH_REM
   const modalScaleFormula =
-    step === 'summary' ? MODAL_SCALE_FORMULA : RECOUNT_MODAL_SCALE_FORMULA
+    step === 'summary' ? MODAL_SCALE_FORMULA : step === 'select' ? MODAL_SCALE_FORMULA : RECOUNT_MODAL_SCALE_FORMULA
 
   const modalFrameStyle = {
     '--modal-scale': modalScaleFormula,
@@ -560,6 +598,158 @@ function SelectStep({
   staffList,
   onContinue
 }: SelectStepProps) {
+  // Use year-month string as key to avoid Date object comparison issues
+  const selectedYearMonth = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}`
+  const [calendarMonth, setCalendarMonth] = React.useState(() =>
+    new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
+  )
+  const [isCalendarOpen, setIsCalendarOpen] = React.useState(false)
+  const [calendarPosition, setCalendarPosition] = React.useState<{ top: number; left: number; width: number } | null>(null)
+  const dateInputRef = React.useRef<HTMLButtonElement>(null)
+  const calendarPopupRef = React.useRef<HTMLDivElement>(null)
+
+  // Update calendar month when selectedDate's year/month changes
+  React.useEffect(() => {
+    setCalendarMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1))
+  }, [selectedYearMonth]) // Only depend on year-month string
+
+  // Calculate calendar position when opening
+  React.useEffect(() => {
+    if (!isCalendarOpen || !dateInputRef.current) {
+      setCalendarPosition(null)
+      return
+    }
+
+    const updatePosition = () => {
+      if (dateInputRef.current) {
+        const rect = dateInputRef.current.getBoundingClientRect()
+        setCalendarPosition({
+          top: rect.bottom + window.scrollY + 8, // 8px gap
+          left: rect.left + window.scrollX,
+          width: Math.max(rect.width, 320) // Minimum 20rem
+        })
+      }
+    }
+
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [isCalendarOpen])
+
+  // Close calendar when clicking outside
+  React.useEffect(() => {
+    if (!isCalendarOpen) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dateInputRef.current &&
+        calendarPopupRef.current &&
+        !dateInputRef.current.contains(event.target as Node) &&
+        !calendarPopupRef.current.contains(event.target as Node)
+      ) {
+        setIsCalendarOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isCalendarOpen])
+
+  // Calendar helper functions
+  const getDaysInMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
+  }
+
+  const getFirstDayOfMonth = (date: Date) => {
+    const firstDay = new Date(date.getFullYear(), date.getMonth(), 1)
+    return firstDay.getDay() === 0 ? 7 : firstDay.getDay() // Monday = 1, Sunday = 7
+  }
+
+  const navigateMonth = (direction: 1 | -1) => {
+    setCalendarMonth((prev) => {
+      const newDate = new Date(prev)
+      newDate.setMonth(prev.getMonth() + direction)
+      return newDate
+    })
+  }
+
+  const handleDateClick = (day: number) => {
+    const newDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
+    onDateChange(newDate)
+    setIsCalendarOpen(false) // Close calendar after selection
+  }
+
+  const formatDate = (date: Date): string => {
+    return date.toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    })
+  }
+
+  const isSelectedDate = (day: number) => {
+    return (
+      selectedDate.getDate() === day &&
+      selectedDate.getMonth() === calendarMonth.getMonth() &&
+      selectedDate.getFullYear() === calendarMonth.getFullYear()
+    )
+  }
+
+  const isToday = (day: number) => {
+    const today = new Date()
+    return (
+      today.getDate() === day &&
+      today.getMonth() === calendarMonth.getMonth() &&
+      today.getFullYear() === calendarMonth.getFullYear()
+    )
+  }
+
+  const monthName = calendarMonth.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+  const daysInMonth = getDaysInMonth(calendarMonth)
+  const firstDay = getFirstDayOfMonth(calendarMonth)
+  const daysBeforeMonth = firstDay - 1
+  const prevMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 0)
+  const daysInPrevMonth = prevMonth.getDate()
+
+  // Build calendar grid
+  const calendarDays: Array<{ day: number; isCurrentMonth: boolean; date: Date }> = []
+
+  // Previous month days
+  for (let i = daysBeforeMonth - 1; i >= 0; i--) {
+    const day = daysInPrevMonth - i
+    calendarDays.push({
+      day,
+      isCurrentMonth: false,
+      date: new Date(prevMonth.getFullYear(), prevMonth.getMonth(), day)
+    })
+  }
+
+  // Current month days
+  for (let day = 1; day <= daysInMonth; day++) {
+    calendarDays.push({
+      day,
+      isCurrentMonth: true,
+      date: new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
+    })
+  }
+
+  // Next month days to fill grid (6 rows × 7 days = 42 cells)
+  const remainingCells = 42 - calendarDays.length
+  for (let day = 1; day <= remainingCells; day++) {
+    calendarDays.push({
+      day,
+      isCurrentMonth: false,
+      date: new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, day)
+    })
+  }
+
+  const weekDays = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do']
+
   return (
     <>
       <section
@@ -581,9 +771,11 @@ function SelectStep({
         style={{
           left: `${SECTION_LEFT_REM}rem`,
           top: `${FORM_TOP_REM}rem`,
-          width: `${FORM_WIDTH_REM}rem`
+          width: `${FORM_WIDTH_REM}rem`,
+          maxWidth: '100%'
         }}
       >
+        {/* Professional Selection */}
         <div className='flex flex-col gap-[0.5rem]'>
           <p className='text-body-sm text-fg'>Profesional</p>
           <label className='flex h-[3rem] items-center rounded-lg border border-border bg-neutral-50 px-[0.625rem] focus-within:ring-2 focus-within:ring-brandSemantic'>
@@ -595,40 +787,137 @@ function SelectStep({
               {staffList.length === 0 ? (
                 <option value=''>Cargando...</option>
               ) : (
-                staffList.map((staff) => (
-                  <option key={staff.id} value={staff.id}>
-                    {staff.name}
-                  </option>
-                ))
+                <>
+                  <option value=''>Selecciona un profesional</option>
+                  {staffList.map((staff) => (
+                    <option key={staff.id} value={staff.id}>
+                      {staff.name}
+                    </option>
+                  ))}
+                </>
               )}
             </select>
           </label>
         </div>
 
-        <div className='flex flex-col gap-[0.5rem]'>
-          <p className='text-body-sm text-fg'>Fecha del cierre</p>
-          <div className='flex flex-col gap-[0.75rem]'>
-            <div className='flex flex-col gap-[0.5rem]'>
-              <p className='text-label-sm text-neutral-600'>Periodo</p>
-              <label className='flex h-[3rem] items-center rounded-lg border border-border bg-neutral-50 px-[0.625rem] focus-within:ring-2 focus-within:ring-brandSemantic'>
-                <select
-                  defaultValue='custom'
-                  className='w-full bg-transparent text-body-md text-fg focus:outline-none'
-                >
-                  <option value='custom'>Personalizado</option>
-                </select>
-              </label>
-            </div>
-            <div className='flex flex-col gap-[0.5rem]'>
-              <label className='flex h-[3rem] items-center rounded-lg border border-border bg-neutral-50 px-[0.625rem] focus-within:ring-2 focus-within:ring-brandSemantic'>
-                <input
-                  type='date'
-                  value={selectedDate.toISOString().split('T')[0]}
-                  onChange={(e) => onDateChange(new Date(e.target.value))}
-                  className='w-full bg-transparent text-body-md text-fg focus:outline-none'
+        {/* Date and Period Selection - Side by Side */}
+        <div className='flex items-start gap-[1.5rem]'>
+          {/* Fecha del cierre - Left */}
+          <div className='relative flex flex-1 flex-col gap-[0.5rem]'>
+            <p className='text-body-sm text-fg'>Fecha del cierre</p>
+            <button
+              ref={dateInputRef}
+              type='button'
+              onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+              className='flex h-[3rem] items-center justify-between rounded-lg border border-border bg-neutral-50 px-[0.625rem] text-left text-body-md text-fg transition-colors hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-brandSemantic'
+            >
+              <span>{formatDate(selectedDate)}</span>
+              <svg
+                width='20'
+                height='20'
+                viewBox='0 0 24 24'
+                fill='none'
+                xmlns='http://www.w3.org/2000/svg'
+                className={`transition-transform ${isCalendarOpen ? 'rotate-180' : ''}`}
+              >
+                <path
+                  d='M6 9L12 15L18 9'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
                 />
-              </label>
-            </div>
+              </svg>
+            </button>
+          </div>
+
+          {/* Calendar Popup - Rendered via Portal */}
+          {isCalendarOpen && calendarPosition && createPortal(
+            <div
+              ref={calendarPopupRef}
+              className='fixed z-[100] flex flex-col rounded-lg border border-border bg-neutral-0 p-[1rem] shadow-elevation-popover'
+              style={{
+                top: `${calendarPosition.top}px`,
+                left: `${calendarPosition.left}px`,
+                width: `${calendarPosition.width}px`
+              }}
+            >
+              {/* Month Navigation */}
+              <div className='mb-[1rem] flex items-center justify-between'>
+                <button
+                  type='button'
+                  onClick={() => navigateMonth(-1)}
+                  className='flex items-center justify-center rounded-lg p-[0.5rem] text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900'
+                  aria-label='Mes anterior'
+                >
+                  <svg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'>
+                    <path d='M15 18L9 12L15 6' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' />
+                  </svg>
+                </button>
+                <h3 className='text-title-md font-medium text-fg capitalize'>{monthName}</h3>
+                <button
+                  type='button'
+                  onClick={() => navigateMonth(1)}
+                  className='flex items-center justify-center rounded-lg p-[0.5rem] text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900'
+                  aria-label='Mes siguiente'
+                >
+                  <svg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'>
+                    <path d='M9 18L15 12L9 6' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Week Days Header */}
+              <div className='mb-[0.5rem] grid grid-cols-7 gap-[0.25rem]'>
+                {weekDays.map((day) => (
+                  <div key={day} className='flex items-center justify-center py-[0.5rem] text-label-md font-medium text-neutral-600'>
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              {/* Calendar Grid */}
+              <div className='grid w-full grid-cols-7 gap-[0.25rem]'>
+                {calendarDays.map(({ day, isCurrentMonth, date }, index) => {
+                  const selected = isSelectedDate(day) && isCurrentMonth
+                  const today = isToday(day) && isCurrentMonth
+
+                  return (
+                    <button
+                      key={`${date.getTime()}-${index}`}
+                      type='button'
+                      onClick={() => isCurrentMonth && handleDateClick(day)}
+                      disabled={!isCurrentMonth}
+                      className={`flex h-[2.5rem] min-w-0 items-center justify-center rounded-lg text-body-md transition-colors ${
+                        !isCurrentMonth
+                          ? 'cursor-not-allowed text-neutral-400'
+                          : selected
+                            ? 'bg-brand-500 font-bold text-brand-900'
+                            : today
+                              ? 'border-2 border-brand-500 font-medium text-brand-500'
+                              : 'text-neutral-600 hover:bg-neutral-100'
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>,
+            document.body
+          )}
+
+          {/* Periodo - Right */}
+          <div className='flex flex-1 flex-col gap-[0.5rem]'>
+            <p className='text-body-sm text-fg'>Periodo</p>
+            <label className='flex h-[3rem] items-center rounded-lg border border-border bg-neutral-50 px-[0.625rem] focus-within:ring-2 focus-within:ring-brandSemantic'>
+              <select
+                defaultValue='custom'
+                className='w-full bg-transparent text-body-md text-fg focus:outline-none'
+              >
+                <option value='custom'>Personalizado</option>
+              </select>
+            </label>
           </div>
         </div>
       </section>
