@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
 import type { CSSProperties } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -22,7 +24,7 @@ const X_AXIS_TOP_PX = 302
 const CHIP_LEFT_PX = 64
 const CHIP_FACT_TOP_PX = 66
 const CHIP_OBJ_TOP_PX = 98
-const DEFAULT_TARGET_VALUE_EUR = 30000 // Fallback if no monthly goal set
+const TARGET_VALUE_EUR = 30000
 
 const percentOfWidth = (px: number) => `${(px / CARD_WIDTH_PX) * 100}%`
 const percentOfHeight = (px: number) => `${(px / CARD_HEIGHT_PX) * 100}%`
@@ -95,7 +97,7 @@ const GRID_RECT = {
   height: GRID_HEIGHT_PX
 }
 const GRID_FILL_RECT = { left: 0, top: 160, width: GRID_WIDTH_PX, height: 68 }
-// TARGET_RATIO will be calculated dynamically based on targetValue from API
+const TARGET_RATIO = TARGET_VALUE_EUR / (chartCanvas.maxValue * 1000)
 
 type SeriesPoint = {
   label: string
@@ -119,49 +121,10 @@ export default function CashTrendCard({
   anchorDate,
   targetHeightRem
 }: CashTrendCardProps) {
-  const [series, setSeries] = useState<SeriesResult>({
-    labels: [],
-    dataPoints: [],
-    highlightIndex: 0
-  })
-  const [isLoading, setIsLoading] = useState(true)
-  const [facturadoValue, setFacturadoValue] = useState(38000)
-  const [targetValue, setTargetValue] = useState(30) // In thousands (from API)
-
-  // Fetch trend data from API
-  useEffect(() => {
-    setIsLoading(true)
-    const dateStr = anchorDate.toISOString().split('T')[0]
-    fetch(`/api/caja/trend?date=${dateStr}&timeScale=${timeScale}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.dataPoints && data.labels) {
-          setSeries({
-            labels: data.labels,
-            dataPoints: data.dataPoints,
-            highlightIndex: data.highlightIndex || data.dataPoints.length - 1
-          })
-          // Calculate facturado from data points (sum of all periods shown)
-          const total = data.dataPoints.reduce((sum: number, p: SeriesPoint) => sum + p.actual, 0) * 1000
-          setFacturadoValue(total)
-          // Set target value from API (already in thousands)
-          if (data.targetValue !== undefined) {
-            setTargetValue(data.targetValue)
-          }
-        }
-        setIsLoading(false)
-      })
-      .catch((error) => {
-        console.error('Error fetching trend:', error)
-        setIsLoading(false)
-      })
-  }, [timeScale, anchorDate])
-
-  // Calculate target ratio dynamically
-  const targetRatio = useMemo(() => {
-    const targetValueEur = targetValue * 1000 // Convert from thousands to EUR
-    return targetValueEur / (chartCanvas.maxValue * 1000)
-  }, [targetValue])
+  const series = useMemo(
+    () => buildSeries(timeScale, anchorDate),
+    [timeScale, anchorDate]
+  )
 
   const chartLineData = useMemo(
     () =>
@@ -175,13 +138,16 @@ export default function CashTrendCard({
   const verticalLineLeftPercent = useMemo(() => {
     const denominator = Math.max(series.labels.length - 1, 1)
     return percentOfWidth(
-      GRID_LEFT_PX + ((series.highlightIndex / denominator) * GRID_WIDTH_PX || 0)
+      GRID_LEFT_PX +
+        ((series.highlightIndex / denominator) * GRID_WIDTH_PX || 0)
     )
   }, [series])
 
   const cardStyles: CSSProperties = {
     width: '100%',
-    height: targetHeightRem ? `${targetHeightRem}rem` : `min(${CARD_HEIGHT_REM}rem, 100%)`,
+    height: targetHeightRem
+      ? `${targetHeightRem}rem`
+      : `min(${CARD_HEIGHT_REM}rem, 100%)`,
     overflow: 'hidden',
     position: 'relative'
   }
@@ -236,9 +202,7 @@ export default function CashTrendCard({
           style={{ ...rectToStyle(FACT_CHIP_RECT), whiteSpace: 'nowrap' }}
         >
           <span>Facturado:</span>
-          <span className='font-bold text-brandSemantic'>
-            {facturadoValue.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €
-          </span>
+          <span className='font-bold text-brandSemantic'>38.000 €</span>
         </div>
 
         <div
@@ -252,7 +216,7 @@ export default function CashTrendCard({
         >
           <span>Objetivo:</span>
           <span className='font-bold text-neutral-900'>
-            {(targetValue * 1000).toLocaleString('es-ES', {
+            {TARGET_VALUE_EUR.toLocaleString('es-ES', {
               minimumFractionDigits: 0
             })}{' '}
             €
@@ -272,45 +236,42 @@ export default function CashTrendCard({
           className='absolute flex items-center justify-between text-label-md font-normal text-neutral-400'
           style={rectToStyle(X_AXIS_RECT)}
         >
-          {isLoading ? (
-            <span>Cargando...</span>
-          ) : (
-            series.labels.map((label) => <span key={label}>{label}</span>)
-          )}
+          {series.labels.map((label) => (
+            <span key={label}>{label}</span>
+          ))}
         </div>
 
         <div className='absolute' style={rectToStyle(GRID_RECT)}>
-          {!isLoading && (
-            <>
-              <div
-                className='absolute'
+          <div
+            className='absolute'
             style={{
               left: percentOfGridWidth(GRID_FILL_RECT.left),
-              top: `${(1 - targetRatio) * 100}%`,
+              top: `${(1 - TARGET_RATIO) * 100}%`,
               width: percentOfGridWidth(GRID_FILL_RECT.width),
-              height: `${targetRatio * 100}%`,
+              height: `${TARGET_RATIO * 100}%`,
               backgroundColor: 'rgba(81, 214, 199, 0.12)'
             }}
+          />
+          <ChartGrid />
+          <ResponsiveContainer width='100%' height='100%'>
+            <LineChart
+              data={chartLineData}
+              margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+            >
+              <YAxis type='number' domain={[0, 50]} hide />
+              <XAxis dataKey='label' type='category' hide />
+              <Line
+                type='monotone'
+                dataKey='clippedActual'
+                stroke='var(--color-brand-500)'
+                strokeWidth={3}
+                dot={false}
+                animationDuration={1100}
+                animationBegin={200}
+                isAnimationActive
               />
-              <ChartGrid />
-              <ResponsiveContainer width='100%' height='100%'>
-                <LineChart data={chartLineData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-                  <YAxis type='number' domain={[0, 50]} hide />
-                  <XAxis dataKey='label' type='category' hide />
-                  <Line
-                    type='monotone'
-                    dataKey='clippedActual'
-                    stroke='var(--color-brand-500)'
-                    strokeWidth={3}
-                    dot={false}
-                    animationDuration={1100}
-                    animationBegin={200}
-                    isAnimationActive
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </>
-          )}
+            </LineChart>
+          </ResponsiveContainer>
         </div>
 
         <div
@@ -465,4 +426,3 @@ function generateValue(date: Date, slope: number, base: number) {
   const value = Math.min(48, Math.max(8, base + trend + noise))
   return Math.round((value + Number.EPSILON) * 10) / 10
 }
-

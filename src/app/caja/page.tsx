@@ -47,7 +47,7 @@ export default function CajaPage() {
           onTimeScaleChange={handleTimeScaleChange}
         />
 
-        <div className='flex flex-col flex-1 overflow-hidden gap-[min(0.75rem,1vw)]' style={{ marginTop: 'var(--spacing-header-stack)' }}>
+        <div className='mt-header-stack flex flex-col flex-1 overflow-hidden gap-[min(0.75rem,1vw)]'>
           <div
             className='flex flex-col gap-[min(1.5rem,2vw)] xl:grid xl:items-stretch'
             style={{
@@ -55,11 +55,7 @@ export default function CajaPage() {
             }}
           >
             <div className='w-full'>
-              <CashSummaryCard
-                date={anchorDate}
-                timeScale={timeScale}
-                onHeightChange={handleSummaryHeight}
-              />
+              <CashSummaryCard onHeightChange={handleSummaryHeight} />
             </div>
             <div className='w-full'>
               <CashTrendCard
@@ -70,7 +66,7 @@ export default function CajaPage() {
             </div>
           </div>
 
-          <CashMovementsTable date={anchorDate} timeScale={timeScale} />
+          <CashMovementsTable />
         </div>
       </div>
     </ClientLayout>
@@ -140,5 +136,3 @@ function startOfWeek(date: Date) {
   }
   return copy
 }
-
-

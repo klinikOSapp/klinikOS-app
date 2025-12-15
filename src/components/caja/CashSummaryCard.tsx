@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 
@@ -12,7 +14,40 @@ type SummaryCard = {
   accessory: string
 }
 
-// SUMMARY_CARDS removed - now fetched from API
+const SUMMARY_CARDS: SummaryCard[] = [
+  {
+    id: 'produced',
+    title: 'Producido',
+    value: '1.200 €',
+    delta: '+ 12%',
+    color: 'var(--color-info-50)',
+    accessory: 'money_bag'
+  },
+  {
+    id: 'invoiced',
+    title: 'Facturado',
+    value: '1.200 €',
+    delta: '+ 12%',
+    color: '#e9f6fb',
+    accessory: 'receipt_long'
+  },
+  {
+    id: 'collected',
+    title: 'Cobrado',
+    value: '1.200 €',
+    delta: '+ 12%',
+    color: 'var(--color-brand-50)',
+    accessory: 'check'
+  },
+  {
+    id: 'toCollect',
+    title: 'Por cobrar',
+    value: '-1.200 €',
+    delta: '+ 12%',
+    color: 'var(--color-warning-50)',
+    accessory: 'money_bag'
+  }
+]
 
 const CARD_HEIGHT_REM = 21.375 // 342px
 const CARD_HEIGHT_PX = 342
@@ -35,47 +70,26 @@ const DONUT_HORIZONTAL_SAFE_SPACE_PX = 32
 const pxToRem = (px: number) => px / 16
 
 const DONUT_LABEL_OFFSET_REM = pxToRem(16)
+const DONUT_VALUE = 1200
+const DONUT_TARGET = 1800
+const DONUT_DATA = [
+  { name: 'actual', value: DONUT_VALUE, color: 'var(--color-brand-500)' },
+  {
+    name: 'remaining',
+    value: Math.max(DONUT_TARGET - DONUT_VALUE, 0),
+    color: 'var(--color-brand-50)'
+  }
+]
 
 type CashSummaryCardProps = {
-  date: Date
-  timeScale: 'day' | 'week' | 'month'
   onHeightChange?: (heightRem: number) => void
 }
 
 export default function CashSummaryCard({
-  date,
-  timeScale,
   onHeightChange
 }: CashSummaryCardProps) {
   const cardRef = useRef<HTMLDivElement | null>(null)
   const [scale, setScale] = useState(1)
-  const [summaryCards, setSummaryCards] = useState<SummaryCard[]>([])
-  const [donutValue, setDonutValue] = useState(1200)
-  const [donutTarget, setDonutTarget] = useState(1800)
-  const [isLoading, setIsLoading] = useState(true)
-
-  // Fetch summary from API (YTD accumulated values - independent of date/timeScale)
-  // API always uses TODAY's date for YTD calculations, so cards don't change with filters
-  useEffect(() => {
-    setIsLoading(true)
-    // Don't pass date - API will use today's date for YTD calculations
-    fetch(`/api/caja/summary`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.summary) {
-          setSummaryCards(data.summary)
-        }
-        if (data.donut) {
-          setDonutValue(data.donut.value)
-          setDonutTarget(data.donut.target)
-        }
-        setIsLoading(false)
-      })
-      .catch((error) => {
-        console.error('Error fetching summary:', error)
-        setIsLoading(false)
-      })
-  }, []) // Empty dependency array - only fetch once on mount, never refetch
 
   useEffect(() => {
     const node = cardRef.current
@@ -141,14 +155,12 @@ export default function CashSummaryCard({
 
         <div className='mt-[1rem] flex flex-1 gap-gapmd'>
           <div className='grid flex-none' style={summaryGridStyles}>
-            {isLoading ? (
-              <div className='col-span-2 text-center py-8 text-neutral-500'>Cargando...</div>
-            ) : (
-              summaryCards.map((card) => <SummaryInsightCard key={card.id} card={card} />)
-            )}
+            {SUMMARY_CARDS.map((card) => (
+              <SummaryInsightCard key={card.id} card={card} />
+            ))}
           </div>
           <div className='flex flex-1 min-h-0'>
-            <CashDonutGauge value={donutValue} target={donutTarget} />
+            <CashDonutGauge />
           </div>
         </div>
       </div>
@@ -176,7 +188,7 @@ function SummaryInsightCard({ card }: { card: SummaryCard }) {
           >
             {card.accessory}
           </span>
-          <span>{new Date().getFullYear()}</span>
+          <span>Hoy</span>
         </div>
         <div className='flex flex-col gap-[0.25rem] text-neutral-600'>
           <div className='font-medium text-[0.6875rem] leading-[1rem]'>
@@ -199,12 +211,7 @@ function SummaryInsightCard({ card }: { card: SummaryCard }) {
   )
 }
 
-type CashDonutGaugeProps = {
-  value: number
-  target: number
-}
-
-function CashDonutGauge({ value, target }: CashDonutGaugeProps) {
+function CashDonutGauge() {
   const donutCardRef = useRef<HTMLDivElement | null>(null)
   const [chartDimensions, setChartDimensions] = useState(() => {
     const widthPx = DONUT_MAX_WIDTH_PX
@@ -213,15 +220,6 @@ function CashDonutGauge({ value, target }: CashDonutGaugeProps) {
       heightPx: widthPx * DONUT_HEIGHT_RATIO
     }
   })
-
-  const DONUT_DATA = [
-    { name: 'actual', value: value, color: 'var(--color-brand-500)' },
-    {
-      name: 'remaining',
-      value: Math.max(target - value, 0),
-      color: 'var(--color-brand-50)'
-    }
-  ]
 
   useEffect(() => {
     const node = donutCardRef.current
@@ -322,7 +320,7 @@ function CashDonutGauge({ value, target }: CashDonutGaugeProps) {
         style={valueStackStyles}
       >
         <p className='text-[2.25rem] leading-[2.75rem] text-neutral-600'>
-          {value.toLocaleString('es-ES', {
+          {DONUT_VALUE.toLocaleString('es-ES', {
             minimumFractionDigits: 0
           })}{' '}
           €
@@ -330,7 +328,7 @@ function CashDonutGauge({ value, target }: CashDonutGaugeProps) {
         <div className='flex items-baseline gap-[0.5rem] text-[0.6875rem] leading-[1rem]'>
           <span className='font-medium'>de</span>
           <span className='text-[1.125rem] font-medium leading-[1.75rem]'>
-            {target.toLocaleString('es-ES', {
+            {DONUT_TARGET.toLocaleString('es-ES', {
               minimumFractionDigits: 0
             })}{' '}
             €
