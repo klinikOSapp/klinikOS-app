@@ -38,7 +38,7 @@ export default function ProductionTotalCard({
   year = '2024',
   value = '€ 56 K',
   delta = '+ 35%',
-  view = 'circular',
+  view: _view = 'circular',
   specialties = DEFAULT_SPECIALTIES
 }: ProductionTotalCardProps) {
   const sectionStyles = {
@@ -78,29 +78,7 @@ export default function ProductionTotalCard({
       </header>
 
       <div
-        className='absolute left-[1rem] top-[3.5rem] flex'
-        style={{
-          width: `min(7.75rem, calc(var(--card-width-current) - 2rem))`
-        }}
-      >
-        <button
-          type='button'
-          className='flex w-[3.0625rem] items-center justify-center rounded-l-[1rem] border border-neutral-300 border-r-0 bg-neutral-300 px-[0.5rem] py-[0.25rem] text-[0.75rem] font-normal leading-4 text-neutral-900'
-          aria-pressed={view === 'barras'}
-        >
-          Barras
-        </button>
-        <button
-          type='button'
-          className='flex w-[3.5rem] items-center justify-center rounded-r-[1rem] border border-neutral-300 px-[0.25rem] py-[0.25rem] text-[0.75rem] font-normal leading-4 text-neutral-900'
-          aria-pressed={view === 'circular'}
-        >
-          Circular
-        </button>
-      </div>
-
-      <div
-        className='absolute left-[1rem] top-[6.5rem] flex items-center justify-center'
+        className='absolute left-[1rem] top-[5.75rem] flex items-center justify-center'
         style={{
           width: donutSize,
           height: donutSize
@@ -140,7 +118,7 @@ export default function ProductionTotalCard({
       </div>
 
       <dl
-        className='absolute top-[9.6875rem] flex flex-col gap-[0.75rem] text-[0.75rem] leading-4 text-neutral-800'
+        className='absolute top-[8.9375rem] flex flex-col gap-[0.75rem] text-[0.75rem] leading-4 text-neutral-800'
         style={{
           left: legendLeft,
           width: legendWidth

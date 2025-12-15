@@ -24,16 +24,16 @@ const KPI_CARDS = [
     value: '1.200 €',
     delta: '+ 12%',
     bg: 'var(--color-info-50)',
-    icon: 'savings',
+    icon: 'money_bag',
     left: 16,
     top: 64,
     width: 198
   },
   {
-    title: 'Facturado o en curso',
+    title: 'Facturado',
     value: '1.200 €',
     delta: '+ 12%',
-    bg: 'var(--color-brand-50)',
+    bg: '#e9f6fb',
     icon: 'receipt_long',
     left: 236,
     top: 64,
@@ -50,11 +50,11 @@ const KPI_CARDS = [
     width: 198
   },
   {
-    title: 'Sin facturar',
+    title: 'Por cobrar',
     value: '-1.200 €',
     delta: '+ 12%',
     bg: 'var(--color-warning-50)',
-    icon: 'savings',
+    icon: 'money_bag',
     left: 236,
     top: 196,
     width: 204
@@ -148,7 +148,7 @@ export default function AccountingPanel() {
       {KPI_CARDS.map((card) => (
         <article
           key={card.title}
-          className='absolute flex flex-col rounded-lg p-card-pad'
+          className='absolute flex flex-col rounded-lg p-[0.5rem]'
           style={{
             left: toWidth(card.left),
             top: toHeight(card.top),
@@ -157,27 +157,27 @@ export default function AccountingPanel() {
             backgroundColor: card.bg
           }}
         >
-          <header className='flex items-center justify-between text-label-md text-fg-secondary'>
-            <span className='material-symbols-rounded text-fg text-[1.25rem]'>
+          <header className='flex items-center justify-between text-label-md text-neutral-600'>
+            <span className='material-symbols-rounded text-[1rem] leading-[1rem] text-neutral-600'>
               {card.icon}
             </span>
-            <span className='text-[0.6875rem] font-medium leading-4 text-fg-secondary'>
+            <span className='text-[0.6875rem] font-medium leading-[1rem] text-neutral-600'>
               Hoy
             </span>
           </header>
-          <div className='mt-gapsm text-label-md text-fg-secondary'>
+          <div className='mt-gapsm text-label-md text-neutral-600'>
             {card.title}
           </div>
-          <div className='mt-[0.25rem] text-headline-sm text-fg-secondary'>
-            {card.value}
-          </div>
-          <div className='mt-[0.25rem] flex items-center gap-card-metric'>
-            <span className='text-body-sm text-brandSemantic'>
+          <div className='mt-[0.25rem] flex items-baseline justify-between gap-[0.5rem] min-w-0'>
+            <p className='text-neutral-600 whitespace-nowrap text-[min(1.75rem,5vw)] leading-[min(2.25rem,6vw)]'>
+              {card.value}
+            </p>
+            <div className='flex items-center gap-[0.25rem] text-brand-500 whitespace-nowrap text-[min(0.875rem,3.2vw)] leading-[min(1.25rem,4vw)]'>
               {card.delta}
-            </span>
-            <span className='material-symbols-rounded text-[1rem] leading-none text-brandSemantic'>
-              arrow_outward
-            </span>
+              <span className='material-symbols-rounded text-[1rem] leading-[1rem] text-brand-500'>
+                arrow_outward
+              </span>
+            </div>
           </div>
         </article>
       ))}
@@ -258,7 +258,7 @@ export default function AccountingPanel() {
       {SIDE_STACK.map((item) => (
         <div
           key={item.title}
-          className='absolute rounded-[1rem] px-[0.5rem] py-[0.5rem]'
+          className='absolute rounded-[1rem]'
           style={{
             left: toWidth(880),
             top: toHeight(item.top),
@@ -267,21 +267,28 @@ export default function AccountingPanel() {
             backgroundColor: item.bg
           }}
         >
-          <div className='flex items-center justify-between text-label-sm'>
-            <span className={item.textClass}>{item.title}</span>
+          <div className='relative h-full w-full'>
+            <p
+              className={`absolute left-[0.5rem] top-[0.5rem] text-label-sm ${item.textClass}`}
+              style={{ lineHeight: '1rem' }}
+            >
+              {item.title}
+            </p>
             {item.percent ? (
-              <span className={`${item.textClass} font-medium`}>
+              <span
+                className={`absolute right-[0.5rem] top-[0.5rem] text-label-sm font-medium ${item.textClass}`}
+                style={{ lineHeight: '1rem' }}
+              >
                 {item.percent}
               </span>
             ) : null}
+            <p
+              className={`absolute left-[0.5rem] top-[2.5rem] text-title-sm font-medium ${item.textClass}`}
+              style={{ lineHeight: '1.5rem' }}
+            >
+              {item.value}
+            </p>
           </div>
-
-          <p
-            className={`mt-[2rem] text-title-sm font-medium ${item.textClass} text-right`}
-            style={{ lineHeight: '1.5rem' }}
-          >
-            {item.value}
-          </p>
         </div>
       ))}
     </section>
