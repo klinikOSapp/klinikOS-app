@@ -59,14 +59,7 @@ const INITIAL_TOTAL_VALUES: Record<CashTotalFieldId, string> = {
   outflow: '50.00 €'
 }
 
-const RECOUNT_FIELDS = [
-  { id: 'cash', label: 'Efectivo', should: '300€' },
-  { id: 'tpv', label: 'TPV', should: '600€' },
-  { id: 'transfer', label: 'Transferencia', should: '1.000€' },
-  { id: 'cheque', label: 'Cheque', should: '1.500€' }
-] as const
-
-type RecountFieldId = (typeof RECOUNT_FIELDS)[number]['id']
+type RecountFieldId = 'cash' | 'tpv' | 'transfer' | 'cheque'
 
 const INITIAL_RECOUNT_VALUES: Record<RecountFieldId, string> = {
   cash: '',
@@ -144,15 +137,41 @@ const CASH_CLOSING_ROWS = [
 type CashClosingModalProps = {
   open: boolean
   onClose: () => void
+  date?: Date // Date for which to close cash
 }
 
-type ModalStep = 'summary' | 'recount'
+type ModalStep = 'summary' | 'recount' | 'confirmation'
 
-export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
+type DailyMovement = {
+  time: string
+  patient: string
+  concept: string
+  amount: string
+  method: string
+}
+
+type PaymentMethodBreakdown = {
+  efectivo: number
+  tpv: number
+  transferencia: number
+  cheque: number
+  [key: string]: number
+}
+
+export function CashClosingModal({ open, onClose, date = new Date() }: CashClosingModalProps) {
   const [mounted, setMounted] = React.useState(false)
   const [totalValues, setTotalValues] = React.useState(INITIAL_TOTAL_VALUES)
   const [recountValues, setRecountValues] = React.useState(INITIAL_RECOUNT_VALUES)
   const [step, setStep] = React.useState<ModalStep>('summary')
+  const [dailyMovements, setDailyMovements] = React.useState<DailyMovement[]>([])
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [paymentMethodBreakdown, setPaymentMethodBreakdown] = React.useState<PaymentMethodBreakdown>({
+    efectivo: 0,
+    tpv: 0,
+    transferencia: 0,
+    cheque: 0
+  })
+  const [existingClosing, setExistingClosing] = React.useState<any>(null)
 
   React.useEffect(() => {
     setMounted(true)
@@ -169,16 +188,117 @@ export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose, open])
 
+  // Fetch daily movements and existing closing data
   React.useEffect(() => {
-    if (open) {
-      setTotalValues(INITIAL_TOTAL_VALUES)
-      setRecountValues(INITIAL_RECOUNT_VALUES)
-      setStep('summary')
-    }
-  }, [open])
+    if (!open) return
+
+    setIsLoading(true)
+    const dateStr = date.toISOString().split('T')[0]
+
+    // Fetch daily movements
+    fetch(`/api/caja/closing/daily-movements?date=${dateStr}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.movements) {
+          setDailyMovements(data.movements)
+
+          // Calculate payment method breakdown from movements
+          const breakdown: PaymentMethodBreakdown = {
+            efectivo: 0,
+            tpv: 0,
+            transferencia: 0,
+            cheque: 0
+          }
+
+          data.movements.forEach((movement: DailyMovement) => {
+            const amount = parseFloat(movement.amount.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+            const method = movement.method.toLowerCase()
+
+            if (method.includes('efectivo') || method.includes('cash')) {
+              breakdown.efectivo += amount
+            } else if (method.includes('tpv') || method.includes('tarjeta')) {
+              breakdown.tpv += amount
+            } else if (method.includes('transferencia') || method.includes('transfer')) {
+              breakdown.transferencia += amount
+            } else if (method.includes('cheque') || method.includes('check')) {
+              breakdown.cheque += amount
+            }
+          })
+
+          setPaymentMethodBreakdown(breakdown)
+        }
+        setIsLoading(false)
+      })
+      .catch((error) => {
+        console.error('Error fetching daily movements:', error)
+        setIsLoading(false)
+      })
+
+    // Fetch existing closing
+    fetch(`/api/caja/closing?date=${dateStr}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.closing) {
+          setExistingClosing(data.closing)
+
+          // Populate form with existing data
+          if (data.closing.starter_box_amount !== null) {
+            setTotalValues((prev) => ({
+              ...prev,
+              initial: `${Number(data.closing.starter_box_amount).toFixed(2)} €`
+            }))
+          }
+          if (data.closing.daily_box_amount !== null) {
+            setTotalValues((prev) => ({
+              ...prev,
+              day: `${Number(data.closing.daily_box_amount).toFixed(2)} €`
+            }))
+          }
+          if (data.closing.cash_withdrawals !== null) {
+            setTotalValues((prev) => ({
+              ...prev,
+              outflow: `${Number(data.closing.cash_withdrawals).toFixed(2)} €`
+            }))
+          }
+          if (data.closing.cash_balance !== null) {
+            setTotalValues((prev) => ({
+              ...prev,
+              rest: `${Number(data.closing.cash_balance).toFixed(2)} €`
+            }))
+          }
+
+          // Populate payment method breakdown if exists
+          if (data.closing.payment_method_breakdown) {
+            const breakdown = data.closing.payment_method_breakdown
+            setRecountValues({
+              cash: breakdown.efectivo ? `${breakdown.efectivo.toFixed(2)} €` : '',
+              tpv: breakdown.tpv ? `${breakdown.tpv.toFixed(2)} €` : '',
+              transfer: breakdown.transferencia ? `${breakdown.transferencia.toFixed(2)} €` : '',
+              cheque: breakdown.cheque ? `${breakdown.cheque.toFixed(2)} €` : ''
+            })
+          }
+        }
+      })
+      .catch((error) => {
+        console.error('Error fetching existing closing:', error)
+      })
+  }, [open, date])
 
   const handleInputChange = (fieldId: CashTotalFieldId, value: string) => {
-    setTotalValues((prev) => ({ ...prev, [fieldId]: value }))
+    setTotalValues((prev) => {
+      const updated = { ...prev, [fieldId]: value }
+
+      // Auto-calculate cash balance when starter, day, or outflow changes
+      if (fieldId === 'initial' || fieldId === 'day' || fieldId === 'outflow') {
+        const initial = parseFloat(updated.initial.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+        const day = parseFloat(updated.day.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+        const outflow = parseFloat(updated.outflow.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+        const balance = initial + day - outflow
+        updated.rest = `${balance.toFixed(2)} €`
+      }
+
+      return updated
+    })
   }
 
   const handleRecountInputChange = (fieldId: RecountFieldId, value: string) => {
@@ -190,17 +310,77 @@ export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
     onClose()
   }
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (step === 'summary') {
+      // Validate required field
+      if (!totalValues.outflow || totalValues.outflow === '0,00 €' || totalValues.outflow === '0.00 €') {
+        alert('Por favor, ingresa la salida de caja (requerido)')
+        return
+      }
       setStep('recount')
       return
     }
+
+    if (step === 'recount') {
+      // Save closing data
+      setIsLoading(true)
+      const dateStr = date.toISOString().split('T')[0]
+
+      // Parse values
+      const starterBoxAmount = parseFloat(totalValues.initial.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+      const dailyBoxAmount = parseFloat(totalValues.day.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+      const cashWithdrawals = parseFloat(totalValues.outflow.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+      const cashBalance = parseFloat(totalValues.rest.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+
+      // Parse payment method breakdown
+      const breakdown: PaymentMethodBreakdown = {
+        efectivo: parseFloat(recountValues.cash.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
+        tpv: parseFloat(recountValues.tpv.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
+        transferencia: parseFloat(recountValues.transfer.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
+        cheque: parseFloat(recountValues.cheque.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+      }
+
+      try {
+        const response = await fetch('/api/caja/closing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: dateStr,
+            starterBoxAmount,
+            dailyBoxAmount,
+            cashWithdrawals,
+            cashBalance,
+            paymentMethodBreakdown: breakdown
+          })
+        })
+
+        const data = await response.json()
+        if (response.ok) {
+          setStep('confirmation')
+          // Auto-close after 2 seconds
+          setTimeout(() => {
+            handleClose()
+          }, 2000)
+        } else {
+          alert(`Error al guardar: ${data.error || 'Error desconocido'}`)
+          setIsLoading(false)
+        }
+      } catch (error) {
+        console.error('Error saving closing:', error)
+        alert('Error al guardar el cierre de caja')
+        setIsLoading(false)
+      }
+      return
+    }
+
+    // Step 3: Confirmation - already handled above
     handleClose()
   }
 
   if (!open || !mounted) return null
 
-  const modalWidthRem = step === 'summary' ? MODAL_WIDTH_REM : RECOUNT_MODAL_WIDTH_REM
+  const modalWidthRem =
+    step === 'summary' ? MODAL_WIDTH_REM : step === 'recount' ? RECOUNT_MODAL_WIDTH_REM : RECOUNT_MODAL_WIDTH_REM
   const modalScaleFormula =
     step === 'summary' ? MODAL_SCALE_FORMULA : RECOUNT_MODAL_SCALE_FORMULA
 
@@ -223,7 +403,11 @@ export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
   } as React.CSSProperties
 
   const descriptionId =
-    step === 'summary' ? 'cash-close-dialog-description' : 'cash-close-recount-description'
+    step === 'summary'
+      ? 'cash-close-dialog-description'
+      : step === 'recount'
+        ? 'cash-close-recount-description'
+        : 'cash-close-confirmation-description'
 
   const content = (
     <div
@@ -266,14 +450,20 @@ export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
                   onChange={handleInputChange}
                   tableGridStyles={tableGridStyles}
                   onContinue={handleContinue}
+                  dailyMovements={dailyMovements}
+                  isLoading={isLoading}
                 />
-              ) : (
+              ) : step === 'recount' ? (
                 <RecountStep
                   descriptionId={descriptionId}
                   values={recountValues}
                   onChange={handleRecountInputChange}
                   onContinue={handleContinue}
+                  paymentMethodBreakdown={paymentMethodBreakdown}
+                  isLoading={isLoading}
                 />
+              ) : (
+                <ConfirmationStep descriptionId={descriptionId} />
               )}
             </div>
           </div>
@@ -309,6 +499,8 @@ type SummaryStepProps = {
   onChange: (fieldId: CashTotalFieldId, value: string) => void
   tableGridStyles: React.CSSProperties
   onContinue: () => void
+  dailyMovements: DailyMovement[]
+  isLoading: boolean
 }
 
 function SummaryStep({
@@ -316,7 +508,9 @@ function SummaryStep({
   totalValues,
   onChange,
   tableGridStyles,
-  onContinue
+  onContinue,
+  dailyMovements,
+  isLoading
 }: SummaryStepProps) {
   return (
     <>
@@ -390,19 +584,29 @@ function SummaryStep({
           </div>
 
           <div>
-            {CASH_CLOSING_ROWS.map((row) => (
-              <div
-                key={`${row.time}-${row.patient}`}
-                className='grid border-b border-border text-body-md text-neutral-900'
-                style={tableGridStyles}
-              >
-                <Cell>{row.time}</Cell>
-                <Cell>{row.patient}</Cell>
-                <Cell>{row.concept}</Cell>
-                <Cell>{row.amount}</Cell>
-                <Cell border={false}>{row.method}</Cell>
+            {isLoading ? (
+              <div className='flex h-full items-center justify-center text-body-md text-neutral-600'>
+                Cargando movimientos...
               </div>
-            ))}
+            ) : dailyMovements.length === 0 ? (
+              <div className='flex h-full items-center justify-center text-body-md text-neutral-600'>
+                No hay movimientos para este día
+              </div>
+            ) : (
+              dailyMovements.map((row, index) => (
+                <div
+                  key={`${row.time}-${row.patient}-${index}`}
+                  className='grid border-b border-border text-body-md text-neutral-900'
+                  style={tableGridStyles}
+                >
+                  <Cell>{row.time}</Cell>
+                  <Cell>{row.patient}</Cell>
+                  <Cell>{row.concept}</Cell>
+                  <Cell>{row.amount}</Cell>
+                  <Cell border={false}>{row.method}</Cell>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -410,7 +614,8 @@ function SummaryStep({
       <button
         type='button'
         onClick={onContinue}
-        className='absolute flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-brand-900 shadow-cta transition-colors hover:bg-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50'
+        disabled={isLoading}
+        className='absolute flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-brand-900 shadow-cta transition-colors hover:bg-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed'
         style={{
           left: `${CTA_LEFT_REM}rem`,
           top: `${CTA_TOP_REM}rem`,
@@ -429,9 +634,18 @@ type RecountStepProps = {
   values: Record<RecountFieldId, string>
   onChange: (fieldId: RecountFieldId, value: string) => void
   onContinue: () => void
+  paymentMethodBreakdown: PaymentMethodBreakdown
+  isLoading: boolean
 }
 
-function RecountStep({ descriptionId, values, onChange, onContinue }: RecountStepProps) {
+function RecountStep({
+  descriptionId,
+  values,
+  onChange,
+  onContinue,
+  paymentMethodBreakdown,
+  isLoading
+}: RecountStepProps) {
   return (
     <>
       <section
@@ -447,46 +661,56 @@ function RecountStep({ descriptionId, values, onChange, onContinue }: RecountSte
         </p>
       </section>
 
-      {RECOUNT_FIELDS.map((field, index) => {
-        const top = RECOUNT_LABEL_TOP_START_REM + index * RECOUNT_LABEL_ROW_GAP_REM
-        return (
-          <React.Fragment key={field.id}>
-            <p
-              className='absolute text-body-md text-fg'
-              style={{ left: `${RECOUNT_LABEL_LEFT_REM}rem`, top: `${top}rem` }}
-            >
-              {field.label}
-            </p>
-
-            <div
-              className='absolute flex flex-col gap-[0.25rem]'
-              style={{
-                left: `${RECOUNT_INPUT_LEFT_REM}rem`,
-                top: `${top}rem`,
-                width: `${RECOUNT_INPUT_WIDTH_REM}rem`
-              }}
-            >
-              <label className='flex h-[3rem] items-center rounded-lg border border-border bg-neutral-50 px-[0.625rem] focus-within:ring-2 focus-within:ring-brandSemantic'>
-                <input
-                  type='text'
-                  value={values[field.id]}
-                  onChange={(event) => onChange(field.id, event.target.value)}
-                  placeholder='Value'
-                  className='w-full bg-transparent text-body-md text-fg placeholder:text-neutral-400 focus:outline-none'
-                />
-              </label>
-              <p className='text-label-sm font-medium text-neutral-600'>
-                Debería haber <span className='font-bold text-fg'>{field.should}</span>
+      {[
+        { id: 'cash' as const, label: 'Efectivo', should: paymentMethodBreakdown.efectivo },
+        { id: 'tpv' as const, label: 'TPV', should: paymentMethodBreakdown.tpv },
+        { id: 'transfer' as const, label: 'Transferencia', should: paymentMethodBreakdown.transferencia },
+        { id: 'cheque' as const, label: 'Cheque', should: paymentMethodBreakdown.cheque }
+      ]
+        .filter((field) => field.should > 0) // Only show methods with amounts
+        .map((field, index) => {
+          const top = RECOUNT_LABEL_TOP_START_REM + index * RECOUNT_LABEL_ROW_GAP_REM
+          const shouldAmount = `${field.should.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+          return (
+            <React.Fragment key={field.id}>
+              <p
+                className='absolute text-body-md text-fg'
+                style={{ left: `${RECOUNT_LABEL_LEFT_REM}rem`, top: `${top}rem` }}
+              >
+                {field.label}
               </p>
-            </div>
-          </React.Fragment>
-        )
-      })}
+
+              <div
+                className='absolute flex flex-col gap-[0.25rem]'
+                style={{
+                  left: `${RECOUNT_INPUT_LEFT_REM}rem`,
+                  top: `${top}rem`,
+                  width: `${RECOUNT_INPUT_WIDTH_REM}rem`
+                }}
+              >
+                <label className='flex h-[3rem] items-center rounded-lg border border-border bg-neutral-50 px-[0.625rem] focus-within:ring-2 focus-within:ring-brandSemantic'>
+                  <input
+                    type='text'
+                    value={values[field.id]}
+                    onChange={(event) => onChange(field.id, event.target.value)}
+                    placeholder='Value'
+                    className='w-full bg-transparent text-body-md text-fg placeholder:text-neutral-400 focus:outline-none'
+                    disabled={isLoading}
+                  />
+                </label>
+                <p className='text-label-sm font-medium text-neutral-600'>
+                  Debería haber <span className='font-bold text-fg'>{shouldAmount}</span>
+                </p>
+              </div>
+            </React.Fragment>
+          )
+        })}
 
       <button
         type='button'
         onClick={onContinue}
-        className='absolute flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-brand-900 shadow-cta transition-colors hover:bg-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50'
+        disabled={isLoading}
+        className='absolute flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-brand-900 shadow-cta transition-colors hover:bg-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed'
         style={{
           left: `${RECOUNT_CTA_LEFT_REM}rem`,
           top: `${CTA_TOP_REM}rem`,
@@ -494,9 +718,29 @@ function RecountStep({ descriptionId, values, onChange, onContinue }: RecountSte
           minHeight: `${CTA_HEIGHT_REM}rem`
         }}
       >
-        Continuar
+        {isLoading ? 'Guardando...' : 'Continuar'}
       </button>
     </>
+  )
+}
+
+type ConfirmationStepProps = {
+  descriptionId: string
+}
+
+function ConfirmationStep({ descriptionId }: ConfirmationStepProps) {
+  return (
+    <div className='absolute inset-0 flex items-center justify-center'>
+      <div className='flex flex-col items-center gap-[1rem] text-center'>
+        <div className='flex size-[4rem] items-center justify-center rounded-full bg-brand-100'>
+          <span className='material-symbols-rounded text-[2.5rem] text-brand-600'>check_circle</span>
+        </div>
+        <p id={descriptionId} className='text-title-md font-medium text-fg'>
+          Cierre de caja guardado correctamente
+        </p>
+        <p className='text-body-sm text-neutral-600'>El cierre se ha registrado en el sistema</p>
+      </div>
+    </div>
   )
 }
 

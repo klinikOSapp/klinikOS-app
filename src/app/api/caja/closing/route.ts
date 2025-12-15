@@ -47,6 +47,14 @@ export async function POST(req: Request) {
     const body = await req.json()
     const {
       date,
+      // Step 1: Cash totals
+      starterBoxAmount,
+      dailyBoxAmount,
+      cashWithdrawals,
+      cashBalance,
+      // Step 2: Reconciliation (payment method breakdown)
+      paymentMethodBreakdown,
+      // Legacy fields (for backward compatibility)
       expectedCash,
       actualCash,
       cardTotal,
@@ -54,10 +62,17 @@ export async function POST(req: Request) {
       notes
     }: {
       date: string
-      expectedCash: number
-      actualCash: number
-      cardTotal: number
-      financedTotal: number
+      // New 3-step workflow fields
+      starterBoxAmount?: number
+      dailyBoxAmount?: number
+      cashWithdrawals?: number
+      cashBalance?: number
+      paymentMethodBreakdown?: Record<string, number>
+      // Legacy fields
+      expectedCash?: number
+      actualCash?: number
+      cardTotal?: number
+      financedTotal?: number
       notes?: string
     } = body
 
@@ -79,8 +94,17 @@ export async function POST(req: Request) {
 
     const clinicId = clinics[0] as string
 
-    // Calculate discrepancy
-    const discrepancy = Number(actualCash) - Number(expectedCash)
+    // Calculate discrepancy (if legacy fields provided)
+    const discrepancy = expectedCash !== undefined && actualCash !== undefined 
+      ? Number(actualCash) - Number(expectedCash) 
+      : null
+
+    // Calculate cash balance if not provided (starter + daily - withdrawals)
+    const calculatedCashBalance = cashBalance !== undefined 
+      ? cashBalance 
+      : (starterBoxAmount !== undefined && dailyBoxAmount !== undefined && cashWithdrawals !== undefined)
+        ? Number(starterBoxAmount) + Number(dailyBoxAmount) - Number(cashWithdrawals)
+        : null
 
     // Check if closing already exists
     const { data: existing } = await supabase
@@ -90,18 +114,29 @@ export async function POST(req: Request) {
       .eq('closing_date', date)
       .maybeSingle()
 
+    const updateData: any = {
+      notes: notes || null
+    }
+
+    // Add new 3-step workflow fields if provided
+    if (starterBoxAmount !== undefined) updateData.starter_box_amount = starterBoxAmount
+    if (dailyBoxAmount !== undefined) updateData.daily_box_amount = dailyBoxAmount
+    if (cashWithdrawals !== undefined) updateData.cash_withdrawals = cashWithdrawals
+    if (calculatedCashBalance !== null) updateData.cash_balance = calculatedCashBalance
+    if (paymentMethodBreakdown) updateData.payment_method_breakdown = paymentMethodBreakdown
+
+    // Add legacy fields if provided (for backward compatibility)
+    if (expectedCash !== undefined) updateData.expected_cash = expectedCash
+    if (actualCash !== undefined) updateData.actual_cash = actualCash
+    if (cardTotal !== undefined) updateData.card_total = cardTotal
+    if (financedTotal !== undefined) updateData.financed_total = financedTotal
+    if (discrepancy !== null) updateData.discrepancy = discrepancy
+
     if (existing) {
       // Update existing
       const { data, error } = await supabase
         .from('daily_cash_closings')
-        .update({
-          expected_cash: expectedCash,
-          actual_cash: actualCash,
-          card_total: cardTotal,
-          financed_total: financedTotal,
-          discrepancy: discrepancy,
-          notes: notes || null
-        })
+        .update(updateData)
         .eq('id', existing.id)
         .select()
         .single()
@@ -119,12 +154,7 @@ export async function POST(req: Request) {
           clinic_id: clinicId,
           closing_date: date,
           staff_id: user.id,
-          expected_cash: expectedCash,
-          actual_cash: actualCash,
-          card_total: cardTotal,
-          financed_total: financedTotal,
-          discrepancy: discrepancy,
-          notes: notes || null
+          ...updateData
         })
         .select()
         .single()
@@ -140,3 +170,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error?.message ?? 'Unexpected error' }, { status: 500 })
   }
 }
+

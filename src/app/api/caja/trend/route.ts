@@ -176,3 +176,4 @@ function getWeekOfYear(date: Date) {
   const pastDaysOfYear = Math.floor((Number(date) - Number(firstDayOfYear)) / 86400000)
   return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)
 }
+
