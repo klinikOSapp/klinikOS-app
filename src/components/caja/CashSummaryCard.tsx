@@ -62,12 +62,25 @@ const SUMMARY_GRID_WIDTH_REM =
 const DONUT_CARD_WIDTH_REM = 36.8125 // 589px
 const DONUT_CARD_HEIGHT_REM = 15.5 // 248px
 const DONUT_CARD_MIN_HEIGHT_REM = DONUT_CARD_HEIGHT_REM
-const DONUT_MAX_WIDTH_PX = 480 // 30rem
-const DONUT_MIN_WIDTH_PX = 240 // 15rem
-const DONUT_HEIGHT_RATIO = 186 / 307
-const DONUT_HORIZONTAL_SAFE_SPACE_PX = 32
+const DONUT_MAX_WIDTH_REM = 36.8 // 588.8px (casi todo el ancho útil de la card de 589px)
+const DONUT_MIN_WIDTH_REM = 15 // 240px
+const DONUT_HEIGHT_RATIO = 186.093 / 307 // mantener proporción real del donut de gestión
+const DONUT_SAFE_SPACE_REM = 0 // sin margen para ocupar casi todo
+const DONUT_SCALE = 1.7 // escala global del donut (como en AccountingPanel)
 
-const pxToRem = (px: number) => px / 16
+const getRootFontSize = () => {
+  if (typeof window === 'undefined') return 16
+  const value = parseFloat(
+    getComputedStyle(document.documentElement).fontSize || '16'
+  )
+  return Number.isFinite(value) ? value : 16
+}
+
+const remToPx = (rem: number, rootFontSize = getRootFontSize()) =>
+  rem * rootFontSize
+
+const pxToRem = (px: number, rootFontSize = getRootFontSize()) =>
+  px / rootFontSize
 
 const DONUT_LABEL_OFFSET_REM = pxToRem(16)
 const DONUT_VALUE = 1200
@@ -118,6 +131,8 @@ export default function CashSummaryCard({
     onHeightChange?.(scaledHeightRem)
   }, [scaledHeightRem, onHeightChange])
 
+  const iconSizeRem = 1 / Math.max(scale, 0.001)
+
   const summaryGridStyles: CSSProperties = {
     columnGap: `${SUMMARY_CARD_COLUMN_GAP_REM}rem`,
     rowGap: `${SUMMARY_CARD_ROW_GAP_REM}rem`,
@@ -144,10 +159,16 @@ export default function CashSummaryCard({
           <h2 className='text-title-sm font-medium text-fg'>Ingresos</h2>
           <button
             type='button'
-            className='inline-flex items-center gap-[0.25rem] text-label-sm text-fg-secondary'
+            className='inline-flex items-center gap-[0.25rem] text-label-md text-fg-secondary'
           >
             2024
-            <span className='material-symbols-rounded text-[1rem] leading-4'>
+            <span
+              className='material-symbols-rounded text-[1rem] leading-[1rem]'
+              style={{
+                fontSize: `${iconSizeRem}rem`,
+                lineHeight: `${iconSizeRem}rem`
+              }}
+            >
               arrow_drop_down
             </span>
           </button>
@@ -156,7 +177,11 @@ export default function CashSummaryCard({
         <div className='mt-[1rem] flex flex-1 gap-gapmd'>
           <div className='grid flex-none' style={summaryGridStyles}>
             {SUMMARY_CARDS.map((card) => (
-              <SummaryInsightCard key={card.id} card={card} />
+              <SummaryInsightCard
+                key={card.id}
+                card={card}
+                iconSizeRem={iconSizeRem}
+              />
             ))}
           </div>
           <div className='flex flex-1 min-h-0'>
@@ -168,7 +193,13 @@ export default function CashSummaryCard({
   )
 }
 
-function SummaryInsightCard({ card }: { card: SummaryCard }) {
+function SummaryInsightCard({
+  card,
+  iconSizeRem
+}: {
+  card: SummaryCard
+  iconSizeRem: number
+}) {
   const cardStyles: CSSProperties = {
     backgroundColor: card.color,
     height: `${SUMMARY_CARD_HEIGHT_REM}rem`,
@@ -181,26 +212,36 @@ function SummaryInsightCard({ card }: { card: SummaryCard }) {
       style={cardStyles}
     >
       <div className='flex h-full flex-col gap-[1.5rem]'>
-        <div className='flex items-center justify-between text-[0.6875rem] font-medium leading-[1rem] text-neutral-600'>
+        <div className='flex items-center justify-between text-label-md text-neutral-600'>
           <span
-            className='material-symbols-rounded text-[1rem] leading-4 text-neutral-600'
+            className='material-symbols-rounded text-[1rem] leading-[1rem] text-neutral-600'
+            style={{
+              fontSize: `${iconSizeRem}rem`,
+              lineHeight: `${iconSizeRem}rem`
+            }}
             aria-hidden
           >
             {card.accessory}
           </span>
-          <span>Hoy</span>
+          <span className='text-[0.6875rem] font-medium leading-[1rem]'>
+            Hoy
+          </span>
         </div>
         <div className='flex flex-col gap-[0.25rem] text-neutral-600'>
-          <div className='font-medium text-[0.6875rem] leading-[1rem]'>
-            {card.title}
-          </div>
+          <div className='text-label-md'>{card.title}</div>
           <div className='flex items-baseline justify-between gap-[0.5rem]'>
-            <p className='text-[1.75rem] leading-[2.25rem] text-neutral-600 whitespace-nowrap'>
+            <p className='text-headline-sm text-neutral-600 whitespace-nowrap'>
               {card.value}
             </p>
-            <div className='flex items-center gap-[0.25rem] text-[0.75rem] font-medium text-brand-500 whitespace-nowrap'>
+            <div className='flex items-center gap-[0.25rem] text-body-sm text-brand-500 whitespace-nowrap'>
               {card.delta}
-              <span className='material-symbols-rounded text-[1rem] leading-4'>
+              <span
+                className='material-symbols-rounded text-[1rem] leading-[1rem]'
+                style={{
+                  fontSize: `${iconSizeRem}rem`,
+                  lineHeight: `${iconSizeRem}rem`
+                }}
+              >
                 arrow_outward
               </span>
             </div>
@@ -214,7 +255,8 @@ function SummaryInsightCard({ card }: { card: SummaryCard }) {
 function CashDonutGauge() {
   const donutCardRef = useRef<HTMLDivElement | null>(null)
   const [chartDimensions, setChartDimensions] = useState(() => {
-    const widthPx = DONUT_MAX_WIDTH_PX
+    const rootFontSize = getRootFontSize()
+    const widthPx = remToPx(DONUT_MAX_WIDTH_REM, rootFontSize)
     return {
       widthPx,
       heightPx: widthPx * DONUT_HEIGHT_RATIO
@@ -228,14 +270,15 @@ function CashDonutGauge() {
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0]
       if (!entry) return
-      const availableWidth =
-        entry.contentRect.width - DONUT_HORIZONTAL_SAFE_SPACE_PX
-      const widthPx = Math.min(
-        DONUT_MAX_WIDTH_PX,
-        Math.max(DONUT_MIN_WIDTH_PX, availableWidth)
-      )
-      const maxHeightPx =
-        entry.contentRect.height - DONUT_HORIZONTAL_SAFE_SPACE_PX
+      const rootFontSize = getRootFontSize()
+      const safeSpacePx = remToPx(DONUT_SAFE_SPACE_REM, rootFontSize)
+      const maxWidthPx = remToPx(DONUT_MAX_WIDTH_REM, rootFontSize)
+      const minWidthPx = remToPx(DONUT_MIN_WIDTH_REM, rootFontSize)
+
+      const availableWidth = entry.contentRect.width - safeSpacePx
+      const widthPx = Math.min(maxWidthPx, Math.max(minWidthPx, availableWidth))
+
+      const maxHeightPx = entry.contentRect.height - safeSpacePx
       const heightPx = Math.min(
         widthPx * DONUT_HEIGHT_RATIO,
         Math.max(0, maxHeightPx)
@@ -263,10 +306,10 @@ function CashDonutGauge() {
   const chartWrapperStyles: CSSProperties = {
     position: 'absolute',
     left: '50%',
-    top: '27.5%',
-    transform: 'translate(-50%, -55%)',
-    width: `${pxToRem(chartDimensions.widthPx)}rem`,
-    height: `${pxToRem(chartDimensions.heightPx)}rem`
+    top: '18%',
+    transform: 'translate(-50%, -50%)',
+    width: `${pxToRem(chartDimensions.widthPx * DONUT_SCALE)}rem`,
+    height: `${pxToRem(chartDimensions.heightPx * DONUT_SCALE)}rem`
   }
 
   const valueStackStyles: CSSProperties = {
@@ -301,7 +344,7 @@ function CashDonutGauge() {
               dataKey='value'
               startAngle={180}
               endAngle={0}
-              innerRadius='80%'
+              innerRadius='85%'
               outerRadius='100%'
               cx='50%'
               cy='100%'
