@@ -108,7 +108,7 @@
 
   /* Dashboard specific spacing tokens (from Figma measurements) */
   --space-card-pad: 1rem; /* 16px */
-  --space-card-gap: 1rem; /* 16px */
+  --space-card-gap: 1.5rem; /* 24px exact gap entre cards Figma */
   --space-card-gap2: 0.6875rem; /* 11px */
   --space-card-inner: 0.5rem; /* 8px */
   --space-header-cards: 2.4375rem; /* 39px header -> cards gap */
@@ -116,11 +116,7 @@
   --space-card-metric: 0.25rem; /* 4px between value and KPI */
 
   /* Dashboard-specific spacing - usando clamp() con vh para escalar verticalmente */
-  --spacing-card-gap: clamp(
-    1rem,
-    calc(var(--width-card-chart-lg-fluid) - (2 * var(--width-card-stat-fluid))),
-    1.4375rem
-  ); /* gap iguala el ancho del chart y respeta límites de Figma */
+  --spacing-card-gap: clamp(1rem, 2vw, 1.5rem); /* 24px exactos con degradado seguro */
   --spacing-section-gap: clamp(
     1rem,
     2.5vh,
@@ -186,52 +182,59 @@
 
   /* Dashboard Component Dimensions */
   --height-card-stat: 10.1875rem; /* 163px - cards de estadísticas */
-  --height-card-chart: 24.58125rem; /* 393.3px (+15% sobre 342px) - cards con gráficos */
+  --height-card-chart: 21.375rem; /* 342px exactos - cards con gráficos */
   --width-card-stat: 32.6875rem; /* 523px - ancho card estadística */
   --width-card-chart-lg: 66.8125rem; /* 1069px - ancho card grande */
   --width-card-chart-md: 33.0625rem; /* 529px - ancho card mediano */
-  --width-income-card: 9.2625rem; /* 148.2px - tarjeta Tipos de ingreso (−5%) */
-  --height-income-card: 5.3125rem; /* 85px - tarjeta Tipos de ingreso (−15%) */
+  --width-income-card: 9.75rem; /* 156px exactos - tarjeta Tipos de ingreso */
+  --height-income-card: 6.25rem; /* 100px exactos - tarjeta Tipos de ingreso */
 
-  /* Profesional bars chart ratios (Figma exact values) */
-  --chart-prof-width-limit: 95vw;
-  --chart-prof-height-limit: 39.1vh; /* +15% sobre 34vh para mayor altura */
-  --chart-prof-axis-left-ratio: 0.10302; /* 55 / 529 */
-  --chart-prof-axis-label-left-ratio: 0.03025; /* 16 / 529 */
-  --chart-prof-grid-width-ratio: 0.82892; /* 438 / 529 */
-  --chart-prof-axis-height-ratio: 0.64327; /* 220 / 342 */
-  --chart-prof-grid-height-ratio: 0.60819; /* 208 / 342 */
-  --chart-prof-grid-top-ratio: 0.24561; /* 84 / 342 */
-  --chart-prof-labels-bottom-ratio: 0.88304; /* 302 / 342 */
-  --chart-prof-content-height-ratio: 0.93567; /* (320 / 342) - altura total del área del gráfico incluyendo labels X */
-  --chart-prof-bar-width-ratio: 0.10964; /* 58 / 529 */
-  --chart-prof-bar-1-left-ratio: 0.10302; /* 55 / 529 */
-  --chart-prof-bar-2-left-ratio: 0.31570; /* 167 / 529 */
-  --chart-prof-bar-3-left-ratio: 0.55955; /* 296 / 529 */
-  --chart-prof-bar-4-left-ratio: 0.81285; /* 430 / 529 */
-  --chart-prof-bar-1-top-ratio: 0.28363; /* 97 / 342 */
-  --chart-prof-bar-2-top-ratio: 0.38070; /* 130 / 342 */
-  --chart-prof-bar-3-top-ratio: 0.51170; /* 175 / 342 */
-  --chart-prof-bar-4-top-ratio: 0.46491; /* 159 / 342 */
-  --chart-prof-bar-1-height-ratio: 0.57018; /* 195 / 342 */
-  --chart-prof-bar-2-height-ratio: 0.47310; /* 162 / 342 */
-  --chart-prof-bar-3-height-ratio: 0.34211; /* 117 / 342 */
-  --chart-prof-bar-4-height-ratio: 0.38889; /* 133 / 342 */
+  /* Profesional bars chart - FIGMA EXACT VALUES (MCP Verified: Node 1611:1968) */
+  /* Container dimensions: 529px × 342px from Figma */
+  --width-card-chart-prof: 33.0625rem; /* 529px ÷ 16 = 33.0625rem */
+  --height-card-chart-prof: 21.375rem; /* 342px ÷ 16 = 21.375rem */
+  --chart-prof-width-limit: 95vw; /* Viewport safety limit */
+  --chart-prof-height-limit: 85vh; /* Viewport safety limit (adjusted from 39.1vh) */
+  
+  /* Chart ratios calculated from Figma measurements */
+  --chart-prof-axis-left-ratio: 0.10397; /* 55px ÷ 529px */
+  --chart-prof-axis-label-left-ratio: 0.03025; /* 16px ÷ 529px */
+  --chart-prof-grid-width-ratio: 0.82797; /* 438px ÷ 529px */
+  --chart-prof-axis-height-ratio: 0.64327; /* 220px ÷ 342px */
+  --chart-prof-grid-height-ratio: 0.60819; /* 208px ÷ 342px */
+  --chart-prof-grid-top-ratio: 0.24561; /* 84px ÷ 342px */
+  --chart-prof-labels-bottom-ratio: 0.88304; /* 302px ÷ 342px */
+  --chart-prof-content-height-ratio: 0.93567; /* 320px ÷ 342px */
+  --chart-prof-bar-width-ratio: 0.10964; /* 58px ÷ 529px */
+  
+  /* Bar positions - extracted from Figma MCP */
+  --chart-prof-bar-1-left-ratio: 0.10397; /* 55px ÷ 529px - Dr. Guille */
+  --chart-prof-bar-2-left-ratio: 0.31570; /* 167px ÷ 529px - Dra. Laura */
+  --chart-prof-bar-3-left-ratio: 0.55955; /* 296px ÷ 529px - Tamara */
+  --chart-prof-bar-4-left-ratio: 0.81285; /* 430px ÷ 529px - Nerea */
+  --chart-prof-bar-1-top-ratio: 0.28363; /* 97px ÷ 342px */
+  --chart-prof-bar-2-top-ratio: 0.38012; /* 130px ÷ 342px */
+  --chart-prof-bar-3-top-ratio: 0.51170; /* 175px ÷ 342px */
+  --chart-prof-bar-4-top-ratio: 0.46491; /* 159px ÷ 342px */
+  --chart-prof-bar-1-height-ratio: 0.57018; /* 195px ÷ 342px */
+  --chart-prof-bar-2-height-ratio: 0.47368; /* 162px ÷ 342px */
+  --chart-prof-bar-3-height-ratio: 0.34211; /* 117px ÷ 342px */
+  --chart-prof-bar-4-height-ratio: 0.38889; /* 133px ÷ 342px */
 
   /* Accounting panel layout (Figma exact values) */
   --accounting-width-limit: 95vw;
-  --accounting-height-limit: 39.1vh; /* +15% sobre 34vh alineado con charts */
+  --accounting-height-limit: 34vh; /* límite vertical más estricto para pantallas bajas */
 
   /* Fluid heights - adapt to viewport usando vh para escalar verticalmente */
-  --height-card-stat-fluid: max(
-    8.15rem,
-    12vh
-  ); /* Altura reducida un 20%: antes 10.1875rem (163px) → ahora 8.15rem (~130px) */
+  --height-card-stat-fluid: min(
+    var(--height-card-stat),
+    18vh
+  ); /* 163px exactos con límite de viewport para pantallas bajas */
   --height-card-chart-fluid-base: clamp(
-    18.4rem,
-    36.455vh,
-    24.58125rem
-  ); /* 294.4px → 393.3px (+15%) - escala con altura del viewport */
+    15rem,
+    32vh,
+    21.375rem
+  ); /* 240px → 342px exactos - se reduce en viewports más bajos */
   --height-card-chart-fluid: var(
     --height-card-chart-fluid-base
   ); /* valor por defecto, se puede sobreescribir por sección */

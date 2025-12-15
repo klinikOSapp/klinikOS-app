@@ -1,7 +1,5 @@
 'use client'
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import type { FormEvent } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
@@ -10,6 +8,7 @@ type ProductionState = 'Hecho' | 'Pendiente'
 type PaymentCategory = 'Efectivo' | 'TPV' | 'Financiación'
 
 type CashMovement = {
+  id: string // Unique identifier for React keys
   time: string
   patient: string
   concept: string
@@ -21,107 +20,7 @@ type CashMovement = {
   paymentCategory: PaymentCategory
 }
 
-const MOVEMENTS: CashMovement[] = [
-  {
-    time: '09:00',
-    patient: 'Carlos Martínez Pérez',
-    concept: 'Operación mandíbula',
-    amount: '2.300 €',
-    status: 'Aceptado',
-    produced: 'Hecho',
-    method: 'Financiado',
-    insurer: 'Adeslas',
-    paymentCategory: 'Financiación'
-  },
-  {
-    time: '09:30',
-    patient: 'Nacho Nieto Iniesta',
-    concept: 'Consulta inicial',
-    amount: '150 €',
-    status: 'Aceptado',
-    produced: 'Hecho',
-    method: 'TPV',
-    insurer: 'Sanitas',
-    paymentCategory: 'TPV'
-  },
-  {
-    time: '10:00',
-    patient: 'Sofía Rodríguez López',
-    concept: 'Radiografía',
-    amount: '100 €',
-    status: 'Enviado',
-    produced: 'Pendiente',
-    method: 'Efectivo',
-    insurer: 'DKV',
-    paymentCategory: 'Efectivo'
-  },
-  {
-    time: '10:30',
-    patient: 'Elena García Santos',
-    concept: 'Extracción de muela',
-    amount: '500 €',
-    status: 'Aceptado',
-    produced: 'Pendiente',
-    method: 'Tarjeta de crédito',
-    insurer: 'DKV',
-    paymentCategory: 'TPV'
-  },
-  {
-    time: '11:00',
-    patient: 'Javier Fernández Torres',
-    concept: 'Implante dental',
-    amount: '1.200 €',
-    status: 'Aceptado',
-    produced: 'Hecho',
-    method: 'Transferencia bancaria',
-    insurer: 'Adelas',
-    paymentCategory: 'Financiación'
-  },
-  {
-    time: '11:30',
-    patient: 'Lucía Pérez Gómez',
-    concept: 'Férula de descarga',
-    amount: '300 €',
-    status: 'Enviado',
-    produced: 'Pendiente',
-    method: 'Billetera digital',
-    insurer: 'Sanitas',
-    paymentCategory: 'TPV'
-  },
-  {
-    time: '12:00',
-    patient: 'Andrés Jiménez Ortega',
-    concept: 'Tratamiento de ortodoncia',
-    amount: '1.800 €',
-    status: 'Aceptado',
-    produced: 'Pendiente',
-    method: 'Criptomonedas',
-    insurer: 'DKV',
-    paymentCategory: 'TPV'
-  },
-  {
-    time: '12:30',
-    patient: 'María del Mar Ruiz',
-    concept: 'Consulta de seguimiento',
-    amount: '100 €',
-    status: 'Enviado',
-    produced: 'Pendiente',
-    method: 'Cheque',
-    insurer: 'Sanitas',
-    paymentCategory: 'Efectivo'
-  },
-  {
-    time: '13:00',
-    patient: 'Pablo Sánchez Delgado',
-    concept: 'Blanqueamiento dental',
-    amount: '400 €',
-    status: 'Enviado',
-    produced: 'Pendiente',
-    method: 'Pago a plazos',
-    insurer: 'Sanitas',
-    paymentCategory: 'Financiación'
-  }
-]
+// MOVEMENTS removed - now fetched from API
 
 const TABLE_WIDTH_REM = 101 // 1616px ÷ 16
 const TABLE_HEIGHT_REM = 27.5 // 440px ÷ 16
@@ -210,39 +109,58 @@ const columns: ColumnDefinition[] = [
 
 const totalColumns = columns.length
 
-const getHeaderCellClasses = (
-  index: number,
-  align: 'left' | 'right' = 'left'
-) => {
+const getHeaderCellClasses = (index: number, align: 'left' | 'right' = 'left') => {
   const borders =
-    index < totalColumns - 1
-      ? 'border-hairline-b border-hairline-r'
-      : 'border-hairline-b'
+    index < totalColumns - 1 ? 'border-hairline-b border-hairline-r' : 'border-hairline-b'
   const textAlign = align === 'right' ? 'text-right' : 'text-left'
   return `${borders} py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-body-md font-normal text-[var(--color-neutral-600)] ${textAlign}`
 }
 
-const getBodyCellClasses = (
-  index: number,
-  align: 'left' | 'right' = 'left'
-) => {
+const getBodyCellClasses = (index: number, align: 'left' | 'right' = 'left') => {
   const borders =
-    index < totalColumns - 1
-      ? 'border-hairline-b border-hairline-r'
-      : 'border-hairline-b'
+    index < totalColumns - 1 ? 'border-hairline-b border-hairline-r' : 'border-hairline-b'
   const textAlign = align === 'right' ? 'text-right' : 'text-left'
   return `${borders} py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] text-body-md text-neutral-900 ${textAlign}`
 }
 
-const PAYMENT_FILTERS: PaymentCategory[] = ['Efectivo', 'TPV', 'Financiación']
+const PAYMENT_FILTERS: PaymentCategory[] = [
+  'Efectivo',
+  'TPV',
+  'Financiación'
+]
 
-export default function CashMovementsTable() {
+type CashMovementsTableProps = {
+  date: Date
+  timeScale: 'day' | 'week' | 'month'
+}
+
+export default function CashMovementsTable({ date, timeScale }: CashMovementsTableProps) {
   const [query, setQuery] = useState('')
   const [activePaymentFilters, setActivePaymentFilters] = useState<
     PaymentCategory[]
   >([])
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const [scaleFactor, setScaleFactor] = useState(1)
+  const [movements, setMovements] = useState<CashMovement[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Fetch movements from API
+  useEffect(() => {
+    setIsLoading(true)
+    const dateStr = date.toISOString().split('T')[0]
+    fetch(`/api/caja/movements?date=${dateStr}&timeScale=${timeScale}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.movements) {
+          setMovements(data.movements)
+        }
+        setIsLoading(false)
+      })
+      .catch((error) => {
+        console.error('Error fetching movements:', error)
+        setIsLoading(false)
+      })
+  }, [date, timeScale])
 
   useEffect(() => {
     const container = tableContainerRef.current
@@ -255,9 +173,7 @@ export default function CashMovementsTable() {
       const availableRem = width / rootFontSize
       const nextScale = Math.min(1, availableRem / TABLE_WIDTH_REM)
 
-      setScaleFactor((prev) =>
-        Math.abs(prev - nextScale) < 0.001 ? prev : nextScale
-      )
+      setScaleFactor((prev) => (Math.abs(prev - nextScale) < 0.001 ? prev : nextScale))
     }
 
     updateScale()
@@ -282,7 +198,7 @@ export default function CashMovementsTable() {
 
   const filteredMovements = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
-    return MOVEMENTS.filter((movement) => {
+    return movements.filter((movement) => {
       const matchesQuery = normalizedQuery
         ? [
             movement.patient,
@@ -303,7 +219,7 @@ export default function CashMovementsTable() {
 
       return matchesQuery && matchesFilter
     })
-  }, [query, activePaymentFilters])
+  }, [movements, query, activePaymentFilters])
 
   return (
     <section
@@ -333,10 +249,7 @@ export default function CashMovementsTable() {
         </div>
       </div>
 
-      <div
-        ref={tableContainerRef}
-        className='mt-6 flex-1 overflow-hidden rounded-lg'
-      >
+      <div ref={tableContainerRef} className='mt-6 flex-1 overflow-hidden rounded-lg'>
         <div className='h-full overflow-y-auto overflow-x-hidden'>
           <table className='w-full table-fixed border-collapse text-left'>
             <thead>
@@ -354,19 +267,33 @@ export default function CashMovementsTable() {
               </tr>
             </thead>
             <tbody>
-              {filteredMovements.map((movement) => (
-                <tr key={`${movement.time}-${movement.patient}`}>
-                  {columns.map((column, index) => (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={totalColumns} className='text-center py-8 text-neutral-500'>
+                    Cargando movimientos...
+                  </td>
+                </tr>
+              ) : filteredMovements.length === 0 ? (
+                <tr>
+                  <td colSpan={totalColumns} className='text-center py-8 text-neutral-500'>
+                    No hay movimientos para este período
+                  </td>
+                </tr>
+              ) : (
+                filteredMovements.map((movement) => (
+                <tr key={movement.id}>
+                  {columns.map((column, colIndex) => (
                     <td
                       key={column.id}
-                      className={getBodyCellClasses(index, column.align)}
+                      className={getBodyCellClasses(colIndex, column.align)}
                       style={{ width: `${column.widthRem * scaleFactor}rem` }}
                     >
                       {column.render(movement)}
                     </td>
                   ))}
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -406,9 +333,7 @@ function SearchInput({
         height: `${CONTROL_HEIGHT_REM}rem`
       }}
     >
-      <span className='material-symbols-rounded text-[1rem] text-neutral-500'>
-        search
-      </span>
+      <span className='material-symbols-rounded text-[1rem] text-neutral-500'>search</span>
       <input
         className='ml-[0.5rem] w-full bg-transparent text-body-sm text-neutral-800 placeholder:text-neutral-500 focus:outline-none'
         placeholder='Buscar'
@@ -445,9 +370,7 @@ function FilterChip({
       aria-pressed={active}
       onClick={onClick}
     >
-      {icon && (
-        <span className='material-symbols-rounded text-[1rem]'>{icon}</span>
-      )}
+      {icon && <span className='material-symbols-rounded text-[1rem]'>{icon}</span>}
       {label}
     </button>
   )
@@ -489,13 +412,7 @@ function ProductionBadge({ state }: { state: ProductionState }) {
   )
 }
 
-function PaginationIcon({
-  icon,
-  ariaLabel
-}: {
-  icon: string
-  ariaLabel: string
-}) {
+function PaginationIcon({ icon, ariaLabel }: { icon: string; ariaLabel: string }) {
   return (
     <button
       type='button'
@@ -506,3 +423,5 @@ function PaginationIcon({
     </button>
   )
 }
+
+

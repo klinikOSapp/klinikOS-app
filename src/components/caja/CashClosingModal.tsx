@@ -140,7 +140,7 @@ type CashClosingModalProps = {
   date?: Date // Date for which to close cash
 }
 
-type ModalStep = 'summary' | 'recount' | 'confirmation'
+type ModalStep = 'select' | 'summary' | 'recount' | 'confirmation'
 
 type DailyMovement = {
   time: string
@@ -151,25 +151,34 @@ type DailyMovement = {
 }
 
 type PaymentMethodBreakdown = {
-  efectivo: number
-  tpv: number
-  transferencia: number
-  cheque: number
+  cash: number
+  card: number
+  transfer: number
+  check: number
   [key: string]: number
+}
+
+type StaffMember = {
+  id: string
+  name: string
+  email: string
 }
 
 export function CashClosingModal({ open, onClose, date = new Date() }: CashClosingModalProps) {
   const [mounted, setMounted] = React.useState(false)
   const [totalValues, setTotalValues] = React.useState(INITIAL_TOTAL_VALUES)
   const [recountValues, setRecountValues] = React.useState(INITIAL_RECOUNT_VALUES)
-  const [step, setStep] = React.useState<ModalStep>('summary')
+  const [step, setStep] = React.useState<ModalStep>('select')
+  const [selectedDate, setSelectedDate] = React.useState<Date>(date)
+  const [selectedStaffId, setSelectedStaffId] = React.useState<string>('')
+  const [staffList, setStaffList] = React.useState<StaffMember[]>([])
   const [dailyMovements, setDailyMovements] = React.useState<DailyMovement[]>([])
   const [isLoading, setIsLoading] = React.useState(false)
   const [paymentMethodBreakdown, setPaymentMethodBreakdown] = React.useState<PaymentMethodBreakdown>({
-    efectivo: 0,
-    tpv: 0,
-    transferencia: 0,
-    cheque: 0
+    cash: 0,
+    card: 0,
+    transfer: 0,
+    check: 0
   })
   const [existingClosing, setExistingClosing] = React.useState<any>(null)
 
@@ -188,101 +197,113 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose, open])
 
-  // Fetch daily movements and existing closing data
+  // Fetch daily movements, calculated totals, and existing closing data when moving to summary step
   React.useEffect(() => {
-    if (!open) return
+    if (!open || step !== 'summary') return
 
     setIsLoading(true)
-    const dateStr = date.toISOString().split('T')[0]
+    const dateStr = selectedDate.toISOString().split('T')[0]
 
-    // Fetch daily movements
-    fetch(`/api/caja/closing/daily-movements?date=${dateStr}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.movements) {
-          setDailyMovements(data.movements)
+    // Fetch calculated totals (starter_box_amount and daily_box_amount)
+    Promise.all([
+      fetch(`/api/caja/closing/calculate-totals?date=${dateStr}`).then((res) => res.json()),
+      fetch(`/api/caja/closing/daily-movements?date=${dateStr}`).then((res) => res.json()),
+      fetch(`/api/caja/closing?date=${dateStr}`).then((res) => res.json())
+    ])
+      .then(([totalsData, movementsData, closingData]) => {
+        // Set calculated totals
+        if (totalsData.starterBoxAmount !== undefined) {
+          setTotalValues((prev) => ({
+            ...prev,
+            initial: `${Number(totalsData.starterBoxAmount).toFixed(2)} €`
+          }))
+        }
+        if (totalsData.dailyBoxAmount !== undefined) {
+          setTotalValues((prev) => ({
+            ...prev,
+            day: `${Number(totalsData.dailyBoxAmount).toFixed(2)} €`
+          }))
+        }
 
-          // Calculate payment method breakdown from movements
+        // Set daily movements and calculate payment method breakdown
+        if (movementsData.movements) {
+          setDailyMovements(movementsData.movements)
+
+          // Calculate payment method breakdown from movements (using English keys)
           const breakdown: PaymentMethodBreakdown = {
-            efectivo: 0,
-            tpv: 0,
-            transferencia: 0,
-            cheque: 0
+            cash: 0,
+            card: 0,
+            transfer: 0,
+            check: 0
           }
 
-          data.movements.forEach((movement: DailyMovement) => {
+          movementsData.movements.forEach((movement: DailyMovement) => {
             const amount = parseFloat(movement.amount.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
             const method = movement.method.toLowerCase()
 
             if (method.includes('efectivo') || method.includes('cash')) {
-              breakdown.efectivo += amount
-            } else if (method.includes('tpv') || method.includes('tarjeta')) {
-              breakdown.tpv += amount
+              breakdown.cash += amount
+            } else if (method.includes('tpv') || method.includes('tarjeta') || method.includes('card')) {
+              breakdown.card += amount
             } else if (method.includes('transferencia') || method.includes('transfer')) {
-              breakdown.transferencia += amount
+              breakdown.transfer += amount
             } else if (method.includes('cheque') || method.includes('check')) {
-              breakdown.cheque += amount
+              breakdown.check += amount
             }
           })
 
           setPaymentMethodBreakdown(breakdown)
         }
-        setIsLoading(false)
-      })
-      .catch((error) => {
-        console.error('Error fetching daily movements:', error)
-        setIsLoading(false)
-      })
 
-    // Fetch existing closing
-    fetch(`/api/caja/closing?date=${dateStr}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.closing) {
-          setExistingClosing(data.closing)
+        // Load existing closing data if exists
+        if (closingData.closing) {
+          setExistingClosing(closingData.closing)
 
           // Populate form with existing data
-          if (data.closing.starter_box_amount !== null) {
+          if (closingData.closing.starter_box_amount !== null) {
             setTotalValues((prev) => ({
               ...prev,
-              initial: `${Number(data.closing.starter_box_amount).toFixed(2)} €`
+              initial: `${Number(closingData.closing.starter_box_amount).toFixed(2)} €`
             }))
           }
-          if (data.closing.daily_box_amount !== null) {
+          if (closingData.closing.daily_box_amount !== null) {
             setTotalValues((prev) => ({
               ...prev,
-              day: `${Number(data.closing.daily_box_amount).toFixed(2)} €`
+              day: `${Number(closingData.closing.daily_box_amount).toFixed(2)} €`
             }))
           }
-          if (data.closing.cash_withdrawals !== null) {
+          if (closingData.closing.cash_withdrawals !== null) {
             setTotalValues((prev) => ({
               ...prev,
-              outflow: `${Number(data.closing.cash_withdrawals).toFixed(2)} €`
+              outflow: `${Number(closingData.closing.cash_withdrawals).toFixed(2)} €`
             }))
           }
-          if (data.closing.cash_balance !== null) {
+          if (closingData.closing.cash_balance !== null) {
             setTotalValues((prev) => ({
               ...prev,
-              rest: `${Number(data.closing.cash_balance).toFixed(2)} €`
+              rest: `${Number(closingData.closing.cash_balance).toFixed(2)} €`
             }))
           }
 
-          // Populate payment method breakdown if exists
-          if (data.closing.payment_method_breakdown) {
-            const breakdown = data.closing.payment_method_breakdown
+          // Populate payment method breakdown if exists (support both English and Spanish keys)
+          if (closingData.closing.payment_method_breakdown) {
+            const breakdown = closingData.closing.payment_method_breakdown
             setRecountValues({
-              cash: breakdown.efectivo ? `${breakdown.efectivo.toFixed(2)} €` : '',
-              tpv: breakdown.tpv ? `${breakdown.tpv.toFixed(2)} €` : '',
-              transfer: breakdown.transferencia ? `${breakdown.transferencia.toFixed(2)} €` : '',
-              cheque: breakdown.cheque ? `${breakdown.cheque.toFixed(2)} €` : ''
+              cash: breakdown.cash ? `${breakdown.cash.toFixed(2)} €` : breakdown.efectivo ? `${breakdown.efectivo.toFixed(2)} €` : '',
+              tpv: breakdown.card ? `${breakdown.card.toFixed(2)} €` : breakdown.tpv ? `${breakdown.tpv.toFixed(2)} €` : '',
+              transfer: breakdown.transfer ? `${breakdown.transfer.toFixed(2)} €` : breakdown.transferencia ? `${breakdown.transferencia.toFixed(2)} €` : '',
+              cheque: breakdown.check ? `${breakdown.check.toFixed(2)} €` : breakdown.cheque ? `${breakdown.cheque.toFixed(2)} €` : ''
             })
           }
         }
+
+        setIsLoading(false)
       })
       .catch((error) => {
-        console.error('Error fetching existing closing:', error)
+        console.error('Error fetching data:', error)
+        setIsLoading(false)
       })
-  }, [open, date])
+  }, [open, step, selectedDate])
 
   const handleInputChange = (fieldId: CashTotalFieldId, value: string) => {
     setTotalValues((prev) => {
@@ -306,11 +327,25 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
   }
 
   const handleClose = () => {
-    setStep('summary')
+    setStep('select')
     onClose()
   }
 
   const handleContinue = async () => {
+    if (step === 'select') {
+      // Validate professional and date selection
+      if (!selectedStaffId) {
+        alert('Por favor, selecciona un profesional')
+        return
+      }
+      if (!selectedDate) {
+        alert('Por favor, selecciona una fecha')
+        return
+      }
+      setStep('summary')
+      return
+    }
+
     if (step === 'summary') {
       // Validate required field
       if (!totalValues.outflow || totalValues.outflow === '0,00 €' || totalValues.outflow === '0.00 €') {
@@ -324,7 +359,7 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
     if (step === 'recount') {
       // Save closing data
       setIsLoading(true)
-      const dateStr = date.toISOString().split('T')[0]
+      const dateStr = selectedDate.toISOString().split('T')[0]
 
       // Parse values
       const starterBoxAmount = parseFloat(totalValues.initial.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
@@ -332,12 +367,12 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
       const cashWithdrawals = parseFloat(totalValues.outflow.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
       const cashBalance = parseFloat(totalValues.rest.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
 
-      // Parse payment method breakdown
+      // Parse payment method breakdown (using English keys)
       const breakdown: PaymentMethodBreakdown = {
-        efectivo: parseFloat(recountValues.cash.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
-        tpv: parseFloat(recountValues.tpv.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
-        transferencia: parseFloat(recountValues.transfer.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
-        cheque: parseFloat(recountValues.cheque.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+        cash: parseFloat(recountValues.cash.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
+        card: parseFloat(recountValues.tpv.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
+        transfer: parseFloat(recountValues.transfer.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
+        check: parseFloat(recountValues.cheque.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
       }
 
       try {
@@ -346,6 +381,7 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             date: dateStr,
+            staffId: selectedStaffId,
             starterBoxAmount,
             dailyBoxAmount,
             cashWithdrawals,
@@ -403,11 +439,13 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
   } as React.CSSProperties
 
   const descriptionId =
-    step === 'summary'
-      ? 'cash-close-dialog-description'
-      : step === 'recount'
-        ? 'cash-close-recount-description'
-        : 'cash-close-confirmation-description'
+    step === 'select'
+      ? 'cash-close-select-description'
+      : step === 'summary'
+        ? 'cash-close-dialog-description'
+        : step === 'recount'
+          ? 'cash-close-recount-description'
+          : 'cash-close-confirmation-description'
 
   const content = (
     <div
@@ -443,7 +481,17 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
                 </button>
               </header>
 
-              {step === 'summary' ? (
+              {step === 'select' ? (
+                <SelectStep
+                  descriptionId={descriptionId}
+                  selectedDate={selectedDate}
+                  onDateChange={setSelectedDate}
+                  selectedStaffId={selectedStaffId}
+                  onStaffChange={setSelectedStaffId}
+                  staffList={staffList}
+                  onContinue={handleContinue}
+                />
+              ) : step === 'summary' ? (
                 <SummaryStep
                   descriptionId={descriptionId}
                   totalValues={totalValues}
@@ -493,6 +541,115 @@ function Cell({
   )
 }
 
+type SelectStepProps = {
+  descriptionId: string
+  selectedDate: Date
+  onDateChange: (date: Date) => void
+  selectedStaffId: string
+  onStaffChange: (staffId: string) => void
+  staffList: StaffMember[]
+  onContinue: () => void
+}
+
+function SelectStep({
+  descriptionId,
+  selectedDate,
+  onDateChange,
+  selectedStaffId,
+  onStaffChange,
+  staffList,
+  onContinue
+}: SelectStepProps) {
+  return (
+    <>
+      <section
+        className='absolute flex flex-col gap-[0.5rem]'
+        style={{
+          left: `${SECTION_LEFT_REM}rem`,
+          top: `${HEADER_TOP_REM}rem`,
+          width: `${HEADER_WIDTH_REM}rem`
+        }}
+      >
+        <p className='text-headline-sm text-fg'>Seleccionar profesional y fecha</p>
+        <p id={descriptionId} className='text-body-sm text-fg'>
+          Selecciona el profesional que realiza el cierre y la fecha del cierre.
+        </p>
+      </section>
+
+      <section
+        className='absolute flex flex-col gap-[1.5rem]'
+        style={{
+          left: `${SECTION_LEFT_REM}rem`,
+          top: `${FORM_TOP_REM}rem`,
+          width: `${FORM_WIDTH_REM}rem`
+        }}
+      >
+        <div className='flex flex-col gap-[0.5rem]'>
+          <p className='text-body-sm text-fg'>Profesional</p>
+          <label className='flex h-[3rem] items-center rounded-lg border border-border bg-neutral-50 px-[0.625rem] focus-within:ring-2 focus-within:ring-brandSemantic'>
+            <select
+              value={selectedStaffId}
+              onChange={(e) => onStaffChange(e.target.value)}
+              className='w-full bg-transparent text-body-md text-fg focus:outline-none'
+            >
+              {staffList.length === 0 ? (
+                <option value=''>Cargando...</option>
+              ) : (
+                staffList.map((staff) => (
+                  <option key={staff.id} value={staff.id}>
+                    {staff.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
+        </div>
+
+        <div className='flex flex-col gap-[0.5rem]'>
+          <p className='text-body-sm text-fg'>Fecha del cierre</p>
+          <div className='flex flex-col gap-[0.75rem]'>
+            <div className='flex flex-col gap-[0.5rem]'>
+              <p className='text-label-sm text-neutral-600'>Periodo</p>
+              <label className='flex h-[3rem] items-center rounded-lg border border-border bg-neutral-50 px-[0.625rem] focus-within:ring-2 focus-within:ring-brandSemantic'>
+                <select
+                  defaultValue='custom'
+                  className='w-full bg-transparent text-body-md text-fg focus:outline-none'
+                >
+                  <option value='custom'>Personalizado</option>
+                </select>
+              </label>
+            </div>
+            <div className='flex flex-col gap-[0.5rem]'>
+              <label className='flex h-[3rem] items-center rounded-lg border border-border bg-neutral-50 px-[0.625rem] focus-within:ring-2 focus-within:ring-brandSemantic'>
+                <input
+                  type='date'
+                  value={selectedDate.toISOString().split('T')[0]}
+                  onChange={(e) => onDateChange(new Date(e.target.value))}
+                  className='w-full bg-transparent text-body-md text-fg focus:outline-none'
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <button
+        type='button'
+        onClick={onContinue}
+        className='absolute flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-brand-900 shadow-cta transition-colors hover:bg-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50'
+        style={{
+          left: `${CTA_LEFT_REM}rem`,
+          top: `${CTA_TOP_REM}rem`,
+          width: `${CTA_WIDTH_REM}rem`,
+          minHeight: `${CTA_HEIGHT_REM}rem`
+        }}
+      >
+        Continuar
+      </button>
+    </>
+  )
+}
+
 type SummaryStepProps = {
   descriptionId: string
   totalValues: Record<CashTotalFieldId, string>
@@ -537,24 +694,33 @@ function SummaryStep({
           gap: `${FORM_GAP_REM}rem`
         }}
       >
-        {CASH_TOTAL_FIELDS.map((field) => (
-          <div key={field.id} className='flex flex-1 flex-col gap-[0.5rem]'>
-            <p className='text-body-sm text-fg'>{field.label}</p>
-            <label className='flex h-[3rem] items-center justify-between rounded-lg border border-border bg-neutral-50 px-[0.625rem] focus-within:ring-2 focus-within:ring-brandSemantic'>
-              <input
-                type='text'
-                value={totalValues[field.id]}
-                onChange={(event) => onChange(field.id, event.target.value)}
-                placeholder={field.placeholder}
-                className='w-full bg-transparent text-body-md text-fg placeholder:text-neutral-400 focus:outline-none'
-                aria-required={field.required}
-              />
-              {field.required && (
-                <span className='text-body-lg font-medium leading-none text-error-600'>*</span>
-              )}
-            </label>
-          </div>
-        ))}
+        {CASH_TOTAL_FIELDS.map((field) => {
+          const isReadOnly = field.id === 'initial' || field.id === 'day' || field.id === 'rest'
+          return (
+            <div key={field.id} className='flex flex-1 flex-col gap-[0.5rem]'>
+              <p className='text-body-sm text-fg'>{field.label}</p>
+              <label
+                className={`flex h-[3rem] items-center justify-between rounded-lg border border-border bg-neutral-50 px-[0.625rem] ${
+                  isReadOnly ? '' : 'focus-within:ring-2 focus-within:ring-brandSemantic'
+                }`}
+              >
+                <input
+                  type='text'
+                  value={totalValues[field.id]}
+                  onChange={(event) => onChange(field.id, event.target.value)}
+                  placeholder={field.placeholder}
+                  readOnly={isReadOnly}
+                  className='w-full bg-transparent text-body-md text-fg placeholder:text-neutral-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-75'
+                  aria-required={field.required}
+                  disabled={isReadOnly}
+                />
+                {field.required && (
+                  <span className='text-body-lg font-medium leading-none text-error-600'>*</span>
+                )}
+              </label>
+            </div>
+          )
+        })}
       </section>
 
       <section
@@ -662,10 +828,10 @@ function RecountStep({
       </section>
 
       {[
-        { id: 'cash' as const, label: 'Efectivo', should: paymentMethodBreakdown.efectivo },
-        { id: 'tpv' as const, label: 'TPV', should: paymentMethodBreakdown.tpv },
-        { id: 'transfer' as const, label: 'Transferencia', should: paymentMethodBreakdown.transferencia },
-        { id: 'cheque' as const, label: 'Cheque', should: paymentMethodBreakdown.cheque }
+        { id: 'cash' as const, label: 'Efectivo', should: paymentMethodBreakdown.cash },
+        { id: 'tpv' as const, label: 'TPV', should: paymentMethodBreakdown.card },
+        { id: 'transfer' as const, label: 'Transferencia', should: paymentMethodBreakdown.transfer },
+        { id: 'cheque' as const, label: 'Cheque', should: paymentMethodBreakdown.check }
       ]
         .filter((field) => field.should > 0) // Only show methods with amounts
         .map((field, index) => {

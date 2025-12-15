@@ -47,6 +47,7 @@ export async function POST(req: Request) {
     const body = await req.json()
     const {
       date,
+      staffId,
       // Step 1: Cash totals
       starterBoxAmount,
       dailyBoxAmount,
@@ -62,6 +63,7 @@ export async function POST(req: Request) {
       notes
     }: {
       date: string
+      staffId?: string
       // New 3-step workflow fields
       starterBoxAmount?: number
       dailyBoxAmount?: number
@@ -153,7 +155,7 @@ export async function POST(req: Request) {
         .insert({
           clinic_id: clinicId,
           closing_date: date,
-          staff_id: user.id,
+          staff_id: staffId || user.id, // Use selected staff or current user
           ...updateData
         })
         .select()
