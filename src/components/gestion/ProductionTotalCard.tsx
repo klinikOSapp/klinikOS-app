@@ -17,13 +17,10 @@ export default function ProductionTotalCard({
       }}
     >
       <div className='flex h-full flex-col pl-[1rem] pr-card-pad pt-0 pb-[1rem] text-[var(--color-text-inverse)]'>
-        <header className='mt-[1rem] flex shrink-0 items-baseline gap-[1rem] mb-[2.9375rem]'>
+        <header className='mt-[1rem] flex shrink-0 items-baseline mb-[2.9375rem]'>
           <h3 className='text-title-sm font-medium text-[var(--color-text-inverse)]'>
             Producción total
           </h3>
-          <div className='text-label-md text-[var(--color-text-inverse)]'>
-            {periodLabel}
-          </div>
         </header>
         <div className='flex flex-wrap items-baseline gap-[1rem] text-[var(--color-text-inverse)]'>
           <div className='text-display-lg text-[var(--color-text-inverse)]'>

@@ -25,12 +25,6 @@ export default function PatientsSummary({
       <div className='w-full px-[0.5rem]'>
         <header className='mt-[1rem] flex items-baseline justify-between'>
           <h3 className='text-title-sm font-medium text-fg'>Pacientes</h3>
-          <div className='flex items-center gap-card-metric text-label-md text-fg'>
-            <span>{yearLabel}</span>
-            <span className='material-symbols-rounded text-[1rem] leading-none'>
-              arrow_drop_down
-            </span>
-          </div>
         </header>
         <div
           className='mt-[0.9375rem] grid gap-[0.75rem] justify-center'

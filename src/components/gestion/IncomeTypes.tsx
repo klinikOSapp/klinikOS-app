@@ -26,12 +26,6 @@ export default function IncomeTypes({
           <h3 className='text-title-sm font-medium text-fg'>
             Tipos de ingreso
           </h3>
-          <div className='flex items-center gap-card-metric text-label-md text-fg'>
-            <span>{yearLabel}</span>
-            <span className='material-symbols-rounded text-body-md leading-none'>
-              arrow_drop_down
-            </span>
-          </div>
         </header>
         <div
           className='mt-[0.9375rem] grid gap-[0.75rem] justify-center'

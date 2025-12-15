@@ -16,46 +16,49 @@ const PROFESSIONAL_LABELS = [
 // Medidas extraídas de Figma y convertidas a rem (px ÷ 16)
 const CARD_WIDTH_REM = '33.0625rem' // 529px
 const CARD_HEIGHT_REM = '21.375rem' // 342px
-const HEADER_LEFT = '1rem' // 16px
-const HEADER_TOP = '1rem' // 16px
-const HEADER_WIDTH = '31.0625rem' // 497px
-const GRID_LEFT = '3.4375rem' // 55px
-const GRID_TOP = '5.25rem' // 84px
-const GRID_WIDTH = '27.375rem' // 438px
-const GRID_HEIGHT = '13rem' // 208px
-const Y_LABEL_LEFT = '1rem' // 16px
-const Y_LABEL_TOP = '4.5rem' // 72px
-const Y_LABEL_HEIGHT = '13.75rem' // 220px
-const X_LABEL_TOP = '18.875rem' // 302px
+// Ratios relativos al contenedor base (529x342) para permitir escalado interno
+const HEADER_LEFT = '3.025%' // 16 / 529
+const HEADER_TOP = '4.678%' // 16 / 342
+const HEADER_WIDTH = '93.951%' // 497 / 529
+const HEADER_HEIGHT = '7.018%' // 24 / 342
+const GRID_LEFT = '10.397%' // 55 / 529
+const GRID_TOP = '24.561%' // 84 / 342
+const GRID_WIDTH = '82.8%' // 438 / 529
+const GRID_HEIGHT = '60.819%' // 208 / 342
+const Y_LABEL_LEFT = '3.025%' // 16 / 529
+const Y_LABEL_TOP = '21.053%' // 72 / 342
+const Y_LABEL_HEIGHT = '64.327%' // 220 / 342
+const X_LABEL_TOP = '88.362%' // 302 / 342
+const BAR_WIDTH = '10.964%' // 58 / 529
 
 const BARS = [
   {
     label: 'Dr. Guille',
     color: '#2A6B67',
-    left: '3.4375rem', // 55px
-    top: '6.0625rem', // 97px
-    height: '12.1875rem' // 195px
+    left: '10.397%', // 55 / 529
+    top: '28.363%', // 97 / 342
+    height: '57.018%' // 195 / 342
   },
   {
     label: 'Dra. Laura',
     color: '#51D6C7',
-    left: '10.4375rem', // 167px
-    top: '8.125rem', // 130px
-    height: '10.125rem' // 162px
+    left: '31.569%', // 167 / 529
+    top: '38.012%', // 130 / 342
+    height: '47.368%' // 162 / 342
   },
   {
     label: 'Tamara (Hig.)',
     color: '#D3F7F3',
-    left: '18.5rem', // 296px
-    top: '10.9375rem', // 175px
-    height: '7.3125rem' // 117px
+    left: '55.955%', // 296 / 529
+    top: '51.17%', // 175 / 342
+    height: '34.211%' // 117 / 342
   },
   {
     label: 'Nerea (Hig.)',
     color: '#A8EFE7',
-    left: '26.875rem', // 430px
-    top: '9.9375rem', // 159px
-    height: '8.3125rem' // 133px
+    left: '81.285%', // 430 / 529
+    top: '46.491%', // 159 / 342
+    height: '38.889%' // 133 / 342
   }
 ]
 
@@ -77,7 +80,7 @@ export default function ProfessionalBars() {
           left: HEADER_LEFT,
           top: HEADER_TOP,
           width: HEADER_WIDTH,
-          height: '1.5rem' // 24px
+        height: HEADER_HEIGHT
         }}
       >
         <h3 className='text-[1rem] font-medium leading-[1.5rem] text-[#24282C]'>
@@ -118,10 +121,11 @@ export default function ProfessionalBars() {
         {BARS.map((bar) => (
           <div
             key={bar.label}
-            className='absolute w-[3.625rem] rounded-[1rem]'
+            className='absolute rounded-[1rem]'
             style={{
               left: bar.left,
               top: bar.top,
+              width: BAR_WIDTH,
               height: bar.height,
               backgroundColor: bar.color
             }}

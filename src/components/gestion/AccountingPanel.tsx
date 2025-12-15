@@ -101,6 +101,9 @@ const DONUT_CHART_HEIGHT = 186.093
 const DONUT_THICKNESS = 20
 const DONUT_VALUE = 1200
 const DONUT_TARGET = 1800
+// Posicionamiento horizontal (ajustado para igualar gaps KPI↔donut↔stack en 1920px)
+const DONUT_LEFT = 457 // px
+const STACK_LEFT = 880 // px
 const DONUT_DATA: { name: string; value: number; color: string }[] = [
   { name: 'actual', value: DONUT_VALUE, color: 'var(--color-brand-500)' },
   {
@@ -114,7 +117,12 @@ export default function AccountingPanel() {
   const sectionStyle: CSSProperties = {
     width: '100%',
     maxWidth: `min(${CARD_WIDTH}, ${CARD_WIDTH_LIMIT})`,
-    height: `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`
+    height: `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`,
+    // Altura efectiva de la tarjeta (se reutiliza para escalar el stack lateral en viewports bajos)
+    '--accounting-height-current': `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`,
+    // El stack completo mide ~312px en Figma (19.5rem). Escalamos sólo posiciones/alturas cuando la altura disponible es menor, sin tocar la vista 1920.
+    '--stack-scale-y':
+      'min(1, calc(var(--accounting-height-current) / 19.5rem))'
   }
 
   const pathLength = Math.PI * DONUT_RADIUS
@@ -134,15 +142,6 @@ export default function AccountingPanel() {
         }}
       >
         <span>Ingresos</span>
-        <button
-          type='button'
-          className='flex items-center gap-card-metric text-label-md text-fg'
-        >
-          2024
-          <span className='material-symbols-rounded text-[1rem] leading-none'>
-            arrow_drop_down
-          </span>
-        </button>
       </header>
 
       {KPI_CARDS.map((card) => (
@@ -160,9 +159,6 @@ export default function AccountingPanel() {
           <header className='flex items-center justify-between text-label-md text-neutral-600'>
             <span className='material-symbols-rounded text-[1rem] leading-[1rem] text-neutral-600'>
               {card.icon}
-            </span>
-            <span className='text-[0.6875rem] font-medium leading-[1rem] text-neutral-600'>
-              Hoy
             </span>
           </header>
           <div className='mt-gapsm text-label-md text-neutral-600'>
@@ -185,7 +181,7 @@ export default function AccountingPanel() {
       <div
         className='absolute rounded-lg bg-surface shadow-[0px_4px_24px_rgba(36,40,44,0.08)]'
         style={{
-          left: toWidth(464),
+          left: toWidth(DONUT_LEFT),
           top: toHeight(64),
           width: toWidth(DONUT_CARD_WIDTH),
           height: toHeight(DONUT_CARD_HEIGHT),
@@ -255,42 +251,52 @@ export default function AccountingPanel() {
         </div>
       </div>
 
-      {SIDE_STACK.map((item) => (
-        <div
-          key={item.title}
-          className='absolute rounded-[1rem]'
-          style={{
-            left: toWidth(880),
-            top: toHeight(item.top),
-            width: toWidth(173),
-            height: toHeight(item.height),
-            backgroundColor: item.bg
-          }}
-        >
-          <div className='relative h-full w-full'>
-            <p
-              className={`absolute left-[0.5rem] top-[0.5rem] text-label-sm ${item.textClass}`}
-              style={{ lineHeight: '1rem' }}
-            >
-              {item.title}
-            </p>
-            {item.percent ? (
-              <span
-                className={`absolute right-[0.5rem] top-[0.5rem] text-label-sm font-medium ${item.textClass}`}
+      <div
+        className='absolute'
+        style={{
+          left: toWidth(STACK_LEFT),
+          top: 0,
+          width: toWidth(173),
+          height: '100%'
+        }}
+      >
+        {SIDE_STACK.map((item) => (
+          <div
+            key={item.title}
+            className='absolute rounded-[1rem]'
+            style={{
+              left: 0,
+              top: `calc(${toHeight(item.top)} * var(--stack-scale-y))`,
+              width: '100%',
+              height: `calc(${toHeight(item.height)} * var(--stack-scale-y))`,
+              backgroundColor: item.bg
+            }}
+          >
+            <div className='relative h-full w-full'>
+              <p
+                className={`absolute left-[0.5rem] top-[0.5rem] text-label-sm ${item.textClass}`}
                 style={{ lineHeight: '1rem' }}
               >
-                {item.percent}
-              </span>
-            ) : null}
-            <p
-              className={`absolute left-[0.5rem] top-[2.5rem] text-title-sm font-medium ${item.textClass}`}
-              style={{ lineHeight: '1.5rem' }}
-            >
-              {item.value}
-            </p>
+                {item.title}
+              </p>
+              {item.percent ? (
+                <span
+                  className={`absolute right-[0.5rem] top-[0.5rem] text-label-sm font-medium ${item.textClass}`}
+                  style={{ lineHeight: '1rem' }}
+                >
+                  {item.percent}
+                </span>
+              ) : null}
+              <p
+                className={`absolute left-[0.5rem] top-[2.5rem] text-title-sm font-medium ${item.textClass}`}
+                style={{ lineHeight: '1.5rem' }}
+              >
+                {item.value}
+              </p>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </section>
   )
 }

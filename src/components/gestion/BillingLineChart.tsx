@@ -122,15 +122,6 @@ export default function BillingLineChart({
         }}
       >
         <h3 className='text-title-sm font-medium'>Facturación</h3>
-        <div className='flex items-center gap-[0.25rem] text-label-sm font-normal'>
-          <span>{yearLabel}</span>
-          <img
-            alt=''
-            src={ARROW_DROP_DOWN_ICON}
-            className='h-[1rem] w-[1rem]'
-            draggable={false}
-          />
-        </div>
       </header>
 
       <div

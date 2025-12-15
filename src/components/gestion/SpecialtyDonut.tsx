@@ -65,79 +65,72 @@ export default function ProductionTotalCard({
         <h3 className='text-title-sm font-medium text-fg'>
           Facturación por especialidad
         </h3>
-        <button
-          type='button'
-          className='flex items-center gap-[0.25rem] text-[0.75rem] font-normal leading-4 text-fg'
-          aria-label={`Seleccionar periodo ${year}`}
-        >
-          {year}
-          <span className='material-symbols-rounded text-[1rem] leading-4 text-fg'>
-            arrow_drop_down
-          </span>
-        </button>
       </header>
 
-      <div
-        className='absolute left-[1rem] top-[5.75rem] flex items-center justify-center'
-        style={{
-          width: donutSize,
-          height: donutSize
-        }}
-        aria-hidden='true'
-      >
-        <ResponsiveContainer width='100%' height='100%'>
-          <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
-            <Pie
-              data={specialties}
-              dataKey='percentage'
-              startAngle={90}
-              endAngle={-270}
-              innerRadius='88%'
-              outerRadius='100%'
-              paddingAngle={0}
-              cornerRadius={16}
-              stroke='transparent'
-              isAnimationActive
-            >
-              {specialties.map(({ label, colorToken }) => (
-                <Cell key={label} fill={colorToken} />
-              ))}
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-        <div className='absolute inset-[0.75rem] rounded-full border border-[rgba(255,255,255,0.5)] bg-surface' />
-        <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-gapsm'>
-          <p className='text-headline-lg text-neutral-900'>{value}</p>
-          <div className='flex items-center gap-gapsm'>
-            <span className='text-body-sm font-normal text-brand-500'>{delta}</span>
-            <span className='material-symbols-rounded text-[1rem] leading-4 text-brand-500'>
-              arrow_outward
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <dl
-        className='absolute top-[8.9375rem] flex flex-col gap-[0.75rem] text-[0.75rem] leading-4 text-neutral-800'
-        style={{
-          left: legendLeft,
-          width: legendWidth
-        }}
-      >
-        {specialties.map(({ label, percentage, colorToken }) => (
-          <div key={label} className='flex items-center gap-[0.5rem]'>
-            <span
-              className='h-[0.75rem] w-[0.75rem] rounded-full'
-              style={{ backgroundColor: colorToken }}
-              aria-hidden='true'
-            />
-            <div className='flex w-full items-center justify-between gap-[0.5rem]'>
-              <dt className='font-normal'>{label}</dt>
-              <dd className='font-medium'>{percentage}%</dd>
+      <div className='absolute inset-x-[1rem] top-[4.75rem] bottom-[1.5rem] flex items-center gap-[1.5rem]'>
+        <div
+          className='relative flex flex-shrink-0 items-center justify-center'
+          style={{
+            width: donutSize,
+            height: donutSize,
+            maxWidth: '100%',
+            maxHeight: '100%'
+          }}
+          aria-hidden='true'
+        >
+          <ResponsiveContainer width='100%' height='100%'>
+            <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+              <Pie
+                data={specialties}
+                dataKey='percentage'
+                startAngle={90}
+                endAngle={-270}
+                innerRadius='88%'
+                outerRadius='100%'
+                paddingAngle={0}
+                cornerRadius={16}
+                stroke='transparent'
+                isAnimationActive
+              >
+                {specialties.map(({ label, colorToken }) => (
+                  <Cell key={label} fill={colorToken} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+          <div className='absolute inset-[0.75rem] rounded-full border border-[rgba(255,255,255,0.5)] bg-transparent' />
+          <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-gapsm'>
+            <p className='text-headline-lg text-neutral-900'>{value}</p>
+            <div className='flex items-center gap-gapsm'>
+              <span className='text-body-sm font-normal text-brand-500'>{delta}</span>
+              <span className='material-symbols-rounded text-[1rem] leading-4 text-brand-500'>
+                arrow_outward
+              </span>
             </div>
           </div>
-        ))}
-      </dl>
+        </div>
+
+        <dl
+          className='flex flex-col gap-[0.75rem] text-[0.75rem] leading-4 text-neutral-800'
+          style={{
+            width: legendWidth
+          }}
+        >
+          {specialties.map(({ label, percentage, colorToken }) => (
+            <div key={label} className='flex items-center gap-[0.5rem]'>
+              <span
+                className='h-[0.75rem] w-[0.75rem] rounded-full'
+                style={{ backgroundColor: colorToken }}
+                aria-hidden='true'
+              />
+              <div className='flex w-full items-center justify-between gap-[0.5rem]'>
+                <dt className='font-normal'>{label}</dt>
+                <dd className='font-medium'>{percentage}%</dd>
+              </div>
+            </div>
+          ))}
+        </dl>
+      </div>
     </section>
   )
 }
