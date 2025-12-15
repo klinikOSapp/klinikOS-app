@@ -522,6 +522,31 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
         discrepancies.push({ method: 'Cheque', expected: expectedCheque, actual: actualCheque })
       }
       
+      // Calculate reconciliation discrepancies for all payment methods (including cash, even if it matches)
+      // This allows tracking all reconciliation data for audit purposes
+      const reconciliationDiscrepancies: Record<string, { expected: number; actual: number; difference: number }> = {
+        cash: {
+          expected: expectedCash,
+          actual: actualCash,
+          difference: actualCash - expectedCash
+        },
+        card: {
+          expected: expectedTPV,
+          actual: actualTPV,
+          difference: actualTPV - expectedTPV
+        },
+        transfer: {
+          expected: expectedTransfer,
+          actual: actualTransfer,
+          difference: actualTransfer - expectedTransfer
+        },
+        check: {
+          expected: expectedCheque,
+          actual: actualCheque,
+          difference: actualCheque - expectedCheque
+        }
+      }
+
       // If there are discrepancies in non-cash payment methods, warn but allow continuation
       if (discrepancies.length > 0) {
         const discrepancyList = discrepancies
@@ -556,6 +581,8 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
         check: parseFloat(recountValues.cheque.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
       }
 
+      console.log(`[CashClosingModal] Saving with reconciliation discrepancies:`, reconciliationDiscrepancies)
+
       try {
         const response = await fetch('/api/caja/closing', {
           method: 'POST',
@@ -567,7 +594,8 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
             dailyBoxAmount,
             cashWithdrawals,
             cashBalance,
-            paymentMethodBreakdown: breakdown
+            paymentMethodBreakdown: breakdown,
+            reconciliationDiscrepancies // Send discrepancies to API for storage
           })
         })
 

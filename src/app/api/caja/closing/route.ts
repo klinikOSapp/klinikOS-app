@@ -55,6 +55,8 @@ export async function POST(req: Request) {
       cashBalance,
       // Step 2: Reconciliation (payment method breakdown)
       paymentMethodBreakdown,
+      // Step 3: Reconciliation discrepancies (for audit/review)
+      reconciliationDiscrepancies,
       // Legacy fields (for backward compatibility)
       expectedCash,
       actualCash,
@@ -70,6 +72,7 @@ export async function POST(req: Request) {
       cashWithdrawals?: number
       cashBalance?: number
       paymentMethodBreakdown?: Record<string, number>
+      reconciliationDiscrepancies?: Record<string, { expected: number; actual: number; difference: number }>
       // Legacy fields
       expectedCash?: number
       actualCash?: number
@@ -126,6 +129,7 @@ export async function POST(req: Request) {
     if (cashWithdrawals !== undefined) updateData.cash_withdrawals = cashWithdrawals
     if (calculatedCashBalance !== null) updateData.cash_balance = calculatedCashBalance
     if (paymentMethodBreakdown) updateData.payment_method_breakdown = paymentMethodBreakdown
+    if (reconciliationDiscrepancies) updateData.reconciliation_discrepancies = reconciliationDiscrepancies
 
     // Add legacy fields if provided (for backward compatibility)
     if (expectedCash !== undefined) updateData.expected_cash = expectedCash
