@@ -51,15 +51,19 @@ export async function GET(req: Request) {
     }
 
     const total = Number(invoice.total_amount || 0)
-    const paid = Number(invoice.amount_paid || 0)
-    const outstanding = Math.max(total - paid, 0)
+    // Compute collected from payments table (source of truth)
+    const collectedFromPayments = (payments || []).reduce(
+      (sum: number, p: any) => sum + Number(p.amount || 0),
+      0
+    )
+    const outstanding = Math.max(total - collectedFromPayments, 0)
 
     return NextResponse.json({
       invoice: {
         id: String(invoice.id),
         invoiceNumber: invoice.invoice_number,
         totalAmount: total,
-        amountPaid: paid,
+        amountPaid: collectedFromPayments,
         outstandingAmount: outstanding
       },
       payments: (payments || []).map((p: any) => ({

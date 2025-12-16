@@ -164,6 +164,7 @@ export async function GET(req: Request) {
     }
 
     const lastPaymentByInvoice = new Map<string, { method: string; transaction_date: string }>()
+    const paymentSumByInvoice = new Map<string, number>()
     for (const p of payments || []) {
       const key = String((p as any).invoice_id)
       if (!lastPaymentByInvoice.has(key)) {
@@ -172,6 +173,10 @@ export async function GET(req: Request) {
           transaction_date: String((p as any).transaction_date || '')
         })
       }
+      paymentSumByInvoice.set(
+        key,
+        (paymentSumByInvoice.get(key) || 0) + Number((p as any).amount || 0)
+      )
     }
 
     // Transform invoices to cash movements (invoice rows only)
@@ -204,7 +209,8 @@ export async function GET(req: Request) {
           : 'Financiación'
 
         const total = Number(invoice.total_amount || 0)
-        const paid = Number(invoice.amount_paid || 0)
+        // Collection status should be based on payments table (source of truth)
+        const paid = paymentSumByInvoice.get(String(invoice.id)) || 0
         const outstandingAmount = Math.max(total - paid, 0)
         const collectionStatus: 'Cobrado' | 'Por cobrar' =
           outstandingAmount <= 0.009 ? 'Cobrado' : 'Por cobrar'
