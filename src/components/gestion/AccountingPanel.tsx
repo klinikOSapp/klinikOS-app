@@ -18,6 +18,9 @@ const toHeight = (px: number) => {
   return `min(calc(${CARD_HEIGHT_CLAMP} * ${ratio}), calc(${CARD_HEIGHT_LIMIT} * ${ratio}))`
 }
 
+type AccountingStyle = CSSProperties &
+  Record<'--accounting-height-current' | '--stack-scale-y', string>
+
 const KPI_CARDS = [
   {
     title: 'Producido',
@@ -114,15 +117,15 @@ const DONUT_DATA: { name: string; value: number; color: string }[] = [
 ]
 
 export default function AccountingPanel() {
-  const sectionStyle: CSSProperties = {
+  const sectionStyle: AccountingStyle = {
     width: '100%',
     maxWidth: `min(${CARD_WIDTH}, ${CARD_WIDTH_LIMIT})`,
     height: `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`,
     // Altura efectiva de la tarjeta (se reutiliza para escalar el stack lateral en viewports bajos)
     '--accounting-height-current': `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`,
-    // El stack completo mide ~312px en Figma (19.5rem). Escalamos sólo posiciones/alturas cuando la altura disponible es menor, sin tocar la vista 1920.
+    // El stack completo mide ~312px en Figma (19.5rem). Permitimos escalar sólo hasta un piso del 92% para evitar que las cards se encojan demasiado en viewports bajos, sin tocar la vista 1920.
     '--stack-scale-y':
-      'min(1, calc(var(--accounting-height-current) / 19.5rem))'
+      'max(0.92, min(1, calc(var(--accounting-height-current) / 19.5rem)))'
   }
 
   const pathLength = Math.PI * DONUT_RADIUS
@@ -254,7 +257,7 @@ export default function AccountingPanel() {
       <div
         className='absolute'
         style={{
-          left: toWidth(STACK_LEFT),
+          right: toWidth(16), // margen derecho igual al padding izquierdo Figma (16px)
           top: 0,
           width: toWidth(173),
           height: '100%'
