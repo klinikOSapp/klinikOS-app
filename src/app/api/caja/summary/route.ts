@@ -33,18 +33,25 @@ export async function GET(req: Request) {
 
     // ALWAYS use TODAY's date for YTD calculations (not the selected date)
     // This ensures KPI cards don't change when user navigates dates
+    const formatMadridDate = (d: Date) =>
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Madrid',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).format(d)
+
     const today = new Date()
-    const todayStr = today.toISOString().split('T')[0]
+    const todayStr = formatMadridDate(today)
     
     // Calculate fiscal year start (January 1st of current year)
-    const fiscalYearStart = new Date(today.getFullYear(), 0, 1) // January 1st
-    const fiscalYearStartStr = fiscalYearStart.toISOString().split('T')[0]
+    const currentYear = Number(todayStr.split('-')[0])
+    const fiscalYearStartStr = `${currentYear}-01-01`
 
     // Calculate previous year's same period for delta comparison
-    const prevYearStart = new Date(today.getFullYear() - 1, 0, 1)
-    const prevYearEnd = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate())
-    const prevYearStartStr = prevYearStart.toISOString().split('T')[0]
-    const prevYearEndStr = prevYearEnd.toISOString().split('T')[0]
+    const [y, m, d] = todayStr.split('-').map((v) => Number(v))
+    const prevYearStartStr = `${y - 1}-01-01`
+    const prevYearEndStr = `${y - 1}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 
     // Fetch YTD (Year-To-Date) accumulated data from fiscal year start to TODAY
     const { data: ytdPayments } = await supabase
@@ -54,12 +61,12 @@ export async function GET(req: Request) {
       .gte('transaction_date', `${fiscalYearStartStr}T00:00:00Z`)
       .lte('transaction_date', `${todayStr}T23:59:59Z`)
 
-    const { data: ytdInvoices } = await supabase
-      .from('invoices')
-      .select('total_amount, amount_paid')
-      .eq('clinic_id', clinicId)
-      .gte('issue_date', fiscalYearStartStr)
-      .lte('issue_date', todayStr)
+    // Invoices: use RPC to correctly use issue_timestamp (fallback to issue_date)
+    const { data: ytdInvoices } = await supabase.rpc('get_invoices_in_time_range', {
+      p_clinic_id: clinicId,
+      p_start_time: `${fiscalYearStartStr}T00:00:00Z`,
+      p_end_time: `${todayStr}T23:59:59Z`
+    })
 
     // Fetch previous year's same period data for delta calculation
     const { data: prevYearPayments } = await supabase
@@ -69,12 +76,11 @@ export async function GET(req: Request) {
       .gte('transaction_date', `${prevYearStartStr}T00:00:00Z`)
       .lte('transaction_date', `${prevYearEndStr}T23:59:59Z`)
 
-    const { data: prevYearInvoices } = await supabase
-      .from('invoices')
-      .select('total_amount, amount_paid')
-      .eq('clinic_id', clinicId)
-      .gte('issue_date', prevYearStartStr)
-      .lte('issue_date', prevYearEndStr)
+    const { data: prevYearInvoices } = await supabase.rpc('get_invoices_in_time_range', {
+      p_clinic_id: clinicId,
+      p_start_time: `${prevYearStartStr}T00:00:00Z`,
+      p_end_time: `${prevYearEndStr}T23:59:59Z`
+    })
 
     // Calculate YTD accumulated totals (from fiscal year start to today)
     const ytdProduced =

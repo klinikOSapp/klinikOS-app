@@ -34,6 +34,8 @@ export async function GET(req: Request) {
     let dataPoints: SeriesPoint[] = []
     let labels: string[] = []
     let totalFacturadoExact: number | null = null
+    let invoiceDots: Array<{ day: number; cumulative: number }> | null = null
+    let daysInMonthForResponse: number | null = null
 
     if (timeScale === 'day') {
       // Get all invoices for the selected day (full day: 00:00 - 23:59)
@@ -190,6 +192,7 @@ export async function GET(req: Request) {
       const monthEnd = new Date(Date.UTC(year, month + 1, 0))
       const daysInMonth = monthEnd.getUTCDate()
       const monthEndDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
+      daysInMonthForResponse = daysInMonth
 
       const { data: allMonthInvoices, error: monthError } = await supabase.rpc('get_invoices_in_time_range', {
         p_clinic_id: clinicId,
@@ -234,13 +237,24 @@ export async function GET(req: Request) {
         cumulativeByDay[day] = running
       }
 
-      const invoiceDays = Array.from(byDay.keys())
-      const daysToShow = new Set<number>(invoiceDays)
-      daysToShow.add(1)
+      // Use a fixed set of sample labels for stable spacing,
+      // but chart data includes EVERY day so dots land exactly on the line.
+      const sampleDays = [1, 5, 10, 15, 20, 25, 30]
+      const daysToShow = new Set<number>()
+      for (const d of sampleDays) {
+        if (d >= 1 && d <= daysInMonth) daysToShow.add(d)
+      }
       daysToShow.add(daysInMonth)
-      const sortedDays = Array.from(daysToShow).sort((a, b) => a - b)
 
-      for (const day of sortedDays) {
+      // Also include anchor day (helps when navigating month)
+      const anchorDay = anchorDate.getUTCDate()
+      if (anchorDay >= 1 && anchorDay <= daysInMonth) daysToShow.add(anchorDay)
+
+      labels = Array.from(daysToShow)
+        .sort((a, b) => a - b)
+        .map((day) => `${day}/${month + 1}`)
+
+      for (let day = 1; day <= daysInMonth; day++) {
         const entry = byDay.get(day) || { sum: 0, count: 0 }
         const cumulativeTotal = cumulativeByDay[day] || 0
         dataPoints.push({
@@ -249,8 +263,6 @@ export async function GET(req: Request) {
           invoiceCount: entry.count
         })
       }
-
-      labels = dataPoints.map((p) => p.label)
     }
 
     // Get monthly goal for target line
@@ -320,7 +332,8 @@ export async function GET(req: Request) {
       labels,
       highlightIndex,
       targetValue: Math.round(targetValue * 10) / 10, // Round to 1 decimal
-      totalFacturado: Math.round(totalFacturado * 10) / 10 // Total in EUR, 1 decimal
+      totalFacturado: Math.round(totalFacturado * 10) / 10, // Total in EUR, 1 decimal
+      daysInMonth: daysInMonthForResponse
     })
   } catch (error: any) {
     console.error('Error in cash trend API:', error)

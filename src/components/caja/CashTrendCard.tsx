@@ -350,12 +350,121 @@ export default function CashTrendCard({
     }))
   }, [series])
 
-  const verticalLineLeftPercent = useMemo(() => {
-    const denominator = Math.max(series.labels.length - 1, 1)
-    return percentOfWidth(
-      GRID_LEFT_PX + ((series.highlightIndex / denominator) * GRID_WIDTH_PX || 0)
-    )
-  }, [series])
+  const cutoffIndex = useMemo(() => {
+    const now = new Date()
+    const nowDateStr = formatDateMadrid(now)
+    const anchorDateStr = formatDateMadrid(anchorDate)
+
+    if (timeScale === 'day') {
+      if (nowDateStr !== anchorDateStr) return null
+      const nowHour = Number(
+        new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Europe/Madrid',
+          hour: '2-digit',
+          hour12: false
+        })
+          .formatToParts(now)
+          .find((p) => p.type === 'hour')?.value || '0'
+      )
+      // Stop at current hour point (so dashed line doesn't overpass now marker).
+      const label = `${String(nowHour).padStart(2, '0')}:00`
+      const idx = series.dataPoints.findIndex((p) => p.label === label)
+      return idx >= 0 ? idx : null
+    }
+
+    if (timeScale === 'week') {
+      // If viewing a week that contains "today", stop after today's point.
+      const parseUTCDate = (s: string) => new Date(`${s}T00:00:00Z`)
+      const anchorUTC = parseUTCDate(anchorDateStr)
+      const anchorDay = anchorUTC.getUTCDay()
+      const diffToMonday = (anchorDay + 6) % 7
+      const weekStart = new Date(anchorUTC)
+      weekStart.setUTCDate(anchorUTC.getUTCDate() - diffToMonday)
+      const weekEnd = new Date(weekStart)
+      weekEnd.setUTCDate(weekStart.getUTCDate() + 6)
+      const nowUTC = parseUTCDate(nowDateStr)
+      if (nowUTC < weekStart || nowUTC > weekEnd) return null
+      const dayOffset = Math.round((Number(nowUTC) - Number(weekStart)) / 86400000)
+      // week dataPoints are Mon..Sun => index matches offset
+      return Math.max(0, Math.min(series.dataPoints.length - 1, dayOffset))
+    }
+
+    // month
+    const [ay, am] = anchorDateStr.split('-').map((v) => Number(v))
+    const [ny, nm, nd] = nowDateStr.split('-').map((v) => Number(v))
+    if (ny !== ay || nm !== am) return null
+    const todayLabelPrefix = `${nd}/${am}`
+    const idx = series.dataPoints.findIndex((p) => p.label === todayLabelPrefix)
+    return idx >= 0 ? idx : null
+  }, [timeScale, anchorDate, series.dataPoints])
+
+  const trimmedChartLineData = useMemo(() => {
+    return chartLineData.map((p, idx) => ({
+      ...p,
+      cumulativeTrimmed:
+        cutoffIndex === null ? p.cumulative : idx <= cutoffIndex ? p.cumulative : null
+    }))
+  }, [chartLineData, cutoffIndex])
+
+  const nowLineLeftPercent = useMemo(() => {
+    const now = new Date()
+    const nowDateStr = formatDateMadrid(now) // YYYY-MM-DD (Madrid)
+    const anchorDateStr = formatDateMadrid(anchorDate)
+
+    const parseUTCDate = (s: string) => new Date(`${s}T00:00:00Z`)
+    const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
+
+    if (timeScale === 'day') {
+      if (nowDateStr !== anchorDateStr) return null
+      const hour = Number(
+        new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Europe/Madrid',
+          hour: '2-digit',
+          hour12: false
+        })
+          .formatToParts(now)
+          .find((p) => p.type === 'hour')?.value || '0'
+      )
+      const minute = Number(
+        new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Europe/Madrid',
+          minute: '2-digit'
+        })
+          .formatToParts(now)
+          .find((p) => p.type === 'minute')?.value || '0'
+      )
+
+      // Business hours 09:00–16:00 mapped across grid width.
+      const t = hour + minute / 60
+      const ratio = clamp01((t - 9) / 7)
+      return percentOfWidth(GRID_LEFT_PX + ratio * GRID_WIDTH_PX)
+    }
+
+    if (timeScale === 'week') {
+      const anchorUTC = parseUTCDate(anchorDateStr)
+      const anchorDay = anchorUTC.getUTCDay() // 0..6
+      const diffToMonday = (anchorDay + 6) % 7
+      const weekStart = new Date(anchorUTC)
+      weekStart.setUTCDate(anchorUTC.getUTCDate() - diffToMonday)
+      const weekEnd = new Date(weekStart)
+      weekEnd.setUTCDate(weekStart.getUTCDate() + 6)
+
+      const nowUTC = parseUTCDate(nowDateStr)
+      if (nowUTC < weekStart || nowUTC > weekEnd) return null
+      const dayOffset = Math.round((Number(nowUTC) - Number(weekStart)) / 86400000)
+      const ratio = clamp01(dayOffset / 6)
+      return percentOfWidth(GRID_LEFT_PX + ratio * GRID_WIDTH_PX)
+    }
+
+    // month
+    const [ay, am] = anchorDateStr.split('-').map((v) => Number(v))
+    const [ny, nm, nd] = nowDateStr.split('-').map((v) => Number(v))
+    if (ny !== ay || nm !== am) return null
+    const daysInMonth = new Date(Date.UTC(ay, am, 0)).getUTCDate()
+    const denom = Math.max(daysInMonth - 1, 1)
+    const ratio = clamp01((nd - 1) / denom)
+    return percentOfWidth(GRID_LEFT_PX + ratio * GRID_WIDTH_PX)
+  }, [timeScale, anchorDate])
 
   const cardStyles: CSSProperties = {
     width: '100%',
@@ -416,7 +525,8 @@ export default function CashTrendCard({
             ...rectToStyle(FACT_CHIP_RECT),
             borderColor: isDayView ? '#51D6C7' : 'var(--color-brandSemantic)',
             color: isDayView ? '#51D6C7' : 'var(--color-brandSemantic)',
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
+            zIndex: 5
           }}
         >
           <span>Facturado:</span>
@@ -431,7 +541,8 @@ export default function CashTrendCard({
             ...rectToStyle(TARGET_CHIP_RECT),
             backgroundColor: 'rgba(81, 214, 199, 0.1)',
             color: 'var(--color-neutral-600)',
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
+            zIndex: 5
           }}
         >
           <span>Objetivo:</span>
@@ -482,7 +593,7 @@ export default function CashTrendCard({
           )}
           <ChartGrid steps={5} />
           <ResponsiveContainer width='100%' height='100%'>
-            <AreaChart data={chartLineData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+            <AreaChart data={trimmedChartLineData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id='colorActual' x1='0' y1='0' x2='0' y2='1'>
                   <stop offset='0%' stopColor='#51D6C7' stopOpacity={0.4}/>
@@ -493,7 +604,7 @@ export default function CashTrendCard({
               <XAxis dataKey='label' type='category' hide />
               <Area
                 type='monotone'
-                dataKey='cumulative'
+                dataKey='cumulativeTrimmed'
                 stroke='none'
                 fill='url(#colorActual)'
                 fillOpacity={1}
@@ -501,7 +612,7 @@ export default function CashTrendCard({
               />
               <Line
                 type='monotone'
-                dataKey='cumulative'
+                dataKey='cumulativeTrimmed'
                 stroke={isDayView ? '#51D6C7' : 'var(--color-brand-500)'} // Turquoise for day view
                 strokeWidth={2.5}
                 strokeDasharray='8 4'
@@ -545,29 +656,17 @@ export default function CashTrendCard({
           )}
         </div>
 
-        {/* "Now" indicator - Yellow vertical line (only for day view) */}
-        {isDayView && (
+        {/* "Now" indicator - Yellow vertical line (all time scales, only if now is inside the displayed range) */}
+        {nowLineLeftPercent && (
           <div
             className='absolute'
             style={{
-              left: verticalLineLeftPercent,
+              left: nowLineLeftPercent,
               top: percentOfHeight(GRID_TOP_PX),
               width: percentOfWidth(1),
               height: percentOfHeight(GRID_HEIGHT_PX),
-              backgroundColor: '#FFD700' // Yellow color for "Now" indicator
-            }}
-          />
-        )}
-        {/* Original highlight line for week/month views */}
-        {!isDayView && (
-          <div
-            className='absolute'
-            style={{
-              left: verticalLineLeftPercent,
-              top: percentOfHeight(GRID_TOP_PX),
-              width: percentOfWidth(1),
-              height: percentOfHeight(GRID_HEIGHT_PX),
-              backgroundColor: '#f4c26f'
+              backgroundColor: '#FFD700',
+              zIndex: 1
             }}
           />
         )}

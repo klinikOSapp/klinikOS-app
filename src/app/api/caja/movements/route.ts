@@ -3,15 +3,21 @@ import { NextResponse } from 'next/server'
 
 type CashMovement = {
   id: string // Unique identifier for React keys
+  invoiceId: string
   time: string
   patient: string
   concept: string
   amount: string
   status: 'Aceptado' | 'Enviado'
+  collectionStatus: 'Cobrado' | 'Por cobrar'
+  outstandingAmount: number
   produced: 'Hecho' | 'Pendiente'
   method: string
   insurer: string
   paymentCategory: 'Efectivo' | 'TPV' | 'Financiación'
+  quoteId?: string | null
+  productionStatus?: 'Done' | 'Pending' | null
+  productionDate?: string | null
 }
 
 // Map payment_method to category
@@ -32,7 +38,14 @@ function getInvoiceStatus(status: string): 'Aceptado' | 'Enviado' {
 }
 
 // Check if quote is signed (produced)
-function isProduced(quoteSignedAt: string | null, invoiceStatus: string): 'Hecho' | 'Pendiente' {
+function isProduced(
+  quoteSignedAt: string | null,
+  productionStatus: string | null | undefined,
+  invoiceStatus: string
+): 'Hecho' | 'Pendiente' {
+  if (productionStatus === 'Done') {
+    return 'Hecho'
+  }
   if (quoteSignedAt || invoiceStatus === 'paid') {
     return 'Hecho'
   }
@@ -63,66 +76,48 @@ export async function GET(req: Request) {
     const clinicId = clinics[0] as string
 
     // Calculate date range based on timeScale
-    const startDate = new Date(date)
-    const endDate = new Date(date)
+    // Treat `date` as a date-only anchor to avoid timezone drift.
+    const startDate = new Date(`${date}T00:00:00Z`)
+    const endDate = new Date(`${date}T00:00:00Z`)
 
     if (timeScale === 'week') {
       // Start of week (Monday)
-      const day = startDate.getDay()
-      const diff = startDate.getDate() - day + (day === 0 ? -6 : 1)
-      startDate.setDate(diff)
+      const day = startDate.getUTCDay() // 0=Sun..6=Sat
+      const diffToMonday = (day + 6) % 7
+      startDate.setUTCDate(startDate.getUTCDate() - diffToMonday)
       // End of week (Sunday)
-      endDate.setDate(startDate.getDate() + 6)
+      endDate.setUTCDate(startDate.getUTCDate() + 6)
     } else if (timeScale === 'month') {
-      startDate.setDate(1)
-      const lastDay = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0)
-      endDate.setDate(lastDay.getDate())
+      startDate.setUTCDate(1)
+      const lastDay = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth() + 1, 0))
+      endDate.setUTCDate(lastDay.getUTCDate())
     }
 
     const startDateStr = startDate.toISOString().split('T')[0]
     const endDateStr = endDate.toISOString().split('T')[0]
 
-    // Fetch payments with related invoice and patient data
-    const { data: payments, error } = await supabase
-      .from('payments')
-      .select(
-        `
-        id,
-        amount,
-        transaction_date,
-        payment_method,
-        invoice_id,
-        invoices (
-          id,
-          invoice_number,
-          status,
-          total_amount,
-          issue_date,
-          quote_id,
-          patient_id,
-          patients (
-            id,
-            first_name,
-            last_name
-          ),
-          quotes (
-            id,
-            signed_at
-          )
-        )
-      `
-      )
-      .eq('clinic_id', clinicId)
-      .gte('transaction_date', `${startDateStr}T00:00:00Z`)
-      .lte('transaction_date', `${endDateStr}T23:59:59Z`)
-      .order('transaction_date', { ascending: true })
+    // Real-time transaction table should show INVOICES (not payments).
+    // Use the existing RPC to handle issue_timestamp / issue_date fallback.
+    const { data: invoiceRows, error: invoiceRowsError } = await supabase.rpc(
+      'get_invoices_in_time_range',
+      {
+        p_clinic_id: clinicId,
+        p_start_time: `${startDateStr}T00:00:00Z`,
+        p_end_time: `${endDateStr}T23:59:59Z`
+      }
+    )
 
-    if (error) {
-      console.error('Error fetching payments:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (invoiceRowsError) {
+      console.error('Error fetching invoices in time range:', invoiceRowsError)
+      return NextResponse.json({ error: invoiceRowsError.message }, { status: 500 })
     }
 
-    // Also fetch invoices without payments (to show "Enviado" status)
+    const invoiceIds = (invoiceRows || []).map((r: any) => r.id)
+    if (invoiceIds.length === 0) {
+      return NextResponse.json({ movements: [] })
+    }
+
+    // Fetch invoice details for UI fields (patient name, quote signed_at)
     const { data: invoices, error: invoicesError } = await supabase
       .from('invoices')
       .select(
@@ -131,7 +126,9 @@ export async function GET(req: Request) {
         invoice_number,
         status,
         total_amount,
-        issue_date,
+        amount_paid,
+        issue_timestamp,
+        quote_id,
         patient_id,
         patients (
           id,
@@ -140,86 +137,105 @@ export async function GET(req: Request) {
         ),
         quotes (
           id,
+          quote_number,
+          production_status,
+          production_date,
           signed_at
         )
       `
       )
-      .eq('clinic_id', clinicId)
-      .gte('issue_date', startDateStr)
-      .lte('issue_date', endDateStr)
-      .order('issue_date', { ascending: true })
+      .in('id', invoiceIds)
 
     if (invoicesError) {
-      console.error('Error fetching invoices:', invoicesError)
+      console.error('Error fetching invoice details:', invoicesError)
+      return NextResponse.json({ error: invoicesError.message }, { status: 500 })
     }
 
-    // Transform payments to cash movements
+    // Fetch payments for these invoices only to infer "Método" and filter category (but we DO NOT render payment rows).
+    const { data: payments, error: paymentsError } = await supabase
+      .from('payments')
+      .select('invoice_id, payment_method, transaction_date')
+      .eq('clinic_id', clinicId)
+      .in('invoice_id', invoiceIds)
+      .order('transaction_date', { ascending: false })
+
+    if (paymentsError) {
+      console.error('Error fetching invoice payments:', paymentsError)
+    }
+
+    const lastPaymentByInvoice = new Map<string, { method: string; transaction_date: string }>()
+    for (const p of payments || []) {
+      const key = String((p as any).invoice_id)
+      if (!lastPaymentByInvoice.has(key)) {
+        lastPaymentByInvoice.set(key, {
+          method: String((p as any).payment_method || ''),
+          transaction_date: String((p as any).transaction_date || '')
+        })
+      }
+    }
+
+    // Transform invoices to cash movements (invoice rows only)
     const movements: CashMovement[] = []
 
-    if (payments) {
-      for (const payment of payments) {
-        const invoice = payment.invoices as any
-        if (!invoice) continue
-
-        const patient = invoice.patients as any
-        const quote = invoice.quotes as any
-
-        const transactionDate = new Date(payment.transaction_date)
-        const time = transactionDate.toLocaleTimeString('es-ES', {
-          hour: '2-digit',
-          minute: '2-digit'
-        })
-
-        movements.push({
-          id: `payment-${payment.id}-invoice-${invoice.id}`, // Unique ID for React keys
-          time,
-          patient: patient
-            ? `${patient.first_name || ''} ${patient.last_name || ''}`.trim()
-            : 'Paciente desconocido',
-          concept: invoice.invoice_number || `Factura #${invoice.id}`,
-          amount: `${Number(payment.amount).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
-          status: getInvoiceStatus(invoice.status),
-          produced: isProduced(quote?.signed_at, invoice.status),
-          method: payment.payment_method || 'No especificado',
-          insurer: 'N/A', // TODO: Get from patient insurance if available
-          paymentCategory: getPaymentCategory(payment.payment_method || '')
-        })
-      }
-    }
-
-    // Add invoices without payments as "Enviado" status
     if (invoices) {
-      const paidInvoiceIds = new Set(payments?.map((p: any) => p.invoice_id) || [])
-      for (const invoice of invoices) {
-        if (paidInvoiceIds.has(invoice.id)) continue
-
+      for (const invoice of invoices as any[]) {
         const patient = invoice.patients as any
         const quote = invoice.quotes as any
 
-        const issueDate = new Date(invoice.issue_date)
-        const time = issueDate.toLocaleTimeString('es-ES', {
+        const issueTs = invoice.issue_timestamp
+          ? new Date(invoice.issue_timestamp)
+          : null
+        const time = issueTs
+          ? new Intl.DateTimeFormat('es-ES', {
+              timeZone: 'Europe/Madrid',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+            }).format(issueTs)
+          : new Date().toLocaleTimeString('es-ES', {
           hour: '2-digit',
           minute: '2-digit'
         })
 
+        const lastPayment = lastPaymentByInvoice.get(String(invoice.id))
+        const method = lastPayment?.method ? lastPayment.method : 'Pendiente'
+        const paymentCategory = lastPayment?.method
+          ? getPaymentCategory(lastPayment.method)
+          : 'Financiación'
+
+        const total = Number(invoice.total_amount || 0)
+        const paid = Number(invoice.amount_paid || 0)
+        const outstandingAmount = Math.max(total - paid, 0)
+        const collectionStatus: 'Cobrado' | 'Por cobrar' =
+          outstandingAmount <= 0.009 ? 'Cobrado' : 'Por cobrar'
+
         movements.push({
-          id: `invoice-${invoice.id}-no-payment`, // Unique ID for React keys
+          id: `invoice-${invoice.id}`, // Unique ID for React keys
+          invoiceId: String(invoice.id),
           time,
           patient: patient
             ? `${patient.first_name || ''} ${patient.last_name || ''}`.trim()
             : 'Paciente desconocido',
-          concept: invoice.invoice_number || `Factura #${invoice.id}`,
-          amount: `${Number(invoice.total_amount).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
-          status: 'Enviado',
-          produced: isProduced(quote?.signed_at, invoice.status),
-          method: 'Pendiente',
+          concept:
+            quote?.quote_number
+              ? `Presupuesto ${quote.quote_number}`
+              : invoice.invoice_number || `Factura #${invoice.id}`,
+          amount: `${total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+          status: getInvoiceStatus(invoice.status),
+          collectionStatus,
+          outstandingAmount,
+          produced: isProduced(quote?.signed_at, quote?.production_status, invoice.status),
+          method,
           insurer: 'N/A',
-          paymentCategory: 'Financiación'
+          paymentCategory,
+          quoteId: invoice.quote_id ?? quote?.id ?? null,
+          productionStatus: quote?.production_status ?? null,
+          productionDate: quote?.production_date ?? null
         })
       }
     }
 
-    // Sort by time
+    // Sort by time (HH:mm)
     movements.sort((a, b) => {
       const timeA = a.time.split(':').map(Number)
       const timeB = b.time.split(':').map(Number)
