@@ -577,20 +577,6 @@ export default function CashTrendCard({
         <div className='absolute' style={rectToStyle(GRID_RECT)}>
           {!isLoading && (
             <>
-          {/* Target horizontal line - only show if target is valid and visible */}
-          {targetRatio > 0 && targetRatio <= 1 && (
-            <div
-              className='absolute'
-              style={{
-                left: percentOfGridWidth(GRID_FILL_RECT.left),
-                top: `${(1 - targetRatio) * 100}%`,
-                width: percentOfGridWidth(GRID_FILL_RECT.width),
-                height: '2px',
-                backgroundColor: '#51D6C7',
-                zIndex: 10
-              }}
-            />
-          )}
           <ChartGrid steps={5} />
           <ResponsiveContainer width='100%' height='100%'>
             <AreaChart data={trimmedChartLineData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
@@ -599,9 +585,23 @@ export default function CashTrendCard({
                   <stop offset='0%' stopColor='#51D6C7' stopOpacity={0.4}/>
                   <stop offset='100%' stopColor='#51D6C7' stopOpacity={0.1}/>
                 </linearGradient>
+                <linearGradient id='colorTarget' x1='0' y1='0' x2='0' y2='1'>
+                  <stop offset='0%' stopColor='#51D6C7' stopOpacity={0.16}/>
+                  <stop offset='100%' stopColor='#51D6C7' stopOpacity={0.08}/>
+                </linearGradient>
               </defs>
               <YAxis type='number' domain={[0, dynamicMaxValue]} hide />
               <XAxis dataKey='label' type='category' hide />
+              {/* Target as filled area band (no horizontal line) */}
+              <Area
+                type='monotone'
+                dataKey={() => targetValue}
+                stroke='none'
+                fill='url(#colorTarget)'
+                fillOpacity={1}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
               <Area
                 type='monotone'
                 dataKey='cumulativeTrimmed'
@@ -615,7 +615,7 @@ export default function CashTrendCard({
                 dataKey='cumulativeTrimmed'
                 stroke={isDayView ? '#51D6C7' : 'var(--color-brand-500)'} // Turquoise for day view
                 strokeWidth={2.5}
-                strokeDasharray='8 4'
+                strokeDasharray='0'
                 dot={(props: any) => {
                   const { cx, cy, payload } = props || {}
                   if (!payload?.hasInvoice) return null

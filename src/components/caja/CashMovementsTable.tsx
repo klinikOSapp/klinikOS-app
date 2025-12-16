@@ -680,59 +680,52 @@ function FilterChip({
 
 function StatusCell({ movement }: { movement: CashMovement }) {
   // Bubble click to table component via event delegation (keeps column API simple)
-  const handleClick = (e: React.MouseEvent) => {
-    const target = e.currentTarget as HTMLElement
-    const invoiceId = target.getAttribute('data-invoice-id')
-    if (invoiceId) {
-      window.dispatchEvent(
-        new CustomEvent('caja:open-invoice-payments', {
-          detail: { invoiceId }
-        })
-      )
-    }
+  const handleClick = () => {
+    window.dispatchEvent(
+      new CustomEvent('caja:open-invoice-payments', {
+        detail: { invoiceId: movement.invoiceId }
+      })
+    )
   }
   return (
-    <div className='flex flex-col gap-[0.25rem]'>
-      <InvoiceStatusBadge status={movement.status} />
-      <button type='button' onClick={handleClick} className='text-left'>
-        <CollectionStatusBadge status={movement.collectionStatus} invoiceId={movement.invoiceId} />
-      </button>
-    </div>
-  )
-}
-
-function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
-  const isAccepted = status === 'Aceptado'
-  const className = isAccepted
-    ? 'bg-brand-50 text-brand-900'
-    : 'bg-warning-50 text-warning-200'
-  return (
-    <span
-      className={`inline-flex h-[2rem] items-center justify-center rounded-full px-[0.75rem] text-label-sm font-medium ${className}`}
+    <button
+      type='button'
+      onClick={handleClick}
+      className='text-left'
+      aria-label='Ver historial de cobros'
     >
-      {status}
-    </span>
+      <EstadoPill
+        invoiceStatus={movement.status}
+        collectionStatus={movement.collectionStatus}
+      />
+    </button>
   )
 }
 
-function CollectionStatusBadge({
-  status,
-  invoiceId
+function EstadoPill({
+  invoiceStatus,
+  collectionStatus
 }: {
-  status: CollectionStatus
-  invoiceId: string
+  invoiceStatus: InvoiceStatus
+  collectionStatus: CollectionStatus
 }) {
-  const isPaid = status === 'Cobrado'
-  const className = isPaid
-    ? 'bg-success-200 text-success-800'
-    : 'bg-warning-50 text-warning-200'
+  // Target style:
+  // - Invoice status drives TEXT color (Aceptado green, Enviado orange)
+  // - Collection status drives BADGE background (Cobrado green-ish, Por cobrar orange-ish)
+  const invoiceTextClass =
+    invoiceStatus === 'Aceptado' ? 'text-success-800' : 'text-warning-200'
+  const invoiceBorderClass =
+    invoiceStatus === 'Aceptado' ? 'border-success-800' : 'border-warning-200'
+  const pillClass =
+    collectionStatus === 'Cobrado'
+      ? 'bg-success-50'
+      : 'bg-warning-50'
 
   return (
     <span
-      className={`inline-flex h-[2rem] items-center justify-center rounded-full px-[0.75rem] text-label-sm font-medium ${className}`}
-      data-invoice-id={invoiceId}
+      className={`inline-flex h-[1.75rem] items-center justify-center rounded-full border px-[0.75rem] text-label-sm font-medium ${pillClass} ${invoiceBorderClass}`}
     >
-      {status}
+      <span className={invoiceTextClass}>{invoiceStatus}</span>
     </span>
   )
 }
@@ -742,7 +735,7 @@ function ProductionBadge({ movement }: { movement: CashMovement }) {
   const badgeClass = isDone
     ? 'bg-success-200 text-success-800'
     : 'bg-neutral-200 text-neutral-700'
-  const icon = isDone ? 'check_box' : 'close'
+  const icon = isDone ? 'check_box' : 'check_box_outline_blank'
 
   const toggle = async () => {
     if (!movement.quoteId) return
@@ -771,13 +764,13 @@ function ProductionBadge({ movement }: { movement: CashMovement }) {
     >
       <span
         className={`material-symbols-rounded text-[1.25rem] ${
-          isDone ? 'text-success-800' : 'text-warning-200'
+          isDone ? 'text-success-800' : 'text-neutral-500'
         }`}
       >
         {icon}
       </span>
       <span
-        className={`inline-flex h-[2rem] items-center rounded-full px-[0.75rem] text-label-sm font-medium ${badgeClass}`}
+        className={`inline-flex h-[1.75rem] items-center rounded-full px-[0.75rem] text-label-sm font-medium ${badgeClass}`}
       >
         {isDone ? 'Hecho' : 'Pendiente'}
       </span>
