@@ -135,10 +135,10 @@ export async function GET(req: Request) {
       }
     ]
 
-    // Calculate donut chart data (YTD collected vs target based on YTD produced)
-    const target = ytdProduced * 1.5 // 150% of YTD produced as target
+    // Calculate donut chart data (YTD collected vs YTD produced/facturado)
+    // Gauge shows: Cobrado / Producido (or Facturado, they're the same)
     const donutValue = ytdCollected
-    const donutTarget = target
+    const donutTarget = ytdProduced // Use Producido/Facturado as target (not 1.5x)
 
     return NextResponse.json({
       summary,

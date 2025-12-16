@@ -3,7 +3,7 @@
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
 import type { CSSProperties } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 
 const Y_AXIS_LABELS = ['50K', '40K', '30K', '20K', '10K', 'º']
 
@@ -55,7 +55,7 @@ const verticalLinesPx = Array.from(
 const chartCanvas = {
   width: GRID_WIDTH_PX,
   height: GRID_HEIGHT_PX,
-  maxValue: 50
+  maxValue: 50 // Default, will be calculated dynamically
 }
 
 const HEADER_RECT = {
@@ -100,6 +100,8 @@ const GRID_FILL_RECT = { left: 0, top: 160, width: GRID_WIDTH_PX, height: 68 }
 type SeriesPoint = {
   label: string
   actual: number
+  invoiceCount?: number
+  hasInvoice?: boolean
 }
 
 type SeriesResult = {
@@ -128,27 +130,155 @@ export default function CashTrendCard({
   const [facturadoValue, setFacturadoValue] = useState(38000)
   const [targetValue, setTargetValue] = useState(30) // In thousands (from API)
 
+  const formatDateMadrid = (d: Date) =>
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Madrid',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(d)
+
   // Fetch trend data from API
   useEffect(() => {
     setIsLoading(true)
-    const dateStr = anchorDate.toISOString().split('T')[0]
+    const dateStr = formatDateMadrid(anchorDate)
     fetch(`/api/caja/trend?date=${dateStr}&timeScale=${timeScale}`)
       .then((res) => res.json())
       .then((data) => {
-        if (data.dataPoints && data.labels) {
+        // For day view: API returns raw invoices, calculate cumulative on frontend
+        if (timeScale === 'day' && data.invoices && Array.isArray(data.invoices)) {
+          // Find all hours that have invoices
+          const invoiceHours = new Set<number>()
+          const standardHours = [9, 10, 11, 12, 13, 14, 15, 16]
+          
+          for (const inv of data.invoices) {
+            if (inv.issue_timestamp) {
+              const invTimeUTC = new Date(inv.issue_timestamp)
+              const formatter = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Europe/Madrid',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                hour12: false
+              })
+              const parts = formatter.formatToParts(invTimeUTC)
+              const invYear = parts.find(p => p.type === 'year')?.value
+              const invMonth = parts.find(p => p.type === 'month')?.value
+              const invDay = parts.find(p => p.type === 'day')?.value
+              const invHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0')
+              const invDateStr = `${invYear}-${invMonth}-${invDay}`
+              
+              // Only include if same date and hour is in business hours (9-16)
+              if (invDateStr === dateStr && invHour >= 9 && invHour <= 16) {
+                invoiceHours.add(invHour)
+              }
+            }
+          }
+          
+          // Combine invoice hours with standard hours, sort them
+          const allHours = Array.from(new Set([...standardHours, ...Array.from(invoiceHours)])).sort((a, b) => a - b)
+          
+          const dataPoints: SeriesPoint[] = []
+          let facturadoTotal = 0
+
+          // Calculate cumulative for each hour
+          for (const hour of allHours) {
+            // Sum all invoices up to this hour
+            const invoicesUpToHour = data.invoices.filter((inv: any) => {
+              if (!inv.issue_timestamp) return false
+              const invTimeUTC = new Date(inv.issue_timestamp)
+              const formatter = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Europe/Madrid',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                hour12: false
+              })
+              const parts = formatter.formatToParts(invTimeUTC)
+              const invYear = parts.find(p => p.type === 'year')?.value
+              const invMonth = parts.find(p => p.type === 'month')?.value
+              const invDay = parts.find(p => p.type === 'day')?.value
+              const invHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0')
+              const invDateStr = `${invYear}-${invMonth}-${invDay}`
+              // Check if invoice is on the same date and hour <= current hour
+              return invDateStr === dateStr && invHour <= hour
+            })
+            
+            const cumulativeTotal = invoicesUpToHour.reduce((sum: number, inv: any) => {
+              return sum + Number(inv.total_amount || 0)
+            }, 0)
+            
+            // Convert to thousands for chart
+            const cumulativeInThousands = cumulativeTotal / 1000
+            
+            dataPoints.push({
+              label: `${String(hour).padStart(2, '0')}:00`,
+              actual: Math.round(cumulativeInThousands * 10) / 10,
+              hasInvoice: invoiceHours.has(hour)
+            })
+          }
+
+          // Calculate total Facturado (sum of all invoices for the day)
+          facturadoTotal = data.invoices.reduce((sum: number, inv: any) => {
+            return sum + Number(inv.total_amount || 0)
+          }, 0)
+
+          // Calculate highlightIndex (current hour if today, otherwise last hour)
+          const now = new Date()
+          const todayStr = formatDateMadrid(now)
+          const isToday = dateStr === todayStr
+          const currentHour = Number(
+            new Intl.DateTimeFormat('en-CA', {
+              timeZone: 'Europe/Madrid',
+              hour: '2-digit',
+              hour12: false
+            })
+              .formatToParts(now)
+              .find((p) => p.type === 'hour')?.value || '0'
+          )
+          let highlightIndex = dataPoints.length - 1
+          
+          if (isToday && currentHour >= 9 && currentHour <= 16) {
+            highlightIndex = currentHour - 9
+          }
+
+          setSeries({
+            labels: dataPoints.map(p => p.label),
+            dataPoints: dataPoints,
+            highlightIndex: highlightIndex
+          })
+          
+          setFacturadoValue(Math.round(facturadoTotal * 10) / 10)
+          console.log(`[CashTrendCard] Day view - Calculated Facturado: ${facturadoTotal} EUR from ${data.invoices.length} invoices`)
+        } 
+        // For week/month views: use pre-calculated dataPoints from API
+        else if (data.dataPoints && data.labels) {
           setSeries({
             labels: data.labels,
             dataPoints: data.dataPoints,
             highlightIndex: data.highlightIndex || data.dataPoints.length - 1
           })
-          // Calculate facturado from data points (sum of all periods shown)
-          const total = data.dataPoints.reduce((sum: number, p: SeriesPoint) => sum + p.actual, 0) * 1000
-          setFacturadoValue(total)
-          // Set target value from API (already in thousands)
-          if (data.targetValue !== undefined) {
-            setTargetValue(data.targetValue)
+          
+          // Use totalFacturado from API if available, otherwise calculate from last dataPoint
+          if (data.totalFacturado !== undefined) {
+            setFacturadoValue(Math.round(data.totalFacturado * 10) / 10)
+            console.log(`[CashTrendCard] ${timeScale} view - Facturado from API: ${data.totalFacturado} EUR`)
+          } else {
+            // Fallback: calculate from last data point
+            const lastDataPoint = data.dataPoints[data.dataPoints.length - 1]
+            const total = (lastDataPoint?.actual || 0) * 1000
+            setFacturadoValue(Math.round(total * 10) / 10)
+            console.log(`[CashTrendCard] ${timeScale} view - Calculated Facturado: ${total} EUR (fallback)`)
           }
         }
+
+        // Set target value from API (already in thousands)
+        if (data.targetValue !== undefined) {
+          setTargetValue(data.targetValue)
+        }
+        
         setIsLoading(false)
       })
       .catch((error) => {
@@ -157,20 +287,68 @@ export default function CashTrendCard({
       })
   }, [timeScale, anchorDate])
 
+  // Calculate dynamic max value based on data and target
+  const dynamicMaxValue = useMemo(() => {
+    if (series.dataPoints.length === 0) return 50 // Default fallback
+    
+    // Find max actual value in data
+    const maxActual = Math.max(...series.dataPoints.map(p => p.actual), 0)
+    const targetValueEur = (targetValue || 0) * 1000 / 1000 // Already in thousands
+    
+    // Use the larger of: max actual * 1.2 (20% padding) or target * 1.1 (10% padding)
+    const calculatedMax = Math.max(maxActual * 1.2, targetValueEur * 1.1, 1) // At least 1K
+    
+    // Round up to nearest nice number (1, 2, 5, 10, 20, 50, etc.)
+    const magnitude = Math.pow(10, Math.floor(Math.log10(calculatedMax)))
+    const normalized = calculatedMax / magnitude
+    let niceValue
+    if (normalized <= 1) niceValue = 1
+    else if (normalized <= 2) niceValue = 2
+    else if (normalized <= 5) niceValue = 5
+    else niceValue = 10
+    
+    return niceValue * magnitude
+  }, [series.dataPoints, targetValue])
+
+  // Generate dynamic Y-axis labels
+  const yAxisLabels = useMemo(() => {
+    const labels: string[] = []
+    const steps = 5 // 5 grid lines
+    for (let i = steps; i >= 0; i--) {
+      const value = (dynamicMaxValue / steps) * i
+      if (value >= 1) {
+        labels.push(`${value}K`)
+      } else if (value >= 0.1) {
+        labels.push(`${Math.round(value * 100) / 100}`)
+      } else {
+        labels.push('0')
+      }
+    }
+    return labels
+  }, [dynamicMaxValue])
+
   // Calculate target ratio dynamically
   const targetRatio = useMemo(() => {
-    const targetValueEur = targetValue * 1000 // Convert from thousands to EUR
-    return targetValueEur / (chartCanvas.maxValue * 1000)
-  }, [targetValue])
+    if (!targetValue || targetValue <= 0 || dynamicMaxValue <= 0) return 0
+    const ratio = targetValue / dynamicMaxValue
+    // Ensure ratio is between 0 and 1
+    return Math.max(0, Math.min(1, ratio))
+  }, [targetValue, dynamicMaxValue])
 
-  const chartLineData = useMemo(
-    () =>
-      series.dataPoints.map((point, index) => ({
-        ...point,
-        clippedActual: index <= series.highlightIndex ? point.actual : null
-      })),
-    [series]
-  )
+  // All views now use cumulative data
+  const isDayView = timeScale === 'day'
+
+  const chartLineData = useMemo(() => {
+    // All views (day/week/month) now show cumulative values
+    return series.dataPoints.map((point) => ({
+      ...point,
+      cumulative: point.actual, // Use actual as cumulative value (already cumulative from API)
+      hasInvoice:
+        typeof point.hasInvoice === 'boolean'
+          ? point.hasInvoice
+          : (point.invoiceCount ?? 0) > 0
+    }))
+  }, [series])
 
   const verticalLineLeftPercent = useMemo(() => {
     const denominator = Math.max(series.labels.length - 1, 1)
@@ -231,13 +409,19 @@ export default function CashTrendCard({
           </button>
         </header>
 
+        {/* Legend chips - Turquoise for Facturado, light teal for Objetivo */}
         <div
-          className='absolute inline-flex items-center gap-[0.25rem] rounded-pill border border-brandSemantic px-[0.5rem] py-[0.25rem] text-label-md font-normal text-brandSemantic'
-          style={{ ...rectToStyle(FACT_CHIP_RECT), whiteSpace: 'nowrap' }}
+          className='absolute inline-flex items-center gap-[0.25rem] rounded-pill border px-[0.5rem] py-[0.25rem] text-label-md font-normal'
+          style={{
+            ...rectToStyle(FACT_CHIP_RECT),
+            borderColor: isDayView ? '#51D6C7' : 'var(--color-brandSemantic)',
+            color: isDayView ? '#51D6C7' : 'var(--color-brandSemantic)',
+            whiteSpace: 'nowrap'
+          }}
         >
           <span>Facturado:</span>
-          <span className='font-bold text-brandSemantic'>
-            {facturadoValue.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €
+          <span className='font-bold' style={{ color: isDayView ? '#51D6C7' : 'var(--color-brandSemantic)' }}>
+            {facturadoValue.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} €
           </span>
         </div>
 
@@ -263,8 +447,8 @@ export default function CashTrendCard({
           className='absolute flex flex-col justify-between text-label-md font-normal text-neutral-400'
           style={rectToStyle(Y_AXIS_RECT)}
         >
-          {Y_AXIS_LABELS.map((label) => (
-            <span key={label}>{label}</span>
+          {yAxisLabels.map((label, idx) => (
+            <span key={`${label}-${idx}`}>{label}</span>
           ))}
         </div>
 
@@ -282,60 +466,129 @@ export default function CashTrendCard({
         <div className='absolute' style={rectToStyle(GRID_RECT)}>
           {!isLoading && (
             <>
-          <div
-            className='absolute'
-            style={{
-              left: percentOfGridWidth(GRID_FILL_RECT.left),
-              top: `${(1 - targetRatio) * 100}%`,
-              width: percentOfGridWidth(GRID_FILL_RECT.width),
-              height: `${targetRatio * 100}%`,
-              backgroundColor: 'rgba(81, 214, 199, 0.12)'
-            }}
-          />
-          <ChartGrid />
+          {/* Target horizontal line - only show if target is valid and visible */}
+          {targetRatio > 0 && targetRatio <= 1 && (
+            <div
+              className='absolute'
+              style={{
+                left: percentOfGridWidth(GRID_FILL_RECT.left),
+                top: `${(1 - targetRatio) * 100}%`,
+                width: percentOfGridWidth(GRID_FILL_RECT.width),
+                height: '2px',
+                backgroundColor: '#51D6C7',
+                zIndex: 10
+              }}
+            />
+          )}
+          <ChartGrid steps={5} />
           <ResponsiveContainer width='100%' height='100%'>
-            <LineChart data={chartLineData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-              <YAxis type='number' domain={[0, 50]} hide />
+            <AreaChart data={chartLineData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id='colorActual' x1='0' y1='0' x2='0' y2='1'>
+                  <stop offset='0%' stopColor='#51D6C7' stopOpacity={0.4}/>
+                  <stop offset='100%' stopColor='#51D6C7' stopOpacity={0.1}/>
+                </linearGradient>
+              </defs>
+              <YAxis type='number' domain={[0, dynamicMaxValue]} hide />
               <XAxis dataKey='label' type='category' hide />
+              <Area
+                type='monotone'
+                dataKey='cumulative'
+                stroke='none'
+                fill='url(#colorActual)'
+                fillOpacity={1}
+                connectNulls={false}
+              />
               <Line
                 type='monotone'
-                dataKey='clippedActual'
-                stroke='var(--color-brand-500)'
-                strokeWidth={3}
-                dot={false}
+                dataKey='cumulative'
+                stroke={isDayView ? '#51D6C7' : 'var(--color-brand-500)'} // Turquoise for day view
+                strokeWidth={2.5}
+                strokeDasharray='8 4'
+                dot={(props: any) => {
+                  const { cx, cy, payload } = props || {}
+                  if (!payload?.hasInvoice) return null
+                  const fill = isDayView ? '#51D6C7' : 'var(--color-brand-500)'
+                  return (
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={3.5}
+                      fill={fill}
+                      stroke='white'
+                      strokeWidth={1.25}
+                    />
+                  )
+                }}
+                activeDot={(props: any) => {
+                  const { cx, cy, payload } = props || {}
+                  if (!payload?.hasInvoice) return null
+                  const fill = isDayView ? '#51D6C7' : 'var(--color-brand-500)'
+                  return (
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={5}
+                      fill={fill}
+                      stroke='white'
+                      strokeWidth={1.5}
+                    />
+                  )
+                }}
                 animationDuration={1100}
                 animationBegin={200}
-                isAnimationActive
+                isAnimationActive={!isDayView} // Disable animation for day view to show full cumulative line immediately
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
             </>
           )}
         </div>
 
-        <div
-          className='absolute'
-          style={{
-            left: verticalLineLeftPercent,
-            top: percentOfHeight(GRID_TOP_PX),
-            width: percentOfWidth(1),
-            height: percentOfHeight(GRID_HEIGHT_PX),
-            backgroundColor: '#f4c26f'
-          }}
-        />
+        {/* "Now" indicator - Yellow vertical line (only for day view) */}
+        {isDayView && (
+          <div
+            className='absolute'
+            style={{
+              left: verticalLineLeftPercent,
+              top: percentOfHeight(GRID_TOP_PX),
+              width: percentOfWidth(1),
+              height: percentOfHeight(GRID_HEIGHT_PX),
+              backgroundColor: '#FFD700' // Yellow color for "Now" indicator
+            }}
+          />
+        )}
+        {/* Original highlight line for week/month views */}
+        {!isDayView && (
+          <div
+            className='absolute'
+            style={{
+              left: verticalLineLeftPercent,
+              top: percentOfHeight(GRID_TOP_PX),
+              width: percentOfWidth(1),
+              height: percentOfHeight(GRID_HEIGHT_PX),
+              backgroundColor: '#f4c26f'
+            }}
+          />
+        )}
       </div>
     </article>
   )
 }
 
-function ChartGrid() {
+function ChartGrid({ steps = 5 }: { steps?: number }) {
+  // Generate dynamic horizontal grid lines (5 lines for 0-4 steps)
+  const horizontalLines = Array.from({ length: steps + 1 }, (_, i) => {
+    return (GRID_HEIGHT_PX / steps) * i
+  })
+  
   return (
     <svg
       viewBox={`0 0 ${chartCanvas.width} ${chartCanvas.height}`}
       className='absolute inset-0'
       preserveAspectRatio='none'
     >
-      {horizontalLinesPx.map((y) => (
+      {horizontalLines.map((y) => (
         <line
           key={`h-${y}`}
           x1={0}
