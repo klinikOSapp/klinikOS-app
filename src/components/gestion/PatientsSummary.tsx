@@ -10,7 +10,7 @@ type PatientsSummaryProps = { yearLabel?: string; items?: PatientItem[] }
 const defaultItems: PatientItem[] = [
   { label: 'Activos', value: '1.245', percent: '44%', change: '+ 12%' },
   { label: 'Nuevos', value: '23', percent: '56%', change: '+ 12%' },
-  { label: 'Crecimiento', value: '+ 12%', percent: '44%', kpi: true }
+  { label: 'Crecimiento', value: '+ 12%', percent: '', kpi: true }
 ]
 
 export default function PatientsSummary({
@@ -42,7 +42,9 @@ export default function PatientsSummary({
               <div className='flex flex-col items-start gap-[0.5rem] w-full'>
                 <div className='flex items-center justify-between gap-[0.5rem] text-label-md text-fg-secondary whitespace-nowrap w-full'>
                   <span>{i.label}</span>
-                  <span className='font-medium text-fg-secondary'>{i.percent}</span>
+                  <span className='font-medium text-fg-secondary'>
+                    {i.percent}
+                  </span>
                 </div>
                 {i.kpi ? (
                   <div className='flex items-center gap-card-metric whitespace-nowrap'>
