@@ -22,10 +22,10 @@ type CashToolbarProps = {
   onNavigatePrevious: () => void
   timeScale: CashTimeScale
   onTimeScaleChange: (scale: CashTimeScale) => void
+  showClosingButton?: boolean
 }
 
 const SCALE_OPTIONS: { id: CashTimeScale; label: string }[] = [
-  { id: 'day', label: 'Día' },
   { id: 'week', label: 'Semana' },
   { id: 'month', label: 'Mes' }
 ]
@@ -35,7 +35,8 @@ export default function CashToolbar({
   onNavigateNext,
   onNavigatePrevious,
   timeScale,
-  onTimeScaleChange
+  onTimeScaleChange,
+  showClosingButton = true
 }: CashToolbarProps) {
   const [isClosingModalOpen, setIsClosingModalOpen] = useState(false)
   const [isScaleDropdownOpen, setIsScaleDropdownOpen] = useState(false)
@@ -146,21 +147,25 @@ export default function CashToolbar({
         </div>
       </div>
 
-      <button
-        type='button'
-        className='inline-flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-neutral-900 shadow-cta transition-colors hover:bg-brand-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-surface-app'
-        style={ctaStyles}
-        onClick={() => setIsClosingModalOpen(true)}
-        aria-haspopup='dialog'
-        aria-expanded={isClosingModalOpen}
-      >
-        Cerrar caja
-      </button>
+      {showClosingButton ? (
+        <>
+          <button
+            type='button'
+            className='inline-flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-neutral-900 shadow-cta transition-colors hover:bg-brand-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-surface-app'
+            style={ctaStyles}
+            onClick={() => setIsClosingModalOpen(true)}
+            aria-haspopup='dialog'
+            aria-expanded={isClosingModalOpen}
+          >
+            Cerrar caja
+          </button>
 
-      <CashClosingModal
-        open={isClosingModalOpen}
-        onClose={() => setIsClosingModalOpen(false)}
-      />
+          <CashClosingModal
+            open={isClosingModalOpen}
+            onClose={() => setIsClosingModalOpen(false)}
+          />
+        </>
+      ) : null}
     </div>
   )
 }

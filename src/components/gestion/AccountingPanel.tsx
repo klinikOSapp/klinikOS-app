@@ -1,5 +1,6 @@
 'use client'
 
+import type { CashTimeScale } from '@/components/caja/cajaTypes'
 import type { CSSProperties } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 
@@ -13,6 +14,196 @@ const toWidth = (px: number) => {
   return `min(calc(${CARD_WIDTH} * ${ratio}), calc(${CARD_WIDTH_LIMIT} * ${ratio}))`
 }
 
+function getKpiCards(timeScale: CashTimeScale) {
+  if (timeScale === 'week') {
+    return [
+      {
+        title: 'Producido',
+        value: '320 €',
+        delta: '+ 3%',
+        bg: 'var(--color-info-50)',
+        icon: 'attach_money',
+        left: 16,
+        top: 64,
+        width: 198
+      },
+      {
+        title: 'Facturado',
+        value: '420 €',
+        delta: '+ 5%',
+        bg: '#e9f6fb',
+        icon: 'receipt_long',
+        left: 236,
+        top: 64,
+        width: 198
+      },
+      {
+        title: 'Cobrado',
+        value: '380 €',
+        delta: '+ 4%',
+        bg: 'var(--color-brand-50)',
+        icon: 'check_circle',
+        left: 16,
+        top: 196,
+        width: 198
+      },
+      {
+        title: 'Por cobrar',
+        value: '-150 €',
+        delta: '+ 2%',
+        bg: 'var(--color-warning-50)',
+        icon: 'hourglass_top',
+        left: 236,
+        top: 196,
+        width: 204
+      }
+    ] as const
+  }
+
+  return [
+    {
+      title: 'Producido',
+      value: '1.200 €',
+      delta: '+ 12%',
+      bg: 'var(--color-info-50)',
+      icon: 'attach_money',
+      left: 16,
+      top: 64,
+      width: 198
+    },
+    {
+      title: 'Facturado',
+      value: '1.200 €',
+      delta: '+ 12%',
+      bg: '#e9f6fb',
+      icon: 'receipt_long',
+      left: 236,
+      top: 64,
+      width: 198
+    },
+    {
+      title: 'Cobrado',
+      value: '1.200 €',
+      delta: '+ 12%',
+      bg: 'var(--color-brand-50)',
+      icon: 'check_circle',
+      left: 16,
+      top: 196,
+      width: 198
+    },
+    {
+      title: 'Por cobrar',
+      value: '-1.200 €',
+      delta: '+ 12%',
+      bg: 'var(--color-warning-50)',
+      icon: 'hourglass_top',
+      left: 236,
+      top: 196,
+      width: 204
+    }
+  ] as const
+}
+
+function getDonut(timeScale: CashTimeScale) {
+  if (timeScale === 'week') {
+    const value = 380
+    const target = 500
+    return {
+      data: [
+        { name: 'actual', value, color: 'var(--color-brand-500)' },
+        {
+          name: 'remaining',
+          value: Math.max(target - value, 0),
+          color: 'var(--color-brand-50)'
+        }
+      ],
+      progress: value / target,
+      valueLabel: `${value} €`,
+      targetLabel: `${target} €`
+    }
+  }
+
+  const value = 1200
+  const target = 1800
+  return {
+    data: [
+      { name: 'actual', value, color: 'var(--color-brand-500)' },
+      {
+        name: 'remaining',
+        value: Math.max(target - value, 0),
+        color: 'var(--color-brand-50)'
+      }
+    ],
+    progress: value / target,
+    valueLabel: `${value} €`,
+    targetLabel: `${target} €`
+  }
+}
+
+function getSideStack(timeScale: CashTimeScale) {
+  if (timeScale === 'week') {
+    return [
+      {
+        title: 'Total facturación',
+        value: '15.000 €',
+        top: 64,
+        height: 248,
+        bg: 'var(--color-brand-50)',
+        percent: undefined,
+        textClass: 'text-fg-secondary'
+      },
+      {
+        title: 'Gastos fijos',
+        value: '9.000 €',
+        top: 135,
+        height: 177,
+        bg: 'var(--color-brand-200)',
+        percent: '60%',
+        textClass: 'text-fg-secondary'
+      },
+      {
+        title: 'Gastos Variables',
+        value: '5.000 €',
+        top: 210,
+        height: 102,
+        bg: 'var(--color-brand-500)',
+        percent: '33%',
+        textClass: 'text-fg-inverse'
+      }
+    ] as const
+  }
+
+  return [
+    {
+      title: 'Total facturación',
+      value: '60.000 €',
+      top: 64,
+      height: 248,
+      bg: 'var(--color-brand-50)',
+      percent: undefined,
+      textClass: 'text-fg-secondary'
+    },
+    {
+      title: 'Gastos fijos',
+      value: '36.000 €',
+      top: 135,
+      height: 177,
+      bg: 'var(--color-brand-200)',
+      percent: '62%',
+      textClass: 'text-fg-secondary'
+    },
+    {
+      title: 'Gastos Variables',
+      value: '18.000 €',
+      top: 210,
+      height: 102,
+      bg: 'var(--color-brand-500)',
+      percent: '32%',
+      textClass: 'text-fg-inverse'
+    }
+  ] as const
+}
+
 const toHeight = (px: number) => {
   const ratio = (px / 342).toFixed(6)
   return `min(calc(${CARD_HEIGHT_CLAMP} * ${ratio}), calc(${CARD_HEIGHT_LIMIT} * ${ratio}))`
@@ -21,102 +212,26 @@ const toHeight = (px: number) => {
 type AccountingStyle = CSSProperties &
   Record<'--accounting-height-current' | '--stack-scale-y', string>
 
-const KPI_CARDS = [
-  {
-    title: 'Producido',
-    value: '1.200 €',
-    delta: '+ 12%',
-    bg: 'var(--color-info-50)',
-    icon: 'money_bag',
-    left: 16,
-    top: 64,
-    width: 198
-  },
-  {
-    title: 'Facturado',
-    value: '1.200 €',
-    delta: '+ 12%',
-    bg: '#e9f6fb',
-    icon: 'receipt_long',
-    left: 236,
-    top: 64,
-    width: 198
-  },
-  {
-    title: 'Cobrado',
-    value: '1.200 €',
-    delta: '+ 12%',
-    bg: 'var(--color-brand-50)',
-    icon: 'check',
-    left: 16,
-    top: 196,
-    width: 198
-  },
-  {
-    title: 'Por cobrar',
-    value: '-1.200 €',
-    delta: '+ 12%',
-    bg: 'var(--color-warning-50)',
-    icon: 'money_bag',
-    left: 236,
-    top: 196,
-    width: 204
-  }
-] as const
-
-const SIDE_STACK = [
-  {
-    title: 'Total facturación',
-    value: '60.000 €',
-    top: 64,
-    height: 248,
-    bg: 'var(--color-brand-50)',
-    percent: undefined,
-    textClass: 'text-fg-secondary'
-  },
-  {
-    title: 'Gastos fijos',
-    value: '36.000 €',
-    top: 135,
-    height: 177,
-    bg: 'var(--color-brand-200)',
-    percent: '62%',
-    textClass: 'text-fg-secondary'
-  },
-  {
-    title: 'Gastos Variables',
-    value: '18.000 €',
-    top: 210,
-    height: 102,
-    bg: 'var(--color-brand-500)',
-    percent: '32%',
-    textClass: 'text-fg-inverse'
-  }
-] as const
-
 const DONUT_VIEWBOX = { width: 200, height: 120 }
 const DONUT_RADIUS = 90
-const DONUT_PROGRESS = 1200 / 1800
 const DONUT_CARD_WIDTH = 400
 const DONUT_CARD_HEIGHT = 248
 const DONUT_CHART_WIDTH = 307
 const DONUT_CHART_HEIGHT = 186.093
 const DONUT_THICKNESS = 20
-const DONUT_VALUE = 1200
-const DONUT_TARGET = 1800
 // Posicionamiento horizontal (ajustado para igualar gaps KPI↔donut↔stack en 1920px)
 const DONUT_LEFT = 457 // px
 const STACK_LEFT = 880 // px
-const DONUT_DATA: { name: string; value: number; color: string }[] = [
-  { name: 'actual', value: DONUT_VALUE, color: 'var(--color-brand-500)' },
-  {
-    name: 'remaining',
-    value: Math.max(DONUT_TARGET - DONUT_VALUE, 0),
-    color: 'var(--color-brand-50)'
-  }
-]
 
-export default function AccountingPanel() {
+export default function AccountingPanel({
+  timeScale
+}: {
+  timeScale: CashTimeScale
+}) {
+  const kpis = getKpiCards(timeScale)
+  const sideStack = getSideStack(timeScale)
+  const donut = getDonut(timeScale)
+
   const sectionStyle: AccountingStyle = {
     width: '100%',
     maxWidth: `min(${CARD_WIDTH}, ${CARD_WIDTH_LIMIT})`,
@@ -129,7 +244,7 @@ export default function AccountingPanel() {
   }
 
   const pathLength = Math.PI * DONUT_RADIUS
-  const donutDashoffset = pathLength * (1 - DONUT_PROGRESS)
+  const donutDashoffset = pathLength * (1 - donut.progress)
 
   return (
     <section
@@ -147,7 +262,7 @@ export default function AccountingPanel() {
         <span>Ingresos</span>
       </header>
 
-      {KPI_CARDS.map((card) => (
+      {kpis.map((card) => (
         <article
           key={card.title}
           className='absolute flex flex-col rounded-lg p-[0.5rem]'
@@ -209,7 +324,7 @@ export default function AccountingPanel() {
           <ResponsiveContainer width='100%' height='100%'>
             <PieChart>
               <Pie
-                data={DONUT_DATA}
+                data={donut.data}
                 dataKey='value'
                 startAngle={180}
                 endAngle={0}
@@ -219,7 +334,7 @@ export default function AccountingPanel() {
                 cy='100%'
                 stroke='transparent'
               >
-                {DONUT_DATA.map((slice) => (
+                {donut.data.map((slice) => (
                   <Cell key={slice.name} fill={slice.color} />
                 ))}
               </Pie>
@@ -230,7 +345,7 @@ export default function AccountingPanel() {
               className='text-headline-lg text-fg-secondary'
               style={{ color: 'var(--color-neutral-600)' }}
             >
-              1.200 €
+              {donut.valueLabel}
             </p>
             <p className='flex items-baseline gap-[0.5rem] text-label-sm leading-[1rem]'>
               <span
@@ -247,7 +362,7 @@ export default function AccountingPanel() {
                 className='text-title-sm font-medium leading-[1.75rem]'
                 style={{ color: 'var(--color-neutral-600)' }}
               >
-                1.800 €
+                {donut.targetLabel}
               </span>
             </p>
           </div>
@@ -263,7 +378,7 @@ export default function AccountingPanel() {
           height: '100%'
         }}
       >
-        {SIDE_STACK.map((item) => (
+        {sideStack.map((item) => (
           <div
             key={item.title}
             className='absolute rounded-[1rem]'

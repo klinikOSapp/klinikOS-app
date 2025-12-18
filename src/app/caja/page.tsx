@@ -6,15 +6,22 @@ import CashSummaryCard from '@/components/caja/CashSummaryCard'
 import CashToolbar from '@/components/caja/CashToolbar'
 import CashTrendCard from '@/components/caja/CashTrendCard'
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
+import PatientRecordModal, {
+  type PatientRecordTab
+} from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import { useCallback, useMemo, useState } from 'react'
 
 const SUMMARY_CARD_WIDTH_REM = 66.8125 // 1069px
 const TREND_CARD_MIN_WIDTH_REM = 32.6875 // 523px
 
 export default function CajaPage() {
-  const [timeScale, setTimeScale] = useState<CashTimeScale>('day')
+  const [timeScale, setTimeScale] = useState<CashTimeScale>('week')
   const [anchorDate, setAnchorDate] = useState(() => new Date())
   const [summaryHeightRem, setSummaryHeightRem] = useState<number | null>(null)
+  const [patientRecordOpen, setPatientRecordOpen] = useState(false)
+  const [patientRecordTab, setPatientRecordTab] =
+    useState<PatientRecordTab>('Resumen')
+  const [selectedPatient, setSelectedPatient] = useState<string | null>(null)
 
   const dateLabel = useMemo(
     () => formatToolbarLabel(anchorDate, timeScale),
@@ -36,71 +43,144 @@ export default function CajaPage() {
     )
   }, [])
 
+  const handleViewPatient = useCallback((movement: { patient: string }) => {
+    setSelectedPatient(movement.patient)
+    setPatientRecordTab('Presupuestos y pagos')
+    setPatientRecordOpen(true)
+  }, [])
+
   return (
     <ClientLayout>
-      <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-surface-app rounded-tl-[var(--radius-xl)] px-[min(1.5rem,2vw)] py-[min(1.5rem,2vw)] flex flex-col overflow-hidden'>
-        <CashToolbar
-          dateLabel={dateLabel}
-          onNavigateNext={() => handleNavigate(1)}
-          onNavigatePrevious={() => handleNavigate(-1)}
-          timeScale={timeScale}
-          onTimeScaleChange={handleTimeScaleChange}
-        />
+      <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-surface-app rounded-tl-[var(--radius-xl)] flex flex-col overflow-hidden'>
+        <div className='flex-1 overflow-y-auto overflow-x-hidden'>
+          <div className='container-page py-fluid-md pb-plnav flex h-full flex-col gap-gapmd overflow-hidden'>
+            <CashToolbar
+              dateLabel={dateLabel}
+              onNavigateNext={() => handleNavigate(1)}
+              onNavigatePrevious={() => handleNavigate(-1)}
+              timeScale={timeScale}
+              onTimeScaleChange={handleTimeScaleChange}
+            />
 
-        <div className='mt-header-stack flex flex-col flex-1 overflow-hidden gap-[min(0.75rem,1vw)]'>
-          <div
-            className='flex flex-col gap-[min(1.5rem,2vw)] xl:grid xl:items-stretch'
-            style={{
-              gridTemplateColumns: `minmax(0, ${SUMMARY_CARD_WIDTH_REM}rem) minmax(${TREND_CARD_MIN_WIDTH_REM}rem, 1fr)`
-            }}
-          >
-            <div className='w-full'>
-              <CashSummaryCard onHeightChange={handleSummaryHeight} />
-            </div>
-            <div className='w-full'>
-              <CashTrendCard
-                timeScale={timeScale}
-                anchorDate={anchorDate}
-                targetHeightRem={summaryHeightRem ?? undefined}
-              />
+            <div className='flex flex-col flex-1 overflow-hidden gap-gapmd'>
+              <div
+                className='flex flex-col gap-gapmd xl:grid xl:items-stretch'
+                style={{
+                  gridTemplateColumns: `minmax(0, ${SUMMARY_CARD_WIDTH_REM}rem) minmax(${TREND_CARD_MIN_WIDTH_REM}rem, 1fr)`
+                }}
+              >
+                <div className='w-full'>
+                  <CashSummaryCard onHeightChange={handleSummaryHeight} />
+                </div>
+                <div className='w-full'>
+                  <CashTrendCard
+                    timeScale={timeScale}
+                    anchorDate={anchorDate}
+                    targetHeightRem={summaryHeightRem ?? undefined}
+                  />
+                </div>
+              </div>
+
+              <CashMovementsTable onViewPatient={handleViewPatient} />
             </div>
           </div>
-
-          <CashMovementsTable />
         </div>
       </div>
+
+      <PatientRecordModal
+        open={patientRecordOpen}
+        onClose={() => setPatientRecordOpen(false)}
+        initialTab={patientRecordTab}
+      />
     </ClientLayout>
   )
 }
 
 function formatToolbarLabel(date: Date, scale: CashTimeScale) {
-  const intlDay = new Intl.DateTimeFormat('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  })
   switch (scale) {
     case 'week': {
       const start = startOfWeek(date)
       const end = addDays(start, 6)
-      return `${intlDay.format(start)} - ${intlDay.format(end)}`
+      const startLabel = formatDateWithCapitalizedMonths(start, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      })
+      const endLabel = formatDateWithCapitalizedMonths(end, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      })
+      return `${startLabel} - ${endLabel}`
     }
     case 'month': {
-      return new Intl.DateTimeFormat('es-ES', {
+      return formatDateWithCapitalizedMonths(date, {
         month: 'long',
         year: 'numeric'
-      }).format(date)
+      })
     }
     case 'day':
     default: {
-      return new Intl.DateTimeFormat('es-ES', {
+      return formatDateWithCapitalizedMonths(date, {
         weekday: 'long',
         day: 'numeric',
         month: 'short',
         year: 'numeric'
-      }).format(date)
+      })
     }
   }
+}
+
+function formatDateWithCapitalizedMonths(
+  date: Date,
+  options: Intl.DateTimeFormatOptions
+) {
+  const formatted = new Intl.DateTimeFormat('es-ES', options).format(date)
+  return capitalizeSpanishMonth(formatted)
+}
+
+function capitalizeSpanishMonth(label: string) {
+  const longMap: Record<string, string> = {
+    enero: 'Enero',
+    febrero: 'Febrero',
+    marzo: 'Marzo',
+    abril: 'Abril',
+    mayo: 'Mayo',
+    junio: 'Junio',
+    julio: 'Julio',
+    agosto: 'Agosto',
+    septiembre: 'Septiembre',
+    octubre: 'Octubre',
+    noviembre: 'Noviembre',
+    diciembre: 'Diciembre'
+  }
+
+  const shortMap: Record<string, string> = {
+    ene: 'Ene',
+    feb: 'Feb',
+    mar: 'Mar',
+    abr: 'Abr',
+    may: 'May',
+    jun: 'Jun',
+    jul: 'Jul',
+    ago: 'Ago',
+    sept: 'Sept',
+    oct: 'Oct',
+    nov: 'Nov',
+    dic: 'Dic'
+  }
+
+  let result = label.replace(
+    /\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/gi,
+    (match) => longMap[match.toLowerCase()] ?? match
+  )
+
+  result = result.replace(
+    /\b(ene|feb|mar|abr|may|jun|jul|ago|sept|oct|nov|dic)\b/gi,
+    (match) => shortMap[match.toLowerCase()] ?? match
+  )
+
+  return result
 }
 
 function shiftAnchor(date: Date, scale: CashTimeScale, direction: 1 | -1) {

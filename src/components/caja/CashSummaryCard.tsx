@@ -49,24 +49,24 @@ const SUMMARY_CARDS: SummaryCard[] = [
   }
 ]
 
-const CARD_HEIGHT_REM = 21.375 // 342px
-const CARD_HEIGHT_PX = 342
+const CARD_HEIGHT_REM = 17.5 // 280px — reducir alto total para ganar espacio a la tabla
+const CARD_HEIGHT_PX = 280
 const INCOME_CARD_WIDTH_REM = 66.8125 // 1069px
 const INCOME_CARD_WIDTH_PX = 1069
 const SUMMARY_CARD_WIDTH_REM = 12.375 // 198px
-const SUMMARY_CARD_HEIGHT_REM = 7.25 // 116px
+const SUMMARY_CARD_HEIGHT_REM = 6 // 96px — cards más bajas sin tocar tipografías
 const SUMMARY_CARD_COLUMN_GAP_REM = 1.375 // 22px
 const SUMMARY_CARD_ROW_GAP_REM = 1 // 16px
 const SUMMARY_GRID_WIDTH_REM =
   SUMMARY_CARD_WIDTH_REM * 2 + SUMMARY_CARD_COLUMN_GAP_REM // 26.125rem
 const DONUT_CARD_WIDTH_REM = 36.8125 // 589px
-const DONUT_CARD_HEIGHT_REM = 15.5 // 248px
+const DONUT_CARD_HEIGHT_REM = 13 // 208px — acompasa el recorte vertical
 const DONUT_CARD_MIN_HEIGHT_REM = DONUT_CARD_HEIGHT_REM
 const DONUT_MAX_WIDTH_REM = 36.8 // 588.8px (casi todo el ancho útil de la card de 589px)
 const DONUT_MIN_WIDTH_REM = 15 // 240px
 const DONUT_HEIGHT_RATIO = 186.093 / 307 // mantener proporción real del donut de gestión
 const DONUT_SAFE_SPACE_REM = 0 // sin margen para ocupar casi todo
-const DONUT_SCALE = 1.7 // escala global del donut (como en AccountingPanel)
+const DONUT_SCALE = 1.55 // bajar escala para evitar overflow con menor altura
 
 const getRootFontSize = () => {
   if (typeof window === 'undefined') return 16
@@ -110,7 +110,10 @@ export default function CashSummaryCard({
 
     const observer = new ResizeObserver(([entry]) => {
       if (!entry) return
-      const ratio = Math.min(1, entry.contentRect.width / INCOME_CARD_WIDTH_PX)
+      const { width, height } = entry.contentRect
+      const widthRatio = width / INCOME_CARD_WIDTH_PX
+      const heightRatio = height / CARD_HEIGHT_PX
+      const ratio = Math.min(1, widthRatio, heightRatio)
       setScale(ratio)
     })
 
@@ -155,25 +158,6 @@ export default function CashSummaryCard({
           transformOrigin: 'top left'
         }}
       >
-        <header className='flex items-center justify-between'>
-          <h2 className='text-title-sm font-medium text-fg'>Ingresos</h2>
-          <button
-            type='button'
-            className='inline-flex items-center gap-[0.25rem] text-label-md text-fg-secondary'
-          >
-            2024
-            <span
-              className='material-symbols-rounded text-[1rem] leading-[1rem]'
-              style={{
-                fontSize: `${iconSizeRem}rem`,
-                lineHeight: `${iconSizeRem}rem`
-              }}
-            >
-              arrow_drop_down
-            </span>
-          </button>
-        </header>
-
         <div className='mt-[1rem] flex flex-1 gap-gapmd'>
           <div className='grid flex-none' style={summaryGridStyles}>
             {SUMMARY_CARDS.map((card) => (
@@ -211,7 +195,7 @@ function SummaryInsightCard({
       className='flex h-full flex-col rounded-lg p-[0.5rem]'
       style={cardStyles}
     >
-      <div className='flex h-full flex-col gap-[1.5rem]'>
+      <div className='flex h-full flex-col gap-[0.75rem]'>
         <div className='flex items-center justify-between text-label-md text-neutral-600'>
           <span
             className='material-symbols-rounded text-[1rem] leading-[1rem] text-neutral-600'
@@ -223,11 +207,8 @@ function SummaryInsightCard({
           >
             {card.accessory}
           </span>
-          <span className='text-[0.6875rem] font-medium leading-[1rem]'>
-            Hoy
-          </span>
         </div>
-        <div className='flex flex-col gap-[0.25rem] text-neutral-600'>
+        <div className='flex flex-col gap-[0.125rem] text-neutral-600'>
           <div className='text-label-md'>{card.title}</div>
           <div className='flex items-baseline justify-between gap-[0.5rem]'>
             <p className='text-headline-sm text-neutral-600 whitespace-nowrap'>
@@ -306,7 +287,7 @@ function CashDonutGauge() {
   const chartWrapperStyles: CSSProperties = {
     position: 'absolute',
     left: '50%',
-    top: '18%',
+    top: '16%',
     transform: 'translate(-50%, -50%)',
     width: `${pxToRem(chartDimensions.widthPx * DONUT_SCALE)}rem`,
     height: `${pxToRem(chartDimensions.heightPx * DONUT_SCALE)}rem`
@@ -315,7 +296,7 @@ function CashDonutGauge() {
   const valueStackStyles: CSSProperties = {
     position: 'absolute',
     left: '50%',
-    top: '70%',
+    top: '68%',
     transform: 'translate(-50%, -50%)',
     textAlign: 'center'
   }

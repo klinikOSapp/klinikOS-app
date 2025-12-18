@@ -36,8 +36,8 @@ const RECOUNT_INPUT_HEIGHT_REM = pxToRem(48) // 3rem
 const RECOUNT_CTA_LEFT_REM = pxToRem(451) // 28.1875rem
 
 const TABLE_COLUMN_WIDTHS_REM = [
-  pxToRem(95),
-  pxToRem(287),
+  pxToRem(110),
+  pxToRem(300),
   pxToRem(348),
   pxToRem(166),
   pxToRem(200)
@@ -72,7 +72,7 @@ const RECOUNT_FIELDS = [
   { id: 'cash', label: 'Efectivo', should: '300€' },
   { id: 'tpv', label: 'TPV', should: '600€' },
   { id: 'transfer', label: 'Transferencia', should: '1.000€' },
-  { id: 'cheque', label: 'Cheque', should: '1.500€' }
+  { id: 'financiación', label: 'Financiación', should: '1.500€' }
 ] as const
 
 type RecountFieldId = (typeof RECOUNT_FIELDS)[number]['id']
@@ -81,68 +81,68 @@ const INITIAL_RECOUNT_VALUES: Record<RecountFieldId, string> = {
   cash: '',
   tpv: '',
   transfer: '',
-  cheque: ''
+  financiación: ''
 }
 
 const CASH_CLOSING_ROWS = [
   {
-    time: '09:00',
+    time: '15 Dic. 2024',
     patient: 'Carlos Martínez Pérez',
     concept: 'Operación mandíbula',
     amount: '2.300 €',
     method: 'Financiado'
   },
   {
-    time: '09:30',
+    time: '15 Dic. 2024',
     patient: 'Nacho Nieto Iniesta',
     concept: 'Consulta inicial',
     amount: '150 €',
     method: 'TPV'
   },
   {
-    time: '10:00',
+    time: '16 Dic. 2024',
     patient: 'Sofía Rodríguez López',
     concept: 'Radiografía',
     amount: '100 €',
     method: 'Efectivo'
   },
   {
-    time: '10:30',
+    time: '16 Dic. 2024',
     patient: 'Elena García Santos',
     concept: 'Extracción de muela',
     amount: '500 €',
     method: 'Tarjeta de crédito'
   },
   {
-    time: '11:00',
+    time: '17 Dic. 2024',
     patient: 'Javier Fernández Torres',
     concept: 'Implante dental',
     amount: '1.200 €',
     method: 'Transferencia bancaria'
   },
   {
-    time: '11:30',
+    time: '17 Dic. 2024',
     patient: 'Lucía Pérez Gómez',
     concept: 'Férula de descarga',
     amount: '300 €',
     method: 'Billetera digital'
   },
   {
-    time: '12:00',
+    time: '18 Dic. 2024',
     patient: 'Andrés Jiménez Ortega',
     concept: 'Tratamiento de ortodoncia',
     amount: '1.800 €',
     method: 'Criptomonedas'
   },
   {
-    time: '12:30',
+    time: '18 Dic. 2024',
     patient: 'María del Mar Ruiz',
     concept: 'Consulta de seguimiento',
     amount: '100 €',
-    method: 'Cheque'
+    method: 'financiación'
   },
   {
-    time: '13:00',
+    time: '19 Dic. 2024',
     patient: 'Pablo Sánchez Delgado',
     concept: 'Blanqueamiento dental',
     amount: '400 €',
@@ -163,7 +163,7 @@ export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
   const [recountValues, setRecountValues] = React.useState(
     INITIAL_RECOUNT_VALUES
   )
-  const [step, setStep] = React.useState<ModalStep>('summary')
+  const [step, setStep] = React.useState<ModalStep>('recount')
 
   React.useEffect(() => {
     setMounted(true)
@@ -184,7 +184,7 @@ export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
     if (open) {
       setTotalValues(INITIAL_TOTAL_VALUES)
       setRecountValues(INITIAL_RECOUNT_VALUES)
-      setStep('summary')
+      setStep('recount')
     }
   }, [open])
 
@@ -197,13 +197,13 @@ export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
   }
 
   const handleClose = () => {
-    setStep('summary')
+    setStep('recount')
     onClose()
   }
 
   const handleContinue = () => {
-    if (step === 'summary') {
-      setStep('recount')
+    if (step === 'recount') {
+      setStep('summary')
       return
     }
     handleClose()
@@ -399,7 +399,7 @@ function SummaryStep({
             className='grid border-b border-border text-body-md font-medium text-neutral-600'
             style={tableGridStyles}
           >
-            {['Hora', 'Paciente', 'Concepto', 'Cantidad', 'Método'].map(
+            {['Día', 'Paciente', 'Concepto', 'Cantidad', 'Método'].map(
               (header, index) => (
                 <div
                   key={`${header}-${index}`}

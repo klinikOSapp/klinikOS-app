@@ -10,7 +10,7 @@ import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 const Y_AXIS_LABELS = ['50K', '40K', '30K', '20K', '10K', 'º']
 
 const CARD_WIDTH_PX = 523
-const CARD_HEIGHT_PX = 342
+const CARD_HEIGHT_PX = 320
 const CARD_HEIGHT_REM = CARD_HEIGHT_PX / 16
 const TREND_CARD_WIDTH_REM = 32.6875 // 523px
 const GRID_WIDTH_PX = 451
@@ -60,12 +60,6 @@ const chartCanvas = {
   maxValue: 50
 }
 
-const HEADER_RECT = {
-  left: CARD_PADDING_PX,
-  top: CARD_PADDING_PX,
-  width: 491,
-  height: 24
-}
 const FACT_CHIP_RECT = {
   left: CHIP_LEFT_PX,
   top: CHIP_FACT_TOP_PX,
@@ -98,6 +92,7 @@ const GRID_RECT = {
 }
 const GRID_FILL_RECT = { left: 0, top: 160, width: GRID_WIDTH_PX, height: 68 }
 const TARGET_RATIO = TARGET_VALUE_EUR / (chartCanvas.maxValue * 1000)
+const PRESENT_POSITION_RATIO = 0.7
 
 type SeriesPoint = {
   label: string
@@ -181,22 +176,6 @@ export default function CashTrendCard({
           minWidth: CARD_WIDTH_PX * scale
         }}
       >
-        <header
-          className='absolute flex items-center justify-between'
-          style={rectToStyle(HEADER_RECT)}
-        >
-          <h2 className='text-title-sm font-medium text-fg'>Ingresos</h2>
-          <button
-            type='button'
-            className='inline-flex items-center gap-[0.25rem] text-label-md font-normal text-fg'
-          >
-            2024
-            <span className='material-symbols-rounded text-[1rem] leading-4 text-fg'>
-              arrow_drop_down
-            </span>
-          </button>
-        </header>
-
         <div
           className='absolute inline-flex items-center gap-[0.25rem] rounded-pill border border-brandSemantic px-[0.5rem] py-[0.25rem] text-label-md font-normal text-brandSemantic'
           style={{ ...rectToStyle(FACT_CHIP_RECT), whiteSpace: 'nowrap' }}
@@ -352,7 +331,7 @@ function buildDailySeries(anchorDate: Date): SeriesResult {
   return {
     labels: dataPoints.map((point) => point.label),
     dataPoints,
-    highlightIndex: dataPoints.length - 1
+    highlightIndex: computePresentIndex(dataPoints.length)
   }
 }
 
@@ -369,7 +348,7 @@ function buildWeeklySeries(anchorDate: Date): SeriesResult {
   return {
     labels: dataPoints.map((point) => point.label),
     dataPoints,
-    highlightIndex: dataPoints.length - 1
+    highlightIndex: computePresentIndex(dataPoints.length)
   }
 }
 
@@ -386,7 +365,7 @@ function buildMonthlySeries(anchorDate: Date): SeriesResult {
   return {
     labels: dataPoints.map((point) => point.label),
     dataPoints,
-    highlightIndex: dataPoints.length - 1
+    highlightIndex: computePresentIndex(dataPoints.length)
   }
 }
 
@@ -425,4 +404,9 @@ function generateValue(date: Date, slope: number, base: number) {
   const trend = ((date.getMonth() % 6) + 1) * slope
   const value = Math.min(48, Math.max(8, base + trend + noise))
   return Math.round((value + Number.EPSILON) * 10) / 10
+}
+
+function computePresentIndex(length: number) {
+  const maxIndex = Math.max(length - 1, 0)
+  return Math.min(maxIndex, Math.round(maxIndex * PRESENT_POSITION_RATIO))
 }

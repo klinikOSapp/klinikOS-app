@@ -7,22 +7,25 @@ import ClinicalHistory from './ClinicalHistory'
 import Consents from './Consents'
 import RxImages from './RxImages'
 
+export type PatientRecordTab =
+  | 'Resumen'
+  | 'Historial clínico'
+  | 'Imágenes RX'
+  | 'Presupuestos y pagos'
+  | 'Consentimientos'
+
 type PatientRecordModalProps = {
   open: boolean
   onClose: () => void
+  initialTab?: PatientRecordTab
 }
 
 export default function PatientRecordModal({
   open,
-  onClose
+  onClose,
+  initialTab = 'Resumen'
 }: PatientRecordModalProps) {
-  const [active, setActive] = React.useState<
-    | 'Resumen'
-    | 'Historial clínico'
-    | 'Imágenes RX'
-    | 'Presupuestos y pagos'
-    | 'Consentimientos'
-  >('Resumen')
+  const [active, setActive] = React.useState<PatientRecordTab>(initialTab)
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -34,6 +37,12 @@ export default function PatientRecordModal({
     }
     return undefined
   }, [onClose, open])
+
+  React.useEffect(() => {
+    if (open) {
+      setActive(initialTab)
+    }
+  }, [initialTab, open])
 
   if (!open) return null
 

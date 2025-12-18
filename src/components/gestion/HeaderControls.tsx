@@ -1,12 +1,16 @@
 /* eslint-disable @next/next/no-img-element */
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import type { CashTimeScale } from '@/components/caja/cajaTypes'
+import DateNavigator from '@/components/gestion/DateNavigator'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 type HeaderControlsProps = {
-  dateLabel?: string
-  onNavigatePrevious?: () => void
-  onNavigateNext?: () => void
+  dateLabel: string
+  timeScale: CashTimeScale
+  onTimeScaleChange: (scale: CashTimeScale) => void
+  onNavigatePrevious: () => void
+  onNavigateNext: () => void
   onFiltersApply?: (filters: {
     specialty: string
     period: string
@@ -26,6 +30,10 @@ type SelectFieldProps = {
 const FIELD_WIDTH = 'min(26.5rem, 92vw)'
 const PANEL_WIDTH = 'min(28.5rem, 95vw)'
 const PANEL_HEIGHT = 'min(48.5rem, 90vh)'
+const SCALE_OPTIONS: { id: CashTimeScale; label: string }[] = [
+  { id: 'week', label: 'Semana' },
+  { id: 'month', label: 'Mes' }
+]
 
 function SelectField({
   label,
@@ -99,7 +107,7 @@ function FiltersOverlay({
     () => ['Todas', 'Conservadora', 'Ortodoncia', 'Implantes', 'Estética'],
     []
   )
-  const periodOptions = useMemo(() => ['Mes', 'Semana', 'Día'], [])
+  const periodOptions = useMemo(() => ['Mes', 'Semana'], [])
   const [specialty, setSpecialty] = useState(specialtyOptions[0])
   const [period, setPeriod] = useState(periodOptions[0])
   const [openSelect, setOpenSelect] = useState<'specialty' | 'period' | null>(
@@ -428,18 +436,109 @@ function FiltersOverlay({
 }
 
 export default function HeaderControls({
-  dateLabel = '13 - 19, oct 2025',
+  dateLabel,
+  timeScale,
+  onTimeScaleChange,
   onNavigatePrevious,
   onNavigateNext,
   onFiltersApply
 }: HeaderControlsProps) {
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
+  const [isScaleDropdownOpen, setIsScaleDropdownOpen] = useState(false)
+  const scaleDropdownRef = useRef<HTMLDivElement | null>(null)
+
+  const currentScaleLabel =
+    SCALE_OPTIONS.find(({ id }) => id === timeScale)?.label ?? ''
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (
+        scaleDropdownRef.current &&
+        !scaleDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsScaleDropdownOpen(false)
+      }
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsScaleDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick)
+    document.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [])
 
   const pillButtonClasses =
     'inline-flex items-center justify-center h-[var(--nav-chip-height)] px-[var(--nav-chip-pad-x)] rounded-full border border-border bg-surface-app text-title-sm font-medium text-fg gap-gapsm transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-0'
 
   return (
-    <div className='flex flex-col gap-fluid-sm xl:flex-row xl:items-center xl:justify-end mt-[var(--spacing-plnav)]'>
+    <div className='flex flex-col gap-fluid-sm xl:flex-row xl:items-center xl:justify-between mt-[var(--spacing-plnav)]'>
+      <div className='flex flex-nowrap items-center gap-gapmd min-w-0 overflow-x-auto'>
+        <DateNavigator
+          dateLabel={dateLabel}
+          onNext={onNavigateNext}
+          onPrevious={onNavigatePrevious}
+        />
+
+        <div className='flex items-center gap-gapsm' ref={scaleDropdownRef}>
+          <div className='relative'>
+            <button
+              type='button'
+              className='inline-flex h-[var(--nav-chip-height)] min-w-0 items-center justify-between gap-gapsm rounded-full border border-border bg-surface-app px-[var(--nav-chip-pad-x)] text-title-sm font-medium text-fg transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-0'
+              style={{ minWidth: 'min(5.5625rem, 40vw)' }}
+              aria-haspopup='listbox'
+              aria-expanded={isScaleDropdownOpen}
+              onClick={() => setIsScaleDropdownOpen((prev) => !prev)}
+            >
+              <span className='text-nowrap'>{currentScaleLabel}</span>
+              <span className='material-symbols-rounded rotate-90 text-fg'>
+                arrow_forward_ios
+              </span>
+            </button>
+
+            {isScaleDropdownOpen ? (
+              <div
+                className='absolute left-0 top-[calc(100%+0.5rem)] z-20 flex flex-col rounded-[var(--radius-xl)] border border-border bg-[rgba(248,250,251,0.9)] py-[0.5rem] backdrop-blur-[0.125rem] shadow-[0_0.25rem_0.75rem_rgba(0,0,0,0.08)]'
+                style={{ width: 'min(9.3125rem, 40vw)' }}
+              >
+                {SCALE_OPTIONS.map(({ id, label }) => {
+                  const isActive = timeScale === id
+                  return (
+                    <button
+                      key={id}
+                      type='button'
+                      role='option'
+                      aria-selected={isActive}
+                      className={`flex w-full items-center justify-between gap-gapsm px-[0.75rem] py-[0.5rem] text-left text-title-sm font-medium text-fg transition-colors hover:bg-surface focus:outline-none ${
+                        isActive ? 'bg-brand-50 text-fg' : ''
+                      }`}
+                      onClick={() => {
+                        onTimeScaleChange(id)
+                        setIsScaleDropdownOpen(false)
+                      }}
+                    >
+                      <span className='text-nowrap'>{label}</span>
+                      {isActive ? (
+                        <span className='material-symbols-rounded text-[1rem] leading-4 text-brandSemantic'>
+                          check
+                        </span>
+                      ) : null}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
       <div className='flex w-full flex-nowrap items-center gap-gapsm justify-end pr-4 min-w-0 overflow-x-auto'>
         <button
           className={pillButtonClasses}
