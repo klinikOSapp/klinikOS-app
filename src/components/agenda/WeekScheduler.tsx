@@ -62,15 +62,7 @@ const TIME_LABELS = [
   '20:00'
 ]
 
-const WEEKDAY_ORDER: Weekday[] = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday'
-]
+const WEEKDAY_ORDER: Weekday[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
 
 const normalizeTimeLabel = (label: string): string => {
   const [hoursPart = '00', minutesPart = '00'] = label.split(':')
@@ -114,20 +106,6 @@ const HEADER_CELLS: HeaderCell[] = [
     leftVar: '--scheduler-header-left-fri',
     widthVar: '--scheduler-header-width',
     tone: 'primary'
-  },
-  {
-    id: 'saturday',
-    label: '18 Sábado',
-    leftVar: '--scheduler-header-left-sat',
-    widthVar: '--scheduler-header-width',
-    tone: 'primary'
-  },
-  {
-    id: 'sunday',
-    label: '19 Domingo',
-    leftVar: '--scheduler-header-left-sun',
-    widthVar: '--scheduler-header-width',
-    tone: 'primary'
   }
 ]
 
@@ -147,7 +125,8 @@ const PROFESSIONAL_OPTIONS = [
 
 const BOX_OPTIONS = [
   { id: 'box-1', label: 'Box 1' },
-  { id: 'box-2', label: 'Box 2' }
+  { id: 'box-2', label: 'Box 2' },
+  { id: 'box-3', label: 'Box 3' }
 ]
 
 const DATE_BY_DAY: Record<Weekday, string> = {
@@ -213,11 +192,8 @@ function getOverlayTop(relativeTop: string): string {
 
 function getOverlayLeft(column: DayColumn): string {
   // Smart positioning: place overlay to the right of the event when possible
-  // If event is in the last 4 columns (thu/fri/sat/sun), place overlay to the LEFT
-  // This prevents the overlay from appearing too far right or off-screen
-  const isRightColumn = ['thursday', 'friday', 'saturday', 'sunday'].includes(
-    column.id
-  )
+  // If event is in the last columns (thu/fri), place overlay to the LEFT to prevent overflow
+  const isRightColumn = ['thursday', 'friday'].includes(column.id)
 
   if (isRightColumn) {
     // Place overlay to the LEFT of the column
@@ -255,32 +231,38 @@ const EVENT_DATA: Record<Weekday, AgendaEvent[]> = {
       top: '1.4375rem', // 23px
       height: '4rem', // 64px - single-line content
       title: 'Limpieza dental',
-      patient: 'Juan Pérez',
+      patient: 'Paciente Box 1',
       box: 'Box 1',
       timeRange: '12:30 - 13:30',
       backgroundClass: 'bg-[var(--color-brand-100)]',
+      left: '2%',
+      width: '30%',
       detail: createDetail('monday', 'Limpieza dental', '12:30')
     },
     {
       id: 'mon-2',
-      top: '6.4375rem', // 103px
+      top: '1.4375rem', // 23px
       height: '4rem', // 64px - single-line content
       title: 'Limpieza dental',
-      patient: 'Juan Pérez',
-      box: 'Box 1',
+      patient: 'Paciente Box 2',
+      box: 'Box 2',
       timeRange: '12:30 - 13:30',
       backgroundClass: 'bg-[rgba(86,145,255,0.2)]',
+      left: '34%',
+      width: '30%',
       detail: createDetail('monday', 'Limpieza dental', '12:30')
     },
     {
       id: 'mon-3',
-      top: '11.4375rem', // 183px
+      top: '1.4375rem', // 23px
       height: '4rem', // 64px - single-line content
       title: 'Limpieza dental',
-      patient: 'Juan Pérez',
-      box: 'Box 1',
+      patient: 'Paciente Box 3',
+      box: 'Box 3',
       timeRange: '12:30 - 13:30',
       backgroundClass: 'bg-[rgba(86,145,255,0.2)]',
+      left: '66%',
+      width: '30%',
       detail: createDetail('monday', 'Limpieza dental', '12:30')
     }
   ],
@@ -333,8 +315,75 @@ const EVENT_DATA: Record<Weekday, AgendaEvent[]> = {
       detail: createDetail('wednesday', 'Limpieza dental', '12:30')
     }
   ],
-  thursday: [],
-  friday: [],
+  thursday: [
+    {
+      id: 'thu-1',
+      top: '1.4375rem', // 23px
+      height: '4rem', // 64px - single-line content
+      title: 'Chequeo general',
+      patient: 'Paciente Box 1',
+      box: 'Box 1',
+      timeRange: '12:30 - 13:30',
+      backgroundClass: 'bg-[var(--color-brand-100)]',
+      left: '4%',
+      width: '44%',
+      detail: createDetail('thursday', 'Chequeo general', '12:30')
+    },
+    {
+      id: 'thu-2',
+      top: '1.4375rem', // 23px
+      height: '4rem', // 64px - single-line content
+      title: 'Revisión ortodoncia',
+      patient: 'Paciente Box 2',
+      box: 'Box 2',
+      timeRange: '12:30 - 13:30',
+      backgroundClass: 'bg-[#e9fbf9]',
+      left: '52%',
+      width: '44%',
+      detail: createDetail('thursday', 'Revisión ortodoncia', '12:30')
+    }
+  ],
+  friday: [
+    {
+      id: 'fri-1',
+      top: '1.4375rem',
+      height: '4rem',
+      title: 'Consulta simultánea',
+      patient: 'Paciente Demo 1',
+      box: 'Box 1',
+      timeRange: '12:30 - 13:30',
+      backgroundClass: 'bg-[var(--color-brand-100)]',
+      left: '2%',
+      width: '30%',
+      detail: createDetail('friday', 'Consulta simultánea', '12:30')
+    },
+    {
+      id: 'fri-2',
+      top: '1.4375rem',
+      height: '4rem',
+      title: 'Consulta simultánea',
+      patient: 'Paciente Demo 2',
+      box: 'Box 2',
+      timeRange: '12:30 - 13:30',
+      backgroundClass: 'bg-[#fbf3e9]',
+      left: '34%',
+      width: '30%',
+      detail: createDetail('friday', 'Consulta simultánea', '12:30')
+    },
+    {
+      id: 'fri-3',
+      top: '1.4375rem',
+      height: '4rem',
+      title: 'Consulta simultánea',
+      patient: 'Paciente Demo 3',
+      box: 'Box 3',
+      timeRange: '12:30 - 13:30',
+      backgroundClass: 'bg-[#e9fbf9]',
+      left: '66%',
+      width: '30%',
+      detail: createDetail('friday', 'Consulta simultánea', '12:30')
+    }
+  ],
   saturday: [],
   sunday: []
 }
@@ -355,7 +404,7 @@ const DAY_COLUMNS: DayColumn[] = [
   {
     id: 'wednesday',
     leftVar: '--scheduler-day-left-wed',
-    widthVar: '--scheduler-day-width-first',
+    widthVar: '--scheduler-day-width',
     events: EVENT_DATA.wednesday
   },
   {
@@ -367,20 +416,8 @@ const DAY_COLUMNS: DayColumn[] = [
   {
     id: 'friday',
     leftVar: '--scheduler-day-left-fri',
-    widthVar: '--scheduler-day-width-first',
-    events: EVENT_DATA.friday
-  },
-  {
-    id: 'saturday',
-    leftVar: '--scheduler-day-left-sat',
     widthVar: '--scheduler-day-width',
-    events: EVENT_DATA.saturday
-  },
-  {
-    id: 'sunday',
-    leftVar: '--scheduler-day-left-sun',
-    widthVar: '--scheduler-day-width-first',
-    events: EVENT_DATA.sunday
+    events: EVENT_DATA.friday
   }
 ]
 
@@ -1030,7 +1067,7 @@ export default function WeekScheduler() {
   // Generate week range string "13 - 19, oct 2025"
   const getWeekRangeString = () => {
     const endDate = new Date(currentWeekStart)
-    endDate.setDate(currentWeekStart.getDate() + 6) // Sunday
+    endDate.setDate(currentWeekStart.getDate() + 4) // Friday (no weekends)
 
     const startDay = currentWeekStart.getDate()
     const endDay = endDate.getDate()
@@ -1074,24 +1111,8 @@ export default function WeekScheduler() {
 
   // Generate header cells with actual dates
   const getHeaderCells = (): typeof HEADER_CELLS => {
-    const days = [
-      'Lunes',
-      'Martes',
-      'Miércoles',
-      'Jueves',
-      'Viernes',
-      'Sábado',
-      'Domingo'
-    ]
-    const weekdayIds: Weekday[] = [
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-      'sunday'
-    ]
+    const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
+    const weekdayIds: Weekday[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -1295,16 +1316,6 @@ export default function WeekScheduler() {
               />
             }
             onClick={() => setIsParteDiarioModalOpen(true)}
-          />
-          <ToolbarAction
-            label='Imprimir'
-            icon={
-              <MD3Icon
-                name='PrintRounded'
-                size='sm'
-                className='text-[var(--color-neutral-600)]'
-              />
-            }
           />
           <button
             onClick={() => openCreateAppointmentModal()}

@@ -54,7 +54,8 @@ export default function AppointmentSummaryCard({
       style={{
         top: event.top,
         height: event.height,
-        width: 'var(--scheduler-event-width)'
+        width: event.width ?? 'var(--scheduler-event-width)',
+        left: event.left ?? 'var(--scheduler-event-left-offset)'
       }}
       aria-pressed={isActive}
       aria-controls={isActive ? 'scheduler-event-overlay' : undefined}
