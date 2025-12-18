@@ -7,7 +7,8 @@ import {
   BadgeRounded,
   BarChartRounded,
   CalendarMonthRounded,
-  SellRounded
+  SellRounded,
+  SettingsRounded
 } from '@/components/icons/md3'
 import { LayoutProps } from '@/types/layout'
 
@@ -34,6 +35,12 @@ export default function Layout({ children }: LayoutProps) {
       label: 'Gestión',
       href: '/gestion',
       icon: <BarChartRounded />
+    },
+    {
+      id: 'configuracion',
+      label: 'Configuración',
+      href: '/configuracion',
+      icon: <SettingsRounded />
     }
   ]
 
