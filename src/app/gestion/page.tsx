@@ -67,9 +67,9 @@ export default function GestionPage() {
             <div className='flex h-full flex-col gap-gapmd min-h-0'>
               {/* First row - Stats cards */}
               <div className='dashboard-grid-stats flex-none min-w-0'>
-                <IncomeTypes />
-                <PatientsSummary />
-                <ProductionTotalCard />
+                <IncomeTypes timeScale={timeScale} />
+                <PatientsSummary timeScale={timeScale} />
+                <ProductionTotalCard timeScale={timeScale} />
               </div>
 
               {/* Second row - Billing chart + Specialty donut */}
@@ -81,7 +81,7 @@ export default function GestionPage() {
                   timeScale={timeScale}
                   anchorDate={anchorDate}
                 />
-                <SpecialtyDonut />
+                <SpecialtyDonut timeScale={timeScale} />
               </div>
 
               {/* Third row - Accounting + Professional bars */}
@@ -90,7 +90,7 @@ export default function GestionPage() {
                 style={thirdRowStyles}
               >
                 <AccountingPanel timeScale={timeScale} />
-                <ProfessionalBars />
+                <ProfessionalBars timeScale={timeScale} />
               </div>
             </div>
           </div>

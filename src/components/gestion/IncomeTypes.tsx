@@ -3,18 +3,37 @@ type IncomeItem = {
   value: string
   percent: string
 }
-type IncomeTypesProps = { yearLabel?: string; items?: IncomeItem[] }
+import type { CashTimeScale } from '@/components/caja/cajaTypes'
 
-const defaultItems: IncomeItem[] = [
-  { label: 'Efectivo', value: '1.200 €', percent: '44%' },
-  { label: 'Tarjeta/TPV', value: '2.200 €', percent: '56%' },
-  { label: 'Financiación', value: '800 €', percent: '44%' }
-]
+type IncomeTypesProps = {
+  yearLabel?: string
+  items?: IncomeItem[]
+  timeScale?: CashTimeScale
+}
+
+function getItems(timeScale: CashTimeScale): IncomeItem[] {
+  if (timeScale === 'month') {
+    return [
+      { label: 'Efectivo', value: '4.800 €', percent: '32%' },
+      { label: 'Tarjeta/TPV', value: '9.200 €', percent: '52%' },
+      { label: 'Financiación', value: '1.800 €', percent: '16%' }
+    ]
+  }
+
+  return [
+    { label: 'Efectivo', value: '1.200 €', percent: '32%' },
+    { label: 'Tarjeta/TPV', value: '2.000 €', percent: '55%' },
+    { label: 'Financiación', value: '450 €', percent: '13%' }
+  ]
+}
 
 export default function IncomeTypes({
   yearLabel = '2024',
-  items = defaultItems
+  items,
+  timeScale = 'week'
 }: IncomeTypesProps) {
+  const data = items ?? getItems(timeScale)
+
   return (
     <section
       className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 flex flex-col px-[0.5rem] pt-0 pb-card-inner'
@@ -33,7 +52,7 @@ export default function IncomeTypes({
               'repeat(3, min(var(--width-income-card), calc((100% - (0.75rem * 2)) / 3)))'
           }}
         >
-          {items.map((i) => (
+          {data.map((i) => (
             <div
               key={i.label}
               className='bg-surface-app rounded-lg px-[0.5rem] py-[0.5rem] flex w-full flex-col items-start text-left'

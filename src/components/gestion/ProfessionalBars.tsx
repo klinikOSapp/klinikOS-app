@@ -1,6 +1,7 @@
 // use client is required because Recharts depends on browser APIs
 'use client'
 
+import type { CashTimeScale } from '@/components/caja/cajaTypes'
 import type { CSSProperties } from 'react'
 import {
   Bar,
@@ -23,19 +24,32 @@ const HEADER_TOP = '4.678%' // 16 / 342
 const HEADER_WIDTH = '93.951%' // 497 / 529
 const HEADER_HEIGHT = '7.018%' // 24 / 342
 
-const DATA = [
+const DATA_WEEK = [
   { name: 'Dr. Guille', value: 330, color: '#2A6B67' },
   { name: 'Dra. Laura', value: 270, color: '#51D6C7' },
   { name: 'Tamara (Hig.)', value: 180, color: '#D3F7F3' },
   { name: 'Nerea (Hig.)', value: 210, color: '#A8EFE7' }
 ]
 
-export default function ProfessionalBars() {
+const DATA_MONTH = [
+  { name: 'Dr. Guille', value: 1240, color: '#2A6B67' },
+  { name: 'Dra. Laura', value: 980, color: '#51D6C7' },
+  { name: 'Tamara (Hig.)', value: 620, color: '#D3F7F3' },
+  { name: 'Nerea (Hig.)', value: 720, color: '#A8EFE7' }
+]
+
+export default function ProfessionalBars({
+  timeScale = 'week'
+}: {
+  timeScale?: CashTimeScale
+}) {
   const cardStyles: CSSProperties = {
     width: '100%',
     maxWidth: `min(${CARD_WIDTH_REM}, 95vw, var(--chart-prof-width-limit, ${CARD_WIDTH_REM}))`,
     height: `min(${CARD_HEIGHT_REM}, var(--chart-prof-height-limit, ${CARD_HEIGHT_REM}))`
   }
+
+  const data = timeScale === 'month' ? DATA_MONTH : DATA_WEEK
 
   return (
     <section
@@ -63,7 +77,7 @@ export default function ProfessionalBars() {
       >
         <ResponsiveContainer width='100%' height='100%'>
           <BarChart
-            data={DATA}
+            data={data}
             margin={{
               top: 70,
               right: 24,
@@ -90,7 +104,7 @@ export default function ProfessionalBars() {
               interval={0}
             />
             <Bar dataKey='value' radius={[16, 16, 0, 0]}>
-              {DATA.map((entry) => (
+              {data.map((entry) => (
                 <Cell key={entry.name} fill={entry.color} />
               ))}
             </Bar>
