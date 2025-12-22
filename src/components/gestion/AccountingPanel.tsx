@@ -243,7 +243,7 @@ export default function AccountingPanel({
           top: toHeight(16)
         }}
       >
-        <span>Ingresos</span>
+        <span>Panel de contabilidad</span>
       </header>
 
       {kpis.map((card) => (
