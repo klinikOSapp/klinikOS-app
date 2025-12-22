@@ -201,6 +201,9 @@ const DONUT_CARD_HEIGHT = 248
 const DONUT_CHART_WIDTH = 307
 const DONUT_CHART_HEIGHT = 186.093
 const DONUT_THICKNESS = 20
+// Altura total del stack lateral (desde el top de la primera card hasta el bottom de la segunda) en Figma: top1=64, height1=248, top2=160, height2=177 → span=273px
+const STACK_TOTAL_SPAN_PX = 273
+const STACK_SCALE = Number((DONUT_CARD_HEIGHT / STACK_TOTAL_SPAN_PX).toFixed(6)) // ≈0.908058, iguala la altura total del stack al alto del donut
 // Posicionamiento horizontal (ajustado para igualar gaps KPI↔donut↔stack en 1920px)
 const DONUT_LEFT = 457 // px
 const STACK_LEFT = 880 // px
@@ -220,9 +223,8 @@ export default function AccountingPanel({
     height: `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`,
     // Altura efectiva de la tarjeta (se reutiliza para escalar el stack lateral en viewports bajos)
     '--accounting-height-current': `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`,
-    // El stack completo mide ~312px en Figma (19.5rem). Escalamos 1:1 con la altura efectiva para mantener la alineación vertical con el donut en viewports bajos.
-    '--stack-scale-y':
-      'min(1, calc(var(--accounting-height-current) / 19.5rem))'
+    // Escalamos el stack para que su span total (273px) iguale la altura del donut (248px) en todos los viewports.
+    '--stack-scale-y': STACK_SCALE.toString()
   }
 
   const pathLength = Math.PI * DONUT_RADIUS
