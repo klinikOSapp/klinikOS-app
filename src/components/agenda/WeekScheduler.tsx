@@ -62,15 +62,7 @@ const TIME_LABELS = [
   '20:00'
 ]
 
-const WEEKDAY_ORDER: Weekday[] = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday'
-]
+const WEEKDAY_ORDER: Weekday[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
 
 const normalizeTimeLabel = (label: string): string => {
   const [hoursPart = '00', minutesPart = '00'] = label.split(':')
@@ -112,20 +104,6 @@ const HEADER_CELLS: HeaderCell[] = [
     id: 'friday',
     label: '17 Viernes',
     leftVar: '--scheduler-header-left-fri',
-    widthVar: '--scheduler-header-width',
-    tone: 'primary'
-  },
-  {
-    id: 'saturday',
-    label: '18 Sábado',
-    leftVar: '--scheduler-header-left-sat',
-    widthVar: '--scheduler-header-width',
-    tone: 'primary'
-  },
-  {
-    id: 'sunday',
-    label: '19 Domingo',
-    leftVar: '--scheduler-header-left-sun',
     widthVar: '--scheduler-header-width',
     tone: 'primary'
   }
@@ -213,11 +191,8 @@ function getOverlayTop(relativeTop: string): string {
 
 function getOverlayLeft(column: DayColumn): string {
   // Smart positioning: place overlay to the right of the event when possible
-  // If event is in the last 4 columns (thu/fri/sat/sun), place overlay to the LEFT
-  // This prevents the overlay from appearing too far right or off-screen
-  const isRightColumn = ['thursday', 'friday', 'saturday', 'sunday'].includes(
-    column.id
-  )
+  // For the last columns (thu/fri) place overlay to the LEFT to avoid overflow
+  const isRightColumn = ['thursday', 'friday'].includes(column.id)
 
   if (isRightColumn) {
     // Place overlay to the LEFT of the column
@@ -369,18 +344,6 @@ const DAY_COLUMNS: DayColumn[] = [
     leftVar: '--scheduler-day-left-fri',
     widthVar: '--scheduler-day-width-first',
     events: EVENT_DATA.friday
-  },
-  {
-    id: 'saturday',
-    leftVar: '--scheduler-day-left-sat',
-    widthVar: '--scheduler-day-width',
-    events: EVENT_DATA.saturday
-  },
-  {
-    id: 'sunday',
-    leftVar: '--scheduler-day-left-sun',
-    widthVar: '--scheduler-day-width-first',
-    events: EVENT_DATA.sunday
   }
 ]
 
@@ -1072,34 +1035,46 @@ export default function WeekScheduler() {
     return `${day} ${month} ${year}`
   }
 
+  const capitalize = (value: string): string =>
+    value ? value.charAt(0).toUpperCase() + value.slice(1) : value
+
+  const formatHeaderLabel = (date: Date): string => {
+    const formatter = new Intl.DateTimeFormat('es-ES', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    })
+
+    const parts = formatter.formatToParts(date)
+    const weekday = parts.find((part) => part.type === 'weekday')?.value ?? ''
+    const day = parts.find((part) => part.type === 'day')?.value ?? ''
+    const month = parts.find((part) => part.type === 'month')?.value ?? ''
+    const year = parts.find((part) => part.type === 'year')?.value ?? ''
+
+    const formattedMonth = month
+      ? `${capitalize(month)}${month.endsWith('.') ? '' : '.'}`
+      : ''
+
+    return `${capitalize(weekday)} ${day} ${formattedMonth} ${year}`.trim()
+  }
+
   // Generate header cells with actual dates
   const getHeaderCells = (): typeof HEADER_CELLS => {
-    const days = [
-      'Lunes',
-      'Martes',
-      'Miércoles',
-      'Jueves',
-      'Viernes',
-      'Sábado',
-      'Domingo'
-    ]
     const weekdayIds: Weekday[] = [
       'monday',
       'tuesday',
       'wednesday',
       'thursday',
-      'friday',
-      'saturday',
-      'sunday'
+      'friday'
     ]
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    return days.map((dayName, index) => {
+    return weekdayIds.map((weekdayId, index) => {
       const date = new Date(currentWeekStart)
       date.setDate(currentWeekStart.getDate() + index)
-      const dayNumber = date.getDate()
 
       // Determine tone based on date comparison
       let tone: 'neutral' | 'primary' | 'brand' = 'primary'
@@ -1111,8 +1086,8 @@ export default function WeekScheduler() {
 
       return {
         ...HEADER_CELLS[index],
-        label: `${dayNumber} ${dayName}`,
-        id: weekdayIds[index],
+        label: formatHeaderLabel(date),
+        id: weekdayId,
         tone
       }
     })
@@ -1295,16 +1270,6 @@ export default function WeekScheduler() {
               />
             }
             onClick={() => setIsParteDiarioModalOpen(true)}
-          />
-          <ToolbarAction
-            label='Imprimir'
-            icon={
-              <MD3Icon
-                name='PrintRounded'
-                size='sm'
-                className='text-[var(--color-neutral-600)]'
-              />
-            }
           />
           <button
             onClick={() => openCreateAppointmentModal()}
