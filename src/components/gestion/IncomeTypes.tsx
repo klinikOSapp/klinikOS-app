@@ -2,14 +2,13 @@ type IncomeItem = {
   label: string
   value: string
   percent: string
-  delta?: string
 }
 type IncomeTypesProps = { yearLabel?: string; items?: IncomeItem[] }
 
 const defaultItems: IncomeItem[] = [
-  { label: 'Efectivo', value: '1.200 €', percent: '44%', delta: '+ 12%' },
-  { label: 'Tarjeta/TPV', value: '2.200 €', percent: '56%', delta: '+ 12%' },
-  { label: 'Financiación', value: '800 €', percent: '44%', delta: '+ 12%' }
+  { label: 'Efectivo', value: '1.200 €', percent: '44%' },
+  { label: 'Tarjeta/TPV', value: '2.200 €', percent: '56%' },
+  { label: 'Financiación', value: '800 €', percent: '44%' }
 ]
 
 export default function IncomeTypes({
@@ -37,7 +36,7 @@ export default function IncomeTypes({
           {items.map((i) => (
             <div
               key={i.label}
-              className='bg-surface-app rounded-lg px-[0.5rem] py-[0.5rem] flex h-income-card w-full flex-col justify-between items-start text-left'
+              className='bg-surface-app rounded-lg px-[0.5rem] py-[0.5rem] flex w-full flex-col items-start text-left'
               style={{ maxWidth: 'var(--width-income-card)' }}
             >
               <div className='flex flex-col items-start gap-[0.5rem] w-full'>
@@ -50,14 +49,6 @@ export default function IncomeTypes({
                 <div className='text-headline-sm text-fg-secondary text-[var(--color-neutral-600)] whitespace-nowrap'>
                   {i.value}
                 </div>
-              </div>
-              <div className='flex items-center gap-card-metric whitespace-nowrap'>
-                <span className='text-body-sm text-[var(--color-brand-500)]'>
-                  {i.delta ?? '+ 12%'}
-                </span>
-                <span className='material-symbols-rounded text-[var(--color-brand-500)] text-body-md leading-none'>
-                  arrow_outward
-                </span>
               </div>
             </div>
           ))}

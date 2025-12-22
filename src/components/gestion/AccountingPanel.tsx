@@ -155,20 +155,11 @@ function getSideStack(timeScale: CashTimeScale) {
       {
         title: 'Gastos fijos',
         value: '9.000 €',
-        top: 135,
+        top: 160,
         height: 177,
         bg: 'var(--color-brand-200)',
         percent: '60%',
         textClass: 'text-fg-secondary'
-      },
-      {
-        title: 'Gastos Variables',
-        value: '5.000 €',
-        top: 210,
-        height: 102,
-        bg: 'var(--color-brand-500)',
-        percent: '33%',
-        textClass: 'text-fg-inverse'
       }
     ] as const
   }
@@ -186,20 +177,11 @@ function getSideStack(timeScale: CashTimeScale) {
     {
       title: 'Gastos fijos',
       value: '36.000 €',
-      top: 135,
+      top: 160,
       height: 177,
       bg: 'var(--color-brand-200)',
       percent: '62%',
       textClass: 'text-fg-secondary'
-    },
-    {
-      title: 'Gastos Variables',
-      value: '18.000 €',
-      top: 210,
-      height: 102,
-      bg: 'var(--color-brand-500)',
-      percent: '32%',
-      textClass: 'text-fg-inverse'
     }
   ] as const
 }
@@ -238,9 +220,9 @@ export default function AccountingPanel({
     height: `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`,
     // Altura efectiva de la tarjeta (se reutiliza para escalar el stack lateral en viewports bajos)
     '--accounting-height-current': `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`,
-    // El stack completo mide ~312px en Figma (19.5rem). Permitimos escalar sólo hasta un piso del 92% para evitar que las cards se encojan demasiado en viewports bajos, sin tocar la vista 1920.
+    // El stack completo mide ~312px en Figma (19.5rem). Escalamos 1:1 con la altura efectiva para mantener la alineación vertical con el donut en viewports bajos.
     '--stack-scale-y':
-      'max(0.92, min(1, calc(var(--accounting-height-current) / 19.5rem)))'
+      'min(1, calc(var(--accounting-height-current) / 19.5rem))'
   }
 
   const pathLength = Math.PI * DONUT_RADIUS
