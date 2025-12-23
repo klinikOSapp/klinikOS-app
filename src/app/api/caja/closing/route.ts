@@ -85,6 +85,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'date is required' }, { status: 400 })
     }
 
+    // Server-side guardrails: disallow negative monetary inputs.
+    // Discrepancy can be negative, but actual entered amounts should never be.
+    const nonNegativeFields: Array<[string, any]> = [
+      ['starterBoxAmount', starterBoxAmount],
+      ['dailyBoxAmount', dailyBoxAmount],
+      ['cashWithdrawals', cashWithdrawals],
+      ['cashBalance', cashBalance]
+    ]
+    for (const [name, value] of nonNegativeFields) {
+      if (value === undefined || value === null) continue
+      const n = Number(value)
+      if (!Number.isFinite(n) || n < 0) {
+        return NextResponse.json({ error: `${name} must be a non-negative number` }, { status: 400 })
+      }
+    }
+    if (paymentMethodBreakdown) {
+      for (const [k, v] of Object.entries(paymentMethodBreakdown)) {
+        const n = Number(v)
+        if (!Number.isFinite(n) || n < 0) {
+          return NextResponse.json(
+            { error: `paymentMethodBreakdown.${k} must be a non-negative number` },
+            { status: 400 }
+          )
+        }
+      }
+    }
+
     const {
       data: { user }
     } = await supabase.auth.getUser()

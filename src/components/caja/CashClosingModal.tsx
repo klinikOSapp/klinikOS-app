@@ -411,6 +411,21 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
         alert('Por favor, ingresa la salida de caja (requerido)')
         return
       }
+
+      const starterBoxAmount = parseFloat(
+        totalValues.initial.replace(/[^\d,.-]/g, '').replace(',', '.')
+      )
+      const cashWithdrawals = parseFloat(
+        totalValues.outflow.replace(/[^\d,.-]/g, '').replace(',', '.')
+      )
+      if ((Number.isFinite(starterBoxAmount) && starterBoxAmount < 0) || (!Number.isFinite(starterBoxAmount) && totalValues.initial.trim() !== '')) {
+        alert('⚠️ Caja inicial inválida: debe ser un número mayor o igual a 0.')
+        return
+      }
+      if ((Number.isFinite(cashWithdrawals) && cashWithdrawals < 0) || (!Number.isFinite(cashWithdrawals) && totalValues.outflow.trim() !== '')) {
+        alert('⚠️ Salida de caja inválida: debe ser un número mayor o igual a 0.')
+        return
+      }
       
       // Note: We do NOT pre-populate recount values - humans must manually enter them
       // The "Debería haber..." text in RecountStep will show the expected amount from paymentMethodBreakdown
@@ -428,6 +443,18 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
       // Validate Efectivo (Cash) - CRITICAL: Blocks closure if doesn't match
       const expectedCash = paymentMethodBreakdown.cash
       const actualCash = parseFloat(recountValues.cash.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+      const actualTPV = parseFloat(recountValues.tpv.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+      const actualTransfer = parseFloat(recountValues.transfer.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+      const actualCheque = parseFloat(recountValues.cheque.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+
+      // Disallow negative values (physical amounts cannot be negative).
+      if (actualCash < 0 || actualTPV < 0 || actualTransfer < 0 || actualCheque < 0) {
+        alert(
+          '⚠️ Valores inválidos: no puedes introducir cantidades negativas en el recuento. ' +
+            'Si falta dinero, introduce el importe contado (>= 0) y el sistema registrará la diferencia.'
+        )
+        return
+      }
       
       if (expectedCash > 0) {
         // System expects cash - must match exactly (allow 0.01€ rounding)
@@ -443,7 +470,6 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
       
       // Validate TPV (Card) - WARNING: Flags discrepancy but allows continuation
       const expectedTPV = paymentMethodBreakdown.card
-      const actualTPV = parseFloat(recountValues.tpv.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
       if (expectedTPV > 0 && Math.abs(actualTPV - expectedTPV) > 0.01) {
         discrepancies.push({ method: 'TPV', expected: expectedTPV, actual: actualTPV })
       } else if (actualTPV > 0 && expectedTPV === 0) {
@@ -452,7 +478,6 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
       
       // Validate Transferencia (Transfer) - WARNING: Flags discrepancy but allows continuation
       const expectedTransfer = paymentMethodBreakdown.transfer
-      const actualTransfer = parseFloat(recountValues.transfer.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
       if (expectedTransfer > 0 && Math.abs(actualTransfer - expectedTransfer) > 0.01) {
         discrepancies.push({ method: 'Transferencia', expected: expectedTransfer, actual: actualTransfer })
       } else if (actualTransfer > 0 && expectedTransfer === 0) {
@@ -461,7 +486,6 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
       
       // Validate Cheque (Check) - WARNING: Flags discrepancy but allows continuation
       const expectedCheque = paymentMethodBreakdown.check
-      const actualCheque = parseFloat(recountValues.cheque.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
       if (expectedCheque > 0 && Math.abs(actualCheque - expectedCheque) > 0.01) {
         discrepancies.push({ method: 'Cheque', expected: expectedCheque, actual: actualCheque })
       } else if (actualCheque > 0 && expectedCheque === 0) {
