@@ -389,6 +389,15 @@ export default function CashTrendCard({
       return Math.max(0, Math.min(series.dataPoints.length - 1, dayOffset))
     }
 
+    if (timeScale === 'year') {
+      const [ay] = anchorDateStr.split('-').map((v) => Number(v))
+      const [ny, nm] = nowDateStr.split('-').map((v) => Number(v))
+      if (ny !== ay) return null
+      // Stop at current month index (0..11)
+      const monthIdx = Math.max(0, Math.min(11, nm - 1))
+      return Math.min(series.dataPoints.length - 1, monthIdx)
+    }
+
     // month
     const [ay, am] = anchorDateStr.split('-').map((v) => Number(v))
     const [ny, nm, nd] = nowDateStr.split('-').map((v) => Number(v))
@@ -453,6 +462,19 @@ export default function CashTrendCard({
       if (nowUTC < weekStart || nowUTC > weekEnd) return null
       const dayOffset = Math.round((Number(nowUTC) - Number(weekStart)) / 86400000)
       const ratio = clamp01(dayOffset / 6)
+      return percentOfWidth(GRID_LEFT_PX + ratio * GRID_WIDTH_PX)
+    }
+
+    if (timeScale === 'year') {
+      const [ay] = anchorDateStr.split('-').map((v) => Number(v))
+      const [ny, nm, nd] = nowDateStr.split('-').map((v) => Number(v))
+      if (ny !== ay) return null
+      const daysInYear = new Date(Date.UTC(ay + 1, 0, 0)).getUTCDate()
+      const startOfYear = new Date(Date.UTC(ay, 0, 1))
+      const nowUTC = parseUTCDate(nowDateStr)
+      const dayOfYear = Math.round((Number(nowUTC) - Number(startOfYear)) / 86400000) + 1
+      const denom = Math.max(daysInYear - 1, 1)
+      const ratio = clamp01((dayOfYear - 1) / denom)
       return percentOfWidth(GRID_LEFT_PX + ratio * GRID_WIDTH_PX)
     }
 

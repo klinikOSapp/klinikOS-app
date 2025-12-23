@@ -358,6 +358,88 @@ export async function GET(req: Request) {
           invoiceCount: entry.count
         })
       }
+    } else if (timeScale === 'year') {
+      // Year view: 12 monthly points for selected year (cumulative).
+      const year = Number(date.split('-')[0])
+      const yearStartDate = `${year}-01-01`
+      const yearEndDate = `${year}-12-31`
+
+      const yearStartUtc = madridDayStartUtc(yearStartDate)
+      const yearEndNextUtc = madridDayStartUtc(addDaysUtcDateStr(yearEndDate, 1))
+      const startTime = yearStartUtc.toISOString()
+      const endTime = new Date(yearEndNextUtc.getTime() - 1).toISOString()
+
+      const monthTotals = new Array<{ sum: number; count: number }>(12)
+        .fill(null as any)
+        .map(() => ({ sum: 0, count: 0 }))
+
+      // Prefer DB-side day aggregation (fast, bounded ~366 rows) and roll up to months.
+      const dayTotalsRpc = await supabase.rpc('get_invoice_totals_by_day', {
+        p_clinic_id: clinicId,
+        p_start_time: startTime,
+        p_end_time: endTime
+      })
+
+      if (!dayTotalsRpc.error && Array.isArray(dayTotalsRpc.data)) {
+        for (const row of dayTotalsRpc.data as any[]) {
+          const dateStr = String(row.day) // YYYY-MM-DD (Madrid day)
+          const parts = dateStr.split('-')
+          const y = Number(parts[0])
+          const m = Number(parts[1]) // 1..12
+          if (y !== year || m < 1 || m > 12) continue
+          monthTotals[m - 1].sum += Number(row.total_amount || 0)
+          monthTotals[m - 1].count += Number(row.invoice_count || 0)
+        }
+        totalFacturadoExact = monthTotals.reduce((s, m) => s + m.sum, 0)
+      } else {
+        const { data: allYearInvoices, error: yearError } = await supabase.rpc(
+          'get_invoices_in_time_range',
+          {
+            p_clinic_id: clinicId,
+            p_start_time: startTime,
+            p_end_time: endTime
+          }
+        )
+        if (yearError) {
+          console.error('[Trend API] Error fetching year invoices:', yearError)
+        }
+
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Europe/Madrid',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        })
+
+        for (const inv of allYearInvoices || []) {
+          if (!inv.issue_timestamp) continue
+          const dateKey = formatter.format(new Date(inv.issue_timestamp)) // YYYY-MM-DD
+          const parts = dateKey.split('-')
+          const invYear = Number(parts[0])
+          const invMonth = Number(parts[1])
+          if (invYear !== year || invMonth < 1 || invMonth > 12) continue
+          monthTotals[invMonth - 1].sum += Number(inv.total_amount || 0)
+          monthTotals[invMonth - 1].count += 1
+        }
+
+        totalFacturadoExact = monthTotals.reduce((s, m) => s + m.sum, 0)
+      }
+
+      const monthLabelFormatter = new Intl.DateTimeFormat('es-ES', { month: 'short' })
+      labels = Array.from({ length: 12 }, (_, idx) => {
+        const d = new Date(Date.UTC(year, idx, 1))
+        return monthLabelFormatter.format(d)
+      })
+
+      let running = 0
+      for (let monthIdx = 0; monthIdx < 12; monthIdx++) {
+        running += monthTotals[monthIdx].sum
+        dataPoints.push({
+          label: labels[monthIdx],
+          actual: Math.round((running / 1000) * 100) / 100,
+          invoiceCount: monthTotals[monthIdx].count
+        })
+      }
     }
 
     // Get monthly goal for target line
@@ -368,6 +450,9 @@ export async function GET(req: Request) {
       const dateParts = date.split('-')
       currentYear = parseInt(dateParts[0])
       currentMonth = parseInt(dateParts[1])
+    } else if (timeScale === 'year') {
+      currentYear = parseInt(date.split('-')[0])
+      currentMonth = anchorDate.getMonth() + 1
     } else {
       currentMonth = anchorDate.getMonth() + 1
       currentYear = anchorDate.getFullYear()
@@ -380,9 +465,24 @@ export async function GET(req: Request) {
       .eq('month', currentMonth)
       .maybeSingle()
 
+    // For year view, use sum of monthly goals (if present) as a single objective band.
+    let yearGoalTotal: number | null = null
+    if (timeScale === 'year') {
+      const { data: goals } = await supabase
+        .from('monthly_goals')
+        .select('revenue_goal, month')
+        .eq('clinic_id', clinicId)
+        .eq('year', currentYear)
+      yearGoalTotal =
+        (goals || []).reduce((sum: number, g: any) => sum + Number(g.revenue_goal || 0), 0) ||
+        0
+    }
+
     // Calculate target based on time scale
     let targetValue = 0.5 // Default fallback (500 EUR/day)
-    if (monthlyGoal?.revenue_goal) {
+    if (timeScale === 'year' && yearGoalTotal !== null && yearGoalTotal > 0) {
+      targetValue = yearGoalTotal / 1000
+    } else if (monthlyGoal?.revenue_goal) {
       if (timeScale === 'day') {
         // For day view: daily target = monthly goal / days in month
         const daysInMonth = new Date(currentYear, currentMonth, 0).getDate()
@@ -396,7 +496,7 @@ export async function GET(req: Request) {
       }
     } else {
       // Fallback values in thousands: 0.5K/day, 2K/week, 10K/month
-      targetValue = timeScale === 'day' ? 0.5 : timeScale === 'week' ? 2 : 10
+      targetValue = timeScale === 'day' ? 0.5 : timeScale === 'week' ? 2 : timeScale === 'year' ? 120 : 10
     }
 
     // Highlight index:
@@ -414,6 +514,9 @@ export async function GET(req: Request) {
       const anchorDayOfMonth = anchorDate.getUTCDate()
       const idx = dataPoints.findIndex((p) => p.label.startsWith(`${anchorDayOfMonth}/`))
       highlightIndex = idx >= 0 ? idx : dataPoints.length - 1
+    } else if (timeScale === 'year') {
+      const anchorMonthIdx = anchorDate.getUTCMonth()
+      highlightIndex = Math.max(0, Math.min(11, anchorMonthIdx))
     }
 
     // Total facturado must be derived from raw invoice totals (not rounded chart points),
