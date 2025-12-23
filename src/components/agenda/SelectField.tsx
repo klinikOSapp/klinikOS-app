@@ -18,7 +18,7 @@ export default function SelectField({
   label = 'Label',
   value,
   placeholder = 'Value',
-  description = 'Texto descriptivo',
+  description,
   hasLabel = false,
   hasDescription = false,
   onChange,
@@ -72,11 +72,11 @@ export default function SelectField({
             </span>
           </div>
         </div>
-        {hasDescription && (
+        {hasDescription && description ? (
           <p className='font-medium text-[0.6875rem] leading-4 text-[var(--input-description-color)]'>
             {description}
           </p>
-        )}
+        ) : null}
       </div>
     </div>
   )
