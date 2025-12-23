@@ -416,11 +416,7 @@ const DAY_COLUMNS: DayColumn[] = [
   {
     id: 'friday',
     leftVar: '--scheduler-day-left-fri',
-<<<<<<< HEAD
-    widthVar: '--scheduler-day-width-first',
-=======
     widthVar: '--scheduler-day-width',
->>>>>>> dev
     events: EVENT_DATA.friday
   }
 ]
@@ -1139,7 +1135,6 @@ export default function WeekScheduler() {
 
   // Generate header cells with actual dates
   const getHeaderCells = (): typeof HEADER_CELLS => {
-<<<<<<< HEAD
     const weekdayIds: Weekday[] = [
       'monday',
       'tuesday',
@@ -1147,10 +1142,6 @@ export default function WeekScheduler() {
       'thursday',
       'friday'
     ]
-=======
-    const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
-    const weekdayIds: Weekday[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
->>>>>>> dev
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
