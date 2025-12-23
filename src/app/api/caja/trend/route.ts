@@ -132,34 +132,58 @@ export async function GET(req: Request) {
       const startTime = `${weekStartStr}T00:00:00Z`
       const endTime = `${weekEndStr}T23:59:59Z`
 
-      const { data: weekInvoices, error: weekError } = await supabase.rpc('get_invoices_in_time_range', {
+      // Prefer DB-side aggregation (fast). Fallback to invoice row fetching if RPC not deployed.
+      const dayTotalsRpc = await supabase.rpc('get_invoice_totals_by_day', {
         p_clinic_id: clinicId,
         p_start_time: startTime,
         p_end_time: endTime
       })
-      if (weekError) {
-        console.error('[Trend API] Error fetching week invoices:', weekError)
-      }
-      totalFacturadoExact = (weekInvoices || []).reduce(
-        (sum: number, inv: any) => sum + Number(inv.total_amount || 0),
-        0
-      )
 
       const byDay = new Map<string, { sum: number; count: number }>()
-      const formatter = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Europe/Madrid',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      })
+      if (!dayTotalsRpc.error && Array.isArray(dayTotalsRpc.data)) {
+        for (const row of dayTotalsRpc.data as any[]) {
+          const dateKey = String(row.day) // YYYY-MM-DD
+          byDay.set(dateKey, {
+            sum: Number(row.total_amount || 0),
+            count: Number(row.invoice_count || 0)
+          })
+        }
+        totalFacturadoExact = (dayTotalsRpc.data as any[]).reduce(
+          (sum: number, r: any) => sum + Number(r.total_amount || 0),
+          0
+        )
+      } else {
+        const { data: weekInvoices, error: weekError } = await supabase.rpc(
+          'get_invoices_in_time_range',
+          {
+            p_clinic_id: clinicId,
+            p_start_time: startTime,
+            p_end_time: endTime
+          }
+        )
+        if (weekError) {
+          console.error('[Trend API] Error fetching week invoices:', weekError)
+        }
+        totalFacturadoExact = (weekInvoices || []).reduce(
+          (sum: number, inv: any) => sum + Number(inv.total_amount || 0),
+          0
+        )
 
-      for (const inv of weekInvoices || []) {
-        if (!inv.issue_timestamp) continue
-        const dateKey = formatter.format(new Date(inv.issue_timestamp))
-        const entry = byDay.get(dateKey) || { sum: 0, count: 0 }
-        entry.sum += Number(inv.total_amount || 0)
-        entry.count += 1
-        byDay.set(dateKey, entry)
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Europe/Madrid',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        })
+
+        for (const inv of weekInvoices || []) {
+          if (!inv.issue_timestamp) continue
+          const dateKey = formatter.format(new Date(inv.issue_timestamp))
+          const entry = byDay.get(dateKey) || { sum: 0, count: 0 }
+          entry.sum += Number(inv.total_amount || 0)
+          entry.count += 1
+          byDay.set(dateKey, entry)
+        }
       }
 
       let cumulativeTotal = 0
@@ -194,39 +218,72 @@ export async function GET(req: Request) {
       const monthEndDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
       daysInMonthForResponse = daysInMonth
 
-      const { data: allMonthInvoices, error: monthError } = await supabase.rpc('get_invoices_in_time_range', {
-        p_clinic_id: clinicId,
-        p_start_time: `${monthStartDate}T00:00:00Z`,
-        p_end_time: `${monthEndDate}T23:59:59Z`
-      })
-      if (monthError) {
-        console.error('[Trend API] Error fetching month invoices:', monthError)
-      }
-      totalFacturadoExact = (allMonthInvoices || []).reduce(
-        (sum: number, inv: any) => sum + Number(inv.total_amount || 0),
-        0
-      )
-
-      const formatter = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Europe/Madrid',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      })
+      const startTime = `${monthStartDate}T00:00:00Z`
+      const endTime = `${monthEndDate}T23:59:59Z`
 
       const byDay = new Map<number, { sum: number; count: number }>()
-      for (const inv of allMonthInvoices || []) {
-        if (!inv.issue_timestamp) continue
-        const dateKey = formatter.format(new Date(inv.issue_timestamp)) // YYYY-MM-DD
-        const parts = dateKey.split('-')
-        const invYear = Number(parts[0])
-        const invMonth = Number(parts[1])
-        const invDay = Number(parts[2])
-        if (invYear !== year || invMonth !== month + 1) continue
-        const entry = byDay.get(invDay) || { sum: 0, count: 0 }
-        entry.sum += Number(inv.total_amount || 0)
-        entry.count += 1
-        byDay.set(invDay, entry)
+
+      // Prefer DB-side aggregation (fast). Fallback to invoice row fetching if RPC not deployed.
+      const dayTotalsRpc = await supabase.rpc('get_invoice_totals_by_day', {
+        p_clinic_id: clinicId,
+        p_start_time: startTime,
+        p_end_time: endTime
+      })
+
+      if (!dayTotalsRpc.error && Array.isArray(dayTotalsRpc.data)) {
+        totalFacturadoExact = (dayTotalsRpc.data as any[]).reduce(
+          (sum: number, r: any) => sum + Number(r.total_amount || 0),
+          0
+        )
+        for (const row of dayTotalsRpc.data as any[]) {
+          const dateStr = String(row.day) // YYYY-MM-DD
+          const parts = dateStr.split('-')
+          const invYear = Number(parts[0])
+          const invMonth = Number(parts[1])
+          const invDay = Number(parts[2])
+          if (invYear !== year || invMonth !== month + 1) continue
+          byDay.set(invDay, {
+            sum: Number(row.total_amount || 0),
+            count: Number(row.invoice_count || 0)
+          })
+        }
+      } else {
+        const { data: allMonthInvoices, error: monthError } = await supabase.rpc(
+          'get_invoices_in_time_range',
+          {
+            p_clinic_id: clinicId,
+            p_start_time: startTime,
+            p_end_time: endTime
+          }
+        )
+        if (monthError) {
+          console.error('[Trend API] Error fetching month invoices:', monthError)
+        }
+        totalFacturadoExact = (allMonthInvoices || []).reduce(
+          (sum: number, inv: any) => sum + Number(inv.total_amount || 0),
+          0
+        )
+
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Europe/Madrid',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        })
+
+        for (const inv of allMonthInvoices || []) {
+          if (!inv.issue_timestamp) continue
+          const dateKey = formatter.format(new Date(inv.issue_timestamp)) // YYYY-MM-DD
+          const parts = dateKey.split('-')
+          const invYear = Number(parts[0])
+          const invMonth = Number(parts[1])
+          const invDay = Number(parts[2])
+          if (invYear !== year || invMonth !== month + 1) continue
+          const entry = byDay.get(invDay) || { sum: 0, count: 0 }
+          entry.sum += Number(inv.total_amount || 0)
+          entry.count += 1
+          byDay.set(invDay, entry)
+        }
       }
 
       // Build cumulative totals per day across the entire month (1..daysInMonth)

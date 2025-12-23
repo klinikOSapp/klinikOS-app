@@ -38,7 +38,7 @@ const DONUT_LABEL_OFFSET_REM = pxToRem(16)
 
 type CashSummaryCardProps = {
   date: Date
-  timeScale: 'day' | 'week' | 'month'
+  timeScale: 'day' | 'week' | 'month' | 'year'
   onHeightChange?: (heightRem: number) => void
 }
 
@@ -54,14 +54,23 @@ export default function CashSummaryCard({
   const [donutTarget, setDonutTarget] = useState(1800)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Fetch summary from API (YTD accumulated values - independent of date/timeScale)
-  // API always uses TODAY's date for YTD calculations, so cards don't change with filters
+  const formatMadridDate = (d: Date) =>
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Madrid',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(d)
+
+  // v2.0: KPI cards are filterable and change with temporal selection
   useEffect(() => {
+    const controller = new AbortController()
     setIsLoading(true)
-    // Don't pass date - API will use today's date for YTD calculations
-    fetch(`/api/caja/summary`)
+    const dateStr = formatMadridDate(date)
+    fetch(`/api/caja/summary?date=${dateStr}&timeScale=${timeScale}`)
       .then((res) => res.json())
       .then((data) => {
+        if (controller.signal.aborted) return
         if (data.summary) {
           setSummaryCards(data.summary)
         }
@@ -72,10 +81,12 @@ export default function CashSummaryCard({
         setIsLoading(false)
       })
       .catch((error) => {
+        if (controller.signal.aborted) return
         console.error('Error fetching summary:', error)
         setIsLoading(false)
       })
-  }, []) // Empty dependency array - only fetch once on mount, never refetch
+    return () => controller.abort()
+  }, [date, timeScale])
 
   useEffect(() => {
     const node = cardRef.current

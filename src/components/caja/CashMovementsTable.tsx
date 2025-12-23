@@ -11,6 +11,7 @@ type CollectionStatus = 'Cobrado' | 'Por cobrar'
 type CashMovement = {
   id: string // Unique identifier for React keys
   invoiceId: string
+  day: string
   time: string
   patient: string
   concept: string
@@ -68,9 +69,13 @@ type ColumnDefinition = {
 const columns: ColumnDefinition[] = [
   {
     id: 'time',
-    label: 'Hora',
+    label: 'Día',
     widthRem: COLUMN_WIDTHS_REM.time,
-    render: (movement) => movement.time
+    render: (movement) => {
+      // Show DD/MM/YYYY (v2.0)
+      const [y, m, d] = movement.day.split('-')
+      return d && m && y ? `${d}/${m}/${y}` : movement.day
+    }
   },
   {
     id: 'patient',
@@ -203,7 +208,7 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
 
   const hashMovements = (items: CashMovement[]) =>
     items
-      .map((m) => `${m.id}|${m.time}|${m.status}|${m.produced}|${m.method}|${m.amount}`)
+      .map((m) => `${m.id}|${m.day}|${m.collectionStatus}|${m.produced}|${m.method}|${m.amount}`)
       .join('||')
 
   const fetchMovements = (opts?: { silent?: boolean }) => {
@@ -681,6 +686,8 @@ function FilterChip({
 function StatusCell({ movement }: { movement: CashMovement }) {
   // Bubble click to table component via event delegation (keeps column API simple)
   const handleClick = () => {
+    // v2.0: interaction is only required for "Por cobrar"
+    if (movement.collectionStatus !== 'Por cobrar') return
     window.dispatchEvent(
       new CustomEvent('caja:open-invoice-payments', {
         detail: { invoiceId: movement.invoiceId }
@@ -694,38 +701,24 @@ function StatusCell({ movement }: { movement: CashMovement }) {
       className='text-left'
       aria-label='Ver historial de cobros'
     >
-      <EstadoPill
-        invoiceStatus={movement.status}
-        collectionStatus={movement.collectionStatus}
-      />
+      <EstadoPill collectionStatus={movement.collectionStatus} />
     </button>
   )
 }
 
-function EstadoPill({
-  invoiceStatus,
-  collectionStatus
-}: {
-  invoiceStatus: InvoiceStatus
-  collectionStatus: CollectionStatus
-}) {
-  // Target style:
-  // - Invoice status drives TEXT color (Aceptado green, Enviado orange)
-  // - Collection status drives BADGE background (Cobrado green-ish, Por cobrar orange-ish)
-  const invoiceTextClass =
-    invoiceStatus === 'Aceptado' ? 'text-success-800' : 'text-warning-200'
-  const invoiceBorderClass =
-    invoiceStatus === 'Aceptado' ? 'border-success-800' : 'border-warning-200'
-  const pillClass =
-    collectionStatus === 'Cobrado'
-      ? 'bg-success-50'
-      : 'bg-warning-50'
+function EstadoPill({ collectionStatus }: { collectionStatus: CollectionStatus }) {
+  // v2.0: ESTADO column is ONLY payment status (Cobrado / Por cobrar)
+  const textClass =
+    collectionStatus === 'Cobrado' ? 'text-success-800' : 'text-warning-200'
+  const borderClass =
+    collectionStatus === 'Cobrado' ? 'border-success-800' : 'border-warning-200'
+  const bgClass = collectionStatus === 'Cobrado' ? 'bg-success-50' : 'bg-warning-50'
 
   return (
     <span
-      className={`inline-flex h-[1.75rem] items-center justify-center rounded-full border px-[0.75rem] text-label-sm font-medium ${pillClass} ${invoiceBorderClass}`}
+      className={`inline-flex h-[1.75rem] items-center justify-center rounded-full border px-[0.75rem] text-label-sm font-medium ${bgClass} ${borderClass}`}
     >
-      <span className={invoiceTextClass}>{invoiceStatus}</span>
+      <span className={textClass}>{collectionStatus}</span>
     </span>
   )
 }

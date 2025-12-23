@@ -13,8 +13,13 @@ type SummaryCard = {
 export async function GET(req: Request) {
   try {
     const supabase = await createSupabaseServerClient()
-    // Note: date and timeScale parameters are ignored - always use TODAY for YTD calculations
-    // This ensures KPI cards show accumulated values from fiscal year start and don't change with filters
+    const { searchParams } = new URL(req.url)
+    const date = searchParams.get('date') || null
+    const timeScale = (searchParams.get('timeScale') || 'month') as
+      | 'day'
+      | 'week'
+      | 'month'
+      | 'year'
 
     // Get user's clinic
     const {
@@ -31,8 +36,6 @@ export async function GET(req: Request) {
 
     const clinicId = clinics[0] as string
 
-    // ALWAYS use TODAY's date for YTD calculations (not the selected date)
-    // This ensures KPI cards don't change when user navigates dates
     const formatMadridDate = (d: Date) =>
       new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Europe/Madrid',
@@ -41,62 +44,177 @@ export async function GET(req: Request) {
         day: '2-digit'
       }).format(d)
 
-    const today = new Date()
-    const todayStr = formatMadridDate(today)
-    
-    // Calculate fiscal year start (January 1st of current year)
-    const currentYear = Number(todayStr.split('-')[0])
-    const fiscalYearStartStr = `${currentYear}-01-01`
+    // v2.0: KPI cards change based on temporal filter selection.
+    // Default (if no params) is current month.
+    const anchorDateStr = date ?? formatMadridDate(new Date())
+    const anchorUtc = new Date(`${anchorDateStr}T00:00:00Z`)
 
-    // Calculate previous year's same period for delta comparison
-    const [y, m, d] = todayStr.split('-').map((v) => Number(v))
-    const prevYearStartStr = `${y - 1}-01-01`
-    const prevYearEndStr = `${y - 1}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    const startOfWeekUtc = (d: Date) => {
+      const copy = new Date(d)
+      const day = copy.getUTCDay()
+      const diffToMonday = (day + 6) % 7
+      copy.setUTCDate(copy.getUTCDate() - diffToMonday)
+      return copy
+    }
 
-    // Fetch YTD (Year-To-Date) accumulated data from fiscal year start to TODAY
-    const { data: ytdPayments } = await supabase
-      .from('payments')
-      .select('amount')
-      .eq('clinic_id', clinicId)
-      .gte('transaction_date', `${fiscalYearStartStr}T00:00:00Z`)
-      .lte('transaction_date', `${todayStr}T23:59:59Z`)
+    const endOfWeekUtc = (d: Date) => {
+      const start = startOfWeekUtc(d)
+      const end = new Date(start)
+      end.setUTCDate(start.getUTCDate() + 6)
+      return end
+    }
 
-    // Invoices: use RPC to correctly use issue_timestamp (fallback to issue_date)
-    const { data: ytdInvoices } = await supabase.rpc('get_invoices_in_time_range', {
+    const startOfMonthUtc = (d: Date) =>
+      new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1))
+
+    const endOfMonthUtc = (d: Date) =>
+      new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0))
+
+    const startOfYearUtc = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+    const endOfYearUtc = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), 11, 31))
+
+    const periodStartUtc =
+      timeScale === 'day'
+        ? anchorUtc
+        : timeScale === 'week'
+          ? startOfWeekUtc(anchorUtc)
+          : timeScale === 'year'
+            ? startOfYearUtc(anchorUtc)
+            : startOfMonthUtc(anchorUtc)
+
+    const periodEndUtc =
+      timeScale === 'day'
+        ? anchorUtc
+        : timeScale === 'week'
+          ? endOfWeekUtc(anchorUtc)
+          : timeScale === 'year'
+            ? endOfYearUtc(anchorUtc)
+            : endOfMonthUtc(anchorUtc)
+
+    const periodStartStr = periodStartUtc.toISOString().split('T')[0]
+    const periodEndStr = periodEndUtc.toISOString().split('T')[0]
+    const periodStartTs = `${periodStartStr}T00:00:00Z`
+    const periodEndTs = `${periodEndStr}T23:59:59Z`
+
+    // For delta (optional): compare to same period last year
+    const prevStartUtc = new Date(periodStartUtc)
+    prevStartUtc.setUTCFullYear(prevStartUtc.getUTCFullYear() - 1)
+    const prevEndUtc = new Date(periodEndUtc)
+    prevEndUtc.setUTCFullYear(prevEndUtc.getUTCFullYear() - 1)
+    const prevStartStr = prevStartUtc.toISOString().split('T')[0]
+    const prevEndStr = prevEndUtc.toISOString().split('T')[0]
+    const prevStartTs = `${prevStartStr}T00:00:00Z`
+    const prevEndTs = `${prevEndStr}T23:59:59Z`
+
+    // Prefer DB-side aggregation (fast). Fallback to row-fetching (slower) for environments
+    // where the RPC hasn't been deployed yet.
+    let produced = 0
+    let invoiced = 0
+    let collected = 0
+    let toCollect = 0
+    let prevProduced = 0
+    let prevCollected = 0
+
+    const resumenRpc = await supabase.rpc('get_caja_resumen', {
       p_clinic_id: clinicId,
-      p_start_time: `${fiscalYearStartStr}T00:00:00Z`,
-      p_end_time: `${todayStr}T23:59:59Z`
+      p_period_start: periodStartTs,
+      p_period_end: periodEndTs,
+      p_prev_start: prevStartTs,
+      p_prev_end: prevEndTs
     })
 
-    // Fetch previous year's same period data for delta calculation
-    const { data: prevYearPayments } = await supabase
-      .from('payments')
-      .select('amount')
-      .eq('clinic_id', clinicId)
-      .gte('transaction_date', `${prevYearStartStr}T00:00:00Z`)
-      .lte('transaction_date', `${prevYearEndStr}T23:59:59Z`)
+    const resumenRow = Array.isArray(resumenRpc.data) ? resumenRpc.data[0] : null
+    if (!resumenRpc.error && resumenRow) {
+      produced = Number(resumenRow.produced || 0)
+      invoiced = Number(resumenRow.invoiced || 0)
+      collected = Number(resumenRow.collected || 0)
+      toCollect = Number(resumenRow.to_collect || 0)
+      prevProduced = Number(resumenRow.prev_produced || 0)
+      prevCollected = Number(resumenRow.prev_collected || 0)
+    } else {
+      // Fetch all needed datasets in parallel (reduces lag when switching filters).
+      const [
+        periodPaymentsRes,
+        periodInvoicesRes,
+        prevPeriodPaymentsRes,
+        prevPeriodInvoicesRes,
+        invoicesUpToEndRes,
+        paymentsUpToEndRes
+      ] = await Promise.all([
+        supabase
+          .from('payments')
+          .select('amount')
+          .eq('clinic_id', clinicId)
+          .gte('transaction_date', periodStartTs)
+          .lte('transaction_date', periodEndTs),
+        supabase.rpc('get_invoices_in_time_range', {
+          p_clinic_id: clinicId,
+          p_start_time: periodStartTs,
+          p_end_time: periodEndTs
+        }),
+        supabase
+          .from('payments')
+          .select('amount')
+          .eq('clinic_id', clinicId)
+          .gte('transaction_date', prevStartTs)
+          .lte('transaction_date', prevEndTs),
+        supabase.rpc('get_invoices_in_time_range', {
+          p_clinic_id: clinicId,
+          p_start_time: prevStartTs,
+          p_end_time: prevEndTs
+        }),
+        // Por cobrar: outstanding as of period end (includes previous months)
+        supabase.rpc('get_invoices_in_time_range', {
+          p_clinic_id: clinicId,
+          p_start_time: `1970-01-01T00:00:00Z`,
+          p_end_time: periodEndTs
+        }),
+        supabase
+          .from('payments')
+          .select('amount')
+          .eq('clinic_id', clinicId)
+          .lte('transaction_date', periodEndTs)
+      ])
 
-    const { data: prevYearInvoices } = await supabase.rpc('get_invoices_in_time_range', {
-      p_clinic_id: clinicId,
-      p_start_time: `${prevYearStartStr}T00:00:00Z`,
-      p_end_time: `${prevYearEndStr}T23:59:59Z`
-    })
+      const periodPayments = periodPaymentsRes.data || []
+      const periodInvoices = periodInvoicesRes.data || []
+      const prevPeriodPayments = prevPeriodPaymentsRes.data || []
+      const prevPeriodInvoices = prevPeriodInvoicesRes.data || []
+      const invoicesUpToEnd = invoicesUpToEndRes.data || []
+      const paymentsUpToEnd = paymentsUpToEndRes.data || []
 
-    // Calculate YTD accumulated totals (from fiscal year start to today)
-    const ytdProduced =
-      ytdInvoices?.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0) || 0
-    const ytdInvoiced = ytdProduced
-    const ytdCollected =
-      ytdPayments?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0
-    
-    // Por Cobrar = Producido - Cobrado (includes ALL accumulated debt from fiscal year start)
-    const ytdToCollect = ytdProduced - ytdCollected
+      // v2.0 KPI values are for selected period.
+      produced = periodInvoices.reduce(
+        (sum: number, inv: any) => sum + Number(inv.total_amount || 0),
+        0
+      )
+      invoiced = produced
+      collected = periodPayments.reduce(
+        (sum: number, p: any) => sum + Number(p.amount || 0),
+        0
+      )
 
-    // Calculate previous year's same period totals for comparison
-    const prevYearProduced =
-      prevYearInvoices?.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0) || 0
-    const prevYearCollected =
-      prevYearPayments?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0
+      // v2.0 "Por cobrar": outstanding debt as-of end of selected period.
+      const producedUpToEnd = invoicesUpToEnd.reduce(
+        (sum: number, inv: any) => sum + Number(inv.total_amount || 0),
+        0
+      )
+      const collectedUpToEnd = paymentsUpToEnd.reduce(
+        (sum: number, p: any) => sum + Number(p.amount || 0),
+        0
+      )
+      toCollect = producedUpToEnd - collectedUpToEnd
+
+      // Previous period totals (same window last year)
+      prevProduced = prevPeriodInvoices.reduce(
+        (sum: number, inv: any) => sum + Number(inv.total_amount || 0),
+        0
+      )
+      prevCollected = prevPeriodPayments.reduce(
+        (sum: number, p: any) => sum + Number(p.amount || 0),
+        0
+      )
+    }
 
     // Calculate deltas
     const calculateDelta = (current: number, previous: number) => {
@@ -110,41 +228,40 @@ export async function GET(req: Request) {
       {
         id: 'produced',
         title: 'Producido',
-        value: `${ytdProduced.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
-        delta: calculateDelta(ytdProduced, prevYearProduced),
+        value: `${produced.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+        delta: calculateDelta(produced, prevProduced),
         color: 'var(--color-info-50)',
         accessory: 'money_bag'
       },
       {
         id: 'invoiced',
         title: 'Facturado',
-        value: `${ytdInvoiced.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
-        delta: calculateDelta(ytdInvoiced, prevYearProduced),
+        value: `${invoiced.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+        delta: calculateDelta(invoiced, prevProduced),
         color: '#e9f6fb',
         accessory: 'receipt_long'
       },
       {
         id: 'collected',
         title: 'Cobrado',
-        value: `${ytdCollected.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
-        delta: calculateDelta(ytdCollected, prevYearCollected),
+        value: `${collected.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+        delta: calculateDelta(collected, prevCollected),
         color: 'var(--color-brand-50)',
         accessory: 'check'
       },
       {
         id: 'toCollect',
         title: 'Por cobrar',
-        value: `${ytdToCollect.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
-        delta: calculateDelta(ytdToCollect, prevYearProduced - prevYearCollected),
+        value: `${toCollect.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+        delta: calculateDelta(toCollect, 0),
         color: 'var(--color-warning-50)',
         accessory: 'money_bag'
       }
     ]
 
-    // Calculate donut chart data (YTD collected vs YTD produced/facturado)
-    // Gauge shows: Cobrado / Producido (or Facturado, they're the same)
-    const donutValue = ytdCollected
-    const donutTarget = ytdProduced // Use Producido/Facturado as target (not 1.5x)
+    // Donut gauge for selected period: Cobrado vs Producido
+    const donutValue = collected
+    const donutTarget = produced
 
     return NextResponse.json({
       summary,

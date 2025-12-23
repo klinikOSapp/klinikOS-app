@@ -23,7 +23,8 @@ type CashToolbarProps = {
 const SCALE_OPTIONS: { id: CashTimeScale; label: string }[] = [
   { id: 'day', label: 'Día' },
   { id: 'week', label: 'Semana' },
-  { id: 'month', label: 'Mes' }
+  { id: 'month', label: 'Mes' },
+  { id: 'year', label: 'Año' }
 ]
 
 export default function CashToolbar({

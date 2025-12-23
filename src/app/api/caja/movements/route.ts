@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 type CashMovement = {
   id: string // Unique identifier for React keys
   invoiceId: string
+  day: string
   time: string
   patient: string
   concept: string
@@ -96,100 +97,162 @@ export async function GET(req: Request) {
     const startDateStr = startDate.toISOString().split('T')[0]
     const endDateStr = endDate.toISOString().split('T')[0]
 
-    // Real-time transaction table should show INVOICES (not payments).
-    // Use the existing RPC to handle issue_timestamp / issue_date fallback.
-    const { data: invoiceRows, error: invoiceRowsError } = await supabase.rpc(
-      'get_invoices_in_time_range',
-      {
-        p_clinic_id: clinicId,
-        p_start_time: `${startDateStr}T00:00:00Z`,
-        p_end_time: `${endDateStr}T23:59:59Z`
-      }
-    )
+    const startTime = `${startDateStr}T00:00:00Z`
+    const endTime = `${endDateStr}T23:59:59Z`
 
-    if (invoiceRowsError) {
-      console.error('Error fetching invoices in time range:', invoiceRowsError)
-      return NextResponse.json({ error: invoiceRowsError.message }, { status: 500 })
-    }
+    // Prefer DB-side movement RPC (fast). Fallback to legacy path if RPC not deployed yet.
+    const movementsRpc = await supabase.rpc('get_caja_movements_in_time_range', {
+      p_clinic_id: clinicId,
+      p_start_time: startTime,
+      p_end_time: endTime
+    })
 
-    const invoiceIds = (invoiceRows || []).map((r: any) => r.id)
-    if (invoiceIds.length === 0) {
-      return NextResponse.json({ movements: [] })
-    }
-
-    // Fetch invoice details for UI fields (patient name, quote signed_at)
-    const { data: invoices, error: invoicesError } = await supabase
-      .from('invoices')
-      .select(
-        `
-        id,
-        invoice_number,
-        status,
-        total_amount,
-        amount_paid,
-        issue_timestamp,
-        quote_id,
-        patient_id,
-        patients (
-          id,
-          first_name,
-          last_name
-        ),
-        quotes (
-          id,
-          quote_number,
-          production_status,
-          production_date,
-          signed_at
-        )
-      `
-      )
-      .in('id', invoiceIds)
-
-    if (invoicesError) {
-      console.error('Error fetching invoice details:', invoicesError)
-      return NextResponse.json({ error: invoicesError.message }, { status: 500 })
-    }
-
-    // Fetch payments for these invoices only to infer "Método" and filter category (but we DO NOT render payment rows).
-    const { data: payments, error: paymentsError } = await supabase
-      .from('payments')
-      .select('invoice_id, payment_method, transaction_date')
-      .eq('clinic_id', clinicId)
-      .in('invoice_id', invoiceIds)
-      .order('transaction_date', { ascending: false })
-
-    if (paymentsError) {
-      console.error('Error fetching invoice payments:', paymentsError)
-    }
-
-    const lastPaymentByInvoice = new Map<string, { method: string; transaction_date: string }>()
-    const paymentSumByInvoice = new Map<string, number>()
-    for (const p of payments || []) {
-      const key = String((p as any).invoice_id)
-      if (!lastPaymentByInvoice.has(key)) {
-        lastPaymentByInvoice.set(key, {
-          method: String((p as any).payment_method || ''),
-          transaction_date: String((p as any).transaction_date || '')
-        })
-      }
-      paymentSumByInvoice.set(
-        key,
-        (paymentSumByInvoice.get(key) || 0) + Number((p as any).amount || 0)
-      )
-    }
-
-    // Transform invoices to cash movements (invoice rows only)
     const movements: CashMovement[] = []
 
-    if (invoices) {
+    if (!movementsRpc.error && Array.isArray(movementsRpc.data)) {
+      for (const row of movementsRpc.data as any[]) {
+        const total = Number(row.total_amount || 0)
+        const paid = Number(row.total_paid || 0)
+        const outstandingAmount = Math.max(total - paid, 0)
+        const collectionStatus: 'Cobrado' | 'Por cobrar' =
+          outstandingAmount <= 0.009 ? 'Cobrado' : 'Por cobrar'
+
+        const method = row.last_payment_method ? String(row.last_payment_method) : 'Pendiente'
+        const paymentCategory = row.last_payment_method
+          ? getPaymentCategory(String(row.last_payment_method))
+          : 'Financiación'
+
+        const patientName = `${row.patient_first_name || ''} ${row.patient_last_name || ''}`.trim()
+
+        movements.push({
+          id: `invoice-${row.invoice_id}`,
+          invoiceId: String(row.invoice_id),
+          day: String(row.day_madrid || startDateStr),
+          time: String(row.time_madrid || '00:00'),
+          patient: patientName || 'Paciente desconocido',
+          concept: row.quote_number
+            ? `Presupuesto ${row.quote_number}`
+            : row.invoice_number || `Factura #${row.invoice_id}`,
+          amount: `${total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+          status: getInvoiceStatus(String(row.invoice_status || '')),
+          collectionStatus,
+          outstandingAmount,
+          produced: isProduced(
+            row.quote_signed_at ? String(row.quote_signed_at) : null,
+            row.production_status ? String(row.production_status) : null,
+            String(row.invoice_status || '')
+          ),
+          method,
+          insurer: 'N/A',
+          paymentCategory,
+          quoteId: row.quote_id ? String(row.quote_id) : null,
+          productionStatus: row.production_status ? String(row.production_status) : null,
+          productionDate: row.production_date ? String(row.production_date) : null
+        })
+      }
+
+      // Already sorted in RPC, but keep deterministic ordering if needed
+      movements.sort((a, b) => {
+        if (a.day !== b.day) return b.day.localeCompare(a.day)
+        const timeA = a.time.split(':').map(Number)
+        const timeB = b.time.split(':').map(Number)
+        return timeB[0] * 60 + timeB[1] - (timeA[0] * 60 + timeA[1])
+      })
+    } else {
+      // Legacy fallback (kept for compatibility)
+      const { data: invoiceRows, error: invoiceRowsError } = await supabase.rpc(
+        'get_invoices_in_time_range',
+        {
+          p_clinic_id: clinicId,
+          p_start_time: startTime,
+          p_end_time: endTime
+        }
+      )
+
+      if (invoiceRowsError) {
+        console.error('Error fetching invoices in time range:', invoiceRowsError)
+        return NextResponse.json({ error: invoiceRowsError.message }, { status: 500 })
+      }
+
+      const invoiceIds = (invoiceRows || []).map((r: any) => r.id)
+      if (invoiceIds.length === 0) {
+        return NextResponse.json({ movements: [] })
+      }
+
+      const { data: invoices, error: invoicesError } = await supabase
+        .from('invoices')
+        .select(
+          `
+          id,
+          invoice_number,
+          status,
+          total_amount,
+          amount_paid,
+          issue_timestamp,
+          quote_id,
+          patient_id,
+          patients (
+            id,
+            first_name,
+            last_name
+          ),
+          quotes (
+            id,
+            quote_number,
+            production_status,
+            production_date,
+            signed_at
+          )
+        `
+        )
+        .in('id', invoiceIds)
+
+      if (invoicesError) {
+        console.error('Error fetching invoice details:', invoicesError)
+        return NextResponse.json({ error: invoicesError.message }, { status: 500 })
+      }
+
+      // NOTE: fixed missing `amount` selection for summing.
+      const { data: payments, error: paymentsError } = await supabase
+        .from('payments')
+        .select('invoice_id, amount, payment_method, transaction_date')
+        .eq('clinic_id', clinicId)
+        .in('invoice_id', invoiceIds)
+        .order('transaction_date', { ascending: false })
+
+      if (paymentsError) {
+        console.error('Error fetching invoice payments:', paymentsError)
+      }
+
+      const lastPaymentByInvoice = new Map<string, { method: string; transaction_date: string }>()
+      const paymentSumByInvoice = new Map<string, number>()
+      for (const p of payments || []) {
+        const key = String((p as any).invoice_id)
+        if (!lastPaymentByInvoice.has(key)) {
+          lastPaymentByInvoice.set(key, {
+            method: String((p as any).payment_method || ''),
+            transaction_date: String((p as any).transaction_date || '')
+          })
+        }
+        paymentSumByInvoice.set(
+          key,
+          (paymentSumByInvoice.get(key) || 0) + Number((p as any).amount || 0)
+        )
+      }
+
       for (const invoice of invoices as any[]) {
         const patient = invoice.patients as any
         const quote = invoice.quotes as any
 
-        const issueTs = invoice.issue_timestamp
-          ? new Date(invoice.issue_timestamp)
-          : null
+        const issueTs = invoice.issue_timestamp ? new Date(invoice.issue_timestamp) : null
+        const day = issueTs
+          ? new Intl.DateTimeFormat('en-CA', {
+              timeZone: 'Europe/Madrid',
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit'
+            }).format(issueTs)
+          : startDateStr
         const time = issueTs
           ? new Intl.DateTimeFormat('es-ES', {
               timeZone: 'Europe/Madrid',
@@ -197,10 +260,7 @@ export async function GET(req: Request) {
               minute: '2-digit',
               hour12: false
             }).format(issueTs)
-          : new Date().toLocaleTimeString('es-ES', {
-          hour: '2-digit',
-          minute: '2-digit'
-        })
+          : '00:00'
 
         const lastPayment = lastPaymentByInvoice.get(String(invoice.id))
         const method = lastPayment?.method ? lastPayment.method : 'Pendiente'
@@ -209,23 +269,22 @@ export async function GET(req: Request) {
           : 'Financiación'
 
         const total = Number(invoice.total_amount || 0)
-        // Collection status should be based on payments table (source of truth)
         const paid = paymentSumByInvoice.get(String(invoice.id)) || 0
         const outstandingAmount = Math.max(total - paid, 0)
         const collectionStatus: 'Cobrado' | 'Por cobrar' =
           outstandingAmount <= 0.009 ? 'Cobrado' : 'Por cobrar'
 
         movements.push({
-          id: `invoice-${invoice.id}`, // Unique ID for React keys
+          id: `invoice-${invoice.id}`,
           invoiceId: String(invoice.id),
+          day,
           time,
           patient: patient
             ? `${patient.first_name || ''} ${patient.last_name || ''}`.trim()
             : 'Paciente desconocido',
-          concept:
-            quote?.quote_number
-              ? `Presupuesto ${quote.quote_number}`
-              : invoice.invoice_number || `Factura #${invoice.id}`,
+          concept: quote?.quote_number
+            ? `Presupuesto ${quote.quote_number}`
+            : invoice.invoice_number || `Factura #${invoice.id}`,
           amount: `${total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
           status: getInvoiceStatus(invoice.status),
           collectionStatus,
@@ -239,14 +298,14 @@ export async function GET(req: Request) {
           productionDate: quote?.production_date ?? null
         })
       }
-    }
 
-    // Sort by time (HH:mm)
-    movements.sort((a, b) => {
-      const timeA = a.time.split(':').map(Number)
-      const timeB = b.time.split(':').map(Number)
-      return timeA[0] * 60 + timeA[1] - (timeB[0] * 60 + timeB[1])
-    })
+      movements.sort((a, b) => {
+        if (a.day !== b.day) return b.day.localeCompare(a.day)
+        const timeA = a.time.split(':').map(Number)
+        const timeB = b.time.split(':').map(Number)
+        return timeB[0] * 60 + timeB[1] - (timeA[0] * 60 + timeA[1])
+      })
+    }
 
     return NextResponse.json({ movements })
   } catch (error: any) {

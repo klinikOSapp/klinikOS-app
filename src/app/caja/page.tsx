@@ -84,6 +84,9 @@ function formatToolbarLabel(date: Date, scale: CashTimeScale) {
     year: 'numeric'
   })
   switch (scale) {
+    case 'year': {
+      return new Intl.DateTimeFormat('es-ES', { year: 'numeric' }).format(date)
+    }
     case 'week': {
       const start = startOfWeek(date)
       const end = addDays(start, 6)
@@ -110,6 +113,11 @@ function formatToolbarLabel(date: Date, scale: CashTimeScale) {
 function shiftAnchor(date: Date, scale: CashTimeScale, direction: 1 | -1) {
   const multiplier = direction === 1 ? 1 : -1
   switch (scale) {
+    case 'year': {
+      const copy = new Date(date)
+      copy.setFullYear(copy.getFullYear() + multiplier)
+      return copy
+    }
     case 'week':
       return addDays(date, multiplier * 7)
     case 'month':
