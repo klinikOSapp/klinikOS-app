@@ -7,6 +7,39 @@ type SeriesPoint = {
   invoiceCount?: number
 }
 
+function addDaysUtcDateStr(dateStr: string, days: number) {
+  const [y, m, d] = dateStr.split('-').map((v) => Number(v))
+  const utc = new Date(Date.UTC(y, m - 1, d))
+  utc.setUTCDate(utc.getUTCDate() + days)
+  return utc.toISOString().split('T')[0]
+}
+
+function madridDayStartUtc(dateStr: string) {
+  // dateStr is YYYY-MM-DD and represents a day in Europe/Madrid.
+  // We compute the UTC instant that corresponds to 00:00:00 in Madrid on that date.
+  const guessUtc = new Date(`${dateStr}T00:00:00Z`)
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).formatToParts(guessUtc)
+
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value || '0')
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value || '0')
+  const second = Number(parts.find((p) => p.type === 'second')?.value || '0')
+  const deltaMs = (hour * 3600 + minute * 60 + second) * 1000
+  return new Date(guessUtc.getTime() - deltaMs)
+}
+
+function madridDayRangeUtc(dateStr: string) {
+  const startUtc = madridDayStartUtc(dateStr)
+  const nextStartUtc = madridDayStartUtc(addDaysUtcDateStr(dateStr, 1))
+  const endUtc = new Date(nextStartUtc.getTime() - 1)
+  return { startUtc, endUtc }
+}
+
 export async function GET(req: Request) {
   try {
     const supabase = await createSupabaseServerClient()
@@ -38,11 +71,12 @@ export async function GET(req: Request) {
     let daysInMonthForResponse: number | null = null
 
     if (timeScale === 'day') {
-      // Get all invoices for the selected day (full day: 00:00 - 23:59)
+      // Get all invoices for the selected day using Europe/Madrid day boundaries
       // Frontend will calculate cumulative from raw invoice data
-      const dateStr = anchorDate.toISOString().split('T')[0]
-      const startTime = `${dateStr}T00:00:00Z`
-      const endTime = `${dateStr}T23:59:59Z`
+      const dateStr = date
+      const { startUtc, endUtc } = madridDayRangeUtc(dateStr)
+      const startTime = startUtc.toISOString()
+      const endTime = endUtc.toISOString()
       
       // Use RPC function to get all invoices in time range
       const { data: invoices, error: rpcError } = await supabase.rpc('get_invoices_in_time_range', {
@@ -92,9 +126,9 @@ export async function GET(req: Request) {
 
       console.log(`[Trend API] Found ${finalInvoices.length} invoices for day ${dateStr}`)
       
-      // Get target value for the day
-      const currentYear = anchorDate.getFullYear()
-      const currentMonth = anchorDate.getMonth()
+      // Get target value for the day (based on selected month/year)
+      const currentYear = anchorDate.getUTCFullYear()
+      const currentMonth = anchorDate.getUTCMonth()
       const { data: monthlyGoal } = await supabase
         .from('monthly_goals')
         .select('revenue_goal')
@@ -129,8 +163,10 @@ export async function GET(req: Request) {
 
       const weekStartStr = weekStart.toISOString().split('T')[0]
       const weekEndStr = weekEnd.toISOString().split('T')[0]
-      const startTime = `${weekStartStr}T00:00:00Z`
-      const endTime = `${weekEndStr}T23:59:59Z`
+      const weekStartRange = madridDayRangeUtc(weekStartStr)
+      const weekEndNextUtc = madridDayStartUtc(addDaysUtcDateStr(weekEndStr, 1))
+      const startTime = weekStartRange.startUtc.toISOString()
+      const endTime = new Date(weekEndNextUtc.getTime() - 1).toISOString()
 
       // Prefer DB-side aggregation (fast). Fallback to invoice row fetching if RPC not deployed.
       const dayTotalsRpc = await supabase.rpc('get_invoice_totals_by_day', {
@@ -218,8 +254,10 @@ export async function GET(req: Request) {
       const monthEndDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
       daysInMonthForResponse = daysInMonth
 
-      const startTime = `${monthStartDate}T00:00:00Z`
-      const endTime = `${monthEndDate}T23:59:59Z`
+      const monthStartUtc = madridDayStartUtc(monthStartDate)
+      const monthEndNextUtc = madridDayStartUtc(addDaysUtcDateStr(monthEndDate, 1))
+      const startTime = monthStartUtc.toISOString()
+      const endTime = new Date(monthEndNextUtc.getTime() - 1).toISOString()
 
       const byDay = new Map<number, { sum: number; count: number }>()
 

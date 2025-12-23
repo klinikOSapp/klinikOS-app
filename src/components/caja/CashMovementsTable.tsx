@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 type InvoiceStatus = 'Aceptado' | 'Enviado'
 type ProductionState = 'Hecho' | 'Pendiente'
-type PaymentCategory = 'Efectivo' | 'TPV' | 'Financiación'
+type PaymentCategory = 'Efectivo' | 'TPV' | 'Transferencia' | 'Financiación'
 type CollectionStatus = 'Cobrado' | 'Por cobrar'
 
 type CashMovement = {
@@ -147,10 +147,10 @@ const getBodyCellClasses = (index: number, align: 'left' | 'right' = 'left') => 
 const PAYMENT_FILTERS: PaymentCategory[] = [
   'Efectivo',
   'TPV',
+  'Transferencia',
   'Financiación'
 ]
 
-const INVOICE_STATUS_FILTERS: InvoiceStatus[] = ['Aceptado', 'Enviado']
 const COLLECTION_STATUS_FILTERS: CollectionStatus[] = ['Cobrado', 'Por cobrar']
 
 type CashMovementsTableProps = {
@@ -160,20 +160,25 @@ type CashMovementsTableProps = {
 
 export default function CashMovementsTable({ date, timeScale }: CashMovementsTableProps) {
   const [query, setQuery] = useState('')
-  const [activePaymentFilters, setActivePaymentFilters] = useState<
-    PaymentCategory[]
-  >([])
-  const [activeInvoiceStatusFilters, setActiveInvoiceStatusFilters] = useState<
-    InvoiceStatus[]
-  >([])
-  const [activeCollectionStatusFilters, setActiveCollectionStatusFilters] =
-    useState<CollectionStatus[]>([])
+  const [patientSuggestions, setPatientSuggestions] = useState<Array<{ id: string; name: string }>>(
+    []
+  )
+  const [isSuggesting, setIsSuggesting] = useState(false)
+  const [fromDate, setFromDate] = useState<string>('')
+  const [toDate, setToDate] = useState<string>('')
+  const [paymentMethod, setPaymentMethod] = useState<'' | PaymentCategory>('')
+  const [paymentStatus, setPaymentStatus] = useState<'' | CollectionStatus>('')
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const [scaleFactor, setScaleFactor] = useState(1)
   const [movements, setMovements] = useState<CashMovement[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
-  const PAGE_SIZE = 12
+  const [pageSize, setPageSize] = useState<number>(() => {
+    if (typeof window === 'undefined') return 50
+    const raw = window.localStorage.getItem('caja.movements.pageSize')
+    const v = Number(raw)
+    return v === 20 || v === 50 || v === 100 ? v : 50
+  })
   const lastHashRef = useRef<string>('')
   const [paymentsModal, setPaymentsModal] = useState<{
     open: boolean
@@ -193,6 +198,84 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       paymentMethod: string
     }>
   }>({ open: false, movement: null, loading: false })
+
+  const formatMadridDate = (d: Date) =>
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Madrid',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(d)
+
+  const computeRangeFromToolbar = (anchor: Date, scale: 'day' | 'week' | 'month') => {
+    const dateStr = formatMadridDate(anchor) // YYYY-MM-DD (Madrid)
+    const start = new Date(`${dateStr}T00:00:00Z`)
+    const end = new Date(`${dateStr}T00:00:00Z`)
+
+    if (scale === 'week') {
+      const day = start.getUTCDay() // 0=Sun..6=Sat
+      const diffToMonday = (day + 6) % 7
+      start.setUTCDate(start.getUTCDate() - diffToMonday)
+      end.setUTCDate(start.getUTCDate() + 6)
+    } else if (scale === 'month') {
+      start.setUTCDate(1)
+      const lastDay = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0))
+      end.setUTCDate(lastDay.getUTCDate())
+    }
+
+    return {
+      from: start.toISOString().split('T')[0],
+      to: end.toISOString().split('T')[0]
+    }
+  }
+
+  // Reset date-range when toolbar changes (v2 Phase 1 default behavior)
+  useEffect(() => {
+    const range = computeRangeFromToolbar(date, timeScale)
+    setFromDate(range.from)
+    setToDate(range.to)
+    setCurrentPage(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, timeScale])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem('caja.movements.pageSize', String(pageSize))
+  }, [pageSize])
+
+  // Patient autocomplete (v2 Phase 1): debounce 300ms
+  useEffect(() => {
+    const q = query.trim()
+    if (q.length < 2) {
+      setPatientSuggestions([])
+      setIsSuggesting(false)
+      return
+    }
+
+    const controller = new AbortController()
+    setIsSuggesting(true)
+    const t = window.setTimeout(() => {
+      fetch(`/api/caja/patients-search?q=${encodeURIComponent(q)}`, {
+        signal: controller.signal
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (controller.signal.aborted) return
+          setPatientSuggestions(Array.isArray(data.patients) ? data.patients : [])
+          setIsSuggesting(false)
+        })
+        .catch((err) => {
+          if (controller.signal.aborted) return
+          console.error('Error fetching patient suggestions:', err)
+          setIsSuggesting(false)
+        })
+    }, 300)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(t)
+    }
+  }, [query])
 
   useEffect(() => {
     const handler = (e: any) => {
@@ -214,13 +297,16 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
   const fetchMovements = (opts?: { silent?: boolean }) => {
     const silent = Boolean(opts?.silent)
     if (!silent) setIsLoading(true)
-    const dateStr = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Europe/Madrid',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }).format(date)
-    fetch(`/api/caja/movements?date=${dateStr}&timeScale=${timeScale}`)
+    const params = new URLSearchParams()
+    params.set('date', formatMadridDate(date))
+    params.set('timeScale', timeScale)
+    if (fromDate) params.set('from', fromDate)
+    if (toDate) params.set('to', toDate)
+    if (query.trim()) params.set('patient', query.trim())
+    if (paymentMethod) params.set('paymentMethod', paymentMethod)
+    if (paymentStatus) params.set('paymentStatus', paymentStatus)
+
+    fetch(`/api/caja/movements?${params.toString()}`)
       .then((res) => res.json())
       .then((data) => {
         const next = Array.isArray(data.movements) ? (data.movements as CashMovement[]) : []
@@ -241,7 +327,8 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
   useEffect(() => {
     setCurrentPage(1)
     fetchMovements({ silent: false })
-  }, [date, timeScale])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, timeScale, fromDate, toDate, paymentMethod, paymentStatus])
 
   // Real-time polling (simple + robust): refresh every 15s and on window focus
   useEffect(() => {
@@ -257,7 +344,7 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       window.removeEventListener('focus', onFocus)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, timeScale])
+  }, [date, timeScale, fromDate, toDate, paymentMethod, paymentStatus, query])
 
   useEffect(() => {
     const container = tableContainerRef.current
@@ -282,32 +369,6 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       resizeObserver.disconnect()
     }
   }, [])
-
-  const toggleFilter = (filter: PaymentCategory) => {
-    setActivePaymentFilters((prev) =>
-      prev.includes(filter)
-        ? prev.filter((item) => item !== filter)
-        : [...prev, filter]
-    )
-  }
-
-  const clearFilters = () => setActivePaymentFilters([])
-  const clearStatusFilters = () => {
-    setActiveInvoiceStatusFilters([])
-    setActiveCollectionStatusFilters([])
-  }
-
-  const toggleInvoiceStatusFilter = (filter: InvoiceStatus) => {
-    setActiveInvoiceStatusFilters((prev) =>
-      prev.includes(filter) ? prev.filter((f) => f !== filter) : [...prev, filter]
-    )
-  }
-
-  const toggleCollectionStatusFilter = (filter: CollectionStatus) => {
-    setActiveCollectionStatusFilters((prev) =>
-      prev.includes(filter) ? prev.filter((f) => f !== filter) : [...prev, filter]
-    )
-  }
 
   const openPaymentsModal = async (movement: CashMovement) => {
     setPaymentsModal({ open: true, movement, loading: true })
@@ -342,43 +403,21 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
             .includes(normalizedQuery)
         : true
 
-      const matchesFilter =
-        activePaymentFilters.length === 0
-          ? true
-          : activePaymentFilters.includes(movement.paymentCategory)
+      const matchesMethod = paymentMethod ? movement.paymentCategory === paymentMethod : true
+      const matchesPaymentStatus = paymentStatus
+        ? movement.collectionStatus === paymentStatus
+        : true
 
-      const matchesInvoiceStatus =
-        activeInvoiceStatusFilters.length === 0
-          ? true
-          : activeInvoiceStatusFilters.includes(movement.status)
-
-      const matchesCollectionStatus =
-        activeCollectionStatusFilters.length === 0
-          ? true
-          : activeCollectionStatusFilters.includes(movement.collectionStatus)
-
-      return (
-        matchesQuery && matchesFilter && matchesInvoiceStatus && matchesCollectionStatus
-      )
+      return matchesQuery && matchesMethod && matchesPaymentStatus
     })
-  }, [
-    movements,
-    query,
-    activePaymentFilters,
-    activeInvoiceStatusFilters,
-    activeCollectionStatusFilters
-  ])
+  }, [movements, query, paymentMethod, paymentStatus])
 
-  const totalPages = Math.max(1, Math.ceil(filteredMovements.length / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(filteredMovements.length / pageSize))
   const page = Math.min(currentPage, totalPages)
   const paginatedMovements = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE
-    return filteredMovements.slice(start, start + PAGE_SIZE)
-  }, [filteredMovements, page])
-
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [query, activePaymentFilters, activeInvoiceStatusFilters, activeCollectionStatusFilters])
+    const start = (page - 1) * pageSize
+    return filteredMovements.slice(start, start + pageSize)
+  }, [filteredMovements, page, pageSize])
 
   return (
     <section
@@ -389,46 +428,46 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       }}
     >
       <div className='flex flex-wrap items-center gap-gapsm'>
-        <SearchInput value={query} onChange={setQuery} />
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          suggestions={patientSuggestions}
+          loading={isSuggesting}
+          onPickSuggestion={(name) => setQuery(name)}
+        />
+        <div className='flex flex-wrap items-center gap-gapsm'>
+          <DateField label='Desde' value={fromDate} onChange={setFromDate} />
+          <DateField label='Hasta' value={toDate} onChange={setToDate} />
+        </div>
         <div className='ml-auto flex flex-wrap items-center gap-gapsm'>
-          <FilterChip
-            label='Todos'
-            icon='filter_alt'
-            active={activePaymentFilters.length === 0}
-            onClick={clearFilters}
+          <SelectField
+            label='Método'
+            value={paymentMethod}
+            options={[
+              { value: '', label: 'Todos' },
+              ...PAYMENT_FILTERS.map((v) => ({ value: v, label: v }))
+            ]}
+            onChange={(v) => setPaymentMethod(v as any)}
           />
-          {PAYMENT_FILTERS.map((filter) => (
-            <FilterChip
-              key={filter}
-              label={filter}
-              active={activePaymentFilters.includes(filter)}
-              onClick={() => toggleFilter(filter)}
-            />
-          ))}
-          <FilterChip
+          <SelectField
             label='Estado'
-            active={
-              activeInvoiceStatusFilters.length === 0 &&
-              activeCollectionStatusFilters.length === 0
-            }
-            onClick={clearStatusFilters}
+            value={paymentStatus}
+            options={[
+              { value: '', label: 'Todos' },
+              ...COLLECTION_STATUS_FILTERS.map((v) => ({ value: v, label: v }))
+            ]}
+            onChange={(v) => setPaymentStatus(v as any)}
           />
-          {INVOICE_STATUS_FILTERS.map((filter) => (
-            <FilterChip
-              key={filter}
-              label={filter}
-              active={activeInvoiceStatusFilters.includes(filter)}
-              onClick={() => toggleInvoiceStatusFilter(filter)}
-            />
-          ))}
-          {COLLECTION_STATUS_FILTERS.map((filter) => (
-            <FilterChip
-              key={filter}
-              label={filter}
-              active={activeCollectionStatusFilters.includes(filter)}
-              onClick={() => toggleCollectionStatusFilter(filter)}
-            />
-          ))}
+          <SelectField
+            label='Filas'
+            value={String(pageSize)}
+            options={[
+              { value: '20', label: '20' },
+              { value: '50', label: '50' },
+              { value: '100', label: '100' }
+            ]}
+            onChange={(v) => setPageSize(Number(v))}
+          />
         </div>
       </div>
 
@@ -622,33 +661,117 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
 
 function SearchInput({
   value,
-  onChange
+  onChange,
+  suggestions,
+  loading,
+  onPickSuggestion
 }: {
   value: string
   onChange: (value: string) => void
+  suggestions?: Array<{ id: string; name: string }>
+  loading?: boolean
+  onPickSuggestion?: (name: string) => void
 }) {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className='flex items-center rounded-full border border-border bg-surface px-[0.75rem] text-neutral-600 focus-within:ring-2 focus-within:ring-brandSemantic'
-      style={{
-        width: `min(${SEARCH_WIDTH_REM}rem, 100%)`,
-        height: `${CONTROL_HEIGHT_REM}rem`
-      }}
-    >
-      <span className='material-symbols-rounded text-[1rem] text-neutral-500'>search</span>
+    <div className='relative' style={{ width: `min(${SEARCH_WIDTH_REM}rem, 100%)` }}>
+      <form
+        onSubmit={handleSubmit}
+        className='flex items-center rounded-full border border-border bg-surface px-[0.75rem] text-neutral-600 focus-within:ring-2 focus-within:ring-brandSemantic'
+        style={{
+          width: '100%',
+          height: `${CONTROL_HEIGHT_REM}rem`
+        }}
+      >
+        <span className='material-symbols-rounded text-[1rem] text-neutral-500'>search</span>
+        <input
+          className='ml-[0.5rem] w-full bg-transparent text-body-sm text-neutral-800 placeholder:text-neutral-500 focus:outline-none'
+          placeholder='Buscar paciente'
+          aria-label='Buscar paciente'
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        {loading ? (
+          <span className='material-symbols-rounded ml-[0.25rem] text-[1rem] text-neutral-400'>
+            progress_activity
+          </span>
+        ) : null}
+      </form>
+
+      {onPickSuggestion && (suggestions?.length || 0) > 0 && value.trim().length >= 2 && (
+        <div className='absolute left-0 right-0 top-[calc(100%+0.25rem)] z-[30] rounded-lg border border-border bg-neutral-0 shadow-elevation-popover'>
+          <ul className='max-h-[14rem] overflow-auto py-[0.25rem]'>
+            {suggestions!.map((p) => (
+              <li key={p.id}>
+                <button
+                  type='button'
+                  onClick={() => onPickSuggestion(p.name)}
+                  className='flex w-full items-center px-[0.75rem] py-[0.5rem] text-left text-body-sm text-neutral-900 hover:bg-neutral-50'
+                >
+                  {p.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DateField({
+  label,
+  value,
+  onChange
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <label className='flex items-center gap-[0.5rem] text-label-sm text-neutral-600'>
+      <span className='whitespace-nowrap'>{label}</span>
       <input
-        className='ml-[0.5rem] w-full bg-transparent text-body-sm text-neutral-800 placeholder:text-neutral-500 focus:outline-none'
-        placeholder='Buscar'
-        aria-label='Buscar en caja diaria'
+        type='date'
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(e) => onChange(e.target.value)}
+        className='h-full rounded-full border border-border bg-surface px-[0.75rem] text-body-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-brandSemantic'
+        style={{ height: `${CONTROL_HEIGHT_REM}rem` }}
       />
-    </form>
+    </label>
+  )
+}
+
+function SelectField({
+  label,
+  value,
+  options,
+  onChange
+}: {
+  label: string
+  value: string
+  options: Array<{ value: string; label: string }>
+  onChange: (value: string) => void
+}) {
+  return (
+    <label className='flex items-center gap-[0.5rem] text-label-sm text-neutral-600'>
+      <span className='whitespace-nowrap'>{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className='h-full rounded-full border border-border bg-surface px-[0.75rem] text-body-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-brandSemantic'
+        style={{ height: `${CONTROL_HEIGHT_REM}rem` }}
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
 

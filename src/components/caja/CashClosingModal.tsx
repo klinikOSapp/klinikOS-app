@@ -140,7 +140,7 @@ type CashClosingModalProps = {
   date?: Date // Date for which to close cash
 }
 
-type ModalStep = 'select' | 'summary' | 'recount' | 'confirmation'
+type ModalStep = 'select' | 'totals' | 'summary' | 'recount' | 'confirmation'
 
 type DailyMovement = {
   time: string
@@ -193,6 +193,7 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
     transfer: 0,
     check: 0
   })
+  const [totalDayAmount, setTotalDayAmount] = React.useState<number>(0)
   const [existingClosing, setExistingClosing] = React.useState<any>(null)
 
   React.useEffect(() => {
@@ -256,9 +257,9 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
     }
   }, [open, step])
 
-  // Fetch daily movements, calculated totals, and existing closing data when moving to summary step
+  // Fetch daily movements, calculated totals, and existing closing data when entering Totals (Step 2A)
   React.useEffect(() => {
-    if (!open || step !== 'summary') return
+    if (!open || step !== 'totals') return
 
     setIsLoading(true)
     // Format date in local timezone to avoid UTC conversion issues
@@ -266,7 +267,7 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
     
     console.log(`[CashClosingModal] Fetching data for date:`, selectedDate, `Formatted:`, dateStr)
 
-    // Fetch calculated totals (starter_box_amount and daily_box_amount)
+    // Fetch calculated totals (starter_box_amount + expected breakdown), daily movements, and existing closing.
     Promise.all([
       fetch(`/api/caja/closing/calculate-totals?date=${dateStr}`).then((res) => res.json()),
       fetch(`/api/caja/closing/daily-movements?date=${dateStr}`).then((res) => res.json()),
@@ -280,6 +281,7 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
             ? Number(totalsData.starterBoxAmount)
             : 0
 
+        // v2: "Caja del día" is the CASH expected amount (readonly).
         const dayValue = closingData.closing?.daily_box_amount !== null && closingData.closing?.daily_box_amount !== undefined
           ? Number(closingData.closing.daily_box_amount)
           : totalsData.dailyBoxAmount !== undefined
@@ -305,89 +307,18 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
         // Set daily movements and calculate payment method breakdown
         if (movementsData.movements) {
           setDailyMovements(movementsData.movements)
-
-          // Calculate payment method breakdown from movements (using English keys)
-          const breakdown: PaymentMethodBreakdown = {
-            cash: 0,
-            card: 0,
-            transfer: 0,
-            check: 0
-          }
-
-          movementsData.movements.forEach((movement: DailyMovement) => {
-            // Parse amount - handle both "200,00 €" and "200.00 €" formats
-            const amountStr = movement.amount.replace(/[^\d,.-]/g, '').replace(',', '.')
-            const amount = parseFloat(amountStr) || 0
-            const method = movement.method.toLowerCase().trim()
-
-            console.log(`[Payment Breakdown] Processing movement: method="${movement.method}" (normalized: "${method}"), amount=${amount}`)
-
-            // Match payment methods (case-insensitive, handle all variations)
-            // Efectivo (Cash)
-            if (method.includes('efectivo') || method === 'cash') {
-              breakdown.cash += amount
-              console.log(`[Payment Breakdown] Matched as cash, total cash: ${breakdown.cash}`)
-            }
-            // TPV / Card / Credit/Debit Card (all card payments go to TPV)
-            else if (
-              method.includes('tpv') ||
-              method.includes('tarjeta') ||
-              method.includes('card') ||
-              method.includes('crédito') ||
-              method.includes('débito') ||
-              method.includes('credit') ||
-              method.includes('debit')
-            ) {
-              breakdown.card += amount
-              console.log(`[Payment Breakdown] Matched as card/TPV, total card: ${breakdown.card}`)
-            }
-            // Transferencia bancaria (Bank transfer)
-            else if (
-              method.includes('transferencia') ||
-              method.includes('transfer') ||
-              method.includes('bancaria') ||
-              method.includes('bank')
-            ) {
-              breakdown.transfer += amount
-              console.log(`[Payment Breakdown] Matched as transfer, total transfer: ${breakdown.transfer}`)
-            }
-            // Cheque (Check)
-            else if (method.includes('cheque') || method === 'check') {
-              breakdown.check += amount
-              console.log(`[Payment Breakdown] Matched as check, total check: ${breakdown.check}`)
-            }
-            // Financiado (Financed) - goes to card/TPV category
-            else if (method.includes('financiado') || method.includes('financed') || method.includes('financiación')) {
-              breakdown.card += amount
-              console.log(`[Payment Breakdown] Matched as financed (TPV), total card: ${breakdown.card}`)
-            }
-            // Billetera digital (Digital wallet) - goes to card/TPV category
-            else if (method.includes('billetera') || method.includes('wallet') || method.includes('digital')) {
-              breakdown.card += amount
-              console.log(`[Payment Breakdown] Matched as digital wallet (TPV), total card: ${breakdown.card}`)
-            }
-            // Criptomonedas (Cryptocurrency) - goes to transfer category
-            else if (method.includes('cripto') || method.includes('crypto')) {
-              breakdown.transfer += amount
-              console.log(`[Payment Breakdown] Matched as cryptocurrency (transfer), total transfer: ${breakdown.transfer}`)
-            }
-            // Pago a plazos (Installment payment) - goes to card/TPV category
-            else if (method.includes('plazos') || method.includes('installment') || method.includes('installments')) {
-              breakdown.card += amount
-              console.log(`[Payment Breakdown] Matched as installment (TPV), total card: ${breakdown.card}`)
-            }
-            // Unknown payment method - default to card/TPV (most common case)
-            else {
-              console.warn(`[Payment Breakdown] Unknown payment method: "${movement.method}", amount: ${amount} - defaulting to TPV`)
-              breakdown.card += amount
-            }
-          })
-
-          console.log(`[Payment Breakdown] Final breakdown:`, breakdown)
-          setPaymentMethodBreakdown(breakdown)
-          // Note: We do NOT pre-populate recount values - humans must manually enter them
-          // The "Debería haber..." text will show the expected amount from breakdown
         }
+
+        // v2: expected breakdown comes from payments (calculate-totals) so it matches system records.
+        if (totalsData.expectedBreakdown) {
+          setPaymentMethodBreakdown({
+            cash: Number(totalsData.expectedBreakdown.cash || 0),
+            card: Number(totalsData.expectedBreakdown.card || 0),
+            transfer: Number(totalsData.expectedBreakdown.transfer || 0),
+            check: Number(totalsData.expectedBreakdown.check || 0)
+          })
+        }
+        setTotalDayAmount(Number(totalsData.totalDayAmount || 0))
 
         // Load existing closing data if exists
         // Only populate recount values if there's an existing closing (user is editing/reviewing)
@@ -444,6 +375,15 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
     onClose()
   }
 
+  const handleBack = () => {
+    setStep((prev) => {
+      if (prev === 'recount') return 'summary'
+      if (prev === 'summary') return 'totals'
+      if (prev === 'totals') return 'select'
+      return prev
+    })
+  }
+
   const handleContinue = async () => {
     if (step === 'select') {
       // Validate professional and date selection
@@ -455,6 +395,12 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
         alert('Por favor, selecciona una fecha')
         return
       }
+      setStep('totals')
+      return
+    }
+
+    if (step === 'totals') {
+      // v2: user reviews totals first, then proceeds to cash counting.
       setStep('summary')
       return
     }
@@ -625,9 +571,23 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
   if (!open || !mounted) return null
 
   const modalWidthRem =
-    step === 'summary' ? MODAL_WIDTH_REM : step === 'recount' ? RECOUNT_MODAL_WIDTH_REM : step === 'select' ? MODAL_WIDTH_REM : RECOUNT_MODAL_WIDTH_REM
+    step === 'summary'
+      ? MODAL_WIDTH_REM
+      : step === 'totals'
+        ? MODAL_WIDTH_REM
+        : step === 'recount'
+          ? RECOUNT_MODAL_WIDTH_REM
+          : step === 'select'
+            ? MODAL_WIDTH_REM
+            : RECOUNT_MODAL_WIDTH_REM
   const modalScaleFormula =
-    step === 'summary' ? MODAL_SCALE_FORMULA : step === 'select' ? MODAL_SCALE_FORMULA : RECOUNT_MODAL_SCALE_FORMULA
+    step === 'summary'
+      ? MODAL_SCALE_FORMULA
+      : step === 'totals'
+        ? MODAL_SCALE_FORMULA
+        : step === 'select'
+          ? MODAL_SCALE_FORMULA
+          : RECOUNT_MODAL_SCALE_FORMULA
 
   const modalFrameStyle = {
     '--modal-scale': modalScaleFormula,
@@ -650,6 +610,8 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
   const descriptionId =
     step === 'select'
       ? 'cash-close-select-description'
+      : step === 'totals'
+        ? 'cash-close-totals-description'
       : step === 'summary'
         ? 'cash-close-dialog-description'
         : step === 'recount'
@@ -676,9 +638,24 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
           >
             <div className='relative' style={modalContentStyle}>
               <header className='absolute left-0 top-0 flex h-[3.5rem] w-full items-center justify-between border-b border-border px-[2rem]'>
-                <p id='cash-close-dialog-title' className='text-title-md font-medium text-fg'>
-                  Cierre de caja
-                </p>
+                <div className='flex items-center gap-[0.75rem]'>
+                  {step !== 'select' && step !== 'confirmation' && (
+                    <button
+                      type='button'
+                      className='flex h-[2rem] items-center justify-center rounded-full border border-border bg-neutral-0 px-[0.75rem] text-label-md text-fg transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50'
+                      onClick={handleBack}
+                      aria-label='Volver'
+                    >
+                      <span className='material-symbols-rounded mr-[0.25rem] text-[1rem] leading-none'>
+                        arrow_back
+                      </span>
+                      Volver
+                    </button>
+                  )}
+                  <p id='cash-close-dialog-title' className='text-title-md font-medium text-fg'>
+                    Cierre de caja
+                  </p>
+                </div>
                 <button
                   type='button'
                   className='flex size-[0.875rem] items-center justify-center text-neutral-600 transition-colors hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50'
@@ -697,6 +674,14 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
                   selectedStaffId={selectedStaffId}
                   onStaffChange={setSelectedStaffId}
                   staffList={staffList}
+                  onContinue={handleContinue}
+                />
+              ) : step === 'totals' ? (
+                <TotalsStep
+                  descriptionId={descriptionId}
+                  isLoading={isLoading}
+                  totalDayAmount={totalDayAmount}
+                  paymentMethodBreakdown={paymentMethodBreakdown}
                   onContinue={handleContinue}
                 />
               ) : step === 'summary' ? (
@@ -1121,6 +1106,91 @@ type SummaryStepProps = {
   isLoading: boolean
 }
 
+type TotalsStepProps = {
+  descriptionId: string
+  isLoading: boolean
+  totalDayAmount: number
+  paymentMethodBreakdown: PaymentMethodBreakdown
+  onContinue: () => void
+}
+
+function TotalsStep({
+  descriptionId,
+  isLoading,
+  totalDayAmount,
+  paymentMethodBreakdown,
+  onContinue
+}: TotalsStepProps) {
+  const row = (label: string, value: number) => (
+    <div className='flex items-center justify-between rounded-lg border border-border bg-neutral-0 px-[1rem] py-[0.75rem]'>
+      <p className='text-body-md text-fg'>{label}</p>
+      <p className='text-body-md font-medium text-fg'>
+        {value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+      </p>
+    </div>
+  )
+
+  return (
+    <>
+      <section
+        className='absolute flex flex-col gap-[0.5rem]'
+        style={{
+          left: `${SECTION_LEFT_REM}rem`,
+          top: `${HEADER_TOP_REM}rem`,
+          width: `${HEADER_WIDTH_REM}rem`
+        }}
+      >
+        <p className='text-headline-sm text-fg'>Totales del día</p>
+        <p id={descriptionId} className='text-body-sm text-fg'>
+          Revisa los totales esperados antes de contar el efectivo.
+        </p>
+      </section>
+
+      <section
+        className='absolute flex flex-col gap-[1rem]'
+        style={{
+          left: `${SECTION_LEFT_REM}rem`,
+          top: `${FORM_TOP_REM}rem`,
+          width: `${FORM_WIDTH_REM}rem`,
+          maxWidth: '100%'
+        }}
+      >
+        {isLoading ? (
+          <div className='flex h-[8rem] items-center justify-center text-body-md text-neutral-600'>
+            Calculando totales...
+          </div>
+        ) : (
+          <>
+            {row('Total del día', totalDayAmount)}
+            <div className='mt-[0.5rem] flex flex-col gap-[0.5rem]'>
+              <p className='text-body-sm text-neutral-600'>Desglose por método</p>
+              {row('Efectivo', paymentMethodBreakdown.cash)}
+              {row('TPV', paymentMethodBreakdown.card)}
+              {row('Transferencia', paymentMethodBreakdown.transfer)}
+              {row('Financiación', paymentMethodBreakdown.check)}
+            </div>
+          </>
+        )}
+      </section>
+
+      <button
+        type='button'
+        onClick={onContinue}
+        disabled={isLoading}
+        className='absolute flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-brand-900 shadow-cta transition-colors hover:bg-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed'
+        style={{
+          left: `${CTA_LEFT_REM}rem`,
+          top: `${CTA_TOP_REM}rem`,
+          width: `${CTA_WIDTH_REM}rem`,
+          minHeight: `${CTA_HEIGHT_REM}rem`
+        }}
+      >
+        Continuar
+      </button>
+    </>
+  )
+}
+
 function SummaryStep({
   descriptionId,
   totalValues,
@@ -1140,7 +1210,7 @@ function SummaryStep({
           width: `${HEADER_WIDTH_REM}rem`
         }}
       >
-        <p className='text-headline-sm text-fg'>Totales de caja</p>
+        <p className='text-headline-sm text-fg'>Conteo de efectivo</p>
         <p id={descriptionId} className='text-body-sm text-fg'>
           Comprueba que todos los datos del resumen son correctos y anota la salida de caja.
         </p>
@@ -1156,7 +1226,8 @@ function SummaryStep({
         }}
       >
         {CASH_TOTAL_FIELDS.map((field) => {
-          const isReadOnly = field.id === 'initial' || field.id === 'day' || field.id === 'rest'
+          // v2: Caja inicial editable; Caja del día and Resto are readonly.
+          const isReadOnly = field.id === 'day' || field.id === 'rest'
           return (
             <div key={field.id} className='flex flex-1 flex-col gap-[0.5rem]'>
               <p className='text-body-sm text-fg'>{field.label}</p>
@@ -1296,7 +1367,7 @@ function RecountStep({
           { id: 'cash' as const, label: 'Efectivo', should: paymentMethodBreakdown.cash },
           { id: 'tpv' as const, label: 'TPV', should: paymentMethodBreakdown.card },
           { id: 'transfer' as const, label: 'Transferencia', should: paymentMethodBreakdown.transfer },
-          { id: 'cheque' as const, label: 'Cheque', should: paymentMethodBreakdown.check }
+          { id: 'cheque' as const, label: 'Financiación', should: paymentMethodBreakdown.check }
         ]
         console.log(`[RecountStep] Showing ${fields.length} payment methods:`, fields.map(f => `${f.label} (${f.should})`))
         return fields

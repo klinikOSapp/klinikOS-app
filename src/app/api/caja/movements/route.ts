@@ -15,19 +15,64 @@ type CashMovement = {
   produced: 'Hecho' | 'Pendiente'
   method: string
   insurer: string
-  paymentCategory: 'Efectivo' | 'TPV' | 'Financiación'
+  paymentCategory: 'Efectivo' | 'TPV' | 'Transferencia' | 'Financiación'
   quoteId?: string | null
   productionStatus?: 'Done' | 'Pending' | null
   productionDate?: string | null
 }
 
+function addDaysUtcDateStr(dateStr: string, days: number) {
+  const [y, m, d] = dateStr.split('-').map((v) => Number(v))
+  const utc = new Date(Date.UTC(y, m - 1, d))
+  utc.setUTCDate(utc.getUTCDate() + days)
+  return utc.toISOString().split('T')[0]
+}
+
+function madridDayStartUtc(dateStr: string) {
+  const guessUtc = new Date(`${dateStr}T00:00:00Z`)
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).formatToParts(guessUtc)
+
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value || '0')
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value || '0')
+  const second = Number(parts.find((p) => p.type === 'second')?.value || '0')
+  const deltaMs = (hour * 3600 + minute * 60 + second) * 1000
+  return new Date(guessUtc.getTime() - deltaMs)
+}
+
+function madridDayRangeUtc(dateStr: string) {
+  const startUtc = madridDayStartUtc(dateStr)
+  const nextStartUtc = madridDayStartUtc(addDaysUtcDateStr(dateStr, 1))
+  const endUtc = new Date(nextStartUtc.getTime() - 1)
+  return { startUtc, endUtc }
+}
+
 // Map payment_method to category
-function getPaymentCategory(method: string): 'Efectivo' | 'TPV' | 'Financiación' {
+function getPaymentCategory(
+  method: string
+): 'Efectivo' | 'TPV' | 'Transferencia' | 'Financiación' {
   const methodLower = method.toLowerCase()
   if (methodLower.includes('efectivo') || methodLower.includes('cash')) {
     return 'Efectivo'
   }
-  if (methodLower.includes('financi') || methodLower.includes('transferencia') || methodLower.includes('plazo')) {
+  if (
+    methodLower.includes('transferencia') ||
+    methodLower.includes('transfer') ||
+    methodLower.includes('bancaria') ||
+    methodLower.includes('bank')
+  ) {
+    return 'Transferencia'
+  }
+  if (
+    methodLower.includes('financi') ||
+    methodLower.includes('plazo') ||
+    methodLower.includes('financed')
+  ) {
     return 'Financiación'
   }
   return 'TPV'
@@ -59,6 +104,11 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0]
     const timeScale = searchParams.get('timeScale') || 'day' // day, week, month
+    const from = searchParams.get('from') // YYYY-MM-DD (Madrid)
+    const to = searchParams.get('to') // YYYY-MM-DD (Madrid)
+    const patientSearch = (searchParams.get('patient') || '').trim()
+    const paymentMethod = (searchParams.get('paymentMethod') || '').trim()
+    const paymentStatus = (searchParams.get('paymentStatus') || '').trim()
 
     // Get user's clinic
     const {
@@ -76,29 +126,33 @@ export async function GET(req: Request) {
 
     const clinicId = clinics[0] as string
 
-    // Calculate date range based on timeScale
-    // Treat `date` as a date-only anchor to avoid timezone drift.
-    const startDate = new Date(`${date}T00:00:00Z`)
-    const endDate = new Date(`${date}T00:00:00Z`)
+    // v2 Phase 1: support explicit date range (from/to). If not provided, fallback to date+timeScale.
+    let startDateStr = from || date
+    let endDateStr = to || date
 
-    if (timeScale === 'week') {
-      // Start of week (Monday)
-      const day = startDate.getUTCDay() // 0=Sun..6=Sat
-      const diffToMonday = (day + 6) % 7
-      startDate.setUTCDate(startDate.getUTCDate() - diffToMonday)
-      // End of week (Sunday)
-      endDate.setUTCDate(startDate.getUTCDate() + 6)
-    } else if (timeScale === 'month') {
-      startDate.setUTCDate(1)
-      const lastDay = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth() + 1, 0))
-      endDate.setUTCDate(lastDay.getUTCDate())
+    if (!from && !to) {
+      const startDate = new Date(`${date}T00:00:00Z`)
+      const endDate = new Date(`${date}T00:00:00Z`)
+
+      if (timeScale === 'week') {
+        const day = startDate.getUTCDay() // 0=Sun..6=Sat
+        const diffToMonday = (day + 6) % 7
+        startDate.setUTCDate(startDate.getUTCDate() - diffToMonday)
+        endDate.setUTCDate(startDate.getUTCDate() + 6)
+      } else if (timeScale === 'month') {
+        startDate.setUTCDate(1)
+        const lastDay = new Date(
+          Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth() + 1, 0)
+        )
+        endDate.setUTCDate(lastDay.getUTCDate())
+      }
+
+      startDateStr = startDate.toISOString().split('T')[0]
+      endDateStr = endDate.toISOString().split('T')[0]
     }
 
-    const startDateStr = startDate.toISOString().split('T')[0]
-    const endDateStr = endDate.toISOString().split('T')[0]
-
-    const startTime = `${startDateStr}T00:00:00Z`
-    const endTime = `${endDateStr}T23:59:59Z`
+    const startTime = madridDayRangeUtc(startDateStr).startUtc.toISOString()
+    const endTime = madridDayRangeUtc(endDateStr).endUtc.toISOString()
 
     // Prefer DB-side movement RPC (fast). Fallback to legacy path if RPC not deployed yet.
     const movementsRpc = await supabase.rpc('get_caja_movements_in_time_range', {
@@ -307,7 +361,23 @@ export async function GET(req: Request) {
       })
     }
 
-    return NextResponse.json({ movements })
+    // Apply optional filters (Phase 1)
+    const normalizedPatientSearch = patientSearch.toLowerCase()
+    const filtered = movements.filter((m) => {
+      if (normalizedPatientSearch) {
+        const hay = `${m.patient} ${m.concept}`.toLowerCase()
+        if (!hay.includes(normalizedPatientSearch)) return false
+      }
+      if (paymentMethod) {
+        if (m.paymentCategory !== paymentMethod) return false
+      }
+      if (paymentStatus) {
+        if (m.collectionStatus !== paymentStatus) return false
+      }
+      return true
+    })
+
+    return NextResponse.json({ movements: filtered })
   } catch (error: any) {
     console.error('Error in cash movements API:', error)
     return NextResponse.json({ error: error?.message ?? 'Unexpected error' }, { status: 500 })
