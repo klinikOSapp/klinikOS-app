@@ -344,20 +344,20 @@
   --scheduler-label-left: 0.0625rem; /* 1px divider */
 
   /* Fluid percentages - adapt to container width */
-  --scheduler-header-width-first: 23.85%; /* ~398/1664 (tiempo + día 1) */
-  --scheduler-header-width: 19.04%; /* ~317/1664 */
-  --scheduler-day-width-first: 19.04%; /* ~317/1664 */
-  --scheduler-day-width: 19.04%; /* ~317/1664 */
+  --scheduler-header-width-first: 23.85%; /* 396.8/1664 */
+  --scheduler-header-width: 19.04%; /* 316.8/1664 */
+  --scheduler-day-width-first: 19.04%; /* 316.8/1664 */
+  --scheduler-day-width: 19.04%; /* 316.8/1664 */
   --scheduler-day-left-mon: 4.81%; /* 80/1664 */
-  --scheduler-day-left-tue: 23.85%; /* ~398/1664 */
-  --scheduler-day-left-wed: 42.89%; /* ~714/1664 */
-  --scheduler-day-left-thu: 61.93%; /* ~1030/1664 */
-  --scheduler-day-left-fri: 80.97%; /* ~1347/1664 */
+  --scheduler-day-left-tue: 23.85%; /* 396.8/1664 */
+  --scheduler-day-left-wed: 42.88%; /* 713.6/1664 */
+  --scheduler-day-left-thu: 61.92%; /* 1030.4/1664 */
+  --scheduler-day-left-fri: 80.96%; /* 1347.2/1664 */
   --scheduler-header-left-mon: 0%; /* 0/1664 */
-  --scheduler-header-left-tue: 23.85%; /* ~398/1664 */
-  --scheduler-header-left-wed: 42.89%; /* ~714/1664 */
-  --scheduler-header-left-thu: 61.93%; /* ~1030/1664 */
-  --scheduler-header-left-fri: 80.97%; /* ~1347/1664 */
+  --scheduler-header-left-tue: 23.85%; /* 396.8/1664 */
+  --scheduler-header-left-wed: 42.88%; /* 713.6/1664 */
+  --scheduler-header-left-thu: 61.92%; /* 1030.4/1664 */
+  --scheduler-header-left-fri: 80.96%; /* 1347.2/1664 */
   --scheduler-box-top-second: 27.25rem; /* 436px */
   --scheduler-slot-height: 7.785625rem; /* 124.57px - altura por hora completa */
   --scheduler-slot-height-half: 3.8928125rem; /* 62.285px - altura por media hora (124.57/2) */

@@ -68,21 +68,24 @@ const DONUT_HEIGHT_RATIO = 186.093 / 307 // mantener proporción real del donut 
 const DONUT_SAFE_SPACE_REM = 0 // sin margen para ocupar casi todo
 const DONUT_SCALE = 1.55 // bajar escala para evitar overflow con menor altura
 
-const getRootFontSize = () => {
-  if (typeof window === 'undefined') return 16
+const BASE_ROOT_FONT_SIZE_PX = 16
+
+const getRootFontSize = (allowWindow = false) => {
+  if (!allowWindow || typeof window === 'undefined') return BASE_ROOT_FONT_SIZE_PX
   const value = parseFloat(
-    getComputedStyle(document.documentElement).fontSize || '16'
+    getComputedStyle(document.documentElement).fontSize ||
+      String(BASE_ROOT_FONT_SIZE_PX)
   )
-  return Number.isFinite(value) ? value : 16
+  return Number.isFinite(value) ? value : BASE_ROOT_FONT_SIZE_PX
 }
 
-const remToPx = (rem: number, rootFontSize = getRootFontSize()) =>
+const remToPx = (rem: number, rootFontSize = BASE_ROOT_FONT_SIZE_PX) =>
   rem * rootFontSize
 
-const pxToRem = (px: number, rootFontSize = getRootFontSize()) =>
+const pxToRem = (px: number, rootFontSize = BASE_ROOT_FONT_SIZE_PX) =>
   px / rootFontSize
 
-const DONUT_LABEL_OFFSET_REM = pxToRem(16)
+const DONUT_LABEL_OFFSET_REM = 1
 const DONUT_VALUE = 1200
 const DONUT_TARGET = 1800
 const DONUT_DATA = [
@@ -102,6 +105,7 @@ export default function CashSummaryCard({
   onHeightChange
 }: CashSummaryCardProps) {
   const cardRef = useRef<HTMLDivElement | null>(null)
+  const scaleRef = useRef(1)
   const [scale, setScale] = useState(1)
 
   useEffect(() => {
@@ -111,9 +115,11 @@ export default function CashSummaryCard({
     const observer = new ResizeObserver(([entry]) => {
       if (!entry) return
       const { width, height } = entry.contentRect
+      if (width <= 0 || height <= 0) return
       const widthRatio = width / INCOME_CARD_WIDTH_PX
-      const heightRatio = height / CARD_HEIGHT_PX
-      const ratio = Math.min(1, widthRatio, heightRatio)
+      const ratio = Math.min(1, widthRatio)
+      if (Math.abs(ratio - scaleRef.current) < 0.0005) return
+      scaleRef.current = ratio
       setScale(ratio)
     })
 
@@ -121,18 +127,16 @@ export default function CashSummaryCard({
     return () => observer.disconnect()
   }, [])
 
-  const scaledHeightRem = CARD_HEIGHT_REM * scale
-
   const sharedCardStyles: CSSProperties = {
     width: '100%',
     maxWidth: `${INCOME_CARD_WIDTH_REM}rem`,
-    height: `${scaledHeightRem}rem`,
+    height: `${CARD_HEIGHT_REM}rem`,
     overflow: 'hidden'
   }
 
   useEffect(() => {
-    onHeightChange?.(scaledHeightRem)
-  }, [scaledHeightRem, onHeightChange])
+    onHeightChange?.(CARD_HEIGHT_REM)
+  }, [onHeightChange])
 
   const iconSizeRem = 1 / Math.max(scale, 0.001)
 
@@ -236,25 +240,28 @@ function SummaryInsightCard({
 function CashDonutGauge() {
   const donutCardRef = useRef<HTMLDivElement | null>(null)
   const [chartDimensions, setChartDimensions] = useState(() => {
-    const rootFontSize = getRootFontSize()
+    const rootFontSize = BASE_ROOT_FONT_SIZE_PX
     const widthPx = remToPx(DONUT_MAX_WIDTH_REM, rootFontSize)
     return {
       widthPx,
       heightPx: widthPx * DONUT_HEIGHT_RATIO
     }
   })
+  const [rootFontSize, setRootFontSize] = useState(BASE_ROOT_FONT_SIZE_PX)
 
   useEffect(() => {
+    setRootFontSize(getRootFontSize(true))
+
     const node = donutCardRef.current
     if (!node || typeof ResizeObserver === 'undefined') return
 
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0]
       if (!entry) return
-      const rootFontSize = getRootFontSize()
-      const safeSpacePx = remToPx(DONUT_SAFE_SPACE_REM, rootFontSize)
-      const maxWidthPx = remToPx(DONUT_MAX_WIDTH_REM, rootFontSize)
-      const minWidthPx = remToPx(DONUT_MIN_WIDTH_REM, rootFontSize)
+      const measuredRootFontSize = getRootFontSize(true)
+      const safeSpacePx = remToPx(DONUT_SAFE_SPACE_REM, measuredRootFontSize)
+      const maxWidthPx = remToPx(DONUT_MAX_WIDTH_REM, measuredRootFontSize)
+      const minWidthPx = remToPx(DONUT_MIN_WIDTH_REM, measuredRootFontSize)
 
       const availableWidth = entry.contentRect.width - safeSpacePx
       const widthPx = Math.min(maxWidthPx, Math.max(minWidthPx, availableWidth))
@@ -265,11 +272,10 @@ function CashDonutGauge() {
         Math.max(0, maxHeightPx)
       )
 
-      setChartDimensions((prev) =>
-        prev.widthPx === widthPx && prev.heightPx === heightPx
-          ? prev
-          : { widthPx, heightPx }
-      )
+      setChartDimensions((prev) => {
+        if (prev.widthPx === widthPx && prev.heightPx === heightPx) return prev
+        return { widthPx, heightPx }
+      })
     })
 
     observer.observe(node)
@@ -281,7 +287,9 @@ function CashDonutGauge() {
     height: `${DONUT_CARD_HEIGHT_REM}rem`,
     position: 'relative',
     overflow: 'hidden',
-    boxShadow: '-1px -1px 8px rgba(0,0,0,0.05), 2px 2px 8px rgba(0,0,0,0.05)'
+    boxShadow: '-1px -1px 8px rgba(0,0,0,0.05), 2px 2px 8px rgba(0,0,0,0.05)',
+    minWidth: '1px',
+    minHeight: '1px'
   }
 
   const chartWrapperStyles: CSSProperties = {
@@ -289,8 +297,14 @@ function CashDonutGauge() {
     left: '50%',
     top: '16%',
     transform: 'translate(-50%, -50%)',
-    width: `${pxToRem(chartDimensions.widthPx * DONUT_SCALE)}rem`,
-    height: `${pxToRem(chartDimensions.heightPx * DONUT_SCALE)}rem`
+    width: `${pxToRem(
+      chartDimensions.widthPx * DONUT_SCALE,
+      rootFontSize
+    )}rem`,
+    height: `${pxToRem(
+      chartDimensions.heightPx * DONUT_SCALE,
+      rootFontSize
+    )}rem`
   }
 
   const valueStackStyles: CSSProperties = {
@@ -317,27 +331,29 @@ function CashDonutGauge() {
         Cobrado
       </p>
 
-      <div className='absolute' style={chartWrapperStyles} aria-hidden='true'>
-        <ResponsiveContainer width='100%' height='100%'>
-          <PieChart>
-            <Pie
-              data={DONUT_DATA}
-              dataKey='value'
-              startAngle={180}
-              endAngle={0}
-              innerRadius='85%'
-              outerRadius='100%'
-              cx='50%'
-              cy='100%'
-              stroke='transparent'
-            >
-              {DONUT_DATA.map((slice) => (
-                <Cell key={slice.name} fill={slice.color} />
-              ))}
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
+      {chartDimensions.widthPx > 0 && chartDimensions.heightPx > 0 ? (
+        <div className='absolute' style={chartWrapperStyles} aria-hidden='true'>
+          <ResponsiveContainer width='100%' height='100%'>
+            <PieChart>
+              <Pie
+                data={DONUT_DATA}
+                dataKey='value'
+                startAngle={180}
+                endAngle={0}
+                innerRadius='85%'
+                outerRadius='100%'
+                cx='50%'
+                cy='100%'
+                stroke='transparent'
+              >
+                {DONUT_DATA.map((slice) => (
+                  <Cell key={slice.name} fill={slice.color} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      ) : null}
 
       <div
         className='absolute flex flex-col items-center gap-[0.25rem] text-center text-neutral-600'

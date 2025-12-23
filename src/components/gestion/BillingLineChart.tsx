@@ -400,11 +400,14 @@ export default function BillingLineChart({
   )
 }
 
-function ChartTooltip({
-  active,
-  payload,
-  label
-}: TooltipProps<number, string>) {
+type ChartTooltipProps = TooltipProps<number, string> & {
+  payload?: Array<{ dataKey?: string; value?: number }>
+  label?: string
+}
+
+function ChartTooltip(props: ChartTooltipProps) {
+  // Recharts marca payload como opcional; lo tipamos explícitamente para evitar el error de TS
+  const { active, payload, label } = props
   if (!active || !payload || payload.length === 0) return null
   const brand =
     (payload.find((p) => p.dataKey === 'brandClipped')?.value ??

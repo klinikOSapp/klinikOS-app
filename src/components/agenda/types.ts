@@ -41,6 +41,8 @@ export type AgendaEvent = {
   timeRange: string
   backgroundClass: string
   borderClass?: string
+  left?: string
+  width?: string
   detail?: EventDetail
 }
 

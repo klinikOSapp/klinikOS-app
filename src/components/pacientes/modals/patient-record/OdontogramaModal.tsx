@@ -460,9 +460,6 @@ export default function OdontogramaModal({
                       placeholder='Value'
                     />
                   </div>
-                  <span className='text-label-sm text-neutral-600'>
-                    Texto descriptivo
-                  </span>
                 </label>
 
                 <button

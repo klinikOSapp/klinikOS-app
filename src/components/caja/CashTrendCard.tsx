@@ -144,10 +144,13 @@ export default function CashTrendCard({
       ? `${targetHeightRem}rem`
       : `min(${CARD_HEIGHT_REM}rem, 100%)`,
     overflow: 'hidden',
-    position: 'relative'
+    position: 'relative',
+    minWidth: '1px',
+    minHeight: '1px'
   }
 
   const [scale, setScale] = useState(1)
+  const [chartReady, setChartReady] = useState(false)
   const frameRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -158,6 +161,9 @@ export default function CashTrendCard({
       const widthRatio = entry.contentRect.width / CARD_WIDTH_PX
       const heightRatio = entry.contentRect.height / CARD_HEIGHT_PX
       setScale(Math.min(widthRatio, heightRatio))
+      if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+        setChartReady(true)
+      }
     })
     observer.observe(node)
     return () => observer.disconnect()
@@ -232,25 +238,27 @@ export default function CashTrendCard({
             }}
           />
           <ChartGrid />
-          <ResponsiveContainer width='100%' height='100%'>
-            <LineChart
-              data={chartLineData}
-              margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-            >
-              <YAxis type='number' domain={[0, 50]} hide />
-              <XAxis dataKey='label' type='category' hide />
-              <Line
-                type='monotone'
-                dataKey='clippedActual'
-                stroke='var(--color-brand-500)'
-                strokeWidth={3}
-                dot={false}
-                animationDuration={1100}
-                animationBegin={200}
-                isAnimationActive
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {chartReady ? (
+            <ResponsiveContainer width='100%' height='100%'>
+              <LineChart
+                data={chartLineData}
+                margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+              >
+                <YAxis type='number' domain={[0, 50]} hide />
+                <XAxis dataKey='label' type='category' hide />
+                <Line
+                  type='monotone'
+                  dataKey='clippedActual'
+                  stroke='var(--color-brand-500)'
+                  strokeWidth={3}
+                  dot={false}
+                  animationDuration={1100}
+                  animationBegin={200}
+                  isAnimationActive
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : null}
         </div>
 
         <div
