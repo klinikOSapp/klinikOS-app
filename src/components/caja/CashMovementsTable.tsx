@@ -238,6 +238,24 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, timeScale])
 
+  // Trend drilldown (Phase 2.3): clicking chart point sets date range
+  useEffect(() => {
+    const handler = (e: any) => {
+      const from = e?.detail?.from as string | undefined
+      const to = e?.detail?.to as string | undefined
+      if (!from || !to) return
+      setFromDate(from)
+      setToDate(to)
+      setCurrentPage(1)
+      // bring table into view
+      setTimeout(() => {
+        tableContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 0)
+    }
+    window.addEventListener('caja:trend-drilldown', handler as EventListener)
+    return () => window.removeEventListener('caja:trend-drilldown', handler as EventListener)
+  }, [])
+
   useEffect(() => {
     if (typeof window === 'undefined') return
     window.localStorage.setItem('caja.movements.pageSize', String(pageSize))

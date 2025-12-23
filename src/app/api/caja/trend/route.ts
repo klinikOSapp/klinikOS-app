@@ -3,8 +3,12 @@ import { NextResponse } from 'next/server'
 
 type SeriesPoint = {
   label: string
-  actual: number
+  actual: number // produced cumulative (thousands)
+  collected?: number // collected cumulative (thousands)
   invoiceCount?: number
+  paymentCount?: number
+  bucketStart?: string // YYYY-MM-DD (Madrid)
+  bucketEnd?: string // YYYY-MM-DD (Madrid)
 }
 
 function addDaysUtcDateStr(dateStr: string, days: number) {
@@ -72,7 +76,7 @@ export async function GET(req: Request) {
 
     if (timeScale === 'day') {
       // Get all invoices for the selected day using Europe/Madrid day boundaries
-      // Frontend will calculate cumulative from raw invoice data
+      // Frontend will calculate cumulative from raw invoice + payment data
       const dateStr = date
       const { startUtc, endUtc } = madridDayRangeUtc(dateStr)
       const startTime = startUtc.toISOString()
@@ -125,6 +129,18 @@ export async function GET(req: Request) {
       }
 
       console.log(`[Trend API] Found ${finalInvoices.length} invoices for day ${dateStr}`)
+
+      // Fetch payments for the same day (used for "Cobrado" series in FE)
+      const { data: dayPayments, error: paymentsError } = await supabase
+        .from('payments')
+        .select('amount, transaction_date')
+        .eq('clinic_id', clinicId)
+        .gte('transaction_date', startTime)
+        .lte('transaction_date', endTime)
+
+      if (paymentsError) {
+        console.error('[Trend API] Error fetching day payments:', paymentsError)
+      }
       
       // Get target value for the day (based on selected month/year)
       const currentYear = anchorDate.getUTCFullYear()
@@ -147,6 +163,7 @@ export async function GET(req: Request) {
       // Return raw invoices - frontend will calculate cumulative
       return NextResponse.json({
         invoices: finalInvoices,
+        payments: dayPayments || [],
         timeRange: { start: startTime, end: endTime },
         timeScale: 'day',
         targetValue: Math.round(targetValue * 10) / 10
@@ -176,6 +193,7 @@ export async function GET(req: Request) {
       })
 
       const byDay = new Map<string, { sum: number; count: number }>()
+      const paymentsByDay = new Map<string, { sum: number; count: number }>()
       if (!dayTotalsRpc.error && Array.isArray(dayTotalsRpc.data)) {
         for (const row of dayTotalsRpc.data as any[]) {
           const dateKey = String(row.day) // YYYY-MM-DD
@@ -222,19 +240,51 @@ export async function GET(req: Request) {
         }
       }
 
-      let cumulativeTotal = 0
+      // Payments for week (Cobrado cumulative)
+      const { data: weekPayments, error: weekPaymentsError } = await supabase
+        .from('payments')
+        .select('amount, transaction_date')
+        .eq('clinic_id', clinicId)
+        .gte('transaction_date', startTime)
+        .lte('transaction_date', endTime)
+      if (weekPaymentsError) {
+        console.error('[Trend API] Error fetching week payments:', weekPaymentsError)
+      }
+      const payFormatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Madrid',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      })
+      for (const p of weekPayments || []) {
+        if (!(p as any).transaction_date) continue
+        const dateKey = payFormatter.format(new Date((p as any).transaction_date))
+        const entry = paymentsByDay.get(dateKey) || { sum: 0, count: 0 }
+        entry.sum += Number((p as any).amount || 0)
+        entry.count += 1
+        paymentsByDay.set(dateKey, entry)
+      }
+
+      let producedCum = 0
+      let collectedCum = 0
       for (let i = 0; i < 7; i++) {
         const dayDate = new Date(weekStart)
         dayDate.setUTCDate(weekStart.getUTCDate() + i)
         const dateKey = dayDate.toISOString().split('T')[0]
         const dayEntry = byDay.get(dateKey) || { sum: 0, count: 0 }
-        cumulativeTotal += dayEntry.sum
+        const payEntry = paymentsByDay.get(dateKey) || { sum: 0, count: 0 }
+        producedCum += dayEntry.sum
+        collectedCum += payEntry.sum
 
         const label = `${dayDate.getUTCDate()}/${dayDate.getUTCMonth() + 1}`
         dataPoints.push({
           label,
-          actual: Math.round((cumulativeTotal / 1000) * 100) / 100,
-          invoiceCount: dayEntry.count
+          actual: Math.round((producedCum / 1000) * 100) / 100,
+          collected: Math.round((collectedCum / 1000) * 100) / 100,
+          invoiceCount: dayEntry.count,
+          paymentCount: payEntry.count,
+          bucketStart: dateKey,
+          bucketEnd: dateKey
         })
       }
 
@@ -260,6 +310,7 @@ export async function GET(req: Request) {
       const endTime = new Date(monthEndNextUtc.getTime() - 1).toISOString()
 
       const byDay = new Map<number, { sum: number; count: number }>()
+      const paymentsByDay = new Map<number, { sum: number; count: number }>()
 
       // Prefer DB-side aggregation (fast). Fallback to invoice row fetching if RPC not deployed.
       const dayTotalsRpc = await supabase.rpc('get_invoice_totals_by_day', {
@@ -324,12 +375,46 @@ export async function GET(req: Request) {
         }
       }
 
+      // Payments for month (Cobrado cumulative)
+      const { data: monthPayments, error: monthPaymentsError } = await supabase
+        .from('payments')
+        .select('amount, transaction_date')
+        .eq('clinic_id', clinicId)
+        .gte('transaction_date', startTime)
+        .lte('transaction_date', endTime)
+      if (monthPaymentsError) {
+        console.error('[Trend API] Error fetching month payments:', monthPaymentsError)
+      }
+      for (const p of monthPayments || []) {
+        if (!(p as any).transaction_date) continue
+        const parts = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Europe/Madrid',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        })
+          .format(new Date((p as any).transaction_date))
+          .split('-')
+        const py = Number(parts[0])
+        const pm = Number(parts[1])
+        const pd = Number(parts[2])
+        if (py !== year || pm !== month + 1) continue
+        const entry = paymentsByDay.get(pd) || { sum: 0, count: 0 }
+        entry.sum += Number((p as any).amount || 0)
+        entry.count += 1
+        paymentsByDay.set(pd, entry)
+      }
+
       // Build cumulative totals per day across the entire month (1..daysInMonth)
       const cumulativeByDay: number[] = new Array(daysInMonth + 1).fill(0)
+      const cumulativeCollectedByDay: number[] = new Array(daysInMonth + 1).fill(0)
       let running = 0
+      let runningCollected = 0
       for (let day = 1; day <= daysInMonth; day++) {
         running += byDay.get(day)?.sum || 0
         cumulativeByDay[day] = running
+        runningCollected += paymentsByDay.get(day)?.sum || 0
+        cumulativeCollectedByDay[day] = runningCollected
       }
 
       // Use a fixed set of sample labels for stable spacing,
@@ -352,10 +437,17 @@ export async function GET(req: Request) {
       for (let day = 1; day <= daysInMonth; day++) {
         const entry = byDay.get(day) || { sum: 0, count: 0 }
         const cumulativeTotal = cumulativeByDay[day] || 0
+        const payEntry = paymentsByDay.get(day) || { sum: 0, count: 0 }
+        const cumulativeCollected = cumulativeCollectedByDay[day] || 0
+        const bucketStart = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
         dataPoints.push({
           label: `${day}/${month + 1}`,
           actual: Math.round((cumulativeTotal / 1000) * 100) / 100,
-          invoiceCount: entry.count
+          collected: Math.round((cumulativeCollected / 1000) * 100) / 100,
+          invoiceCount: entry.count,
+          paymentCount: payEntry.count,
+          bucketStart,
+          bucketEnd: bucketStart
         })
       }
     } else if (timeScale === 'year') {
@@ -370,6 +462,9 @@ export async function GET(req: Request) {
       const endTime = new Date(yearEndNextUtc.getTime() - 1).toISOString()
 
       const monthTotals = new Array<{ sum: number; count: number }>(12)
+        .fill(null as any)
+        .map(() => ({ sum: 0, count: 0 }))
+      const monthCollectedTotals = new Array<{ sum: number; count: number }>(12)
         .fill(null as any)
         .map(() => ({ sum: 0, count: 0 }))
 
@@ -425,6 +520,31 @@ export async function GET(req: Request) {
         totalFacturadoExact = monthTotals.reduce((s, m) => s + m.sum, 0)
       }
 
+      // Payments for year (Cobrado cumulative)
+      const { data: yearPayments, error: yearPaymentsError } = await supabase
+        .from('payments')
+        .select('amount, transaction_date')
+        .eq('clinic_id', clinicId)
+        .gte('transaction_date', startTime)
+        .lte('transaction_date', endTime)
+      if (yearPaymentsError) {
+        console.error('[Trend API] Error fetching year payments:', yearPaymentsError)
+      }
+      const ymFormatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Madrid',
+        year: 'numeric',
+        month: '2-digit'
+      })
+      for (const p of yearPayments || []) {
+        if (!(p as any).transaction_date) continue
+        const parts = ymFormatter.formatToParts(new Date((p as any).transaction_date))
+        const py = Number(parts.find((x) => x.type === 'year')?.value || '0')
+        const pm = Number(parts.find((x) => x.type === 'month')?.value || '0')
+        if (py !== year || pm < 1 || pm > 12) continue
+        monthCollectedTotals[pm - 1].sum += Number((p as any).amount || 0)
+        monthCollectedTotals[pm - 1].count += 1
+      }
+
       const monthLabelFormatter = new Intl.DateTimeFormat('es-ES', { month: 'short' })
       labels = Array.from({ length: 12 }, (_, idx) => {
         const d = new Date(Date.UTC(year, idx, 1))
@@ -432,12 +552,21 @@ export async function GET(req: Request) {
       })
 
       let running = 0
+      let runningCollected = 0
       for (let monthIdx = 0; monthIdx < 12; monthIdx++) {
         running += monthTotals[monthIdx].sum
+        runningCollected += monthCollectedTotals[monthIdx].sum
+        const monthStart = `${year}-${String(monthIdx + 1).padStart(2, '0')}-01`
+        const monthEnd = new Date(Date.UTC(year, monthIdx + 2, 0)).getUTCDate()
+        const bucketEnd = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(monthEnd).padStart(2, '0')}`
         dataPoints.push({
           label: labels[monthIdx],
           actual: Math.round((running / 1000) * 100) / 100,
-          invoiceCount: monthTotals[monthIdx].count
+          collected: Math.round((runningCollected / 1000) * 100) / 100,
+          invoiceCount: monthTotals[monthIdx].count,
+          paymentCount: monthCollectedTotals[monthIdx].count,
+          bucketStart: monthStart,
+          bucketEnd
         })
       }
     }

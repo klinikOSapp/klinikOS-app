@@ -3,7 +3,7 @@
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
 import type { CSSProperties } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Area, AreaChart, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 const Y_AXIS_LABELS = ['50K', '40K', '30K', '20K', '10K', 'º']
 
@@ -102,6 +102,11 @@ type SeriesPoint = {
   actual: number
   invoiceCount?: number
   hasInvoice?: boolean
+  collected?: number
+  paymentCount?: number
+  hasPayment?: boolean
+  bucketStart?: string
+  bucketEnd?: string
 }
 
 type SeriesResult = {
@@ -150,6 +155,7 @@ export default function CashTrendCard({
           // Find all hours that have invoices
           const invoiceHours = new Set<number>()
           const standardHours = [9, 10, 11, 12, 13, 14, 15, 16]
+          const paymentHours = new Set<number>()
           
           for (const inv of data.invoices) {
             if (inv.issue_timestamp) {
@@ -175,12 +181,37 @@ export default function CashTrendCard({
               }
             }
           }
+
+          for (const p of Array.isArray(data.payments) ? data.payments : []) {
+            if (!p.transaction_date) continue
+            const pTimeUTC = new Date(p.transaction_date)
+            const formatter = new Intl.DateTimeFormat('en-CA', {
+              timeZone: 'Europe/Madrid',
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              hour12: false
+            })
+            const parts = formatter.formatToParts(pTimeUTC)
+            const pYear = parts.find(p => p.type === 'year')?.value
+            const pMonth = parts.find(p => p.type === 'month')?.value
+            const pDay = parts.find(p => p.type === 'day')?.value
+            const pHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0')
+            const pDateStr = `${pYear}-${pMonth}-${pDay}`
+            if (pDateStr === dateStr && pHour >= 9 && pHour <= 16) {
+              paymentHours.add(pHour)
+            }
+          }
           
           // Combine invoice hours with standard hours, sort them
-          const allHours = Array.from(new Set([...standardHours, ...Array.from(invoiceHours)])).sort((a, b) => a - b)
+          const allHours = Array.from(
+            new Set([...standardHours, ...Array.from(invoiceHours), ...Array.from(paymentHours)])
+          ).sort((a, b) => a - b)
           
           const dataPoints: SeriesPoint[] = []
           let facturadoTotal = 0
+          let cobradoTotal = 0
 
           // Calculate cumulative for each hour
           for (const hour of allHours) {
@@ -209,14 +240,45 @@ export default function CashTrendCard({
             const cumulativeTotal = invoicesUpToHour.reduce((sum: number, inv: any) => {
               return sum + Number(inv.total_amount || 0)
             }, 0)
+
+            const paymentsUpToHour = (Array.isArray(data.payments) ? data.payments : []).filter(
+              (p: any) => {
+                if (!p.transaction_date) return false
+                const pTimeUTC = new Date(p.transaction_date)
+                const formatter = new Intl.DateTimeFormat('en-CA', {
+                  timeZone: 'Europe/Madrid',
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  hour12: false
+                })
+                const parts = formatter.formatToParts(pTimeUTC)
+                const pYear = parts.find(pp => pp.type === 'year')?.value
+                const pMonth = parts.find(pp => pp.type === 'month')?.value
+                const pDay = parts.find(pp => pp.type === 'day')?.value
+                const pHour = parseInt(parts.find(pp => pp.type === 'hour')?.value || '0')
+                const pDateStr = `${pYear}-${pMonth}-${pDay}`
+                return pDateStr === dateStr && pHour <= hour
+              }
+            )
+            const cumulativeCollected = paymentsUpToHour.reduce(
+              (sum: number, p: any) => sum + Number(p.amount || 0),
+              0
+            )
             
             // Convert to thousands for chart
             const cumulativeInThousands = cumulativeTotal / 1000
+            const collectedInThousands = cumulativeCollected / 1000
             
             dataPoints.push({
               label: `${String(hour).padStart(2, '0')}:00`,
               actual: Math.round(cumulativeInThousands * 10) / 10,
-              hasInvoice: invoiceHours.has(hour)
+              collected: Math.round(collectedInThousands * 10) / 10,
+              hasInvoice: invoiceHours.has(hour),
+              hasPayment: paymentHours.has(hour),
+              bucketStart: dateStr,
+              bucketEnd: dateStr
             })
           }
 
@@ -224,6 +286,10 @@ export default function CashTrendCard({
           facturadoTotal = data.invoices.reduce((sum: number, inv: any) => {
             return sum + Number(inv.total_amount || 0)
           }, 0)
+          cobradoTotal = (Array.isArray(data.payments) ? data.payments : []).reduce(
+            (sum: number, p: any) => sum + Number(p.amount || 0),
+            0
+          )
 
           // Calculate highlightIndex (current hour if today, otherwise last hour)
           const now = new Date()
@@ -343,10 +409,16 @@ export default function CashTrendCard({
     return series.dataPoints.map((point) => ({
       ...point,
       cumulative: point.actual, // Use actual as cumulative value (already cumulative from API)
+      collected: typeof point.collected === 'number' ? point.collected : 0,
       hasInvoice:
         typeof point.hasInvoice === 'boolean'
           ? point.hasInvoice
           : (point.invoiceCount ?? 0) > 0
+      ,
+      hasPayment:
+        typeof point.hasPayment === 'boolean'
+          ? point.hasPayment
+          : (point.paymentCount ?? 0) > 0
     }))
   }, [series])
 
@@ -412,6 +484,9 @@ export default function CashTrendCard({
       ...p,
       cumulativeTrimmed:
         cutoffIndex === null ? p.cumulative : idx <= cutoffIndex ? p.cumulative : null
+      ,
+      collectedTrimmed:
+        cutoffIndex === null ? p.collected : idx <= cutoffIndex ? p.collected : null
     }))
   }, [chartLineData, cutoffIndex])
 
@@ -614,6 +689,7 @@ export default function CashTrendCard({
               </defs>
               <YAxis type='number' domain={[0, dynamicMaxValue]} hide />
               <XAxis dataKey='label' type='category' hide />
+              <Tooltip content={<TrendTooltip />} />
               {/* Target as filled area band (no horizontal line) */}
               <Area
                 type='monotone'
@@ -650,6 +726,15 @@ export default function CashTrendCard({
                       fill={fill}
                       stroke='white'
                       strokeWidth={1.25}
+                      style={{ cursor: payload?.bucketStart ? 'pointer' : 'default' }}
+                      onClick={() => {
+                        if (!payload?.bucketStart || !payload?.bucketEnd) return
+                        window.dispatchEvent(
+                          new CustomEvent('caja:trend-drilldown', {
+                            detail: { from: payload.bucketStart, to: payload.bucketEnd }
+                          })
+                        )
+                      }}
                     />
                   )
                 }}
@@ -671,6 +756,39 @@ export default function CashTrendCard({
                 animationDuration={1100}
                 animationBegin={200}
                 isAnimationActive={!isDayView} // Disable animation for day view to show full cumulative line immediately
+              />
+
+              {/* Second series: Cobrado (cumulative) */}
+              <Line
+                type='monotone'
+                dataKey='collectedTrimmed'
+                stroke='#22C55E'
+                strokeWidth={2}
+                strokeDasharray='0'
+                dot={(props: any) => {
+                  const { cx, cy, payload } = props || {}
+                  if (!payload?.hasPayment) return null
+                  return (
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={3.25}
+                      fill='#22C55E'
+                      stroke='white'
+                      strokeWidth={1.25}
+                      style={{ cursor: payload?.bucketStart ? 'pointer' : 'default' }}
+                      onClick={() => {
+                        if (!payload?.bucketStart || !payload?.bucketEnd) return
+                        window.dispatchEvent(
+                          new CustomEvent('caja:trend-drilldown', {
+                            detail: { from: payload.bucketStart, to: payload.bucketEnd }
+                          })
+                        )
+                      }}
+                    />
+                  )
+                }}
+                isAnimationActive={!isDayView}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -734,6 +852,32 @@ function ChartGrid({ steps = 5 }: { steps?: number }) {
         />
       ))}
     </svg>
+  )
+}
+
+function TrendTooltip({ active, payload, label }: any) {
+  if (!active || !payload || payload.length === 0) return null
+  const p = payload[0]?.payload || {}
+  const producedK = typeof p.cumulative === 'number' ? p.cumulative : 0
+  const collectedK = typeof p.collected === 'number' ? p.collected : 0
+
+  return (
+    <div className='rounded-lg border border-border bg-neutral-0 px-[0.75rem] py-[0.5rem] text-body-sm text-fg shadow-elevation-popover'>
+      <div className='mb-[0.25rem] text-label-sm text-neutral-600'>{label}</div>
+      <div className='flex items-center justify-between gap-[1rem]'>
+        <span className='text-neutral-600'>Producido</span>
+        <span className='font-medium text-fg'>
+          {(producedK * 1000).toLocaleString('es-ES', { maximumFractionDigits: 0 })} €
+        </span>
+      </div>
+      <div className='flex items-center justify-between gap-[1rem]'>
+        <span className='text-neutral-600'>Cobrado</span>
+        <span className='font-medium text-fg'>
+          {(collectedK * 1000).toLocaleString('es-ES', { maximumFractionDigits: 0 })} €
+        </span>
+      </div>
+      <div className='mt-[0.25rem] text-[0.75rem] text-neutral-500'>Click para ver movimientos</div>
+    </div>
   )
 }
 
