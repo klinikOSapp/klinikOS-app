@@ -370,7 +370,7 @@ function PricingTextArea({
   left = '30.625rem',
   label,
   placeholder,
-  description = 'Texto descriptivo'
+  description
 }: PricingTextAreaProps) {
   return (
     <div className='absolute w-[19.1875rem]' style={{ left, top }}>
@@ -383,11 +383,11 @@ function PricingTextArea({
         placeholder={placeholder}
         className='mt-[0.5rem] h-[6.75rem] w-full resize-none rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem] py-[0.5rem] text-body-md text-neutral-400 outline-none'
       />
-      {description && (
+      {description ? (
         <p className='mt-[0.25rem] text-[0.6875rem] font-medium leading-4 text-neutral-500'>
           {description}
         </p>
-      )}
+      ) : null}
     </div>
   )
 }
@@ -896,7 +896,6 @@ export default function ProposalCreationModal({
                         top='24rem'
                         placeholder='%'
                         options={['%', '€', 'Sin descuento']}
-                        description='Texto descriptivo'
                         value={selectedDiscount}
                         onValueChange={setSelectedDiscount}
                       />

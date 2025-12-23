@@ -208,9 +208,6 @@ const QuickBudgetModal = ({
           <span className='text-body-md text-neutral-400'>Sin descuento</span>
           <KeyboardArrowDownRounded className='text-neutral-500' />
         </div>
-        <p className='mt-[0.25rem] text-[0.6875rem] font-medium leading-4 text-neutral-600'>
-          Texto descriptivo
-        </p>
       </div>
 
       <div
@@ -221,9 +218,6 @@ const QuickBudgetModal = ({
         <div className='mt-[0.5rem] h-[5rem] rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem] py-[0.5rem]'>
           <span className='text-body-md text-neutral-400'>Value</span>
         </div>
-        <p className='mt-[0.25rem] text-[0.6875rem] font-medium leading-4 text-neutral-600'>
-          Texto descriptivo
-        </p>
       </div>
 
       <div

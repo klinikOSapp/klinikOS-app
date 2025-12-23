@@ -16,7 +16,7 @@ export default function InputText({
   label = 'Label',
   value,
   placeholder = 'Value',
-  description = 'Texto descriptivo',
+  description,
   hasLabel = false,
   hasDescription = false,
   onChange,
@@ -62,11 +62,11 @@ export default function InputText({
             className={`${inputClasses} h-[var(--modal-create-field-height)]`}
           />
         )}
-        {hasDescription && (
+        {hasDescription && description ? (
           <p className='font-medium text-[0.6875rem] leading-4 text-[var(--input-description-color)]'>
             {description}
           </p>
-        )}
+        ) : null}
       </div>
     </div>
   )
