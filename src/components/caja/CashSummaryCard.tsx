@@ -1,5 +1,6 @@
 'use client'
 
+import { PendingCollectionsModal } from '@/components/caja/PendingCollectionsModal'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 
@@ -53,6 +54,7 @@ export default function CashSummaryCard({
   const [donutValue, setDonutValue] = useState(1200)
   const [donutTarget, setDonutTarget] = useState(1800)
   const [isLoading, setIsLoading] = useState(true)
+  const [pendingModalOpen, setPendingModalOpen] = useState(false)
 
   const formatMadridDate = (d: Date) =>
     new Intl.DateTimeFormat('en-CA', {
@@ -155,7 +157,17 @@ export default function CashSummaryCard({
             {isLoading ? (
               <div className='col-span-2 text-center py-8 text-neutral-500'>Cargando...</div>
             ) : (
-              summaryCards.map((card) => <SummaryInsightCard key={card.id} card={card} />)
+              summaryCards.map((card) => (
+                <SummaryInsightCard
+                  key={card.id}
+                  card={card}
+                  onClick={
+                    card.id === 'toCollect'
+                      ? () => setPendingModalOpen(true)
+                      : undefined
+                  }
+                />
+              ))
             )}
           </div>
           <div className='flex flex-1 min-h-0'>
@@ -163,22 +175,27 @@ export default function CashSummaryCard({
           </div>
         </div>
       </div>
+
+      <PendingCollectionsModal
+        open={pendingModalOpen}
+        onClose={() => setPendingModalOpen(false)}
+        dateStr={formatMadridDate(date)}
+        timeScale={timeScale}
+      />
     </article>
   )
 }
 
-function SummaryInsightCard({ card }: { card: SummaryCard }) {
+function SummaryInsightCard({ card, onClick }: { card: SummaryCard; onClick?: () => void }) {
   const cardStyles: CSSProperties = {
     backgroundColor: card.color,
     height: `${SUMMARY_CARD_HEIGHT_REM}rem`,
     width: `${SUMMARY_CARD_WIDTH_REM}rem`
   }
 
-  return (
-    <div
-      className='flex h-full flex-col rounded-lg p-[0.5rem]'
-      style={cardStyles}
-    >
+  const isClickable = typeof onClick === 'function'
+
+  const content = (
       <div className='flex h-full flex-col gap-[1.5rem]'>
         <div className='flex items-center justify-between text-[0.6875rem] font-medium leading-[1rem] text-neutral-600'>
           <span
@@ -206,6 +223,21 @@ function SummaryInsightCard({ card }: { card: SummaryCard }) {
           </div>
         </div>
       </div>
+  )
+
+  return isClickable ? (
+    <button
+      type='button'
+      onClick={onClick}
+      className='flex h-full flex-col rounded-lg p-[0.5rem] text-left hover:brightness-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic'
+      style={cardStyles}
+      aria-label={`Abrir detalle de ${card.title}`}
+    >
+      {content}
+    </button>
+  ) : (
+    <div className='flex h-full flex-col rounded-lg p-[0.5rem]' style={cardStyles}>
+      {content}
     </div>
   )
 }
