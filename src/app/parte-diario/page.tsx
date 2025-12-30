@@ -3,14 +3,36 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import ClientLayout from '@/app/client-layout'
+import ParteDiarioModal from '@/components/agenda/modals/ParteDiarioModal'
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import AddPatientModal from '@/components/pacientes/modals/add-patient/AddPatientModal'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
-import { useRouter } from 'next/navigation'
 import React from 'react'
 
 const CTA_WIDTH_REM = 7.3125 // 117px ÷ 16
 const CTA_HEIGHT_REM = 2.5 // 40px ÷ 16
+
+function KpiCard({
+  title,
+  value,
+  badge
+}: {
+  title: string
+  value: string
+  badge?: React.ReactNode
+}) {
+  return (
+    <div className='bg-white rounded-[8px] p-[min(1rem,1.5vw)] h-[min(8rem,12vw)] flex flex-col justify-between shadow-[1px_1px_2px_0_rgba(0,0,0,0.05)] border border-[var(--color-neutral-200)]'>
+      <p className='text-title-sm font-medium text-[var(--color-neutral-600)]'>
+        {title}
+      </p>
+      <div className='flex items-baseline justify-between'>
+        <p className='text-kpi text-[var(--color-neutral-900)]'>{value}</p>
+        {badge}
+      </div>
+    </div>
+  )
+}
 
 function Chip({
   children,
@@ -44,21 +66,28 @@ function Chip({
   )
 }
 
-function StatusPill({ type }: { type: 'Activo' | 'Hecho' }) {
-  if (type === 'Activo') {
+function StatusPill({
+  type
+}: {
+  type: 'Confirmada' | 'No confirmada' | 'Reagendar'
+}) {
+  if (type === 'Confirmada') {
     return (
-      <span className='inline-flex items-center'>
-        <Chip color='sky' size='md'>
-          Activo
-        </Chip>
+      <span className='inline-flex items-center bg-[#e0f2fe] text-[#075985] px-2 py-1 rounded-[4px] text-body-sm'>
+        Confirmada
+      </span>
+    )
+  }
+  if (type === 'Reagendar') {
+    return (
+      <span className='inline-flex items-center bg-[var(--color-neutral-200)] text-[var(--color-neutral-900)] px-2 py-1 rounded-[4px] text-body-sm'>
+        Reagendar
       </span>
     )
   }
   return (
-    <span className='inline-flex items-center'>
-      <Chip color='green' rounded='full' size='md'>
-        Hecho
-      </Chip>
+    <span className='inline-flex items-center bg-[var(--color-neutral-200)] text-[var(--color-neutral-900)] px-2 py-1 rounded-[4px] text-body-sm'>
+      No confirmada
     </span>
   )
 }
@@ -108,84 +137,157 @@ function TableBodyCell({
   )
 }
 
-function Row() {
-  const router = useRouter()
-  return (
-    <tr
-      className='cursor-pointer hover:bg-[var(--color-neutral-50)]'
-      onClick={() => router.push('/pacientes/ficha')}
-    >
-      <td className='py-1 pr-2 w-[240px]'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
-          Laura Rivas
-        </p>
-      </td>
-      <td className='py-1 pr-2 w-[191px]'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
-          DD/MM/AAAA
-        </p>
-      </td>
-      <td className='py-1 pr-2 w-[154px]'>
-        <StatusPill type='Activo' />
-      </td>
-      <td className='py-1 pr-2 w-[196px]'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
-          888 888 888
-        </p>
-      </td>
-      <td className='py-1 pr-2 w-[151px]'>
-        <StatusPill type='Hecho' />
-      </td>
-      <td className='py-1 pr-2 w-[120px]'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>No</p>
-      </td>
-      <td className='py-1 pr-2 w-[120px]'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>380€</p>
-      </td>
-      <td className='py-1 pr-2 w-[204px]'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
-          DD/MM/AAAA
-        </p>
-      </td>
-    </tr>
-  )
-}
-
-type PatientRow = {
+type DailyRow = {
   id: string
+  day: string
+  hour: string
   name: string
-  nextDate: string
-  status: 'Activo' | 'Hecho'
+  professional?: string
+  reason: string
   phone: string
-  checkin: 'Hecho' | 'Pendiente'
-  financing: 'Sí' | 'No'
-  debt: string
-  lastContact: string
-  tags?: Array<'deuda' | 'activo' | 'recall'>
+  status: 'Confirmada' | 'No confirmada' | 'Reagendar'
+  charge: 'Si' | 'No'
+  tags?: Array<'deuda' | 'confirmada'>
 }
 
-const MOCK_PATIENTS: PatientRow[] = Array.from({ length: 12 }).map((_, i) => ({
-  id: `p-${i}`,
-  name: 'Laura Rivas',
-  nextDate: 'DD/MM/AAAA',
-  status: 'Activo',
-  phone: '888 888 888',
-  checkin: 'Hecho',
-  financing: 'No',
-  debt: '380€',
-  lastContact: 'DD/MM/AAAA',
-  tags: i % 3 === 0 ? ['deuda'] : i % 2 === 0 ? ['activo'] : ['recall']
-}))
+const MOCK_PATIENTS: DailyRow[] = [
+  {
+    id: 'row-1',
+    day: '17 Sep',
+    hour: '00:00',
+    name: 'Nombre apellido',
+    reason: '888 888 888',
+    phone: '888 888 888',
+    status: 'No confirmada',
+    charge: 'Si'
+  },
+  {
+    id: 'row-2',
+    day: '17 Sep',
+    hour: '00:00',
+    name: 'Nombre apellido',
+    reason: '888 888 888',
+    phone: '888 888 888',
+    status: 'Reagendar',
+    charge: 'Si'
+  },
+  {
+    id: 'row-3',
+    day: '17 Sep',
+    hour: '00:00',
+    name: 'Nombre apellido',
+    reason: '888 888 888',
+    phone: '888 888 888',
+    status: 'No confirmada',
+    charge: 'No'
+  },
+  {
+    id: 'row-4',
+    day: '17 Sep',
+    hour: '00:00',
+    name: 'Nombre apellido',
+    reason: '888 888 888',
+    phone: '888 888 888',
+    status: 'Confirmada',
+    charge: 'Si',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-5',
+    day: '17 Sep',
+    hour: '00:00',
+    name: 'Nombre apellido',
+    reason: '888 888 888',
+    phone: '888 888 888',
+    status: 'No confirmada',
+    charge: 'No'
+  },
+  {
+    id: 'row-6',
+    day: '17 Sep',
+    hour: '00:00',
+    name: 'Nombre apellido',
+    reason: '888 888 888',
+    phone: '888 888 888',
+    status: 'Confirmada',
+    charge: 'Si',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-7',
+    day: '17 Sep',
+    hour: '00:00',
+    name: 'Nombre apellido',
+    reason: '888 888 888',
+    phone: '888 888 888',
+    status: 'No confirmada',
+    charge: 'No'
+  },
+  {
+    id: 'row-8',
+    day: '17 Sep',
+    hour: '00:00',
+    name: 'Nombre apellido',
+    reason: '888 888 888',
+    phone: '888 888 888',
+    status: 'Confirmada',
+    charge: 'No',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-9',
+    day: '17 Sep',
+    hour: '00:00',
+    name: 'Nombre apellido',
+    reason: '888 888 888',
+    phone: '888 888 888',
+    status: 'Confirmada',
+    charge: 'No',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-10',
+    day: '17 Sep',
+    hour: '00:00',
+    name: 'Nombre apellido',
+    reason: '888 888 888',
+    phone: '888 888 888',
+    status: 'No confirmada',
+    charge: 'No'
+  },
+  {
+    id: 'row-11',
+    day: '17 Sep',
+    hour: '00:00',
+    name: 'Nombre apellido',
+    reason: '888 888 888',
+    phone: '888 888 888',
+    status: 'Confirmada',
+    charge: 'No',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-12',
+    day: '17 Sep',
+    hour: '00:00',
+    name: 'Nombre apellido',
+    reason: '888 888 888',
+    phone: '888 888 888',
+    status: 'No confirmada',
+    charge: 'Si'
+  }
+]
 
-export default function PacientesPage() {
+export default function ParteDiarioPage() {
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
-  type FilterKey = 'deuda' | 'activos' | 'recall'
+  type FilterKey = 'deuda' | 'confirmada'
   const [selectedFilters, setSelectedFilters] = React.useState<FilterKey[]>([])
   const [selectedPatientIds, setSelectedPatientIds] = React.useState<string[]>(
     []
   )
   const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
+  const [isParteModalOpen, setIsParteModalOpen] = React.useState(false)
 
   const isPatientSelected = (patientId: string) =>
     selectedPatientIds.includes(patientId)
@@ -222,38 +324,23 @@ export default function PacientesPage() {
           open={isFichaModalOpen}
           onClose={() => setIsFichaModalOpen(false)}
         />
+        <ParteDiarioModal
+          isOpen={isParteModalOpen}
+          onClose={() => setIsParteModalOpen(false)}
+        />
 
         {/* Header Section - Fixed size */}
         <div className='flex-shrink-0'>
           <div className='flex items-center justify-between gap-2'>
             <div className='flex items-center gap-2'>
               <h1 className='text-title-lg text-[var(--color-neutral-900)]'>
-                Pacientes
+                Parte diario
               </h1>
               <Chip color='teal' rounded='full' size='xs'>
                 Recepción
               </Chip>
             </div>
             <div className='flex items-center gap-3'>
-              <button
-                type='button'
-                className='inline-flex items-center justify-center gap-gapsm rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-neutral-900 shadow-cta transition-colors hover:bg-brand-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-surface-app'
-                style={searchCtaStyles}
-              >
-                <MD3Icon
-                  name='SearchRounded'
-                  size='md'
-                  className='text-neutral-900'
-                />
-                <span>Buscar</span>
-              </button>
-              <button
-                onClick={() => setIsAddModalOpen(true)}
-                className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-body-md text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
-              >
-                <MD3Icon name='AddRounded' size='md' />
-                <span className='font-medium'>Añadir</span>
-              </button>
               <button
                 className='size-6 grid place-items-center text-[var(--color-neutral-900)] cursor-pointer'
                 aria-label='Más opciones'
@@ -264,16 +351,65 @@ export default function PacientesPage() {
                   className='text-[var(--color-neutral-900)]'
                 />
               </button>
+              <button
+                type='button'
+                onClick={() => setIsParteModalOpen(true)}
+                className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-body-md text-[#24282c] bg-[#D3F7F3] border border-[#7DE7DC] hover:bg-[#c3f3ee] hover:border-[#6ad6cd] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
+              >
+                <MD3Icon name='AddRounded' size='md' />
+                <span className='font-medium'>Exportar parte</span>
+              </button>
             </div>
           </div>
           <p className='text-body-sm text-[var(--color-neutral-900)] mt-2 max-w-[680px]'>
-            Busca y filtra pacientes; confirma asistencias, reprograma citas y
-            envía pre-registro, firmas y recordatorios al instante.
+            Exporta el parte diario de la semana actual para que tus
+            profesionales puedan ver sus citas.
           </p>
         </div>
 
+        <div
+          className='flex-shrink-0 grid gap-[min(1rem,1.5vw)] mt-8'
+          style={{
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(min(15.5rem, 100%), 1fr))'
+          }}
+        >
+          <KpiCard
+            title='Pacientes hoy'
+            value='16'
+            badge={
+              <span className='text-body-md text-[var(--color-success-600)]'>
+                24%
+              </span>
+            }
+          />
+          <KpiCard
+            title='Pacientes semana'
+            value='4/16'
+            badge={<span className='text-body-md text-[#d97706]'>25%</span>}
+          />
+          <KpiCard
+            title='Pacientes recibidos'
+            value='12/16'
+            badge={
+              <span className='text-body-md text-[var(--color-success-600)]'>
+                75%
+              </span>
+            }
+          />
+          <KpiCard
+            title='Citas confirmadas'
+            value='1'
+            badge={
+              <span className='text-body-md text-[var(--color-success-600)]'>
+                8%
+              </span>
+            }
+          />
+        </div>
+
         {/* Table Section - Flexible container */}
-        <div className='flex-1 flex flex-col mt-[min(4.25rem,6vw)] overflow-hidden'>
+        <div className='flex-1 flex flex-col mt-8 overflow-hidden'>
           <div className='flex-shrink-0 mb-6 flex items-center justify-between'>
             <div className='flex items-center gap-2'>
               {selectedPatientIds.length > 0 && (
@@ -293,17 +429,11 @@ export default function PacientesPage() {
               </button>
             </div>
             <div className='flex items-center gap-2'>
-              <div className='flex items-center gap-2 border-b border-[var(--color-neutral-900)] px-2 py-1'>
+              <div className='flex items-center gap-2 px-2 py-1'>
                 <MD3Icon
                   name='SearchRounded'
                   size='sm'
                   className='text-[var(--color-neutral-900)]'
-                />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder='Buscar por nombre, email, teléfono,...'
-                  className='bg-transparent outline-none text-body-sm text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-900)]'
                 />
               </div>
               <button
@@ -330,26 +460,15 @@ export default function PacientesPage() {
                 En deuda
               </button>
               <button
-                onClick={() => toggleFilter('activos')}
+                onClick={() => toggleFilter('confirmada')}
                 className={[
                   'px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
-                  isFilterActive('activos')
+                  isFilterActive('confirmada')
                     ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                     : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
                 ].join(' ')}
               >
-                Activos
-              </button>
-              <button
-                onClick={() => toggleFilter('recall')}
-                className={[
-                  'px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active-border-[#1E4947]',
-                  isFilterActive('recall')
-                    ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
-                    : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
-                ].join(' ')}
-              >
-                Recall
+                Confirmada
               </button>
             </div>
           </div>
@@ -358,10 +477,16 @@ export default function PacientesPage() {
             <table className='w-full table-fixed border-collapse'>
               <thead>
                 <tr>
-                  <TableHeaderCell className='w-[2.5rem] pr-2'>
+                  <TableHeaderCell className='w-[40px] pr-2'>
                     <span className='sr-only'>Seleccionar fila</span>
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[min(21.5rem,30vw)] pr-2'>
+                  <TableHeaderCell className='w-[120px] pr-2'>
+                    Día
+                  </TableHeaderCell>
+                  <TableHeaderCell className='w-[120px] pr-2'>
+                    Hora
+                  </TableHeaderCell>
+                  <TableHeaderCell className='w-[220px] pr-2'>
                     <div className='flex items-center gap-2'>
                       <MD3Icon
                         name='AccountCircleRounded'
@@ -371,20 +496,20 @@ export default function PacientesPage() {
                       <span>Paciente</span>
                     </div>
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[min(19rem,26vw)] pr-2'>
-                    Próxima cita
+                  <TableHeaderCell className='w-[200px] pr-2'>
+                    Profesional
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[min(16.3125rem,22vw)] pr-2'>
-                    Estado
+                  <TableHeaderCell className='w-[320px] pr-2'>
+                    Motivo consulta
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[min(16.25rem,22vw)] pr-2'>
+                  <TableHeaderCell className='w-[180px] pr-2'>
                     Teléfono
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[min(10.9375rem,15vw)] pr-2' align='right'>
-                    Deuda
+                  <TableHeaderCell className='w-[160px] pr-2'>
+                    Estado
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[min(14rem,20vw)] pr-2'>
-                    Último contacto
+                  <TableHeaderCell className='w-[120px] pr-2'>
+                    A cobrar
                   </TableHeaderCell>
                 </tr>
               </thead>
@@ -393,17 +518,15 @@ export default function PacientesPage() {
                   const q = query.trim().toLowerCase()
                   const matchesQuery = q
                     ? p.name.toLowerCase().includes(q) ||
-                      p.phone.toLowerCase().includes(q)
+                      p.phone.toLowerCase().includes(q) ||
+                      p.reason.toLowerCase().includes(q) ||
+                      p.professional?.toLowerCase().includes(q)
                     : true
                   const matchesFilter = (() => {
                     if (selectedFilters.length === 0) return true
-                    const tagMap: Record<
-                      FilterKey,
-                      'deuda' | 'activo' | 'recall'
-                    > = {
+                    const tagMap: Record<FilterKey, 'deuda' | 'confirmada'> = {
                       deuda: 'deuda',
-                      activos: 'activo',
-                      recall: 'recall'
+                      confirmada: 'confirmada'
                     }
                     return selectedFilters.some((k) =>
                       p.tags?.includes(tagMap[k])
@@ -413,13 +536,10 @@ export default function PacientesPage() {
                 }).map((row, i) => (
                   <tr
                     key={row.id}
-                    className={[
-                      'group hover:bg-[var(--color-neutral-50)]',
-                      isPatientSelected(row.id) ? 'bg-[#E9FBF9]' : ''
-                    ].join(' ')}
+                    className='group hover:bg-[var(--color-neutral-50)]'
                     onClick={() => setIsFichaModalOpen(true)}
                   >
-                    <TableBodyCell className='w-[2.5rem] pr-2'>
+                    <TableBodyCell className='w-[40px] pr-2'>
                       <button
                         type='button'
                         onClick={(e) => {
@@ -456,23 +576,29 @@ export default function PacientesPage() {
                         <span className='sr-only'>Seleccionar fila</span>
                       </button>
                     </TableBodyCell>
-                    <TableBodyCell className='w-[min(21.5rem,30vw)] pr-2'>
+                    <TableBodyCell className='w-[120px] pr-2'>
+                      {row.day}
+                    </TableBodyCell>
+                    <TableBodyCell className='w-[120px] pr-2'>
+                      {row.hour}
+                    </TableBodyCell>
+                    <TableBodyCell className='w-[220px] pr-2'>
                       <p className='truncate'>{row.name}</p>
                     </TableBodyCell>
-                    <TableBodyCell className='w-[min(19rem,26vw)] pr-2'>
-                      {row.nextDate}
+                    <TableBodyCell className='w-[200px] pr-2'>
+                      <p className='truncate'>{row.professional ?? '—'}</p>
                     </TableBodyCell>
-                    <TableBodyCell className='w-[min(16.3125rem,22vw)] pr-2'>
-                      <StatusPill type={row.status} />
+                    <TableBodyCell className='w-[320px] pr-2'>
+                      <p className='truncate'>{row.reason}</p>
                     </TableBodyCell>
-                    <TableBodyCell className='w-[min(16.25rem,22vw)] pr-2'>
+                    <TableBodyCell className='w-[180px] pr-2'>
                       <p className='truncate'>{row.phone}</p>
                     </TableBodyCell>
-                    <TableBodyCell className='w-[min(10.9375rem,15vw)] pr-2' align='right'>
-                      {row.debt}
+                    <TableBodyCell className='w-[160px] pr-2'>
+                      <StatusPill type={row.status} />
                     </TableBodyCell>
-                    <TableBodyCell className='w-[min(14rem,20vw)] pr-2'>
-                      <p className='truncate'>{row.lastContact}</p>
+                    <TableBodyCell className='w-[120px] pr-2'>
+                      {row.charge}
                     </TableBodyCell>
                   </tr>
                 ))}

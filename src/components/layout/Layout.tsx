@@ -1,11 +1,12 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import TopBar from './TopBar'
 import Sidebar from './Sidebar'
 import {
   BadgeRounded,
   BarChartRounded,
+  ArticleRounded,
   CalendarMonthRounded,
   SellRounded,
   SettingsRounded
@@ -13,12 +14,20 @@ import {
 import { LayoutProps } from '@/types/layout'
 
 export default function Layout({ children }: LayoutProps) {
+  const [collapsed, setCollapsed] = useState(false)
+
   const itemsTop = [
     {
       id: 'agenda',
       label: 'Agenda',
       href: '/agenda',
       icon: <CalendarMonthRounded />
+    },
+    {
+      id: 'parte-diario',
+      label: 'Parte Diario',
+      href: '/parte-diario',
+      icon: <ArticleRounded />
     },
     { id: 'caja', label: 'Caja', href: '/caja', icon: <SellRounded /> },
     {
@@ -52,6 +61,8 @@ export default function Layout({ children }: LayoutProps) {
           itemsTop={itemsTop}
           itemsBottom={itemsBottom}
           cta={{ label: 'Añadir' }}
+          collapsed={collapsed}
+          onToggleCollapsed={setCollapsed}
         />
         <main className='bg-white rounded-tl-[var(--radius-xl)] w-full h-[calc(100dvh-var(--spacing-topbar))] min-h-0 overflow-hidden'>
           {children}

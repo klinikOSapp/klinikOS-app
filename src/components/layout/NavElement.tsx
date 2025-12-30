@@ -8,9 +8,10 @@ export interface NavElementProps {
   href: string
   label: string
   icon?: React.ReactNode
+  collapsed?: boolean
 }
 
-export function NavElement({ href, label, icon }: NavElementProps) {
+export function NavElement({ href, label, icon, collapsed }: NavElementProps) {
   const pathname = usePathname()
   const isActive = pathname === href
 
@@ -25,13 +26,21 @@ export function NavElement({ href, label, icon }: NavElementProps) {
           : 'text-[var(--color-brand-900)]',
         'transition-colors duration-200 ease-out',
         !isActive &&
-          'hover:bg-[var(--color-brand-50)] hover:text-[var(--color-brand-900)]'
+          'hover:bg-[var(--color-brand-50)] hover:text-[var(--color-brand-900)]',
+        collapsed ? 'justify-center gap-0 px-0' : ''
       ].join(' ')}
     >
       <span className='size-6 shrink-0 flex items-center justify-center'>
         {icon}
       </span>
-      <span className='font-inter text-title-md font-medium'>{label}</span>
+      <span
+        className={[
+          'font-inter text-title-md font-medium transition-opacity duration-200',
+          collapsed ? 'sr-only opacity-0' : 'opacity-100'
+        ].join(' ')}
+      >
+        {label}
+      </span>
     </Link>
   )
 }
