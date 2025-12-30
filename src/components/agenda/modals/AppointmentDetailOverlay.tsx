@@ -44,7 +44,7 @@ export default function AppointmentDetailOverlay({
         </span>
       </div>
 
-      {/* Body - 488px height from Figma */}
+      {/* Body - 501px height from Figma */}
       <div
         className='flex flex-col text-label-sm text-[var(--color-neutral-600)]'
         style={{
@@ -54,30 +54,88 @@ export default function AppointmentDetailOverlay({
           paddingBottom: 'var(--scheduler-overlay-body-pad-bottom)'
         }}
       >
-        {/* Fecha y ubicación - top: 16px from Figma */}
+        {/* Notas */}
+        {detail.notes && (
+          <OverlaySection
+            icon={
+              <MD3Icon
+                name='ArticleRounded'
+                size='inherit'
+                className='text-[var(--color-neutral-600)]'
+              />
+            }
+            label={detail.notesLabel || 'Notas'}
+          >
+            <p className='text-sm font-normal text-[var(--color-neutral-900)] leading-5'>
+              {detail.notes}
+            </p>
+          </OverlaySection>
+        )}
+
+        {/* Económico */}
+        {(detail.economicAmount || detail.economicStatus) && (
+          <OverlaySection
+            icon={
+              <MD3Icon
+                name='EuroRounded'
+                size='inherit'
+                className='text-[var(--color-neutral-600)]'
+              />
+            }
+            label={detail.economicLabel || 'Económico'}
+          >
+            <div className='flex flex-col gap-1'>
+              {detail.economicAmount && (
+                <div
+                  className='flex items-center text-sm font-normal text-[var(--color-neutral-900)] leading-5'
+                  style={{ gap: 'var(--scheduler-overlay-contact-gap)' }}
+                >
+                  <MD3Icon
+                    name='EuroRounded'
+                    size={1}
+                    className='text-[var(--color-neutral-600)]'
+                  />
+                  <span>{detail.economicAmount}</span>
+                </div>
+              )}
+              {detail.economicStatus && (
+                <p className='text-sm font-normal text-[var(--color-neutral-900)] leading-5'>
+                  {detail.economicStatus}
+                </p>
+              )}
+            </div>
+          </OverlaySection>
+        )}
+
+        {/* Profesional */}
         <OverlaySection
           icon={
             <MD3Icon
-              name='CalendarMonthRounded'
+              name='MonitorHeartRounded'
               size='inherit'
               className='text-[var(--color-neutral-600)]'
             />
           }
-          label={detail.locationLabel}
+          label={detail.professionalLabel}
         >
-          <div className='flex flex-col gap-1'>
-            <p className='text-sm font-normal text-[var(--color-neutral-900)] leading-5'>
-              {detail.date}
-            </p>
-            {detail.duration && (
-              <p className='text-sm font-normal text-[var(--color-neutral-900)] leading-5'>
-                {detail.duration}
-              </p>
-            )}
+          <div
+            className='flex items-center text-sm font-normal text-[var(--color-neutral-900)] leading-5'
+            style={{ gap: 'var(--scheduler-overlay-icon-gap)' }}
+          >
+            <span
+              aria-hidden='true'
+              className='inline-flex shrink-0 rounded-full'
+              style={{
+                width: 'var(--scheduler-overlay-avatar-size)',
+                height: 'var(--scheduler-overlay-avatar-size)',
+                backgroundColor: 'var(--scheduler-overlay-avatar-color)'
+              }}
+            />
+            <span>{detail.professional}</span>
           </div>
         </OverlaySection>
 
-        {/* Paciente - top: 108px from Figma */}
+        {/* Paciente */}
         <OverlaySection
           icon={
             <MD3Icon
@@ -131,86 +189,28 @@ export default function AppointmentDetailOverlay({
           </div>
         </OverlaySection>
 
-        {/* Profesional - top: 248px from Figma */}
+        {/* Fecha y ubicación */}
         <OverlaySection
           icon={
             <MD3Icon
-              name='MonitorHeartRounded'
+              name='CalendarMonthRounded'
               size='inherit'
               className='text-[var(--color-neutral-600)]'
             />
           }
-          label={detail.professionalLabel}
+          label={detail.locationLabel}
         >
-          <div
-            className='flex items-center text-sm font-normal text-[var(--color-neutral-900)] leading-5'
-            style={{ gap: 'var(--scheduler-overlay-icon-gap)' }}
-          >
-            <span
-              aria-hidden='true'
-              className='inline-flex shrink-0 rounded-full'
-              style={{
-                width: 'var(--scheduler-overlay-avatar-size)',
-                height: 'var(--scheduler-overlay-avatar-size)',
-                backgroundColor: 'var(--scheduler-overlay-avatar-color)'
-              }}
-            />
-            <span>{detail.professional}</span>
+          <div className='flex flex-col gap-1'>
+            <p className='text-sm font-normal text-[var(--color-neutral-900)] leading-5'>
+              {detail.date}
+            </p>
+            {detail.duration && (
+              <p className='text-sm font-normal text-[var(--color-neutral-900)] leading-5'>
+                {detail.duration}
+              </p>
+            )}
           </div>
         </OverlaySection>
-
-        {/* Económico - top: 328px from Figma */}
-        {(detail.economicAmount || detail.economicStatus) && (
-          <OverlaySection
-            icon={
-              <MD3Icon
-                name='AccountCircleRounded'
-                size='inherit'
-                className='text-[var(--color-neutral-600)]'
-              />
-            }
-            label={detail.economicLabel || 'Económico'}
-          >
-            <div className='flex flex-col gap-1'>
-              {detail.economicAmount && (
-                <div
-                  className='flex items-center text-sm font-normal text-[var(--color-neutral-900)] leading-5'
-                  style={{ gap: 'var(--scheduler-overlay-contact-gap)' }}
-                >
-                  <MD3Icon
-                    name='EuroRounded'
-                    size={1}
-                    className='text-[var(--color-neutral-600)]'
-                  />
-                  <span>{detail.economicAmount}</span>
-                </div>
-              )}
-              {detail.economicStatus && (
-                <p className='text-sm font-normal text-[var(--color-neutral-900)] leading-5'>
-                  {detail.economicStatus}
-                </p>
-              )}
-            </div>
-          </OverlaySection>
-        )}
-
-        {/* Notas - top: 422px from Figma */}
-        {detail.notes && (
-          <OverlaySection
-            icon={
-              <MD3Icon
-                name='ArticleRounded'
-                size='inherit'
-                className='text-[var(--color-neutral-600)]'
-              />
-            }
-            label={detail.notesLabel || 'Notas'}
-          >
-            <p className='text-sm font-normal text-[var(--color-neutral-900)] leading-5'>
-              {detail.notes}
-            </p>
-          </OverlaySection>
-        )}
       </div>
     </div>
   )

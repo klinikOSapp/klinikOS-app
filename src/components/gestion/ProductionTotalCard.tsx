@@ -29,6 +29,7 @@ export default function ProductionTotalCard({
   delta,
   timeScale = 'week'
 }: ProductionTotalCardProps) {
+  void periodLabel
   const data = getCardData(timeScale)
 
   return (

@@ -1,12 +1,10 @@
 'use client'
 
-/* eslint-disable @next/next/no-img-element */
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   Line,
   LineChart,
-  ReferenceDot,
   ResponsiveContainer,
   Tooltip,
   type TooltipProps,
@@ -20,7 +18,6 @@ type BillingLineChartProps = {
 }
 
 const CARD_HEIGHT_VAR = 'var(--height-card-chart-fluid)'
-const CARD_WIDTH_VAR = 'var(--width-card-chart-lg-fluid)'
 const CARD_WIDTH_STYLE = 'min(100%, var(--width-card-chart-lg-fluid))'
 const CARD_WIDTH_EFFECTIVE = 'min(100%, var(--width-card-chart-lg-fluid))'
 
@@ -78,10 +75,11 @@ const toHeight = (ratio: number) =>
   `calc(${CARD_HEIGHT_VAR} * ${ratio.toFixed(6)})`
 
 export default function BillingLineChart({
-  yearLabel = '2024',
+  yearLabel: _yearLabel = '2024',
   timeScale,
   anchorDate
 }: BillingLineChartProps) {
+  void _yearLabel
   const [isMounted, setIsMounted] = useState(false)
   const clipId = useId()
   const chartContainerRef = useRef<HTMLDivElement | null>(null)
@@ -514,12 +512,4 @@ function getWeekOfYear(date: Date) {
     (Number(date) - Number(firstDayOfYear)) / 86400000
   )
   return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)
-}
-
-function generateValue(date: Date, base: number, slope: number) {
-  const seed = date.getDate() + date.getMonth() * 31
-  const noise = ((seed * 11) % 7) * 160
-  const trend = ((date.getMonth() % 6) + 1) * slope
-  const value = Math.min(90000, Math.max(8000, base + trend + noise))
-  return Math.round(value / 100) * 100
 }

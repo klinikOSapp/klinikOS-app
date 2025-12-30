@@ -55,6 +55,8 @@ export default function ProductionTotalCard({
   specialties,
   timeScale = 'week'
 }: ProductionTotalCardProps) {
+  void year
+  void _view
   const resolvedSpecialties =
     specialties ??
     (timeScale === 'month' ? MONTH_SPECIALTIES : DEFAULT_SPECIALTIES)
@@ -69,7 +71,6 @@ export default function ProductionTotalCard({
   } satisfies ChartCardStyles
 
   const donutSize = `min(${DONUT_SIZE_REM}rem, calc(var(--card-width-current) - ${LEGEND_WIDTH_REM}rem - 3rem))`
-  const legendLeft = `min(16.9375rem, calc(var(--card-width-current) - ${LEGEND_WIDTH_REM}rem - 1rem))`
   const legendWidth = `min(${LEGEND_WIDTH_REM}rem, calc(var(--card-width-current) - ${DONUT_SIZE_REM}rem - 3rem))`
 
   return (

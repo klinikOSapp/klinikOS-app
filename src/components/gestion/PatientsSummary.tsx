@@ -34,6 +34,7 @@ export default function PatientsSummary({
   items,
   timeScale = 'week'
 }: PatientsSummaryProps) {
+  void yearLabel
   const data = items ?? getItems(timeScale)
 
   return (

@@ -79,12 +79,6 @@ export default function CreateAppointmentModal({
     { value: 'dr3', label: 'Dr. Miguel Torres' },
   ]
 
-  const presupuestos = [
-    { value: 'p1', label: 'Presupuesto #001' },
-    { value: 'p2', label: 'Presupuesto #002' },
-    { value: 'p3', label: 'Presupuesto #003' },
-  ]
-
   return (
     <div
       className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'

@@ -32,6 +32,7 @@ export default function IncomeTypes({
   items,
   timeScale = 'week'
 }: IncomeTypesProps) {
+  void yearLabel
   const data = items ?? getItems(timeScale)
 
   return (

@@ -25,7 +25,6 @@ export default function CajaPage() {
   const [patientRecordOpen, setPatientRecordOpen] = useState(false)
   const [patientRecordTab, setPatientRecordTab] =
     useState<PatientRecordTab>('Resumen')
-  const [selectedPatient, setSelectedPatient] = useState<string | null>(null)
 
   const dateLabel = useMemo(
     () => formatToolbarLabel(anchorDate, timeScale),
@@ -48,7 +47,7 @@ export default function CajaPage() {
   }, [])
 
   const handleViewPatient = useCallback((movement: { patient: string }) => {
-    setSelectedPatient(movement.patient)
+    void movement
     setPatientRecordTab('Presupuestos y pagos')
     setPatientRecordOpen(true)
   }, [])

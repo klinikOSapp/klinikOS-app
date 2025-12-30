@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @next/next/no-img-element */
+
 import React from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import configNavItems from './configNavItems'

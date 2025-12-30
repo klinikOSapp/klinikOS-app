@@ -1,3 +1,5 @@
+/* eslint-disable @next/next/no-img-element */
+
 const imgClose =
   'http://localhost:3845/assets/5ef958204bb620a694618e0538ad4b9d50b8e1c7.svg'
 const imgMail =

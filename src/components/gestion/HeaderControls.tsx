@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 'use client'
 
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
@@ -190,47 +189,6 @@ function FiltersOverlay({
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
-
-  const days = useMemo(
-    () => [
-      '30',
-      '31',
-      '1',
-      '2',
-      '3',
-      '4',
-      '5',
-      '6',
-      '7',
-      '8',
-      '9',
-      '10',
-      '11',
-      '12',
-      '13',
-      '14',
-      '15',
-      '16',
-      '17',
-      '18',
-      '19',
-      '20',
-      '21',
-      '22',
-      '23',
-      '24',
-      '25',
-      '26',
-      '27',
-      '28',
-      '29',
-      '30',
-      '31',
-      '1',
-      '2'
-    ],
-    []
-  )
 
   const handleApply = () => {
     onApply({ specialty, period, selectedDay })
