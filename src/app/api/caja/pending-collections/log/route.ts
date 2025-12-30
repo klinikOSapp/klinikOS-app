@@ -1,3 +1,4 @@
+import { requireCajaPermission, resolveClinicIdForUser } from '@/lib/caja/permissions'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -21,6 +22,16 @@ export async function POST(req: Request) {
       data: { user }
     } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const clinicId = await resolveClinicIdForUser(supabase)
+    if (!clinicId) return NextResponse.json({ error: 'No clinic' }, { status: 400 })
+
+    const perm = await requireCajaPermission(supabase, clinicId, {
+      type: 'module',
+      module: 'cash',
+      action: 'view'
+    })
+    if (!perm.ok) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     // Unified comms history: log a manual contact attempt in `communications`.
     // `clinic_id` is auto-filled by DB trigger from patient_id (if not provided).

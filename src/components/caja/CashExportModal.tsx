@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 type Periodo = 'quarter_current' | 'quarter_previous' | 'custom'
+type Formato = 'csv' | 'pdf'
 
 type Props = {
   open: boolean
@@ -30,6 +31,7 @@ function startEndOfQuarterUTC(now: Date, quarterOffset: number) {
 export function CashExportModal({ open, onClose }: Props) {
   const [mounted, setMounted] = useState(false)
   const [periodo, setPeriodo] = useState<Periodo>('quarter_current')
+  const [formato, setFormato] = useState<Formato>('csv')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [includeMonthly, setIncludeMonthly] = useState(true)
@@ -47,6 +49,7 @@ export function CashExportModal({ open, onClose }: Props) {
     setDesde(formatISODate(start))
     setHasta(formatISODate(end))
     setPeriodo('quarter_current')
+    setFormato('csv')
     setIncludeMonthly(true)
     setIncludeMethod(true)
     setIncludeTotals(true)
@@ -71,7 +74,7 @@ export function CashExportModal({ open, onClose }: Props) {
           periodo,
           fecha_desde: periodo === 'custom' ? desde : undefined,
           fecha_hasta: periodo === 'custom' ? hasta : undefined,
-          formato: 'csv',
+          formato,
           incluir: {
             desglose_mensual: includeMonthly,
             desglose_metodo: includeMethod,
@@ -85,17 +88,33 @@ export function CashExportModal({ open, onClose }: Props) {
         setIsExporting(false)
         return
       }
-      const csv = String(data.csv || '')
       const fileName = String(data.file_name || 'caja.csv')
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = fileName
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+
+      if (formato === 'pdf') {
+        const base64 = String(data.pdf_base64 || '')
+        if (!base64) throw new Error('PDF empty')
+        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+        const blob = new Blob([bytes], { type: 'application/pdf' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        URL.revokeObjectURL(url)
+      } else {
+        const csv = String(data.csv || '')
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName.endsWith('.csv') ? fileName : `${fileName}.csv`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        URL.revokeObjectURL(url)
+      }
       setIsExporting(false)
       onClose()
     } catch (e: any) {
@@ -188,8 +207,25 @@ export function CashExportModal({ open, onClose }: Props) {
 
             <div className='space-y-[0.5rem]'>
               <p className='text-body-sm text-fg'>Formato</p>
-              <div className='text-body-sm text-neutral-600'>
-                CSV (por ahora)
+              <div className='flex items-center gap-[0.75rem] text-body-sm text-fg'>
+                <label className='flex items-center gap-[0.5rem]'>
+                  <input
+                    type='radio'
+                    name='formato'
+                    checked={formato === 'csv'}
+                    onChange={() => setFormato('csv')}
+                  />
+                  CSV
+                </label>
+                <label className='flex items-center gap-[0.5rem]'>
+                  <input
+                    type='radio'
+                    name='formato'
+                    checked={formato === 'pdf'}
+                    onChange={() => setFormato('pdf')}
+                  />
+                  PDF
+                </label>
               </div>
             </div>
 

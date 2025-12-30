@@ -1,5 +1,7 @@
 'use client'
 
+import { useUserRole } from '@/context/role-context'
+import { useRouter } from 'next/navigation'
 import type { FormEvent } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
@@ -155,10 +157,12 @@ const COLLECTION_STATUS_FILTERS: CollectionStatus[] = ['Cobrado', 'Por cobrar']
 
 type CashMovementsTableProps = {
   date: Date
-  timeScale: 'day' | 'week' | 'month'
+  timeScale: 'day' | 'week' | 'month' | 'year'
 }
 
 export default function CashMovementsTable({ date, timeScale }: CashMovementsTableProps) {
+  const router = useRouter()
+  const { role } = useUserRole()
   const [query, setQuery] = useState('')
   const [patientSuggestions, setPatientSuggestions] = useState<Array<{ id: string; name: string }>>(
     []
@@ -199,6 +203,24 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
     }>
   }>({ open: false, movement: null, loading: false })
 
+  const [registerPaymentModal, setRegisterPaymentModal] = useState<{
+    open: boolean
+    movement: CashMovement | null
+    amount: string
+    method: string
+    notes: string
+    isSaving: boolean
+    error: string | null
+  }>({
+    open: false,
+    movement: null,
+    amount: '',
+    method: 'TPV',
+    notes: '',
+    isSaving: false,
+    error: null
+  })
+
   const formatMadridDate = (d: Date) =>
     new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Europe/Madrid',
@@ -207,7 +229,7 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       day: '2-digit'
     }).format(d)
 
-  const computeRangeFromToolbar = (anchor: Date, scale: 'day' | 'week' | 'month') => {
+  const computeRangeFromToolbar = (anchor: Date, scale: 'day' | 'week' | 'month' | 'year') => {
     const dateStr = formatMadridDate(anchor) // YYYY-MM-DD (Madrid)
     const start = new Date(`${dateStr}T00:00:00Z`)
     const end = new Date(`${dateStr}T00:00:00Z`)
@@ -221,6 +243,10 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       start.setUTCDate(1)
       const lastDay = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0))
       end.setUTCDate(lastDay.getUTCDate())
+    } else if (scale === 'year') {
+      start.setUTCMonth(0, 1)
+      const lastDay = new Date(Date.UTC(start.getUTCFullYear(), 12, 0))
+      end.setUTCMonth(11, lastDay.getUTCDate())
     }
 
     return {
@@ -402,6 +428,90 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
     } catch (e) {
       console.error('Failed to fetch invoice payments', e)
       setPaymentsModal((prev) => ({ ...prev, loading: false }))
+    }
+  }
+
+  const openRegisterPaymentModal = (movement: CashMovement) => {
+    setRegisterPaymentModal({
+      open: true,
+      movement,
+      amount: '',
+      method: movement.paymentCategory || 'TPV',
+      notes: '',
+      isSaving: false,
+      error: null
+    })
+  }
+
+  // Actions menu: register payment
+  useEffect(() => {
+    const handler = (e: any) => {
+      const invoiceId = e?.detail?.invoiceId as string | undefined
+      if (!invoiceId) return
+      const movement = movements.find((m) => m.invoiceId === invoiceId) || null
+      if (!movement) return
+      openRegisterPaymentModal(movement)
+    }
+    window.addEventListener('caja:register-payment', handler as EventListener)
+    return () => window.removeEventListener('caja:register-payment', handler as EventListener)
+  }, [movements])
+
+  // Actions menu: toggle produced (server enforces gerencia)
+  useEffect(() => {
+    const handler = async (e: any) => {
+      const quoteId = e?.detail?.quoteId as string | undefined
+      const produced = e?.detail?.produced as ProductionState | undefined
+      if (!quoteId || !produced) return
+      const nextStatus = produced === 'Hecho' ? 'Pending' : 'Done'
+      try {
+        await fetch('/api/caja/production', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quoteId, productionStatus: nextStatus })
+        })
+        fetchMovements({ silent: true })
+      } catch (err) {
+        console.error('Failed to toggle production', err)
+      }
+    }
+    window.addEventListener('caja:toggle-produced', handler as EventListener)
+    return () => window.removeEventListener('caja:toggle-produced', handler as EventListener)
+  }, [date, timeScale, fromDate, toDate, paymentMethod, paymentStatus, query])
+
+  const submitRegisterPayment = async () => {
+    const movement = registerPaymentModal.movement
+    if (!movement) return
+    const amount = Number(registerPaymentModal.amount.replace(',', '.'))
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setRegisterPaymentModal((p) => ({ ...p, error: 'Introduce un importe válido' }))
+      return
+    }
+
+    setRegisterPaymentModal((p) => ({ ...p, isSaving: true, error: null }))
+    try {
+      const res = await fetch('/api/caja/register-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invoiceId: movement.invoiceId,
+          amount,
+          paymentMethod: registerPaymentModal.method,
+          notes: registerPaymentModal.notes || null
+        })
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setRegisterPaymentModal((p) => ({ ...p, isSaving: false, error: data?.error || 'Error' }))
+        return
+      }
+      setRegisterPaymentModal((p) => ({ ...p, isSaving: false, open: false }))
+      // refresh movements and payment history silently
+      fetchMovements({ silent: true })
+      if (paymentsModal.open && paymentsModal.movement?.invoiceId === movement.invoiceId) {
+        openPaymentsModal(movement)
+      }
+    } catch (e: any) {
+      setRegisterPaymentModal((p) => ({ ...p, isSaving: false, error: e?.message || 'Error' }))
     }
   }
 
@@ -673,6 +783,93 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
           </div>
         </div>
       )}
+
+      {registerPaymentModal.open && (
+        <div className='fixed inset-0 z-[80] bg-black/30' onClick={() => setRegisterPaymentModal((p) => ({ ...p, open: false }))}>
+          <div className='absolute inset-0 flex items-center justify-center px-[2rem] py-[2rem]'>
+            <div
+              className='w-[min(34rem,95vw)] rounded-xl bg-surface shadow-elevation-popover overflow-hidden'
+              onClick={(e) => e.stopPropagation()}
+              role='dialog'
+              aria-modal='true'
+              aria-label='Registrar pago'
+            >
+              <header className='flex h-[3.5rem] items-center justify-between border-b border-border px-[1.25rem]'>
+                <p className='text-title-md font-medium text-fg'>Registrar pago</p>
+                <button
+                  type='button'
+                  className='flex size-[2rem] items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                  onClick={() => setRegisterPaymentModal((p) => ({ ...p, open: false }))}
+                  aria-label='Cerrar'
+                >
+                  <span className='material-symbols-rounded text-[1.25rem] leading-none'>close</span>
+                </button>
+              </header>
+              <div className='p-[1.25rem] space-y-[1rem]'>
+                <div className='text-body-sm text-neutral-600'>
+                  Factura <span className='font-medium text-fg'>#{registerPaymentModal.movement?.invoiceId}</span>
+                </div>
+                <div className='grid grid-cols-2 gap-[0.75rem]'>
+                  <label className='flex flex-col gap-[0.25rem] text-body-sm text-fg'>
+                    Importe (€)
+                    <input
+                      value={registerPaymentModal.amount}
+                      onChange={(e) => setRegisterPaymentModal((p) => ({ ...p, amount: e.target.value }))}
+                      className='rounded-lg border border-border bg-surface px-[0.75rem] py-[0.5rem]'
+                      inputMode='decimal'
+                      placeholder='0,00'
+                    />
+                  </label>
+                  <label className='flex flex-col gap-[0.25rem] text-body-sm text-fg'>
+                    Método
+                    <select
+                      value={registerPaymentModal.method}
+                      onChange={(e) => setRegisterPaymentModal((p) => ({ ...p, method: e.target.value }))}
+                      className='rounded-lg border border-border bg-surface px-[0.75rem] py-[0.5rem]'
+                    >
+                      {PAYMENT_FILTERS.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <label className='flex flex-col gap-[0.25rem] text-body-sm text-fg'>
+                  Nota (opcional)
+                  <textarea
+                    value={registerPaymentModal.notes}
+                    onChange={(e) => setRegisterPaymentModal((p) => ({ ...p, notes: e.target.value }))}
+                    className='min-h-[5rem] rounded-lg border border-border bg-surface px-[0.75rem] py-[0.5rem]'
+                    placeholder='Ej: Pago parcial en recepción...'
+                  />
+                </label>
+                {registerPaymentModal.error ? (
+                  <div className='text-body-sm text-error-600'>{registerPaymentModal.error}</div>
+                ) : null}
+                <div className='flex items-center justify-end gap-[0.75rem]'>
+                  <button
+                    type='button'
+                    className='rounded-full border border-border bg-surface px-[1rem] py-[0.5rem] text-title-sm text-fg hover:bg-neutral-50'
+                    onClick={() => setRegisterPaymentModal((p) => ({ ...p, open: false }))}
+                    disabled={registerPaymentModal.isSaving}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type='button'
+                    className='rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-neutral-900 hover:bg-brand-400 disabled:opacity-50'
+                    onClick={submitRegisterPayment}
+                    disabled={registerPaymentModal.isSaving}
+                  >
+                    {registerPaymentModal.isSaving ? 'Guardando…' : 'Guardar pago'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
@@ -865,6 +1062,7 @@ function EstadoPill({ collectionStatus }: { collectionStatus: CollectionStatus }
 }
 
 function ProductionBadge({ movement }: { movement: CashMovement }) {
+  const { can } = useUserRole()
   const isDone = movement.produced === 'Hecho'
   const badgeClass = isDone
     ? 'bg-success-200 text-success-800'
@@ -873,6 +1071,7 @@ function ProductionBadge({ movement }: { movement: CashMovement }) {
 
   const toggle = async () => {
     if (!movement.quoteId) return
+    if (!can('clinical_notes', 'edit')) return
     const nextStatus = isDone ? 'Pending' : 'Done'
     try {
       await fetch('/api/caja/production', {
@@ -892,7 +1091,7 @@ function ProductionBadge({ movement }: { movement: CashMovement }) {
     <button
       type='button'
       onClick={toggle}
-      disabled={!movement.quoteId}
+      disabled={!movement.quoteId || !can('clinical_notes', 'edit')}
       className='flex items-center gap-[0.25rem] disabled:opacity-50 disabled:cursor-not-allowed'
       aria-label='Cambiar estado de producción'
     >
@@ -913,18 +1112,94 @@ function ProductionBadge({ movement }: { movement: CashMovement }) {
 }
 
 function ActionsMenu({ movement }: { movement: CashMovement }) {
+  const router = useRouter()
+  const { can } = useUserRole()
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = () => setOpen(false)
+    document.addEventListener('click', onDoc)
+    return () => document.removeEventListener('click', onDoc)
+  }, [open])
+
+  const canRegisterPayment = can('payments', 'create')
+  const canToggleProduced = can('clinical_notes', 'edit')
+
   return (
-    <button
-      type='button'
-      aria-label='Acciones'
-      className='size-8 inline-flex items-center justify-center rounded-full text-neutral-700 transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic'
-      onClick={() => {
-        // Placeholder: wired later to open invoice / patient actions menu
-        console.log('Actions for', movement.id)
-      }}
-    >
-      <span className='material-symbols-rounded text-[1.25rem] leading-5'>more_vert</span>
-    </button>
+    <div className='relative flex justify-end'>
+      <button
+        type='button'
+        aria-label='Acciones'
+        className='size-8 inline-flex items-center justify-center rounded-full text-neutral-700 transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic'
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpen((v) => !v)
+        }}
+      >
+        <span className='material-symbols-rounded text-[1.25rem] leading-5'>more_vert</span>
+      </button>
+
+      {open && (
+        <div
+          className='absolute right-0 top-[2.25rem] z-[50] w-[14rem] rounded-xl border border-border bg-surface shadow-elevation-popover overflow-hidden'
+          role='menu'
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type='button'
+            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50'
+            onClick={() => {
+              setOpen(false)
+              window.dispatchEvent(
+                new CustomEvent('caja:open-invoice-payments', { detail: { invoiceId: movement.invoiceId } })
+              )
+            }}
+          >
+            Ver cobros
+          </button>
+
+          <button
+            type='button'
+            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50 disabled:opacity-40 disabled:hover:bg-transparent'
+            disabled={!canRegisterPayment}
+            onClick={() => {
+              setOpen(false)
+              // bubble up via event to table component
+              window.dispatchEvent(new CustomEvent('caja:register-payment', { detail: { invoiceId: movement.invoiceId } }))
+            }}
+          >
+            Registrar pago
+          </button>
+
+          <button
+            type='button'
+            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50 disabled:opacity-40 disabled:hover:bg-transparent'
+            disabled={!canToggleProduced || !movement.quoteId}
+            onClick={() => {
+              setOpen(false)
+              window.dispatchEvent(
+                new CustomEvent('caja:toggle-produced', { detail: { quoteId: movement.quoteId, produced: movement.produced } })
+              )
+            }}
+          >
+            Cambiar Producido
+          </button>
+
+          <button
+            type='button'
+            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50'
+            onClick={() => {
+              setOpen(false)
+              // Open patients page with prefilled search query
+              router.push(`/pacientes?q=${encodeURIComponent(movement.patient)}`)
+            }}
+          >
+            Ver paciente
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 

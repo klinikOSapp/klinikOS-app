@@ -1,3 +1,4 @@
+import { requireCajaPermission } from '@/lib/caja/permissions'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -23,6 +24,13 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'No clinic' }, { status: 400 })
     }
     const clinicId = clinics[0] as string
+
+    const perm = await requireCajaPermission(supabase, clinicId, {
+      type: 'module',
+      module: 'cash',
+      action: 'view'
+    })
+    if (!perm.ok) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { data: invoice, error: invError } = await supabase
       .from('invoices')

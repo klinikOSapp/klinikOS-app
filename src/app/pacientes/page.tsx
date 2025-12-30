@@ -17,7 +17,7 @@ import LastPageRounded from '@mui/icons-material/LastPageRounded'
 import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded'
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
 import SearchRounded from '@mui/icons-material/SearchRounded'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import React from 'react'
 
 function KpiCard({
@@ -202,6 +202,7 @@ export default function PacientesPage() {
     null
   )
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   React.useEffect(() => {
     async function init() {
@@ -430,6 +431,18 @@ export default function PacientesPage() {
     void init()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Allow deep-linking into Pacientes from other modules (e.g., Caja actions menu).
+  React.useEffect(() => {
+    const q = (searchParams.get('q') || '').trim()
+    if (q) setQuery(q)
+    const patientId = (searchParams.get('patientId') || '').trim()
+    if (patientId) {
+      setActivePatientId(patientId)
+      setIsFichaModalOpen(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const isPatientSelected = (patientId: string) =>
     selectedPatientIds.includes(patientId)

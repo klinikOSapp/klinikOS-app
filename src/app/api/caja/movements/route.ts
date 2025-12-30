@@ -1,3 +1,4 @@
+import { requireCajaPermission } from '@/lib/caja/permissions'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -125,6 +126,13 @@ export async function GET(req: Request) {
     }
 
     const clinicId = clinics[0] as string
+
+    const perm = await requireCajaPermission(supabase, clinicId, {
+      type: 'module',
+      module: 'cash',
+      action: 'view'
+    })
+    if (!perm.ok) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     // v2 Phase 1: support explicit date range (from/to). If not provided, fallback to date+timeScale.
     let startDateStr = from || date

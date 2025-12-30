@@ -12,6 +12,8 @@ type PendingPatient = {
   oldestDay: string | null
   invoiceCount: number
   agingDays: number
+  lastContactAt?: string | null
+  lastContactChannel?: string | null
 }
 
 type Props = {
@@ -34,12 +36,14 @@ export function PendingCollectionsModal({ open, onClose, dateStr, timeScale }: P
   const [mounted, setMounted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [items, setItems] = useState<PendingPatient[]>([])
+  const [notesByPatientId, setNotesByPatientId] = useState<Record<string, string>>({})
 
   useEffect(() => setMounted(true), [])
 
   useEffect(() => {
     if (!open) return
     setIsLoading(true)
+    setNotesByPatientId({})
     fetch(`/api/caja/pending-collections?date=${encodeURIComponent(dateStr)}&timeScale=${timeScale}`)
       .then((res) => res.json())
       .then((data) => {
@@ -57,12 +61,16 @@ export function PendingCollectionsModal({ open, onClose, dateStr, timeScale }: P
     [items]
   )
 
-  const logContact = async (patientId: string, channel: 'call' | 'email' | 'whatsapp') => {
+  const logContact = async (
+    patientId: string,
+    channel: 'call' | 'email' | 'whatsapp',
+    note?: string
+  ) => {
     try {
       await fetch('/api/caja/pending-collections/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientId, channel })
+        body: JSON.stringify({ patientId, channel, note: note || null })
       })
     } catch (e) {
       // logging should never block user action
@@ -134,6 +142,32 @@ export function PendingCollectionsModal({ open, onClose, dateStr, timeScale }: P
                               <span className='font-medium text-fg'>{p.oldestDay}</span>
                             </span>
                           )}
+                          {p.lastContactAt ? (
+                            <span>
+                              Último contacto:{' '}
+                              <span className='font-medium text-fg'>
+                                {new Date(p.lastContactAt).toLocaleString('es-ES')}
+                              </span>
+                              {p.lastContactChannel ? (
+                                <span className='text-neutral-500'> ({p.lastContactChannel})</span>
+                              ) : null}
+                            </span>
+                          ) : (
+                            <span className='text-neutral-500'>Sin contacto registrado</span>
+                          )}
+                        </div>
+                        <div className='mt-[0.5rem]'>
+                          <input
+                            value={notesByPatientId[p.patientId] || ''}
+                            onChange={(e) =>
+                              setNotesByPatientId((prev) => ({
+                                ...prev,
+                                [p.patientId]: e.target.value
+                              }))
+                            }
+                            className='w-[min(32rem,100%)] rounded-lg border border-border bg-neutral-0 px-[0.75rem] py-[0.5rem] text-body-sm text-fg'
+                            placeholder='Nota (opcional) para registrar el contacto…'
+                          />
                         </div>
                       </div>
 
@@ -147,7 +181,7 @@ export function PendingCollectionsModal({ open, onClose, dateStr, timeScale }: P
                             disabled={!p.phone}
                             onClick={() => {
                               if (!p.phone) return
-                              logContact(p.patientId, 'call')
+                              logContact(p.patientId, 'call', notesByPatientId[p.patientId] || '')
                               window.open(`tel:${p.phone}`, '_self')
                             }}
                             className='inline-flex h-[2rem] items-center justify-center rounded-full border border-border bg-neutral-0 px-[0.75rem] text-label-sm text-fg hover:bg-neutral-50 disabled:opacity-40'
@@ -159,7 +193,7 @@ export function PendingCollectionsModal({ open, onClose, dateStr, timeScale }: P
                             disabled={!p.email}
                             onClick={() => {
                               if (!p.email) return
-                              logContact(p.patientId, 'email')
+                              logContact(p.patientId, 'email', notesByPatientId[p.patientId] || '')
                               window.open(`mailto:${p.email}`, '_self')
                             }}
                             className='inline-flex h-[2rem] items-center justify-center rounded-full border border-border bg-neutral-0 px-[0.75rem] text-label-sm text-fg hover:bg-neutral-50 disabled:opacity-40'
@@ -171,7 +205,7 @@ export function PendingCollectionsModal({ open, onClose, dateStr, timeScale }: P
                             disabled={!p.phone}
                             onClick={() => {
                               if (!p.phone) return
-                              logContact(p.patientId, 'whatsapp')
+                              logContact(p.patientId, 'whatsapp', notesByPatientId[p.patientId] || '')
                               window.open(toWhatsAppLink(p.phone), '_blank', 'noopener,noreferrer')
                             }}
                             className='inline-flex h-[2rem] items-center justify-center rounded-full border border-border bg-neutral-0 px-[0.75rem] text-label-sm text-fg hover:bg-neutral-50 disabled:opacity-40'

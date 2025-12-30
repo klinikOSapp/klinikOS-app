@@ -1,11 +1,17 @@
+import { requireCajaPermission } from '@/lib/caja/permissions'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+// Use standalone build to avoid runtime fs reads of *.afm font data files.
+// (Next.js output tracing can omit those assets, causing ENOENT at runtime.)
+import PDFDocument from 'pdfkit/js/pdfkit.standalone'
+
+export const runtime = 'nodejs'
 
 type ExportBody = {
   periodo: 'quarter_current' | 'quarter_previous' | 'custom'
   fecha_desde?: string // YYYY-MM-DD
   fecha_hasta?: string // YYYY-MM-DD
-  formato: 'csv'
+  formato: 'csv' | 'pdf'
   incluir?: {
     desglose_mensual?: boolean
     desglose_metodo?: boolean
@@ -43,6 +49,60 @@ function csvEscape(v: string) {
   return v
 }
 
+async function renderPdf(params: {
+  title: string
+  periodLabel: string
+  generatedAtIso: string
+  totals: { produced: number; invoiced: number; collected: number; toCollect: number }
+  methodBreakdown?: Record<string, number>
+  monthlyRows?: Array<{ month: string; produced: number; collected: number }>
+}) {
+  const doc = new PDFDocument({ size: 'A4', margin: 48 })
+  const chunks: Buffer[] = []
+  doc.on('data', (c) => chunks.push(Buffer.from(c)))
+  const done = new Promise<Buffer>((resolve, reject) => {
+    doc.on('end', () => resolve(Buffer.concat(chunks)))
+    doc.on('error', reject)
+  })
+
+  doc.fontSize(18).text(params.title, { align: 'left' })
+  doc.moveDown(0.5)
+  doc.fontSize(11).fillColor('#444').text(`Period: ${params.periodLabel}`)
+  doc.text(`Generated: ${params.generatedAtIso}`)
+  doc.moveDown(1)
+
+  doc.fillColor('#000').fontSize(13).text('Summary')
+  doc.moveDown(0.25)
+  doc.fontSize(11)
+  doc.text(`Produced: ${params.totals.produced.toFixed(2)} €`)
+  doc.text(`Invoiced: ${params.totals.invoiced.toFixed(2)} €`)
+  doc.text(`Collected: ${params.totals.collected.toFixed(2)} €`)
+  doc.text(`To collect: ${params.totals.toCollect.toFixed(2)} €`)
+
+  if (params.methodBreakdown && Object.keys(params.methodBreakdown).length > 0) {
+    doc.moveDown(1)
+    doc.fontSize(13).text('Breakdown by method')
+    doc.moveDown(0.25)
+    doc.fontSize(11)
+    for (const [k, v] of Object.entries(params.methodBreakdown).sort((a, b) => b[1] - a[1])) {
+      doc.text(`${k}: ${v.toFixed(2)} €`)
+    }
+  }
+
+  if (params.monthlyRows && params.monthlyRows.length > 0) {
+    doc.moveDown(1)
+    doc.fontSize(13).text('Monthly breakdown')
+    doc.moveDown(0.25)
+    doc.fontSize(11)
+    for (const r of params.monthlyRows) {
+      doc.text(`${r.month} — Produced: ${r.produced.toFixed(2)} €, Collected: ${r.collected.toFixed(2)} €`)
+    }
+  }
+
+  doc.end()
+  return await done
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = await createSupabaseServerClient()
@@ -57,14 +117,22 @@ export async function POST(req: Request) {
     if (!clinics || clinics.length === 0) return NextResponse.json({ error: 'No clinic found' }, { status: 400 })
     const clinicId = clinics[0] as string
 
-    // Role-based export access: deny higienista (Phase 4).
-    const roleRes = await supabase.rpc('get_my_role_in_clinic', { p_clinic_id: clinicId })
-    const role = (roleRes.data as string | null) ?? null
-    if (role === 'higienista') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    // v2: export permission is a custom rule on `cash` module (supports custom roles).
+    const canViewCash = await requireCajaPermission(supabase, clinicId, {
+      type: 'module',
+      module: 'cash',
+      action: 'view'
+    })
+    if (!canViewCash.ok) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    if (!body?.periodo || body.formato !== 'csv') {
+    const canExport = await requireCajaPermission(supabase, clinicId, {
+      type: 'custom',
+      module: 'cash',
+      key: 'export'
+    })
+    if (!canExport.ok) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+    if (!body?.periodo || (body.formato !== 'csv' && body.formato !== 'pdf')) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
     }
 
@@ -182,11 +250,54 @@ export async function POST(req: Request) {
       }
     }
 
-    // Build CSV
+    const fileName =
+      body.periodo === 'custom'
+        ? `caja_${startStr}_al_${endStr}.${body.formato}`
+        : body.periodo === 'quarter_previous'
+          ? `caja_trimestre_anterior_${startStr}_al_${endStr}.${body.formato}`
+          : `caja_trimestre_actual_${startStr}_al_${endStr}.${body.formato}`
+
+    // Audit log (DB)
+    const { error: auditError } = await supabase.from('export_audit').insert({
+      clinic_id: clinicId,
+      user_id: user.id,
+      period: body.periodo,
+      date_from: startStr,
+      date_to: endStr,
+      format: body.formato,
+      include_monthly_breakdown: includeMonthly,
+      include_method_breakdown: includeMethod,
+      include_overall_totals: includeTotals
+    })
+    if (auditError) {
+      console.error('[exportar] audit insert error', auditError)
+    }
+
+    const generatedAt = new Date().toISOString()
+    const periodLabel = `${startStr} to ${endStr}`
+
+    if (body.formato === 'pdf') {
+      const pdf = await renderPdf({
+        title: 'KLINIKOS - Cash report',
+        periodLabel,
+        generatedAtIso: generatedAt,
+        totals: { produced, invoiced, collected, toCollect },
+        methodBreakdown: includeMethod ? methodBreakdown : undefined,
+        monthlyRows: includeMonthly ? monthlyRows : undefined
+      })
+      return NextResponse.json({
+        file_name: fileName,
+        generated_at: generatedAt,
+        content_type: 'application/pdf',
+        pdf_base64: pdf.toString('base64')
+      })
+    }
+
+    // CSV
     const lines: string[] = []
     lines.push('KLINIKOS - Reporte de Caja')
     lines.push(`Periodo,${csvEscape(startStr)} al ${csvEscape(endStr)}`)
-    lines.push(`Generado,${csvEscape(new Date().toISOString())}`)
+    lines.push(`Generado,${csvEscape(generatedAt)}`)
     lines.push('')
 
     if (includeTotals) {
@@ -218,32 +329,10 @@ export async function POST(req: Request) {
     }
 
     const csv = lines.join('\n')
-    const fileName =
-      body.periodo === 'custom'
-        ? `caja_${startStr}_al_${endStr}.csv`
-        : body.periodo === 'quarter_previous'
-          ? `caja_trimestre_anterior_${startStr}_al_${endStr}.csv`
-          : `caja_trimestre_actual_${startStr}_al_${endStr}.csv`
-
-    // Audit log (DB)
-    const { error: auditError } = await supabase.from('export_audit').insert({
-      clinic_id: clinicId,
-      user_id: user.id,
-      period: body.periodo,
-      date_from: startStr,
-      date_to: endStr,
-      format: body.formato,
-      include_monthly_breakdown: includeMonthly,
-      include_method_breakdown: includeMethod,
-      include_overall_totals: includeTotals
-    })
-    if (auditError) {
-      console.error('[exportar] audit insert error', auditError)
-    }
-
     return NextResponse.json({
       file_name: fileName,
-      generated_at: new Date().toISOString(),
+      generated_at: generatedAt,
+      content_type: 'text/csv',
       csv
     })
   } catch (error: any) {

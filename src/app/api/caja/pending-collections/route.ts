@@ -1,3 +1,4 @@
+import { requireCajaPermission } from '@/lib/caja/permissions'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -92,6 +93,13 @@ export async function GET(req: Request) {
     if (!clinics || clinics.length === 0) return NextResponse.json({ patients: [] })
     const clinicId = clinics[0] as string
 
+    const perm = await requireCajaPermission(supabase, clinicId, {
+      type: 'module',
+      module: 'cash',
+      action: 'view'
+    })
+    if (!perm.ok) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
     const formatMadridDate = (d: Date) =>
       new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Europe/Madrid',
@@ -125,6 +133,43 @@ export async function GET(req: Request) {
     const { endUtc } = madridDayRangeUtc(periodEndStr)
     const asOf = endUtc.toISOString()
 
+    const attachLastContacts = async (patients: any[]) => {
+      const ids = patients.map((p) => String(p.patientId)).filter(Boolean)
+      if (ids.length === 0) return patients
+      const { data, error } = await supabase
+        .from('communications')
+        .select('patient_id, channel, sent_at')
+        .eq('clinic_id', clinicId)
+        .eq('kind', 'collection_followup')
+        .in('patient_id', ids)
+        .order('sent_at', { ascending: false })
+        .limit(500)
+
+      if (error) {
+        console.error('[pending-collections] communications error', error)
+        return patients
+      }
+
+      const lastByPatient = new Map<string, { at: string; channel: string }>()
+      for (const r of data || []) {
+        const pid = String((r as any).patient_id)
+        if (lastByPatient.has(pid)) continue
+        lastByPatient.set(pid, {
+          at: String((r as any).sent_at || ''),
+          channel: String((r as any).channel || '')
+        })
+      }
+
+      return patients.map((p) => {
+        const hit = lastByPatient.get(String(p.patientId))
+        return {
+          ...p,
+          lastContactAt: hit?.at || null,
+          lastContactChannel: hit?.channel || null
+        }
+      })
+    }
+
     // Prefer DB-side aggregation (fast).
     const res = await supabase.rpc('get_caja_pending_collections_by_patient', {
       p_clinic_id: clinicId,
@@ -132,7 +177,7 @@ export async function GET(req: Request) {
     })
 
     if (!res.error) {
-      const patients = (res.data as any[] | null)?.map((r) => ({
+      const base = (res.data as any[] | null)?.map((r) => ({
         patientId: String(r.patient_id),
         name: `${r.patient_first_name || ''} ${r.patient_last_name || ''}`.trim(),
         phone: r.patient_phone ? String(r.patient_phone) : null,
@@ -143,6 +188,7 @@ export async function GET(req: Request) {
         agingDays: Number(r.aging_days || 0)
       })) || []
 
+      const patients = await attachLastContacts(base)
       return NextResponse.json({ patients, asOf })
     }
 
@@ -254,7 +300,8 @@ export async function GET(req: Request) {
         return 0
       })
 
-    return NextResponse.json({ patients: out, asOf })
+    const enriched = await attachLastContacts(out)
+    return NextResponse.json({ patients: enriched, asOf })
   } catch (error: any) {
     console.error('Error in pending-collections API:', error)
     return NextResponse.json({ error: error?.message ?? 'Unexpected error' }, { status: 500 })

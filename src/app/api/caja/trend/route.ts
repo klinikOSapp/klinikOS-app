@@ -1,3 +1,4 @@
+import { requireCajaPermission } from '@/lib/caja/permissions'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -65,6 +66,13 @@ export async function GET(req: Request) {
     }
 
     const clinicId = clinics[0] as string
+
+    const perm = await requireCajaPermission(supabase, clinicId, {
+      type: 'module',
+      module: 'cash',
+      action: 'view'
+    })
+    if (!perm.ok) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     // Treat `date` as a date-only anchor (YYYY-MM-DD) to avoid timezone drift.
     const anchorDate = new Date(`${date}T00:00:00Z`)

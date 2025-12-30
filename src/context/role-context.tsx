@@ -22,6 +22,8 @@ export type AllPermissions = {
   clinical_notes?: ModulePermissions
   invoices?: ModulePermissions
   payments?: ModulePermissions
+  cash?: ModulePermissions
+  cash_closings?: ModulePermissions
   staff?: ModulePermissions
   settings?: ModulePermissions
   reports?: ModulePermissions
