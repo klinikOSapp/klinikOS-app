@@ -228,3 +228,4 @@ export function PendingCollectionsModal({ open, onClose, dateStr, timeScale }: P
   return createPortal(content, document.body)
 }
 
+

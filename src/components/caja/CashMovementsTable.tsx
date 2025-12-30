@@ -459,19 +459,62 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
   // Actions menu: toggle produced (server enforces gerencia)
   useEffect(() => {
     const handler = async (e: any) => {
+      const invoiceId = e?.detail?.invoiceId as string | undefined
       const quoteId = e?.detail?.quoteId as string | undefined
       const produced = e?.detail?.produced as ProductionState | undefined
-      if (!quoteId || !produced) return
+      if (!invoiceId || !quoteId || !produced) return
+
+      // Optimistic UI update (no waiting for refetch)
+      setMovements((prev) =>
+        prev.map((m) => {
+          if (m.invoiceId !== invoiceId) return m
+          const nextProduced: ProductionState = produced === 'Hecho' ? 'Pendiente' : 'Hecho'
+          return {
+            ...m,
+            produced: nextProduced,
+            productionStatus: nextProduced === 'Hecho' ? 'Done' : 'Pending'
+          }
+        })
+      )
+
       const nextStatus = produced === 'Hecho' ? 'Pending' : 'Done'
       try {
-        await fetch('/api/caja/production', {
+        const res = await fetch('/api/caja/production', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ quoteId, productionStatus: nextStatus })
         })
-        fetchMovements({ silent: true })
+        if (!res.ok) {
+          // revert optimistic change on failure
+          setMovements((prev) =>
+            prev.map((m) =>
+              m.invoiceId === invoiceId
+                ? {
+                    ...m,
+                    produced,
+                    productionStatus: produced === 'Hecho' ? 'Done' : 'Pending'
+                  }
+                : m
+            )
+          )
+          return
+        }
+
+        // background resync (keeps UI snappy but eventually consistent)
+        window.setTimeout(() => fetchMovements({ silent: true }), 1200)
       } catch (err) {
         console.error('Failed to toggle production', err)
+        setMovements((prev) =>
+          prev.map((m) =>
+            m.invoiceId === invoiceId
+              ? {
+                  ...m,
+                  produced,
+                  productionStatus: produced === 'Hecho' ? 'Done' : 'Pending'
+                }
+              : m
+          )
+        )
       }
     }
     window.addEventListener('caja:toggle-produced', handler as EventListener)
@@ -1069,29 +1112,25 @@ function ProductionBadge({ movement }: { movement: CashMovement }) {
     : 'bg-neutral-200 text-neutral-700'
   const icon = isDone ? 'check_box' : 'check_box_outline_blank'
 
+  // Phase 5: only Admin/Management can toggle.
+  const canToggleProduced = can('cash', 'edit')
+
   const toggle = async () => {
     if (!movement.quoteId) return
-    if (!can('clinical_notes', 'edit')) return
-    const nextStatus = isDone ? 'Pending' : 'Done'
-    try {
-      await fetch('/api/caja/production', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          quoteId: movement.quoteId,
-          productionStatus: nextStatus
-        })
+    if (!canToggleProduced) return
+    // Bubble up so the table can optimistically update the UI.
+    window.dispatchEvent(
+      new CustomEvent('caja:toggle-produced', {
+        detail: { invoiceId: movement.invoiceId, quoteId: movement.quoteId, produced: movement.produced }
       })
-    } catch (e) {
-      console.error('Failed to update production status', e)
-    }
+    )
   }
 
   return (
     <button
       type='button'
       onClick={toggle}
-      disabled={!movement.quoteId || !can('clinical_notes', 'edit')}
+      disabled={!movement.quoteId || !canToggleProduced}
       className='flex items-center gap-[0.25rem] disabled:opacity-50 disabled:cursor-not-allowed'
       aria-label='Cambiar estado de producción'
     >
@@ -1124,7 +1163,9 @@ function ActionsMenu({ movement }: { movement: CashMovement }) {
   }, [open])
 
   const canRegisterPayment = can('payments', 'create')
-  const canToggleProduced = can('clinical_notes', 'edit')
+  const canEditCash = can('cash', 'edit')
+  const canDeleteCash = can('cash', 'delete')
+  const isPorCobrar = movement.collectionStatus === 'Por cobrar'
 
   return (
     <div className='relative flex justify-end'>
@@ -1156,13 +1197,13 @@ function ActionsMenu({ movement }: { movement: CashMovement }) {
               )
             }}
           >
-            Ver cobros
+            Historial de pagos
           </button>
 
           <button
             type='button'
             className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50 disabled:opacity-40 disabled:hover:bg-transparent'
-            disabled={!canRegisterPayment}
+            disabled={!canRegisterPayment || !isPorCobrar}
             onClick={() => {
               setOpen(false)
               // bubble up via event to table component
@@ -1174,16 +1215,15 @@ function ActionsMenu({ movement }: { movement: CashMovement }) {
 
           <button
             type='button'
-            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50 disabled:opacity-40 disabled:hover:bg-transparent'
-            disabled={!canToggleProduced || !movement.quoteId}
+            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50'
             onClick={() => {
               setOpen(false)
               window.dispatchEvent(
-                new CustomEvent('caja:toggle-produced', { detail: { quoteId: movement.quoteId, produced: movement.produced } })
+                new CustomEvent('caja:open-invoice-payments', { detail: { invoiceId: movement.invoiceId } })
               )
             }}
           >
-            Cambiar Producido
+            Ver factura
           </button>
 
           <button
@@ -1195,7 +1235,47 @@ function ActionsMenu({ movement }: { movement: CashMovement }) {
               router.push(`/pacientes?q=${encodeURIComponent(movement.patient)}`)
             }}
           >
-            Ver paciente
+            Ver detalles del paciente
+          </button>
+
+          <button
+            type='button'
+            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50'
+            onClick={() => {
+              setOpen(false)
+              // Current app has no dedicated treatment/quote route; patient record is the best entry point.
+              router.push(`/pacientes?q=${encodeURIComponent(movement.patient)}`)
+            }}
+          >
+            Ver/editar tratamiento
+          </button>
+
+          <div className='h-px bg-border' />
+
+          <button
+            type='button'
+            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50 disabled:opacity-40 disabled:hover:bg-transparent'
+            disabled={!canEditCash}
+            onClick={() => {
+              setOpen(false)
+              // TODO: implement once invoice editing exists
+              console.info('Modify transaction: not implemented yet')
+            }}
+          >
+            Modificar transacción
+          </button>
+
+          <button
+            type='button'
+            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-error-600 hover:bg-neutral-50 disabled:opacity-40 disabled:hover:bg-transparent'
+            disabled={!canDeleteCash}
+            onClick={() => {
+              setOpen(false)
+              // TODO: implement once invoice deletion exists
+              console.info('Delete transaction: not implemented yet')
+            }}
+          >
+            Eliminar transacción
           </button>
         </div>
       )}

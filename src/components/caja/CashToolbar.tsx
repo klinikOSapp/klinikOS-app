@@ -94,7 +94,7 @@ export default function CashToolbar({
             aria-haspopup='dialog'
             aria-expanded={isExportModalOpen}
           >
-            Exportar
+            📤 Exportar
           </button>
         )}
 

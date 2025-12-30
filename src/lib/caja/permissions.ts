@@ -33,3 +33,4 @@ export async function requireCajaPermission(
   return { ok: Boolean(custom?.[permission.key]), error: null as string | null }
 }
 
+
