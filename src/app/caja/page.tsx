@@ -12,7 +12,8 @@ const SUMMARY_CARD_WIDTH_REM = 66.8125 // 1069px
 const TREND_CARD_MIN_WIDTH_REM = 32.6875 // 523px
 
 export default function CajaPage() {
-  const [timeScale, setTimeScale] = useState<CashTimeScale>('day')
+  // v2 default: show current month
+  const [timeScale, setTimeScale] = useState<CashTimeScale>('month')
   const [anchorDate, setAnchorDate] = useState(() => new Date())
   const [summaryHeightRem, setSummaryHeightRem] = useState<number | null>(null)
 

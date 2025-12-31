@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 type Periodo = 'quarter_current' | 'quarter_previous' | 'custom'
-type Formato = 'csv' | 'pdf'
+type Formato = 'csv' | 'pdf' | 'xlsx'
 
 type Props = {
   open: boolean
@@ -99,6 +99,21 @@ export function CashExportModal({ open, onClose }: Props) {
         const a = document.createElement('a')
         a.href = url
         a.download = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        URL.revokeObjectURL(url)
+      } else if (formato === 'xlsx') {
+        const base64 = String(data.xlsx_base64 || '')
+        if (!base64) throw new Error('XLSX empty')
+        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+        const blob = new Blob([bytes], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName.endsWith('.xlsx') ? fileName : `${fileName}.xlsx`
         document.body.appendChild(a)
         a.click()
         a.remove()
@@ -225,6 +240,15 @@ export function CashExportModal({ open, onClose }: Props) {
                     onChange={() => setFormato('pdf')}
                   />
                   PDF
+                </label>
+                <label className='flex items-center gap-[0.5rem]'>
+                  <input
+                    type='radio'
+                    name='formato'
+                    checked={formato === 'xlsx'}
+                    onChange={() => setFormato('xlsx')}
+                  />
+                  Excel
                 </label>
               </div>
             </div>

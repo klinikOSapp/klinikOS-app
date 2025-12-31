@@ -121,7 +121,7 @@ const columns: ColumnDefinition[] = [
     id: 'insurer',
     label: 'Aseguradora',
     widthRem: COLUMN_WIDTHS_REM.insurer,
-    render: (movement) => movement.insurer
+    render: (movement) => movement.insurer?.trim() ? movement.insurer : 'N/A'
   },
   {
     id: 'actions',
@@ -204,6 +204,51 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       paymentMethod: string
     }>
   }>({ open: false, movement: null, loading: false })
+
+  const [invoiceModal, setInvoiceModal] = useState<{
+    open: boolean
+    movement: CashMovement | null
+    loading: boolean
+    invoice?: {
+      id: string
+      invoiceNumber: string | null
+      totalAmount: number
+      amountPaid: number
+      outstandingAmount: number
+    }
+    payments?: Array<{
+      id: string
+      amount: number
+      transactionDate: string
+      paymentMethod: string
+    }>
+  }>({ open: false, movement: null, loading: false })
+
+  const [modifyPaymentModal, setModifyPaymentModal] = useState<{
+    open: boolean
+    movement: CashMovement | null
+    loading: boolean
+    paymentId: string
+    paymentMethod: string
+    error: string | null
+    saving: boolean
+  }>({
+    open: false,
+    movement: null,
+    loading: false,
+    paymentId: '',
+    paymentMethod: 'TPV',
+    error: null,
+    saving: false
+  })
+
+  const [deletePaymentModal, setDeletePaymentModal] = useState<{
+    open: boolean
+    movement: CashMovement | null
+    paymentId: string
+    deleting: boolean
+    error: string | null
+  }>({ open: false, movement: null, paymentId: '', deleting: false, error: null })
 
   const [patientModal, setPatientModal] = useState<{
     open: boolean
@@ -356,6 +401,42 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
 
   useEffect(() => {
     const handler = (e: any) => {
+      const invoiceId = e?.detail?.invoiceId as string | undefined
+      if (!invoiceId) return
+      const movement = movements.find((m) => m.invoiceId === invoiceId) || null
+      if (!movement) return
+      openInvoiceModal(movement)
+    }
+    window.addEventListener('caja:open-invoice', handler as EventListener)
+    return () => window.removeEventListener('caja:open-invoice', handler as EventListener)
+  }, [movements])
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      const invoiceId = e?.detail?.invoiceId as string | undefined
+      if (!invoiceId) return
+      const movement = movements.find((m) => m.invoiceId === invoiceId) || null
+      if (!movement) return
+      openModifyPaymentModal(movement)
+    }
+    window.addEventListener('caja:modify-transaction', handler as EventListener)
+    return () => window.removeEventListener('caja:modify-transaction', handler as EventListener)
+  }, [movements])
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      const invoiceId = e?.detail?.invoiceId as string | undefined
+      if (!invoiceId) return
+      const movement = movements.find((m) => m.invoiceId === invoiceId) || null
+      if (!movement) return
+      openDeletePaymentModal(movement)
+    }
+    window.addEventListener('caja:delete-transaction', handler as EventListener)
+    return () => window.removeEventListener('caja:delete-transaction', handler as EventListener)
+  }, [movements])
+
+  useEffect(() => {
+    const handler = (e: any) => {
       const patientId = e?.detail?.patientId as string | undefined
       const patientName = e?.detail?.patientName as string | undefined
       if (patientId) {
@@ -490,6 +571,141 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
     } catch (e) {
       console.error('Failed to fetch invoice payments', e)
       setPaymentsModal((prev) => ({ ...prev, loading: false }))
+    }
+  }
+
+  const openInvoiceModal = async (movement: CashMovement) => {
+    setInvoiceModal({ open: true, movement, loading: true })
+    try {
+      const res = await fetch(`/api/caja/invoice-payments?invoiceId=${movement.invoiceId}`)
+      const data = await res.json()
+      setInvoiceModal((prev) => ({
+        ...prev,
+        loading: false,
+        invoice: data.invoice,
+        payments: data.payments || []
+      }))
+    } catch (e) {
+      console.error('Failed to fetch invoice details', e)
+      setInvoiceModal((prev) => ({ ...prev, loading: false }))
+    }
+  }
+
+  const openModifyPaymentModal = async (movement: CashMovement) => {
+    setModifyPaymentModal((p) => ({
+      ...p,
+      open: true,
+      movement,
+      loading: true,
+      error: null,
+      saving: false
+    }))
+    try {
+      const res = await fetch(`/api/caja/invoice-payments?invoiceId=${movement.invoiceId}`)
+      const data = await res.json()
+      const payments = Array.isArray(data.payments) ? data.payments : []
+      const first = payments[0] || null
+      setModifyPaymentModal((p) => ({
+        ...p,
+        loading: false,
+        paymentId: first?.id ? String(first.id) : '',
+        paymentMethod: first?.paymentMethod ? String(first.paymentMethod) : 'TPV'
+      }))
+    } catch (e: any) {
+      setModifyPaymentModal((p) => ({
+        ...p,
+        loading: false,
+        error: e?.message || 'Failed to load payments'
+      }))
+    }
+  }
+
+  const saveModifiedPayment = async () => {
+    if (!modifyPaymentModal.paymentId) {
+      setModifyPaymentModal((p) => ({ ...p, error: 'No payment to edit' }))
+      return
+    }
+    setModifyPaymentModal((p) => ({ ...p, saving: true, error: null }))
+    try {
+      const res = await fetch('/api/caja/payments/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentId: modifyPaymentModal.paymentId,
+          paymentMethod: modifyPaymentModal.paymentMethod
+        })
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setModifyPaymentModal((p) => ({ ...p, saving: false, error: data?.error || 'Error' }))
+        return
+      }
+      setModifyPaymentModal((p) => ({ ...p, saving: false, open: false }))
+      fetchMovements({ silent: true })
+      const movement = modifyPaymentModal.movement
+      if (movement && paymentsModal.open && paymentsModal.movement?.invoiceId === movement.invoiceId) {
+        openPaymentsModal(movement)
+      }
+      if (movement && invoiceModal.open && invoiceModal.movement?.invoiceId === movement.invoiceId) {
+        openInvoiceModal(movement)
+      }
+    } catch (e: any) {
+      setModifyPaymentModal((p) => ({ ...p, saving: false, error: e?.message || 'Error' }))
+    }
+  }
+
+  const openDeletePaymentModal = async (movement: CashMovement) => {
+    try {
+      const res = await fetch(`/api/caja/invoice-payments?invoiceId=${movement.invoiceId}`)
+      const data = await res.json()
+      const payments = Array.isArray(data.payments) ? data.payments : []
+      const first = payments[0] || null
+      setDeletePaymentModal({
+        open: true,
+        movement,
+        paymentId: first?.id ? String(first.id) : '',
+        deleting: false,
+        error: null
+      })
+    } catch (e: any) {
+      setDeletePaymentModal({
+        open: true,
+        movement,
+        paymentId: '',
+        deleting: false,
+        error: e?.message || 'Failed to load payments'
+      })
+    }
+  }
+
+  const confirmDeletePayment = async () => {
+    if (!deletePaymentModal.paymentId) {
+      setDeletePaymentModal((p) => ({ ...p, error: 'No payment to delete' }))
+      return
+    }
+    setDeletePaymentModal((p) => ({ ...p, deleting: true, error: null }))
+    try {
+      const res = await fetch('/api/caja/payments/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentId: deletePaymentModal.paymentId })
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setDeletePaymentModal((p) => ({ ...p, deleting: false, error: data?.error || 'Error' }))
+        return
+      }
+      const movement = deletePaymentModal.movement
+      setDeletePaymentModal({ open: false, movement: null, paymentId: '', deleting: false, error: null })
+      fetchMovements({ silent: true })
+      if (movement && paymentsModal.open && paymentsModal.movement?.invoiceId === movement.invoiceId) {
+        openPaymentsModal(movement)
+      }
+      if (movement && invoiceModal.open && invoiceModal.movement?.invoiceId === movement.invoiceId) {
+        openInvoiceModal(movement)
+      }
+    } catch (e: any) {
+      setDeletePaymentModal((p) => ({ ...p, deleting: false, error: e?.message || 'Error' }))
     }
   }
 
@@ -885,6 +1101,231 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {invoiceModal.open && (
+        <div
+          className='fixed inset-0 z-[60] flex items-center justify-center bg-black/30'
+          role='dialog'
+          aria-modal='true'
+        >
+          <div className='w-[min(44rem,92vw)] rounded-lg bg-surface shadow-elevation-card p-6'>
+            <div className='flex items-center justify-between'>
+              <h3 className='text-title-sm font-medium text-fg'>Invoice</h3>
+              <button
+                type='button'
+                className='size-8 inline-flex items-center justify-center rounded-full hover:bg-neutral-100'
+                onClick={() => setInvoiceModal({ open: false, movement: null, loading: false })}
+                aria-label='Cerrar'
+              >
+                <span className='material-symbols-rounded text-[1.25rem]'>close</span>
+              </button>
+            </div>
+
+            {invoiceModal.loading ? (
+              <div className='py-6 text-neutral-600'>Loading…</div>
+            ) : (
+              <>
+                <div className='mt-4 grid grid-cols-3 gap-3 text-body-sm text-neutral-700'>
+                  <div className='rounded-md bg-neutral-50 p-3'>
+                    <div className='text-neutral-500'>Invoice #</div>
+                    <div className='font-medium'>{invoiceModal.invoice?.invoiceNumber ?? '—'}</div>
+                  </div>
+                  <div className='rounded-md bg-neutral-50 p-3'>
+                    <div className='text-neutral-500'>Total</div>
+                    <div className='font-medium'>
+                      {invoiceModal.invoice?.totalAmount?.toLocaleString('es-ES', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}{' '}
+                      €
+                    </div>
+                  </div>
+                  <div className='rounded-md bg-neutral-50 p-3'>
+                    <div className='text-neutral-500'>Outstanding</div>
+                    <div className='font-medium'>
+                      {invoiceModal.invoice?.outstandingAmount?.toLocaleString('es-ES', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}{' '}
+                      €
+                    </div>
+                  </div>
+                </div>
+
+                <div className='mt-4 rounded-md border border-border overflow-hidden'>
+                  <div className='grid grid-cols-3 bg-neutral-50 px-4 py-2 text-label-sm text-neutral-600'>
+                    <div>Date</div>
+                    <div>Method</div>
+                    <div className='text-right'>Amount</div>
+                  </div>
+                  {(invoiceModal.payments || []).length === 0 ? (
+                    <div className='px-4 py-4 text-neutral-600'>No payments for this invoice.</div>
+                  ) : (
+                    (invoiceModal.payments || []).map((p) => (
+                      <div
+                        key={p.id}
+                        className='grid grid-cols-3 px-4 py-2 border-t border-border text-body-sm text-neutral-800'
+                      >
+                        <div>
+                          {new Intl.DateTimeFormat('es-ES', {
+                            timeZone: 'Europe/Madrid',
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                          }).format(new Date(p.transactionDate))}
+                        </div>
+                        <div>{p.paymentMethod}</div>
+                        <div className='text-right'>
+                          {Number(p.amount).toLocaleString('es-ES', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          })}{' '}
+                          €
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {modifyPaymentModal.open && (
+        <div
+          className='fixed inset-0 z-[90] bg-black/30'
+          onClick={() => setModifyPaymentModal((p) => ({ ...p, open: false }))}
+        >
+          <div className='absolute inset-0 flex items-center justify-center px-[2rem] py-[2rem]'>
+            <div
+              className='w-[min(30rem,95vw)] rounded-xl bg-surface shadow-elevation-popover overflow-hidden'
+              onClick={(e) => e.stopPropagation()}
+              role='dialog'
+              aria-modal='true'
+              aria-label='Modify transaction'
+            >
+              <header className='flex h-[3.5rem] items-center justify-between border-b border-border px-[1.25rem]'>
+                <p className='text-title-md font-medium text-fg'>Modify transaction</p>
+                <button
+                  type='button'
+                  className='flex size-[2rem] items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                  onClick={() => setModifyPaymentModal((p) => ({ ...p, open: false }))}
+                  aria-label='Close'
+                >
+                  <span className='material-symbols-rounded text-[1.25rem] leading-none'>close</span>
+                </button>
+              </header>
+              <div className='p-[1.25rem] space-y-[1rem]'>
+                {modifyPaymentModal.loading ? (
+                  <div className='text-neutral-600'>Loading…</div>
+                ) : (
+                  <>
+                    <div className='text-body-sm text-neutral-600'>
+                      This updates the <span className='font-medium text-fg'>latest payment</span> method for the invoice.
+                    </div>
+                    <label className='flex flex-col gap-[0.25rem] text-body-sm text-fg'>
+                      Payment method
+                      <select
+                        value={modifyPaymentModal.paymentMethod}
+                        onChange={(e) =>
+                          setModifyPaymentModal((p) => ({ ...p, paymentMethod: e.target.value }))
+                        }
+                        className='rounded-lg border border-border bg-surface px-[0.75rem] py-[0.5rem]'
+                      >
+                        {PAYMENT_FILTERS.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {modifyPaymentModal.error ? (
+                      <div className='text-body-sm text-error-600'>{modifyPaymentModal.error}</div>
+                    ) : null}
+                    <div className='flex items-center justify-end gap-[0.75rem]'>
+                      <button
+                        type='button'
+                        className='rounded-full border border-border bg-surface px-[1rem] py-[0.5rem] text-title-sm text-fg hover:bg-neutral-50'
+                        onClick={() => setModifyPaymentModal((p) => ({ ...p, open: false }))}
+                        disabled={modifyPaymentModal.saving}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type='button'
+                        className='rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-neutral-900 hover:bg-brand-400 disabled:opacity-50'
+                        onClick={saveModifiedPayment}
+                        disabled={modifyPaymentModal.saving}
+                      >
+                        {modifyPaymentModal.saving ? 'Saving…' : 'Save'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deletePaymentModal.open && (
+        <div
+          className='fixed inset-0 z-[95] bg-black/30'
+          onClick={() => setDeletePaymentModal((p) => ({ ...p, open: false }))}
+        >
+          <div className='absolute inset-0 flex items-center justify-center px-[2rem] py-[2rem]'>
+            <div
+              className='w-[min(30rem,95vw)] rounded-xl bg-surface shadow-elevation-popover overflow-hidden'
+              onClick={(e) => e.stopPropagation()}
+              role='dialog'
+              aria-modal='true'
+              aria-label='Delete transaction'
+            >
+              <header className='flex h-[3.5rem] items-center justify-between border-b border-border px-[1.25rem]'>
+                <p className='text-title-md font-medium text-fg'>Delete transaction</p>
+                <button
+                  type='button'
+                  className='flex size-[2rem] items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                  onClick={() => setDeletePaymentModal((p) => ({ ...p, open: false }))}
+                  aria-label='Close'
+                >
+                  <span className='material-symbols-rounded text-[1.25rem] leading-none'>close</span>
+                </button>
+              </header>
+              <div className='p-[1.25rem] space-y-[1rem]'>
+                <div className='text-body-sm text-neutral-600'>
+                  This will delete the <span className='font-medium text-fg'>latest payment</span> for the invoice.
+                </div>
+                {deletePaymentModal.error ? (
+                  <div className='text-body-sm text-error-600'>{deletePaymentModal.error}</div>
+                ) : null}
+                <div className='flex items-center justify-end gap-[0.75rem]'>
+                  <button
+                    type='button'
+                    className='rounded-full border border-border bg-surface px-[1rem] py-[0.5rem] text-title-sm text-fg hover:bg-neutral-50'
+                    onClick={() => setDeletePaymentModal((p) => ({ ...p, open: false }))}
+                    disabled={deletePaymentModal.deleting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type='button'
+                    className='rounded-full bg-error-600 px-[1rem] py-[0.5rem] text-title-sm font-medium text-white hover:bg-error-500 disabled:opacity-50'
+                    onClick={confirmDeletePayment}
+                    disabled={deletePaymentModal.deleting}
+                  >
+                    {deletePaymentModal.deleting ? 'Deleting…' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1350,9 +1791,7 @@ function ActionsMenu({ movement }: { movement: CashMovement }) {
             className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50'
             onClick={() => {
               setOpen(false)
-              window.dispatchEvent(
-                new CustomEvent('caja:open-invoice-payments', { detail: { invoiceId: movement.invoiceId } })
-              )
+              window.dispatchEvent(new CustomEvent('caja:open-invoice', { detail: { invoiceId: movement.invoiceId } }))
             }}
           >
             View invoice
@@ -1397,8 +1836,9 @@ function ActionsMenu({ movement }: { movement: CashMovement }) {
             disabled={!canEditCash}
             onClick={() => {
               setOpen(false)
-              // TODO: implement once invoice editing exists
-              console.info('Modify transaction: not implemented yet')
+              window.dispatchEvent(
+                new CustomEvent('caja:modify-transaction', { detail: { invoiceId: movement.invoiceId } })
+              )
             }}
           >
             Modificar transacción
@@ -1410,8 +1850,9 @@ function ActionsMenu({ movement }: { movement: CashMovement }) {
             disabled={!canDeleteCash}
             onClick={() => {
               setOpen(false)
-              // TODO: implement once invoice deletion exists
-              console.info('Delete transaction: not implemented yet')
+              window.dispatchEvent(
+                new CustomEvent('caja:delete-transaction', { detail: { invoiceId: movement.invoiceId } })
+              )
             }}
           >
             Eliminar transacción

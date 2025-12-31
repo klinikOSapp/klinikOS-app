@@ -85,19 +85,10 @@ function getInvoiceStatus(status: string): 'Aceptado' | 'Enviado' {
   return status === 'paid' || status === 'accepted' ? 'Aceptado' : 'Enviado'
 }
 
-// Check if quote is signed (produced)
-function isProduced(
-  quoteSignedAt: string | null,
-  productionStatus: string | null | undefined,
-  invoiceStatus: string
-): 'Hecho' | 'Pendiente' {
-  if (productionStatus === 'Done') {
-    return 'Hecho'
-  }
-  if (quoteSignedAt || invoiceStatus === 'paid') {
-    return 'Hecho'
-  }
-  return 'Pendiente'
+// v2: "Producido" is explicitly marked by clinician workflow (quotes.production_status).
+// Do NOT infer from signed_at or invoice status; that causes toggles to "snap back".
+function isProduced(productionStatus: string | null | undefined): 'Hecho' | 'Pendiente' {
+  return productionStatus === 'Done' ? 'Hecho' : 'Pendiente'
 }
 
 function asProductionStatus(v: any): 'Done' | 'Pending' | null {
@@ -181,6 +172,7 @@ export async function GET(req: Request) {
       // RPC doesn't return patient_id, so fetch it once per batch.
       const rpcInvoiceIds = (movementsRpc.data as any[]).map((r) => String(r.invoice_id))
       const invoicePatientMap = new Map<string, string>()
+      const insurerByPatient = new Map<string, string>()
       if (rpcInvoiceIds.length > 0) {
         const { data: invMini, error: invMiniErr } = await supabase
           .from('invoices')
@@ -191,6 +183,28 @@ export async function GET(req: Request) {
         if (invMiniErr) {
           console.error('Error fetching invoice patient ids:', invMiniErr)
         } else {
+          const patientIds = Array.from(
+            new Set((invMini || []).map((r: any) => String(r.patient_id)).filter(Boolean))
+          )
+          if (patientIds.length > 0) {
+            const { data: insRows, error: insErr } = await supabase
+              .from('patient_insurances')
+              .select('patient_id, provider, is_primary, created_at')
+              .in('patient_id', patientIds)
+              .order('is_primary', { ascending: false })
+              .order('created_at', { ascending: false })
+
+            if (insErr) {
+              console.error('Error fetching patient insurances:', insErr)
+            } else {
+              for (const r of insRows || []) {
+                const pid = String((r as any).patient_id)
+                if (insurerByPatient.has(pid)) continue
+                const provider = String((r as any).provider || '').trim()
+                if (provider) insurerByPatient.set(pid, provider)
+              }
+            }
+          }
           for (const r of invMini || []) {
             invoicePatientMap.set(String((r as any).id), String((r as any).patient_id))
           }
@@ -225,13 +239,13 @@ export async function GET(req: Request) {
           status: getInvoiceStatus(String(row.invoice_status || '')),
           collectionStatus,
           outstandingAmount,
-          produced: isProduced(
-            row.quote_signed_at ? String(row.quote_signed_at) : null,
-            row.production_status ? String(row.production_status) : null,
-            String(row.invoice_status || '')
-          ),
+          produced: isProduced(row.production_status ? String(row.production_status) : null),
           method,
-          insurer: 'N/A',
+          insurer: (() => {
+            const pid = invoicePatientMap.get(String(row.invoice_id))
+            if (!pid) return ''
+            return insurerByPatient.get(String(pid)) || ''
+          })(),
           paymentCategory,
           quoteId: row.quote_id ? String(row.quote_id) : null,
           productionStatus: asProductionStatus(row.production_status),
@@ -312,6 +326,28 @@ export async function GET(req: Request) {
         console.error('Error fetching invoice payments:', paymentsError)
       }
 
+      // Preload patient insurance providers (primary only, latest)
+      const patientIds = Array.from(new Set((invoices as any[]).map((i) => String(i.patient_id)).filter(Boolean)))
+      const insurerByPatient = new Map<string, string>()
+      if (patientIds.length > 0) {
+        const { data: insRows, error: insErr } = await supabase
+          .from('patient_insurances')
+          .select('patient_id, provider, is_primary, created_at')
+          .in('patient_id', patientIds)
+          .order('is_primary', { ascending: false })
+          .order('created_at', { ascending: false })
+        if (insErr) {
+          console.error('Error fetching patient insurances:', insErr)
+        } else {
+          for (const r of insRows || []) {
+            const pid = String((r as any).patient_id)
+            if (insurerByPatient.has(pid)) continue
+            const provider = String((r as any).provider || '').trim()
+            if (provider) insurerByPatient.set(pid, provider)
+          }
+        }
+      }
+
       const lastPaymentByInvoice = new Map<string, { method: string; transaction_date: string }>()
       const paymentSumByInvoice = new Map<string, number>()
       for (const p of payments || []) {
@@ -378,9 +414,9 @@ export async function GET(req: Request) {
           status: getInvoiceStatus(invoice.status),
           collectionStatus,
           outstandingAmount,
-          produced: isProduced(quote?.signed_at, quote?.production_status, invoice.status),
+          produced: isProduced(quote?.production_status),
           method,
-          insurer: 'N/A',
+          insurer: insurerByPatient.get(String(invoice.patient_id)) || '',
           paymentCategory,
           quoteId: invoice.quote_id ?? quote?.id ?? null,
           productionStatus: asProductionStatus(quote?.production_status),

@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 // Use standalone build to avoid runtime fs reads of *.afm font data files.
 // (Next.js output tracing can omit those assets, causing ENOENT at runtime.)
 import PDFDocument from 'pdfkit/js/pdfkit.standalone'
+import * as XLSX from 'xlsx'
 
 export const runtime = 'nodejs'
 
@@ -11,7 +12,7 @@ type ExportBody = {
   periodo: 'quarter_current' | 'quarter_previous' | 'custom'
   fecha_desde?: string // YYYY-MM-DD
   fecha_hasta?: string // YYYY-MM-DD
-  formato: 'csv' | 'pdf'
+  formato: 'csv' | 'pdf' | 'xlsx'
   incluir?: {
     desglose_mensual?: boolean
     desglose_metodo?: boolean
@@ -132,7 +133,7 @@ export async function POST(req: Request) {
     })
     if (!canExport.ok) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    if (!body?.periodo || (body.formato !== 'csv' && body.formato !== 'pdf')) {
+    if (!body?.periodo || (body.formato !== 'csv' && body.formato !== 'pdf' && body.formato !== 'xlsx')) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
     }
 
@@ -290,6 +291,50 @@ export async function POST(req: Request) {
         generated_at: generatedAt,
         content_type: 'application/pdf',
         pdf_base64: pdf.toString('base64')
+      })
+    }
+
+    if (body.formato === 'xlsx') {
+      const wb = XLSX.utils.book_new()
+
+      if (includeTotals) {
+        const totalsSheet = XLSX.utils.aoa_to_sheet([
+          ['KLINIKOS - Reporte de Caja'],
+          ['Periodo', `${startStr} al ${endStr}`],
+          ['Generado', generatedAt],
+          [],
+          ['RESUMEN DEL PERIODO', 'Valor'],
+          ['Producido', produced],
+          ['Facturado', invoiced],
+          ['Cobrado', collected],
+          ['Por cobrar', toCollect]
+        ])
+        XLSX.utils.book_append_sheet(wb, totalsSheet, 'Resumen')
+      }
+
+      if (includeMethod) {
+        const rows = Object.entries(methodBreakdown)
+          .sort((a, b) => b[1] - a[1])
+          .map(([k, v]) => [k, v])
+        const methodSheet = XLSX.utils.aoa_to_sheet([['Metodo', 'Total'], ...rows])
+        XLSX.utils.book_append_sheet(wb, methodSheet, 'Por método')
+      }
+
+      if (includeMonthly) {
+        const monthlySheet = XLSX.utils.aoa_to_sheet([
+          ['Mes', 'Producido', 'Cobrado'],
+          ...monthlyRows.map((r) => [r.month, r.produced, r.collected])
+        ])
+        XLSX.utils.book_append_sheet(wb, monthlySheet, 'Desglose mensual')
+      }
+
+      const out = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer
+      return NextResponse.json({
+        file_name: fileName,
+        generated_at: generatedAt,
+        content_type:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        xlsx_base64: out.toString('base64')
       })
     }
 
