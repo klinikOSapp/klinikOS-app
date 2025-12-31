@@ -76,10 +76,9 @@ export async function GET(req: Request) {
 
     // Treat `date` as a date-only anchor (YYYY-MM-DD) to avoid timezone drift.
     const anchorDate = new Date(`${date}T00:00:00Z`)
-    let dataPoints: SeriesPoint[] = []
+    const dataPoints: SeriesPoint[] = []
     let labels: string[] = []
     let totalFacturadoExact: number | null = null
-    let invoiceDots: Array<{ day: number; cumulative: number }> | null = null
     let daysInMonthForResponse: number | null = null
 
     if (timeScale === 'day') {

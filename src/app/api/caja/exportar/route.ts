@@ -190,7 +190,7 @@ export async function POST(req: Request) {
     const toCollect = resumen ? Number(resumen.to_collect || 0) : 0
 
     // Method breakdown from payments table (in range).
-    let methodBreakdown: Record<string, number> = {}
+    const methodBreakdown: Record<string, number> = {}
     if (includeMethod) {
       const { data: payments, error } = await supabase
         .from('payments')

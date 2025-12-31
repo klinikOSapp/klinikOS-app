@@ -20,6 +20,21 @@ import SearchRounded from '@mui/icons-material/SearchRounded'
 import { useRouter, useSearchParams } from 'next/navigation'
 import React from 'react'
 
+export default function PacientesPage() {
+  // Next.js 15 requires useSearchParams() to be under a Suspense boundary.
+  return (
+    <React.Suspense
+      fallback={
+        <ClientLayout>
+          <div className='p-6 text-neutral-600'>Cargando…</div>
+        </ClientLayout>
+      }
+    >
+      <PacientesPageInner />
+    </React.Suspense>
+  )
+}
+
 function KpiCard({
   title,
   value,
@@ -177,7 +192,7 @@ type PatientRow = {
   tags?: Array<'deuda' | 'activo' | 'recall'>
 }
 
-export default function PacientesPage() {
+function PacientesPageInner() {
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
