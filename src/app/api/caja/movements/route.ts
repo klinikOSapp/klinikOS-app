@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 type CashMovement = {
   id: string // Unique identifier for React keys
   invoiceId: string
+  patientId?: string | null
   day: string
   time: string
   patient: string
@@ -99,6 +100,11 @@ function isProduced(
   return 'Pendiente'
 }
 
+function asProductionStatus(v: any): 'Done' | 'Pending' | null {
+  if (v === 'Done' || v === 'Pending') return v
+  return null
+}
+
 export async function GET(req: Request) {
   try {
     const supabase = await createSupabaseServerClient()
@@ -172,6 +178,25 @@ export async function GET(req: Request) {
     const movements: CashMovement[] = []
 
     if (!movementsRpc.error && Array.isArray(movementsRpc.data)) {
+      // RPC doesn't return patient_id, so fetch it once per batch.
+      const rpcInvoiceIds = (movementsRpc.data as any[]).map((r) => String(r.invoice_id))
+      const invoicePatientMap = new Map<string, string>()
+      if (rpcInvoiceIds.length > 0) {
+        const { data: invMini, error: invMiniErr } = await supabase
+          .from('invoices')
+          .select('id, patient_id')
+          .eq('clinic_id', clinicId)
+          .in('id', rpcInvoiceIds)
+
+        if (invMiniErr) {
+          console.error('Error fetching invoice patient ids:', invMiniErr)
+        } else {
+          for (const r of invMini || []) {
+            invoicePatientMap.set(String((r as any).id), String((r as any).patient_id))
+          }
+        }
+      }
+
       for (const row of movementsRpc.data as any[]) {
         const total = Number(row.total_amount || 0)
         const paid = Number(row.total_paid || 0)
@@ -189,6 +214,7 @@ export async function GET(req: Request) {
         movements.push({
           id: `invoice-${row.invoice_id}`,
           invoiceId: String(row.invoice_id),
+          patientId: invoicePatientMap.get(String(row.invoice_id)) ?? null,
           day: String(row.day_madrid || startDateStr),
           time: String(row.time_madrid || '00:00'),
           patient: patientName || 'Paciente desconocido',
@@ -208,7 +234,7 @@ export async function GET(req: Request) {
           insurer: 'N/A',
           paymentCategory,
           quoteId: row.quote_id ? String(row.quote_id) : null,
-          productionStatus: row.production_status ? String(row.production_status) : null,
+          productionStatus: asProductionStatus(row.production_status),
           productionDate: row.production_date ? String(row.production_date) : null
         })
       }
@@ -339,6 +365,7 @@ export async function GET(req: Request) {
         movements.push({
           id: `invoice-${invoice.id}`,
           invoiceId: String(invoice.id),
+          patientId: invoice.patient_id ? String(invoice.patient_id) : patient?.id ? String(patient.id) : null,
           day,
           time,
           patient: patient
@@ -356,7 +383,7 @@ export async function GET(req: Request) {
           insurer: 'N/A',
           paymentCategory,
           quoteId: invoice.quote_id ?? quote?.id ?? null,
-          productionStatus: quote?.production_status ?? null,
+          productionStatus: asProductionStatus(quote?.production_status),
           productionDate: quote?.production_date ?? null
         })
       }

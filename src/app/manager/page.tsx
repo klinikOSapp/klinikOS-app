@@ -443,10 +443,16 @@ export default function ManagerPage() {
         if (!Array.isArray(clinics) || clinics.length === 0) return false
         for (const clinicId of clinics as string[]) {
           if (!clinicId) continue
-          const { data: role } = await supabase.rpc('get_my_role_in_clinic', {
-            p_clinic_id: clinicId
+          const { data: canViewSettings, error } = await supabase.rpc('has_permission', {
+            p_clinic_id: clinicId,
+            p_module: 'settings',
+            p_action: 'view'
           })
-          if (role === 'gerencia') {
+          if (error) {
+            console.error('Error checking settings.view permission', error)
+            continue
+          }
+          if (canViewSettings === true) {
             return true
           }
         }

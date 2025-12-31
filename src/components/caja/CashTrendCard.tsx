@@ -143,6 +143,11 @@ export default function CashTrendCard({
       day: '2-digit'
     }).format(d)
 
+  const yearLabel = useMemo(
+    () => new Intl.DateTimeFormat('es-ES', { year: 'numeric' }).format(anchorDate),
+    [anchorDate]
+  )
+
   // Fetch trend data from API
   useEffect(() => {
     setIsLoading(true)
@@ -608,7 +613,7 @@ export default function CashTrendCard({
             type='button'
             className='inline-flex items-center gap-[0.25rem] text-label-md font-normal text-fg'
           >
-            2024
+            {yearLabel}
             <span className='material-symbols-rounded text-[1rem] leading-4 text-fg'>
               arrow_drop_down
             </span>

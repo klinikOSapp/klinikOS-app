@@ -100,14 +100,16 @@ export default function Layout({ children }: LayoutProps) {
             p_clinic_id: clinicId
           })
           if (legacyRole) {
+            const fallbackPerms = getFallbackPermissions(legacyRole as UserRole)
             setRoleInfo({
               roleId: null,
               roleName: legacyRole as string,
               roleDisplayName: legacyRole as string,
               isSystemRole: true,
-              permissions: getFallbackPermissions(legacyRole as UserRole)
+              permissions: fallbackPerms
             })
-            setIsManager(legacyRole === 'gerencia')
+            // Only show /manager entry points if user can view Settings.
+            setIsManager(Boolean((fallbackPerms as any)?.settings?.view))
           }
           return
         }
@@ -120,7 +122,8 @@ export default function Layout({ children }: LayoutProps) {
             isSystemRole: data.is_system_role,
             permissions: data.permissions || {}
           })
-          setIsManager(data.role_name === 'gerencia')
+          // Only show /manager entry points if user can view Settings.
+          setIsManager(Boolean((data.permissions as any)?.settings?.view))
         }
       } catch (error) {
         console.error('Error in fetchRoleInfo:', error)

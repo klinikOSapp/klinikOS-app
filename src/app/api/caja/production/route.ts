@@ -1,4 +1,3 @@
-import { requireCajaPermission } from '@/lib/caja/permissions'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -30,59 +29,31 @@ export async function POST(req: Request) {
     const productionDate =
       productionStatus === 'Done' ? new Date().toISOString() : null
 
-    // Ensure quote belongs to my clinic.
-    const { data: quoteRow, error: quoteError } = await supabase
-      .from('quotes')
-      .select('id, clinic_id')
-      .eq('id', quoteId)
-      .maybeSingle()
-
-    if (quoteError) {
-      console.error('Error fetching quote:', quoteError)
-      return NextResponse.json({ error: quoteError.message }, { status: 500 })
+    // Use SECURITY DEFINER RPC to avoid granting quote SELECT to clinical roles.
+    const quoteIdNum = Number(quoteId)
+    if (!Number.isFinite(quoteIdNum)) {
+      return NextResponse.json({ error: 'Invalid quoteId' }, { status: 400 })
     }
 
-    const clinicId = quoteRow?.clinic_id ? String((quoteRow as any).clinic_id) : null
-    if (!quoteRow || !clinicId) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    }
-
-    const { data: clinics } = await supabase.rpc('get_my_clinics')
-    if (!clinics || clinics.length === 0) {
-      return NextResponse.json({ error: 'No clinic' }, { status: 400 })
-    }
-    const userClinics = new Set(clinics.map((c: any) => String(c)))
-    if (!userClinics.has(clinicId)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    // Spec (caja-module-2-updated.md): doctor marks "Producido" when treatment completed.
-    // We also allow gerencia via cash.edit as an administrative override.
-    const canClinical = await requireCajaPermission(supabase, clinicId, {
-      type: 'module',
-      module: 'clinical_notes',
-      action: 'edit'
+    const rpc = await supabase.rpc('toggle_quote_production', {
+      p_quote_id: quoteIdNum,
+      p_production_status: productionStatus
     })
-    const canAdmin = await requireCajaPermission(supabase, clinicId, {
-      type: 'module',
-      module: 'cash',
-      action: 'edit'
-    })
-    if (!canClinical.ok && !canAdmin.ok) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
 
-    const { error } = await supabase
-      .from('quotes')
-      .update({
-        production_status: productionStatus,
-        production_date: productionDate
-      })
-      .eq('id', quoteId)
-
-    if (error) {
-      console.error('Error updating production status:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (rpc.error) {
+      // normalize errors
+      const msg = rpc.error.message || 'Unexpected error'
+      if (msg.toLowerCase().includes('unauthorized')) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      if (msg.toLowerCase().includes('forbidden')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      if (msg.toLowerCase().includes('not found')) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      }
+      console.error('Error toggling production (rpc):', rpc.error)
+      return NextResponse.json({ error: msg }, { status: 500 })
     }
 
     return NextResponse.json({

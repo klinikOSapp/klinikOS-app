@@ -64,6 +64,8 @@ export default function CashSummaryCard({
       day: '2-digit'
     }).format(d)
 
+  const yearLabel = new Intl.DateTimeFormat('es-ES', { year: 'numeric' }).format(date)
+
   // v2.0: KPI cards are filterable and change with temporal selection
   useEffect(() => {
     const controller = new AbortController()
@@ -145,7 +147,7 @@ export default function CashSummaryCard({
             type='button'
             className='inline-flex items-center gap-[0.25rem] text-label-sm text-fg-secondary'
           >
-            2024
+            {yearLabel}
             <span className='material-symbols-rounded text-[1rem] leading-4'>
               arrow_drop_down
             </span>
@@ -161,6 +163,7 @@ export default function CashSummaryCard({
                 <SummaryInsightCard
                   key={card.id}
                   card={card}
+                  yearLabel={yearLabel}
                   onClick={
                     card.id === 'toCollect'
                       ? () => setPendingModalOpen(true)
@@ -186,7 +189,15 @@ export default function CashSummaryCard({
   )
 }
 
-function SummaryInsightCard({ card, onClick }: { card: SummaryCard; onClick?: () => void }) {
+function SummaryInsightCard({
+  card,
+  yearLabel,
+  onClick
+}: {
+  card: SummaryCard
+  yearLabel: string
+  onClick?: () => void
+}) {
   const cardStyles: CSSProperties = {
     backgroundColor: card.color,
     height: `${SUMMARY_CARD_HEIGHT_REM}rem`,
@@ -204,7 +215,7 @@ function SummaryInsightCard({ card, onClick }: { card: SummaryCard; onClick?: ()
           >
             {card.accessory}
           </span>
-          <span>{new Date().getFullYear()}</span>
+          <span>{yearLabel}</span>
         </div>
         <div className='flex flex-col gap-[0.25rem] text-neutral-600'>
           <div className='font-medium text-[0.6875rem] leading-[1rem]'>

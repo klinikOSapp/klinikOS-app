@@ -1,5 +1,6 @@
 'use client'
 
+import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import { useUserRole } from '@/context/role-context'
 import { useRouter } from 'next/navigation'
 import type { FormEvent } from 'react'
@@ -13,6 +14,7 @@ type CollectionStatus = 'Cobrado' | 'Por cobrar'
 type CashMovement = {
   id: string // Unique identifier for React keys
   invoiceId: string
+  patientId?: string | null
   day: string
   time: string
   patient: string
@@ -203,6 +205,25 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
     }>
   }>({ open: false, movement: null, loading: false })
 
+  const [patientModal, setPatientModal] = useState<{
+    open: boolean
+    patientId: string | null
+  }>({ open: false, patientId: null })
+
+  const [treatmentModal, setTreatmentModal] = useState<{
+    open: boolean
+    quoteId: string | null
+    loading: boolean
+    title?: string
+    items?: Array<{
+      label: string
+      quantity?: number
+      unitPrice?: number
+      finalPrice?: number
+      source?: string
+    }>
+  }>({ open: false, quoteId: null, loading: false })
+
   const [registerPaymentModal, setRegisterPaymentModal] = useState<{
     open: boolean
     movement: CashMovement | null
@@ -332,6 +353,47 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
     window.addEventListener('caja:open-invoice-payments', handler as EventListener)
     return () => window.removeEventListener('caja:open-invoice-payments', handler as EventListener)
   }, [movements])
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      const patientId = e?.detail?.patientId as string | undefined
+      const patientName = e?.detail?.patientName as string | undefined
+      if (patientId) {
+        setPatientModal({ open: true, patientId })
+        return
+      }
+      // Fallback if patientId missing
+      if (patientName) {
+        router.push(`/pacientes?q=${encodeURIComponent(patientName)}`)
+      }
+    }
+    window.addEventListener('caja:open-patient-details', handler as EventListener)
+    return () => window.removeEventListener('caja:open-patient-details', handler as EventListener)
+  }, [router])
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      const quoteId = e?.detail?.quoteId as string | undefined
+      if (!quoteId) return
+      setTreatmentModal({ open: true, quoteId, loading: true })
+      fetch(`/api/caja/treatment-details?quoteId=${encodeURIComponent(quoteId)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          setTreatmentModal((prev) => ({
+            ...prev,
+            loading: false,
+            title: data?.title || 'Treatment details',
+            items: Array.isArray(data?.items) ? data.items : []
+          }))
+        })
+        .catch((err) => {
+          console.error('Failed to load treatment details', err)
+          setTreatmentModal((prev) => ({ ...prev, loading: false }))
+        })
+    }
+    window.addEventListener('caja:open-treatment-details', handler as EventListener)
+    return () => window.removeEventListener('caja:open-treatment-details', handler as EventListener)
+  }, [])
 
   const hashMovements = (items: CashMovement[]) =>
     items
@@ -913,6 +975,77 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
           </div>
         </div>
       )}
+
+      <PatientRecordModal
+        open={patientModal.open}
+        patientId={patientModal.patientId || undefined}
+        onClose={() => setPatientModal({ open: false, patientId: null })}
+      />
+
+      {treatmentModal.open && (
+        <div
+          className='fixed inset-0 z-[70] flex items-center justify-center bg-black/30'
+          role='dialog'
+          aria-modal='true'
+          onClick={() => setTreatmentModal({ open: false, quoteId: null, loading: false })}
+        >
+          <div
+            className='w-[min(46rem,92vw)] rounded-xl bg-surface shadow-elevation-popover overflow-hidden'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className='flex h-[3.5rem] items-center justify-between border-b border-border px-[1.25rem]'>
+              <p className='text-title-md font-medium text-fg'>
+                {treatmentModal.title || 'Treatment details'}
+              </p>
+              <button
+                type='button'
+                className='flex size-[2rem] items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                onClick={() => setTreatmentModal({ open: false, quoteId: null, loading: false })}
+                aria-label='Close'
+              >
+                <span className='material-symbols-rounded text-[1.25rem] leading-none'>close</span>
+              </button>
+            </header>
+
+            <div className='p-[1.25rem]'>
+              {treatmentModal.loading ? (
+                <div className='py-6 text-neutral-600'>Loading…</div>
+              ) : (treatmentModal.items || []).length === 0 ? (
+                <div className='py-6 text-neutral-600'>No services found for this treatment.</div>
+              ) : (
+                <div className='rounded-md border border-border overflow-hidden'>
+                  <div className='grid grid-cols-3 bg-neutral-50 px-4 py-2 text-label-sm text-neutral-600'>
+                    <div>Service</div>
+                    <div className='text-right'>Qty</div>
+                    <div className='text-right'>Price</div>
+                  </div>
+                  {(treatmentModal.items || []).map((it, idx) => (
+                    <div
+                      key={`${it.label}-${idx}`}
+                      className='grid grid-cols-3 px-4 py-2 border-t border-border text-body-sm text-neutral-800'
+                    >
+                      <div className='min-w-0'>
+                        <div className='truncate'>{it.label}</div>
+                        {it.source ? (
+                          <div className='text-[0.75rem] text-neutral-500'>Source: {it.source}</div>
+                        ) : null}
+                      </div>
+                      <div className='text-right tabular-nums'>{it.quantity ?? 1}</div>
+                      <div className='text-right tabular-nums'>
+                        {Number(it.finalPrice ?? it.unitPrice ?? 0).toLocaleString('es-ES', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2
+                        })}{' '}
+                        €
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
@@ -1112,8 +1245,8 @@ function ProductionBadge({ movement }: { movement: CashMovement }) {
     : 'bg-neutral-200 text-neutral-700'
   const icon = isDone ? 'check_box' : 'check_box_outline_blank'
 
-  // Phase 5: only Admin/Management can toggle.
-  const canToggleProduced = can('cash', 'edit')
+  // Per request: only clinical workflow can toggle.
+  const canToggleProduced = can('clinical_notes', 'edit')
 
   const toggle = async () => {
     if (!movement.quoteId) return
@@ -1151,7 +1284,6 @@ function ProductionBadge({ movement }: { movement: CashMovement }) {
 }
 
 function ActionsMenu({ movement }: { movement: CashMovement }) {
-  const router = useRouter()
   const { can } = useUserRole()
   const [open, setOpen] = useState(false)
 
@@ -1197,7 +1329,7 @@ function ActionsMenu({ movement }: { movement: CashMovement }) {
               )
             }}
           >
-            Historial de pagos
+            Payment history
           </button>
 
           <button
@@ -1210,7 +1342,7 @@ function ActionsMenu({ movement }: { movement: CashMovement }) {
               window.dispatchEvent(new CustomEvent('caja:register-payment', { detail: { invoiceId: movement.invoiceId } }))
             }}
           >
-            Registrar pago
+            Register payment
           </button>
 
           <button
@@ -1223,7 +1355,7 @@ function ActionsMenu({ movement }: { movement: CashMovement }) {
               )
             }}
           >
-            Ver factura
+            View invoice
           </button>
 
           <button
@@ -1231,11 +1363,14 @@ function ActionsMenu({ movement }: { movement: CashMovement }) {
             className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50'
             onClick={() => {
               setOpen(false)
-              // Open patients page with prefilled search query
-              router.push(`/pacientes?q=${encodeURIComponent(movement.patient)}`)
+              window.dispatchEvent(
+                new CustomEvent('caja:open-patient-details', {
+                  detail: { patientId: movement.patientId ?? null, patientName: movement.patient }
+                })
+              )
             }}
           >
-            Ver detalles del paciente
+            View patient details
           </button>
 
           <button
@@ -1243,11 +1378,15 @@ function ActionsMenu({ movement }: { movement: CashMovement }) {
             className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50'
             onClick={() => {
               setOpen(false)
-              // Current app has no dedicated treatment/quote route; patient record is the best entry point.
-              router.push(`/pacientes?q=${encodeURIComponent(movement.patient)}`)
+              if (!movement.quoteId) return
+              window.dispatchEvent(
+                new CustomEvent('caja:open-treatment-details', {
+                  detail: { quoteId: movement.quoteId }
+                })
+              )
             }}
           >
-            Ver/editar tratamiento
+            View/edit treatment
           </button>
 
           <div className='h-px bg-border' />
