@@ -118,6 +118,7 @@ export async function GET(req: Request) {
     let toCollect = 0
     let prevProduced = 0
     let prevCollected = 0
+    let prevToCollect: number | null = null
 
     const resumenRpc = await supabase.rpc('get_caja_resumen', {
       p_clinic_id: clinicId,
@@ -135,6 +136,14 @@ export async function GET(req: Request) {
       toCollect = Number(resumenRow.to_collect || 0)
       prevProduced = Number(resumenRow.prev_produced || 0)
       prevCollected = Number(resumenRow.prev_collected || 0)
+      // Optional (future): if DB RPC is extended to return prev_to_collect, use it.
+      const maybePrevToCollect = (resumenRow as any).prev_to_collect
+      prevToCollect =
+        typeof maybePrevToCollect === 'number'
+          ? maybePrevToCollect
+          : typeof maybePrevToCollect === 'string' && maybePrevToCollect.trim() !== ''
+            ? Number(maybePrevToCollect)
+            : null
     } else {
       // Fetch all needed datasets in parallel (reduces lag when switching filters).
       const [
@@ -257,7 +266,11 @@ export async function GET(req: Request) {
         id: 'toCollect',
         title: 'Por cobrar',
         value: `${toCollect.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
-        delta: calculateDelta(toCollect, 0),
+        // If we don't have "prev_to_collect" (not yet returned by DB RPC), avoid misleading +100%.
+        delta:
+          prevToCollect === null
+            ? '—'
+            : calculateDelta(toCollect, Number.isFinite(prevToCollect) ? prevToCollect : 0),
         color: 'var(--color-warning-50)',
         accessory: 'money_bag'
       }

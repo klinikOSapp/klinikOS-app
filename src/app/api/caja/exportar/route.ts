@@ -251,12 +251,25 @@ export async function POST(req: Request) {
       }
     }
 
+    const toDmy = (isoDate: string) => {
+      const [y, m, d] = isoDate.split('-')
+      if (!y || !m || !d) return isoDate
+      return `${d}-${m}-${y}`
+    }
+
+    // v2.0 brief strict naming:
+    // - Quarter: caja_Q1_2025.{ext}
+    // - Custom: caja_DD-MM-YYYY_al_DD-MM-YYYY.{ext}
+    const [startYear, startMonth] = startStr.split('-')
+    const q =
+      startMonth && Number.isFinite(Number(startMonth))
+        ? Math.floor((Number(startMonth) - 1) / 3) + 1
+        : 1
+
     const fileName =
       body.periodo === 'custom'
-        ? `caja_${startStr}_al_${endStr}.${body.formato}`
-        : body.periodo === 'quarter_previous'
-          ? `caja_trimestre_anterior_${startStr}_al_${endStr}.${body.formato}`
-          : `caja_trimestre_actual_${startStr}_al_${endStr}.${body.formato}`
+        ? `caja_${toDmy(startStr)}_al_${toDmy(endStr)}.${body.formato}`
+        : `caja_Q${q}_${startYear}.${body.formato}`
 
     // Audit log (DB)
     const { error: auditError } = await supabase.from('export_audit').insert({
