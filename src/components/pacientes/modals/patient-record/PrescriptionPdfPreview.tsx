@@ -75,13 +75,26 @@ export default function PrescriptionPdfPreview({
   onClose,
   data
 }: PrescriptionPdfPreviewProps) {
-  if (!open) return null
-
   const med = data?.medicamento?.trim() || 'Antibiol'
   const freq = data?.frecuencia?.trim() || '3 por día'
   const dur = data?.duracion?.trim() || '7 días'
   const via = data?.administracion?.trim() || 'Oral'
   const dose = '500mg'
+
+  const cards = React.useMemo(
+    () =>
+      Array.from({ length: 3 }).map((_, index) => (
+        <MedCard
+          key={index}
+          medicamento={med}
+          dosis={dose}
+          frecuencia={freq}
+          duracion={dur}
+          via={via}
+        />
+      )),
+    [med, dose, freq, dur, via]
+  )
 
   const buildHtml = React.useCallback(() => {
     const cardHtml = Array.from({ length: 3 })
@@ -207,6 +220,8 @@ export default function PrescriptionPdfPreview({
     newWin.document.close()
     newWin.focus()
   }, [buildHtml, open])
+
+  if (!open) return null
 
   return (
     <div

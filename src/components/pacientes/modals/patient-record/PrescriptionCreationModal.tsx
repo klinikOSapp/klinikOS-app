@@ -43,7 +43,6 @@ const LABEL_LEFT_REM = 0
 const INPUT_LEFT_REM = 12.3125
 const INPUT_WIDTH_REM = 19.1875
 const INPUT_HEIGHT_REM = 3
-const FIELD_GAP_REM = 0.5
 
 const SPECIALIST_OPTIONS = ['Dra. Gómez', 'Dr. Pérez', 'Dra. Sánchez']
 const ADMINISTRATION_OPTIONS = ['Oral', 'Tópica', 'Intravenosa']

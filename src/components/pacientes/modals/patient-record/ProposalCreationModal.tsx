@@ -1,7 +1,5 @@
 'use client'
 
-/* eslint-disable jsx-a11y/role-supports-aria-props */
-
 import {
   AddRounded,
   ArrowBackRounded,
@@ -142,7 +140,6 @@ function ExampleDropdown({
     setInputValue(value ?? '')
   }, [value])
 
-  const displayText = inputValue || placeholder
   const hasSelection = Boolean(inputValue)
   const filtered = options.filter((opt) =>
     inputValue ? opt.toLowerCase().includes(inputValue.toLowerCase()) : true
