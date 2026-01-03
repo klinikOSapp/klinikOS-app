@@ -175,17 +175,6 @@ function ComboBox({
   )
 }
 
-type TextInputProps = {
-  placeholder: string
-  top: number
-  width?: number
-  left?: number
-  absolute?: boolean
-  value?: string
-  onChange?: (val: string) => void
-  withIcon?: boolean
-}
-
 function TextInput({
   placeholder,
   top,
