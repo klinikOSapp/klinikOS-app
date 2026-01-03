@@ -119,6 +119,7 @@ function ExampleDropdown({
 }) {
   const [isOpen, setIsOpen] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
+  const [inputValue, setInputValue] = React.useState(value ?? '')
 
   // Cerrar dropdown al hacer clic fuera
   React.useEffect(() => {
@@ -137,8 +138,15 @@ function ExampleDropdown({
     return undefined
   }, [isOpen])
 
-  const displayText = value || placeholder
-  const hasSelection = Boolean(value)
+  React.useEffect(() => {
+    setInputValue(value ?? '')
+  }, [value])
+
+  const displayText = inputValue || placeholder
+  const hasSelection = Boolean(inputValue)
+  const filtered = options.filter((opt) =>
+    inputValue ? opt.toLowerCase().includes(inputValue.toLowerCase()) : true
+  )
 
   return (
     <div
@@ -148,26 +156,34 @@ function ExampleDropdown({
       ref={containerRef}
     >
       <div className='relative'>
-        <button
-          type='button'
-          onClick={() => setIsOpen(!isOpen)}
-          aria-labelledby={labelId}
-          aria-required={required}
-          className='flex h-[3rem] w-full items-center justify-between rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem] py-[0.5rem] text-left outline-none transition-colors hover:border-neutral-400'
-        >
-          <span
-            className={`text-body-md ${
-              hasSelection ? 'text-neutral-900' : 'text-neutral-400'
-            }`}
+        <div className='relative flex h-[3rem] w-full items-center rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem]'>
+          <input
+            type='text'
+            value={inputValue}
+            onChange={(e) => {
+              const next = e.target.value
+              setInputValue(next)
+              onValueChange?.(next)
+            }}
+            onFocus={() => setIsOpen(true)}
+            aria-labelledby={labelId}
+            aria-required={required}
+            placeholder={placeholder}
+            className={[
+              'w-full bg-transparent text-body-md outline-none',
+              hasSelection ? 'text-neutral-900' : 'text-neutral-400',
+              'pr-8'
+            ].join(' ')}
+          />
+          <button
+            type='button'
+            aria-label='Abrir selección'
+            onClick={() => setIsOpen((prev) => !prev)}
+            className='absolute right-2 flex items-center gap-[0.25rem] text-neutral-500'
           >
-            {displayText}
-          </span>
-          <div className='ml-[0.5rem] inline-flex items-center gap-[0.25rem]'>
             <KeyboardArrowDownRounded
               fontSize='small'
-              className={`text-neutral-500 transition-transform ${
-                isOpen ? 'rotate-180' : ''
-              }`}
+              className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
             />
             {required && (
               <span
@@ -177,20 +193,26 @@ function ExampleDropdown({
                 *
               </span>
             )}
-          </div>
-        </button>
+          </button>
+        </div>
 
         {isOpen && options.length > 0 && (
           <div
             className='absolute z-50 w-full mt-1 bg-[rgba(248,250,251,0.95)] backdrop-blur-[2px] rounded-[0.5rem] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)] border border-neutral-300 py-2 max-h-60 overflow-y-auto'
             style={{ backdropFilter: 'blur(2px)' }}
           >
-            {options.map((option) => (
+            {filtered.length === 0 && (
+              <div className='px-2 py-1 text-body-md text-neutral-500'>
+                Sin resultados
+              </div>
+            )}
+            {filtered.map((option) => (
               <button
                 key={option}
                 type='button'
                 onClick={() => {
                   onValueChange?.(option)
+                  setInputValue(option)
                   setIsOpen(false)
                 }}
                 className={`w-full px-2 py-1 text-left text-body-md font-medium text-neutral-900 hover:bg-brand-50 transition-colors ${

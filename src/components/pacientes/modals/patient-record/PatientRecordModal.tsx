@@ -5,6 +5,7 @@ import BudgetsPayments from './BudgetsPayments'
 import ClientSummary from './ClientSummary'
 import ClinicalHistory from './ClinicalHistory'
 import Consents from './Consents'
+import Recetas from './Recetas'
 import RxImages from './RxImages'
 
 export type PatientRecordTab =
@@ -13,6 +14,7 @@ export type PatientRecordTab =
   | 'Imágenes RX'
   | 'Presupuestos y pagos'
   | 'Consentimientos'
+  | 'Recetas'
 
 type PatientRecordModalProps = {
   open: boolean
@@ -66,6 +68,10 @@ export default function PatientRecordModal({
     {
       title: 'Consentimientos',
       body: 'Accede a todos los consentimientos de los pacientes.'
+    },
+    {
+      title: 'Recetas',
+      body: 'Consulta las recetas emitidas al paciente.'
     }
   ]
 
@@ -136,11 +142,13 @@ export default function PatientRecordModal({
                   <BudgetsPayments onClose={onClose} />
                 )}
                 {active === 'Consentimientos' && <Consents onClose={onClose} />}
+                {active === 'Recetas' && <Recetas onClose={onClose} />}
                 {active !== 'Resumen' &&
                   active !== 'Historial clínico' &&
                   active !== 'Imágenes RX' &&
                   active !== 'Consentimientos' &&
-                  active !== 'Presupuestos y pagos' && (
+                  active !== 'Presupuestos y pagos' &&
+                  active !== 'Recetas' && (
                     <div className='p-6 text-body-md text-[var(--color-neutral-900)]'>
                       {active}
                     </div>

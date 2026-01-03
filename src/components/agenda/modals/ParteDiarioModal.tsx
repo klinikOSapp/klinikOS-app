@@ -1,12 +1,110 @@
 'use client'
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
-import { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { MultiDatePickerInput } from '../MultiDatePickerInput'
 
 type ParteDiarioModalProps = {
   isOpen: boolean
   onClose: () => void
+}
+
+const PROFESSIONAL_OPTIONS = [
+  'Dr. García López',
+  'Dra. Martínez Silva',
+  'Dr. Rodríguez Pérez',
+  'Dra. Gómez',
+  'Dr. Pérez'
+]
+
+function ComboBox({
+  value,
+  onChange,
+  placeholder,
+  widthRem = 19.1875
+}: {
+  value: string
+  onChange: (val: string) => void
+  placeholder: string
+  widthRem?: number
+}) {
+  const [open, setOpen] = useState(false)
+  const [inputValue, setInputValue] = useState(value)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setInputValue(value)
+  }, [value])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    if (open) {
+      document.addEventListener('mousedown', handler)
+      return () => document.removeEventListener('mousedown', handler)
+    }
+    return undefined
+  }, [open])
+
+  const filtered = PROFESSIONAL_OPTIONS.filter((opt) =>
+    inputValue ? opt.toLowerCase().includes(inputValue.toLowerCase()) : true
+  )
+
+  return (
+    <div ref={ref} className='relative' style={{ maxWidth: `${widthRem}rem` }}>
+      <div className='relative flex h-12 items-center rounded-lg bg-[var(--color-neutral-50)] border border-[var(--color-border-default)] px-3'>
+        <input
+          type='text'
+          value={inputValue}
+          placeholder={placeholder}
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            setInputValue(e.target.value)
+            setOpen(true)
+          }}
+          className='w-full bg-transparent pr-6 text-base text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)] outline-none'
+        />
+        <button
+          type='button'
+          onClick={() => setOpen((s) => !s)}
+          aria-label='Abrir selección'
+          className='absolute right-2 flex items-center justify-center text-[var(--color-neutral-700)]'
+        >
+          <MD3Icon
+            name='KeyboardArrowDownRounded'
+            size='sm'
+            className={`transition-transform ${open ? 'rotate-180' : ''}`}
+          />
+        </button>
+      </div>
+      {open && (
+        <div className='absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-[0.5rem] border border-[var(--color-border-default)] bg-[rgba(248,250,251,0.95)] backdrop-blur-[2px] py-2 shadow-[2px_2px_4px_rgba(0,0,0,0.1)]'>
+          {filtered.length === 0 && (
+            <div className='px-2 py-1 text-body-md text-[var(--color-neutral-500)]'>
+              Sin resultados
+            </div>
+          )}
+          {filtered.map((opt) => (
+            <button
+              key={opt}
+              type='button'
+              onClick={() => {
+                onChange(opt)
+                setInputValue(opt)
+                setOpen(false)
+              }}
+              className='w-full px-2 py-1 text-left text-body-md font-medium text-[var(--color-neutral-900)] hover:bg-[var(--color-brand-50)] transition-colors'
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function ParteDiarioModal({
@@ -85,31 +183,11 @@ export default function ParteDiarioModal({
                 Profesional
               </label>
               <div className='flex-1' style={{ maxWidth: '19.1875rem' }}>
-                <div className='relative'>
-                  <select
-                    id='profesional-select'
-                    value={selectedProfesional}
-                    onChange={(e) => setSelectedProfesional(e.target.value)}
-                    className='w-full h-12 px-3 pr-10 text-base bg-[var(--color-neutral-50)] border border-[var(--color-border-default)] rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-500)] transition-colors'
-                    style={{
-                      color: selectedProfesional
-                        ? 'var(--color-neutral-900)'
-                        : 'var(--color-neutral-400)'
-                    }}
-                  >
-                    <option value='' disabled>
-                      Seleccionar profesional
-                    </option>
-                    <option value='profesional1'>Dr. García López</option>
-                    <option value='profesional2'>Dra. Martínez Silva</option>
-                    <option value='profesional3'>Dr. Rodríguez Pérez</option>
-                  </select>
-                  <MD3Icon
-                    name='KeyboardArrowDownRounded'
-                    size='sm'
-                    className='absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-neutral-600)] pointer-events-none'
-                  />
-                </div>
+                <ComboBox
+                  value={selectedProfesional}
+                  onChange={setSelectedProfesional}
+                  placeholder='Seleccionar profesional'
+                />
               </div>
             </div>
 

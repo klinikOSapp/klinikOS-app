@@ -25,6 +25,9 @@ const ICON_BLANQUEO =
 const ICON_REVISION =
   'http://localhost:3845/assets/5263d00db0ab1a7b877ddc5b338259512b827923.svg'
 
+const PROFESSIONAL_OPTIONS = ['Dra. Gómez', 'Dr. Pérez', 'Dra. Sánchez']
+const DISCOUNT_OPTIONS = ['Sin descuento', '5% promoción', '10% fidelidad']
+
 export type QuickBudgetOption = {
   id: string
   label: string
@@ -52,6 +55,16 @@ type QuickBudgetModalProps = {
 
 type ModalStep = 'select' | 'details'
 
+type ComboBoxProps = {
+  leftRem: number
+  topRem: number
+  widthRem: number
+  value: string
+  placeholder: string
+  options: string[]
+  onChange: (val: string) => void
+}
+
 const QuickBudgetModal = ({
   open,
   onClose,
@@ -60,6 +73,9 @@ const QuickBudgetModal = ({
   const [mounted, setMounted] = React.useState(false)
   const [step, setStep] = React.useState<ModalStep>('select')
   const [selectedId, setSelectedId] = React.useState<string>('blanqueo')
+  const [professional, setProfessional] = React.useState('')
+  const [discount, setDiscount] = React.useState('')
+  const [reason, setReason] = React.useState('')
 
   React.useEffect(() => {
     setMounted(true)
@@ -78,12 +94,98 @@ const QuickBudgetModal = ({
     if (!open) return
     setStep('select')
     setSelectedId('blanqueo')
+    setProfessional('')
+    setDiscount('')
+    setReason('')
   }, [open])
 
   if (!open || !mounted) return null
 
   const selectedOption =
     OPTIONS.find((option) => option.id === selectedId) ?? OPTIONS[2]
+
+  const ComboBox = ({
+    leftRem,
+    topRem,
+    widthRem,
+    value,
+    placeholder,
+    options,
+    onChange
+  }: ComboBoxProps) => {
+    const [openCb, setOpenCb] = React.useState(false)
+    const ref = React.useRef<HTMLDivElement>(null)
+
+    React.useEffect(() => {
+      const handle = (e: MouseEvent) => {
+        if (ref.current && !ref.current.contains(e.target as Node)) {
+          setOpenCb(false)
+        }
+      }
+      if (openCb) {
+        document.addEventListener('mousedown', handle)
+        return () => document.removeEventListener('mousedown', handle)
+      }
+      return undefined
+    }, [openCb])
+
+    const filtered = options.filter((opt) =>
+      value ? opt.toLowerCase().includes(value.toLowerCase()) : true
+    )
+
+    return (
+      <div
+        ref={ref}
+        className='absolute'
+        style={{
+          left: `${leftRem}rem`,
+          top: `${topRem}rem`,
+          width: `${widthRem}rem`
+        }}
+      >
+        <div className='relative flex items-center rounded-[0.5rem] border border-neutral-300 bg-neutral-50'>
+          <input
+            type='text'
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onFocus={() => setOpenCb(true)}
+            placeholder={placeholder}
+            className='w-full h-[3rem] bg-transparent px-[0.625rem] pr-8 text-body-md text-neutral-900 placeholder:text-neutral-400 outline-none'
+          />
+          <button
+            type='button'
+            aria-label='Abrir selección'
+            onClick={() => setOpenCb((s) => !s)}
+            className='absolute right-2 flex items-center justify-center text-neutral-500'
+          >
+            <KeyboardArrowDownRounded className='text-neutral-500' />
+          </button>
+        </div>
+        {openCb && (
+          <div className='absolute z-50 mt-1 w-full max-h-60 overflow-y-auto overflow-x-hidden rounded-[0.5rem] border border-neutral-300 bg-[rgba(248,250,251,0.95)] backdrop-blur-sm shadow-[2px_2px_4px_rgba(0,0,0,0.1)]'>
+            {filtered.length === 0 && (
+              <div className='px-2 py-2 text-body-md text-neutral-500'>
+                Sin resultados
+              </div>
+            )}
+            {filtered.map((opt) => (
+              <button
+                key={opt}
+                type='button'
+                onClick={() => {
+                  onChange(opt)
+                  setOpenCb(false)
+                }}
+                className='w-full px-2 py-2 text-left text-body-md text-neutral-900 hover:bg-brand-50'
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const handleSelectionContinue = () => {
     if (!selectedOption) return
@@ -179,13 +281,15 @@ const QuickBudgetModal = ({
       >
         Profesional
       </p>
-      <div
-        className='absolute flex h-[3rem] w-[19.1875rem] items-center justify-between rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem]'
-        style={{ left: '30.6875rem', top: '10.5rem' }}
-      >
-        <span className='text-body-md text-neutral-400'>Value</span>
-        <KeyboardArrowDownRounded className='text-neutral-500' />
-      </div>
+      <ComboBox
+        leftRem={30.6875}
+        topRem={10.5}
+        widthRem={19.1875}
+        value={professional}
+        placeholder='Value'
+        options={PROFESSIONAL_OPTIONS}
+        onChange={setProfessional}
+      />
       <span
         className='absolute text-error-600'
         style={{ left: '51.125rem', top: '11.625rem' }}
@@ -204,9 +308,16 @@ const QuickBudgetModal = ({
         style={{ left: '30.6875rem', top: '16rem' }}
       >
         <p className='text-body-sm text-neutral-900'>General</p>
-        <div className='mt-[0.5rem] flex h-[3rem] items-center justify-between rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem]'>
-          <span className='text-body-md text-neutral-400'>Sin descuento</span>
-          <KeyboardArrowDownRounded className='text-neutral-500' />
+        <div className='mt-[0.5rem]'>
+          <ComboBox
+            leftRem={0}
+            topRem={0}
+            widthRem={19.1875}
+            value={discount}
+            placeholder='Sin descuento'
+            options={DISCOUNT_OPTIONS}
+            onChange={setDiscount}
+          />
         </div>
       </div>
 
@@ -215,9 +326,12 @@ const QuickBudgetModal = ({
         style={{ left: '30.6875rem', top: '22.75rem' }}
       >
         <p className='text-body-sm text-neutral-900'>Motivo</p>
-        <div className='mt-[0.5rem] h-[5rem] rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem] py-[0.5rem]'>
-          <span className='text-body-md text-neutral-400'>Value</span>
-        </div>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder='Value'
+          className='mt-[0.5rem] h-[5rem] w-full rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem] py-[0.5rem] text-body-md text-neutral-900 placeholder:text-neutral-400 outline-none'
+        />
       </div>
 
       <div
