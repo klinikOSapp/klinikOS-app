@@ -6,7 +6,7 @@ import ClientLayout from '@/app/client-layout'
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import { useRouter, useSearchParams } from 'next/navigation'
-import React, { useEffect } from 'react'
+import React, { Suspense, useEffect } from 'react'
 
 const CTA_WIDTH_REM = 7.3125 // 117px ÷ 16
 const CTA_HEIGHT_REM = 2.5 // 40px ÷ 16
@@ -176,7 +176,7 @@ const MOCK_PATIENTS: PatientRow[] = Array.from({ length: 12 }).map((_, i) => ({
   tags: i % 3 === 0 ? ['deuda'] : i % 2 === 0 ? ['activo'] : ['recall']
 }))
 
-export default function PacientesPage() {
+function PacientesPageContent() {
   const [query, setQuery] = React.useState('')
   type FilterKey = 'deuda' | 'activos' | 'recall'
   const [selectedFilters, setSelectedFilters] = React.useState<FilterKey[]>([])
@@ -506,5 +506,13 @@ export default function PacientesPage() {
         </div>
       </div>
     </ClientLayout>
+  )
+}
+
+export default function PacientesPage() {
+  return (
+    <Suspense fallback={null}>
+      <PacientesPageContent />
+    </Suspense>
   )
 }
