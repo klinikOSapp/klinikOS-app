@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import ClientLayout from '@/app/client-layout'
 import WeekScheduler from '@/components/agenda/WeekScheduler'
 
-export default function AgendaPage() {
+function AgendaPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -23,6 +23,14 @@ export default function AgendaPage() {
         <WeekScheduler />
       </div>
     </ClientLayout>
+  )
+}
+
+export default function AgendaPage() {
+  return (
+    <Suspense fallback={null}>
+      <AgendaPageContent />
+    </Suspense>
   )
 }
 
