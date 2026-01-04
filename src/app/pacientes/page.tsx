@@ -4,10 +4,9 @@
 
 import ClientLayout from '@/app/client-layout'
 import { MD3Icon } from '@/components/icons/MD3Icon'
-import AddPatientModal from '@/components/pacientes/modals/add-patient/AddPatientModal'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
-import { useRouter } from 'next/navigation'
-import React from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import React, { useEffect } from 'react'
 
 const CTA_WIDTH_REM = 7.3125 // 117px ÷ 16
 const CTA_HEIGHT_REM = 2.5 // 40px ÷ 16
@@ -178,7 +177,6 @@ const MOCK_PATIENTS: PatientRow[] = Array.from({ length: 12 }).map((_, i) => ({
 }))
 
 export default function PacientesPage() {
-  const [isAddModalOpen, setIsAddModalOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
   type FilterKey = 'deuda' | 'activos' | 'recall'
   const [selectedFilters, setSelectedFilters] = React.useState<FilterKey[]>([])
@@ -186,6 +184,15 @@ export default function PacientesPage() {
     []
   )
   const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
+  const searchParams = useSearchParams()
+  const navRouter = useRouter()
+
+  useEffect(() => {
+    const shouldOpen = searchParams.get('openCreate') === '1'
+    if (!shouldOpen) return
+    window.dispatchEvent(new CustomEvent('patients:open-add-patient'))
+    navRouter.replace('/pacientes')
+  }, [navRouter, searchParams])
 
   const isPatientSelected = (patientId: string) =>
     selectedPatientIds.includes(patientId)
@@ -214,10 +221,6 @@ export default function PacientesPage() {
   return (
     <ClientLayout>
       <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] px-[min(3rem,4vw)] py-[min(1.5rem,2vw)] flex flex-col overflow-auto'>
-        <AddPatientModal
-          open={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-        />
         <PatientRecordModal
           open={isFichaModalOpen}
           onClose={() => setIsFichaModalOpen(false)}
@@ -248,7 +251,9 @@ export default function PacientesPage() {
                 <span>Buscar</span>
               </button>
               <button
-                onClick={() => setIsAddModalOpen(true)}
+                onClick={() =>
+                  window.dispatchEvent(new CustomEvent('patients:open-add-patient'))
+                }
                 className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-body-md text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
               >
                 <MD3Icon name='AddRounded' size='md' />

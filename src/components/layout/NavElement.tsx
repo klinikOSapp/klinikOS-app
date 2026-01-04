@@ -9,28 +9,53 @@ export interface NavElementProps {
   label: string
   icon?: React.ReactNode
   collapsed?: boolean
+  isChild?: boolean
+  isActiveOverride?: boolean
+  hasActiveChild?: boolean
 }
 
-export function NavElement({ href, label, icon, collapsed }: NavElementProps) {
+export function NavElement({
+  href,
+  label,
+  icon,
+  collapsed,
+  isChild = false,
+  isActiveOverride,
+  hasActiveChild = false
+}: NavElementProps) {
   const pathname = usePathname()
-  const isActive = pathname === href
+  const isActive = isActiveOverride ?? pathname === href
+  const isHighlighted = isActive || hasActiveChild
+
+  const horizontalPadding = collapsed
+    ? 'justify-center gap-0 px-0'
+    : isChild
+      ? 'pl-[calc(var(--spacing-plnav)+var(--spacing-gapmd))] pr-[var(--spacing-plnav)]'
+      : 'px-[var(--spacing-plnav)]'
+
+  const iconSizeClass = isChild ? 'size-5' : 'size-6'
 
   return (
     <Link
       href={href}
       aria-current={isActive ? 'page' : undefined}
       className={[
-        'flex items-center gap-[var(--spacing-gapmd)] h-[var(--spacing-nav-item)] w-full px-6',
+        'flex items-center h-[var(--spacing-nav-item)] w-full',
+        collapsed ? 'gap-0' : 'gap-[var(--spacing-gapmd)]',
+        horizontalPadding,
         isActive
-          ? 'bg-[var(--color-brand-900)] text-[var(--color-neutral-50)] shadow-[inset_4px_0_0_0_#a8efe7]'
-          : 'text-[var(--color-brand-900)]',
+          ? 'bg-[var(--color-brand-900)] text-[var(--color-neutral-50)] shadow-[inset_4px_0_0_0_var(--color-brand-200)]'
+          : hasActiveChild
+            ? 'text-[var(--color-brand-900)] shadow-[inset_4px_0_0_0_var(--color-brand-200)] bg-[var(--color-brand-50)]'
+            : isChild
+              ? 'text-[var(--color-brand-800)]'
+              : 'text-[var(--color-brand-900)]',
         'transition-colors duration-200 ease-out',
-        !isActive &&
-          'hover:bg-[var(--color-brand-50)] hover:text-[var(--color-brand-900)]',
-        collapsed ? 'justify-center gap-0 px-0' : ''
+        !isHighlighted &&
+          'hover:bg-[var(--color-brand-50)] hover:text-[var(--color-brand-900)]'
       ].join(' ')}
     >
-      <span className='size-6 shrink-0 flex items-center justify-center'>
+      <span className={[iconSizeClass, 'shrink-0 flex items-center justify-center'].join(' ')}>
         {icon}
       </span>
       <span

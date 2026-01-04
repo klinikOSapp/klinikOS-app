@@ -5,7 +5,6 @@
 import ClientLayout from '@/app/client-layout'
 import ParteDiarioModal from '@/components/agenda/modals/ParteDiarioModal'
 import { MD3Icon } from '@/components/icons/MD3Icon'
-import AddPatientModal from '@/components/pacientes/modals/add-patient/AddPatientModal'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import React from 'react'
 
@@ -279,7 +278,6 @@ const MOCK_PATIENTS: DailyRow[] = [
 ]
 
 export default function ParteDiarioPage() {
-  const [isAddModalOpen, setIsAddModalOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
   type FilterKey = 'deuda' | 'confirmada'
   const [selectedFilters, setSelectedFilters] = React.useState<FilterKey[]>([])
@@ -316,10 +314,6 @@ export default function ParteDiarioPage() {
   return (
     <ClientLayout>
       <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] px-[min(3rem,4vw)] py-[min(1.5rem,2vw)] flex flex-col overflow-auto'>
-        <AddPatientModal
-          open={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-        />
         <PatientRecordModal
           open={isFichaModalOpen}
           onClose={() => setIsFichaModalOpen(false)}

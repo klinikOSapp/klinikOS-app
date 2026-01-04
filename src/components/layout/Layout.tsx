@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import TopBar from './TopBar'
 import Sidebar from './Sidebar'
 import {
@@ -12,22 +13,28 @@ import {
   SettingsRounded
 } from '@/components/icons/md3'
 import { LayoutProps } from '@/types/layout'
+import AddPatientModal from '@/components/pacientes/modals/add-patient/AddPatientModal'
 
-export default function Layout({ children }: LayoutProps) {
+export default function Layout({ children, ctaMenuItems }: LayoutProps) {
   const [collapsed, setCollapsed] = useState(false)
+  const [isAddPatientModalOpen, setIsAddPatientModalOpen] = useState(false)
+  const router = useRouter()
+  const pathname = usePathname()
 
   const itemsTop = [
     {
       id: 'agenda',
       label: 'Agenda',
       href: '/agenda',
-      icon: <CalendarMonthRounded />
-    },
-    {
-      id: 'parte-diario',
-      label: 'Parte Diario',
-      href: '/parte-diario',
-      icon: <ArticleRounded />
+      icon: <CalendarMonthRounded />,
+      children: [
+        {
+          id: 'parte-diario',
+          label: 'Parte Diario',
+          href: '/parte-diario',
+          icon: <ArticleRounded fontSize='small' />
+        }
+      ]
     },
     { id: 'caja', label: 'Caja', href: '/caja', icon: <SellRounded /> },
     {
@@ -53,14 +60,51 @@ export default function Layout({ children }: LayoutProps) {
     }
   ]
 
+  const handleOpenCreateAppointment = useCallback(() => {
+    const target = '/agenda?openCreate=1'
+    if (pathname === '/agenda') {
+      window.dispatchEvent(new CustomEvent('agenda:open-create-appointment'))
+    } else {
+      router.push(target)
+    }
+  }, [pathname, router])
+
+  const handleOpenCreatePatient = useCallback(() => {
+    setIsAddPatientModalOpen(true)
+    window.dispatchEvent(new CustomEvent('patients:open-add-patient'))
+  }, [])
+
+  useEffect(() => {
+    const handler = () => setIsAddPatientModalOpen(true)
+    window.addEventListener('patients:open-add-patient', handler)
+    return () => {
+      window.removeEventListener('patients:open-add-patient', handler)
+    }
+  }, [])
+
+  const menuItems = useMemo(
+    () =>
+      ctaMenuItems ?? [
+        { id: 'nueva-cita', label: 'Nueva cita', onClick: handleOpenCreateAppointment },
+        { id: 'nuevo-presupuesto', label: 'Nuevo presupuesto' },
+        { id: 'nuevo-paciente', label: 'Nuevo paciente', onClick: handleOpenCreatePatient }
+      ],
+    [ctaMenuItems, handleOpenCreateAppointment, handleOpenCreatePatient]
+  )
+
   return (
     <div className='bg-[var(--color-brand-0)] h-dvh overflow-hidden'>
+      <AddPatientModal
+        open={isAddPatientModalOpen}
+        onClose={() => setIsAddPatientModalOpen(false)}
+      />
       <TopBar userName='Daniel' />
       <div className='flex'>
         <Sidebar
           itemsTop={itemsTop}
           itemsBottom={itemsBottom}
           cta={{ label: 'Añadir' }}
+          ctaMenuItems={menuItems}
           collapsed={collapsed}
           onToggleCollapsed={setCollapsed}
         />

@@ -1268,6 +1268,27 @@ export default function WeekScheduler() {
     []
   )
 
+  useEffect(() => {
+    const handleExternalOpen = (event: Event) => {
+      const detail = (
+        event as CustomEvent<Partial<AppointmentFormData> | undefined>
+      ).detail
+      openCreateAppointmentModal(detail ?? undefined)
+    }
+
+    window.addEventListener(
+      'agenda:open-create-appointment',
+      handleExternalOpen
+    )
+
+    return () => {
+      window.removeEventListener(
+        'agenda:open-create-appointment',
+        handleExternalOpen
+      )
+    }
+  }, [openCreateAppointmentModal])
+
   const handleCreateModalClose = useCallback(() => {
     setIsCreateAppointmentModalOpen(false)
     setAppointmentPrefill(null)

@@ -1,5 +1,7 @@
 'use client'
 
+import React from 'react'
+import { usePathname } from 'next/navigation'
 import { ChevronLeftRounded, ChevronRightRounded } from '@/components/icons/md3'
 import { SidebarProps } from '@/types/layout'
 import CTANav from './CTANav'
@@ -9,12 +11,23 @@ export default function Sidebar({
   itemsTop,
   itemsBottom,
   cta,
+  ctaMenuItems,
   collapsed = false,
   onToggleCollapsed
 }: SidebarProps) {
   const widthClass = collapsed
     ? 'w-[min(var(--spacing-sidebar-collapsed),95vw)]'
     : 'w-[min(var(--spacing-sidebar),95vw)]'
+
+  const pathname = usePathname()
+
+  const menuItems =
+    ctaMenuItems ??
+    [
+      { id: 'nueva-cita', label: 'Nueva cita' },
+      { id: 'nuevo-presupuesto', label: 'Nuevo presupuesto' },
+      { id: 'nuevo-paciente', label: 'Nuevo paciente' }
+    ]
 
   return (
     <aside
@@ -36,11 +49,7 @@ export default function Sidebar({
               label={cta.label}
               onClick={cta.onClick}
               collapsed={collapsed}
-              menuItems={[
-                { id: 'nueva-cita', label: 'Nueva cita' },
-                { id: 'nuevo-presupuesto', label: 'Nuevo presupuesto' },
-                { id: 'nuevo-paciente', label: 'Nuevo paciente' }
-              ]}
+              menuItems={menuItems}
             />
           </div>
         )}
@@ -72,15 +81,46 @@ export default function Sidebar({
             Administración
           </p>
           <nav className='mt-2 grid gap-0 -mx-6'>
-            {itemsTop.map((it) => (
-              <NavElement
-                key={it.id}
-                href={it.href}
-                label={it.label}
-                icon={it.icon}
-                collapsed={collapsed}
-              />
-            ))}
+            {itemsTop.map((it) => {
+              const childActive = it.children?.some((child) => pathname === child.href) ?? false
+              const sectionActive = pathname === it.href
+
+              return (
+                <div key={it.id} className='group/navitem'>
+                  <NavElement
+                    href={it.href}
+                    label={it.label}
+                    icon={it.icon}
+                    collapsed={collapsed}
+                    isActiveOverride={sectionActive}
+                  />
+                  {it.children && it.children.length > 0 && (
+                    <div
+                      className={[
+                        'grid gap-0 overflow-hidden transition-[max-height,opacity,transform] duration-200 ease-out',
+                        collapsed
+                          ? 'max-h-0 opacity-0 -translate-y-1 pointer-events-none'
+                          : childActive
+                            ? 'max-h-24 opacity-100 translate-y-0'
+                            : 'max-h-0 opacity-0 -translate-y-1 pointer-events-none group-hover/navitem:max-h-24 group-hover/navitem:opacity-100 group-hover/navitem:translate-y-0 group-hover/navitem:pointer-events-auto group-focus-within/navitem:max-h-24 group-focus-within/navitem:opacity-100 group-focus-within/navitem:translate-y-0 group-focus-within/navitem:pointer-events-auto'
+                      ].join(' ')}
+                    >
+                      {it.children.map((child) => (
+                        <NavElement
+                          key={child.id}
+                          href={child.href}
+                          label={child.label}
+                          icon={child.icon}
+                          collapsed={collapsed}
+                          isChild
+                          isActiveOverride={pathname === child.href}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </nav>
         </div>
         {itemsBottom && itemsBottom.length > 0 && (
