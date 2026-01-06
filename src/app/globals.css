@@ -107,10 +107,10 @@
   --spacing-plnav: 1.5rem; /* 24px ÷ 16 = 1.5rem */
 
   /* Dashboard specific spacing tokens (from Figma measurements) */
-  --space-card-pad: 1rem; /* 16px */
+  --space-card-pad: 1.25rem; /* más padding interno */
   --space-card-gap: 1.5rem; /* 24px exact gap entre cards Figma */
   --space-card-gap2: 0.6875rem; /* 11px */
-  --space-card-inner: 0.5rem; /* 8px */
+  --space-card-inner: 0.75rem; /* + aire dentro de las cards */
   --space-header-cards: 0.9375rem; /* 15px header -> cards gap (Figma) */
   --space-card-row: 0.5rem; /* 8px between rows inside card */
   --space-card-metric: 0.25rem; /* 4px between value and KPI */
@@ -181,7 +181,7 @@
   --leading-body-lg: 1.75rem; /* 28px */
 
   /* Dashboard Component Dimensions */
-  --height-card-stat: 10.1875rem; /* 163px - cards de estadísticas */
+  --height-card-stat: 11.5rem; /* + altura para stats */
   --height-card-chart: 21.375rem; /* 342px exactos - cards con gráficos */
   /* Vinculamos el ancho de stats a la carta grande: 2 stats + gap = chart-lg */
   --width-card-chart-lg: 66.8125rem; /* 1069px - ancho card grande */
@@ -231,8 +231,8 @@
   /* Fluid heights - adapt to viewport usando vh para escalar verticalmente */
   --height-card-stat-fluid: min(
     var(--height-card-stat),
-    18vh
-  ); /* 163px exactos con límite de viewport para pantallas bajas */
+    22vh
+  ); /* más alto cuando hay viewport disponible */
   --height-card-chart-fluid-base: clamp(
     15rem,
     32vh,
@@ -637,12 +637,9 @@ body {
     display: grid;
     gap: var(--spacing-card-gap);
     grid-template-columns:
-      minmax(min(100%, var(--width-card-stat-fluid)), var(--width-card-stat))
-      minmax(min(100%, var(--width-card-stat-fluid)), var(--width-card-stat))
-      minmax(
-        min(100%, var(--width-card-chart-md-fluid)),
-        var(--width-card-chart-md)
-      );
+      minmax(min(100%, var(--width-card-stat-fluid)), 1fr)
+      minmax(min(100%, var(--width-card-stat-fluid)), 1fr)
+      minmax(min(100%, var(--width-card-chart-md-fluid)), 1fr);
     justify-content: center;
   }
 
@@ -682,23 +679,19 @@ body {
 
   @media (min-width: 1024px) {
     .dashboard-grid-charts {
-      grid-template-columns: minmax(0, var(--width-card-chart-lg-fluid)) minmax(
-          0,
-          var(--width-card-chart-md-fluid)
-        );
+      grid-template-columns:
+        minmax(min(100%, var(--width-card-chart-lg-fluid)), 2fr)
+        minmax(min(100%, var(--width-card-chart-md-fluid)), 1fr);
       justify-content: center;
     }
 
-  .dashboard-grid-stats {
-    grid-template-columns:
-      minmax(min(100%, var(--width-card-stat-fluid)), var(--width-card-stat))
-      minmax(min(100%, var(--width-card-stat-fluid)), var(--width-card-stat))
-      minmax(
-        min(100%, var(--width-card-chart-md-fluid)),
-        var(--width-card-chart-md)
-      );
-    justify-content: center;
-  }
+    .dashboard-grid-stats {
+      grid-template-columns:
+        minmax(min(100%, var(--width-card-stat-fluid)), 1fr)
+        minmax(min(100%, var(--width-card-stat-fluid)), 1fr)
+        minmax(min(100%, var(--width-card-chart-md-fluid)), 1fr);
+      justify-content: center;
+    }
   }
 }
 

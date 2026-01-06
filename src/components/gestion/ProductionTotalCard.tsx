@@ -33,12 +33,7 @@ export default function ProductionTotalCard({
   const data = getCardData(timeScale)
 
   return (
-    <section
-      className='bg-brand-900 text-fg-inverse text-[var(--color-text-inverse)] rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 overflow-hidden min-w-0'
-      style={{
-        width: 'min(var(--width-card-chart-md-fluid), 100%)'
-      }}
-    >
+    <section className='bg-brand-900 text-fg-inverse text-[var(--color-text-inverse)] rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 overflow-hidden min-w-0'>
       <div className='flex h-full flex-col pl-[1rem] pr-card-pad pt-0 pb-[1rem] text-[var(--color-text-inverse)]'>
         <header className='mt-[1rem] flex shrink-0 items-baseline mb-[2.9375rem]'>
           <h3 className='text-title-sm font-medium text-[var(--color-text-inverse)]'>

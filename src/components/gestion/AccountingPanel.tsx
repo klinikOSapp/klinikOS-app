@@ -213,7 +213,7 @@ export default function AccountingPanel({
 
   const sectionStyle: AccountingStyle = {
     width: '100%',
-    maxWidth: `min(${CARD_WIDTH}, ${CARD_WIDTH_LIMIT})`,
+    maxWidth: '100%',
     height: `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`,
     // Altura efectiva de la tarjeta (se reutiliza para escalar el stack lateral en viewports bajos)
     '--accounting-height-current': `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`,

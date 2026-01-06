@@ -141,7 +141,7 @@ export default function BillingLineChart({
   return (
     <section
       className='relative w-full overflow-clip rounded-lg bg-surface shadow-elevation-card'
-      style={{ height: CARD_HEIGHT_VAR, width: CARD_WIDTH_STYLE }}
+      style={{ height: CARD_HEIGHT_VAR, width: '100%' }}
     >
       <header
         className='absolute z-10 flex items-baseline justify-between text-fg'
