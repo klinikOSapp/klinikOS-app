@@ -420,7 +420,7 @@ function DayCell({
     window.addEventListener('contextmenu', close, { once: true })
   }
 
-  const handleOpenDay = (event: ReactMouseEvent<HTMLButtonElement>) => {
+  const handleOpenDay = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()
     setShowDayMenu(false)
     if (!cell.isCurrentMonth) return
