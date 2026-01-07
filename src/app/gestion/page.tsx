@@ -56,7 +56,7 @@ export default function GestionPage() {
         <div className='flex-1 overflow-y-auto overflow-x-hidden'>
           <div
             className='container-page py-fluid-md pb-plnav flex h-full flex-col gap-gapmd overflow-hidden'
-            style={{ ['--dashboard-max-width' as any]: '100%' }}
+            style={{ '--dashboard-max-width': '100%' } as React.CSSProperties}
           >
             <CashToolbar
               dateLabel={dateLabel}

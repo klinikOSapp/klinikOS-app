@@ -3443,6 +3443,7 @@ export default function WeekScheduler() {
     const targetDate = selectedDate ?? currentWeekStart
     const appointments = getAppointmentsForDate(targetDate)
     setSelectedDayAppointments(appointments)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewOption, selectedDate, currentWeekStart])
 
   // Only show overlay on click (active), not on hover

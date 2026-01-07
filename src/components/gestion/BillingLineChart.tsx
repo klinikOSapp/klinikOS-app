@@ -18,7 +18,6 @@ type BillingLineChartProps = {
 }
 
 const CARD_HEIGHT_VAR = 'var(--height-card-chart-fluid)'
-const CARD_WIDTH_STYLE = 'min(100%, var(--width-card-chart-lg-fluid))'
 const CARD_WIDTH_EFFECTIVE = 'min(100%, var(--width-card-chart-lg-fluid))'
 
 const HEADER_LEFT_RATIO = 16 / 1069
