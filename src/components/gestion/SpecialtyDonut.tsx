@@ -65,8 +65,8 @@ export default function ProductionTotalCard({
   const resolvedDelta = delta ?? (timeScale === 'month' ? '+ 22%' : '+ 35%')
 
   const sectionStyles = {
-    '--card-width-current': '100%',
-    width: '100%',
+    '--card-width-current': `min(${CARD_WIDTH}, 95vw)`,
+    width: 'var(--card-width-current)',
     height: `min(${CARD_HEIGHT}, calc(100vh - 6rem))`
   } satisfies ChartCardStyles
 

@@ -52,12 +52,12 @@ export default function GestionPage() {
 
   return (
     <ClientLayout>
-      <div
-        className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-surface-app rounded-tl-[var(--radius-xl)] flex flex-col overflow-hidden'
-        style={{ maxWidth: '101.375rem' }} // 1622px Figma → 101.375rem (sólo tope, no cap a viewport)
-      >
+      <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-surface-app rounded-tl-[var(--radius-xl)] flex flex-col overflow-hidden'>
         <div className='flex-1 overflow-y-auto overflow-x-hidden'>
-          <div className='container-page py-fluid-md pb-plnav flex h-full flex-col gap-gapmd overflow-hidden'>
+          <div
+            className='container-page py-fluid-md pb-plnav flex h-full flex-col gap-gapmd overflow-hidden'
+            style={{ ['--dashboard-max-width' as any]: '100%' }}
+          >
             <CashToolbar
               dateLabel={dateLabel}
               onNavigateNext={() => handleNavigate(1)}

@@ -159,7 +159,6 @@ type PatientRow = {
   checkin: 'Hecho' | 'Pendiente'
   financing: 'Sí' | 'No'
   debt: string
-  lastContact: string
   tags?: Array<'deuda' | 'activo' | 'recall'>
 }
 
@@ -172,7 +171,6 @@ const MOCK_PATIENTS: PatientRow[] = Array.from({ length: 12 }).map((_, i) => ({
   checkin: 'Hecho',
   financing: 'No',
   debt: '380€',
-  lastContact: 'DD/MM/AAAA',
   tags: i % 3 === 0 ? ['deuda'] : i % 2 === 0 ? ['activo'] : ['recall']
 }))
 
@@ -376,20 +374,20 @@ function PacientesPageContent() {
                       <span>Paciente</span>
                     </div>
                   </TableHeaderCell>
+                  <TableHeaderCell className='w-[min(16.25rem,22vw)] pr-2'>
+                    Teléfono
+                  </TableHeaderCell>
                   <TableHeaderCell className='w-[min(19rem,26vw)] pr-2'>
                     Próxima cita
                   </TableHeaderCell>
                   <TableHeaderCell className='w-[min(16.3125rem,22vw)] pr-2'>
                     Estado
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[min(16.25rem,22vw)] pr-2'>
-                    Teléfono
-                  </TableHeaderCell>
                   <TableHeaderCell className='w-[min(10.9375rem,15vw)] pr-2' align='right'>
                     Deuda
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[min(14rem,20vw)] pr-2'>
-                    Último contacto
+                  <TableHeaderCell className='w-[3.5rem] pr-2 text-right sticky right-0 bg-[var(--color-surface-app)]'>
+                    <span className='sr-only'>Acciones</span>
                   </TableHeaderCell>
                 </tr>
               </thead>
@@ -464,20 +462,36 @@ function PacientesPageContent() {
                     <TableBodyCell className='w-[min(21.5rem,30vw)] pr-2'>
                       <p className='truncate'>{row.name}</p>
                     </TableBodyCell>
+                    <TableBodyCell className='w-[min(16.25rem,22vw)] pr-2'>
+                      <p className='truncate'>{row.phone}</p>
+                    </TableBodyCell>
                     <TableBodyCell className='w-[min(19rem,26vw)] pr-2'>
                       {row.nextDate}
                     </TableBodyCell>
                     <TableBodyCell className='w-[min(16.3125rem,22vw)] pr-2'>
                       <StatusPill type={row.status} />
                     </TableBodyCell>
-                    <TableBodyCell className='w-[min(16.25rem,22vw)] pr-2'>
-                      <p className='truncate'>{row.phone}</p>
-                    </TableBodyCell>
                     <TableBodyCell className='w-[min(10.9375rem,15vw)] pr-2' align='right'>
                       {row.debt}
                     </TableBodyCell>
-                    <TableBodyCell className='w-[min(14rem,20vw)] pr-2'>
-                      <p className='truncate'>{row.lastContact}</p>
+                    <TableBodyCell
+                      className='w-[3.5rem] pr-2 sticky right-0 bg-[var(--color-surface-app)] group-hover:bg-[var(--color-neutral-50)]'
+                      align='right'
+                    >
+                      <button
+                        type='button'
+                        onClick={(e) => {
+                          e.stopPropagation()
+                        }}
+                        aria-label='Abrir acciones'
+                        className='inline-flex size-8 items-center justify-center rounded-full hover:bg-[var(--color-neutral-100)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-300)]'
+                      >
+                        <MD3Icon
+                          name='MoreVertRounded'
+                          size='md'
+                          className='text-[var(--color-neutral-700)]'
+                        />
+                      </button>
                     </TableBodyCell>
                   </tr>
                 ))}
