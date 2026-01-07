@@ -176,7 +176,7 @@ const MOCK_PATIENTS: PatientRow[] = Array.from({ length: 12 }).map((_, i) => ({
 
 function PacientesPageContent() {
   const [query, setQuery] = React.useState('')
-  type FilterKey = 'deuda' | 'activos' | 'recall'
+  type FilterKey = 'deuda' | 'activos'
   const [selectedFilters, setSelectedFilters] = React.useState<FilterKey[]>([])
   const [selectedPatientIds, setSelectedPatientIds] = React.useState<string[]>(
     []
@@ -236,7 +236,7 @@ function PacientesPageContent() {
               </Chip>
             </div>
             <div className='flex items-center gap-3'>
-              <button
+              {/* <button
                 type='button'
                 className='inline-flex items-center justify-center gap-gapsm rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-neutral-900 shadow-cta transition-colors hover:bg-brand-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-surface-app'
                 style={searchCtaStyles}
@@ -247,15 +247,17 @@ function PacientesPageContent() {
                   className='text-neutral-900'
                 />
                 <span>Buscar</span>
-              </button>
+              </button> */}
               <button
                 onClick={() =>
-                  window.dispatchEvent(new CustomEvent('patients:open-add-patient'))
+                  window.dispatchEvent(
+                    new CustomEvent('patients:open-add-patient')
+                  )
                 }
                 className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-body-md text-[var(--color-neutral-900)] bg-[#F8FAFB] border border-[#CBD3D9] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947] transition-colors cursor-pointer'
               >
                 <MD3Icon name='AddRounded' size='md' />
-                <span className='font-medium'>Añadir</span>
+                <span className='font-medium'>Añadir paciente</span>
               </button>
               <button
                 className='size-6 grid place-items-center text-[var(--color-neutral-900)] cursor-pointer'
@@ -343,17 +345,6 @@ function PacientesPageContent() {
               >
                 Activos
               </button>
-              <button
-                onClick={() => toggleFilter('recall')}
-                className={[
-                  'px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active-border-[#1E4947]',
-                  isFilterActive('recall')
-                    ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
-                    : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
-                ].join(' ')}
-              >
-                Recall
-              </button>
             </div>
           </div>
 
@@ -383,7 +374,10 @@ function PacientesPageContent() {
                   <TableHeaderCell className='w-[min(16.3125rem,22vw)] pr-2'>
                     Estado
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[min(10.9375rem,15vw)] pr-2' align='right'>
+                  <TableHeaderCell
+                    className='w-[min(10.9375rem,15vw)] pr-2'
+                    align='right'
+                  >
                     Deuda
                   </TableHeaderCell>
                   <TableHeaderCell className='w-[3.5rem] pr-2 text-right sticky right-0 bg-[var(--color-surface-app)]'>
@@ -400,13 +394,9 @@ function PacientesPageContent() {
                     : true
                   const matchesFilter = (() => {
                     if (selectedFilters.length === 0) return true
-                    const tagMap: Record<
-                      FilterKey,
-                      'deuda' | 'activo' | 'recall'
-                    > = {
+                    const tagMap: Record<FilterKey, 'deuda' | 'activo'> = {
                       deuda: 'deuda',
-                      activos: 'activo',
-                      recall: 'recall'
+                      activos: 'activo'
                     }
                     return selectedFilters.some((k) =>
                       p.tags?.includes(tagMap[k])
@@ -471,7 +461,10 @@ function PacientesPageContent() {
                     <TableBodyCell className='w-[min(16.3125rem,22vw)] pr-2'>
                       <StatusPill type={row.status} />
                     </TableBodyCell>
-                    <TableBodyCell className='w-[min(10.9375rem,15vw)] pr-2' align='right'>
+                    <TableBodyCell
+                      className='w-[min(10.9375rem,15vw)] pr-2'
+                      align='right'
+                    >
                       {row.debt}
                     </TableBodyCell>
                     <TableBodyCell
@@ -484,7 +477,7 @@ function PacientesPageContent() {
                           e.stopPropagation()
                         }}
                         aria-label='Abrir acciones'
-                        className='inline-flex size-8 items-center justify-center rounded-full hover:bg-[var(--color-neutral-100)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-300)]'
+                        className='inline-flex size-8 items-center justify-center rounded-full hover:bg-[var(--color-neutral-100)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-300)]'
                       >
                         <MD3Icon
                           name='MoreVertRounded'
