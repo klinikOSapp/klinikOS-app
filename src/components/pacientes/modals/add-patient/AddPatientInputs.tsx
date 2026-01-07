@@ -63,12 +63,18 @@ export function SelectInput({
   placeholder = 'Value',
   value,
   onChange,
-  options
+  options,
+  onCreate,
+  createLabel = 'Crear',
+  createLabelFromInput
 }: {
   placeholder?: string
   value?: string
   onChange?: (v: string) => void
   options?: { label: string; value: string }[]
+  onCreate?: (inputValue?: string) => void
+  createLabel?: string
+  createLabelFromInput?: (inputValue: string) => string
 }) {
   const [isOpen, setIsOpen] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
@@ -157,6 +163,22 @@ export function SelectInput({
               {opt.label}
             </button>
           ))}
+          {filteredOptions.length === 0 && onCreate && (
+            <div className='px-2 pt-2'>
+              <button
+                type='button'
+                onClick={() => {
+                  onCreate(inputValue)
+                  setIsOpen(false)
+                }}
+                className='w-full rounded-[0.5rem] bg-[var(--color-brand-50)] px-3 py-2 text-left text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-100)]'
+              >
+                {createLabelFromInput
+                  ? createLabelFromInput(inputValue)
+                  : createLabel}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

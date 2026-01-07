@@ -72,18 +72,31 @@ type MonthEvent = {
   box?: string
 }
 
+type SpecialistAvailability = {
+  id: string
+  name: string
+  timeRange: string
+  color: string
+}
+
 type MonthEventSelection = {
   event: MonthEvent
   dayIndex: number
+  date?: Date
 } | null
 
 // Helper function to create event details
-function createEventDetail(title: string, box: string): EventDetail {
+function createEventDetail(
+  title: string,
+  box: string,
+  patientFullOverride?: string,
+  durationOverride?: string
+): EventDetail {
   return {
     title,
     date: 'Lunes, 20 de Noviembre 2025',
-    duration: '13:00 - 13:30 (30 minutos)',
-    patientFull: 'Juan Pérez González',
+    duration: durationOverride || '13:00 - 13:30 (30 minutos)',
+    patientFull: patientFullOverride || 'Juan Pérez González',
     patientPhone: '+34 666 777 888',
     patientEmail: 'juan.perez@gmail.com',
     referredBy: 'Familiar de Xus',
@@ -99,7 +112,35 @@ function createEventDetail(title: string, box: string): EventDetail {
   }
 }
 
-// Sample events for demonstration
+function addMinutesToTime(time: string, minutesToAdd: number): string {
+  const [h, m] = time.split(':').map(Number)
+  const total = h * 60 + m + minutesToAdd
+  const hh = Math.floor(total / 60) % 24
+  const mm = total % 60
+  const pad = (v: number) => v.toString().padStart(2, '0')
+  return `${pad(hh)}:${pad(mm)}`
+}
+
+function buildSampleEvent(
+  id: string,
+  patientFull: string,
+  bgColor: string,
+  box: string,
+  startTime: string
+): MonthEvent {
+  const endTime = addMinutesToTime(startTime, 30)
+  const title = `${startTime} Consulta médica`
+  const duration = `${startTime} - ${endTime} (30 minutos)`
+  return {
+    id,
+    label: title,
+    bgColor,
+    detail: createEventDetail(title, box, patientFull, duration),
+    box
+  }
+}
+
+// Sample events for demonstration (single-event days)
 const SAMPLE_EVENTS: MonthEvent[] = [
   {
     id: 'e1',
@@ -159,12 +200,58 @@ const SAMPLE_EVENTS: MonthEvent[] = [
   }
 ]
 
+// Patient samples for multi-event days
+const PATIENT_NAMES = [
+  'Ana Pérez',
+  'Luis Martínez',
+  'Carla Gómez',
+  'Diego Torres',
+  'Marta Ruiz',
+  'Javier López',
+  'Sara Navarro',
+  'Pablo Castillo',
+  'Elena Vega',
+  'Raúl Ortega',
+  'Noa Sánchez',
+  'Tomás Vidal'
+]
+
+// Helper to build chronological sample slots
+const TIME_SLOTS_10 = ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30']
+const TIME_SLOTS_6 = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30']
+const TIME_SLOTS_5 = ['10:00', '10:30', '11:00', '11:30', '12:00']
+const TIME_SLOTS_3 = ['12:00', '12:30', '13:00']
+
+// Sample specialist availability (Figma: 14px dot, 16px title, 12px time)
+const SAMPLE_SPECIALISTS: SpecialistAvailability[] = [
+  {
+    id: 'sp1',
+    name: 'Odontólogo',
+    timeRange: '10:00 - 16:00',
+    color: 'var(--color-info-200)'
+  },
+  {
+    id: 'sp2',
+    name: 'Higienista dental',
+    timeRange: '09:00 - 14:00',
+    color: 'var(--color-event-teal)'
+  },
+  {
+    id: 'sp3',
+    name: 'Pediatra',
+    timeRange: '11:00 - 18:00',
+    color: 'var(--color-event-purple)'
+  }
+]
+
 type DayCell = {
   day: number | string
   isCurrentMonth: boolean
   isToday: boolean
   isSunday: boolean
   events: MonthEvent[]
+  specialists: SpecialistAvailability[]
+  date: Date
 }
 
 function HeaderLabels() {
@@ -191,6 +278,11 @@ function HeaderLabels() {
 
 function MonthEvent({
   event,
+  stackIndex = 0,
+  stackTop,
+  eventHeight,
+  eventLeft,
+  eventWidth,
   onHover,
   onLeave,
   onActivate,
@@ -198,12 +290,18 @@ function MonthEvent({
   isHovered
 }: {
   event: MonthEvent
+  stackIndex?: number
+  stackTop: string
+  eventHeight: string
+  eventLeft: string
+  eventWidth: string
   onHover: () => void
   onLeave: () => void
   onActivate: () => void
   isActive?: boolean
   isHovered?: boolean
 }) {
+  const displayLabel = event.detail?.patientFull ?? event.label
   const stateClasses = isActive
     ? 'border-2 border-[var(--color-brand-500)] shadow-[0px_4px_12px_rgba(81,214,199,0.35)]'
     : isHovered
@@ -233,15 +331,14 @@ function MonthEvent({
       ].join(' ')}
       style={{
         position: 'absolute',
-        top: 'var(--month-event-top)',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: 'var(--month-event-width-percent)',
-        height: 'var(--month-event-height)',
+        top: stackTop,
+        left: eventLeft,
+        width: eventWidth,
+        height: eventHeight,
         backgroundColor: event.bgColor
       }}
     >
-      <p className='truncate text-center'>{event.label}</p>
+      <p className='truncate text-center'>{displayLabel}</p>
     </button>
   )
 }
@@ -261,6 +358,8 @@ function DayCell({
   activeId?: string | null
   hoveredId?: string | null
 }) {
+  const [activeSpecId, setActiveSpecId] = useState<string | null>(null)
+  const [showDayMenu, setShowDayMenu] = useState(false)
   // Aplicar patrón de puntos a: días fuera del mes O domingos
   const shouldHaveDots = !cell.isCurrentMonth || cell.isSunday
 
@@ -280,6 +379,58 @@ function DayCell({
     ? 'font-bold text-[var(--color-brand-500)]'
     : 'font-normal text-[var(--color-neutral-600)]'
 
+  const totalEvents = cell.events.length
+  const maxColumns = 3
+  const maxRowsPerCol = 4
+  const rowGap = '0.25rem'
+  const colGap = '0.5rem'
+  const eventAreaPadding = '1rem'
+  const visibleEvents = Math.min(totalEvents, maxColumns * maxRowsPerCol)
+  const overflowCount = Math.max(0, totalEvents - maxColumns * maxRowsPerCol)
+  const columns =
+    visibleEvents > 0
+      ? Math.min(maxColumns, Math.ceil(visibleEvents / maxRowsPerCol))
+      : 1
+  const rows =
+    visibleEvents > 0
+      ? Math.min(maxRowsPerCol, Math.ceil(visibleEvents / columns))
+      : 1
+  const rowHeightExpr = 'min(var(--month-row-height), 15vh)'
+  const innerSpace = `calc(${rowHeightExpr} - var(--month-event-top) - 0.5rem)`
+  const eventHeight =
+    visibleEvents > 0 ? `calc((${innerSpace} / ${rows}) - ${rowGap})` : 'var(--month-event-height)'
+  const columnWidth =
+    columns > 1
+      ? `calc((100% - (2 * ${eventAreaPadding}) - (${columns - 1} * ${colGap})) / ${columns})`
+      : `calc(100% - (2 * ${eventAreaPadding}))`
+  const stackTopFor = (rowIndex: number) =>
+    `calc(var(--month-event-top) + ${rowIndex} * (${eventHeight} + ${rowGap}))`
+  const leftFor = (colIndex: number) =>
+    columns > 1
+      ? `calc(${eventAreaPadding} + ${colIndex} * (${columnWidth} + ${colGap}))`
+      : eventAreaPadding
+
+  const handleDayContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!cell.isCurrentMonth || cell.isSunday) return
+    setShowDayMenu(true)
+    const close = () => setShowDayMenu(false)
+    window.addEventListener('click', close, { once: true })
+    window.addEventListener('contextmenu', close, { once: true })
+  }
+
+  const handleOpenDay = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    setShowDayMenu(false)
+    if (!cell.isCurrentMonth) return
+    window.dispatchEvent(
+      new CustomEvent('agenda:open-day-view', {
+        detail: { date: cell.date?.toISOString() }
+      })
+    )
+  }
+
   return (
     <div
       className={[
@@ -289,28 +440,108 @@ function DayCell({
       style={{
         ...dotStyle
       }}
+      onContextMenu={handleDayContextMenu}
     >
-      <p
-        className={['text-body-md', dayTextClass].join(' ')}
+      <div
+        className='absolute left-0 right-0 flex items-center justify-between px-[1rem]'
         style={{
-          position: 'absolute',
-          left: '1rem',
           top: 'var(--month-cell-padding-top)'
         }}
       >
-        {cell.day}
-      </p>
-      {cell.events.map((event) => (
-        <MonthEvent
-          key={event.id}
-          event={event}
-          onHover={() => onHover({ event, dayIndex })}
-          onLeave={() => onHover(null)}
-          onActivate={() => onActivate({ event, dayIndex })}
-          isActive={activeId === event.id}
-          isHovered={hoveredId === event.id && activeId !== event.id}
-        />
-      ))}
+        <p className={['text-body-md', dayTextClass].join(' ')}>{cell.day}</p>
+        {cell.specialists.length > 0 && (
+          <div className='flex items-center gap-[0.5rem]'>
+            {cell.specialists.map((spec) => (
+              <button
+                key={spec.id}
+                type='button'
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setActiveSpecId((prev) => (prev === spec.id ? null : spec.id))
+                }}
+                className='shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-300)] cursor-pointer'
+                title={`${spec.name} · ${spec.timeRange}`}
+                aria-label={`${spec.name} ${spec.timeRange}`}
+                style={{
+                  width: '0.875rem', // 14px Figma dot
+                  height: '0.875rem',
+                  backgroundColor: spec.color
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+      {activeSpecId &&
+        (() => {
+          const activeSpec = cell.specialists.find(
+            (spec) => spec.id === activeSpecId
+          )
+          if (!activeSpec) return null
+          return (
+            <div
+              className='pointer-events-auto absolute right-[1rem] z-[2] flex items-center gap-2 rounded-[var(--radius-xl)] bg-[var(--color-neutral-50)] px-3 py-2 text-label-md font-medium text-[var(--color-neutral-900)] shadow-[0px_2px_6px_rgba(0,0,0,0.08)]'
+              style={{
+                top: 'calc(var(--month-cell-padding-top) + 1.75rem)'
+              }}
+            >
+              <span
+                className='inline-flex h-[0.75rem] w-[0.75rem] rounded-full'
+                style={{ backgroundColor: activeSpec.color }}
+              />
+              <span>{activeSpec.name}</span>
+              <span className='text-[var(--color-neutral-600)]'>
+                {activeSpec.timeRange}
+              </span>
+            </div>
+          )
+        })()}
+      {showDayMenu && (
+        <div
+          className='absolute right-[1rem] top-[3.5rem] z-[3] flex flex-col rounded-[var(--radius-xl)] border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] shadow-[0px_4px_12px_rgba(0,0,0,0.12)]'
+        >
+          <button
+            type='button'
+            onClick={handleOpenDay}
+            className='px-4 py-2 text-left text-body-md text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-50)]'
+          >
+            Ver día
+          </button>
+        </div>
+      )}
+      {cell.events.map((event, eventIndex) => {
+        if (eventIndex >= maxColumns * maxRowsPerCol) return null
+        const colIndex = Math.min(
+          columns - 1,
+          Math.floor(eventIndex / maxRowsPerCol)
+        )
+        const rowIndex = eventIndex % maxRowsPerCol
+        return (
+          <MonthEvent
+            key={event.id}
+            event={event}
+            stackIndex={eventIndex}
+            stackTop={stackTopFor(rowIndex)}
+            eventHeight={eventHeight}
+            eventLeft={leftFor(colIndex)}
+            eventWidth={columnWidth}
+            onHover={() => onHover({ event, dayIndex, date: cell.date })}
+            onLeave={() => onHover(null)}
+            onActivate={() => onActivate({ event, dayIndex, date: cell.date })}
+            isActive={activeId === event.id}
+            isHovered={hoveredId === event.id && activeId !== event.id}
+          />
+        )
+      })}
+      {overflowCount > 0 && (
+        <div
+          className='pointer-events-none absolute bottom-2 right-2 flex items-center gap-2 rounded-full bg-[var(--color-neutral-50)] px-3 py-1 text-label-md font-medium text-[var(--color-neutral-900)] shadow-[0px_2px_6px_rgba(0,0,0,0.08)]'
+          aria-label={`Más ${overflowCount} citas`}
+        >
+          <span className='inline-flex h-[0.75rem] w-[0.75rem] rounded-full bg-[var(--color-event-purple)]' />
+          <span>+{overflowCount} citas</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -365,19 +596,26 @@ function MonthGrid({
   )
 }
 
+type WeekEvent = {
+  id: string
+  weekday: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday'
+  title: string
+  patient: string
+  timeRange: string
+  box: string
+  bgColor: string
+}
+
 interface MonthCalendarProps {
   currentMonth?: Date
-  events?: Array<{
-    id: string
-    date: Date
-    title: string
-    bgColor: string
-  }>
+  currentWeekStart?: Date
+  weekEvents?: WeekEvent[]
 }
 
 export default function MonthCalendar({
   currentMonth: propCurrentMonth,
-  events = []
+  currentWeekStart,
+  weekEvents = []
 }: MonthCalendarProps) {
   const [hovered, setHovered] = useState<MonthEventSelection>(null)
   const [active, setActive] = useState<MonthEventSelection>(null)
@@ -405,6 +643,39 @@ export default function MonthCalendar({
     setActive(null)
   }
 
+  // Helper to get weekday name from date
+  const getWeekdayFromDate = (
+    date: Date
+  ): 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | null => {
+    const dayOfWeek = date.getDay()
+    const mapping: (
+      | 'monday'
+      | 'tuesday'
+      | 'wednesday'
+      | 'thursday'
+      | 'friday'
+      | null
+    )[] = [null, 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', null]
+    return mapping[dayOfWeek] ?? null
+  }
+
+  // Helper to convert WeekEvent to MonthEvent
+  const weekEventToMonthEvent = (ev: WeekEvent): MonthEvent => {
+    const startTime = ev.timeRange?.split('-')[0]?.trim() || '12:30'
+    return {
+      id: ev.id,
+      label: `${startTime} ${ev.title}`,
+      bgColor: ev.bgColor,
+      detail: createEventDetail(
+        `${startTime} ${ev.title}`,
+        ev.box,
+        ev.patient,
+        ev.timeRange ? `${ev.timeRange} (60 minutos)` : undefined
+      ),
+      box: ev.box
+    }
+  }
+
   // Generate calendar data dynamically
   const generateCalendarData = (): DayCell[][] => {
     const year = currentMonth.getFullYear()
@@ -427,7 +698,7 @@ export default function MonthCalendar({
     today.setHours(0, 0, 0, 0)
 
     const weeks: DayCell[][] = []
-    let currentWeek: DayCell[] = []
+    let currentWeekArr: DayCell[] = []
 
     // Fill in days from previous month
     const daysFromPrevMonth = firstDayWeekday - 1
@@ -436,12 +707,14 @@ export default function MonthCalendar({
       const prevMonthDate = new Date(year, month - 1, day)
       const isSunday = prevMonthDate.getDay() === 0
 
-      currentWeek.push({
+      currentWeekArr.push({
         day,
         isCurrentMonth: false,
         isToday: false,
         isSunday,
-        events: []
+        events: [],
+        specialists: [],
+        date: prevMonthDate
       })
     }
 
@@ -455,59 +728,267 @@ export default function MonthCalendar({
         ? `${day} ${currentMonth.toLocaleString('es-ES', { month: 'long' })}`
         : day
 
-      // Add sample events to specific days for demonstration
-      let dayEvents: MonthEvent[] = []
-      if (day === 7 && today.getTime() === cellDate.getTime()) {
-        // Today gets event 1
-        dayEvents = [SAMPLE_EVENTS[0]]
-      } else if (day === 9) {
-        dayEvents = [SAMPLE_EVENTS[1]]
-      } else if (day === 10) {
-        dayEvents = [SAMPLE_EVENTS[2]]
-      } else if (day === 13) {
-        dayEvents = [SAMPLE_EVENTS[3]]
-      } else if (day === 14) {
-        dayEvents = [SAMPLE_EVENTS[4]]
-      } else if (day === 15) {
-        dayEvents = [SAMPLE_EVENTS[5]]
-      } else if (day === 17) {
-        dayEvents = [SAMPLE_EVENTS[6]]
-      } else if (day === 22) {
-        dayEvents = [SAMPLE_EVENTS[7]]
-      }
-
       const isSunday = cellDate.getDay() === 0
 
-      currentWeek.push({
+      // Get events for this day from weekEvents prop
+      let dayEvents: MonthEvent[] = []
+      if (!isSunday && weekEvents.length > 0) {
+        const weekday = getWeekdayFromDate(cellDate)
+        if (weekday) {
+          const eventsForDay = weekEvents.filter((ev) => ev.weekday === weekday)
+          dayEvents = eventsForDay.map(weekEventToMonthEvent)
+        }
+      }
+
+      // Fallback to sample events if no weekEvents provided
+      if (dayEvents.length === 0 && !isSunday && weekEvents.length === 0) {
+        if (day === 7 && today.getTime() === cellDate.getTime()) {
+          dayEvents = [SAMPLE_EVENTS[0]]
+        } else if (day === 9) {
+          dayEvents = [SAMPLE_EVENTS[1]]
+        } else if (day === 10) {
+          dayEvents = [SAMPLE_EVENTS[2]]
+        } else if (day === 13) {
+          dayEvents = [SAMPLE_EVENTS[3]]
+        } else if (day === 14) {
+          dayEvents = [SAMPLE_EVENTS[4]]
+        } else if (day === 15) {
+          dayEvents = [SAMPLE_EVENTS[5]]
+        } else if (day === 17) {
+          dayEvents = [SAMPLE_EVENTS[6]]
+        } else if (day === 22) {
+          dayEvents = [SAMPLE_EVENTS[7]]
+        } else if (day === 3) {
+          dayEvents = [
+            buildSampleEvent(
+              'd3-e1',
+              PATIENT_NAMES[0],
+              'var(--color-event-purple)',
+              'Box 1',
+              TIME_SLOTS_10[0]
+            ),
+            buildSampleEvent(
+              'd3-e2',
+              PATIENT_NAMES[1],
+              'var(--color-event-teal)',
+              'Box 2',
+              TIME_SLOTS_10[1]
+            ),
+            buildSampleEvent(
+              'd3-e3',
+              PATIENT_NAMES[2],
+              'var(--color-event-coral)',
+              'Box 3',
+              TIME_SLOTS_10[2]
+            ),
+            buildSampleEvent(
+              'd3-e4',
+              PATIENT_NAMES[3],
+              'var(--color-event-purple)',
+              'Box 1',
+              TIME_SLOTS_10[3]
+            ),
+            buildSampleEvent(
+              'd3-e5',
+              PATIENT_NAMES[4],
+              'var(--color-event-teal)',
+              'Box 2',
+              TIME_SLOTS_10[4]
+            ),
+            buildSampleEvent(
+              'd3-e6',
+              PATIENT_NAMES[5],
+              'var(--color-event-coral)',
+              'Box 3',
+              TIME_SLOTS_10[5]
+            ),
+            buildSampleEvent(
+              'd3-e7',
+              PATIENT_NAMES[6],
+              'var(--color-event-purple)',
+              'Box 2',
+              TIME_SLOTS_10[6]
+            ),
+            buildSampleEvent(
+              'd3-e8',
+              PATIENT_NAMES[7],
+              'var(--color-event-teal)',
+              'Box 1',
+              TIME_SLOTS_10[7]
+            ),
+            buildSampleEvent(
+              'd3-e9',
+              PATIENT_NAMES[8],
+              'var(--color-event-purple)',
+              'Box 3',
+              TIME_SLOTS_10[8]
+            ),
+            buildSampleEvent(
+              'd3-e10',
+              PATIENT_NAMES[9],
+              'var(--color-event-coral)',
+              'Box 1',
+              TIME_SLOTS_10[9]
+            )
+          ]
+        } else if (day === 8) {
+          dayEvents = [
+            buildSampleEvent(
+              'd8-e1',
+              PATIENT_NAMES[1],
+              'var(--color-event-teal)',
+              'Box 2',
+              TIME_SLOTS_5[0]
+            ),
+            buildSampleEvent(
+              'd8-e2',
+              PATIENT_NAMES[2],
+              'var(--color-event-purple)',
+              'Box 1',
+              TIME_SLOTS_5[1]
+            ),
+            buildSampleEvent(
+              'd8-e3',
+              PATIENT_NAMES[3],
+              'var(--color-event-coral)',
+              'Box 3',
+              TIME_SLOTS_5[2]
+            ),
+            buildSampleEvent(
+              'd8-e4',
+              PATIENT_NAMES[4],
+              'var(--color-event-teal)',
+              'Box 2',
+              TIME_SLOTS_5[3]
+            ),
+            buildSampleEvent(
+              'd8-e5',
+              PATIENT_NAMES[5],
+              'var(--color-event-purple)',
+              'Box 1',
+              TIME_SLOTS_5[4]
+            )
+          ]
+        } else if (day === 11) {
+          dayEvents = [
+            buildSampleEvent(
+              'd11-e1',
+              PATIENT_NAMES[6],
+              'var(--color-event-coral)',
+              'Box 1',
+              TIME_SLOTS_6[0]
+            ),
+            buildSampleEvent(
+              'd11-e2',
+              PATIENT_NAMES[7],
+              'var(--color-event-purple)',
+              'Box 2',
+              TIME_SLOTS_6[1]
+            ),
+            buildSampleEvent(
+              'd11-e3',
+              PATIENT_NAMES[8],
+              'var(--color-event-teal)',
+              'Box 3',
+              TIME_SLOTS_6[2]
+            ),
+            buildSampleEvent(
+              'd11-e4',
+              PATIENT_NAMES[9],
+              'var(--color-event-purple)',
+              'Box 1',
+              TIME_SLOTS_6[3]
+            ),
+            buildSampleEvent(
+              'd11-e5',
+              PATIENT_NAMES[10],
+              'var(--color-event-teal)',
+              'Box 2',
+              TIME_SLOTS_6[4]
+            ),
+            buildSampleEvent(
+              'd11-e6',
+              PATIENT_NAMES[11],
+              'var(--color-event-coral)',
+              'Box 3',
+              TIME_SLOTS_6[5]
+            )
+          ]
+        } else if (day === 18) {
+          dayEvents = [
+            buildSampleEvent(
+              'd18-e1',
+              PATIENT_NAMES[2],
+              'var(--color-event-purple)',
+              'Box 1',
+              TIME_SLOTS_3[0]
+            ),
+            buildSampleEvent(
+              'd18-e2',
+              PATIENT_NAMES[5],
+              'var(--color-event-teal)',
+              'Box 2',
+              TIME_SLOTS_3[1]
+            ),
+            buildSampleEvent(
+              'd18-e3',
+              PATIENT_NAMES[8],
+              'var(--color-event-coral)',
+              'Box 3',
+              TIME_SLOTS_3[2]
+            )
+          ]
+        }
+      }
+
+      // Specialist availability samples (several days), skip Sundays
+      let specialists: SpecialistAvailability[] = []
+      if (!isSunday) {
+        if (day === 5) {
+          specialists = [SAMPLE_SPECIALISTS[0]]
+        } else if (day === 12) {
+          specialists = [SAMPLE_SPECIALISTS[1], SAMPLE_SPECIALISTS[0]]
+        } else if (day === 15) {
+          specialists = [SAMPLE_SPECIALISTS[2]]
+        } else if (day === 21) {
+          specialists = [SAMPLE_SPECIALISTS[0], SAMPLE_SPECIALISTS[2]]
+        }
+      }
+
+      currentWeekArr.push({
         day: displayDay,
         isCurrentMonth: true,
         isToday: cellDate.getTime() === today.getTime(),
         isSunday,
-        events: dayEvents
+        events: dayEvents,
+        specialists,
+        date: cellDate
       })
 
-      if (currentWeek.length === 7) {
-        weeks.push(currentWeek)
-        currentWeek = []
+      if (currentWeekArr.length === 7) {
+        weeks.push(currentWeekArr)
+        currentWeekArr = []
       }
     }
 
     // Fill in days from next month
-    if (currentWeek.length > 0) {
+    if (currentWeekArr.length > 0) {
       let nextMonthDay = 1
-      while (currentWeek.length < 7) {
+      while (currentWeekArr.length < 7) {
         const nextMonthDate = new Date(year, month + 1, nextMonthDay)
         const isSunday = nextMonthDate.getDay() === 0
 
-        currentWeek.push({
+        currentWeekArr.push({
           day: nextMonthDay++,
           isCurrentMonth: false,
           isToday: false,
           isSunday,
-          events: []
+          events: [],
+          specialists: [],
+          date: nextMonthDate
         })
       }
-      weeks.push(currentWeek)
+      weeks.push(currentWeekArr)
     }
 
     return weeks

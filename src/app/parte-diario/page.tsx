@@ -10,6 +10,18 @@ import React from 'react'
 
 const CTA_WIDTH_REM = 7.3125 // 117px ÷ 16
 const CTA_HEIGHT_REM = 2.5 // 40px ÷ 16
+const DAILY_BANDS = [
+  {
+    id: 'odontologo',
+    label: 'Odontólogo 10:00 - 16:00',
+    background: '#f0fafa'
+  },
+  {
+    id: 'anestesista',
+    label: 'Anestesista 10:00 - 16:00',
+    background: '#fbe9fb'
+  }
+]
 
 function KpiCard({
   title,
@@ -149,129 +161,364 @@ type DailyRow = {
   tags?: Array<'deuda' | 'confirmada'>
 }
 
+// ============================================
+// DATOS REALISTAS DE CLÍNICA DENTAL - PARTE DIARIO
+// ============================================
 const MOCK_PATIENTS: DailyRow[] = [
+  // MAÑANA (9:00 - 14:00)
   {
     id: 'row-1',
-    day: '17 Sep',
-    hour: '00:00',
-    name: 'Nombre apellido',
-    reason: '888 888 888',
-    phone: '888 888 888',
-    status: 'No confirmada',
-    charge: 'Si'
+    day: '7 Ene',
+    hour: '09:00',
+    name: 'María García López',
+    professional: 'Laura Sánchez (Higienista)',
+    reason: 'Limpieza dental',
+    phone: '612 345 678',
+    status: 'Confirmada',
+    charge: 'Si',
+    tags: ['confirmada']
   },
   {
     id: 'row-2',
-    day: '17 Sep',
-    hour: '00:00',
-    name: 'Nombre apellido',
-    reason: '888 888 888',
-    phone: '888 888 888',
-    status: 'Reagendar',
-    charge: 'Si'
+    day: '7 Ene',
+    hour: '09:30',
+    name: 'Carlos Rodríguez Fernández',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Empaste molar 36',
+    phone: '623 456 789',
+    status: 'Confirmada',
+    charge: 'Si',
+    tags: ['confirmada']
   },
   {
     id: 'row-3',
-    day: '17 Sep',
-    hour: '00:00',
-    name: 'Nombre apellido',
-    reason: '888 888 888',
-    phone: '888 888 888',
-    status: 'No confirmada',
-    charge: 'No'
+    day: '7 Ene',
+    hour: '10:00',
+    name: 'Ana Martínez Sánchez',
+    professional: 'Dr. Francisco Moreno',
+    reason: 'Endodoncia (2ª sesión)',
+    phone: '634 567 890',
+    status: 'Confirmada',
+    charge: 'No',
+    tags: ['confirmada']
   },
   {
     id: 'row-4',
-    day: '17 Sep',
-    hour: '00:00',
-    name: 'Nombre apellido',
-    reason: '888 888 888',
-    phone: '888 888 888',
+    day: '7 Ene',
+    hour: '10:30',
+    name: 'Pablo López García',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Revisión anual',
+    phone: '645 678 901',
     status: 'Confirmada',
     charge: 'Si',
     tags: ['confirmada']
   },
   {
     id: 'row-5',
-    day: '17 Sep',
-    hour: '00:00',
-    name: 'Nombre apellido',
-    reason: '888 888 888',
-    phone: '888 888 888',
-    status: 'No confirmada',
-    charge: 'No'
+    day: '7 Ene',
+    hour: '11:00',
+    name: 'Laura Fernández Ruiz',
+    professional: 'Dra. Elena Navarro',
+    reason: 'Revisión Invisalign',
+    phone: '656 789 012',
+    status: 'Confirmada',
+    charge: 'No',
+    tags: ['confirmada']
   },
   {
     id: 'row-6',
-    day: '17 Sep',
-    hour: '00:00',
-    name: 'Nombre apellido',
-    reason: '888 888 888',
-    phone: '888 888 888',
+    day: '7 Ene',
+    hour: '11:30',
+    name: 'Javier Moreno Torres',
+    professional: 'Laura Sánchez (Higienista)',
+    reason: 'Limpieza profunda',
+    phone: '667 890 123',
+    status: 'No confirmada',
+    charge: 'Si'
+  },
+  {
+    id: 'row-7',
+    day: '7 Ene',
+    hour: '12:00',
+    name: 'Sofía Navarro Díaz',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Radiografía panorámica',
+    phone: '678 901 234',
     status: 'Confirmada',
     charge: 'Si',
     tags: ['confirmada']
   },
   {
-    id: 'row-7',
-    day: '17 Sep',
-    hour: '00:00',
-    name: 'Nombre apellido',
-    reason: '888 888 888',
-    phone: '888 888 888',
-    status: 'No confirmada',
-    charge: 'No'
-  },
-  {
     id: 'row-8',
-    day: '17 Sep',
-    hour: '00:00',
-    name: 'Nombre apellido',
-    reason: '888 888 888',
-    phone: '888 888 888',
-    status: 'Confirmada',
+    day: '7 Ene',
+    hour: '12:00',
+    name: 'David Sánchez Martín',
+    professional: 'Dra. Carmen Díaz',
+    reason: 'Tratamiento periodontal',
+    phone: '689 012 345',
+    status: 'No confirmada',
     charge: 'No',
-    tags: ['confirmada']
+    tags: ['deuda']
   },
   {
     id: 'row-9',
-    day: '17 Sep',
-    hour: '00:00',
-    name: 'Nombre apellido',
-    reason: '888 888 888',
-    phone: '888 888 888',
+    day: '7 Ene',
+    hour: '13:00',
+    name: 'Carmen Ruiz Jiménez',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Control post-endodoncia',
+    phone: '690 123 456',
+    status: 'Confirmada',
+    charge: 'Si',
+    tags: ['confirmada']
+  },
+  // TARDE (16:00 - 20:00)
+  {
+    id: 'row-10',
+    day: '7 Ene',
+    hour: '16:00',
+    name: 'Miguel Gómez Hernández',
+    professional: 'Dr. Miguel Á. Torres',
+    reason: 'Implante dental',
+    phone: '601 234 567',
     status: 'Confirmada',
     charge: 'No',
     tags: ['confirmada']
   },
   {
-    id: 'row-10',
-    day: '17 Sep',
-    hour: '00:00',
-    name: 'Nombre apellido',
-    reason: '888 888 888',
-    phone: '888 888 888',
-    status: 'No confirmada',
-    charge: 'No'
-  },
-  {
     id: 'row-11',
-    day: '17 Sep',
-    hour: '00:00',
-    name: 'Nombre apellido',
-    reason: '888 888 888',
-    phone: '888 888 888',
+    day: '7 Ene',
+    hour: '16:30',
+    name: 'Elena Vega Castillo',
+    professional: 'Laura Sánchez (Higienista)',
+    reason: 'Blanqueamiento LED',
+    phone: '612 345 678',
     status: 'Confirmada',
-    charge: 'No',
+    charge: 'Si',
     tags: ['confirmada']
   },
   {
     id: 'row-12',
-    day: '17 Sep',
-    hour: '00:00',
-    name: 'Nombre apellido',
-    reason: '888 888 888',
-    phone: '888 888 888',
+    day: '7 Ene',
+    hour: '17:30',
+    name: 'Antonio Pérez Molina',
+    professional: 'Laura Sánchez (Higienista)',
+    reason: 'Limpieza dental',
+    phone: '623 456 789',
+    status: 'No confirmada',
+    charge: 'No',
+    tags: ['deuda']
+  },
+  {
+    id: 'row-13',
+    day: '7 Ene',
+    hour: '18:00',
+    name: 'Marta Alonso Blanco',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Empaste molar 16',
+    phone: '634 567 890',
+    status: 'Confirmada',
+    charge: 'Si',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-14',
+    day: '7 Ene',
+    hour: '18:30',
+    name: 'Fernando Díaz Ortega',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Férula de descarga',
+    phone: '645 678 901',
+    status: 'Confirmada',
+    charge: 'Si',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-15',
+    day: '7 Ene',
+    hour: '19:00',
+    name: 'Beatriz Muñoz Serrano',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Revisión anual',
+    phone: '656 789 012',
+    status: 'No confirmada',
+    charge: 'Si'
+  },
+  // PRÓXIMOS DÍAS
+  {
+    id: 'row-16',
+    day: '8 Ene',
+    hour: '09:00',
+    name: 'Ramón Castro Vidal',
+    professional: 'Dra. Elena Navarro',
+    reason: 'Colocación brackets',
+    phone: '667 890 123',
+    status: 'Confirmada',
+    charge: 'No',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-17',
+    day: '8 Ene',
+    hour: '09:30',
+    name: 'Patricia Romero Nieto',
+    professional: 'Laura Sánchez (Higienista)',
+    reason: 'Limpieza (ortodoncia)',
+    phone: '678 901 234',
+    status: 'Confirmada',
+    charge: 'Si',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-18',
+    day: '8 Ene',
+    hour: '10:30',
+    name: 'María García López',
+    professional: 'Dr. Miguel Á. Torres',
+    reason: 'Cirugía cordales',
+    phone: '612 345 678',
+    status: 'Confirmada',
+    charge: 'No',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-19',
+    day: '8 Ene',
+    hour: '11:30',
+    name: 'Sofía Navarro Díaz',
+    professional: 'Dra. Elena Navarro',
+    reason: 'Revisión Invisalign',
+    phone: '678 901 234',
+    status: 'No confirmada',
+    charge: 'No'
+  },
+  {
+    id: 'row-20',
+    day: '8 Ene',
+    hour: '16:30',
+    name: 'Miguel Gómez Hernández',
+    professional: 'Dr. Francisco Moreno',
+    reason: 'Endodoncia molar 36',
+    phone: '601 234 567',
+    status: 'Confirmada',
+    charge: 'No',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-21',
+    day: '8 Ene',
+    hour: '18:30',
+    name: 'Beatriz Muñoz Serrano',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Carillas estéticas',
+    phone: '656 789 012',
+    status: 'Confirmada',
+    charge: 'No',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-22',
+    day: '9 Ene',
+    hour: '09:00',
+    name: 'Marta Alonso Blanco',
+    professional: 'Laura Sánchez (Higienista)',
+    reason: 'Limpieza rutinaria',
+    phone: '634 567 890',
+    status: 'Confirmada',
+    charge: 'Si',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-23',
+    day: '9 Ene',
+    hour: '10:30',
+    name: 'Ramón Castro Vidal',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Corona zirconio',
+    phone: '667 890 123',
+    status: 'Reagendar',
+    charge: 'No'
+  },
+  {
+    id: 'row-24',
+    day: '9 Ene',
+    hour: '12:00',
+    name: 'Lucía Martín (8 años)',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Selladores molares',
+    phone: '612 987 654',
+    status: 'Confirmada',
+    charge: 'Si',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-25',
+    day: '9 Ene',
+    hour: '16:00',
+    name: 'Sofía Navarro Díaz',
+    professional: 'Dr. Miguel Á. Torres',
+    reason: 'Implante dental',
+    phone: '678 901 234',
+    status: 'Confirmada',
+    charge: 'No',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-26',
+    day: '10 Ene',
+    hour: '09:00',
+    name: 'Elena Vega Castillo',
+    professional: 'Laura Sánchez (Higienista)',
+    reason: 'Blanqueamiento (1ª)',
+    phone: '612 345 678',
+    status: 'No confirmada',
+    charge: 'Si'
+  },
+  {
+    id: 'row-27',
+    day: '10 Ene',
+    hour: '16:00',
+    name: 'Sofía Navarro Díaz',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Carillas (preparación)',
+    phone: '678 901 234',
+    status: 'Confirmada',
+    charge: 'No',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-28',
+    day: '11 Ene',
+    hour: '09:00',
+    name: 'Laura Fernández Ruiz',
+    professional: 'Laura Sánchez (Higienista)',
+    reason: 'Limpieza (brackets)',
+    phone: '656 789 012',
+    status: 'Confirmada',
+    charge: 'Si',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-29',
+    day: '11 Ene',
+    hour: '10:30',
+    name: 'Miguel Gómez Hernández',
+    professional: 'Dr. Miguel Á. Torres',
+    reason: 'Extracción resto 26',
+    phone: '601 234 567',
+    status: 'Confirmada',
+    charge: 'Si',
+    tags: ['confirmada']
+  },
+  {
+    id: 'row-30',
+    day: '11 Ene',
+    hour: '12:30',
+    name: 'Beatriz Muñoz Serrano',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Empaste molar 47',
+    phone: '656 789 012',
     status: 'No confirmada',
     charge: 'Si'
   }
@@ -370,36 +617,66 @@ export default function ParteDiarioPage() {
         >
           <KpiCard
             title='Pacientes hoy'
-            value='16'
+            value='15'
             badge={
               <span className='text-body-md text-[var(--color-success-600)]'>
-                24%
+                +12%
               </span>
             }
           />
           <KpiCard
             title='Pacientes semana'
-            value='4/16'
-            badge={<span className='text-body-md text-[#d97706]'>25%</span>}
+            value='68/75'
+            badge={
+              <span className='text-body-md text-[var(--color-success-600)]'>
+                91%
+              </span>
+            }
           />
           <KpiCard
             title='Pacientes recibidos'
-            value='12/16'
+            value='11/15'
             badge={
               <span className='text-body-md text-[var(--color-success-600)]'>
-                75%
+                73%
               </span>
             }
           />
           <KpiCard
             title='Citas confirmadas'
-            value='1'
+            value='12'
             badge={
               <span className='text-body-md text-[var(--color-success-600)]'>
-                8%
+                80%
               </span>
             }
           />
+        </div>
+
+        {/* Bandas de profesionales - Layout horizontal */}
+        <div className='flex-shrink-0 mt-6'>
+          <div className='flex items-center gap-4 flex-wrap'>
+            <p className='text-body-md font-medium text-[var(--color-neutral-700)]'>
+              Profesionales hoy,{' '}
+              {new Date().toLocaleDateString('es-ES', {
+                day: 'numeric',
+                month: 'long'
+              })}
+            </p>
+            <div className='flex items-center gap-4'>
+              {DAILY_BANDS.map((band) => (
+                <div key={band.id} className='flex items-center gap-2'>
+                  <span
+                    className='size-3 rounded-full'
+                    style={{ backgroundColor: band.background }}
+                  />
+                  <span className='text-body-sm text-[var(--color-neutral-700)]'>
+                    {band.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Table Section - Flexible container */}

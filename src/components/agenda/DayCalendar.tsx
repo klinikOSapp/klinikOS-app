@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
-import { useState } from 'react'
+import { CSSProperties, useRef, useState } from 'react'
 
 import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
 import type { EventDetail } from './types'
@@ -89,11 +89,26 @@ const BOX_HEADERS = [
   { label: 'BOX 3', tone: 'neutral' as const }
 ]
 
+const DAILY_BANDS = [
+  {
+    id: 'odontologo',
+    label: 'Odontólogo 10:00 - 16:00',
+    background: '#f0fafa'
+  },
+  {
+    id: 'anestesista',
+    label: 'Anestesista 10:00 - 16:00',
+    background: '#fbe9fb'
+  }
+]
+const DAILY_BAND_HEIGHT_REM = 2.25 // 36px ÷ 16
+
 type DayEvent = {
   id: string
   label: string
   top: string
   bgColor: string
+  height?: string
   detail?: EventDetail
   box?: string
 }
@@ -448,9 +463,9 @@ function TimeColumn({ timeLabels }: { timeLabels: string[] }) {
     <div
       className='absolute left-0 bg-[var(--color-neutral-100)]'
       style={{
-        top: 'var(--scheduler-day-header-height)',
+        top: 'var(--day-offset-top)',
         width: 'var(--day-time-column-width)',
-        height: 'calc(100% - var(--scheduler-day-header-height))'
+        height: 'calc(100% - var(--day-offset-top))'
       }}
     >
       <div
@@ -515,7 +530,9 @@ function DayEvent({
   onLeave,
   onActivate,
   isActive,
-  isHovered
+  isHovered,
+  onDragStart,
+  styleOverride
 }: {
   event: DayEvent
   onHover: () => void
@@ -523,6 +540,8 @@ function DayEvent({
   onActivate: () => void
   isActive?: boolean
   isHovered?: boolean
+  onDragStart?: (e: React.MouseEvent<HTMLButtonElement>) => void
+  styleOverride?: CSSProperties
 }) {
   const stateClasses = isActive
     ? 'border-2 border-[var(--color-brand-500)] shadow-[0px_4px_12px_rgba(81,214,199,0.35)]'
@@ -541,6 +560,9 @@ function DayEvent({
         e.stopPropagation()
         onActivate()
       }}
+      onMouseDown={(e) => {
+        onDragStart?.(e)
+      }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
@@ -556,8 +578,10 @@ function DayEvent({
         top: event.top,
         left: 'var(--day-event-left)',
         width: 'var(--day-event-width-percent)',
-        height: 'var(--day-event-height)',
-        backgroundColor: event.bgColor
+        height: event.height ?? 'var(--day-event-height)',
+        backgroundColor: event.bgColor,
+        cursor: onDragStart ? 'grab' : 'pointer',
+        ...styleOverride
       }}
     >
       <p className='truncate text-center'>{event.label}</p>
@@ -570,26 +594,39 @@ function BoxColumn({
   onHover,
   onActivate,
   activeId,
-  hoveredId
+  hoveredId,
+  onDragStart,
+  previewStyles
 }: {
   column: BoxColumn
   onHover: (selection: DayEventSelection) => void
   onActivate: (selection: DayEventSelection) => void
   activeId?: string | null
   hoveredId?: string | null
+  onDragStart?: (
+    selection: DayEventSelection,
+    e: React.MouseEvent<HTMLButtonElement>
+  ) => void
+  previewStyles?: Record<string, CSSProperties>
 }) {
   return (
     <div className='relative flex-1 overflow-hidden border-r border-[var(--color-border-default)] bg-[var(--color-neutral-0)]'>
       {/* Eventos */}
-      {column.events.map((event) => (
+      {column.events.map((event, idx) => (
         <DayEvent
-          key={event.id}
+          key={event.id || `${column.id}-${idx}`}
           event={event}
           onHover={() => onHover({ event, boxId: column.id })}
           onLeave={() => onHover(null)}
           onActivate={() => onActivate({ event, boxId: column.id })}
           isActive={activeId === event.id}
           isHovered={hoveredId === event.id && activeId !== event.id}
+          onDragStart={
+            onDragStart
+              ? (e) => onDragStart({ event, boxId: column.id }, e)
+              : undefined
+          }
+          styleOverride={previewStyles?.[event.id]}
         />
       ))}
     </div>
@@ -601,13 +638,20 @@ function TimeSlotRow({
   onHover,
   onActivate,
   activeId,
-  hoveredId
+  hoveredId,
+  onDragStart,
+  previewStyles
 }: {
   slot: TimeSlot
   onHover: (selection: DayEventSelection) => void
   onActivate: (selection: DayEventSelection) => void
   activeId?: string | null
   hoveredId?: string | null
+  onDragStart?: (
+    selection: DayEventSelection,
+    e: React.MouseEvent<HTMLButtonElement>
+  ) => void
+  previewStyles?: Record<string, CSSProperties>
 }) {
   return (
     <div className='flex'>
@@ -619,6 +663,8 @@ function TimeSlotRow({
           onActivate={onActivate}
           activeId={activeId}
           hoveredId={hoveredId}
+          onDragStart={onDragStart}
+          previewStyles={previewStyles}
         />
       ))}
     </div>
@@ -627,30 +673,43 @@ function TimeSlotRow({
 
 function DayGrid({
   timeLabels,
+  timeSlotsOverride,
   onHover,
   onActivate,
   activeId,
-  hoveredId
+  hoveredId,
+  onDragStart,
+  previewStyles,
+  gridRef
 }: {
   timeLabels: string[]
+  timeSlotsOverride?: TimeSlot[]
   onHover: (selection: DayEventSelection) => void
   onActivate: (selection: DayEventSelection) => void
   activeId?: string | null
   hoveredId?: string | null
+  onDragStart?: (
+    selection: DayEventSelection,
+    e: React.MouseEvent<HTMLButtonElement>
+  ) => void
+  previewStyles?: Record<string, CSSProperties>
+  gridRef?: React.Ref<HTMLDivElement>
 }) {
   // Filtrar slots según los horarios visibles
-  const filteredSlots = TIME_SLOTS.filter((slot) =>
+  const sourceSlots = timeSlotsOverride ?? TIME_SLOTS
+  const filteredSlots = sourceSlots.filter((slot) =>
     timeLabels.includes(slot.time)
   )
 
   return (
     <div
       className='absolute w-full'
+      ref={gridRef}
       style={{
         left: 'var(--day-time-column-width)',
-        top: 'var(--scheduler-day-header-height)',
+        top: 'var(--day-offset-top)',
         width: 'calc(100% - var(--day-time-column-width))',
-        height: 'calc(100% - var(--scheduler-day-header-height))'
+        height: 'calc(100% - var(--day-offset-top))'
       }}
     >
       {/* Rejilla de líneas cada 30 minutos (misma que vista semanal) */}
@@ -684,6 +743,8 @@ function DayGrid({
             onActivate={onActivate}
             activeId={activeId}
             hoveredId={hoveredId}
+            onDragStart={onDragStart}
+            previewStyles={previewStyles}
           />
         ))}
       </div>
@@ -693,13 +754,153 @@ function DayGrid({
 
 type DayPeriod = 'full' | 'morning' | 'afternoon'
 
-interface DayCalendarProps {
-  period?: DayPeriod
+type ExternalAppointment = {
+  id: string
+  start: string // 'HH:MM'
+  end: string // 'HH:MM'
+  patient?: string
+  title?: string
+  box?: string
+  bgColor?: string
 }
 
-export default function DayCalendar({ period = 'full' }: DayCalendarProps) {
+// Tipo para bandas de profesionales dinámicas
+export type DayBand = {
+  id: string
+  label: string
+  background: string
+}
+
+interface DayCalendarProps {
+  period?: DayPeriod
+  appointments?: ExternalAppointment[]
+  dateLabel?: string
+  bands?: DayBand[] // Bandas de profesionales para el día
+  onAppointmentMove?: (payload: {
+    id: string
+    start: string
+    end: string
+    box: string
+  }) => void
+}
+
+function timeToMinutes(time: string): number {
+  const [hh, mm] = time.split(':').map(Number)
+  return hh * 60 + mm
+}
+
+function buildEventsFromAppointments(
+  appointments: ExternalAppointment[]
+): TimeSlot[] {
+  if (!appointments.length) return TIME_SLOTS
+
+  const slotHeight = 'var(--scheduler-slot-height-half)'
+  const dayStartMinutes = 9 * 60 // 9:00 base in current grid
+
+  // Helper to map appointment box to internal boxId
+  const getBoxId = (apptBox: string | undefined, index: number): string => {
+    if (apptBox) {
+      const lower = apptBox.toLowerCase()
+      if (lower.includes('1')) return 'box1'
+      if (lower.includes('2')) return 'box2'
+      if (lower.includes('3')) return 'box3'
+    }
+    // Fallback: round-robin
+    return index % 3 === 0 ? 'box1' : index % 3 === 1 ? 'box2' : 'box3'
+  }
+
+  // Helper to get the time slot key (e.g., "9:00", "9:30")
+  const getTimeSlotKey = (minutes: number): string => {
+    const h = Math.floor(minutes / 60)
+    const m = minutes % 60
+    return `${h}:${m === 0 ? '00' : '30'}`
+  }
+
+  // Group events by their starting time slot
+  const eventsBySlot: Record<string, Record<string, DayEvent[]>> = {}
+
+  // Initialize all slots with empty boxes
+  TIME_LABELS.forEach((time) => {
+    eventsBySlot[time] = {
+      box1: [],
+      box2: [],
+      box3: []
+    }
+  })
+
+  // Sort by start time
+  const sorted = [...appointments].sort(
+    (a, b) => timeToMinutes(a.start) - timeToMinutes(b.start)
+  )
+
+  sorted.forEach((appt, index) => {
+    const startMin = timeToMinutes(appt.start)
+    const endMin = timeToMinutes(appt.end)
+    const durationMin = Math.max(30, endMin - startMin)
+    const heightUnits = durationMin / 30
+
+    // Find the slot this event belongs to
+    const slotKey = getTimeSlotKey(startMin)
+
+    // Calculate top offset within the slot (should be 0 for events starting at slot time)
+    const slotStartMin = Math.floor(startMin / 30) * 30
+    const offsetWithinSlot = (startMin - slotStartMin) / 30
+    const top = `calc(${offsetWithinSlot} * ${slotHeight})`
+    const height = `calc(${heightUnits} * ${slotHeight})`
+
+    // Use the box from the appointment or fallback to round-robin
+    const boxId = getBoxId(appt.box, index)
+
+    // Create label with title AND patient name (like weekly view)
+    const title = appt.title ?? 'Consulta'
+    const patient = appt.patient ?? ''
+    const label = patient ? `${title}\n${patient}` : `${appt.start} ${title}`
+
+    const event: DayEvent = {
+      id: appt.id,
+      label,
+      top,
+      bgColor: appt.bgColor ?? 'var(--color-event-purple)',
+      detail: createEventDetail(`${appt.start} ${title}`, appt.box ?? 'Box 1'),
+      box: appt.box ?? boxId,
+      height
+    }
+
+    // Add event to the correct slot and box
+    if (eventsBySlot[slotKey]) {
+      eventsBySlot[slotKey][boxId].push(event)
+    }
+  })
+
+  // Build time slots with proper structure
+  return TIME_LABELS.map((time) => ({
+    time,
+    boxes: [
+      { id: 'box1', events: eventsBySlot[time]?.box1 || [] },
+      { id: 'box2', events: eventsBySlot[time]?.box2 || [] },
+      { id: 'box3', events: eventsBySlot[time]?.box3 || [] }
+    ]
+  }))
+}
+
+export default function DayCalendar({
+  period = 'full',
+  appointments = [],
+  dateLabel,
+  bands = DAILY_BANDS,
+  onAppointmentMove
+}: DayCalendarProps) {
   const [hovered, setHovered] = useState<DayEventSelection>(null)
   const [active, setActive] = useState<DayEventSelection>(null)
+  const [previewStyles, setPreviewStyles] = useState<
+    Record<string, CSSProperties>
+  >({})
+  const gridRef = useRef<HTMLDivElement | null>(null)
+  const dragState = useRef<{
+    id: string
+    spanSlots: number
+    offsetY: number
+  } | null>(null)
 
   const handleHover = (state: DayEventSelection) => {
     setHovered(state)
@@ -736,9 +937,104 @@ export default function DayCalendar({ period = 'full' }: DayCalendarProps) {
   }
 
   const filteredTimeLabels = getFilteredTimeLabels()
+  const timeSlots = appointments.length
+    ? buildEventsFromAppointments(appointments)
+    : TIME_SLOTS
+
+  const clampSlot = (value: number, span: number) =>
+    Math.max(0, Math.min(value, filteredTimeLabels.length - span))
+
+  const minutesToTime = (minutes: number) => {
+    const h = Math.floor(minutes / 60)
+    const m = minutes % 60
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+  }
+
+  const handleDragStart = (
+    selection: DayEventSelection,
+    e: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    if (!selection) return
+    const grid = gridRef.current
+    if (!grid) return
+
+    const gridRect = grid.getBoundingClientRect()
+    const slotHeight = gridRect.height / filteredTimeLabels.length
+    if (slotHeight <= 0) return
+
+    const targetRect = (
+      e.currentTarget as HTMLButtonElement
+    ).getBoundingClientRect()
+    const spanSlots = Math.max(1, targetRect.height / slotHeight)
+    const offsetY = e.clientY - targetRect.top
+
+    dragState.current = {
+      id: selection.event.id,
+      spanSlots,
+      offsetY
+    }
+
+    const handleMove = (ev: MouseEvent) => {
+      if (!dragState.current) return
+      const { id, spanSlots, offsetY } = dragState.current
+      const relY = ev.clientY - gridRect.top - offsetY
+      const slotHeightPx = slotHeight
+      const slotIndex = clampSlot(
+        Math.round(relY / slotHeightPx),
+        Math.ceil(spanSlots)
+      )
+
+      const topPx = slotIndex * slotHeightPx
+      setPreviewStyles({
+        [id]: {
+          top: `${topPx}px`
+        }
+      })
+    }
+
+    const handleUp = (ev: MouseEvent) => {
+      if (!dragState.current) return
+      const { id, spanSlots, offsetY } = dragState.current
+      const relY = ev.clientY - gridRect.top - offsetY
+      const slotIndex = clampSlot(
+        Math.round(relY / (gridRect.height / filteredTimeLabels.length)),
+        Math.ceil(spanSlots)
+      )
+      const startMinutes = 9 * 60 + slotIndex * 30
+      const endMinutes = startMinutes + Math.max(1, Math.round(spanSlots)) * 30
+
+      // Determinar box por posición X dentro de la grilla (3 boxes)
+      const boxWidth = gridRect.width / 3
+      const relX = ev.clientX - gridRect.left
+      const boxIndex = Math.max(
+        0,
+        Math.min(2, Math.floor(relX / Math.max(boxWidth, 1)))
+      )
+      const targetBox = BOX_HEADERS[boxIndex]?.label ?? 'BOX 1'
+
+      if (onAppointmentMove) {
+        onAppointmentMove({
+          id,
+          start: minutesToTime(startMinutes),
+          end: minutesToTime(endMinutes),
+          box: targetBox
+        })
+      }
+
+      setPreviewStyles({})
+      dragState.current = null
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp, { once: true })
+  }
 
   // Altura mínima basada en la jornada completa para que los segmentos puedan expandirse
-  const fullDayHeight = `calc(${TIME_LABELS.length} * var(--scheduler-slot-height-half) + var(--scheduler-day-header-height))`
+  const bandsTotalHeight = `${bands.length * DAILY_BAND_HEIGHT_REM}rem`
+  const dayOffsetTop = `calc(var(--scheduler-day-header-height) + ${bandsTotalHeight})`
+  const fullDayHeight = `calc(${TIME_LABELS.length} * var(--scheduler-slot-height-half) + var(--scheduler-day-header-height) + ${bandsTotalHeight})`
 
   const overlaySource = active
   const activeDetail = overlaySource?.event.detail
@@ -746,17 +1042,54 @@ export default function DayCalendar({ period = 'full' }: DayCalendarProps) {
   return (
     <div
       className='relative h-full w-full'
-      style={{ minHeight: fullDayHeight }}
+      style={
+        {
+          minHeight: fullDayHeight,
+          '--day-bands-height': bandsTotalHeight,
+          '--day-offset-top': dayOffsetTop
+        } as CSSProperties
+      }
       onClick={handleRootClick}
     >
       <BoxHeaders />
+      <div
+        className='absolute left-0 top-[var(--scheduler-day-header-height)] z-[2] flex w-full flex-col'
+        style={{
+          height: bandsTotalHeight
+        }}
+        aria-hidden
+      >
+        {bands.map((band) => (
+          <div key={band.id} className='flex h-[2.25rem] w-full'>
+            <div
+              className='shrink-0'
+              style={{
+                width: 'var(--day-time-column-width)',
+                backgroundColor: 'var(--color-neutral-100)'
+              }}
+            />
+            <div
+              className='flex flex-1 items-center justify-center px-[0.5rem]'
+              style={{ backgroundColor: band.background }}
+            >
+              <p className='text-[0.875rem] leading-[1.25rem] text-[#24282c] text-center whitespace-nowrap'>
+                {band.label}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
       <TimeColumn timeLabels={filteredTimeLabels} />
       <DayGrid
         timeLabels={filteredTimeLabels}
+        timeSlotsOverride={timeSlots}
         onHover={handleHover}
         onActivate={handleActivate}
         activeId={active?.event.id}
         hoveredId={hovered?.event.id}
+        onDragStart={handleDragStart}
+        previewStyles={previewStyles}
+        gridRef={gridRef}
       />
 
       {/* Hover overlay - Simplified detail view */}

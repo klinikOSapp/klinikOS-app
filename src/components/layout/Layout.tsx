@@ -18,6 +18,7 @@ import AddPatientModal from '@/components/pacientes/modals/add-patient/AddPatien
 export default function Layout({ children, ctaMenuItems }: LayoutProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [isAddPatientModalOpen, setIsAddPatientModalOpen] = useState(false)
+  const [initialPatientName, setInitialPatientName] = useState<string>('')
   const router = useRouter()
   const pathname = usePathname()
 
@@ -69,13 +70,17 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
     }
   }, [pathname, router])
 
-  const handleOpenCreatePatient = useCallback(() => {
+  const handleOpenCreatePatient = useCallback((name?: string) => {
+    setInitialPatientName(name ?? '')
     setIsAddPatientModalOpen(true)
-    window.dispatchEvent(new CustomEvent('patients:open-add-patient'))
   }, [])
 
   useEffect(() => {
-    const handler = () => setIsAddPatientModalOpen(true)
+    const handler = (event: Event) => {
+      const custom = event as CustomEvent<{ name?: string }>
+      setInitialPatientName(custom.detail?.name ?? '')
+      setIsAddPatientModalOpen(true)
+    }
     window.addEventListener('patients:open-add-patient', handler)
     return () => {
       window.removeEventListener('patients:open-add-patient', handler)
@@ -87,7 +92,7 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
       ctaMenuItems ?? [
         { id: 'nueva-cita', label: 'Nueva cita', onClick: handleOpenCreateAppointment },
         { id: 'nuevo-presupuesto', label: 'Nuevo presupuesto' },
-        { id: 'nuevo-paciente', label: 'Nuevo paciente', onClick: handleOpenCreatePatient }
+        { id: 'nuevo-paciente', label: 'Nuevo paciente', onClick: () => handleOpenCreatePatient() }
       ],
     [ctaMenuItems, handleOpenCreateAppointment, handleOpenCreatePatient]
   )
@@ -97,6 +102,7 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
       <AddPatientModal
         open={isAddPatientModalOpen}
         onClose={() => setIsAddPatientModalOpen(false)}
+        initialName={initialPatientName}
       />
       <TopBar userName='Daniel' />
       <div className='flex'>

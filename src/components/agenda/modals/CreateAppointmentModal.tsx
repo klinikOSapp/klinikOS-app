@@ -1,5 +1,6 @@
 'use client'
 
+import { SelectInput } from '@/components/pacientes/modals/add-patient/AddPatientInputs'
 import { useEffect, useState } from 'react'
 
 type CreateAppointmentModalProps = {
@@ -36,6 +37,12 @@ export default function CreateAppointmentModal({
   initialData
 }: CreateAppointmentModalProps) {
   const [formData, setFormData] = useState<AppointmentFormData>(() => getEmptyFormData())
+  const handleOpenCreatePatient = (name?: string) => {
+    onClose()
+    window.dispatchEvent(
+      new CustomEvent('patients:open-add-patient', { detail: { name } })
+    )
+  }
 
   useEffect(() => {
     if (!isOpen) {
@@ -110,63 +117,41 @@ export default function CreateAppointmentModal({
             <div className='flex items-center gap-6'>
             <p className='w-[10.5rem] font-normal text-base leading-6 text-[#24282c]'>Servicio</p>
             <div className='relative w-[19.1875rem]'>
-              <select
+              <SelectInput
+                placeholder='Seleccionar servicio'
                 value={formData.servicio}
-                onChange={(e) => setFormData({ ...formData, servicio: e.target.value })}
-                className='h-[3rem] w-full appearance-none rounded-lg border-[0.5px] border-solid border-[#cbd3d9] bg-[#f8fafb] px-[0.625rem] py-2 pr-8 font-normal text-base leading-6 text-[#aeb8c2] focus:text-[#24282c] focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-opacity-50 cursor-pointer'
-              >
-                <option value=''>Seleccionar servicio</option>
-                {servicios.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <div className='pointer-events-none absolute right-2 top-1/2 -translate-y-1/2'>
-                <span className='material-symbols-rounded text-2xl text-[#6d7783]'>keyboard_arrow_down</span>
-              </div>
+                onChange={(v) => setFormData({ ...formData, servicio: v })}
+                options={servicios}
+              />
             </div>
             </div>
 
             <div className='flex items-center gap-6'>
               <p className='w-[10.5rem] font-normal text-base leading-6 text-[#24282c]'>Paciente</p>
               <div className='relative w-[19.1875rem]'>
-                <select
+                <SelectInput
+                  placeholder='Seleccionar paciente'
                   value={formData.paciente}
-                  onChange={(e) => setFormData({ ...formData, paciente: e.target.value })}
-                  className='h-[3rem] w-full appearance-none rounded-lg border-[0.5px] border-solid border-[#cbd3d9] bg-[#f8fafb] px-[0.625rem] py-2 pr-8 font-normal text-base leading-6 text-[#aeb8c2] focus:text-[#24282c] focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-opacity-50 cursor-pointer'
-                >
-                  <option value=''>Seleccionar paciente</option>
-                  {pacientes.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <div className='pointer-events-none absolute right-2 top-1/2 -translate-y-1/2'>
-                  <span className='material-symbols-rounded text-2xl text-[#6d7783]'>keyboard_arrow_down</span>
-                </div>
+                  onChange={(v) => setFormData({ ...formData, paciente: v })}
+                  options={pacientes}
+                  onCreate={(text) => handleOpenCreatePatient(text)}
+                  createLabel='Crear paciente'
+                  createLabelFromInput={(text) =>
+                    text?.trim() ? `Crear ${text.trim()}` : 'Crear paciente'
+                  }
+                />
               </div>
             </div>
 
             <div className='flex items-center gap-6'>
               <p className='w-[10.5rem] font-normal text-base leading-6 text-[#24282c]'>Responsable</p>
               <div className='relative w-[19.1875rem]'>
-                <select
+                <SelectInput
+                  placeholder='Seleccionar responsable'
                   value={formData.responsable}
-                  onChange={(e) => setFormData({ ...formData, responsable: e.target.value })}
-                  className='h-[3rem] w-full appearance-none rounded-lg border-[0.5px] border-solid border-[#cbd3d9] bg-[#f8fafb] px-[0.625rem] py-2 pr-8 font-normal text-base leading-6 text-[#aeb8c2] focus:text-[#24282c] focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-opacity-50 cursor-pointer'
-                >
-                  <option value=''>Seleccionar responsable</option>
-                  {responsables.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <div className='pointer-events-none absolute right-2 top-1/2 -translate-y-1/2'>
-                  <span className='material-symbols-rounded text-2xl text-[#6d7783]'>keyboard_arrow_down</span>
-                </div>
+                  onChange={(v) => setFormData({ ...formData, responsable: v })}
+                  options={responsables}
+                />
               </div>
             </div>
 

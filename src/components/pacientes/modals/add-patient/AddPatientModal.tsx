@@ -84,6 +84,7 @@ type AddPatientModalProps = {
   open: boolean
   onClose: () => void
   onContinue?: () => void
+  initialName?: string
 }
 
 // FieldLabel, TextInput, SelectInput, TextArea moved to AddPatientInputs.tsx
@@ -91,7 +92,8 @@ type AddPatientModalProps = {
 export default function AddPatientModal({
   open,
   onClose,
-  onContinue
+  onContinue,
+  initialName
 }: AddPatientModalProps) {
   const [step, setStep] = React.useState<
     | 'paciente'
@@ -343,6 +345,13 @@ export default function AddPatientModal({
     miedo?: string
     onChangeMiedo?: (v: string) => void
   }>
+
+  React.useEffect(() => {
+    if (open && initialName) {
+      setNombre(initialName)
+      setStep('paciente')
+    }
+  }, [initialName, open])
 
   if (!open) return null
 
