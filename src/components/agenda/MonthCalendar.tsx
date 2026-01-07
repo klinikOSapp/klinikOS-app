@@ -410,7 +410,7 @@ function DayCell({
       ? `calc(${eventAreaPadding} + ${colIndex} * (${columnWidth} + ${colGap}))`
       : eventAreaPadding
 
-  const handleDayContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
+  const handleDayContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault()
     event.stopPropagation()
     if (!cell.isCurrentMonth || cell.isSunday) return
