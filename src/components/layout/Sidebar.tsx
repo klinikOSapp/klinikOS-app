@@ -37,7 +37,7 @@ export default function Sidebar({
         'h-[calc(100dvh-var(--spacing-topbar))]',
         'pt-6',
         'relative',
-        'z-10',
+        'z-30',
         'transition-[width] duration-300 ease-in-out'
       ].join(' ')}
       aria-label='Sidebar navigation'

@@ -2169,7 +2169,7 @@ function MultiSelectDropdown({
       id={id}
       role='menu'
       aria-orientation='vertical'
-      className='absolute left-0 top-[calc(100%+0.5rem)] z-50 flex w-[min(9.3125rem,30vw)] flex-col rounded-[0.5rem] border border-[var(--color-neutral-200)] bg-[rgba(248,250,251,0.9)] py-[0.5rem] backdrop-blur-[0.125rem] shadow-[0.125rem_0.125rem_0.25rem_0_rgba(0,0,0,0.1)]'
+      className='absolute left-0 top-[calc(100%+0.5rem)] z-50 flex max-h-[min(20rem,50vh)] w-max min-w-[9.3125rem] flex-col overflow-y-auto rounded-[0.5rem] border border-[var(--color-neutral-200)] bg-[rgba(248,250,251,0.9)] py-[0.5rem] backdrop-blur-[0.125rem] shadow-[0.125rem_0.125rem_0.25rem_0_rgba(0,0,0,0.1)]'
       onClick={(event) => event.stopPropagation()}
     >
       {options.map((option) => {
@@ -2376,43 +2376,57 @@ function HeaderLabels({
 function TimeColumn() {
   return (
     <div
-      className='absolute left-0 top-0 bg-[var(--color-neutral-100)]'
+      className='absolute left-0 top-0 z-[5] bg-[var(--color-neutral-100)]'
       style={{
         width: 'var(--scheduler-time-width)',
         height: '100%'
       }}
     >
       <div
-        className='grid'
+        className='grid overflow-visible'
         style={{
           gridTemplateRows: `repeat(${TOTAL_SLOTS}, var(--scheduler-slot-height-quarter))`
         }}
       >
         {Array.from({ length: TOTAL_SLOTS }).map((_, index) => {
-          const isHourLine = index % SLOTS_PER_HOUR === 0
-          const hourLabel = isHourLine
-            ? HOUR_LABELS[Math.floor(index / SLOTS_PER_HOUR)]
-            : null
+          // Primera celda: mostrar la primera hora al inicio
+          const isFirstCell = index === 0
+          // Resto: mostrar etiqueta cuando el borde inferior es una hora en punto
+          const isHourBorder = (index + 1) % SLOTS_PER_HOUR === 0
 
-          const style =
-            hourLabel != null
-              ? {
-                  alignItems: 'flex-start',
-                  paddingTop: '1.1rem'
-                }
-              : undefined
+          // Calcular la hora para el borde inferior
+          const hourIndex = (index + 1) / SLOTS_PER_HOUR
+          const hourLabel = isHourBorder ? HOUR_LABELS[hourIndex] : null
 
           return (
             <div
               key={index}
-              className='flex justify-center border-r border-[var(--color-neutral-200)]'
-              style={style}
+              className='relative flex justify-center overflow-visible border-r border-[var(--color-neutral-200)]'
             >
-              {hourLabel ? (
-                <p className='text-body-md font-normal text-[var(--color-neutral-600)]'>
+              {/* Primera hora al inicio de la primera celda */}
+              {isFirstCell && HOUR_LABELS[0] && (
+                <p
+                  className='absolute left-1/2 z-10 text-body-md font-normal text-[var(--color-neutral-600)]'
+                  style={{
+                    top: 0,
+                    transform: 'translate(-50%, 0)'
+                  }}
+                >
+                  {HOUR_LABELS[0]}
+                </p>
+              )}
+              {/* Etiquetas de las demás horas en el borde inferior, alineadas con las líneas */}
+              {hourLabel && (
+                <p
+                  className='absolute left-1/2 z-10 text-body-md font-normal text-[var(--color-neutral-600)]'
+                  style={{
+                    bottom: 0,
+                    transform: 'translate(-50%, 50%)'
+                  }}
+                >
                   {hourLabel}
                 </p>
-              ) : null}
+              )}
             </div>
           )
         })}
@@ -2535,7 +2549,7 @@ function DayGrid({
       onClick={handleGridClick}
       onContextMenu={handleGridContextMenu}
     >
-      {/* Líneas horizontales para cada media hora */}
+      {/* Líneas horizontales para cada 15 min */}
       <div
         className='absolute inset-0 grid'
         style={{
@@ -2543,7 +2557,11 @@ function DayGrid({
         }}
       >
         {Array.from({ length: TOTAL_SLOTS }).map((_, index) => {
-          const isHourLine = index % SLOTS_PER_HOUR === 0
+          // El borde inferior de la celda `index` está en el tiempo:
+          // 9:00 + (index + 1) * 15min
+          // Para que la línea oscura esté en las horas en punto (10:00, 11:00, etc.),
+          // necesitamos que (index + 1) sea múltiplo de 4 (SLOTS_PER_HOUR)
+          const isHourLine = (index + 1) % SLOTS_PER_HOUR === 0
           return (
             <div
               key={index}
@@ -4281,8 +4299,20 @@ export default function WeekScheduler() {
             ? resizeHeightSlots
             : dragState.startHeightSlots
 
-        const midX = rect.left + rect.width / 2
-        const targetBox = x > midX ? 'Box 2' : 'Box 1'
+        // Calcular el box objetivo dinámicamente basándose en los boxes seleccionados
+        const validBoxes = selectedBoxes
+          .filter((id) => BOX_OPTIONS.some((opt) => opt.id === id))
+          .sort() // Ordenar para mantener consistencia (box-1, box-2, box-3)
+        const numBoxes = validBoxes.length || 1
+        const boxWidthPx = rect.width / numBoxes
+        const relX = x - rect.left
+        const boxIndex = Math.min(
+          numBoxes - 1,
+          Math.max(0, Math.floor(relX / boxWidthPx))
+        )
+        const targetBoxId = validBoxes[boxIndex] ?? 'box-1'
+        // Convertir 'box-1' a 'Box 1' (formato usado en los eventos)
+        const targetBox = targetBoxId.replace('box-', 'Box ')
 
         const startTime = slotToTime(newSlot)
         const endTime = slotToTime(newSlot + newHeightSlots)
@@ -4353,7 +4383,7 @@ export default function WeekScheduler() {
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
     }
-  }, [dragState, getDateFromWeekday])
+  }, [dragState, getDateFromWeekday, selectedBoxes])
 
   const getSlotIndexFromTime = (time: string): number => {
     const [h = '09', m = '00'] = time.split(':')

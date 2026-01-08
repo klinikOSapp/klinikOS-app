@@ -514,38 +514,69 @@ const TIME_SLOTS: TimeSlot[] = [
   }
 ]
 
-function TimeColumn({ timeLabels }: { timeLabels: string[] }) {
-  // Generar etiquetas cada hora (cada 4 slots de 15 min) para mejor legibilidad
-  // Pero la altura debe coincidir con la cuadrícula de TOTAL_SLOTS × quarter
-  const hourLabels = timeLabels.filter((_, index) => index % 2 === 0) // Solo horas completas: 9:00, 10:00, ...
+function TimeColumn() {
+  // Usar TOTAL_SLOTS de 15 min igual que la vista semanal (44 slots = 11 horas × 4)
+  // Altura de cada slot: --scheduler-slot-height-quarter (igual que vista semanal)
   
   return (
     <div
-      className='absolute left-0 bg-[var(--color-neutral-100)]'
+      className='absolute left-0 z-[5] bg-[var(--color-neutral-100)]'
       style={{
         top: 'var(--day-offset-top)',
         width: 'var(--day-time-column-width)',
-        // Altura total = TOTAL_SLOTS × quarter (igual que DayGrid)
+        // Altura total = TOTAL_SLOTS × altura de cada slot de 15 min
         height: `calc(${TOTAL_SLOTS} * var(--scheduler-slot-height-quarter))`
       }}
     >
       <div
-        className='grid h-full'
+        className='grid h-full overflow-visible'
         style={{
-          // Cada fila representa 1 hora = 4 slots de 15 min
-          gridTemplateRows: `repeat(${hourLabels.length}, calc(4 * var(--scheduler-slot-height-quarter)))`
+          // Cada fila representa 15 min (un slot) - igual que vista semanal
+          gridTemplateRows: `repeat(${TOTAL_SLOTS}, var(--scheduler-slot-height-quarter))`
         }}
       >
-        {hourLabels.map((time, index) => (
-          <div
-            key={index}
-            className='flex items-start justify-center border-b border-r border-[var(--color-border-default)] pt-2'
-          >
-            <p className='text-body-md font-normal text-[var(--color-neutral-600)]'>
-              {time}
-            </p>
-          </div>
-        ))}
+        {Array.from({ length: TOTAL_SLOTS }).map((_, index) => {
+          // Primera celda: mostrar 9:00 al inicio
+          const isFirstCell = index === 0
+          // Resto: mostrar etiqueta cuando el borde inferior es una hora en punto
+          const isHourBorder = (index + 1) % SLOTS_PER_HOUR === 0
+          
+          // Calcular la hora
+          const hourAtBorder = START_HOUR + (index + 1) / SLOTS_PER_HOUR
+          const timeLabel = isFirstCell ? `${START_HOUR}:00` : `${hourAtBorder}:00`
+          
+          return (
+            <div
+              key={index}
+              className='relative flex items-end justify-center overflow-visible border-r border-[var(--color-border-default)]'
+            >
+              {/* Etiqueta de 9:00 al inicio de la primera celda */}
+              {isFirstCell && (
+                <p 
+                  className='absolute left-1/2 z-10 text-body-md font-normal text-[var(--color-neutral-600)]'
+                  style={{
+                    top: 0,
+                    transform: 'translate(-50%, 0)',
+                  }}
+                >
+                  {timeLabel}
+                </p>
+              )}
+              {/* Etiquetas de las demás horas en el borde inferior */}
+              {isHourBorder && (
+                <p 
+                  className='absolute left-1/2 z-10 text-body-md font-normal text-[var(--color-neutral-600)]'
+                  style={{
+                    bottom: 0,
+                    transform: 'translate(-50%, 50%)',
+                  }}
+                >
+                  {timeLabel}
+                </p>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -639,13 +670,12 @@ function DayEvent({
   // Calcular si hay suficiente altura para mostrar notas (igual que vista semanal)
   const canShowNotes = parseDimensionToPx(event.height) >= MIN_HEIGHT_FOR_NOTES_PX
 
-  const stateClasses = isDragging
-    ? 'border-2 border-[var(--color-brand-500)] shadow-[0px_8px_24px_rgba(81,214,199,0.5)] opacity-90'
-    : isActive
-    ? 'border-2 border-[var(--color-brand-500)] shadow-[0px_4px_12px_rgba(81,214,199,0.35)]'
+  // Estados de borde/sombra idénticos a AppointmentSummaryCard (vista semanal)
+  const stateClasses = isActive
+    ? 'border-[var(--color-brand-500)] shadow-[0px_4px_12px_rgba(81,214,199,0.35)]'
     : isHovered
-    ? 'border-2 border-[var(--color-brand-300)]'
-    : 'border-2 border-transparent'
+    ? 'border-[var(--color-brand-500)]'
+    : 'border-[var(--color-border)]'
 
   // Separar título y paciente del label
   const labelParts = event.label.split('\n')
@@ -678,11 +708,11 @@ function DayEvent({
         }
       }}
       className={[
-        'group flex flex-col items-start justify-start overflow-hidden rounded-[var(--day-event-radius)] p-[var(--day-event-padding)] text-left text-body-sm font-normal text-[var(--color-neutral-900)] transition-all duration-150',
+        // Clases idénticas a AppointmentSummaryCard (sin text-body-sm ni font-normal que interfieren)
+        'group absolute flex flex-col gap-[var(--scheduler-event-gap)] overflow-hidden rounded-[var(--radius-lg)] border p-[var(--scheduler-event-padding)] text-left shadow-[0px_1px_2px_rgba(36,40,44,0.08)] transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-brand-500)] active:brightness-[0.98]',
         stateClasses
       ].join(' ')}
       style={{
-        position: 'absolute',
         top: event.top,
         left: 'var(--day-event-left)',
         width: 'var(--day-event-width-percent)',
@@ -690,70 +720,88 @@ function DayEvent({
         backgroundColor: event.bgColor,
         cursor: isDragging ? 'grabbing' : onDragStart ? 'grab' : 'pointer',
         zIndex: isDragging ? 50 : undefined,
+        // Efecto de drag idéntico a AppointmentSummaryCard
+        opacity: isDragging ? 0.88 : 1,
+        transform: isDragging ? 'scale(1.02)' : 'none',
         ...styleOverride
       }}
+      aria-pressed={isActive}
     >
-      {/* Contenido similar al AppointmentSummaryCard */}
-      <div className='flex min-w-0 flex-1 flex-col gap-[0.375rem]'>
-        {/* Título */}
-        <p
-          className='font-medium text-[var(--color-neutral-900)]'
-          style={{
-            fontSize: '0.75rem',
-            lineHeight: '1rem',
-            ...clampStyle(1)
-          }}
-        >
-          {title}
-        </p>
-        {/* Paciente */}
-        {patient && (
+      {/* Contenido idéntico a AppointmentSummaryCard */}
+      <div className='flex items-start justify-between gap-2'>
+        <div className='flex min-w-0 flex-1 flex-col gap-[0.375rem]'>
+          {/* Título - estilos inline fijos */}
           <p
             className='font-medium text-[var(--color-neutral-900)]'
             style={{
-              fontSize: '0.875rem',
-              lineHeight: '1.25rem',
+              fontSize: '0.75rem',
+              lineHeight: '1rem',
               ...clampStyle(1)
             }}
           >
-            {patient}
+            {title}
           </p>
-        )}
-        {/* Notas - Solo se muestran si hay suficiente altura */}
-        {event.detail && canShowNotes && event.detail.notes && (
-          <div className='flex flex-col gap-[0.375rem]'>
-            <div className='flex items-center gap-1 text-[var(--color-neutral-600)]'>
-              <MD3Icon
-                name='DescriptionRounded'
-                size={1}
-                className='text-[var(--color-neutral-600)]'
-              />
-              <span
-                className='font-normal'
-                style={{
-                  fontSize: '0.75rem',
-                  lineHeight: '1rem',
-                  ...clampStyle(1)
-                }}
-              >
-                {event.detail.notesLabel ?? 'Notas'}
-              </span>
-            </div>
+          {/* Paciente - estilos inline fijos */}
+          {patient && (
             <p
-              className='font-normal text-[var(--color-neutral-900)]'
+              className='font-medium text-[var(--color-neutral-900)]'
               style={{
                 fontSize: '0.875rem',
                 lineHeight: '1.25rem',
-                ...clampStyle(2)
+                ...clampStyle(1)
               }}
             >
-              {event.detail.notes}
+              {patient}
             </p>
-          </div>
-        )}
+          )}
+          {/* Notas - Solo se muestran si hay suficiente altura */}
+          {event.detail && canShowNotes && event.detail.notes && (
+            <div className='flex flex-col gap-[0.375rem]'>
+              <div className='flex items-center gap-1 text-[var(--color-neutral-600)]'>
+                <MD3Icon
+                  name='DescriptionRounded'
+                  size={1}
+                  className='text-[var(--color-neutral-600)]'
+                />
+                <span
+                  className='font-normal'
+                  style={{
+                    fontSize: '0.75rem',
+                    lineHeight: '1rem',
+                    ...clampStyle(1)
+                  }}
+                >
+                  {event.detail.notesLabel ?? 'Notas'}
+                </span>
+              </div>
+              <p
+                className='font-normal text-[var(--color-neutral-900)]'
+                style={{
+                  fontSize: '0.875rem',
+                  lineHeight: '1.25rem',
+                  ...clampStyle(2)
+                }}
+              >
+                {event.detail.notes}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Drag overlay - inicia el drag desde cualquier punto de la tarjeta */}
+      {onDragStart && (
+        <div
+          className={`absolute inset-0 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          onMouseDown={(e) => {
+            e.stopPropagation()
+            onDragStart(e)
+          }}
+          aria-hidden
+        />
+      )}
       
-      {/* Handle de resize en la parte inferior */}
+      {/* Handle de resize en la parte inferior - idéntico a AppointmentSummaryCard */}
       {onResizeStart && (
         <div
           data-resize-handle='true'
@@ -761,10 +809,8 @@ function DayEvent({
             e.stopPropagation()
             onResizeStart(e)
           }}
-          className='absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize opacity-0 transition-opacity group-hover:opacity-100'
-          style={{
-            background: 'linear-gradient(to top, rgba(0,0,0,0.1), transparent)'
-          }}
+          className='absolute bottom-0 left-0 right-0 h-2 cursor-s-resize'
+          aria-hidden
         />
       )}
     </button>
@@ -972,6 +1018,7 @@ function DayGrid({
     return boxLayout[boxName]?.width ?? '33.33%'
   }
 
+  // Usar TOTAL_SLOTS de 15 min igual que la vista semanal (44 slots)
   return (
     <div
       className='absolute w-full'
@@ -980,20 +1027,24 @@ function DayGrid({
         left: 'var(--day-time-column-width)',
         top: 'var(--day-offset-top)',
         width: 'calc(100% - var(--day-time-column-width))',
-        height: 'calc(100% - var(--day-offset-top))'
+        // Altura = TOTAL_SLOTS × altura de cada slot de 15 min (igual que vista semanal)
+        height: `calc(${TOTAL_SLOTS} * var(--scheduler-slot-height-quarter))`
       }}
     >
-      {/* Rejilla de líneas cada slot (cada 30 min como en las etiquetas de tiempo) */}
+      {/* Rejilla de líneas cada 15 min (igual que vista semanal) */}
       <div className='pointer-events-none absolute inset-0 z-[1]'>
         <div
           className='grid h-full'
           style={{
-            gridTemplateRows: `repeat(${visibleSlotCount}, var(--scheduler-slot-height-half))`
+            gridTemplateRows: `repeat(${TOTAL_SLOTS}, var(--scheduler-slot-height-quarter))`
           }}
         >
-          {Array.from({ length: visibleSlotCount }).map((_, index) => {
-            // Línea más gruesa cada hora (2 slots de 30 min)
-            const isHourLine = index % 2 === 0
+          {Array.from({ length: TOTAL_SLOTS }).map((_, index) => {
+            // El borde inferior de la celda `index` está en el tiempo:
+            // 9:00 + (index + 1) * 15min
+            // Para que la línea oscura esté en las horas en punto (10:00, 11:00, etc.),
+            // necesitamos que (index + 1) sea múltiplo de 4 (SLOTS_PER_HOUR)
+            const isHourLine = (index + 1) % SLOTS_PER_HOUR === 0
             return (
               <div
                 key={index}
@@ -1586,25 +1637,22 @@ export default function DayCalendar({
     }
   }, [dragState, onAppointmentMove])
 
-  // Altura mínima basada en el período seleccionado
+  // Altura basada en TOTAL_SLOTS de 15 min (igual que vista semanal)
   const bandsTotalHeight = `${bands.length * DAILY_BAND_HEIGHT_REM}rem`
   const dayOffsetTop = `calc(var(--scheduler-day-header-height) + ${bandsTotalHeight})`
-  // Calcular slots visibles según el período (cada etiqueta = 2 slots de 15 min, pero usamos 1 slot por etiqueta de 30 min visible)
-  // Para morning: 9:00, 9:30, 10:00, 10:30, 11:00, 11:30, 12:00 = 7 etiquetas
-  // Para afternoon: 12:00 a 20:00 = 17 etiquetas  
-  // Para full: 9:00 a 20:30 = 23 etiquetas
-  const visibleSlotsForHeight = filteredTimeLabels.length
-  const fullDayHeight = `calc(${visibleSlotsForHeight} * var(--scheduler-slot-height-half) + var(--scheduler-day-header-height) + ${bandsTotalHeight})`
+  // TOTAL_SLOTS = 44 slots de 15 min = 11 horas (igual que vista semanal)
+  const fullDayHeight = `calc(${TOTAL_SLOTS} * var(--scheduler-slot-height-quarter) + var(--scheduler-day-header-height) + ${bandsTotalHeight})`
 
   const overlaySource = active
   const activeDetail = overlaySource?.event.detail
 
   return (
     <div
-      className='relative h-full w-full'
+      className='relative w-full'
       style={
         {
-          minHeight: fullDayHeight,
+          // Usar height explícita en lugar de minHeight para que el scroll funcione
+          height: fullDayHeight,
           '--day-bands-height': bandsTotalHeight,
           '--day-offset-top': dayOffsetTop
         } as CSSProperties
@@ -1639,7 +1687,7 @@ export default function DayCalendar({
           </div>
         ))}
       </div>
-      <TimeColumn timeLabels={filteredTimeLabels} />
+      <TimeColumn />
       <DayGrid
         timeLabels={filteredTimeLabels}
         timeSlotsOverride={filteredEvents}

@@ -24,7 +24,7 @@ export default function AppointmentDetailOverlay({
     <div
       data-overlay='true'
       id='scheduler-event-overlay'
-      className='pointer-events-auto absolute overflow-y-auto border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] shadow-[var(--scheduler-overlay-shadow)]'
+      className='pointer-events-auto absolute z-20 overflow-y-auto border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] shadow-[var(--scheduler-overlay-shadow)]'
       style={{
         ...overlayStyle,
         top: position.top,
