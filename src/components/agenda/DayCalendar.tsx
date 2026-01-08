@@ -663,8 +663,8 @@ function DayEvent({
   isActive?: boolean
   isHovered?: boolean
   isDragging?: boolean
-  onDragStart?: (e: React.MouseEvent<HTMLButtonElement>) => void
-  onResizeStart?: (e: React.MouseEvent<HTMLDivElement>) => void
+  onDragStart?: (e: React.MouseEvent<HTMLElement>) => void
+  onResizeStart?: (e: React.MouseEvent<HTMLElement>) => void
   styleOverride?: CSSProperties
 }) {
   // Calcular si hay suficiente altura para mostrar notas (igual que vista semanal)
