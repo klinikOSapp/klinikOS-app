@@ -906,7 +906,8 @@ function DayGrid({
   selectedBoxes,
   boxLayout,
   boxCount,
-  visibleSlotCount
+  visibleSlotCount,
+  selectedProfessionals
 }: {
   timeLabels: string[]
   timeSlotsOverride?: TimeSlot[]
