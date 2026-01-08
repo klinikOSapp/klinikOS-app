@@ -361,6 +361,7 @@
   --scheduler-box-top-second: 27.25rem; /* 436px */
   --scheduler-slot-height: 7.785625rem; /* 124.57px - altura por hora completa */
   --scheduler-slot-height-half: 3.8928125rem; /* 62.285px - altura por media hora (124.57/2) */
+  --scheduler-slot-height-quarter: 1.94640625rem; /* 31.1425px - altura por 15 min (124.57/4) */
   /* Event card sizing - relative to column (227px reference) */
   --scheduler-event-width: 92.95%; /* 211px/227px from Figma */
   --scheduler-event-left-offset: 3.52%; /* 8px/227px from Figma */

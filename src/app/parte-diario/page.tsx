@@ -6,6 +6,12 @@ import ClientLayout from '@/app/client-layout'
 import ParteDiarioModal from '@/components/agenda/modals/ParteDiarioModal'
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
+import {
+  formatDateToISO,
+  formatDateToShort,
+  useAppointments,
+  type Appointment
+} from '@/context/AppointmentsContext'
 import React from 'react'
 
 const CTA_WIDTH_REM = 7.3125 // 117px ÷ 16
@@ -148,6 +154,7 @@ function TableBodyCell({
   )
 }
 
+// Tipo para las filas de la tabla (derivado de Appointment)
 type DailyRow = {
   id: string
   day: string
@@ -161,370 +168,31 @@ type DailyRow = {
   tags?: Array<'deuda' | 'confirmada'>
 }
 
-// ============================================
-// DATOS REALISTAS DE CLÍNICA DENTAL - PARTE DIARIO
-// ============================================
-const MOCK_PATIENTS: DailyRow[] = [
-  // MAÑANA (9:00 - 14:00)
-  {
-    id: 'row-1',
-    day: '7 Ene',
-    hour: '09:00',
-    name: 'María García López',
-    professional: 'Laura Sánchez (Higienista)',
-    reason: 'Limpieza dental',
-    phone: '612 345 678',
-    status: 'Confirmada',
-    charge: 'Si',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-2',
-    day: '7 Ene',
-    hour: '09:30',
-    name: 'Carlos Rodríguez Fernández',
-    professional: 'Dr. Antonio Ruiz',
-    reason: 'Empaste molar 36',
-    phone: '623 456 789',
-    status: 'Confirmada',
-    charge: 'Si',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-3',
-    day: '7 Ene',
-    hour: '10:00',
-    name: 'Ana Martínez Sánchez',
-    professional: 'Dr. Francisco Moreno',
-    reason: 'Endodoncia (2ª sesión)',
-    phone: '634 567 890',
-    status: 'Confirmada',
-    charge: 'No',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-4',
-    day: '7 Ene',
-    hour: '10:30',
-    name: 'Pablo López García',
-    professional: 'Dr. Antonio Ruiz',
-    reason: 'Revisión anual',
-    phone: '645 678 901',
-    status: 'Confirmada',
-    charge: 'Si',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-5',
-    day: '7 Ene',
-    hour: '11:00',
-    name: 'Laura Fernández Ruiz',
-    professional: 'Dra. Elena Navarro',
-    reason: 'Revisión Invisalign',
-    phone: '656 789 012',
-    status: 'Confirmada',
-    charge: 'No',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-6',
-    day: '7 Ene',
-    hour: '11:30',
-    name: 'Javier Moreno Torres',
-    professional: 'Laura Sánchez (Higienista)',
-    reason: 'Limpieza profunda',
-    phone: '667 890 123',
-    status: 'No confirmada',
-    charge: 'Si'
-  },
-  {
-    id: 'row-7',
-    day: '7 Ene',
-    hour: '12:00',
-    name: 'Sofía Navarro Díaz',
-    professional: 'Dr. Antonio Ruiz',
-    reason: 'Radiografía panorámica',
-    phone: '678 901 234',
-    status: 'Confirmada',
-    charge: 'Si',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-8',
-    day: '7 Ene',
-    hour: '12:00',
-    name: 'David Sánchez Martín',
-    professional: 'Dra. Carmen Díaz',
-    reason: 'Tratamiento periodontal',
-    phone: '689 012 345',
-    status: 'No confirmada',
-    charge: 'No',
-    tags: ['deuda']
-  },
-  {
-    id: 'row-9',
-    day: '7 Ene',
-    hour: '13:00',
-    name: 'Carmen Ruiz Jiménez',
-    professional: 'Dr. Antonio Ruiz',
-    reason: 'Control post-endodoncia',
-    phone: '690 123 456',
-    status: 'Confirmada',
-    charge: 'Si',
-    tags: ['confirmada']
-  },
-  // TARDE (16:00 - 20:00)
-  {
-    id: 'row-10',
-    day: '7 Ene',
-    hour: '16:00',
-    name: 'Miguel Gómez Hernández',
-    professional: 'Dr. Miguel Á. Torres',
-    reason: 'Implante dental',
-    phone: '601 234 567',
-    status: 'Confirmada',
-    charge: 'No',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-11',
-    day: '7 Ene',
-    hour: '16:30',
-    name: 'Elena Vega Castillo',
-    professional: 'Laura Sánchez (Higienista)',
-    reason: 'Blanqueamiento LED',
-    phone: '612 345 678',
-    status: 'Confirmada',
-    charge: 'Si',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-12',
-    day: '7 Ene',
-    hour: '17:30',
-    name: 'Antonio Pérez Molina',
-    professional: 'Laura Sánchez (Higienista)',
-    reason: 'Limpieza dental',
-    phone: '623 456 789',
-    status: 'No confirmada',
-    charge: 'No',
-    tags: ['deuda']
-  },
-  {
-    id: 'row-13',
-    day: '7 Ene',
-    hour: '18:00',
-    name: 'Marta Alonso Blanco',
-    professional: 'Dr. Antonio Ruiz',
-    reason: 'Empaste molar 16',
-    phone: '634 567 890',
-    status: 'Confirmada',
-    charge: 'Si',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-14',
-    day: '7 Ene',
-    hour: '18:30',
-    name: 'Fernando Díaz Ortega',
-    professional: 'Dr. Antonio Ruiz',
-    reason: 'Férula de descarga',
-    phone: '645 678 901',
-    status: 'Confirmada',
-    charge: 'Si',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-15',
-    day: '7 Ene',
-    hour: '19:00',
-    name: 'Beatriz Muñoz Serrano',
-    professional: 'Dr. Antonio Ruiz',
-    reason: 'Revisión anual',
-    phone: '656 789 012',
-    status: 'No confirmada',
-    charge: 'Si'
-  },
-  // PRÓXIMOS DÍAS
-  {
-    id: 'row-16',
-    day: '8 Ene',
-    hour: '09:00',
-    name: 'Ramón Castro Vidal',
-    professional: 'Dra. Elena Navarro',
-    reason: 'Colocación brackets',
-    phone: '667 890 123',
-    status: 'Confirmada',
-    charge: 'No',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-17',
-    day: '8 Ene',
-    hour: '09:30',
-    name: 'Patricia Romero Nieto',
-    professional: 'Laura Sánchez (Higienista)',
-    reason: 'Limpieza (ortodoncia)',
-    phone: '678 901 234',
-    status: 'Confirmada',
-    charge: 'Si',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-18',
-    day: '8 Ene',
-    hour: '10:30',
-    name: 'María García López',
-    professional: 'Dr. Miguel Á. Torres',
-    reason: 'Cirugía cordales',
-    phone: '612 345 678',
-    status: 'Confirmada',
-    charge: 'No',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-19',
-    day: '8 Ene',
-    hour: '11:30',
-    name: 'Sofía Navarro Díaz',
-    professional: 'Dra. Elena Navarro',
-    reason: 'Revisión Invisalign',
-    phone: '678 901 234',
-    status: 'No confirmada',
-    charge: 'No'
-  },
-  {
-    id: 'row-20',
-    day: '8 Ene',
-    hour: '16:30',
-    name: 'Miguel Gómez Hernández',
-    professional: 'Dr. Francisco Moreno',
-    reason: 'Endodoncia molar 36',
-    phone: '601 234 567',
-    status: 'Confirmada',
-    charge: 'No',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-21',
-    day: '8 Ene',
-    hour: '18:30',
-    name: 'Beatriz Muñoz Serrano',
-    professional: 'Dr. Antonio Ruiz',
-    reason: 'Carillas estéticas',
-    phone: '656 789 012',
-    status: 'Confirmada',
-    charge: 'No',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-22',
-    day: '9 Ene',
-    hour: '09:00',
-    name: 'Marta Alonso Blanco',
-    professional: 'Laura Sánchez (Higienista)',
-    reason: 'Limpieza rutinaria',
-    phone: '634 567 890',
-    status: 'Confirmada',
-    charge: 'Si',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-23',
-    day: '9 Ene',
-    hour: '10:30',
-    name: 'Ramón Castro Vidal',
-    professional: 'Dr. Antonio Ruiz',
-    reason: 'Corona zirconio',
-    phone: '667 890 123',
-    status: 'Reagendar',
-    charge: 'No'
-  },
-  {
-    id: 'row-24',
-    day: '9 Ene',
-    hour: '12:00',
-    name: 'Lucía Martín (8 años)',
-    professional: 'Dr. Antonio Ruiz',
-    reason: 'Selladores molares',
-    phone: '612 987 654',
-    status: 'Confirmada',
-    charge: 'Si',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-25',
-    day: '9 Ene',
-    hour: '16:00',
-    name: 'Sofía Navarro Díaz',
-    professional: 'Dr. Miguel Á. Torres',
-    reason: 'Implante dental',
-    phone: '678 901 234',
-    status: 'Confirmada',
-    charge: 'No',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-26',
-    day: '10 Ene',
-    hour: '09:00',
-    name: 'Elena Vega Castillo',
-    professional: 'Laura Sánchez (Higienista)',
-    reason: 'Blanqueamiento (1ª)',
-    phone: '612 345 678',
-    status: 'No confirmada',
-    charge: 'Si'
-  },
-  {
-    id: 'row-27',
-    day: '10 Ene',
-    hour: '16:00',
-    name: 'Sofía Navarro Díaz',
-    professional: 'Dr. Antonio Ruiz',
-    reason: 'Carillas (preparación)',
-    phone: '678 901 234',
-    status: 'Confirmada',
-    charge: 'No',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-28',
-    day: '11 Ene',
-    hour: '09:00',
-    name: 'Laura Fernández Ruiz',
-    professional: 'Laura Sánchez (Higienista)',
-    reason: 'Limpieza (brackets)',
-    phone: '656 789 012',
-    status: 'Confirmada',
-    charge: 'Si',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-29',
-    day: '11 Ene',
-    hour: '10:30',
-    name: 'Miguel Gómez Hernández',
-    professional: 'Dr. Miguel Á. Torres',
-    reason: 'Extracción resto 26',
-    phone: '601 234 567',
-    status: 'Confirmada',
-    charge: 'Si',
-    tags: ['confirmada']
-  },
-  {
-    id: 'row-30',
-    day: '11 Ene',
-    hour: '12:30',
-    name: 'Beatriz Muñoz Serrano',
-    professional: 'Dr. Antonio Ruiz',
-    reason: 'Empaste molar 47',
-    phone: '656 789 012',
-    status: 'No confirmada',
-    charge: 'Si'
+// Función para convertir Appointment del contexto a DailyRow para la tabla
+function appointmentToRow(apt: Appointment): DailyRow {
+  return {
+    id: apt.id,
+    day: formatDateToShort(apt.date),
+    hour: apt.startTime,
+    name: apt.patientName,
+    professional: apt.professional,
+    reason: apt.reason,
+    phone: apt.patientPhone,
+    status: apt.status,
+    charge: apt.charge,
+    tags: apt.tags
   }
-]
+}
 
 export default function ParteDiarioPage() {
+  // Hook del contexto de citas compartido
+  const {
+    appointments,
+    getAppointmentsByDate,
+    deleteAppointment,
+    updateAppointment
+  } = useAppointments()
+
   const [query, setQuery] = React.useState('')
   type FilterKey = 'deuda' | 'confirmada'
   const [selectedFilters, setSelectedFilters] = React.useState<FilterKey[]>([])
@@ -533,6 +201,39 @@ export default function ParteDiarioPage() {
   )
   const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
   const [isParteModalOpen, setIsParteModalOpen] = React.useState(false)
+
+  // Estado para la fecha seleccionada (por defecto hoy)
+  const [selectedDate, setSelectedDate] = React.useState<Date>(new Date())
+
+  // Formatear la fecha seleccionada para comparar con los datos (formato ISO)
+  const selectedDateISO = formatDateToISO(selectedDate)
+
+  // Funciones para navegar entre días
+  const goToPreviousDay = () => {
+    setSelectedDate((prev) => {
+      const newDate = new Date(prev)
+      newDate.setDate(newDate.getDate() - 1)
+      return newDate
+    })
+  }
+
+  const goToNextDay = () => {
+    setSelectedDate((prev) => {
+      const newDate = new Date(prev)
+      newDate.setDate(newDate.getDate() + 1)
+      return newDate
+    })
+  }
+
+  const goToToday = () => {
+    setSelectedDate(new Date())
+  }
+
+  // Obtener citas del día seleccionado desde el contexto y convertirlas al formato de la tabla
+  const appointmentsForSelectedDay = getAppointmentsByDate(selectedDateISO)
+  const patientsForSelectedDay: DailyRow[] = appointmentsForSelectedDay
+    .map(appointmentToRow)
+    .sort((a, b) => a.hour.localeCompare(b.hour))
 
   const isPatientSelected = (patientId: string) =>
     selectedPatientIds.includes(patientId)
@@ -606,6 +307,54 @@ export default function ParteDiarioPage() {
             Exporta el parte diario de la semana actual para que tus
             profesionales puedan ver sus citas.
           </p>
+
+          {/* Navegador de días */}
+          <div className='flex items-center gap-4 mt-4'>
+            <div className='flex items-center gap-2'>
+              <button
+                onClick={goToPreviousDay}
+                className='size-8 inline-flex items-center justify-center rounded-full hover:bg-[var(--color-neutral-100)] transition-colors cursor-pointer'
+                aria-label='Día anterior'
+              >
+                <MD3Icon
+                  name='ChevronLeftRounded'
+                  size='md'
+                  className='text-[var(--color-neutral-700)]'
+                />
+              </button>
+              <span className='text-title-md font-medium text-[var(--color-neutral-900)] min-w-[140px] text-center'>
+                {selectedDate
+                  .toLocaleDateString('es-ES', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long'
+                  })
+                  .replace(/^\w/, (c) => c.toUpperCase())}
+              </span>
+              <button
+                onClick={goToNextDay}
+                className='size-8 inline-flex items-center justify-center rounded-full hover:bg-[var(--color-neutral-100)] transition-colors cursor-pointer'
+                aria-label='Día siguiente'
+              >
+                <MD3Icon
+                  name='ChevronRightRounded'
+                  size='md'
+                  className='text-[var(--color-neutral-700)]'
+                />
+              </button>
+            </div>
+            <button
+              onClick={goToToday}
+              className='px-3 py-1 text-body-sm font-medium text-[var(--color-brand-700)] bg-[var(--color-brand-0)] border border-[var(--color-brand-200)] rounded-full hover:bg-[var(--color-brand-100)] transition-colors cursor-pointer'
+            >
+              Hoy
+            </button>
+            <span className='text-body-sm text-[var(--color-neutral-500)]'>
+              {patientsForSelectedDay.length} cita
+              {patientsForSelectedDay.length !== 1 ? 's' : ''} programada
+              {patientsForSelectedDay.length !== 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
 
         <div
@@ -616,8 +365,8 @@ export default function ParteDiarioPage() {
           }}
         >
           <KpiCard
-            title='Pacientes hoy'
-            value='15'
+            title='Pacientes del día'
+            value={String(patientsForSelectedDay.length)}
             badge={
               <span className='text-body-md text-[var(--color-success-600)]'>
                 +12%
@@ -626,29 +375,53 @@ export default function ParteDiarioPage() {
           />
           <KpiCard
             title='Pacientes semana'
-            value='68/75'
+            value={`${appointments.length}/75`}
             badge={
               <span className='text-body-md text-[var(--color-success-600)]'>
-                91%
+                {Math.round((appointments.length / 75) * 100)}%
               </span>
             }
           />
           <KpiCard
             title='Pacientes recibidos'
-            value='11/15'
+            value={`${
+              patientsForSelectedDay.filter((p) => p.status === 'Confirmada')
+                .length
+            }/${patientsForSelectedDay.length}`}
             badge={
-              <span className='text-body-md text-[var(--color-success-600)]'>
-                73%
-              </span>
+              patientsForSelectedDay.length > 0 ? (
+                <span className='text-body-md text-[var(--color-success-600)]'>
+                  {Math.round(
+                    (patientsForSelectedDay.filter(
+                      (p) => p.status === 'Confirmada'
+                    ).length /
+                      patientsForSelectedDay.length) *
+                      100
+                  )}
+                  %
+                </span>
+              ) : null
             }
           />
           <KpiCard
             title='Citas confirmadas'
-            value='12'
+            value={String(
+              patientsForSelectedDay.filter((p) => p.status === 'Confirmada')
+                .length
+            )}
             badge={
-              <span className='text-body-md text-[var(--color-success-600)]'>
-                80%
-              </span>
+              patientsForSelectedDay.length > 0 ? (
+                <span className='text-body-md text-[var(--color-success-600)]'>
+                  {Math.round(
+                    (patientsForSelectedDay.filter(
+                      (p) => p.status === 'Confirmada'
+                    ).length /
+                      patientsForSelectedDay.length) *
+                      100
+                  )}
+                  %
+                </span>
+              ) : null
             }
           />
         </div>
@@ -785,94 +558,97 @@ export default function ParteDiarioPage() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_PATIENTS.filter((p) => {
-                  const q = query.trim().toLowerCase()
-                  const matchesQuery = q
-                    ? p.name.toLowerCase().includes(q) ||
-                      p.phone.toLowerCase().includes(q) ||
-                      p.reason.toLowerCase().includes(q) ||
-                      p.professional?.toLowerCase().includes(q)
-                    : true
-                  const matchesFilter = (() => {
-                    if (selectedFilters.length === 0) return true
-                    const tagMap: Record<FilterKey, 'deuda' | 'confirmada'> = {
-                      deuda: 'deuda',
-                      confirmada: 'confirmada'
-                    }
-                    return selectedFilters.some((k) =>
-                      p.tags?.includes(tagMap[k])
-                    )
-                  })()
-                  return Boolean(matchesQuery && matchesFilter)
-                }).map((row, i) => (
-                  <tr
-                    key={row.id}
-                    className='group hover:bg-[var(--color-neutral-50)]'
-                    onClick={() => setIsFichaModalOpen(true)}
-                  >
-                    <TableBodyCell className='w-[40px] pr-2'>
-                      <button
-                        type='button'
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          togglePatientSelection(row.id)
-                        }}
-                        aria-pressed={isPatientSelected(row.id)}
-                        className='relative size-6 inline-flex items-center justify-center cursor-pointer'
-                      >
-                        {/* Outline box on hover */}
-                        <span className='absolute inset-0 rounded-[4px] border border-[var(--color-neutral-300)] bg-white opacity-0 group-hover:opacity-100 transition-opacity' />
-                        {/* Selected border */}
-                        <span
-                          className={[
-                            'absolute inset-0 rounded-[4px] border-2 transition-opacity',
-                            isPatientSelected(row.id)
-                              ? 'border-[#1E4947] opacity-100'
-                              : 'opacity-0'
-                          ].join(' ')}
-                        />
-                        {/* Check icon when selected */}
-                        <MD3Icon
-                          aria-hidden='true'
-                          name='CheckRounded'
-                          size='sm'
-                          className={[
-                            'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
-                            'text-[#1E4947] transition-opacity',
-                            isPatientSelected(row.id)
-                              ? 'opacity-100'
-                              : 'opacity-0'
-                          ].join(' ')}
-                        />
-                        <span className='sr-only'>Seleccionar fila</span>
-                      </button>
-                    </TableBodyCell>
-                    <TableBodyCell className='w-[120px] pr-2'>
-                      {row.day}
-                    </TableBodyCell>
-                    <TableBodyCell className='w-[120px] pr-2'>
-                      {row.hour}
-                    </TableBodyCell>
-                    <TableBodyCell className='w-[220px] pr-2'>
-                      <p className='truncate'>{row.name}</p>
-                    </TableBodyCell>
-                    <TableBodyCell className='w-[200px] pr-2'>
-                      <p className='truncate'>{row.professional ?? '—'}</p>
-                    </TableBodyCell>
-                    <TableBodyCell className='w-[320px] pr-2'>
-                      <p className='truncate'>{row.reason}</p>
-                    </TableBodyCell>
-                    <TableBodyCell className='w-[180px] pr-2'>
-                      <p className='truncate'>{row.phone}</p>
-                    </TableBodyCell>
-                    <TableBodyCell className='w-[160px] pr-2'>
-                      <StatusPill type={row.status} />
-                    </TableBodyCell>
-                    <TableBodyCell className='w-[120px] pr-2'>
-                      {row.charge}
-                    </TableBodyCell>
-                  </tr>
-                ))}
+                {patientsForSelectedDay
+                  .filter((p) => {
+                    const q = query.trim().toLowerCase()
+                    const matchesQuery = q
+                      ? p.name.toLowerCase().includes(q) ||
+                        p.phone.toLowerCase().includes(q) ||
+                        p.reason.toLowerCase().includes(q) ||
+                        p.professional?.toLowerCase().includes(q)
+                      : true
+                    const matchesFilter = (() => {
+                      if (selectedFilters.length === 0) return true
+                      const tagMap: Record<FilterKey, 'deuda' | 'confirmada'> =
+                        {
+                          deuda: 'deuda',
+                          confirmada: 'confirmada'
+                        }
+                      return selectedFilters.some((k) =>
+                        p.tags?.includes(tagMap[k])
+                      )
+                    })()
+                    return Boolean(matchesQuery && matchesFilter)
+                  })
+                  .map((row, i) => (
+                    <tr
+                      key={row.id}
+                      className='group hover:bg-[var(--color-neutral-50)]'
+                      onClick={() => setIsFichaModalOpen(true)}
+                    >
+                      <TableBodyCell className='w-[40px] pr-2'>
+                        <button
+                          type='button'
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            togglePatientSelection(row.id)
+                          }}
+                          aria-pressed={isPatientSelected(row.id)}
+                          className='relative size-6 inline-flex items-center justify-center cursor-pointer'
+                        >
+                          {/* Outline box on hover */}
+                          <span className='absolute inset-0 rounded-[4px] border border-[var(--color-neutral-300)] bg-white opacity-0 group-hover:opacity-100 transition-opacity' />
+                          {/* Selected border */}
+                          <span
+                            className={[
+                              'absolute inset-0 rounded-[4px] border-2 transition-opacity',
+                              isPatientSelected(row.id)
+                                ? 'border-[#1E4947] opacity-100'
+                                : 'opacity-0'
+                            ].join(' ')}
+                          />
+                          {/* Check icon when selected */}
+                          <MD3Icon
+                            aria-hidden='true'
+                            name='CheckRounded'
+                            size='sm'
+                            className={[
+                              'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
+                              'text-[#1E4947] transition-opacity',
+                              isPatientSelected(row.id)
+                                ? 'opacity-100'
+                                : 'opacity-0'
+                            ].join(' ')}
+                          />
+                          <span className='sr-only'>Seleccionar fila</span>
+                        </button>
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[120px] pr-2'>
+                        {row.day}
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[120px] pr-2'>
+                        {row.hour}
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[220px] pr-2'>
+                        <p className='truncate'>{row.name}</p>
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[200px] pr-2'>
+                        <p className='truncate'>{row.professional ?? '—'}</p>
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[320px] pr-2'>
+                        <p className='truncate'>{row.reason}</p>
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[180px] pr-2'>
+                        <p className='truncate'>{row.phone}</p>
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[160px] pr-2'>
+                        <StatusPill type={row.status} />
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[120px] pr-2'>
+                        {row.charge}
+                      </TableBodyCell>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>

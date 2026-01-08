@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
+import { useAppointments } from '@/context/AppointmentsContext'
 import { useRouter } from 'next/navigation'
 import type {
   CSSProperties,
@@ -26,12 +27,20 @@ import type {
   Weekday
 } from './types'
 
+type SpecialistAvailability = {
+  id: string
+  name: string
+  timeRange: string
+  color: string
+}
+
 type HeaderCell = {
   id: Weekday
   label: string
   leftVar: string
   widthVar: string
   tone: 'neutral' | 'primary' | 'brand'
+  specialists?: SpecialistAvailability[]
 }
 
 const WEEK_RANGE = '13 - 19, oct 2025'
@@ -122,6 +131,74 @@ const BOX_OPTIONS = [
 const BOX_COLUMN_LAYOUT: Record<string, { left: string; width: string }> = {
   'box 1': { left: '2%', width: '46%' },
   'box 2': { left: '52%', width: '46%' }
+}
+
+// Helper to convert box id to box name (e.g., 'box-1' -> 'box 1')
+const boxIdToName = (boxId: string): string => boxId.replace('-', ' ')
+
+// Function to calculate dynamic box layout based on selected boxes
+const getBoxLayout = (
+  selectedBoxes: string[]
+): Record<string, { left: string; width: string }> => {
+  // Filter to only include boxes that exist in BOX_OPTIONS
+  const validBoxes = selectedBoxes.filter((id) =>
+    BOX_OPTIONS.some((opt) => opt.id === id)
+  )
+
+  if (validBoxes.length === 0) {
+    return BOX_COLUMN_LAYOUT // fallback to default
+  }
+
+  const gap = 4 // 4% gap between boxes
+  const totalGaps = validBoxes.length - 1
+  const availableWidth = 96 - totalGaps * gap // 96% total (2% padding each side)
+  const boxWidth = availableWidth / validBoxes.length
+
+  const layout: Record<string, { left: string; width: string }> = {}
+
+  validBoxes.forEach((boxId, index) => {
+    const boxName = boxIdToName(boxId)
+    const left = 2 + index * (boxWidth + gap)
+    layout[boxName] = {
+      left: `${left}%`,
+      width: `${boxWidth}%`
+    }
+  })
+
+  return layout
+}
+
+// Specialist availability for week view (same style as MonthCalendar)
+const SAMPLE_SPECIALISTS: SpecialistAvailability[] = [
+  {
+    id: 'sp1',
+    name: 'Odontólogo',
+    timeRange: '10:00 - 16:00',
+    color: 'var(--color-info-200)'
+  },
+  {
+    id: 'sp2',
+    name: 'Higienista dental',
+    timeRange: '09:00 - 14:00',
+    color: 'var(--color-event-teal)'
+  },
+  {
+    id: 'sp3',
+    name: 'Pediatra',
+    timeRange: '11:00 - 18:00',
+    color: 'var(--color-event-purple)'
+  }
+]
+
+// Specialists by weekday
+const SPECIALISTS_BY_WEEKDAY: Record<Weekday, SpecialistAvailability[]> = {
+  monday: [SAMPLE_SPECIALISTS[0]],
+  tuesday: [SAMPLE_SPECIALISTS[1], SAMPLE_SPECIALISTS[0]],
+  wednesday: [SAMPLE_SPECIALISTS[2]],
+  thursday: [],
+  friday: [SAMPLE_SPECIALISTS[0], SAMPLE_SPECIALISTS[2]],
+  saturday: [],
+  sunday: []
 }
 
 const DATE_BY_DAY: Record<Weekday, string> = {
@@ -1966,7 +2043,7 @@ function ToolbarChip({
     <button
       type='button'
       className={[
-        'inline-flex h-[var(--nav-chip-height)] items-center gap-[var(--spacing-gapsm)] rounded-full border px-4 text-body-md font-medium transition-colors duration-150',
+        'inline-flex h-[var(--nav-chip-height)] shrink-0 items-center gap-[var(--spacing-gapsm)] whitespace-nowrap rounded-full border px-3 text-body-md font-medium transition-colors duration-150',
         isActive
           ? 'border-[var(--color-brand-200)] bg-[var(--color-brand-50)] text-[var(--color-neutral-900)]'
           : 'border-[var(--color-border-default)] bg-[var(--color-neutral-50)] text-[var(--color-neutral-900)] hover:bg-[var(--color-brand-0)]'
@@ -1998,7 +2075,7 @@ function DayPeriodSegmentedControl({
   ]
 
   return (
-    <div className='flex items-center overflow-hidden rounded-[var(--day-segmented-radius)] border border-[var(--color-border-default)]'>
+    <div className='flex shrink-0 items-center overflow-hidden rounded-[var(--day-segmented-radius)] border border-[var(--color-border-default)]'>
       {options.map((option, index) => {
         const isActive = option.id === selected
         return (
@@ -2006,21 +2083,12 @@ function DayPeriodSegmentedControl({
             key={option.id}
             type='button'
             className={[
-              'flex items-center justify-center px-[var(--day-segmented-padding-x)] py-[var(--day-segmented-padding-y)] text-body-md font-medium text-[var(--color-neutral-900)] transition-colors duration-150',
+              'flex items-center justify-center whitespace-nowrap px-2 py-1.5 text-body-sm font-medium text-[var(--color-neutral-900)] transition-colors duration-150',
               isActive
                 ? 'bg-[var(--color-neutral-200)]'
                 : 'bg-[var(--color-neutral-50)] hover:bg-[var(--color-neutral-100)]',
               index === 1 ? 'border-x border-[var(--color-border-default)]' : ''
             ].join(' ')}
-            style={{
-              height: 'var(--day-segmented-height)',
-              width:
-                index === 0
-                  ? 'var(--day-segmented-btn1-width)'
-                  : index === 1
-                  ? 'var(--day-segmented-btn2-width)'
-                  : 'var(--day-segmented-btn3-width)'
-            }}
             onClick={() => onSelect(option.id)}
             aria-pressed={isActive}
           >
@@ -2046,7 +2114,7 @@ function ViewDropdown({
       id={id}
       role='menu'
       aria-orientation='vertical'
-      className='absolute left-0 top-[calc(100%+0.5rem)] z-20 flex w-[min(9.3125rem,30vw)] flex-col rounded-[0.5rem] border border-[var(--color-neutral-200)] bg-[rgba(248,250,251,0.9)] py-[0.5rem] backdrop-blur-[0.125rem] shadow-[0.125rem_0.125rem_0.25rem_0_rgba(0,0,0,0.1)]'
+      className='absolute left-0 top-[calc(100%+0.5rem)] z-50 flex w-[min(9.3125rem,30vw)] flex-col rounded-[0.5rem] border border-[var(--color-neutral-200)] bg-[rgba(248,250,251,0.9)] py-[0.5rem] backdrop-blur-[0.125rem] shadow-[0.125rem_0.125rem_0.25rem_0_rgba(0,0,0,0.1)]'
       onClick={(event) => event.stopPropagation()}
     >
       {VIEW_OPTIONS.map((option) => {
@@ -2097,7 +2165,7 @@ function MultiSelectDropdown({
       id={id}
       role='menu'
       aria-orientation='vertical'
-      className='absolute left-0 top-[calc(100%+0.5rem)] z-20 flex w-[min(9.3125rem,30vw)] flex-col rounded-[0.5rem] border border-[var(--color-neutral-200)] bg-[rgba(248,250,251,0.9)] py-[0.5rem] backdrop-blur-[0.125rem] shadow-[0.125rem_0.125rem_0.25rem_0_rgba(0,0,0,0.1)]'
+      className='absolute left-0 top-[calc(100%+0.5rem)] z-50 flex w-[min(9.3125rem,30vw)] flex-col rounded-[0.5rem] border border-[var(--color-neutral-200)] bg-[rgba(248,250,251,0.9)] py-[0.5rem] backdrop-blur-[0.125rem] shadow-[0.125rem_0.125rem_0.25rem_0_rgba(0,0,0,0.1)]'
       onClick={(event) => event.stopPropagation()}
     >
       {options.map((option) => {
@@ -2159,42 +2227,144 @@ function ToolbarAction({
   )
 }
 
-function HeaderLabels({ cells }: { cells: typeof HEADER_CELLS }) {
+function HeaderLabels({
+  cells,
+  selectedBoxes
+}: {
+  cells: typeof HEADER_CELLS
+  selectedBoxes: string[]
+}) {
+  const [activeSpecId, setActiveSpecId] = useState<string | null>(null)
+  const [activeDay, setActiveDay] = useState<Weekday | null>(null)
+
+  const handleSpecialistClick = (
+    e: ReactMouseEvent,
+    specId: string,
+    dayId: Weekday
+  ) => {
+    e.stopPropagation()
+    if (activeSpecId === specId && activeDay === dayId) {
+      setActiveSpecId(null)
+      setActiveDay(null)
+    } else {
+      setActiveSpecId(specId)
+      setActiveDay(dayId)
+    }
+  }
+
+  // Close popup when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setActiveSpecId(null)
+      setActiveDay(null)
+    }
+    if (activeSpecId) {
+      window.addEventListener('click', handleClickOutside)
+      return () => window.removeEventListener('click', handleClickOutside)
+    }
+  }, [activeSpecId])
+
+  // Get visible boxes sorted by their original order
+  const visibleBoxes = BOX_OPTIONS.filter((opt) =>
+    selectedBoxes.includes(opt.id)
+  )
+  const boxCount = visibleBoxes.length || 1
+
   return (
     <div className='relative h-[var(--scheduler-day-header-total)] w-full shrink-0 border-b border-[var(--color-border-default)] bg-[var(--color-neutral-200)]'>
-      {cells.map((cell) => (
-        <div
-          key={cell.id}
-          className='absolute inset-y-0 flex flex-col'
-          style={{
-            left: `var(${cell.leftVar})`,
-            width: `var(${cell.widthVar})`
-          }}
-        >
-          <div className='flex h-[var(--scheduler-day-header-height)] items-center justify-center'>
-            <span
-              className={[
-                'text-body-md font-medium',
-                cell.tone === 'neutral'
-                  ? 'text-[var(--color-neutral-600)]'
-                  : cell.tone === 'brand'
-                  ? 'text-[var(--color-brand-500)]'
-                  : 'text-[var(--color-neutral-900)]'
-              ].join(' ')}
+      {cells.map((cell) => {
+        const specialists = cell.specialists || []
+        const activeSpec =
+          activeDay === cell.id
+            ? specialists.find((s) => s.id === activeSpecId)
+            : null
+
+        return (
+          <div
+            key={cell.id}
+            className='absolute inset-y-0 flex flex-col'
+            style={{
+              left: `var(${cell.leftVar})`,
+              width: `var(${cell.widthVar})`
+            }}
+          >
+            <div className='relative flex h-[var(--scheduler-day-header-height)] items-center justify-center gap-2'>
+              <span
+                className={[
+                  'text-body-md font-medium',
+                  cell.tone === 'neutral'
+                    ? 'text-[var(--color-neutral-600)]'
+                    : cell.tone === 'brand'
+                    ? 'text-[var(--color-brand-500)]'
+                    : 'text-[var(--color-neutral-900)]'
+                ].join(' ')}
+              >
+                {cell.label}
+              </span>
+              {specialists.length > 0 && (
+                <div className='flex items-center gap-[0.375rem]'>
+                  {specialists.map((spec) => (
+                    <button
+                      key={spec.id}
+                      type='button'
+                      onClick={(e) =>
+                        handleSpecialistClick(e, spec.id, cell.id)
+                      }
+                      className='shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-300)] cursor-pointer transition-transform hover:scale-110'
+                      title={`${spec.name} · ${spec.timeRange}`}
+                      aria-label={`${spec.name} ${spec.timeRange}`}
+                      style={{
+                        width: '0.75rem', // 12px dot (slightly smaller for week view header)
+                        height: '0.75rem',
+                        backgroundColor: spec.color
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+              {/* Specialist popup */}
+              {activeSpec && (
+                <div
+                  className='pointer-events-auto absolute left-1/2 z-[10] flex -translate-x-1/2 items-center gap-2 rounded-[var(--radius-xl)] bg-[var(--color-neutral-50)] px-3 py-2 text-label-md font-medium text-[var(--color-neutral-900)] shadow-[0px_2px_6px_rgba(0,0,0,0.12)]'
+                  style={{
+                    top: 'calc(100% + 0.25rem)'
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span
+                    className='inline-flex h-[0.625rem] w-[0.625rem] rounded-full'
+                    style={{ backgroundColor: activeSpec.color }}
+                  />
+                  <span className='whitespace-nowrap'>{activeSpec.name}</span>
+                  <span className='whitespace-nowrap text-[var(--color-neutral-600)]'>
+                    {activeSpec.timeRange}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div
+              className='grid h-[var(--scheduler-box-header-height)] border-t border-[var(--color-border-default)] bg-[var(--color-neutral-100)] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.05)]'
+              style={{
+                gridTemplateColumns: `repeat(${boxCount}, 1fr)`
+              }}
             >
-              {cell.label}
-            </span>
-          </div>
-          <div className='grid h-[var(--scheduler-box-header-height)] grid-cols-2 border-t border-[var(--color-border-default)] bg-[var(--color-neutral-100)] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.05)]'>
-            <div className='flex items-center justify-center px-2 text-body-md font-normal text-[var(--color-neutral-600)]'>
-              BOX 1
+              {visibleBoxes.map((box, index) => (
+                <div
+                  key={box.id}
+                  className={[
+                    'flex items-center justify-center px-2 text-body-md font-normal',
+                    index === 0
+                      ? 'text-[var(--color-neutral-600)]'
+                      : 'text-[var(--color-neutral-900)]'
+                  ].join(' ')}
+                >
+                  {box.label.toUpperCase()}
+                </div>
+              ))}
             </div>
-            <div className='flex items-center justify-center px-2 text-body-md font-normal text-[var(--color-neutral-900)]'>
-              BOX 2
-            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -2262,7 +2432,8 @@ function DayGrid({
   columnRef,
   onEventDragStart,
   draggingEventId,
-  onClearSelection
+  onClearSelection,
+  selectedBoxes
 }: {
   column: DayColumn
   activeSelection: EventSelection
@@ -2280,7 +2451,18 @@ function DayGrid({
   ) => void
   draggingEventId?: string | null
   onClearSelection: () => void
+  selectedBoxes: string[]
 }) {
+  // Calculate dynamic box layout based on selected boxes
+  const boxLayout = getBoxLayout(selectedBoxes)
+
+  // Filter events to only show those in selected boxes
+  const filteredEvents = column.events.filter((event) => {
+    const boxName = event.box?.toLowerCase() ?? ''
+    // Convert 'box 1' to 'box-1' for comparison
+    const boxId = boxName.replace(' ', '-')
+    return selectedBoxes.includes(boxId)
+  })
   // Domingo con patrón de puntos SVG
   const isSunday = column.id === 'sunday'
   const sundayStyle = isSunday
@@ -2364,12 +2546,12 @@ function DayGrid({
 
       {/* Eventos */}
       <div className='absolute inset-0'>
-        {column.events.map((event) => (
+        {filteredEvents.map((event) => (
           <AppointmentSummaryCard
             key={event.id}
             event={{
               ...event,
-              ...(BOX_COLUMN_LAYOUT[event.box?.toLowerCase() ?? ''] ?? {})
+              ...(boxLayout[event.box?.toLowerCase() ?? ''] ?? {})
             }}
             onHover={() => onHover({ event, column })}
             onLeave={() => onHover(null)}
@@ -3345,6 +3527,15 @@ const DAY_VIEW_FALLBACK_APPOINTMENTS = [
 
 export default function WeekScheduler() {
   const router = useRouter()
+
+  // Hook del contexto de citas compartido para sincronización con Parte Diario
+  const {
+    addAppointment,
+    deleteAppointment,
+    updateAppointment,
+    getAppointmentsByDateRange
+  } = useAppointments()
+
   const [hovered, setHovered] = useState<EventSelection>(null)
   const [active, setActive] = useState<EventSelection>(null)
   const [viewOption, setViewOption] = useState<ViewOption>('semana')
@@ -3607,7 +3798,9 @@ export default function WeekScheduler() {
         patient: ev.patient,
         title: ev.title,
         box: ev.box,
-        bgColor
+        bgColor,
+        // Pasar el detail completo con notas para la vista diaria
+        detail: ev.detail
       }
     })
   }
@@ -3889,7 +4082,8 @@ export default function WeekScheduler() {
         ...HEADER_CELLS[index],
         label: formatHeaderLabel(date),
         id: weekdayId,
-        tone
+        tone,
+        specialists: SPECIALISTS_BY_WEEKDAY[weekdayId] || []
       }
     })
   }
@@ -4198,19 +4392,22 @@ export default function WeekScheduler() {
 
     const slotIndex = getSlotIndexFromTime(data.hora)
     const topRem = slotIndex * 2.5 // matches --scheduler-slot-height-quarter
+    const eventId = `new-${Date.now()}`
+    const endTime = formatEndTime(data.hora)
+
     const newEvent: AgendaEvent = {
-      id: `new-${Date.now()}`,
+      id: eventId,
       top: `${topRem}rem`,
       height: '4rem',
       title: data.servicio || 'Nueva cita',
       patient: data.paciente || 'Paciente',
       box: 'Box 1',
-      timeRange: `${data.hora} - ${formatEndTime(data.hora)}`,
+      timeRange: `${data.hora} - ${endTime}`,
       backgroundClass: 'bg-[var(--color-brand-100)]',
       detail: {
         title: data.servicio || 'Nueva cita',
         date: data.fecha,
-        duration: `${data.hora} - ${formatEndTime(data.hora)} (60 minutos)`,
+        duration: `${data.hora} - ${endTime} (60 minutos)`,
         patientFull: data.paciente || 'Paciente',
         professional: data.responsable || 'Profesional',
         notes: data.observaciones || 'Sin notas',
@@ -4221,11 +4418,28 @@ export default function WeekScheduler() {
       }
     }
 
+    // Actualizar el estado local del scheduler
     setDayColumnsState((prev) =>
       prev.map((col) =>
         col.id === weekday ? { ...col, events: [...col.events, newEvent] } : col
       )
     )
+
+    // Sincronizar con el contexto global para que aparezca en el Parte Diario
+    addAppointment({
+      date: data.fecha, // formato ISO: "2026-01-08"
+      startTime: data.hora,
+      endTime: endTime,
+      patientName: data.paciente || 'Paciente',
+      patientPhone: '', // No disponible en el formulario actual
+      professional: data.responsable || 'Profesional',
+      reason: data.servicio || 'Nueva cita',
+      status: 'No confirmada',
+      box: 'box 1',
+      charge: 'No',
+      bgColor: 'var(--color-brand-100)',
+      notes: data.observaciones || ''
+    })
 
     handleCreateModalClose()
   }
@@ -4298,8 +4512,8 @@ export default function WeekScheduler() {
       onClick={handleRootClick}
     >
       {/* Fixed Header - Compartido entre todas las vistas */}
-      <header className='flex h-[var(--scheduler-toolbar-height)] w-full shrink-0 items-center justify-between border-b border-[var(--color-border-default)] bg-[var(--color-neutral-100)] px-[var(--scheduler-grid-gutter)]'>
-        <div className='flex items-center gap-4'>
+      <header className='relative z-30 flex h-[var(--scheduler-toolbar-height)] w-full shrink-0 items-center justify-between gap-2 border-b border-[var(--color-border-default)] bg-[var(--color-neutral-100)] px-[min(var(--scheduler-grid-gutter),1rem)]'>
+        <div className='flex min-w-0 flex-1 items-center gap-2'>
           {/* Segmented control solo para vista diaria */}
           {viewOption === 'dia' && (
             <DayPeriodSegmentedControl
@@ -4318,7 +4532,7 @@ export default function WeekScheduler() {
           ) : viewOption === 'dia' ? (
             <NavigationControl
               label={getDayString()}
-              widthRem={10.0625} // Empatado con vista semanal (161px ÷ 16)
+              widthRem={8} // Reducido para vista diaria
               onPrevious={goToPreviousDay}
               onNext={goToNextDay}
             />
@@ -4330,7 +4544,7 @@ export default function WeekScheduler() {
               onNext={goToNextWeek}
             />
           )}
-          <div className='flex items-center gap-3'>
+          <div className='flex min-w-0 items-center gap-2'>
             <div ref={viewDropdownRef} className='relative'>
               <ToolbarChip
                 label={currentViewLabel}
@@ -4380,39 +4594,37 @@ export default function WeekScheduler() {
                 />
               ) : null}
             </div>
-            {viewOption !== 'dia' ? (
-              <div ref={boxDropdownRef} className='relative'>
-                <ToolbarChip
-                  label='Box'
-                  onClick={handleBoxChipClick}
-                  isActive={openDropdown === 'box'}
-                  icon={
-                    <MD3Icon
-                      name='KeyboardArrowDownRounded'
-                      size='inherit'
-                      className='text-[var(--color-neutral-400)]'
-                    />
-                  }
-                  ariaExpanded={openDropdown === 'box'}
-                  ariaHaspopup
-                  ariaControls={boxDropdownId}
-                />
-                {openDropdown === 'box' ? (
-                  <MultiSelectDropdown
-                    id={boxDropdownId}
-                    selected={selectedBoxes}
-                    options={BOX_OPTIONS}
-                    onToggle={handleBoxToggle}
+            <div ref={boxDropdownRef} className='relative'>
+              <ToolbarChip
+                label='Box'
+                onClick={handleBoxChipClick}
+                isActive={openDropdown === 'box'}
+                icon={
+                  <MD3Icon
+                    name='KeyboardArrowDownRounded'
+                    size='inherit'
+                    className='text-[var(--color-neutral-400)]'
                   />
-                ) : null}
-              </div>
-            ) : null}
-            <div className='flex items-center gap-4 rounded-[136px] px-4 py-2'>
+                }
+                ariaExpanded={openDropdown === 'box'}
+                ariaHaspopup
+                ariaControls={boxDropdownId}
+              />
+              {openDropdown === 'box' ? (
+                <MultiSelectDropdown
+                  id={boxDropdownId}
+                  selected={selectedBoxes}
+                  options={BOX_OPTIONS}
+                  onToggle={handleBoxToggle}
+                />
+              ) : null}
+            </div>
+            <div className='flex shrink-0 items-center gap-2 rounded-[136px] px-2 py-1'>
               <button
                 type='button'
                 aria-pressed={showConfirmedOnly}
                 onClick={() => setShowConfirmedOnly((prev) => !prev)}
-                className='relative inline-flex h-[1.5rem] w-[2.5rem] items-center overflow-hidden rounded-[4.375rem]'
+                className='relative inline-flex h-[1.5rem] w-[2.5rem] shrink-0 items-center overflow-hidden rounded-[4.375rem]'
               >
                 <span
                   aria-hidden
@@ -4434,13 +4646,13 @@ export default function WeekScheduler() {
                 />
                 <span className='sr-only'>Alternar confirmadas</span>
               </button>
-              <span className='text-title-sm font-medium text-[var(--color-neutral-900)]'>
+              <span className='whitespace-nowrap text-title-sm font-medium text-[var(--color-neutral-900)]'>
                 Confirmadas
               </span>
             </div>
           </div>
         </div>
-        <div className='flex items-center gap-3'>
+        <div className='flex shrink-0 items-center gap-2'>
           <ToolbarAction
             label='Parte diario'
             icon={
@@ -4503,13 +4715,17 @@ export default function WeekScheduler() {
             appointments={selectedDayAppointments}
             bands={getDayBands(selectedDate ?? currentWeekStart)}
             onAppointmentMove={handleDayAppointmentMove}
+            selectedBoxes={selectedBoxes}
           />
         </div>
       ) : (
         /* Vista Semanal */
         <>
           {/* Fixed Header Labels (Days of week) */}
-          <HeaderLabels cells={getHeaderCells()} />
+          <HeaderLabels
+            cells={getHeaderCells()}
+            selectedBoxes={selectedBoxes}
+          />
 
           {/* Scrollable Content Area */}
           <div className='relative flex-1 overflow-y-auto bg-[var(--color-neutral-0)]'>
@@ -4537,6 +4753,7 @@ export default function WeekScheduler() {
                     setHovered(null)
                     setActive(null)
                   }}
+                  selectedBoxes={selectedBoxes}
                 />
               ))}
 

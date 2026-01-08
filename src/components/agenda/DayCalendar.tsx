@@ -3,12 +3,31 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
-import { CSSProperties, useRef, useState } from 'react'
+import {
+  CSSProperties,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  MouseEvent as ReactMouseEvent
+} from 'react'
 
 import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
 import type { EventDetail } from './types'
 
 const OVERLAY_GUTTER = '1rem'
+
+// Constantes para el sistema de drag (EXACTAMENTE IGUALES a vista semanal)
+const START_HOUR = 9
+const END_HOUR = 20
+const MINUTES_STEP = 15 // Misma granularidad que vista semanal (15 min)
+const SLOTS_PER_HOUR = 60 / MINUTES_STEP // 4 slots por hora (cada 15 min)
+const TOTAL_SLOTS = (END_HOUR - START_HOUR) * SLOTS_PER_HOUR // 44 slots
+const SLOT_REM = 2.5 // Mismo valor que vista semanal: var(--scheduler-slot-height-quarter)
+// Altura de cada fila de 30 minutos en la cuadrícula visual
+const VISUAL_SLOT_HEIGHT_REM = 5 // var(--scheduler-slot-height-half)
+
+type BoxId = 'box1' | 'box2' | 'box3'
 
 // Positioning functions for smart overlay placement
 function getOverlayTop(relativeTop: string): string {
@@ -84,10 +103,47 @@ const TIME_LABELS = [
 ]
 
 const BOX_HEADERS = [
-  { label: 'BOX 1', tone: 'neutral' as const },
-  { label: 'BOX 2', tone: 'neutral' as const },
-  { label: 'BOX 3', tone: 'neutral' as const }
+  { id: 'box-1', label: 'BOX 1', tone: 'neutral' as const },
+  { id: 'box-2', label: 'BOX 2', tone: 'neutral' as const },
+  { id: 'box-3', label: 'BOX 3', tone: 'neutral' as const }
 ]
+
+// Helper to convert box id to box name (e.g., 'box-1' -> 'box 1')
+const boxIdToName = (boxId: string): string => boxId.replace('-', ' ')
+
+// Function to calculate dynamic box layout based on selected boxes
+const getBoxLayout = (
+  selectedBoxes: string[]
+): Record<string, { left: string; width: string }> => {
+  // Filter to only include boxes that exist in BOX_HEADERS
+  const validBoxes = selectedBoxes.filter((id) =>
+    BOX_HEADERS.some((opt) => opt.id === id)
+  )
+
+  if (validBoxes.length === 0) {
+    // Default 3-box layout
+    return {
+      'box 1': { left: '0%', width: '33.33%' },
+      'box 2': { left: '33.33%', width: '33.33%' },
+      'box 3': { left: '66.67%', width: '33.33%' }
+    }
+  }
+
+  const boxWidth = 100 / validBoxes.length
+
+  const layout: Record<string, { left: string; width: string }> = {}
+
+  validBoxes.forEach((boxId, index) => {
+    const boxName = boxIdToName(boxId)
+    const left = index * boxWidth
+    layout[boxName] = {
+      left: `${left}%`,
+      width: `${boxWidth}%`
+    }
+  })
+
+  return layout
+}
 
 const DAILY_BANDS = [
   {
@@ -459,25 +515,31 @@ const TIME_SLOTS: TimeSlot[] = [
 ]
 
 function TimeColumn({ timeLabels }: { timeLabels: string[] }) {
+  // Generar etiquetas cada hora (cada 4 slots de 15 min) para mejor legibilidad
+  // Pero la altura debe coincidir con la cuadrícula de TOTAL_SLOTS × quarter
+  const hourLabels = timeLabels.filter((_, index) => index % 2 === 0) // Solo horas completas: 9:00, 10:00, ...
+  
   return (
     <div
       className='absolute left-0 bg-[var(--color-neutral-100)]'
       style={{
         top: 'var(--day-offset-top)',
         width: 'var(--day-time-column-width)',
-        height: 'calc(100% - var(--day-offset-top))'
+        // Altura total = TOTAL_SLOTS × quarter (igual que DayGrid)
+        height: `calc(${TOTAL_SLOTS} * var(--scheduler-slot-height-quarter))`
       }}
     >
       <div
         className='grid h-full'
         style={{
-          gridTemplateRows: `repeat(${timeLabels.length}, minmax(var(--scheduler-slot-height-half), 1fr))`
+          // Cada fila representa 1 hora = 4 slots de 15 min
+          gridTemplateRows: `repeat(${hourLabels.length}, calc(4 * var(--scheduler-slot-height-quarter)))`
         }}
       >
-        {timeLabels.map((time, index) => (
+        {hourLabels.map((time, index) => (
           <div
             key={index}
-            className='flex items-center justify-center border-b border-r border-[var(--color-border-default)] p-2'
+            className='flex items-start justify-center border-b border-r border-[var(--color-border-default)] pt-2'
           >
             <p className='text-body-md font-normal text-[var(--color-neutral-600)]'>
               {time}
@@ -489,7 +551,11 @@ function TimeColumn({ timeLabels }: { timeLabels: string[] }) {
   )
 }
 
-function BoxHeaders() {
+function BoxHeaders({
+  visibleBoxes
+}: {
+  visibleBoxes: typeof BOX_HEADERS
+}) {
   return (
     <div
       className='sticky top-0 z-10 flex w-full border-b border-[var(--color-border-default)] bg-[var(--color-neutral-50)]'
@@ -503,9 +569,9 @@ function BoxHeaders() {
           Box
         </p>
       </div>
-      {BOX_HEADERS.map((box, index) => (
+      {visibleBoxes.map((box, index) => (
         <div
-          key={index}
+          key={box.id}
           className='flex flex-1 items-center justify-center px-3'
         >
           <p
@@ -524,6 +590,29 @@ function BoxHeaders() {
   )
 }
 
+// Función auxiliar para convertir altura a px (igual que vista semanal)
+const parseDimensionToPx = (value?: string | number): number => {
+  if (typeof value === 'number') return value
+  if (!value) return 0
+  const trimmed = value.trim()
+  const num = parseFloat(trimmed)
+  if (Number.isNaN(num)) return 0
+  if (trimmed.endsWith('rem')) return num * 16
+  return num
+}
+
+// Altura mínima para mostrar notas (igual que vista semanal)
+const MIN_HEIGHT_FOR_NOTES_PX = 120
+
+// Estilos para clamp de texto (igual que vista semanal)
+const clampStyle = (lines: number) =>
+  ({
+    display: '-webkit-box',
+    WebkitLineClamp: lines,
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden'
+  } as const)
+
 function DayEvent({
   event,
   onHover,
@@ -531,7 +620,9 @@ function DayEvent({
   onActivate,
   isActive,
   isHovered,
+  isDragging,
   onDragStart,
+  onResizeStart,
   styleOverride
 }: {
   event: DayEvent
@@ -540,18 +631,31 @@ function DayEvent({
   onActivate: () => void
   isActive?: boolean
   isHovered?: boolean
+  isDragging?: boolean
   onDragStart?: (e: React.MouseEvent<HTMLButtonElement>) => void
+  onResizeStart?: (e: React.MouseEvent<HTMLDivElement>) => void
   styleOverride?: CSSProperties
 }) {
-  const stateClasses = isActive
+  // Calcular si hay suficiente altura para mostrar notas (igual que vista semanal)
+  const canShowNotes = parseDimensionToPx(event.height) >= MIN_HEIGHT_FOR_NOTES_PX
+
+  const stateClasses = isDragging
+    ? 'border-2 border-[var(--color-brand-500)] shadow-[0px_8px_24px_rgba(81,214,199,0.5)] opacity-90'
+    : isActive
     ? 'border-2 border-[var(--color-brand-500)] shadow-[0px_4px_12px_rgba(81,214,199,0.35)]'
     : isHovered
     ? 'border-2 border-[var(--color-brand-300)]'
     : 'border-2 border-transparent'
 
+  // Separar título y paciente del label
+  const labelParts = event.label.split('\n')
+  const title = labelParts[0] ?? ''
+  const patient = labelParts[1] ?? ''
+
   return (
     <button
       type='button'
+      data-appointment-card='true'
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
       onFocus={onHover}
@@ -561,7 +665,11 @@ function DayEvent({
         onActivate()
       }}
       onMouseDown={(e) => {
-        onDragStart?.(e)
+        // Solo iniciar drag si no es el handle de resize
+        const target = e.target as HTMLElement
+        if (!target.closest('[data-resize-handle]')) {
+          onDragStart?.(e)
+        }
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -570,7 +678,7 @@ function DayEvent({
         }
       }}
       className={[
-        'flex items-center justify-center rounded-[var(--day-event-radius)] p-[var(--day-event-padding)] text-body-sm font-normal text-[var(--color-neutral-900)] transition-all duration-150',
+        'group flex flex-col items-start justify-start overflow-hidden rounded-[var(--day-event-radius)] p-[var(--day-event-padding)] text-left text-body-sm font-normal text-[var(--color-neutral-900)] transition-all duration-150',
         stateClasses
       ].join(' ')}
       style={{
@@ -580,37 +688,119 @@ function DayEvent({
         width: 'var(--day-event-width-percent)',
         height: event.height ?? 'var(--day-event-height)',
         backgroundColor: event.bgColor,
-        cursor: onDragStart ? 'grab' : 'pointer',
+        cursor: isDragging ? 'grabbing' : onDragStart ? 'grab' : 'pointer',
+        zIndex: isDragging ? 50 : undefined,
         ...styleOverride
       }}
     >
-      <p className='truncate text-center'>{event.label}</p>
+      {/* Contenido similar al AppointmentSummaryCard */}
+      <div className='flex min-w-0 flex-1 flex-col gap-[0.375rem]'>
+        {/* Título */}
+        <p
+          className='font-medium text-[var(--color-neutral-900)]'
+          style={{
+            fontSize: '0.75rem',
+            lineHeight: '1rem',
+            ...clampStyle(1)
+          }}
+        >
+          {title}
+        </p>
+        {/* Paciente */}
+        {patient && (
+          <p
+            className='font-medium text-[var(--color-neutral-900)]'
+            style={{
+              fontSize: '0.875rem',
+              lineHeight: '1.25rem',
+              ...clampStyle(1)
+            }}
+          >
+            {patient}
+          </p>
+        )}
+        {/* Notas - Solo se muestran si hay suficiente altura */}
+        {event.detail && canShowNotes && event.detail.notes && (
+          <div className='flex flex-col gap-[0.375rem]'>
+            <div className='flex items-center gap-1 text-[var(--color-neutral-600)]'>
+              <MD3Icon
+                name='DescriptionRounded'
+                size={1}
+                className='text-[var(--color-neutral-600)]'
+              />
+              <span
+                className='font-normal'
+                style={{
+                  fontSize: '0.75rem',
+                  lineHeight: '1rem',
+                  ...clampStyle(1)
+                }}
+              >
+                {event.detail.notesLabel ?? 'Notas'}
+              </span>
+            </div>
+            <p
+              className='font-normal text-[var(--color-neutral-900)]'
+              style={{
+                fontSize: '0.875rem',
+                lineHeight: '1.25rem',
+                ...clampStyle(2)
+              }}
+            >
+              {event.detail.notes}
+            </p>
+          </div>
+        )}
+      </div>
+      
+      {/* Handle de resize en la parte inferior */}
+      {onResizeStart && (
+        <div
+          data-resize-handle='true'
+          onMouseDown={(e) => {
+            e.stopPropagation()
+            onResizeStart(e)
+          }}
+          className='absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize opacity-0 transition-opacity group-hover:opacity-100'
+          style={{
+            background: 'linear-gradient(to top, rgba(0,0,0,0.1), transparent)'
+          }}
+        />
+      )}
     </button>
   )
 }
 
-function BoxColumn({
+function BoxColumnComponent({
   column,
   onHover,
   onActivate,
   activeId,
   hoveredId,
-  onDragStart,
-  previewStyles
+  draggingId,
+  onEventDragStart,
+  columnRef
 }: {
   column: BoxColumn
   onHover: (selection: DayEventSelection) => void
   onActivate: (selection: DayEventSelection) => void
   activeId?: string | null
   hoveredId?: string | null
-  onDragStart?: (
-    selection: DayEventSelection,
-    e: React.MouseEvent<HTMLButtonElement>
+  draggingId?: string | null
+  onEventDragStart?: (
+    type: 'move' | 'resize',
+    event: DayEvent,
+    boxId: BoxId,
+    clientX: number,
+    clientY: number
   ) => void
-  previewStyles?: Record<string, CSSProperties>
+  columnRef?: (el: HTMLDivElement | null) => void
 }) {
   return (
-    <div className='relative flex-1 overflow-hidden border-r border-[var(--color-border-default)] bg-[var(--color-neutral-0)]'>
+    <div
+      ref={columnRef}
+      className='relative flex-1 overflow-hidden border-r border-[var(--color-border-default)] bg-[var(--color-neutral-0)]'
+    >
       {/* Eventos */}
       {column.events.map((event, idx) => (
         <DayEvent
@@ -621,12 +811,31 @@ function BoxColumn({
           onActivate={() => onActivate({ event, boxId: column.id })}
           isActive={activeId === event.id}
           isHovered={hoveredId === event.id && activeId !== event.id}
+          isDragging={draggingId === event.id}
           onDragStart={
-            onDragStart
-              ? (e) => onDragStart({ event, boxId: column.id }, e)
+            onEventDragStart
+              ? (e) =>
+                  onEventDragStart(
+                    'move',
+                    event,
+                    column.id as BoxId,
+                    e.clientX,
+                    e.clientY
+                  )
               : undefined
           }
-          styleOverride={previewStyles?.[event.id]}
+          onResizeStart={
+            onEventDragStart
+              ? (e) =>
+                  onEventDragStart(
+                    'resize',
+                    event,
+                    column.id as BoxId,
+                    e.clientX,
+                    e.clientY
+                  )
+              : undefined
+          }
         />
       ))}
     </div>
@@ -639,32 +848,44 @@ function TimeSlotRow({
   onActivate,
   activeId,
   hoveredId,
-  onDragStart,
-  previewStyles
+  draggingId,
+  onEventDragStart,
+  boxRefs
 }: {
   slot: TimeSlot
   onHover: (selection: DayEventSelection) => void
   onActivate: (selection: DayEventSelection) => void
   activeId?: string | null
   hoveredId?: string | null
-  onDragStart?: (
-    selection: DayEventSelection,
-    e: React.MouseEvent<HTMLButtonElement>
+  draggingId?: string | null
+  onEventDragStart?: (
+    type: 'move' | 'resize',
+    event: DayEvent,
+    boxId: BoxId,
+    clientX: number,
+    clientY: number
   ) => void
-  previewStyles?: Record<string, CSSProperties>
+  boxRefs?: React.MutableRefObject<Record<BoxId, HTMLDivElement | null>>
 }) {
   return (
     <div className='flex'>
       {slot.boxes.map((box) => (
-        <BoxColumn
+        <BoxColumnComponent
           key={box.id}
           column={box}
           onHover={onHover}
           onActivate={onActivate}
           activeId={activeId}
           hoveredId={hoveredId}
-          onDragStart={onDragStart}
-          previewStyles={previewStyles}
+          draggingId={draggingId}
+          onEventDragStart={onEventDragStart}
+          columnRef={
+            boxRefs
+              ? (el) => {
+                  boxRefs.current[box.id as BoxId] = el
+                }
+              : undefined
+          }
         />
       ))}
     </div>
@@ -678,9 +899,14 @@ function DayGrid({
   onActivate,
   activeId,
   hoveredId,
-  onDragStart,
-  previewStyles,
-  gridRef
+  draggingId,
+  onEventDragStart,
+  gridRef,
+  boxRefs,
+  selectedBoxes,
+  boxLayout,
+  boxCount,
+  visibleSlotCount
 }: {
   timeLabels: string[]
   timeSlotsOverride?: TimeSlot[]
@@ -688,18 +914,52 @@ function DayGrid({
   onActivate: (selection: DayEventSelection) => void
   activeId?: string | null
   hoveredId?: string | null
-  onDragStart?: (
-    selection: DayEventSelection,
-    e: React.MouseEvent<HTMLButtonElement>
+  draggingId?: string | null
+  onEventDragStart?: (
+    type: 'move' | 'resize',
+    event: DayEvent,
+    boxId: BoxId,
+    clientX: number,
+    clientY: number
   ) => void
-  previewStyles?: Record<string, CSSProperties>
   gridRef?: React.Ref<HTMLDivElement>
+  boxRefs?: React.MutableRefObject<Record<BoxId, HTMLDivElement | null>>
+  selectedBoxes: string[]
+  boxLayout: Record<string, { left: string; width: string }>
+  boxCount: number
+  visibleSlotCount: number // Número de slots de 30 min visibles según el período
 }) {
   // Filtrar slots según los horarios visibles
   const sourceSlots = timeSlotsOverride ?? TIME_SLOTS
-  const filteredSlots = sourceSlots.filter((slot) =>
-    timeLabels.includes(slot.time)
-  )
+
+  // Extraer todos los eventos de todos los slots para renderizarlos en capa absoluta
+  // Similar a cómo funciona en la vista semanal
+  // Filter events to only show those in selected boxes
+  const allEvents: { event: DayEvent; boxId: BoxId }[] = []
+  sourceSlots.forEach((slot) => {
+    slot.boxes.forEach((box) => {
+      // Convert box id (box1, box2, box3) to filter format (box-1, box-2, box-3)
+      const boxFilterId = box.id.replace('box', 'box-')
+      if (selectedBoxes.includes(boxFilterId)) {
+        box.events.forEach((event) => {
+          allEvents.push({ event, boxId: box.id as BoxId })
+        })
+      }
+    })
+  })
+
+  // Calcular posición left basada en el box usando el layout dinámico
+  const getEventLeft = (boxId: BoxId): string => {
+    // Convert boxId (box1, box2, box3) to box name (box 1, box 2, box 3)
+    const boxName = boxId.replace('box', 'box ')
+    return boxLayout[boxName]?.left ?? '0'
+  }
+
+  // Get event width based on dynamic layout
+  const getEventWidth = (boxId: BoxId): string => {
+    const boxName = boxId.replace('box', 'box ')
+    return boxLayout[boxName]?.width ?? '33.33%'
+  }
 
   return (
     <div
@@ -712,39 +972,83 @@ function DayGrid({
         height: 'calc(100% - var(--day-offset-top))'
       }}
     >
-      {/* Rejilla de líneas cada 30 minutos (misma que vista semanal) */}
+      {/* Rejilla de líneas cada slot (cada 30 min como en las etiquetas de tiempo) */}
       <div className='pointer-events-none absolute inset-0 z-[1]'>
         <div
           className='grid h-full'
           style={{
-            gridTemplateRows: `repeat(${timeLabels.length}, minmax(var(--scheduler-slot-height-half), 1fr))`
+            gridTemplateRows: `repeat(${visibleSlotCount}, var(--scheduler-slot-height-half))`
           }}
         >
-          {timeLabels.map((_, index) => (
-            <div
-              key={index}
-              className='border-b border-[var(--color-border-default)]'
-            />
-          ))}
+          {Array.from({ length: visibleSlotCount }).map((_, index) => {
+            // Línea más gruesa cada hora (2 slots de 30 min)
+            const isHourLine = index % 2 === 0
+            return (
+              <div
+                key={index}
+                className={`border-b ${
+                  isHourLine
+                    ? 'border-[var(--color-neutral-300)]'
+                    : 'border-[var(--color-neutral-200)]'
+                }`}
+              />
+            )
+          })}
         </div>
       </div>
 
-      <div
-        className='grid h-full'
-        style={{
-          gridTemplateRows: `repeat(${filteredSlots.length}, 1fr)`
-        }}
-      >
-        {filteredSlots.map((slot, index) => (
-          <TimeSlotRow
+      {/* Líneas verticales para separar boxes (dinámico según filtro) */}
+      <div className='pointer-events-none absolute inset-0 z-[1] flex'>
+        {Array.from({ length: boxCount }).map((_, index) => (
+          <div
             key={index}
-            slot={slot}
-            onHover={onHover}
-            onActivate={onActivate}
-            activeId={activeId}
-            hoveredId={hoveredId}
-            onDragStart={onDragStart}
-            previewStyles={previewStyles}
+            className={`flex-1 ${index < boxCount - 1 ? 'border-r border-[var(--color-border-default)]' : ''}`}
+          />
+        ))}
+      </div>
+
+      {/* Capa de eventos - Posición absoluta sobre toda la cuadrícula (igual que vista semanal) */}
+      <div className='absolute inset-0 z-[2]'>
+        {allEvents.map(({ event, boxId }) => (
+          <DayEvent
+            key={event.id}
+            event={event}
+            onHover={() => onHover({ event, boxId })}
+            onLeave={() => onHover(null)}
+            onActivate={() => onActivate({ event, boxId })}
+            isActive={activeId === event.id}
+            isHovered={hoveredId === event.id && activeId !== event.id}
+            isDragging={draggingId === event.id}
+            onDragStart={
+              onEventDragStart
+                ? (e) =>
+                    onEventDragStart(
+                      'move',
+                      event,
+                      boxId,
+                      e.clientX,
+                      e.clientY
+                    )
+                : undefined
+            }
+            onResizeStart={
+              onEventDragStart
+                ? (e) =>
+                    onEventDragStart(
+                      'resize',
+                      event,
+                      boxId,
+                      e.clientX,
+                      e.clientY
+                    )
+                : undefined
+            }
+            styleOverride={{
+              left: getEventLeft(boxId),
+              width: `calc(${getEventWidth(boxId)} - 0.5rem)`,
+              marginLeft: '0.25rem',
+              marginRight: '0.25rem'
+            }}
           />
         ))}
       </div>
@@ -762,6 +1066,7 @@ type ExternalAppointment = {
   title?: string
   box?: string
   bgColor?: string
+  detail?: EventDetail // Incluye notas y otra información del evento
 }
 
 // Tipo para bandas de profesionales dinámicas
@@ -782,6 +1087,7 @@ interface DayCalendarProps {
     end: string
     box: string
   }) => void
+  selectedBoxes?: string[] // Boxes selected in the filter
 }
 
 function timeToMinutes(time: string): number {
@@ -793,9 +1099,6 @@ function buildEventsFromAppointments(
   appointments: ExternalAppointment[]
 ): TimeSlot[] {
   if (!appointments.length) return TIME_SLOTS
-
-  const slotHeight = 'var(--scheduler-slot-height-half)'
-  const dayStartMinutes = 9 * 60 // 9:00 base in current grid
 
   // Helper to map appointment box to internal boxId
   const getBoxId = (apptBox: string | undefined, index: number): string => {
@@ -813,7 +1116,9 @@ function buildEventsFromAppointments(
   const getTimeSlotKey = (minutes: number): string => {
     const h = Math.floor(minutes / 60)
     const m = minutes % 60
-    return `${h}:${m === 0 ? '00' : '30'}`
+    // Redondear al slot de 30 min más cercano para la estructura de TIME_LABELS
+    const roundedM = m < 30 ? 0 : 30
+    return `${h}:${roundedM === 0 ? '00' : '30'}`
   }
 
   // Group events by their starting time slot
@@ -836,17 +1141,19 @@ function buildEventsFromAppointments(
   sorted.forEach((appt, index) => {
     const startMin = timeToMinutes(appt.start)
     const endMin = timeToMinutes(appt.end)
-    const durationMin = Math.max(30, endMin - startMin)
-    const heightUnits = durationMin / 30
+    const durationMin = Math.max(MINUTES_STEP, endMin - startMin)
+    
+    // Calcular slot de inicio (granularidad de 15 min, igual que vista semanal)
+    const startSlot = Math.floor((startMin - START_HOUR * 60) / MINUTES_STEP)
+    // Calcular altura en slots (granularidad de 15 min)
+    const heightSlots = Math.max(1, Math.ceil(durationMin / MINUTES_STEP))
 
-    // Find the slot this event belongs to
+    // Find the slot this event belongs to (para la estructura de TIME_LABELS)
     const slotKey = getTimeSlotKey(startMin)
 
-    // Calculate top offset within the slot (should be 0 for events starting at slot time)
-    const slotStartMin = Math.floor(startMin / 30) * 30
-    const offsetWithinSlot = (startMin - slotStartMin) / 30
-    const top = `calc(${offsetWithinSlot} * ${slotHeight})`
-    const height = `calc(${heightUnits} * ${slotHeight})`
+    // Calcular top y height usando SLOT_REM (igual que vista semanal)
+    const top = `${startSlot * SLOT_REM}rem`
+    const height = `${heightSlots * SLOT_REM}rem`
 
     // Use the box from the appointment or fallback to round-robin
     const boxId = getBoxId(appt.box, index)
@@ -861,7 +1168,8 @@ function buildEventsFromAppointments(
       label,
       top,
       bgColor: appt.bgColor ?? 'var(--color-event-purple)',
-      detail: createEventDetail(`${appt.start} ${title}`, appt.box ?? 'Box 1'),
+      // Usar el detail de la cita si existe, sino crear uno básico
+      detail: appt.detail ?? createEventDetail(`${appt.start} ${title}`, appt.box ?? 'Box 1'),
       box: appt.box ?? boxId,
       height
     }
@@ -888,25 +1196,57 @@ export default function DayCalendar({
   appointments = [],
   dateLabel,
   bands = DAILY_BANDS,
-  onAppointmentMove
+  onAppointmentMove,
+  selectedBoxes = BOX_HEADERS.map((b) => b.id) // Default to all boxes
 }: DayCalendarProps) {
+  // Get visible boxes based on filter
+  const visibleBoxes = BOX_HEADERS.filter((box) =>
+    selectedBoxes.includes(box.id)
+  )
+  const boxCount = visibleBoxes.length || 1
+  const boxLayout = getBoxLayout(selectedBoxes)
   const [hovered, setHovered] = useState<DayEventSelection>(null)
   const [active, setActive] = useState<DayEventSelection>(null)
-  const [previewStyles, setPreviewStyles] = useState<
-    Record<string, CSSProperties>
-  >({})
+  const [localEvents, setLocalEvents] = useState<TimeSlot[]>([])
+  const isDraggingRef = useRef(false)
   const gridRef = useRef<HTMLDivElement | null>(null)
-  const dragState = useRef<{
-    id: string
-    spanSlots: number
-    offsetY: number
-  } | null>(null)
+  const boxRefs = useRef<Record<BoxId, HTMLDivElement | null>>({
+    box1: null,
+    box2: null,
+    box3: null
+  })
+
+  // Estado de drag similar a WeekScheduler
+  type DragState = {
+    eventId: string
+    originBoxId: BoxId
+    type: 'move' | 'resize'
+    startClientY: number
+    startSlot: number
+    startHeightSlots: number
+    originalEvent: DayEvent
+  } | null
+
+  const [dragState, setDragState] = useState<DragState>(null)
+  const dragPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const dragRafRef = useRef<number | null>(null)
+
+  // Sincronizar eventos locales con appointments externos
+  useEffect(() => {
+    if (appointments.length) {
+      setLocalEvents(buildEventsFromAppointments(appointments))
+    } else {
+      setLocalEvents(TIME_SLOTS)
+    }
+  }, [appointments])
 
   const handleHover = (state: DayEventSelection) => {
+    if (isDraggingRef.current) return
     setHovered(state)
   }
 
   const handleActivate = (state: DayEventSelection) => {
+    if (isDraggingRef.current) return
     if (!state) return
     const isSame = active?.event.id === state.event.id
     setActive(isSame ? null : state)
@@ -920,29 +1260,58 @@ export default function DayCalendar({
   // Filtrar horarios según el período seleccionado
   const getFilteredTimeLabels = () => {
     if (period === 'morning') {
-      // Mañana: 9:00 - 12:00 (incluye 12:00)
       return TIME_LABELS.filter((time) => {
         const hour = parseInt(time.split(':')[0])
         return hour >= 9 && hour <= 12
       })
     } else if (period === 'afternoon') {
-      // Tarde: 12:00 - 20:00
       return TIME_LABELS.filter((time) => {
         const hour = parseInt(time.split(':')[0])
         return hour >= 12 && hour <= 20
       })
     }
-    // Día completo: 9:00 - 20:00
     return TIME_LABELS
   }
 
   const filteredTimeLabels = getFilteredTimeLabels()
-  const timeSlots = appointments.length
-    ? buildEventsFromAppointments(appointments)
-    : TIME_SLOTS
+  const visibleSlotCount = filteredTimeLabels.length
 
-  const clampSlot = (value: number, span: number) =>
-    Math.max(0, Math.min(value, filteredTimeLabels.length - span))
+  // Filtrar eventos según el período seleccionado
+  const getFilteredEvents = (): TimeSlot[] => {
+    if (!localEvents.length) return TIME_SLOTS
+
+    // Crear un Set con las horas visibles para filtrado rápido
+    const visibleTimes = new Set(filteredTimeLabels)
+
+    // Filtrar los slots para mostrar solo los del período seleccionado
+    return localEvents.filter((slot) => visibleTimes.has(slot.time))
+  }
+
+  const filteredEvents = getFilteredEvents()
+
+  // Funciones auxiliares para convertir entre slots y tiempo (IGUAL que vista semanal)
+  const toSlots = (value: string | undefined): number => {
+    if (!value) return 0
+    // Extraer el número de rem del string (ej: "2.5rem" -> 2.5)
+    const match = value.match(/^([\d.]+)rem$/)
+    if (match) {
+      const num = parseFloat(match[1])
+      return Number.isFinite(num) ? num / SLOT_REM : 0
+    }
+    // Si es un calc(), intentar extraer el valor
+    const calcMatch = value.match(/calc\(([\d.]+)\s*\*/)
+    if (calcMatch) {
+      return parseFloat(calcMatch[1]) || 0
+    }
+    return 0
+  }
+
+  const slotToTime = (slotIndex: number): string => {
+    const totalMinutes = START_HOUR * 60 + Math.max(0, slotIndex) * MINUTES_STEP
+    const h = Math.floor(totalMinutes / 60)
+    const m = totalMinutes % 60
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+  }
 
   const minutesToTime = (minutes: number) => {
     const h = Math.floor(minutes / 60)
@@ -950,91 +1319,269 @@ export default function DayCalendar({
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
   }
 
-  const handleDragStart = (
-    selection: DayEventSelection,
-    e: React.MouseEvent<HTMLButtonElement>
-  ) => {
-    if (!selection) return
-    const grid = gridRef.current
-    if (!grid) return
+  // Convertir tiempo HH:MM a índice de slot (igual que vista semanal)
+  const timeToSlotIndex = (time: string): number => {
+    const [h = '09', m = '00'] = time.split(':')
+    const hours = Number(h)
+    const minutes = Number(m)
+    const clampedHour = Math.max(START_HOUR, Math.min(hours, END_HOUR - 1))
+    const slotFromHour = (clampedHour - START_HOUR) * SLOTS_PER_HOUR
+    const slotFromMinutes = Math.floor(minutes / MINUTES_STEP)
+    return Math.max(0, Math.min(slotFromHour + slotFromMinutes, TOTAL_SLOTS - 1))
+  }
 
-    const gridRect = grid.getBoundingClientRect()
-    const slotHeight = gridRect.height / filteredTimeLabels.length
-    if (slotHeight <= 0) return
-
-    const targetRect = (
-      e.currentTarget as HTMLButtonElement
-    ).getBoundingClientRect()
-    const spanSlots = Math.max(1, targetRect.height / slotHeight)
-    const offsetY = e.clientY - targetRect.top
-
-    dragState.current = {
-      id: selection.event.id,
-      spanSlots,
-      offsetY
-    }
-
-    const handleMove = (ev: MouseEvent) => {
-      if (!dragState.current) return
-      const { id, spanSlots, offsetY } = dragState.current
-      const relY = ev.clientY - gridRect.top - offsetY
-      const slotHeightPx = slotHeight
-      const slotIndex = clampSlot(
-        Math.round(relY / slotHeightPx),
-        Math.ceil(spanSlots)
-      )
-
-      const topPx = slotIndex * slotHeightPx
-      setPreviewStyles({
-        [id]: {
-          top: `${topPx}px`
+  // Encontrar evento por ID en localEvents
+  const findEventById = (
+    eventId: string
+  ): { event: DayEvent; boxId: BoxId; slotTime: string } | null => {
+    for (const slot of localEvents) {
+      for (const box of slot.boxes) {
+        const found = box.events.find((e) => e.id === eventId)
+        if (found) {
+          return { event: found, boxId: box.id as BoxId, slotTime: slot.time }
         }
+      }
+    }
+    return null
+  }
+
+  // Inicio del drag (EXACTAMENTE IGUAL a WeekScheduler)
+  const handleEventDragStart = (
+    type: 'move' | 'resize',
+    event: DayEvent,
+    boxId: BoxId,
+    clientX: number,
+    clientY: number
+  ) => {
+    // Ocultar overlays mientras se arrastra (igual que vista semanal)
+    isDraggingRef.current = true
+    setHovered(null)
+    setActive(null)
+
+    // Calcular slot inicial desde la posición top del evento
+    const startSlot = toSlots(event.top)
+    // Calcular altura en slots
+    const startHeightSlots = Math.max(1, toSlots(event.height))
+
+    setDragState({
+      eventId: event.id,
+      originBoxId: boxId,
+      type,
+      startClientY: clientY,
+      startSlot,
+      startHeightSlots,
+      originalEvent: { ...event }
+    })
+  }
+
+  // useEffect para manejar el movimiento del mouse durante el drag
+  // LÓGICA EXACTAMENTE IGUAL A LA VISTA SEMANAL
+  useEffect(() => {
+    if (!dragState) return
+
+    const handleMove = (e: MouseEvent) => {
+      dragPointerRef.current = { x: e.clientX, y: e.clientY }
+      if (dragRafRef.current !== null) return
+
+      dragRafRef.current = requestAnimationFrame(() => {
+        dragRafRef.current = null
+        const { x, y } = dragPointerRef.current
+        const grid = gridRef.current
+        if (!grid) return
+
+        const gridRect = grid.getBoundingClientRect()
+        // Usar TOTAL_SLOTS para calcular la altura del slot (igual que vista semanal)
+        const slotHeightPx = gridRect.height / TOTAL_SLOTS
+        if (slotHeightPx <= 0) return
+
+        // Calcular delta de slots basado en movimiento Y (igual que vista semanal)
+        const deltaSlots = (y - dragState.startClientY) / slotHeightPx
+
+        // Para move: mover el slot de inicio
+        // Para resize: cambiar la altura
+        const moveSlot = Math.max(
+          0,
+          Math.min(
+            Math.round(dragState.startSlot + deltaSlots),
+            TOTAL_SLOTS - dragState.startHeightSlots
+          )
+        )
+        const resizeHeightSlots = Math.max(
+          1,
+          Math.min(
+            Math.round(dragState.startHeightSlots + deltaSlots),
+            TOTAL_SLOTS - dragState.startSlot
+          )
+        )
+
+        const newSlot =
+          dragState.type === 'resize' ? dragState.startSlot : moveSlot
+        const newHeightSlots =
+          dragState.type === 'resize'
+            ? resizeHeightSlots
+            : dragState.startHeightSlots
+
+        // Detectar box destino basándose en posición X (igual que vista semanal)
+        const boxWidth = gridRect.width / 3
+        const relX = x - gridRect.left
+        const boxIndex = Math.max(0, Math.min(2, Math.floor(relX / boxWidth)))
+        const targetBoxId: BoxId = (['box1', 'box2', 'box3'] as const)[boxIndex]
+        const targetBox = BOX_HEADERS[boxIndex]?.label ?? 'BOX 1'
+
+        // Calcular tiempos (igual que vista semanal)
+        const startTime = slotToTime(newSlot)
+        const endTime = slotToTime(newSlot + newHeightSlots)
+
+        // Actualizar eventos locales para feedback visual inmediato
+        setLocalEvents((prev) => {
+          // Crear copia profunda - remover evento de su posición actual
+          const newSlots = prev.map((slot) => ({
+            ...slot,
+            boxes: slot.boxes.map((box) => ({
+              ...box,
+              events: box.events.filter((ev) => ev.id !== dragState.eventId)
+            }))
+          }))
+
+          // Encontrar el slot correspondiente al nuevo tiempo
+          const totalMinutes = START_HOUR * 60 + newSlot * MINUTES_STEP
+          const slotHour = Math.floor(totalMinutes / 60)
+          const slotMinute = totalMinutes % 60
+          // Ajustar al slot de 30 min más cercano para la estructura de TIME_LABELS
+          const roundedMinute = slotMinute < 30 ? '00' : '30'
+          const targetSlotTime = `${slotHour}:${roundedMinute}`
+
+          // Encontrar el slot en la estructura
+          const slotIndex = newSlots.findIndex((s) => s.time === targetSlotTime)
+          if (slotIndex === -1) {
+            // Si no existe el slot exacto, usar el primero disponible
+            const fallbackIndex = 0
+            if (newSlots[fallbackIndex]) {
+              const boxIdx = newSlots[fallbackIndex].boxes.findIndex(
+                (b) => b.id === targetBoxId
+              )
+              if (boxIdx !== -1) {
+                const updatedEvent: DayEvent = {
+                  ...dragState.originalEvent,
+                  top: `${newSlot * SLOT_REM}rem`,
+                  height: `${newHeightSlots * SLOT_REM}rem`,
+                  box: targetBox,
+                  label: `${startTime} ${dragState.originalEvent.label.split('\n')[1] || dragState.originalEvent.label.split(' ').slice(1).join(' ')}`
+                }
+                newSlots[fallbackIndex].boxes[boxIdx].events.push(updatedEvent)
+              }
+            }
+            return newSlots
+          }
+
+          // Crear evento actualizado con nueva posición
+          const updatedEvent: DayEvent = {
+            ...dragState.originalEvent,
+            top: `${newSlot * SLOT_REM}rem`,
+            height: `${newHeightSlots * SLOT_REM}rem`,
+            box: targetBox,
+            label: `${startTime} ${dragState.originalEvent.label.split('\n')[1] || dragState.originalEvent.label.split(' ').slice(1).join(' ')}`
+          }
+
+          // Añadir al box correcto
+          const boxIdx = newSlots[slotIndex].boxes.findIndex(
+            (b) => b.id === targetBoxId
+          )
+          if (boxIdx !== -1) {
+            newSlots[slotIndex].boxes[boxIdx].events.push(updatedEvent)
+          }
+
+          return newSlots
+        })
       })
     }
 
-    const handleUp = (ev: MouseEvent) => {
-      if (!dragState.current) return
-      const { id, spanSlots, offsetY } = dragState.current
-      const relY = ev.clientY - gridRect.top - offsetY
-      const slotIndex = clampSlot(
-        Math.round(relY / (gridRect.height / filteredTimeLabels.length)),
-        Math.ceil(spanSlots)
-      )
-      const startMinutes = 9 * 60 + slotIndex * 30
-      const endMinutes = startMinutes + Math.max(1, Math.round(spanSlots)) * 30
+    const handleUp = () => {
+      isDraggingRef.current = false
 
-      // Determinar box por posición X dentro de la grilla (3 boxes)
-      const boxWidth = gridRect.width / 3
-      const relX = ev.clientX - gridRect.left
-      const boxIndex = Math.max(
+      // Obtener posición final (igual que vista semanal)
+      const { x, y } = dragPointerRef.current
+      const grid = gridRef.current
+      if (!grid) {
+        setDragState(null)
+        return
+      }
+
+      const gridRect = grid.getBoundingClientRect()
+      const slotHeightPx = gridRect.height / TOTAL_SLOTS
+      if (slotHeightPx <= 0) {
+        setDragState(null)
+        return
+      }
+
+      const deltaSlots = (y - dragState.startClientY) / slotHeightPx
+      const moveSlot = Math.max(
         0,
-        Math.min(2, Math.floor(relX / Math.max(boxWidth, 1)))
+        Math.min(
+          Math.round(dragState.startSlot + deltaSlots),
+          TOTAL_SLOTS - dragState.startHeightSlots
+        )
       )
+      const resizeHeightSlots = Math.max(
+        1,
+        Math.min(
+          Math.round(dragState.startHeightSlots + deltaSlots),
+          TOTAL_SLOTS - dragState.startSlot
+        )
+      )
+
+      const newSlot =
+        dragState.type === 'resize' ? dragState.startSlot : moveSlot
+      const newHeightSlots =
+        dragState.type === 'resize'
+          ? resizeHeightSlots
+          : dragState.startHeightSlots
+
+      // Detectar box final (igual que vista semanal)
+      const boxWidth = gridRect.width / 3
+      const relX = x - gridRect.left
+      const boxIndex = Math.max(0, Math.min(2, Math.floor(relX / boxWidth)))
       const targetBox = BOX_HEADERS[boxIndex]?.label ?? 'BOX 1'
 
+      // Calcular tiempos finales (igual que vista semanal)
+      const startTime = slotToTime(newSlot)
+      const endTime = slotToTime(newSlot + newHeightSlots)
+
+      // Notificar al padre con los datos actualizados
       if (onAppointmentMove) {
         onAppointmentMove({
-          id,
-          start: minutesToTime(startMinutes),
-          end: minutesToTime(endMinutes),
+          id: dragState.eventId,
+          start: startTime,
+          end: endTime,
           box: targetBox
         })
       }
 
-      setPreviewStyles({})
-      dragState.current = null
-      window.removeEventListener('mousemove', handleMove)
-      window.removeEventListener('mouseup', handleUp)
+      setDragState(null)
+      if (dragRafRef.current !== null) {
+        cancelAnimationFrame(dragRafRef.current)
+        dragRafRef.current = null
+      }
     }
 
     window.addEventListener('mousemove', handleMove)
     window.addEventListener('mouseup', handleUp, { once: true })
-  }
 
-  // Altura mínima basada en la jornada completa para que los segmentos puedan expandirse
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+  }, [dragState, onAppointmentMove])
+
+  // Altura mínima basada en el período seleccionado
   const bandsTotalHeight = `${bands.length * DAILY_BAND_HEIGHT_REM}rem`
   const dayOffsetTop = `calc(var(--scheduler-day-header-height) + ${bandsTotalHeight})`
-  const fullDayHeight = `calc(${TIME_LABELS.length} * var(--scheduler-slot-height-half) + var(--scheduler-day-header-height) + ${bandsTotalHeight})`
+  // Calcular slots visibles según el período (cada etiqueta = 2 slots de 15 min, pero usamos 1 slot por etiqueta de 30 min visible)
+  // Para morning: 9:00, 9:30, 10:00, 10:30, 11:00, 11:30, 12:00 = 7 etiquetas
+  // Para afternoon: 12:00 a 20:00 = 17 etiquetas  
+  // Para full: 9:00 a 20:30 = 23 etiquetas
+  const visibleSlotsForHeight = filteredTimeLabels.length
+  const fullDayHeight = `calc(${visibleSlotsForHeight} * var(--scheduler-slot-height-half) + var(--scheduler-day-header-height) + ${bandsTotalHeight})`
 
   const overlaySource = active
   const activeDetail = overlaySource?.event.detail
@@ -1051,7 +1598,7 @@ export default function DayCalendar({
       }
       onClick={handleRootClick}
     >
-      <BoxHeaders />
+      <BoxHeaders visibleBoxes={visibleBoxes} />
       <div
         className='absolute left-0 top-[var(--scheduler-day-header-height)] z-[2] flex w-full flex-col'
         style={{
@@ -1082,14 +1629,19 @@ export default function DayCalendar({
       <TimeColumn timeLabels={filteredTimeLabels} />
       <DayGrid
         timeLabels={filteredTimeLabels}
-        timeSlotsOverride={timeSlots}
+        timeSlotsOverride={filteredEvents}
         onHover={handleHover}
         onActivate={handleActivate}
         activeId={active?.event.id}
         hoveredId={hovered?.event.id}
-        onDragStart={handleDragStart}
-        previewStyles={previewStyles}
+        draggingId={dragState?.eventId ?? null}
+        onEventDragStart={handleEventDragStart}
         gridRef={gridRef}
+        boxRefs={boxRefs}
+        selectedBoxes={selectedBoxes}
+        boxLayout={boxLayout}
+        boxCount={boxCount}
+        visibleSlotCount={visibleSlotCount}
       />
 
       {/* Hover overlay - Simplified detail view */}
