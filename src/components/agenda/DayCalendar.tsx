@@ -928,13 +928,14 @@ function DayGrid({
   boxLayout: Record<string, { left: string; width: string }>
   boxCount: number
   visibleSlotCount: number // Número de slots de 30 min visibles según el período
+  selectedProfessionals: string[]
 }) {
   // Filtrar slots según los horarios visibles
   const sourceSlots = timeSlotsOverride ?? TIME_SLOTS
 
   // Extraer todos los eventos de todos los slots para renderizarlos en capa absoluta
   // Similar a cómo funciona en la vista semanal
-  // Filter events to only show those in selected boxes
+  // Filter events to only show those in selected boxes AND selected professionals
   const allEvents: { event: DayEvent; boxId: BoxId }[] = []
   sourceSlots.forEach((slot) => {
     slot.boxes.forEach((box) => {
@@ -942,7 +943,16 @@ function DayGrid({
       const boxFilterId = box.id.replace('box', 'box-')
       if (selectedBoxes.includes(boxFilterId)) {
         box.events.forEach((event) => {
-          allEvents.push({ event, boxId: box.id as BoxId })
+          // Filter by professional if selectedProfessionals is not empty
+          const professionalMatch =
+            selectedProfessionals.length === 0 ||
+            !event.detail?.professional ||
+            selectedProfessionals.some((profId) =>
+              event.detail?.professional?.toLowerCase().includes(profId.toLowerCase().replace('dr', '').replace('dra', ''))
+            )
+          if (professionalMatch) {
+            allEvents.push({ event, boxId: box.id as BoxId })
+          }
         })
       }
     })
@@ -1088,6 +1098,7 @@ interface DayCalendarProps {
     box: string
   }) => void
   selectedBoxes?: string[] // Boxes selected in the filter
+  selectedProfessionals?: string[] // Professionals selected in the filter
 }
 
 function timeToMinutes(time: string): number {
@@ -1197,7 +1208,8 @@ export default function DayCalendar({
   dateLabel,
   bands = DAILY_BANDS,
   onAppointmentMove,
-  selectedBoxes = BOX_HEADERS.map((b) => b.id) // Default to all boxes
+  selectedBoxes = BOX_HEADERS.map((b) => b.id), // Default to all boxes
+  selectedProfessionals = [] // Empty means all professionals
 }: DayCalendarProps) {
   // Get visible boxes based on filter
   const visibleBoxes = BOX_HEADERS.filter((box) =>
@@ -1642,6 +1654,7 @@ export default function DayCalendar({
         boxLayout={boxLayout}
         boxCount={boxCount}
         visibleSlotCount={visibleSlotCount}
+        selectedProfessionals={selectedProfessionals}
       />
 
       {/* Hover overlay - Simplified detail view */}

@@ -116,11 +116,7 @@ const VIEW_OPTIONS: { id: ViewOption; label: string }[] = [
   { id: 'mes', label: 'Mes' }
 ]
 
-const PROFESSIONAL_OPTIONS = [
-  { id: 'profesional-1', label: 'Profesional 1' },
-  { id: 'profesional-2', label: 'Profesional 2' },
-  { id: 'profesional-3', label: 'Profesional 3' }
-]
+// PROFESSIONAL_OPTIONS is defined after CLINIC_PROFESSIONALS below
 
 const BOX_OPTIONS = [
   { id: 'box-1', label: 'Box 1' },
@@ -388,6 +384,14 @@ export const CLINIC_PROFESSIONALS = {
 } as const
 
 export type ProfessionalId = keyof typeof CLINIC_PROFESSIONALS
+
+// Professional options derived from CLINIC_PROFESSIONALS
+const PROFESSIONAL_OPTIONS = Object.entries(CLINIC_PROFESSIONALS).map(
+  ([key, prof]) => ({
+    id: key,
+    label: prof.name
+  })
+)
 
 // Función para obtener las bandas de profesionales de un día específico
 export function getBandsForDate(
@@ -2433,7 +2437,8 @@ function DayGrid({
   onEventDragStart,
   draggingEventId,
   onClearSelection,
-  selectedBoxes
+  selectedBoxes,
+  selectedProfessionals
 }: {
   column: DayColumn
   activeSelection: EventSelection
@@ -2452,16 +2457,24 @@ function DayGrid({
   draggingEventId?: string | null
   onClearSelection: () => void
   selectedBoxes: string[]
+  selectedProfessionals: string[]
 }) {
   // Calculate dynamic box layout based on selected boxes
   const boxLayout = getBoxLayout(selectedBoxes)
 
-  // Filter events to only show those in selected boxes
+  // Filter events to only show those in selected boxes AND selected professionals
   const filteredEvents = column.events.filter((event) => {
+    // Filter by box
     const boxName = event.box?.toLowerCase() ?? ''
-    // Convert 'box 1' to 'box-1' for comparison
     const boxId = boxName.replace(' ', '-')
-    return selectedBoxes.includes(boxId)
+    const boxMatch = selectedBoxes.includes(boxId)
+
+    // Filter by professional (if event has professionalId)
+    const professionalMatch =
+      !event.professionalId ||
+      selectedProfessionals.includes(event.professionalId)
+
+    return boxMatch && professionalMatch
   })
   // Domingo con patrón de puntos SVG
   const isSunday = column.id === 'sunday'
@@ -3540,9 +3553,9 @@ export default function WeekScheduler() {
   const [active, setActive] = useState<EventSelection>(null)
   const [viewOption, setViewOption] = useState<ViewOption>('semana')
   const [dayPeriod, setDayPeriod] = useState<DayPeriod>('full')
-  const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>([
-    'profesional-1'
-  ])
+  const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>(
+    PROFESSIONAL_OPTIONS.map((opt) => opt.id) // All professionals selected by default
+  )
   const [selectedBoxes, setSelectedBoxes] = useState<string[]>(
     BOX_OPTIONS.map((option) => option.id)
   )
@@ -4716,6 +4729,7 @@ export default function WeekScheduler() {
             bands={getDayBands(selectedDate ?? currentWeekStart)}
             onAppointmentMove={handleDayAppointmentMove}
             selectedBoxes={selectedBoxes}
+            selectedProfessionals={selectedProfessionals}
           />
         </div>
       ) : (
@@ -4754,6 +4768,7 @@ export default function WeekScheduler() {
                     setActive(null)
                   }}
                   selectedBoxes={selectedBoxes}
+                  selectedProfessionals={selectedProfessionals}
                 />
               ))}
 

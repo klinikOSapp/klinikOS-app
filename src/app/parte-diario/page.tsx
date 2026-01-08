@@ -202,6 +202,39 @@ export default function ParteDiarioPage() {
   const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
   const [isParteModalOpen, setIsParteModalOpen] = React.useState(false)
 
+  // Estado para el filtro de profesional
+  const [selectedProfessional, setSelectedProfessional] = React.useState<
+    string | null
+  >(null)
+  const [isProfessionalDropdownOpen, setIsProfessionalDropdownOpen] =
+    React.useState(false)
+  const professionalDropdownRef = React.useRef<HTMLDivElement>(null)
+
+  // Extraer lista única de profesionales de todas las citas
+  const uniqueProfessionals = React.useMemo(() => {
+    const professionals = new Set<string>()
+    appointments.forEach((apt) => {
+      if (apt.professional) {
+        professionals.add(apt.professional)
+      }
+    })
+    return Array.from(professionals).sort()
+  }, [appointments])
+
+  // Cerrar dropdown al hacer clic fuera
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        professionalDropdownRef.current &&
+        !professionalDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsProfessionalDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   // Estado para la fecha seleccionada (por defecto hoy)
   const [selectedDate, setSelectedDate] = React.useState<Date>(new Date())
 
@@ -252,7 +285,14 @@ export default function ParteDiarioPage() {
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     )
   }
-  const clearFilters = () => setSelectedFilters([])
+  const clearFilters = () => {
+    setSelectedFilters([])
+    setSelectedProfessional(null)
+  }
+
+  // Verificar si hay algún filtro activo (para el botón "Todos")
+  const hasActiveFilters =
+    selectedFilters.length > 0 || selectedProfessional !== null
 
   const searchCtaStyles: React.CSSProperties = {
     width: `min(${CTA_WIDTH_REM}rem, 100%)`,
@@ -484,7 +524,7 @@ export default function ParteDiarioPage() {
                 onClick={clearFilters}
                 className={[
                   'flex items-center gap-2 px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
-                  selectedFilters.length === 0
+                  !hasActiveFilters
                     ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                     : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
                 ].join(' ')}
@@ -492,6 +532,70 @@ export default function ParteDiarioPage() {
                 <MD3Icon name='FilterListRounded' size='sm' />
                 <span>Todos</span>
               </button>
+
+              {/* Dropdown de Profesional */}
+              <div className='relative' ref={professionalDropdownRef}>
+                <button
+                  onClick={() =>
+                    setIsProfessionalDropdownOpen(!isProfessionalDropdownOpen)
+                  }
+                  className={[
+                    'flex items-center gap-1 px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC]',
+                    selectedProfessional
+                      ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
+                      : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
+                  ].join(' ')}
+                >
+                  <span className='truncate max-w-[150px]'>
+                    {selectedProfessional || 'Profesional'}
+                  </span>
+                  <MD3Icon
+                    name={
+                      isProfessionalDropdownOpen
+                        ? 'KeyboardArrowUpRounded'
+                        : 'KeyboardArrowDownRounded'
+                    }
+                    size='sm'
+                  />
+                </button>
+
+                {isProfessionalDropdownOpen && (
+                  <div className='absolute top-full left-0 mt-1 z-50 min-w-[200px] max-h-[300px] overflow-auto bg-white rounded-[8px] border border-[var(--color-neutral-200)] shadow-lg'>
+                    <button
+                      onClick={() => {
+                        setSelectedProfessional(null)
+                        setIsProfessionalDropdownOpen(false)
+                      }}
+                      className={[
+                        'w-full text-left px-3 py-2 text-body-sm hover:bg-[var(--color-neutral-100)] transition-colors',
+                        selectedProfessional === null
+                          ? 'bg-[var(--color-brand-0)] text-[var(--color-brand-700)]'
+                          : 'text-[var(--color-neutral-900)]'
+                      ].join(' ')}
+                    >
+                      Todos los profesionales
+                    </button>
+                    {uniqueProfessionals.map((professional) => (
+                      <button
+                        key={professional}
+                        onClick={() => {
+                          setSelectedProfessional(professional)
+                          setIsProfessionalDropdownOpen(false)
+                        }}
+                        className={[
+                          'w-full text-left px-3 py-2 text-body-sm hover:bg-[var(--color-neutral-100)] transition-colors truncate',
+                          selectedProfessional === professional
+                            ? 'bg-[var(--color-brand-0)] text-[var(--color-brand-700)]'
+                            : 'text-[var(--color-neutral-900)]'
+                        ].join(' ')}
+                      >
+                        {professional}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={() => toggleFilter('deuda')}
                 className={[
@@ -578,7 +682,13 @@ export default function ParteDiarioPage() {
                         p.tags?.includes(tagMap[k])
                       )
                     })()
-                    return Boolean(matchesQuery && matchesFilter)
+                    // Filtro por profesional
+                    const matchesProfessional = selectedProfessional
+                      ? p.professional === selectedProfessional
+                      : true
+                    return Boolean(
+                      matchesQuery && matchesFilter && matchesProfessional
+                    )
                   })
                   .map((row, i) => (
                     <tr

@@ -44,6 +44,7 @@ export type AgendaEvent = {
   left?: string
   width?: string
   detail?: EventDetail
+  professionalId?: string
 }
 
 export type DayColumn = {
