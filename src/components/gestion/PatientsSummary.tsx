@@ -38,7 +38,7 @@ export default function PatientsSummary({
   const data = items ?? getItems(timeScale)
 
   return (
-    <section className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid w-full shrink-0 px-[0.5rem] pt-0 pb-card-inner'>
+    <section className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid overflow-hidden min-w-0 px-[0.5rem] pt-0 pb-card-inner'>
       <div className='w-full px-[0.5rem]'>
         <header className='mt-[1rem] flex items-baseline justify-between'>
           <h3 className='text-title-sm font-medium text-fg'>Pacientes</h3>

@@ -45,7 +45,6 @@ export default function ProfessionalBars({
 }) {
   const cardStyles: CSSProperties = {
     width: '100%',
-    maxWidth: `min(${CARD_WIDTH_REM}, 95vw, var(--chart-prof-width-limit, ${CARD_WIDTH_REM}))`,
     height: `min(${CARD_HEIGHT_REM}, var(--chart-prof-height-limit, ${CARD_HEIGHT_REM}))`
   }
 

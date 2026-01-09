@@ -1,7 +1,7 @@
 'use client'
 
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Line,
   LineChart,
@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis
 } from 'recharts'
+
 type BillingLineChartProps = {
   yearLabel?: string
   timeScale: CashTimeScale
@@ -18,25 +19,8 @@ type BillingLineChartProps = {
 }
 
 const CARD_HEIGHT_VAR = 'var(--height-card-chart-fluid)'
-const CARD_WIDTH_EFFECTIVE = 'min(100%, var(--width-card-chart-lg-fluid))'
 
-const HEADER_LEFT_RATIO = 16 / 1069
-const HEADER_TOP_RATIO = 16 / 342
-const Y_AXIS_LEFT_RATIO = 16 / 1069
-const Y_AXIS_TOP_RATIO = 64 / 342
-const Y_AXIS_HEIGHT_RATIO = 222 / 342
-const GRID_LEFT_RATIO = 63 / 1069
-const GRID_TOP_RATIO = 58 / 342
-const GRID_WIDTH_RATIO = 824 / 1069
-const GRID_HEIGHT_RATIO = 228 / 342
-const MONTH_ROW_TOP_RATIO = 302 / 342
-const COMPARISON_LEFT_RATIO = 911 / 1069
-const COMPARISON_TOP_RATIO = 58 / 342
-const COMPARISON_WIDTH_RATIO = 142 / 1069
-// Recharts sustituye las líneas SVG estáticas. Los datos por mes permiten dibujar
-// la línea "brand" (actual) y la "accent" (comparativa) manteniendo la estructura Figma.
-// Mock data con curvatura visible para demo; sustituir por backend en prod.
-// Escalado para encajar con el eje 0–90K del diseño.
+// Mock data con curvatura visible para demo
 const CHART_DATA = [
   { month: 'Ene', brand: 8000, accent: 6500 },
   { month: 'Feb', brand: 15000, accent: 12500 },
@@ -51,64 +35,31 @@ const CHART_DATA = [
   { month: 'Nov', brand: 28000, accent: 23500 },
   { month: 'Dic', brand: 52000, accent: 44000 }
 ]
+
 const WEEKLY_MOCK_BRAND = [
-  12000,
-  18000,
-  15000,
-  24000,
-  20000,
-  30000,
-  26000,
-  34000,
-  28000,
-  36000,
-  31000,
-  40000
+  12000, 18000, 15000, 24000, 20000, 30000,
+  26000, 34000, 28000, 36000, 31000, 40000
 ] as const
 
 const Y_AXIS_LABELS = ['90K', '70K', '50K', '30K', '10K', '0']
 
-const toWidth = (ratio: number) =>
-  `calc(${CARD_WIDTH_EFFECTIVE} * ${ratio.toFixed(6)})`
-const toHeight = (ratio: number) =>
-  `calc(${CARD_HEIGHT_VAR} * ${ratio.toFixed(6)})`
-
 export default function BillingLineChart({
-  yearLabel: _yearLabel = '2024',
   timeScale,
   anchorDate
 }: BillingLineChartProps) {
-  void _yearLabel
   const [isMounted, setIsMounted] = useState(false)
-  const clipId = useId()
   const chartContainerRef = useRef<HTMLDivElement | null>(null)
-  const [clipWidthPx, setClipWidthPx] = useState<number | null>(null)
+
   const chartData = useMemo(
     () => buildChartData(timeScale, anchorDate),
     [timeScale, anchorDate]
   )
 
-  // El índice del momento actual depende de la escala:
-  // - Mes: buscamos el mes de anchorDate dentro de la serie generada (12 meses, el último slot es el mes actual)
-  // - Semana/día: el último punto es el periodo actual
-  const highlightIndex = (() => {
+  const highlightIndex = useMemo(() => {
     if (chartData.length === 0) return 0
     if (timeScale !== 'month') return Math.max(0, chartData.length - 1)
-
-    const monthsCount = chartData.length
-    const monthIndex = Array.from({ length: monthsCount }, (_, idx) => {
-      const d = new Date(anchorDate)
-      // buildMonthlyData usa (months - 2 - idx) para dejar el mes actual en el penúltimo slot
-      d.setMonth(anchorDate.getMonth() - (monthsCount - 2 - idx))
-      return d
-    }).findIndex(
-      (d) =>
-        d.getMonth() === anchorDate.getMonth() &&
-        d.getFullYear() === anchorDate.getFullYear()
-    )
-
-    return monthIndex >= 0 ? monthIndex : Math.max(0, monthsCount - 2)
-  })()
+    return Math.max(0, chartData.length - 2)
+  }, [chartData.length, timeScale])
 
   const lineClipPercent =
     chartData.length > 1 ? highlightIndex / Math.max(chartData.length - 1, 1) : 0
@@ -117,278 +68,173 @@ export default function BillingLineChart({
   const highlightValue = chartData[highlightIndex]?.brand ?? null
   const highlightAccentValue = chartData[highlightIndex]?.accent ?? null
 
-  // Datos completos para mantener los 12 ejes en mes; las líneas se “cortan” con valores null a partir del punto actual.
-  const lineData = chartData.map((point, idx) => ({
-    ...point,
-    brandClipped: idx <= highlightIndex ? point.brand : null,
-    accentClipped: idx <= highlightIndex ? point.accent : null
-  }))
   useEffect(() => setIsMounted(true), [])
 
-  useEffect(() => {
-    const node = chartContainerRef.current
-    if (!node || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(([entry]) => {
-      if (!entry) return
-      const next = entry.contentRect.width * lineClipPercent
-      setClipWidthPx((prev) => (prev === next ? prev : next))
-    })
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [lineClipPercent])
+  // Comparison panel data
+  const comparisonMonth = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat('es-ES', { month: 'short', year: 'numeric' })
+    return formatter.format(anchorDate)
+  }, [anchorDate])
+
+  const prevYearMonth = useMemo(() => {
+    const prevYear = new Date(anchorDate)
+    prevYear.setFullYear(prevYear.getFullYear() - 1)
+    const formatter = new Intl.DateTimeFormat('es-ES', { month: 'short', year: 'numeric' })
+    return formatter.format(prevYear)
+  }, [anchorDate])
 
   return (
     <section
-      className='relative w-full overflow-clip rounded-lg bg-surface shadow-elevation-card'
-      style={{ height: CARD_HEIGHT_VAR, width: '100%' }}
+      className='relative flex w-full flex-col overflow-hidden rounded-lg bg-surface shadow-elevation-card'
+      style={{ height: CARD_HEIGHT_VAR }}
     >
-      <header
-        className='absolute z-10 flex items-baseline justify-between text-fg'
-        style={{
-          left: toWidth(HEADER_LEFT_RATIO),
-          right: toWidth(HEADER_LEFT_RATIO),
-          top: toHeight(HEADER_TOP_RATIO)
-        }}
-      >
-        <h3 className='text-title-sm font-medium'>Facturación</h3>
+      {/* Header */}
+      <header className='flex shrink-0 items-baseline justify-between px-4 pt-4'>
+        <h3 className='text-title-sm font-medium text-fg'>Facturación</h3>
       </header>
 
-      <div
-        className='absolute flex flex-col justify-between text-label-sm font-normal text-neutral-400'
-        style={{
-          left: toWidth(Y_AXIS_LEFT_RATIO),
-          top: toHeight(Y_AXIS_TOP_RATIO),
-          height: toHeight(Y_AXIS_HEIGHT_RATIO)
-        }}
-      >
-        {Y_AXIS_LABELS.map((value) => (
-          <span key={value}>{value}</span>
-        ))}
-      </div>
+      {/* Main content area */}
+      <div className='flex flex-1 gap-3 overflow-hidden px-4 pb-4'>
+        {/* Chart area - takes remaining space */}
+        <div className='flex min-w-0 flex-1 flex-col'>
+          {/* Y-axis + Chart grid container */}
+          <div className='flex flex-1'>
+            {/* Y-axis labels */}
+            <div className='flex w-10 shrink-0 flex-col justify-between py-2 text-label-sm font-normal text-neutral-400'>
+              {Y_AXIS_LABELS.map((value) => (
+                <span key={value}>{value}</span>
+              ))}
+            </div>
 
-      <div
-        ref={chartContainerRef}
-        className='absolute'
-        style={{
-          left: toWidth(GRID_LEFT_RATIO),
-          top: toHeight(GRID_TOP_RATIO),
-          width: toWidth(GRID_WIDTH_RATIO),
-          height: toHeight(GRID_HEIGHT_RATIO)
-        }}
-      >
-        <div
-          className='absolute inset-0'
-          style={{
-            backgroundImage:
-              'linear-gradient(to bottom, var(--chart-grid) 1px, transparent 1px), linear-gradient(to right, var(--chart-grid) 1px, transparent 1px)',
-            backgroundSize: '100% calc(100% / 5), calc(100% / 11) 100%',
-            backgroundPosition: 'left top, left top'
-          }}
-        />
-        <div className='absolute inset-0'>
-          {isMounted && (
-            <ResponsiveContainer width='100%' height='100%'>
-                <LineChart
-                  data={lineData}
-                margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-              >
-                <defs>
-                  <clipPath id={clipId} clipPathUnits='userSpaceOnUse'>
-                    <rect
-                      width={clipWidthPx ?? 0}
-                      height={clipWidthPx !== null ? '100%' : 0}
-                      x='0'
-                      y='0'
-                    />
-                  </clipPath>
-                </defs>
-                {/* Ejes ocultos para mantener las etiquetas personalizadas de Figma */}
-                <XAxis dataKey='month' hide />
-                <YAxis domain={[0, 90000]} hide />
-                {/* Línea comparativa (info-200) - estilo discontínuo */}
-                <Line
-                  type='monotone'
-                  dataKey='accentClipped'
-                  stroke='var(--info-200, #D4B5FF)'
-                  strokeWidth={1.5}
-                  strokeOpacity={0.7}
-                  strokeDasharray='4 4'
-                  dot={false}
-                  animationDuration={1200}
-                  animationBegin={150}
-                  clipPath={`url(#${clipId})`}
-                />
-                {/* Línea principal (brandSemantic) */}
-                <Line
-                  type='monotone'
-                  dataKey='brandClipped'
-                  stroke='var(--brandSemantic, #51D6C7)'
-                  strokeWidth={1.6}
-                  strokeOpacity={0.8}
-                  dot={false}
-                  animationDuration={1200}
-                  animationBegin={0}
-                  clipPath={`url(#${clipId})`}
-                />
-                <Tooltip content={<ChartTooltip />} />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </div>
-
-      <div
-        className='absolute'
-        style={{
-          left: toWidth(GRID_LEFT_RATIO + GRID_WIDTH_RATIO * lineClipPercent),
-          top: toHeight(GRID_TOP_RATIO),
-          width: '0.0625rem', // 1px
-          height: toHeight(GRID_HEIGHT_RATIO),
-          backgroundColor: 'var(--color-warning-200, #FFD188)',
-          pointerEvents: 'none'
-        }}
-      />
-      {/* Punto amarillo alineado con la línea amarilla y cruzando la línea turquesa */}
-      {highlightValue !== null ? (
-        <div
-          className='absolute h-[0.75rem] w-[0.75rem] rounded-full bg-[var(--color-warning-200,#FFD188)] shadow-elevation-card'
-          style={{
-            left: toWidth(GRID_LEFT_RATIO + GRID_WIDTH_RATIO * lineClipPercent),
-            top: toHeight(
-              GRID_TOP_RATIO +
-                GRID_HEIGHT_RATIO *
-                  (1 - Math.min(Math.max(highlightValue / 90000, 0), 1))
-            ),
-            transform: 'translate(-50%, -50%)'
-          }}
-        />
-      ) : null}
-      {highlightLabel ? (
-        <div
-          className='absolute translate-y-[-60%] rounded-full bg-surface px-[0.5rem] py-[0.25rem] text-label-sm font-medium text-neutral-700 shadow-elevation-card'
-          style={{
-            left: toWidth(GRID_LEFT_RATIO + GRID_WIDTH_RATIO * lineClipPercent),
-            top: toHeight(GRID_TOP_RATIO),
-            transform: 'translate(-50%, -70%)'
-          }}
-        >
-          {highlightLabel}
-        </div>
-      ) : null}
-
-      {highlightValue !== null ? (
-        <div
-          className='absolute'
-          style={{
-            left: toWidth(GRID_LEFT_RATIO + GRID_WIDTH_RATIO * lineClipPercent),
-            top: toHeight(
-              GRID_TOP_RATIO +
-                GRID_HEIGHT_RATIO *
-                  (1 - Math.min(Math.max(highlightValue / 90000, 0), 1))
-            ),
-            transform: 'translate(-50%, -120%)'
-          }}
-        >
-          <div className='rounded-full border border-brandSemantic bg-brand-50 px-[0.5rem] py-[0.25rem] text-label-sm font-normal text-brandSemantic whitespace-nowrap'>
-            {highlightValue.toLocaleString('es-ES', {
-              minimumFractionDigits: 0
-            })}{' '}
-            €
-          </div>
-        </div>
-      ) : null}
-
-      {highlightAccentValue !== null ? (
-        <div
-          className='absolute'
-          style={{
-            left: toWidth(GRID_LEFT_RATIO + GRID_WIDTH_RATIO * lineClipPercent),
-            top: toHeight(
-              GRID_TOP_RATIO +
-                GRID_HEIGHT_RATIO *
-                  (1 - Math.min(Math.max(highlightAccentValue / 90000, 0), 1))
-            ),
-            transform: 'translate(-50%, -220%)'
-          }}
-        >
-          <div className='rounded-full border border-info-200 border-dashed px-[0.5rem] py-[0.25rem] text-label-sm font-normal text-info-200 whitespace-nowrap'>
-            {highlightAccentValue.toLocaleString('es-ES', {
-              minimumFractionDigits: 0
-            })}{' '}
-            €
-          </div>
-        </div>
-      ) : null}
-
-      <div
-        className='absolute flex justify-between text-label-sm font-normal text-neutral-400'
-        style={{
-          left: toWidth(GRID_LEFT_RATIO),
-          top: toHeight(MONTH_ROW_TOP_RATIO),
-          width: toWidth(GRID_WIDTH_RATIO)
-        }}
-      >
-        {chartData.map((point) => (
-          <span key={point.month}>{point.month}</span>
-        ))}
-      </div>
-
-      <div
-        className='absolute flex flex-col rounded-lg bg-surface overflow-hidden'
-        style={{
-          left: toWidth(COMPARISON_LEFT_RATIO),
-          top: toHeight(COMPARISON_TOP_RATIO),
-          width: toWidth(COMPARISON_WIDTH_RATIO),
-          height: toHeight(GRID_HEIGHT_RATIO),
-          paddingTop: 'var(--space-card-pad)', // 16px
-          paddingBottom: 'var(--space-card-pad)',
-          paddingLeft: 'var(--space-card-gap2)', // 11px
-          paddingRight: 'var(--space-card-gap2)',
-          border: '0.03125rem solid var(--color-neutral-300, #CBD3D9)' // 0.5px
-        }}
-      >
-        <div className='flex flex-1 flex-col justify-between'>
-          <div className='flex flex-col gap-card-row'>
-            <p className='text-body-sm font-medium text-neutral-600'>
-              Oct, 2025
-            </p>
-            <p
-              className='text-headline-lg text-neutral-600'
-              style={{
-                fontSize: 'clamp(1.1rem, 1.8vw, 2.25rem)', // reduce mínimo
-                lineHeight: 'clamp(1.6rem, 2.4vw, 2.75rem)'
-              }}
-            >
-              42.000
-            </p>
-            <div className='flex items-center gap-card-metric'>
-              <span
-                className='text-body-lg text-brand-500'
+            {/* Chart area */}
+            <div className='relative flex-1' ref={chartContainerRef}>
+              {/* Grid background */}
+              <div
+                className='absolute inset-0'
                 style={{
-                  fontSize: 'clamp(0.8rem, 1.1vw, 1rem)',
-                  lineHeight: 'clamp(1.1rem, 1.7vw, 1.5rem)'
+                  backgroundImage:
+                    'linear-gradient(to bottom, var(--chart-grid) 1px, transparent 1px), linear-gradient(to right, var(--chart-grid) 1px, transparent 1px)',
+                  backgroundSize: '100% calc(100% / 5), calc(100% / 11) 100%',
+                  backgroundPosition: 'left top, left top'
                 }}
-              >
-                + 6%
+              />
+
+              {/* Recharts container */}
+              <div className='absolute inset-0'>
+                {isMounted && (
+                  <ResponsiveContainer width='100%' height='100%'>
+                    <LineChart
+                      data={chartData}
+                      margin={{ top: 8, right: 8, bottom: 8, left: 0 }}
+                    >
+                      <XAxis dataKey='month' hide />
+                      <YAxis domain={[0, 90000]} hide />
+                      {/* Accent line (dashed) */}
+                      <Line
+                        type='monotone'
+                        dataKey='accent'
+                        stroke='#D4B5FF'
+                        strokeWidth={1.5}
+                        strokeOpacity={0.7}
+                        strokeDasharray='4 4'
+                        dot={false}
+                        animationDuration={1200}
+                        animationBegin={150}
+                        connectNulls
+                      />
+                      {/* Brand line (solid) */}
+                      <Line
+                        type='monotone'
+                        dataKey='brand'
+                        stroke='#51D6C7'
+                        strokeWidth={2}
+                        dot={false}
+                        animationDuration={1200}
+                        animationBegin={0}
+                        connectNulls
+                      />
+                      <Tooltip content={<ChartTooltip />} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
+              {/* Current period vertical line */}
+              <div
+                className='pointer-events-none absolute top-0 h-full w-px bg-[var(--color-warning-200,#FFD188)]'
+                style={{ left: `${lineClipPercent * 100}%` }}
+              />
+
+              {/* Highlight point */}
+              {highlightValue !== null && (
+                <div
+                  className='pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--color-warning-200,#FFD188)] shadow-elevation-card'
+                  style={{
+                    left: `${lineClipPercent * 100}%`,
+                    top: `${(1 - Math.min(Math.max(highlightValue / 90000, 0), 1)) * 100}%`
+                  }}
+                />
+              )}
+
+              {/* Period label badge */}
+              {highlightLabel && (
+                <div
+                  className='pointer-events-none absolute -translate-x-1/2 rounded-full bg-surface px-2 py-1 text-label-sm font-medium text-neutral-700 shadow-elevation-card'
+                  style={{
+                    left: `${lineClipPercent * 100}%`,
+                    top: '-0.5rem'
+                  }}
+                >
+                  {highlightLabel}
+                </div>
+              )}
+
+              {/* Value badge (brand) */}
+              {highlightValue !== null && (
+                <div
+                  className='pointer-events-none absolute -translate-x-1/2 whitespace-nowrap rounded-full border border-brandSemantic bg-brand-50 px-2 py-1 text-label-sm font-normal text-brandSemantic'
+                  style={{
+                    left: `${lineClipPercent * 100}%`,
+                    top: `calc(${(1 - Math.min(Math.max(highlightValue / 90000, 0), 1)) * 100}% - 2rem)`
+                  }}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* X-axis labels */}
+          <div className='mt-1 flex shrink-0 justify-between pl-10 text-label-sm font-normal text-neutral-400'>
+            {chartData.map((point, idx) => (
+              <span key={`${point.month}-${idx}`} className='truncate'>
+                {point.month}
               </span>
-              <span className='material-symbols-rounded text-brand-500 text-[1.5rem] leading-none'>
+            ))}
+          </div>
+        </div>
+
+        {/* Comparison panel - fixed width */}
+        <div className='flex w-[9rem] shrink-0 flex-col justify-between rounded-lg border border-neutral-300 bg-surface p-3'>
+          <div className='flex flex-col gap-1'>
+            <p className='text-body-sm font-medium capitalize text-neutral-600'>
+              {comparisonMonth}
+            </p>
+            <p className='text-xl font-semibold text-neutral-600'>
+              {(highlightValue ?? 42000).toLocaleString('es-ES')}
+            </p>
+            <div className='flex items-center gap-1'>
+              <span className='text-sm text-brand-500'>+ 6%</span>
+              <span className='material-symbols-rounded text-brand-500 text-base'>
                 arrow_outward
               </span>
             </div>
           </div>
 
-          <div className='flex flex-col gap-card-row'>
-            <p className='text-label-sm font-normal text-neutral-600'>
-              Oct, 2024
+          <div className='flex flex-col gap-1'>
+            <p className='text-label-sm font-normal capitalize text-neutral-500'>
+              {prevYearMonth}
             </p>
-            <p
-              className='text-body-md font-medium text-info-200'
-              style={{
-                fontSize: 'clamp(0.7rem, 1vw, 0.95rem)',
-                lineHeight: 'clamp(1rem, 1.4vw, 1.4rem)'
-              }}
-            >
-              40.000
+            <p className='text-sm font-medium text-info-200'>
+              {(highlightAccentValue ?? 40000).toLocaleString('es-ES')}
             </p>
           </div>
         </div>
@@ -403,7 +249,6 @@ type ChartTooltipProps = TooltipProps<number, string> & {
 }
 
 function ChartTooltip(props: ChartTooltipProps) {
-  // Recharts marca payload como opcional; lo tipamos explícitamente para evitar el error de TS
   const { active, payload, label } = props
   if (!active || !payload || payload.length === 0) return null
   const brand =
@@ -414,32 +259,20 @@ function ChartTooltip(props: ChartTooltipProps) {
       payload.find((p) => p.dataKey === 'accent')?.value) ?? null
 
   return (
-    <div className='rounded-md border border-border bg-surface px-[0.5rem] py-[0.375rem] text-label-sm shadow-elevation-card text-neutral-700'>
+    <div className='rounded-md border border-border bg-surface px-2 py-1.5 text-label-sm text-neutral-700 shadow-elevation-card'>
       <div className='font-medium text-neutral-900'>{label}</div>
-      {typeof brand === 'number' ? (
-        <div
-          className='flex items-center gap-[0.35rem]'
-          style={{ color: 'var(--brandSemantic, #51D6C7)' }}
-        >
-          <span
-            className='inline-block h-[0.5rem] w-[0.5rem] rounded-full'
-            style={{ backgroundColor: 'var(--brandSemantic, #51D6C7)' }}
-          />
+      {typeof brand === 'number' && (
+        <div className='flex items-center gap-1.5 text-brandSemantic'>
+          <span className='inline-block h-2 w-2 rounded-full bg-brandSemantic' />
           <span>{brand.toLocaleString('es-ES')} €</span>
         </div>
-      ) : null}
-      {typeof accent === 'number' ? (
-        <div
-          className='flex items-center gap-[0.35rem]'
-          style={{ color: 'var(--info-200, #D4B5FF)' }}
-        >
-          <span
-            className='inline-block h-[0.5rem] w-[0.5rem] rounded-full'
-            style={{ backgroundColor: 'var(--info-200, #D4B5FF)' }}
-          />
+      )}
+      {typeof accent === 'number' && (
+        <div className='flex items-center gap-1.5 text-info-200'>
+          <span className='inline-block h-2 w-2 rounded-full bg-info-200' />
           <span>{accent.toLocaleString('es-ES')} €</span>
         </div>
-      ) : null}
+      )}
     </div>
   )
 }
@@ -458,11 +291,10 @@ function buildChartData(scale: CashTimeScale, anchorDate: Date): ChartPoint[] {
 
 function buildMonthlyData(anchorDate: Date): ChartPoint[] {
   const formatter = new Intl.DateTimeFormat('es-ES', { month: 'short' })
-  const months = Math.min(12, CHART_DATA.length) // 12 meses
+  const months = Math.min(12, CHART_DATA.length)
   const source = CHART_DATA.slice(-months)
   return source.map((point, idx) => {
     const date = new Date(anchorDate)
-    // Mes actual en el último slot (idx = months - 1)
     date.setMonth(anchorDate.getMonth() - (months - 1 - idx))
     return {
       ...point,
@@ -473,7 +305,6 @@ function buildMonthlyData(anchorDate: Date): ChartPoint[] {
 
 function buildWeeklyData(anchorDate: Date): ChartPoint[] {
   const data: ChartPoint[] = []
-  // 12 semanas (actual + 11 previas) con mock curvo visible
   const weeks = WEEKLY_MOCK_BRAND.length
   for (let delta = 11; delta >= 0; delta -= 1) {
     const start = startOfWeek(addDays(anchorDate, -7 * delta))
@@ -482,7 +313,7 @@ function buildWeeklyData(anchorDate: Date): ChartPoint[] {
     const brand = WEEKLY_MOCK_BRAND[idx] ?? 15000
     const accent = Math.max(Math.round(brand * 0.88), 8000)
     data.push({
-      month: `Sem ${weekNumber}`,
+      month: `S${weekNumber}`,
       brand,
       accent
     })

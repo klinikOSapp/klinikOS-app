@@ -634,23 +634,13 @@ body {
     gap: var(--spacing-section-gap);
   }
 
-  .dashboard-grid-stats {
-    display: grid;
-    gap: var(--spacing-card-gap);
-    grid-template-columns:
-      minmax(min(100%, var(--width-card-stat-fluid)), 1fr)
-      minmax(min(100%, var(--width-card-stat-fluid)), 1fr)
-      minmax(min(100%, var(--width-card-chart-md-fluid)), 1fr);
-    justify-content: center;
-  }
-
+  /* Both grids use same base structure */
+  .dashboard-grid-stats,
   .dashboard-grid-charts {
     display: grid;
     gap: var(--spacing-card-gap);
-    grid-template-columns: repeat(
-      auto-fit,
-      minmax(min(100%, var(--width-card-chart-md-fluid)), 1fr)
-    );
+    width: 100%;
+    grid-template-columns: 1fr;
   }
 
   .dashboard-grid-bottom {
@@ -677,39 +667,67 @@ body {
     flex-direction: column;
     gap: var(--spacing-header-stack);
   }
+}
 
-  @media (min-width: 1024px) {
-    .dashboard-grid-charts {
-      grid-template-columns:
-        minmax(min(100%, var(--width-card-chart-lg-fluid)), 2fr)
-        minmax(min(100%, var(--width-card-chart-md-fluid)), 1fr);
-      justify-content: center;
-    }
+/* Dashboard row layouts - 3-column grid for desktop (1280px-1920px target) */
+.dashboard-stats-row {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, 1fr);
+  width: 100%;
+}
 
-    .dashboard-grid-stats {
-      grid-template-columns:
-        minmax(min(100%, var(--width-card-stat-fluid)), 1fr)
-        minmax(min(100%, var(--width-card-stat-fluid)), 1fr)
-        minmax(min(100%, var(--width-card-chart-md-fluid)), 1fr);
-      justify-content: center;
-    }
+.dashboard-stats-row > * {
+  min-width: 0;
+}
+
+.dashboard-charts-row {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, 1fr);
+  width: 100%;
+}
+
+.dashboard-charts-row > * {
+  min-width: 0;
+}
+
+/* Charts row: first item spans 2 columns (2:1 ratio) */
+.dashboard-charts-row > *:first-child {
+  grid-column: span 2;
+}
+
+.dashboard-charts-row > *:nth-child(2) {
+  grid-column: span 1;
+}
+
+/* Legacy classes for backwards compatibility */
+@media screen and (min-width: 1024px) {
+  body .dashboard-grid-stats {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  body .dashboard-grid-charts {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  body .dashboard-grid-charts > *:first-child {
+    grid-column: span 2 !important;
+  }
+
+  body .dashboard-grid-charts > *:nth-child(2) {
+    grid-column: span 1 !important;
   }
 }
 
 /* Utility: Standard page container */
 @layer utilities {
   .container-page {
-    --container-gutter: clamp(0.75rem, 2vw, 1rem);
-    --dashboard-max-width: calc(
-      (2 * var(--width-card-stat)) + var(--width-card-chart-lg) +
-        (2 * var(--spacing-card-gap))
-    );
-    width: min(
-      100%,
-      calc(var(--dashboard-max-width) + (2 * var(--container-gutter)))
-    );
+    --container-gutter: clamp(0.75rem, 2vw, 1.5rem);
+    width: 100%;
     margin-inline: auto;
     padding-inline: var(--container-gutter);
+    box-sizing: border-box;
   }
   /* Oculta scrollbars pero mantiene el scroll funcional */
   .scrollbar-hide::-webkit-scrollbar {

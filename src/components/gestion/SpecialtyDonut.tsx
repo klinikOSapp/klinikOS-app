@@ -2,7 +2,7 @@
 
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
 import type { CSSProperties } from 'react'
-import { Pie, PieChart, ResponsiveContainer, Cell } from 'recharts'
+import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 
 type SpecialtyShare = {
   label: string
@@ -19,33 +19,37 @@ type ProductionTotalCardProps = {
   timeScale?: CashTimeScale
 }
 
+// Brand colors from design system (hex values for Recharts compatibility)
+const BRAND_COLORS = {
+  brand50: '#E3F5F2',
+  brand200: '#80D6C9',
+  brand500: '#00A991',
+  brand800: '#004D42'
+}
+
 const DEFAULT_SPECIALTIES: SpecialtyShare[] = [
   {
     label: 'Conservadora',
     percentage: 40,
-    colorToken: 'var(--color-brand-50)'
+    colorToken: BRAND_COLORS.brand50
   },
-  { label: 'Ortodoncia', percentage: 30, colorToken: 'var(--color-brand-200)' },
-  { label: 'Implantes', percentage: 20, colorToken: 'var(--color-brand-500)' },
-  { label: 'Estética', percentage: 10, colorToken: 'var(--color-brand-800)' }
+  { label: 'Ortodoncia', percentage: 30, colorToken: BRAND_COLORS.brand200 },
+  { label: 'Implantes', percentage: 20, colorToken: BRAND_COLORS.brand500 },
+  { label: 'Estética', percentage: 10, colorToken: BRAND_COLORS.brand800 }
 ]
 
 const MONTH_SPECIALTIES: SpecialtyShare[] = [
   {
     label: 'Conservadora',
     percentage: 42,
-    colorToken: 'var(--color-brand-50)'
+    colorToken: BRAND_COLORS.brand50
   },
-  { label: 'Ortodoncia', percentage: 28, colorToken: 'var(--color-brand-200)' },
-  { label: 'Implantes', percentage: 22, colorToken: 'var(--color-brand-500)' },
-  { label: 'Estética', percentage: 8, colorToken: 'var(--color-brand-800)' }
+  { label: 'Ortodoncia', percentage: 28, colorToken: BRAND_COLORS.brand200 },
+  { label: 'Implantes', percentage: 22, colorToken: BRAND_COLORS.brand500 },
+  { label: 'Estética', percentage: 8, colorToken: BRAND_COLORS.brand800 }
 ]
 
-const CARD_WIDTH = 'var(--width-card-chart-md-fluid)'
 const CARD_HEIGHT = 'var(--height-card-chart-fluid)'
-const DONUT_SIZE_REM = 12.6875
-const LEGEND_WIDTH_REM = 8.375
-type ChartCardStyles = CSSProperties & Record<'--card-width-current', string>
 
 export default function ProductionTotalCard({
   year = '2024',
@@ -64,53 +68,39 @@ export default function ProductionTotalCard({
     value ?? (timeScale === 'month' ? '€ 210 K' : '€ 56 K')
   const resolvedDelta = delta ?? (timeScale === 'month' ? '+ 22%' : '+ 35%')
 
-  const sectionStyles = {
-    '--card-width-current': `min(${CARD_WIDTH}, 95vw)`,
-    width: 'var(--card-width-current)',
+  const sectionStyles: CSSProperties = {
+    width: '100%',
     height: `min(${CARD_HEIGHT}, calc(100vh - 6rem))`
-  } satisfies ChartCardStyles
-
-  const donutSize = `min(${DONUT_SIZE_REM}rem, calc(var(--card-width-current) - ${LEGEND_WIDTH_REM}rem - 3rem))`
-  const legendWidth = `min(${LEGEND_WIDTH_REM}rem, calc(var(--card-width-current) - ${DONUT_SIZE_REM}rem - 3rem))`
+  }
 
   return (
     <section
-      className='relative overflow-clip rounded-lg bg-surface text-fg shadow-elevation-card'
+      className='relative overflow-hidden rounded-lg bg-surface text-fg shadow-elevation-card'
       style={sectionStyles}
     >
-      <header
-        className='absolute left-[1rem] top-[1rem] flex items-baseline justify-between'
-        style={{
-          width: `min(31.0625rem, calc(var(--card-width-current) - 2rem))`
-        }}
-      >
+      <header className='px-4 pt-4'>
         <h3 className='text-title-sm font-medium text-fg'>
           Facturación por especialidad
         </h3>
       </header>
 
-      <div className='absolute inset-x-[1rem] top-[4.75rem] bottom-[1.5rem] flex items-center gap-[1.5rem]'>
+      <div className='flex h-[calc(100%-4rem)] items-center gap-4 px-4 pb-4'>
+        {/* Donut container - explicit size for ResponsiveContainer to work */}
         <div
-          className='relative flex flex-shrink-0 items-center justify-center'
-          style={{
-            width: donutSize,
-            height: donutSize,
-            maxWidth: '100%',
-            maxHeight: '100%'
-          }}
-          aria-hidden='true'
+          className='relative shrink-0'
+          style={{ width: '10rem', height: '10rem' }}
         >
           <ResponsiveContainer width='100%' height='100%'>
-            <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+            <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
               <Pie
                 data={resolvedSpecialties}
                 dataKey='percentage'
                 startAngle={90}
                 endAngle={-270}
-                innerRadius='88%'
+                innerRadius='80%'
                 outerRadius='100%'
                 paddingAngle={0}
-                cornerRadius={16}
+                cornerRadius={10}
                 stroke='transparent'
                 isAnimationActive
               >
@@ -120,36 +110,32 @@ export default function ProductionTotalCard({
               </Pie>
             </PieChart>
           </ResponsiveContainer>
-          <div className='absolute inset-[0.75rem] rounded-full border border-[rgba(255,255,255,0.5)] bg-transparent' />
-          <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-gapsm'>
-            <p className='text-headline-lg text-neutral-900'>{resolvedValue}</p>
-            <div className='flex items-center gap-gapsm'>
-              <span className='text-body-sm font-normal text-brand-500'>
+          {/* Center content */}
+          <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center'>
+            <p className='text-xl font-bold text-neutral-900'>{resolvedValue}</p>
+            <div className='flex items-center gap-1'>
+              <span className='text-xs font-normal text-brand-500'>
                 {resolvedDelta}
               </span>
-              <span className='material-symbols-rounded text-[1rem] leading-4 text-brand-500'>
+              <span className='material-symbols-rounded text-xs text-brand-500'>
                 arrow_outward
               </span>
             </div>
           </div>
         </div>
 
-        <dl
-          className='flex flex-col gap-[0.75rem] text-[0.75rem] leading-4 text-neutral-800'
-          style={{
-            width: legendWidth
-          }}
-        >
+        {/* Legend */}
+        <dl className='flex min-w-0 flex-1 flex-col gap-2 text-xs text-neutral-800'>
           {resolvedSpecialties.map(({ label, percentage, colorToken }) => (
-            <div key={label} className='flex items-center gap-[0.5rem]'>
+            <div key={label} className='flex items-center gap-2'>
               <span
-                className='h-[0.75rem] w-[0.75rem] rounded-full'
+                className='h-3 w-3 shrink-0 rounded-full'
                 style={{ backgroundColor: colorToken }}
                 aria-hidden='true'
               />
-              <div className='flex w-full items-center justify-between gap-[0.5rem]'>
-                <dt className='font-normal'>{label}</dt>
-                <dd className='font-medium'>{percentage}%</dd>
+              <div className='flex min-w-0 flex-1 items-center justify-between gap-1'>
+                <dt className='truncate font-normal'>{label}</dt>
+                <dd className='shrink-0 font-medium'>{percentage}%</dd>
               </div>
             </div>
           ))}

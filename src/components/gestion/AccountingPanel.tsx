@@ -274,10 +274,11 @@ export default function AccountingPanel({
       <div
         className='absolute rounded-lg bg-surface shadow-[0px_4px_24px_rgba(36,40,44,0.08)]'
         style={{
-          left: toWidth(DONUT_LEFT),
+          left: toWidth(457),
+          right: toWidth(205),
           top: toHeight(64),
-          width: toWidth(DONUT_CARD_WIDTH),
           height: toHeight(DONUT_CARD_HEIGHT),
+          minWidth: '10rem',
           padding: '1rem'
         }}
       >

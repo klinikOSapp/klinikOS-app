@@ -68,16 +68,16 @@ export default function GestionPage() {
             />
 
             <div className='flex h-full flex-col gap-gapmd min-h-0'>
-              {/* First row - Stats cards */}
-              <div className='dashboard-grid-stats flex-none min-w-0'>
+              {/* First row - Stats cards - 3 columns on desktop (aligned with charts rows) */}
+              <div className='dashboard-stats-row flex-none min-w-0'>
                 <IncomeTypes timeScale={timeScale} />
                 <PatientsSummary timeScale={timeScale} />
                 <ProductionTotalCard timeScale={timeScale} />
               </div>
 
-              {/* Second row - Billing chart + Specialty donut */}
+              {/* Second row - Billing chart + Specialty donut - 2:1 ratio on desktop */}
               <div
-                className='dashboard-grid-charts flex-1 min-h-0 min-w-0'
+                className='dashboard-charts-row flex-1 min-h-0 min-w-0'
                 style={secondRowStyles}
               >
                 <BillingLineChart
@@ -87,9 +87,9 @@ export default function GestionPage() {
                 <SpecialtyDonut timeScale={timeScale} />
               </div>
 
-              {/* Third row - Accounting + Professional bars */}
+              {/* Third row - Accounting + Professional bars - 2:1 ratio on desktop */}
               <div
-                className='dashboard-grid-charts dashboard-grid-bottom flex-1 min-h-0 min-w-0'
+                className='dashboard-charts-row dashboard-grid-bottom flex-1 min-h-0 min-w-0'
                 style={thirdRowStyles}
               >
                 <AccountingPanel timeScale={timeScale} />
