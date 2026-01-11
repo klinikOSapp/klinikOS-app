@@ -10,7 +10,7 @@ type FieldProps = {
   label: string
   helper?: string
   value?: string
-  widthClass?: string
+  fullWidth?: boolean
 }
 
 type Sucursal = {
@@ -23,22 +23,22 @@ type Sucursal = {
   selected: boolean
 }
 
-function Field({ label, helper, value = 'Value', widthClass }: FieldProps) {
+function Field({ label, helper, value = 'Value', fullWidth = false }: FieldProps) {
   return (
-    <div className={['flex flex-col gap-[min(0.5rem,1vw)]', widthClass ?? 'w-full'].join(' ')}>
-      <p className='font-inter text-[0.875rem] leading-[1.25rem] text-neutral-900'>{label}</p>
-      <div className='flex flex-col gap-[min(0.25rem,0.75vw)] w-full'>
-        <div className='flex items-center justify-between h-[min(3rem,6vh)] w-full rounded-[0.5rem] border border-neutral-300 bg-[var(--color-surface)] px-[0.625rem] py-[0.5rem]'>
-          <span className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900'>{value}</span>
+    <div className={`flex flex-col gap-[min(0.5rem,1vw)] ${fullWidth ? 'w-full' : 'w-full md:w-[min(23.75rem,calc(50%-0.75rem))]'}`}>
+      <p className='text-body-sm text-[var(--color-neutral-900)]'>{label}</p>
+      <div className='flex flex-col gap-[min(0.25rem,0.5vw)] w-full'>
+        <div className='flex items-center justify-between h-[min(3rem,5vh)] w-full rounded-lg border border-neutral-300 bg-[var(--color-surface)] px-[min(0.625rem,1vw)] py-[min(0.5rem,1vw)]'>
+          <span className='text-body-md text-[var(--color-neutral-900)]'>{value}</span>
           <span
             aria-hidden
-            className='inline-flex items-center justify-center text-[0.75rem] leading-[0.875rem] font-medium text-neutral-300'
+            className='inline-flex items-center justify-center text-label-sm font-medium text-neutral-300'
           >
             *
           </span>
         </div>
         {helper ? (
-          <p className='font-inter text-[0.6875rem] leading-[1rem] font-medium text-neutral-600'>{helper}</p>
+          <p className='text-label-sm font-medium text-[var(--color-neutral-600)]'>{helper}</p>
         ) : null}
       </div>
     </div>
@@ -105,18 +105,20 @@ export default function ConfigPage() {
   }, [])
 
   const handleCreateSucursal = useCallback((data: ClinicFormData) => {
+    const horario =
+      data.horarioApertura && data.horarioCierre
+        ? `${data.horarioApertura} - ${data.horarioCierre}`
+        : data.horarioApertura || data.horarioCierre || '08:00 - 20:00'
+    
     setRows((prev) => [
       ...prev,
       {
         id: `s${prev.length + 1}`,
-        nombre: data.nombre || `Nueva sucursal ${prev.length + 1}`,
+        nombre: data.nombreComercial || `Nueva clínica ${prev.length + 1}`,
         direccion: data.direccion || 'Dirección pendiente',
-        horario:
-          data.horarioApertura && data.horarioCierre
-            ? `${data.horarioApertura} - ${data.horarioCierre}`
-            : data.horarioApertura || data.horarioCierre || 'Horario pendiente',
-        telefono: data.telefono || '—',
-        email: data.email || '—',
+        horario,
+        telefono: data.telefonos.filter(t => t).join(', ') || '—',
+        email: data.emails.filter(e => e).join(', ') || '—',
         selected: false
       }
     ])
@@ -125,32 +127,19 @@ export default function ConfigPage() {
 
   return (
     <div className='bg-[var(--color-page-bg)] h-[calc(100dvh-var(--spacing-topbar))] overflow-hidden'>
-      <div
-        className='ml-[3rem] w-full max-w-none'
-        style={{
-          width: 'min(98rem, calc(100vw - 3rem))',
-          height: 'calc(100vh - var(--spacing-topbar))',
-          paddingTop: '2.5rem',
-          paddingBottom: '2.5rem'
-        }}
-      >
-        <header className='flex flex-col gap-[min(0.5rem,1vw)] w-[min(49.625rem,80vw)]'>
-          <h1 className='font-inter text-[1.75rem] leading-[2.25rem] text-neutral-900'>Configuración</h1>
+      <div className='w-full h-full flex flex-col px-[min(3rem,4vw)] py-[min(2.5rem,3vw)]'>
+        {/* Page Header */}
+        <header className='flex-none mb-[min(2.5rem,3vw)]'>
+          <h1 className='text-title-lg text-[var(--color-neutral-900)]'>
+            Configuración
+          </h1>
         </header>
 
-        <div
-          className='mt-[2.5rem] rounded-[0.5rem] overflow-hidden bg-[var(--color-page-bg)] flex items-start'
-          style={{
-            width: 'min(98rem, calc(100vw - 3rem))',
-            height: 'calc(100vh - var(--spacing-topbar) - 2.5rem)'
-          }}
-        >
-          {/* Left rail */}
-          <aside
-            className='w-[19rem] h-auto flex-none self-start border-r border-neutral-100 bg-[var(--color-surface)]'
-            style={{ height: 'auto' }}
-          >
-            <nav className='flex flex-col divide-y divide-neutral-100'>
+        {/* Main Content Area */}
+        <div className='flex-1 flex flex-col lg:flex-row gap-0 rounded-lg overflow-hidden min-h-0'>
+          {/* Left Navigation Rail */}
+          <aside className='w-full lg:w-[min(19rem,25vw)] flex-none border-b lg:border-b-0 lg:border-r border-neutral-100 bg-[var(--color-surface)]'>
+            <nav className='flex lg:flex-col overflow-x-auto lg:overflow-x-visible divide-x lg:divide-x-0 lg:divide-y divide-neutral-100'>
               {configNavItems.map((item, idx) => {
                 const isActive = item.href ? pathname === item.href : idx === 0 && pathname === '/configuracion'
                 return (
@@ -162,11 +151,11 @@ export default function ConfigPage() {
                     }}
                     aria-current={isActive ? 'page' : undefined}
                     className={[
-                      'text-left w-full px-[1.5rem] py-[1.25rem] flex flex-col gap-[0.25rem]',
-                      'font-inter text-[1.125rem] leading-[1.75rem]',
+                      'text-left w-full min-w-max lg:min-w-0 px-[min(1.5rem,2vw)] py-[min(1.25rem,1.5vw)] flex flex-col gap-[min(0.25rem,0.5vw)]',
+                      'text-title-sm whitespace-nowrap lg:whitespace-normal',
                       isActive
-                        ? 'bg-[var(--color-brand-50)] text-brand-900 font-medium'
-                        : 'text-neutral-800 font-normal hover:bg-[var(--color-brand-50)] hover:text-brand-900 transition-colors'
+                        ? 'bg-[var(--color-brand-50)] text-[var(--color-brand-900)] font-medium'
+                        : 'text-[var(--color-neutral-800)] font-normal hover:bg-[var(--color-brand-50)] hover:text-[var(--color-brand-900)] transition-colors'
                     ].join(' ')}
                   >
                     {item.label}
@@ -176,256 +165,270 @@ export default function ConfigPage() {
             </nav>
           </aside>
 
-          {/* Right content */}
-          <section className='relative w-[79rem] flex-none bg-[var(--color-page-bg)]' style={{ height: '100%' }}>
-            {/* Header text at 40px from viewport top (2.5rem) */}
-            <div className='absolute left-[2rem] top-0'>
-              <p className='font-inter text-[1.75rem] leading-[2.25rem] font-normal text-neutral-900'>Datos de la clínica</p>
-            </div>
-            {/* Add button aligned to header row */}
-            <div
-              className='absolute top-0 flex items-center gap-[0.5rem] px-[1rem] py-[0.5rem] rounded-[8.5rem] border border-neutral-300 bg-[var(--color-page-bg)]'
-              style={{ left: 'calc(81.25% + 0.875rem)' }}
-              onClick={() => setShowClinicModal(true)}
-            >
-              <AddRounded className='text-neutral-900' />
-              <span className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900 whitespace-nowrap'>Añadir Nueva Clínica</span>
+          {/* Right Content */}
+          <section className='flex-1 flex flex-col min-w-0 bg-[var(--color-page-bg)] overflow-hidden'>
+            {/* Section Header */}
+            <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-[min(1rem,1.5vw)] px-[min(2rem,3vw)] py-[min(1rem,2vw)] lg:py-0 lg:pt-0'>
+              <p className='text-title-lg font-normal text-[var(--color-neutral-900)]'>
+                Datos de la clínica
+              </p>
+              <button
+                type='button'
+                className='flex items-center gap-[min(0.5rem,1vw)] px-[min(1rem,1.5vw)] py-[min(0.5rem,1vw)] rounded-full border border-neutral-300 bg-[var(--color-page-bg)] hover:bg-neutral-100 transition-colors cursor-pointer self-start sm:self-auto'
+                onClick={() => setShowClinicModal(true)}
+              >
+                <AddRounded className='text-[var(--color-neutral-900)] size-[min(1.5rem,2vw)]' />
+                <span className='text-body-md font-medium text-[var(--color-neutral-900)] whitespace-nowrap'>
+                  Añadir Nueva Clínica
+                </span>
+              </button>
             </div>
 
-            <div
-              className='absolute left-[2rem] right-0'
-              style={{
-                top: '3.5rem',
-                height: 'calc(100% - 3.5rem)'
-              }}
-            >
-              <div
-                className='bg-[var(--color-surface)] border border-neutral-200 rounded-[0.5rem] h-full overflow-auto relative'
-                style={{ width: '77rem' }}
-              >
+            {/* Content Card */}
+            <div className='flex-1 mx-[min(2rem,3vw)] mt-[min(1.5rem,2vw)] mb-[min(2rem,3vw)] min-h-0'>
+              <div className='bg-[var(--color-surface)] border border-neutral-200 rounded-lg h-full overflow-auto'>
                 {/* Tabs */}
-                <div className='absolute left-[2.4375rem] top-[1.9375rem] flex gap-[1.5rem] items-center'>
-                  <button
-                    type='button'
-                    onClick={() => setActiveTab('general')}
-                    className='pb-[0.5rem] border-b'
-                    style={{ borderColor: activeTab === 'general' ? '#51d6c7' : 'transparent' }}
-                  >
-                    <p
-                      className='font-inter text-[1.125rem] leading-[1.75rem] font-medium'
-                      style={{ color: activeTab === 'general' ? '#24282c' : '#6d7783' }}
+                <div className='sticky top-0 z-10 bg-[var(--color-surface)] px-[min(2.5rem,4vw)] pt-[min(1.5rem,2vw)] pb-[min(0.5rem,1vw)]'>
+                  <div className='flex gap-[min(1.5rem,2vw)] items-center overflow-x-auto'>
+                    <button
+                      type='button'
+                      onClick={() => setActiveTab('general')}
+                      className={`pb-[min(0.5rem,1vw)] border-b-2 transition-colors whitespace-nowrap ${
+                        activeTab === 'general' ? 'border-[var(--color-brand-500)]' : 'border-transparent'
+                      }`}
                     >
-                      Información general
-                    </p>
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() => setActiveTab('sucursales')}
-                    className='pb-[0.5rem] border-b'
-                    style={{ borderColor: activeTab === 'sucursales' ? '#51d6c7' : 'transparent' }}
-                  >
-                    <p
-                      className='font-inter text-[1.125rem] leading-[1.75rem] font-medium'
-                      style={{ color: activeTab === 'sucursales' ? '#24282c' : '#6d7783' }}
+                      <p
+                        className={`text-title-sm font-medium ${
+                          activeTab === 'general' ? 'text-[var(--color-neutral-900)]' : 'text-[var(--color-neutral-600)]'
+                        }`}
+                      >
+                        Información general
+                      </p>
+                    </button>
+                    <button
+                      type='button'
+                      onClick={() => setActiveTab('sucursales')}
+                      className={`pb-[min(0.5rem,1vw)] border-b-2 transition-colors whitespace-nowrap ${
+                        activeTab === 'sucursales' ? 'border-[var(--color-brand-500)]' : 'border-transparent'
+                      }`}
                     >
-                      Sucursales
-                    </p>
-                  </button>
+                      <p
+                        className={`text-title-sm font-medium ${
+                          activeTab === 'sucursales' ? 'text-[var(--color-neutral-900)]' : 'text-[var(--color-neutral-600)]'
+                        }`}
+                      >
+                        Sucursales
+                      </p>
+                    </button>
+                  </div>
                 </div>
 
                 {activeTab === 'general' ? (
-                  <>
-                    {/* Title */}
-                    <p className='absolute left-[2.4375rem] top-[6.4375rem] font-inter text-[1.5rem] leading-[2rem] font-medium text-neutral-900'>
-                      Clínica Morales
-                    </p>
-
-                    {/* Edit button */}
-                    <div className='absolute left-[47.75rem] top-[9.9375rem]'>
-                      <div className='bg-[var(--color-page-bg)] border border-brand-500 rounded-[1rem] flex items-center justify-center px-[0.625rem] py-[0.25rem] h-[2.5rem]'>
-                        <EditRounded className='text-brand-900' />
-                        <span className='ml-[0.5rem] font-inter text-[0.875rem] leading-[1.25rem] text-brand-900'>Editar</span>
-                      </div>
+                  <div className='px-[min(2.5rem,4vw)] py-[min(1.5rem,2vw)]'>
+                    {/* Title & Edit Button Row */}
+                    <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-[min(1rem,1.5vw)] mb-[min(2rem,3vw)]'>
+                      <p className='text-title-lg font-medium text-[var(--color-neutral-900)]'>
+                        Clínica Morales
+                      </p>
+                      <button
+                        type='button'
+                        className='bg-[var(--color-page-bg)] border border-[var(--color-brand-500)] rounded-2xl flex items-center justify-center px-[min(0.75rem,1vw)] py-[min(0.25rem,0.5vw)] h-[min(2.5rem,4vh)] self-start sm:self-auto hover:bg-[var(--color-brand-50)] transition-colors'
+                      >
+                        <EditRounded className='text-[var(--color-brand-900)]' />
+                        <span className='ml-[min(0.5rem,1vw)] text-body-sm text-[var(--color-brand-900)]'>Editar</span>
+                      </button>
                     </div>
 
                     {/* Form content */}
-                    <div className='absolute left-[2.4375rem] top-[9.9375rem] w-[49rem] flex flex-col gap-[2.5rem] pb-[2.5rem]'>
+                    <div className='flex flex-col gap-[min(2.5rem,4vw)] max-w-4xl pb-[min(1.5rem,2vw)]'>
                       {/* Información */}
-                      <section className='flex flex-col gap-[1rem]'>
-                        <p className='font-inter text-[1.125rem] leading-[1.75rem] font-medium text-neutral-900'>Información</p>
-                        <div className='flex flex-col gap-[1.5rem]'>
-                          <Field label='Nombre comercial' value='Clínica Morales' />
-                          <div className='flex gap-[1.5rem]'>
-                            <Field label='Razón social' widthClass='w-[23.75rem]' />
-                            <Field label='CIF/NIF' widthClass='w-[23.75rem]' />
+                      <section className='flex flex-col gap-[min(1rem,1.5vw)]'>
+                        <p className='text-title-sm font-medium text-[var(--color-neutral-900)]'>
+                          Información
+                        </p>
+                        <div className='flex flex-col gap-[min(1.5rem,2vw)]'>
+                          <Field label='Nombre comercial' value='Clínica Morales' fullWidth />
+                          <div className='flex flex-wrap gap-[min(1.5rem,2vw)]'>
+                            <Field label='Razón social' />
+                            <Field label='CIF/NIF' />
                           </div>
                         </div>
                       </section>
 
                       {/* Dirección */}
-                      <section className='flex flex-col gap-[1rem]'>
-                        <p className='font-inter text-[1.125rem] leading-[1.75rem] font-medium text-neutral-900'>Dirección</p>
-                        <div className='flex flex-col gap-[1.5rem]'>
-                          <Field label='Dirección completa' />
-                          <div className='flex gap-[1.5rem]'>
-                            <Field label='Población' widthClass='w-[23.75rem]' />
-                            <Field label='Código Postal' widthClass='w-[23.75rem]' />
+                      <section className='flex flex-col gap-[min(1rem,1.5vw)]'>
+                        <p className='text-title-sm font-medium text-[var(--color-neutral-900)]'>
+                          Dirección
+                        </p>
+                        <div className='flex flex-col gap-[min(1.5rem,2vw)]'>
+                          <Field label='Dirección completa' fullWidth />
+                          <div className='flex flex-wrap gap-[min(1.5rem,2vw)]'>
+                            <Field label='Población' />
+                            <Field label='Código Postal' />
                           </div>
                         </div>
                       </section>
 
                       {/* Información de contacto */}
-                      <section className='flex flex-col gap-[1rem]'>
-                        <p className='font-inter text-[1.125rem] leading-[1.75rem] font-medium text-neutral-900'>
+                      <section className='flex flex-col gap-[min(1rem,1.5vw)]'>
+                        <p className='text-title-sm font-medium text-[var(--color-neutral-900)]'>
                           Información de contacto
                         </p>
-                        <div className='flex flex-col gap-[1.5rem]'>
-                          <Field label='Teléfono' widthClass='w-[23.75rem]' />
-                          <Field label='Correo electrónico' widthClass='w-[23.75rem]' />
+                        <div className='flex flex-col gap-[min(1.5rem,2vw)]'>
+                          <Field label='Teléfono' />
+                          <Field label='Correo electrónico' />
                         </div>
                       </section>
                     </div>
-                  </>
+                  </div>
                 ) : (
-                  <>
+                  <div className='px-[min(2.5rem,4vw)] py-[min(1.5rem,2vw)] flex flex-col h-full min-h-0'>
                     {/* Title */}
-                    <p className='absolute left-[2.4375rem] top-[6.4375rem] font-inter text-[1.5rem] leading-[2rem] font-medium text-neutral-900'>
+                    <p className='text-title-lg font-medium text-[var(--color-neutral-900)] mb-[min(1.5rem,2vw)]'>
                       Clínica Morales
                     </p>
 
                     {/* Toolbar */}
-                    <div className='absolute left-[2.4375rem] top-[9.9375rem] w-[72rem] flex items-center justify-between'>
+                    <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-[min(1rem,1.5vw)] mb-[min(1.5rem,2vw)]'>
+                      {/* Selection Actions */}
                       <div className='flex items-center'>
-                        <div
-                          className='flex items-center bg-[var(--color-brand-0)] text-brand-700 px-[0.5rem] py-[0.25rem] rounded-bl-[0.25rem] rounded-tl-[0.25rem]'
-                          style={{ border: '0.5px solid #a8efe7' }}
-                        >
-                          <span className='font-inter text-[0.875rem] leading-[1.25rem]'>
+                        <div className='flex items-center bg-[var(--color-brand-0)] text-[var(--color-brand-700)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] rounded-l border border-[var(--color-brand-200)]'>
+                          <span className='text-body-sm'>
                             {selectionCount === 0 ? '0 seleccionado' : `${selectionCount} seleccionado${selectionCount > 1 ? 's' : ''}`}
                           </span>
                         </div>
-                        <div
-                          className='flex items-center bg-[var(--color-page-bg)] text-neutral-700 px-[0.5rem] py-[0.25rem]'
-                          style={{ borderTop: '0.5px solid #cbd3d9', borderBottom: '0.5px solid #cbd3d9', borderRight: '0.5px solid #cbd3d9' }}
+                        <button
+                          type='button'
+                          className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors'
                         >
-                          <span className='font-inter text-[0.875rem] leading-[1.25rem]'>Editar</span>
-                        </div>
-                        <div
-                          className='flex items-center bg-[var(--color-page-bg)] text-neutral-700 px-[0.5rem] py-[0.25rem] cursor-pointer'
-                          style={{ borderTop: '0.5px solid #cbd3d9', borderBottom: '0.5px solid #cbd3d9', borderRight: '0.5px solid #cbd3d9' }}
+                          <span className='text-body-sm'>Editar</span>
+                        </button>
+                        <button
+                          type='button'
+                          className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] border-t border-b border-r border-neutral-300 cursor-pointer hover:bg-neutral-100 transition-colors disabled:opacity-50'
                           onClick={selectionCount === 0 ? undefined : deleteSelected}
-                          aria-disabled={selectionCount === 0}
+                          disabled={selectionCount === 0}
                         >
-                          <span className='font-inter text-[0.875rem] leading-[1.25rem]' aria-hidden>
-                            🗑
-                          </span>
-                        </div>
-                        <div
-                          className='flex items-center bg-[var(--color-page-bg)] text-neutral-700 px-[0.5rem] py-[0.25rem] rounded-br-[0.25rem] rounded-tr-[0.25rem]'
-                          style={{ borderTop: '0.5px solid #cbd3d9', borderBottom: '0.5px solid #cbd3d9', borderRight: '0.5px solid #cbd3d9' }}
+                          <span className='text-body-sm' aria-hidden>🗑</span>
+                        </button>
+                        <button
+                          type='button'
+                          className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] rounded-r border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors'
                         >
-                          <span className='font-inter text-[0.875rem] leading-[1.25rem]'>⋯</span>
-                        </div>
+                          <span className='text-body-sm'>⋯</span>
+                        </button>
                       </div>
 
-                      <div className='flex items-center gap-[0.5rem]'>
+                      {/* Search & Filters */}
+                      <div className='flex flex-wrap items-center gap-[min(0.5rem,1vw)]'>
                         <input
                           type='search'
                           value={search}
                           onChange={(e) => setSearch(e.target.value)}
                           placeholder='Buscar'
-                          className='h-[2rem] rounded-[32px] px-3 text-[0.875rem] leading-[1.25rem] border border-[#535c66] outline-none bg-[var(--color-page-bg)]'
-                          style={{ minWidth: '10rem' }}
+                          className='h-[min(2rem,3vh)] w-full sm:w-[min(10rem,15vw)] lg:w-[min(12rem,18vw)] rounded-full px-[min(0.75rem,1vw)] text-body-sm border border-[var(--color-neutral-700)] outline-none bg-[var(--color-page-bg)] focus:border-[var(--color-brand-500)] focus:ring-1 focus:ring-[var(--color-brand-500)] transition-colors'
                         />
-                        <div
-                          className='flex items-center gap-[0.25rem] px-[0.5rem] py-[0.25rem] rounded-[32px]'
-                          style={{ border: '0.5px solid #535c66' }}
+                        <button
+                          type='button'
+                          className='flex items-center gap-[min(0.25rem,0.5vw)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] rounded-full border border-[var(--color-neutral-700)] hover:bg-neutral-100 transition-colors'
                         >
-                          <span role='img' aria-label='filter'>
-                            ⚙️
+                          <span role='img' aria-label='filter'>⚙️</span>
+                          <span className='text-body-sm text-[var(--color-neutral-700)]'>Todos</span>
+                        </button>
+                        <button
+                          type='button'
+                          className='flex items-center gap-[min(0.5rem,1vw)] h-[min(2rem,3vh)] px-[min(1rem,1.5vw)] rounded-full border border-neutral-300 bg-[var(--color-page-bg)] hover:bg-neutral-100 transition-colors'
+                          onClick={() => setShowClinicModal(true)}
+                        >
+                          <AddRounded className='text-[var(--color-neutral-900)] size-[min(1.25rem,2vw)]' />
+                          <span className='text-body-md text-[var(--color-neutral-900)] whitespace-nowrap'>
+                            Añadir Sucursal
                           </span>
-                          <span className='font-inter text-[0.875rem] leading-[1.25rem] text-neutral-700'>Todos</span>
-                        </div>
-                        <div className='flex items-center gap-[0.5rem] h-[2rem] px-[1rem] rounded-[8.5rem] border border-neutral-300 bg-[var(--color-page-bg)]'>
-                          <button type='button' className='flex items-center gap-[0.5rem]' onClick={() => setShowClinicModal(true)}>
-                            <AddRounded className='text-neutral-900' />
-                            <span className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900 whitespace-nowrap'>Añadir Sucursal</span>
-                          </button>
-                        </div>
+                        </button>
                       </div>
                     </div>
 
-                    {/* Table */}
-                    <div className='absolute left-[2.4375rem] top-[13rem] w-[72rem]'>
-                      <div className='grid grid-cols-[1.5rem_16rem_19.125rem_10.625rem_8.5rem_17.75rem]'>
-                        <div className='h-[2.5rem] flex items-center justify-center text-[1rem] leading-[1.5rem] text-neutral-700 border-b border-neutral-200'></div>
-                        <div className='h-[2.5rem] flex items-center px-[0.5rem] text-[1rem] leading-[1.5rem] text-neutral-700 border-b border-neutral-200'>
-                          Nombre de la sucursal
-                        </div>
-                        <div className='h-[2.5rem] flex items-center px-[0.5rem] text-[1rem] leading-[1.5rem] text-neutral-700 border-b border-neutral-200'>
-                          Dirección completa
-                        </div>
-                        <div className='h-[2.5rem] flex items-center px-[0.5rem] text-[1rem] leading-[1.5rem] text-neutral-700 border-b border-neutral-200'>
-                          Horario
-                        </div>
-                        <div className='h-[2.5rem] flex items-center px-[0.5rem] text-[1rem] leading-[1.5rem] text-neutral-700 border-b border-neutral-200'>
-                          Teléfono
-                        </div>
-                        <div className='h-[2.5rem] flex items-center px-[0.5rem] text-[1rem] leading-[1.5rem] text-neutral-700 border-b border-neutral-200'>
-                          Email
-                        </div>
-                      </div>
-
-                      <div className='flex flex-col'>
-                        {filteredRows.map((sucursal) => {
-                          const bg = sucursal.selected ? '#e9fbf9' : 'white'
-                          const borderColor = '#cbd3d9'
-                          return (
-                            <div
+                    {/* Table Container with horizontal scroll */}
+                    <div className='flex-1 overflow-auto min-h-0'>
+                      <table className='w-full min-w-[50rem] border-collapse'>
+                        <thead className='sticky top-0 bg-[var(--color-surface)] z-10'>
+                          <tr>
+                            <th className='w-[min(2.5rem,4vw)] h-[min(2.5rem,4vh)] text-center text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'></th>
+                            <th className='min-w-[12rem] h-[min(2.5rem,4vh)] text-left px-[min(0.5rem,1vw)] text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                              Nombre de la sucursal
+                            </th>
+                            <th className='min-w-[14rem] h-[min(2.5rem,4vh)] text-left px-[min(0.5rem,1vw)] text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                              Dirección completa
+                            </th>
+                            <th className='min-w-[8rem] h-[min(2.5rem,4vh)] text-left px-[min(0.5rem,1vw)] text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                              Horario
+                            </th>
+                            <th className='min-w-[7rem] h-[min(2.5rem,4vh)] text-left px-[min(0.5rem,1vw)] text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                              Teléfono
+                            </th>
+                            <th className='min-w-[14rem] h-[min(2.5rem,4vh)] text-left px-[min(0.5rem,1vw)] text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                              Email
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredRows.map((sucursal) => (
+                            <tr
                               key={sucursal.id}
-                              className='grid grid-cols-[1.5rem_16rem_19.125rem_10.625rem_8.5rem_17.75rem] h-[3rem]'
-                              style={{ background: bg }}
+                              className={`h-[min(3rem,5vh)] ${sucursal.selected ? 'bg-[var(--color-brand-50)]' : 'bg-white'} hover:bg-[var(--color-neutral-50)] transition-colors`}
                             >
-                              <div className='flex items-center justify-center border-b' style={{ borderColor }}>
+                              <td className='text-center border-b border-neutral-300'>
                                 <input
                                   type='checkbox'
                                   checked={sucursal.selected}
                                   onChange={() => toggleRow(sucursal.id)}
-                                  className='accent-[var(--color-brand-500)] cursor-pointer'
+                                  className='accent-[var(--color-brand-500)] cursor-pointer w-[min(1rem,1.5vw)] h-[min(1rem,1.5vw)]'
                                 />
-                              </div>
-                              <div className='flex items-center gap-[0.5rem] px-[0.5rem] border-b' style={{ borderColor }}>
-                                <span
-                                  className='block rounded-full'
-                                  style={{ width: '2rem', height: '2rem', background: '#eef2f4' }}
-                                  aria-hidden
-                                />
-                                <span className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900 truncate'>{sucursal.nombre}</span>
-                              </div>
-                              <div className='flex items-center px-[0.5rem] border-b' style={{ borderColor }}>
-                                <span className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900 truncate'>{sucursal.direccion}</span>
-                              </div>
-                              <div className='flex items-center px-[0.5rem] border-b' style={{ borderColor }}>
-                                <span className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900 truncate'>{sucursal.horario}</span>
-                              </div>
-                              <div className='flex items-center px-[0.5rem] border-b' style={{ borderColor }}>
-                                <span className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900 truncate'>{sucursal.telefono}</span>
-                              </div>
-                              <div className='flex items-center px-[0.5rem] border-b' style={{ borderColor }}>
-                                <span className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900 truncate'>{sucursal.email}</span>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
+                              </td>
+                              <td className='px-[min(0.5rem,1vw)] border-b border-neutral-300'>
+                                <div className='flex items-center gap-[min(0.5rem,1vw)]'>
+                                  <span
+                                    className='flex-none w-[min(2rem,3vw)] h-[min(2rem,3vw)] rounded-full bg-neutral-100'
+                                    aria-hidden
+                                  />
+                                  <span className='text-body-md text-[var(--color-neutral-900)] truncate'>
+                                    {sucursal.nombre}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className='px-[min(0.5rem,1vw)] border-b border-neutral-300'>
+                                <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                                  {sucursal.direccion}
+                                </span>
+                              </td>
+                              <td className='px-[min(0.5rem,1vw)] border-b border-neutral-300'>
+                                <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                                  {sucursal.horario}
+                                </span>
+                              </td>
+                              <td className='px-[min(0.5rem,1vw)] border-b border-neutral-300'>
+                                <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                                  {sucursal.telefono}
+                                </span>
+                              </td>
+                              <td className='px-[min(0.5rem,1vw)] border-b border-neutral-300'>
+                                <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                                  {sucursal.email}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
           </section>
         </div>
       </div>
+
       <AddClinicModal
         open={showClinicModal}
         onClose={() => setShowClinicModal(false)}

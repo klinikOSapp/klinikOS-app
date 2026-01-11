@@ -196,7 +196,7 @@ function TableHeader({
       {headers.map((h, i) => (
         <div
           key={`${h}-${i}`}
-          className='flex items-center border-b border-neutral-300 px-[0.5rem] py-[0.5rem]'
+          className='flex items-center border-b border-neutral-300 px-2 py-2'
           style={{ width: widths[i], minWidth: widths[i], height: '3rem' }}
         >
           {i === 0 ? (
@@ -216,11 +216,11 @@ function TableHeader({
                 <img
                   src={ICON_HEART}
                   alt=''
-                  className='mr-[0.375rem] size-4'
+                  className='mr-1.5 size-4'
                   aria-hidden
                 />
               )}
-              <p className='font-inter text-[1rem] leading-[1.5rem] text-neutral-700'>{h}</p>
+              <p className='text-body-md text-[var(--color-neutral-600)]'>{h}</p>
             </>
           )}
         </div>
@@ -241,10 +241,10 @@ function TableRow({
   return (
     <div
       className='flex w-full'
-      style={{ background: selected ? '#e9fbf9' : 'transparent', height: '3rem' }}
+      style={{ background: selected ? 'var(--color-brand-50)' : 'transparent', height: '3rem' }}
     >
       <div
-        className='flex items-center border-b border-neutral-300 px-[0.5rem] py-[0.5rem]'
+        className='flex items-center border-b border-neutral-300 px-2 py-2'
         style={{ width: '1.5rem', minWidth: '1.5rem' }}
       >
         <input
@@ -256,43 +256,43 @@ function TableRow({
         />
       </div>
       <div
-        className='flex items-center gap-[0.5rem] border-b border-neutral-300 px-[0.5rem] py-[0.5rem]'
+        className='flex items-center gap-2 border-b border-neutral-300 px-2 py-2'
         style={{ width: '16.125rem', minWidth: '16.125rem' }}
       >
         <div className='size-8 rounded-full bg-neutral-200' />
-        <p className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900'>{specialist.name}</p>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>{specialist.name}</p>
       </div>
       <div
-        className='flex items-center border-b border-neutral-300 px-[0.5rem] py-[0.5rem]'
+        className='flex items-center border-b border-neutral-300 px-2 py-2'
         style={{ width: '9.875rem', minWidth: '9.875rem' }}
       >
-        <p className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900'>{specialist.role}</p>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>{specialist.role}</p>
       </div>
       <div
-        className='flex items-center border-b border-neutral-300 px-[0.5rem] py-[0.5rem]'
+        className='flex items-center border-b border-neutral-300 px-2 py-2'
         style={{ width: '8.5rem', minWidth: '8.5rem' }}
       >
-        <p className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900'>{specialist.phone}</p>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>{specialist.phone}</p>
       </div>
       <div
-        className='flex items-center border-b border-neutral-300 px-[0.5rem] py-[0.5rem]'
+        className='flex items-center border-b border-neutral-300 px-2 py-2'
         style={{ width: '16.875rem', minWidth: '16.875rem' }}
       >
-        <p className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900'>{specialist.email}</p>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>{specialist.email}</p>
       </div>
       <div
-        className='flex items-center border-b border-neutral-300 px-[0.5rem] py-[0.5rem]'
+        className='flex items-center border-b border-neutral-300 px-2 py-2'
         style={{ width: '7.625rem', minWidth: '7.625rem' }}
       >
         <span
           className={[
-            'inline-flex items-center justify-center px-[0.5rem] py-[0.125rem] rounded-[0.25rem]',
+            'inline-flex items-center justify-center px-2 py-0.5 rounded',
             colorToneStyles[specialist.colorTone].bg
           ].join(' ')}
         >
           <p
             className={[
-              'font-inter text-[1rem] leading-[1.5rem]',
+              'text-body-md',
               colorToneStyles[specialist.colorTone].text
             ].join(' ')}
           >
@@ -301,24 +301,24 @@ function TableRow({
         </span>
       </div>
       <div
-        className='flex items-center border-b border-neutral-300 px-[0.5rem] py-[0.5rem]'
+        className='flex items-center border-b border-neutral-300 px-2 py-2'
         style={{ width: '6.375rem', minWidth: '6.375rem' }}
       >
-        <p className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900'>{specialist.commission}</p>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>{specialist.commission}</p>
       </div>
       <div
-        className='flex items-center border-b border-neutral-300 px-[0.5rem] py-[0.5rem]'
+        className='flex items-center border-b border-neutral-300 px-2 py-2'
         style={{ width: '7.125rem', minWidth: '7.125rem' }}
       >
         <span
           className={[
-            'inline-flex items-center justify-center px-[0.5rem] py-[0.125rem] rounded-[0.25rem]',
+            'inline-flex items-center justify-center px-2 py-0.5 rounded',
             statusStyles[specialist.status].bg
           ].join(' ')}
         >
           <p
             className={[
-              'font-inter text-[1rem] leading-[1.5rem]',
+              'text-body-md',
               statusStyles[specialist.status].text
             ].join(' ')}
           >
@@ -448,32 +448,17 @@ export default function SpecialistsListPage() {
 
   return (
     <div className='bg-[var(--color-page-bg)] h-[calc(100dvh-var(--spacing-topbar))] overflow-hidden'>
-      <div
-        className='ml-[3rem] w-full max-w-none'
-        style={{
-          width: 'min(98rem, calc(100vw - 3rem))',
-          height: 'calc(100vh - var(--spacing-topbar))',
-          paddingTop: '2.5rem',
-          paddingBottom: '2.5rem'
-        }}
-      >
-        <header className='flex flex-col gap-[min(0.5rem,1vw)] w-[min(49.625rem,80vw)]'>
-          <h1 className='font-inter text-[1.75rem] leading-[2.25rem] text-neutral-900'>Configuración</h1>
+      <div className='w-full h-full flex flex-col px-[min(3rem,4vw)] py-[min(2.5rem,3vw)]'>
+        {/* Page Header */}
+        <header className='flex-none mb-[min(2.5rem,3vw)]'>
+          <h1 className='text-title-lg text-[var(--color-neutral-900)]'>Configuración</h1>
         </header>
 
-        <div
-          className='mt-[2.5rem] rounded-[0.5rem] overflow-hidden bg-[var(--color-page-bg)] flex items-start'
-          style={{
-            width: 'min(98rem, calc(100vw - 3rem))',
-            height: 'calc(100vh - var(--spacing-topbar) - 2.5rem)'
-          }}
-        >
-          {/* Left rail */}
-          <aside
-            className='w-[19rem] h-auto flex-none self-start border-r border-neutral-100 bg-[var(--color-surface)]'
-            style={{ height: 'auto' }}
-          >
-            <nav className='flex flex-col divide-y divide-neutral-100'>
+        {/* Main Content Area */}
+        <div className='flex-1 flex flex-col lg:flex-row gap-0 rounded-lg overflow-hidden min-h-0'>
+          {/* Left Navigation Rail */}
+          <aside className='w-full lg:w-[min(19rem,25vw)] flex-none border-b lg:border-b-0 lg:border-r border-neutral-100 bg-[var(--color-surface)]'>
+            <nav className='flex lg:flex-col overflow-x-auto lg:overflow-x-visible divide-x lg:divide-x-0 lg:divide-y divide-neutral-100'>
               {configNavItems.map((item, idx) => {
                 const isActive = item.href
                   ? pathname === item.href
@@ -487,11 +472,11 @@ export default function SpecialistsListPage() {
                     }}
                     aria-current={isActive ? 'page' : undefined}
                     className={[
-                      'text-left w-full px-[1.5rem] py-[1.25rem] flex flex-col gap-[0.25rem]',
-                      'font-inter text-[1.125rem] leading-[1.75rem]',
+                      'text-left w-full min-w-max lg:min-w-0 px-[min(1.5rem,2vw)] py-[min(1.25rem,1.5vw)] flex flex-col gap-[min(0.25rem,0.5vw)]',
+                      'text-title-sm whitespace-nowrap lg:whitespace-normal',
                       isActive
-                        ? 'bg-[var(--color-brand-50)] text-brand-900 font-medium'
-                        : 'text-neutral-800 font-normal hover:bg-[var(--color-brand-50)] hover:text-brand-900 transition-colors'
+                        ? 'bg-[var(--color-brand-50)] text-[var(--color-brand-900)] font-medium'
+                        : 'text-[var(--color-neutral-800)] font-normal hover:bg-[var(--color-brand-50)] hover:text-[var(--color-brand-900)] transition-colors'
                     ].join(' ')}
                   >
                     {item.label}
@@ -501,98 +486,86 @@ export default function SpecialistsListPage() {
             </nav>
           </aside>
 
-          {/* Right content */}
-          <section className='relative w-[79rem] flex-none bg-[var(--color-page-bg)]' style={{ height: '100%' }}>
-            <div className='absolute left-[2rem] right-0 top-0 bottom-0 overflow-auto pr-[2rem]'>
-              <header className='mb-[1.5rem] pt-[0.5rem] flex items-start justify-between pr-[2.5rem]'>
-                <div>
-                  <h2 className='font-inter text-[1.75rem] leading-[2.25rem] text-neutral-900'>Lista de especialistas</h2>
-                </div>
-                <button
-                  type='button'
-                  className='inline-flex items-center gap-[0.5rem] px-[1rem] py-[0.5rem] rounded-[8.5rem] border border-neutral-300 bg-[var(--color-page-bg)]'
-                  aria-label='Nuevo especialista'
-                  style={{ minHeight: '2.5rem' }}
-                  onClick={() => setShowAddModal(true)}
-                >
-                  <img src={ICON_ADD} alt='' className='size-6' />
-                  <span className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900 whitespace-nowrap'>Nuevo especialista</span>
-                </button>
-              </header>
-
-              <section
-                className='relative bg-white border border-neutral-200 rounded-[0.5rem] shadow-[0_1px_2px_rgba(36,40,44,0.04)]'
-                style={{
-                  width: 'min(77rem, calc(100vw - 7rem))',
-                  minHeight: 'min(48.25rem, calc(100vh - 12rem))'
-                }}
+          {/* Right Content */}
+          <section className='flex-1 flex flex-col min-w-0 bg-[var(--color-page-bg)] overflow-hidden'>
+            {/* Section Header */}
+            <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-[min(1rem,1.5vw)] px-[min(2rem,3vw)] py-[min(1rem,2vw)] lg:py-0 lg:pt-0'>
+              <p className='text-title-lg font-normal text-[var(--color-neutral-900)]'>
+                Lista de especialistas
+              </p>
+              <button
+                type='button'
+                className='flex items-center gap-[min(0.5rem,1vw)] px-[min(1rem,1.5vw)] py-[min(0.5rem,1vw)] rounded-full border border-neutral-300 bg-[var(--color-page-bg)] hover:bg-neutral-100 transition-colors cursor-pointer self-start sm:self-auto'
+                aria-label='Nuevo especialista'
+                onClick={() => setShowAddModal(true)}
               >
-                <div className='flex items-center justify-between px-[1.625rem] pt-[1.25rem] pb-[0.75rem]'>
+                <img src={ICON_ADD} alt='' className='size-[min(1.5rem,2vw)]' />
+                <span className='text-body-md text-[var(--color-neutral-900)] whitespace-nowrap'>Nuevo especialista</span>
+              </button>
+            </div>
+
+            {/* Content Card */}
+            <div className='flex-1 mx-[min(2rem,3vw)] mt-[min(1.5rem,2vw)] mb-[min(2rem,3vw)] min-h-0'>
+              <div className='bg-[var(--color-surface)] border border-neutral-200 rounded-lg h-full overflow-hidden flex flex-col'>
+                {/* Toolbar */}
+                <div className='flex-none flex flex-col sm:flex-row sm:items-center justify-between gap-[min(1rem,1.5vw)] px-[min(1.5rem,2vw)] py-[min(1rem,1.5vw)]'>
                   <div className='flex items-center'>
-                    <div
-                      className='flex items-center bg-[#f0fafa] text-[#338f88] px-[0.5rem] py-[0.25rem] rounded-bl-[0.25rem] rounded-tl-[0.25rem]'
-                      style={{ border: '0.5px solid #a8efe7' }}
-                    >
-                      <span className='font-inter text-[0.875rem] leading-[1.25rem]'>
+                    <div className='flex items-center bg-[var(--color-brand-0)] text-[var(--color-brand-700)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] rounded-l border border-[var(--color-brand-200)]'>
+                      <span className='text-body-sm'>
                         {selectionCount === 0
                           ? '0 seleccionado'
                           : `${selectionCount} seleccionado${selectionCount > 1 ? 's' : ''}`}
                       </span>
                     </div>
-                    <div
-                      className='flex items-center bg-[var(--color-page-bg)] text-neutral-700 px-[0.5rem] py-[0.25rem]'
-                      onClick={selectionCount === 1 ? handleOpenEdit : undefined}
-                      aria-disabled={selectionCount !== 1}
-                      style={{
-                        cursor: selectionCount === 1 ? 'pointer' : 'not-allowed',
-                        borderTop: '0.5px solid #cbd3d9',
-                        borderBottom: '0.5px solid #cbd3d9',
-                        borderRight: '0.5px solid #cbd3d9'
-                      }}
-                    >
-                      <span className='font-inter text-[0.875rem] leading-[1.25rem]'>Editar</span>
-                    </div>
-                    <div
-                      className='flex items-center bg-[var(--color-page-bg)] text-neutral-700 px-[0.5rem] py-[0.25rem]'
-                      style={{ borderTop: '0.5px solid #cbd3d9', borderBottom: '0.5px solid #cbd3d9', borderRight: '0.5px solid #cbd3d9' }}
-                    >
-                      <span className='font-inter text-[0.875rem] leading-[1.25rem]'>Desactivar</span>
-                    </div>
-                    <div
-                      className='flex items-center bg-[var(--color-page-bg)] text-neutral-700 px-[0.5rem] py-[0.25rem]'
-                      style={{ borderTop: '0.5px solid #cbd3d9', borderBottom: '0.5px solid #cbd3d9', borderRight: '0.5px solid #cbd3d9' }}
-                    >
-                      <img src={ICON_DELETE} alt='' className='size-5' />
-                    </div>
-                    <div
-                      className='flex items-center bg-[var(--color-page-bg)] text-neutral-700 px-[0.5rem] py-[0.25rem]'
-                      style={{ borderTop: '0.5px solid #cbd3d9', borderBottom: '0.5px solid #cbd3d9', borderRight: '0.5px solid #cbd3d9' }}
-                    >
-                      <img src={ICON_MORE} alt='' className='size-5' />
-                    </div>
-                  </div>
-
-                  <div className='flex items-center gap-[0.5rem]'>
                     <button
                       type='button'
-                      className='flex items-center justify-center size-8 rounded-full border border-transparent'
-                      aria-label='Buscar'
+                      className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+                      onClick={selectionCount === 1 ? handleOpenEdit : undefined}
+                      disabled={selectionCount !== 1}
                     >
-                      <img src={ICON_SEARCH} alt='' className='size-6' />
+                      <span className='text-body-sm'>Editar</span>
                     </button>
                     <button
                       type='button'
-                      className='flex items-center gap-[0.25rem] px-[0.5rem] py-[0.25rem] rounded-[2rem] border border-[#535c66] text-neutral-700'
-                      style={{ minHeight: '2rem' }}
+                      className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors'
                     >
-                      <img src={ICON_FILTER} alt='' className='size-6' />
-                      <span className='font-inter text-[0.875rem] leading-[1.25rem]'>Todos</span>
+                      <span className='text-body-sm'>Desactivar</span>
+                    </button>
+                    <button
+                      type='button'
+                      className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors'
+                    >
+                      <img src={ICON_DELETE} alt='Eliminar' className='size-[min(1.25rem,2vw)]' />
+                    </button>
+                    <button
+                      type='button'
+                      className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] rounded-r border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors'
+                    >
+                      <img src={ICON_MORE} alt='Más opciones' className='size-[min(1.25rem,2vw)]' />
+                    </button>
+                  </div>
+
+                  <div className='flex items-center gap-[min(0.5rem,1vw)]'>
+                    <button
+                      type='button'
+                      className='flex items-center justify-center size-[min(2rem,3vw)] rounded-full hover:bg-neutral-100 transition-colors'
+                      aria-label='Buscar'
+                    >
+                      <img src={ICON_SEARCH} alt='' className='size-[min(1.5rem,2vw)]' />
+                    </button>
+                    <button
+                      type='button'
+                      className='flex items-center gap-[min(0.25rem,0.5vw)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] rounded-full border border-[var(--color-neutral-700)] hover:bg-neutral-100 transition-colors'
+                    >
+                      <img src={ICON_FILTER} alt='' className='size-[min(1.5rem,2vw)]' />
+                      <span className='text-body-sm text-[var(--color-neutral-700)]'>Todos</span>
                     </button>
                   </div>
                 </div>
 
-                <div className='px-[1.625rem] pb-[1.5rem] overflow-auto'>
-                  <div className='border border-neutral-300 rounded-[0.25rem] overflow-hidden'>
+                {/* Table with scroll */}
+                <div className='flex-1 overflow-auto px-[min(1.5rem,2vw)] pb-[min(1.5rem,2vw)]'>
+                  <div className='border border-neutral-300 rounded overflow-hidden min-w-[74rem]'>
                     <TableHeader allSelected={allSelected} indeterminate={indeterminate} onToggleAll={toggleAll} />
                     {data.map((s) => (
                       <TableRow
@@ -605,23 +578,32 @@ export default function SpecialistsListPage() {
                   </div>
                 </div>
 
-                <div className='absolute right-[1.5rem] bottom-[1.25rem] flex items-center gap-[0.75rem] text-neutral-700'>
-                  <div className='flex items-center gap-[0.25rem]'>
-                    <img src={ICON_FIRST} alt='' className='size-6' />
-                    <img src={ICON_PREV} alt='' className='size-6' />
+                {/* Pagination */}
+                <div className='flex-none flex items-center justify-end gap-[min(0.75rem,1vw)] px-[min(1.5rem,2vw)] pb-[min(1rem,1.5vw)] text-[var(--color-neutral-700)]'>
+                  <div className='flex items-center gap-[min(0.25rem,0.5vw)]'>
+                    <button type='button' className='p-[min(0.25rem,0.5vw)] hover:bg-neutral-100 rounded transition-colors'>
+                      <img src={ICON_FIRST} alt='Primera página' className='size-[min(1.5rem,2vw)]' />
+                    </button>
+                    <button type='button' className='p-[min(0.25rem,0.5vw)] hover:bg-neutral-100 rounded transition-colors'>
+                      <img src={ICON_PREV} alt='Anterior' className='size-[min(1.5rem,2vw)]' />
+                    </button>
                   </div>
-                  <div className='flex items-center gap-[0.375rem]'>
-                    <span className='font-inter text-[0.875rem] leading-[1rem] font-bold underline text-[#24282c]'>1</span>
-                    <span className='font-inter text-[0.875rem] leading-[1rem] text-neutral-500'>2</span>
-                    <span className='font-inter text-[0.875rem] leading-[1rem] text-neutral-500'>...</span>
-                    <span className='font-inter text-[0.875rem] leading-[1rem] text-neutral-500'>12</span>
+                  <div className='flex items-center gap-[min(0.375rem,0.5vw)]'>
+                    <span className='text-body-sm font-bold underline text-[var(--color-neutral-900)]'>1</span>
+                    <span className='text-body-sm text-[var(--color-neutral-500)]'>2</span>
+                    <span className='text-body-sm text-[var(--color-neutral-500)]'>...</span>
+                    <span className='text-body-sm text-[var(--color-neutral-500)]'>12</span>
                   </div>
-                  <div className='flex items-center gap-[0.25rem]'>
-                    <img src={ICON_NEXT} alt='' className='size-6' />
-                    <img src={ICON_LAST} alt='' className='size-6' />
+                  <div className='flex items-center gap-[min(0.25rem,0.5vw)]'>
+                    <button type='button' className='p-[min(0.25rem,0.5vw)] hover:bg-neutral-100 rounded transition-colors'>
+                      <img src={ICON_NEXT} alt='Siguiente' className='size-[min(1.5rem,2vw)]' />
+                    </button>
+                    <button type='button' className='p-[min(0.25rem,0.5vw)] hover:bg-neutral-100 rounded transition-colors'>
+                      <img src={ICON_LAST} alt='Última página' className='size-[min(1.5rem,2vw)]' />
+                    </button>
                   </div>
                 </div>
-              </section>
+              </div>
             </div>
           </section>
         </div>
