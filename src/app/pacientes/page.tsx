@@ -6,7 +6,93 @@ import ClientLayout from '@/app/client-layout'
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import { useRouter, useSearchParams } from 'next/navigation'
-import React, { Suspense, useEffect } from 'react'
+import React, { Suspense, useEffect, useRef } from 'react'
+
+/* ─────────────────────────────────────────────────────────────
+   PatientActionsMenu - Dropdown de acciones por paciente
+   Medidas de Figma:
+   - Padding: 16px = 1rem
+   - Gap: 24px = 1.5rem
+   - Border radius: 8px = 0.5rem
+   - Icon: 24px, Gap icon-text: 4px = 0.25rem
+   - Font: Inter Medium 16px/24px
+   ───────────────────────────────────────────────────────────── */
+function PatientActionsMenu({
+  onClose,
+  onViewFile,
+  onNewAppointment,
+  onEdit,
+  onDelete
+}: {
+  onClose: () => void
+  onViewFile: () => void
+  onNewAppointment: () => void
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose()
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [onClose])
+
+  const menuItemClass =
+    'flex items-center gap-[0.25rem] p-0 cursor-pointer hover:opacity-70 transition-opacity'
+  const menuTextClass =
+    'font-medium text-[1rem] leading-[1.5rem] text-[var(--color-neutral-900)]'
+
+  return (
+    <div
+      ref={menuRef}
+      className='absolute right-full top-0 mr-2 z-50 backdrop-blur-[2px] bg-[rgba(248,250,251,0.9)] flex flex-col gap-[1.5rem] p-[1rem] rounded-[0.5rem] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)] min-w-max whitespace-nowrap'
+    >
+      <button type='button' className={menuItemClass} onClick={onViewFile}>
+        <MD3Icon
+          name='DescriptionRounded'
+          size='md'
+          className='text-[var(--color-neutral-900)]'
+        />
+        <span className={menuTextClass}>Ver ficha</span>
+      </button>
+      <button
+        type='button'
+        className={menuItemClass}
+        onClick={onNewAppointment}
+      >
+        <MD3Icon
+          name='CalendarMonthRounded'
+          size='md'
+          className='text-[var(--color-neutral-900)]'
+        />
+        <span className={menuTextClass}>Nueva cita</span>
+      </button>
+      <button type='button' className={menuItemClass} onClick={onEdit}>
+        <MD3Icon
+          name='EditRounded'
+          size='md'
+          className='text-[var(--color-neutral-900)]'
+        />
+        <span className={menuTextClass}>Editar datos</span>
+      </button>
+      <button type='button' className={menuItemClass} onClick={onDelete}>
+        <MD3Icon
+          name='DeleteRounded'
+          size='md'
+          className='text-[var(--color-error-600)]'
+        />
+        <span className={`${menuTextClass} !text-[var(--color-error-600)]`}>
+          Eliminar
+        </span>
+      </button>
+    </div>
+  )
+}
 
 const CTA_WIDTH_REM = 7.3125 // 117px ÷ 16
 const CTA_HEIGHT_REM = 2.5 // 40px ÷ 16
@@ -182,6 +268,7 @@ function PacientesPageContent() {
     []
   )
   const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
+  const [openMenuId, setOpenMenuId] = React.useState<string | null>(null)
   const searchParams = useSearchParams()
   const navRouter = useRouter()
 
@@ -259,16 +346,6 @@ function PacientesPageContent() {
                 <MD3Icon name='AddRounded' size='md' />
                 <span className='font-medium'>Añadir paciente</span>
               </button>
-              <button
-                className='size-6 grid place-items-center text-[var(--color-neutral-900)] cursor-pointer'
-                aria-label='Más opciones'
-              >
-                <MD3Icon
-                  name='MoreVertRounded'
-                  size='md'
-                  className='text-[var(--color-neutral-900)]'
-                />
-              </button>
             </div>
           </div>
           <p className='text-body-sm text-[var(--color-neutral-900)] mt-2 max-w-[680px]'>
@@ -292,9 +369,6 @@ function PacientesPageContent() {
               </button>
               <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
                 <MD3Icon name='DeleteRounded' size='md' />
-              </button>
-              <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
-                <MD3Icon name='MoreHorizRounded' size='md' />
               </button>
             </div>
             <div className='flex items-center gap-2'>
@@ -410,15 +484,11 @@ function PacientesPageContent() {
                       'group hover:bg-[var(--color-neutral-50)]',
                       isPatientSelected(row.id) ? 'bg-[#E9FBF9]' : ''
                     ].join(' ')}
-                    onClick={() => setIsFichaModalOpen(true)}
                   >
                     <TableBodyCell className='w-[2.5rem] pr-2'>
                       <button
                         type='button'
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          togglePatientSelection(row.id)
-                        }}
+                        onClick={() => togglePatientSelection(row.id)}
                         aria-pressed={isPatientSelected(row.id)}
                         className='relative size-6 inline-flex items-center justify-center cursor-pointer'
                       >
@@ -450,7 +520,13 @@ function PacientesPageContent() {
                       </button>
                     </TableBodyCell>
                     <TableBodyCell className='w-[min(21.5rem,30vw)] pr-2'>
-                      <p className='truncate'>{row.name}</p>
+                      <button
+                        type='button'
+                        onClick={() => setIsFichaModalOpen(true)}
+                        className='truncate hover:underline cursor-pointer text-left w-full'
+                      >
+                        {row.name}
+                      </button>
                     </TableBodyCell>
                     <TableBodyCell className='w-[min(16.25rem,22vw)] pr-2'>
                       <p className='truncate'>{row.phone}</p>
@@ -471,20 +547,47 @@ function PacientesPageContent() {
                       className='w-[3.5rem] pr-2 sticky right-0 bg-[var(--color-surface-app)] group-hover:bg-[var(--color-neutral-50)]'
                       align='right'
                     >
-                      <button
-                        type='button'
-                        onClick={(e) => {
-                          e.stopPropagation()
-                        }}
-                        aria-label='Abrir acciones'
-                        className='inline-flex size-8 items-center justify-center rounded-full hover:bg-[var(--color-neutral-100)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-300)]'
-                      >
-                        <MD3Icon
-                          name='MoreVertRounded'
-                          size='md'
-                          className='text-[var(--color-neutral-700)]'
-                        />
-                      </button>
+                      <div className='relative'>
+                        <button
+                          type='button'
+                          onClick={() =>
+                            setOpenMenuId(openMenuId === row.id ? null : row.id)
+                          }
+                          aria-label='Abrir acciones'
+                          aria-expanded={openMenuId === row.id}
+                          className='inline-flex size-8 items-center justify-center rounded-full hover:bg-[var(--color-neutral-100)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-300)]'
+                        >
+                          <MD3Icon
+                            name='MoreVertRounded'
+                            size='md'
+                            className='text-[var(--color-neutral-700)]'
+                          />
+                        </button>
+                        {openMenuId === row.id && (
+                          <PatientActionsMenu
+                            onClose={() => setOpenMenuId(null)}
+                            onViewFile={() => {
+                              setOpenMenuId(null)
+                              setIsFichaModalOpen(true)
+                            }}
+                            onNewAppointment={() => {
+                              setOpenMenuId(null)
+                              // TODO: Implementar crear nueva cita
+                              console.log('Nueva cita para:', row.name)
+                            }}
+                            onEdit={() => {
+                              setOpenMenuId(null)
+                              // TODO: Implementar editar datos
+                              console.log('Editar:', row.name)
+                            }}
+                            onDelete={() => {
+                              setOpenMenuId(null)
+                              // TODO: Implementar eliminar con confirmación
+                              console.log('Eliminar:', row.name)
+                            }}
+                          />
+                        )}
+                      </div>
                     </TableBodyCell>
                   </tr>
                 ))}

@@ -84,6 +84,7 @@ type AddPatientModalProps = {
   open: boolean
   onClose: () => void
   onContinue?: () => void
+  onAddAppointment?: () => void
   initialName?: string
 }
 
@@ -93,6 +94,7 @@ export default function AddPatientModal({
   open,
   onClose,
   onContinue,
+  onAddAppointment,
   initialName
 }: AddPatientModalProps) {
   const [step, setStep] = React.useState<
@@ -413,7 +415,7 @@ export default function AddPatientModal({
                   type='button'
                   aria-label='Cerrar'
                   onClick={onClose}
-                  className='w-3.5 h-3.5'
+                  className='w-3.5 h-3.5 cursor-pointer'
                 >
                   <MD3Icon
                     name='CloseRounded'
@@ -598,11 +600,11 @@ export default function AddPatientModal({
 
               <div className='w-[31.5rem] h-0 left-[18.375rem] top-[53.25rem] absolute origin-top-left rotate-180 border-t-[0.0625rem] border-[var(--color-neutral-400)]'></div>
 
-              {step !== 'paciente' && (
+              {step !== 'paciente' && step !== 'resumen' && (
                 <button
                   type='button'
                   onClick={handleBack}
-                  className='absolute left-[18.375rem] top-[55.75rem] inline-flex h-[2.5rem] w-[13.4375rem] items-center justify-center gap-[0.5rem] rounded-full border border-[var(--color-brand-500)] bg-[var(--color-neutral-50)] px-[1rem] text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-100)]'
+                  className='absolute left-[18.375rem] top-[55.75rem] inline-flex h-[2.5rem] w-[13.4375rem] cursor-pointer items-center justify-center gap-[0.5rem] rounded-full border border-[var(--color-brand-500)] bg-[var(--color-neutral-50)] px-[1rem] text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-100)]'
                 >
                   <MD3Icon name='ArrowBackRounded' size='md' />
                   Volver
@@ -613,20 +615,43 @@ export default function AddPatientModal({
                 <button
                   type='button'
                   onClick={handleContinue}
-                  className='w-[13.4375rem] px-4 py-2 left-[36.4375rem] top-[55.75rem] absolute bg-[var(--color-brand-500)] rounded-[8.5rem] border border-[var(--color-brand-500)] inline-flex justify-center items-center gap-2 text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-400)]'
+                  className='w-[13.4375rem] px-4 py-2 left-[36.4375rem] top-[55.75rem] absolute cursor-pointer bg-[var(--color-brand-500)] rounded-[8.5rem] border border-[var(--color-brand-500)] inline-flex justify-center items-center gap-2 text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-400)]'
                 >
                   Continuar
                   <MD3Icon name='ArrowForwardRounded' size='lg' />
                 </button>
               ) : (
-                <button
-                  type='button'
-                  onClick={handleContinue}
-                  className='w-[13.4375rem] px-4 py-2 left-[36.4375rem] top-[55.75rem] absolute bg-[var(--color-brand-500)] rounded-[8.5rem] border border-[var(--color-brand-500)] inline-flex justify-center items-center gap-2 text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-400)]'
-                >
-                  Crear paciente
-                  <MD3Icon name='ArrowForwardRounded' size='lg' />
-                </button>
+                /* Tres botones en el paso Resumen */
+                <div className='absolute left-[18.375rem] top-[55.75rem] inline-flex items-center gap-[0.75rem]'>
+                  {/* Botón Volver */}
+                  <button
+                    type='button'
+                    onClick={handleBack}
+                    className='inline-flex h-[2.5rem] w-[9.5rem] cursor-pointer items-center justify-center gap-[0.5rem] rounded-full border border-[var(--color-brand-500)] bg-[var(--color-neutral-50)] px-[1rem] text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-100)]'
+                  >
+                    <MD3Icon name='ArrowBackRounded' size='md' />
+                    Volver
+                  </button>
+
+                  {/* Botón Crear paciente */}
+                  <button
+                    type='button'
+                    onClick={onContinue}
+                    className='inline-flex h-[2.5rem] w-[10.5rem] cursor-pointer items-center justify-center gap-[0.5rem] rounded-full border border-[var(--color-brand-500)] bg-[var(--color-brand-500)] px-[1rem] text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-400)]'
+                  >
+                    Crear paciente
+                  </button>
+
+                  {/* Botón Añadir cita */}
+                  <button
+                    type='button'
+                    onClick={onAddAppointment}
+                    className='inline-flex h-[2.5rem] w-[10.5rem] cursor-pointer items-center justify-center gap-[0.5rem] rounded-full border border-[var(--color-brand-500)] bg-[var(--color-brand-500)] px-[1rem] text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-400)]'
+                  >
+                    Añadir cita
+                    <MD3Icon name='CalendarMonthRounded' size='md' />
+                  </button>
+                </div>
               )}
             </div>
           </div>

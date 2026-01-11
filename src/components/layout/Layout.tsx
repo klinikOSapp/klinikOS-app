@@ -102,6 +102,11 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
       <AddPatientModal
         open={isAddPatientModalOpen}
         onClose={() => setIsAddPatientModalOpen(false)}
+        onContinue={() => setIsAddPatientModalOpen(false)}
+        onAddAppointment={() => {
+          setIsAddPatientModalOpen(false)
+          router.push('/agenda')
+        }}
         initialName={initialPatientName}
       />
       <TopBar userName='Daniel' />
@@ -114,7 +119,7 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
           collapsed={collapsed}
           onToggleCollapsed={setCollapsed}
         />
-        <main className='bg-white rounded-tl-[var(--radius-xl)] w-full h-[calc(100dvh-var(--spacing-topbar))] min-h-0 overflow-hidden relative z-20'>
+        <main className='bg-white rounded-tl-[var(--radius-xl)] w-full h-[calc(100dvh-var(--spacing-topbar))] min-h-0 overflow-hidden relative'>
           {children}
         </main>
       </div>
