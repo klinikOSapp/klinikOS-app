@@ -20,13 +20,13 @@ import React, { Suspense, useEffect, useRef } from 'react'
 function PatientActionsMenu({
   onClose,
   onViewFile,
-  onNewAppointment,
+  onCreateBudget,
   onEdit,
   onDelete
 }: {
   onClose: () => void
   onViewFile: () => void
-  onNewAppointment: () => void
+  onCreateBudget: () => void
   onEdit: () => void
   onDelete: () => void
 }) {
@@ -60,17 +60,13 @@ function PatientActionsMenu({
         />
         <span className={menuTextClass}>Ver ficha</span>
       </button>
-      <button
-        type='button'
-        className={menuItemClass}
-        onClick={onNewAppointment}
-      >
+      <button type='button' className={menuItemClass} onClick={onCreateBudget}>
         <MD3Icon
-          name='CalendarMonthRounded'
+          name='EuroRounded'
           size='md'
           className='text-[var(--color-neutral-900)]'
         />
-        <span className={menuTextClass}>Nueva cita</span>
+        <span className={menuTextClass}>Crear presupuesto</span>
       </button>
       <button type='button' className={menuItemClass} onClick={onEdit}>
         <MD3Icon
@@ -268,6 +264,7 @@ function PacientesPageContent() {
     []
   )
   const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
+  const [openBudgetCreation, setOpenBudgetCreation] = React.useState(false)
   const [openMenuId, setOpenMenuId] = React.useState<string | null>(null)
   const searchParams = useSearchParams()
   const navRouter = useRouter()
@@ -308,7 +305,12 @@ function PacientesPageContent() {
       <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] px-[min(3rem,4vw)] py-[min(1.5rem,2vw)] flex flex-col overflow-auto'>
         <PatientRecordModal
           open={isFichaModalOpen}
-          onClose={() => setIsFichaModalOpen(false)}
+          onClose={() => {
+            setIsFichaModalOpen(false)
+            setOpenBudgetCreation(false)
+          }}
+          initialTab={openBudgetCreation ? 'Presupuestos y pagos' : 'Resumen'}
+          openBudgetCreation={openBudgetCreation}
         />
 
         {/* Header Section - Fixed size */}
@@ -570,10 +572,10 @@ function PacientesPageContent() {
                               setOpenMenuId(null)
                               setIsFichaModalOpen(true)
                             }}
-                            onNewAppointment={() => {
+                            onCreateBudget={() => {
                               setOpenMenuId(null)
-                              // TODO: Implementar crear nueva cita
-                              console.log('Nueva cita para:', row.name)
+                              setOpenBudgetCreation(true)
+                              setIsFichaModalOpen(true)
                             }}
                             onEdit={() => {
                               setOpenMenuId(null)

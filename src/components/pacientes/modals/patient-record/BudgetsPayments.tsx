@@ -17,6 +17,8 @@ import { QuickBudgetModal, type QuickBudgetOption } from './QuickBudgetModal'
 
 type BudgetsPaymentsProps = {
   onClose?: () => void
+  openBudgetCreation?: boolean
+  onBudgetCreationOpened?: () => void
 }
 
 type BudgetRow = {
@@ -119,7 +121,11 @@ function StatusBadge({ status }: { status: BudgetRow['status'] }) {
   )
 }
 
-export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
+export default function BudgetsPayments({
+  onClose,
+  openBudgetCreation = false,
+  onBudgetCreationOpened
+}: BudgetsPaymentsProps) {
   const [subTab, setSubTab] = React.useState<'Presupuestos' | 'Pagos'>(
     'Presupuestos'
   )
@@ -127,6 +133,14 @@ export default function BudgetsPayments({ onClose }: BudgetsPaymentsProps) {
   const [selectedFilters, setSelectedFilters] = React.useState<FilterKey[]>([])
   const [showProposalModal, setShowProposalModal] = React.useState(false)
   const [showQuickBudgetModal, setShowQuickBudgetModal] = React.useState(false)
+
+  // Auto-open proposal modal if openBudgetCreation is true
+  React.useEffect(() => {
+    if (openBudgetCreation && !showProposalModal) {
+      setShowProposalModal(true)
+      onBudgetCreationOpened?.()
+    }
+  }, [openBudgetCreation, showProposalModal, onBudgetCreationOpened])
   const [quickBudgetSelection, setQuickBudgetSelection] =
     React.useState<QuickBudgetOption | null>(null)
   const isFilterActive = (key: FilterKey) => selectedFilters.includes(key)

@@ -20,14 +20,23 @@ type PatientRecordModalProps = {
   open: boolean
   onClose: () => void
   initialTab?: PatientRecordTab
+  openBudgetCreation?: boolean
 }
 
 export default function PatientRecordModal({
   open,
   onClose,
-  initialTab = 'Resumen'
+  initialTab = 'Resumen',
+  openBudgetCreation = false
 }: PatientRecordModalProps) {
   const [active, setActive] = React.useState<PatientRecordTab>(initialTab)
+  const [shouldOpenBudget, setShouldOpenBudget] = React.useState(openBudgetCreation)
+
+  React.useEffect(() => {
+    if (open && openBudgetCreation) {
+      setShouldOpenBudget(true)
+    }
+  }, [open, openBudgetCreation])
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -139,7 +148,11 @@ export default function PatientRecordModal({
                 )}
                 {active === 'Imágenes RX' && <RxImages onClose={onClose} />}
                 {active === 'Presupuestos y pagos' && (
-                  <BudgetsPayments onClose={onClose} />
+                  <BudgetsPayments
+                    onClose={onClose}
+                    openBudgetCreation={shouldOpenBudget}
+                    onBudgetCreationOpened={() => setShouldOpenBudget(false)}
+                  />
                 )}
                 {active === 'Consentimientos' && <Consents onClose={onClose} />}
                 {active === 'Recetas' && <Recetas onClose={onClose} />}
