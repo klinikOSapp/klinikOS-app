@@ -6,7 +6,8 @@ import {
   CallRounded,
   CloseRounded,
   MailRounded,
-  MoreVertRounded
+  CheckRounded,
+  EditRounded
 } from '@/components/icons/md3'
 import AvatarImageDropdown from '@/components/pacientes/AvatarImageDropdown'
 import React from 'react'
@@ -15,11 +16,40 @@ type ClientSummaryProps = {
   onClose?: () => void
 }
 
+// Datos iniciales del paciente (en producción vendrían de props o API)
+const initialPatientData = {
+  nombre: 'Lucia López Cano',
+  email: 'Emailexample@gmail.com',
+  telefono: '+34 666 777 888',
+  fechaNacimiento: '26/02/1978',
+  edad: '45 años',
+  dni: '49587154S',
+  pais: 'España',
+  estado: 'Pre-registro',
+  motivoConsulta: 'Sufre de sensibilidad dental y necesita hacerse su limpieza bucal anual',
+  origenCliente: 'Recomendación',
+  recomendadoPor: 'Sonia Pujante',
+  ocupacion: 'Funcionario',
+  idioma: 'Español',
+  contactoEmergenciaNombre: 'José Lopez',
+  contactoEmergenciaEmail: 'Jose@gmail.com',
+  contactoEmergenciaTelefono: '666 777 888',
+  alergias: ['Penicilina', 'Latex'],
+  comentario: ''
+}
+
 export default function ClientSummary({ onClose }: ClientSummaryProps) {
   const [avatarPreviewUrl, setAvatarPreviewUrl] = React.useState<string | null>(
     null
   )
   const lastUrlRef = React.useRef<string | null>(null)
+
+  // Estado de edición
+  const [isEditing, setIsEditing] = React.useState(false)
+  
+  // Estados para todos los campos editables
+  const [formData, setFormData] = React.useState(initialPatientData)
+  const [tempFormData, setTempFormData] = React.useState(initialPatientData)
 
   const setPreviewFromFile = React.useCallback((file: File) => {
     const url = URL.createObjectURL(file)
@@ -33,6 +63,26 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
       if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current)
     }
   }, [])
+
+  // Manejadores de edición
+  const handleEdit = () => {
+    setTempFormData(formData)
+    setIsEditing(true)
+  }
+
+  const handleSave = () => {
+    setFormData(tempFormData)
+    setIsEditing(false)
+  }
+
+  const handleCancel = () => {
+    setTempFormData(formData)
+    setIsEditing(false)
+  }
+
+  const updateField = (field: keyof typeof formData, value: string | string[]) => {
+    setTempFormData(prev => ({ ...prev, [field]: value }))
+  }
   return (
     <div
       className='relative bg-[#f8fafb] overflow-hidden w-[74.75rem] h-[56.25rem]'
@@ -79,13 +129,22 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
           className='content-stretch flex flex-col gap-[0.5rem] items-start relative shrink-0 w-[14.25rem]'
           data-node-id='426:853'
         >
-          <p
-            className="font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] min-w-full not-italic relative shrink-0 text-[#24282c] text-[1.5rem]"
-            data-node-id='426:830'
-            style={{ width: 'min-content' }}
-          >
-            Lucia López Cano
-          </p>
+          {isEditing ? (
+            <input
+              type="text"
+              value={tempFormData.nombre}
+              onChange={(e) => updateField('nombre', e.target.value)}
+              className="font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] w-full not-italic text-[#24282c] text-[1.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)]"
+            />
+          ) : (
+            <p
+              className="font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] min-w-full not-italic relative shrink-0 text-[#24282c] text-[1.5rem]"
+              data-node-id='426:830'
+              style={{ width: 'min-content' }}
+            >
+              {formData.nombre}
+            </p>
+          )}
           <div
             className='content-stretch flex gap-[0.5rem] items-center relative shrink-0 w-full'
             data-node-id='426:848'
@@ -97,12 +156,21 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
             >
               <MailRounded className='size-6 text-[#24282c]' />
             </div>
-            <p
-              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic relative shrink-0 text-[#24282c] text-[1rem] text-nowrap whitespace-pre"
-              data-node-id='426:831'
-            >
-              Emailexample@gmail.com
-            </p>
+            {isEditing ? (
+              <input
+                type="email"
+                value={tempFormData.email}
+                onChange={(e) => updateField('email', e.target.value)}
+                className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[1rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-full"
+              />
+            ) : (
+              <p
+                className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic relative shrink-0 text-[#24282c] text-[1rem] text-nowrap whitespace-pre"
+                data-node-id='426:831'
+              >
+                {formData.email}
+              </p>
+            )}
           </div>
           <div
             className='content-stretch flex gap-[0.5rem] items-center relative shrink-0'
@@ -115,12 +183,21 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
             >
               <CallRounded className='size-6 text-[#24282c]' />
             </div>
-            <p
-              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic relative shrink-0 text-[#24282c] text-[1rem] text-nowrap whitespace-pre"
-              data-node-id='426:838'
-            >
-              +34 666 777 888
-            </p>
+            {isEditing ? (
+              <input
+                type="tel"
+                value={tempFormData.telefono}
+                onChange={(e) => updateField('telefono', e.target.value)}
+                className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[1rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-full"
+              />
+            ) : (
+              <p
+                className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic relative shrink-0 text-[#24282c] text-[1rem] text-nowrap whitespace-pre"
+                data-node-id='426:838'
+              >
+                {formData.telefono}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -157,12 +234,21 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
         data-node-id='426:855'
         style={{ left: 'calc(43.75% + 0.797rem)' }}
       >
-        <p
-          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1rem] left-[0.5rem] not-italic text-[#aeb8c2] text-[0.75rem] text-nowrap top-[0.5rem] whitespace-pre"
-          data-node-id='426:856'
-        >
-          Añadir comentario sobre el paciente
-        </p>
+        {isEditing ? (
+          <textarea
+            value={tempFormData.comentario}
+            onChange={(e) => updateField('comentario', e.target.value)}
+            placeholder="Añadir comentario sobre el paciente"
+            className="w-full h-full px-2 py-2 text-[0.875rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded-[0.5rem] outline-none focus:border-[var(--color-brand-500)] resize-none text-[#24282c]"
+          />
+        ) : (
+          <p
+            className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1rem] left-[0.5rem] not-italic text-[#aeb8c2] text-[0.75rem] text-nowrap top-[0.5rem] whitespace-pre"
+            data-node-id='426:856'
+          >
+            {formData.comentario || 'Añadir comentario sobre el paciente'}
+          </p>
+        )}
       </div>
       <p
         className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1rem] not-italic text-[#8a95a1] text-[0.75rem] text-nowrap top-[3.25rem] whitespace-pre"
@@ -227,12 +313,22 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
       >
         Origen del cliente
       </p>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[43rem] whitespace-pre"
-        data-node-id='426:887'
-      >
-        José Lopez
-      </p>
+      {isEditing ? (
+        <input
+          type="text"
+          value={tempFormData.contactoEmergenciaNombre}
+          onChange={(e) => updateField('contactoEmergenciaNombre', e.target.value)}
+          placeholder="Nombre contacto"
+          className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] top-[43rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[12rem]"
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[43rem] whitespace-pre"
+          data-node-id='426:887'
+        >
+          {formData.contactoEmergenciaNombre}
+        </p>
+      )}
       <p
         className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[21.5rem] whitespace-pre"
         data-node-id='426:872'
@@ -266,109 +362,267 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
       >
         Idioma de preferencia
       </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[18.75rem] whitespace-pre"
-        data-node-id='426:869'
-        style={{ left: 'calc(18.75% + 1.922rem)' }}
-      >
-        45 años
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[31.75rem] whitespace-pre"
-        data-node-id='426:881'
-        style={{ left: 'calc(18.75% + 1.922rem)' }}
-      >
-        Sonia Pujante
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[18.75rem] whitespace-pre"
-        data-node-id='426:871'
-      >
-        26/02/1978
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[18.75rem] whitespace-pre"
-        data-node-id='426:915'
-        style={{ left: 'calc(43.75% + 0.797rem)' }}
-      >
-        Pre-registro
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[31.75rem] whitespace-pre"
-        data-node-id='426:882'
-      >
-        Recomendación
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[44.75rem] whitespace-pre"
-        data-node-id='426:891'
-      >
-        Jose@gmail.com
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[46.25rem] whitespace-pre"
-        data-node-id='426:894'
-      >
-        666 777 888
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[23.25rem] whitespace-pre"
-        data-node-id='426:873'
-      >
-        49587154S
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[23.25rem] w-[30.25rem]"
-        data-node-id='426:916'
-        style={{ left: 'calc(43.75% + 0.797rem)' }}
-      >
-        Sufre de sensibilidad dental y necesita hacerse su limpieza bucal anual
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[36.25rem] whitespace-pre"
-        data-node-id='426:883'
-      >
-        Funcionario
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[23.25rem] whitespace-pre"
-        data-node-id='426:875'
-        style={{ left: 'calc(18.75% + 1.922rem)' }}
-      >
-        España
-      </p>
-      <p
-        className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[36.25rem] whitespace-pre"
-        data-node-id='426:884'
-        style={{ left: 'calc(18.75% + 1.922rem)' }}
-      >
-        Español
-      </p>
-      <div
-        className='absolute bg-[#f8fafb] box-border content-stretch flex gap-[0.5rem] items-center justify-center px-[0.5rem] py-[0.25rem] rounded-[1rem] top-[14.125rem]'
-        data-name='Remember - Button'
-        data-node-id='426:905'
-        style={{ left: 'calc(87.5% + 1.906rem)' }}
-      >
-        <div
-          aria-hidden='true'
-          className='absolute border border-[#51d6c7] border-solid inset-0 pointer-events-none rounded-[1rem]'
+      {isEditing ? (
+        <input
+          type="text"
+          value={tempFormData.edad}
+          onChange={(e) => updateField('edad', e.target.value)}
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[18.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[6rem]"
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
         />
+      ) : (
         <p
-          className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic relative shrink-0 text-[#1e4947] text-[0.875rem] text-nowrap whitespace-pre"
-          data-node-id='I426:905;236:963'
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[18.75rem] whitespace-pre"
+          data-node-id='426:869'
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
         >
-          Editar
+          {formData.edad}
         </p>
-      </div>
-      <div
-        className='absolute size-[1.5rem] top-[14.25rem]'
-        data-name='more_vert'
-        data-node-id='426:923'
-        style={{ left: 'calc(93.75% + 1.172rem)' }}
-      >
-        <MoreVertRounded className='size-6 text-[#24282c]' />
-      </div>
+      )}
+      {isEditing ? (
+        <input
+          type="text"
+          value={tempFormData.recomendadoPor}
+          onChange={(e) => updateField('recomendadoPor', e.target.value)}
+          placeholder="Nombre"
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[31.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[10rem]"
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[31.75rem] whitespace-pre"
+          data-node-id='426:881'
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
+        >
+          {formData.recomendadoPor}
+        </p>
+      )}
+      {isEditing ? (
+        <input
+          type="text"
+          value={tempFormData.fechaNacimiento}
+          onChange={(e) => updateField('fechaNacimiento', e.target.value)}
+          placeholder="DD/MM/AAAA"
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[18.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[8rem]"
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[18.75rem] whitespace-pre"
+          data-node-id='426:871'
+        >
+          {formData.fechaNacimiento}
+        </p>
+      )}
+      {isEditing ? (
+        <select
+          value={tempFormData.estado}
+          onChange={(e) => updateField('estado', e.target.value)}
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[18.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[10rem]"
+          style={{ left: 'calc(43.75% + 0.797rem)' }}
+        >
+          <option value="Pre-registro">Pre-registro</option>
+          <option value="Activo">Activo</option>
+          <option value="Inactivo">Inactivo</option>
+          <option value="Pendiente">Pendiente</option>
+        </select>
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[18.75rem] whitespace-pre"
+          data-node-id='426:915'
+          style={{ left: 'calc(43.75% + 0.797rem)' }}
+        >
+          {formData.estado}
+        </p>
+      )}
+      {isEditing ? (
+        <select
+          value={tempFormData.origenCliente}
+          onChange={(e) => updateField('origenCliente', e.target.value)}
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[31.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[10rem]"
+        >
+          <option value="Recomendación">Recomendación</option>
+          <option value="Internet">Internet</option>
+          <option value="Redes Sociales">Redes Sociales</option>
+          <option value="Publicidad">Publicidad</option>
+          <option value="Otro">Otro</option>
+        </select>
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[31.75rem] whitespace-pre"
+          data-node-id='426:882'
+        >
+          {formData.origenCliente}
+        </p>
+      )}
+      {isEditing ? (
+        <input
+          type="email"
+          value={tempFormData.contactoEmergenciaEmail}
+          onChange={(e) => updateField('contactoEmergenciaEmail', e.target.value)}
+          placeholder="Email contacto"
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[44.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[12rem]"
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[44.75rem] whitespace-pre"
+          data-node-id='426:891'
+        >
+          {formData.contactoEmergenciaEmail}
+        </p>
+      )}
+      {isEditing ? (
+        <input
+          type="tel"
+          value={tempFormData.contactoEmergenciaTelefono}
+          onChange={(e) => updateField('contactoEmergenciaTelefono', e.target.value)}
+          placeholder="Teléfono contacto"
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[46.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[10rem]"
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[46.25rem] whitespace-pre"
+          data-node-id='426:894'
+        >
+          {formData.contactoEmergenciaTelefono}
+        </p>
+      )}
+      {isEditing ? (
+        <input
+          type="text"
+          value={tempFormData.dni}
+          onChange={(e) => updateField('dni', e.target.value)}
+          placeholder="DNI/NIE"
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[23.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[8rem]"
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[23.25rem] whitespace-pre"
+          data-node-id='426:873'
+        >
+          {formData.dni}
+        </p>
+      )}
+      {isEditing ? (
+        <textarea
+          value={tempFormData.motivoConsulta}
+          onChange={(e) => updateField('motivoConsulta', e.target.value)}
+          placeholder="Motivo de la consulta"
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[23.25rem] w-[30.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] resize-none min-h-[3rem]"
+          style={{ left: 'calc(43.75% + 0.797rem)' }}
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[23.25rem] w-[30.25rem]"
+          data-node-id='426:916'
+          style={{ left: 'calc(43.75% + 0.797rem)' }}
+        >
+          {formData.motivoConsulta}
+        </p>
+      )}
+      {isEditing ? (
+        <input
+          type="text"
+          value={tempFormData.ocupacion}
+          onChange={(e) => updateField('ocupacion', e.target.value)}
+          placeholder="Ocupación"
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[36.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[10rem]"
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[36.25rem] whitespace-pre"
+          data-node-id='426:883'
+        >
+          {formData.ocupacion}
+        </p>
+      )}
+      {isEditing ? (
+        <input
+          type="text"
+          value={tempFormData.pais}
+          onChange={(e) => updateField('pais', e.target.value)}
+          placeholder="País"
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[23.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[8rem]"
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[23.25rem] whitespace-pre"
+          data-node-id='426:875'
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
+        >
+          {formData.pais}
+        </p>
+      )}
+      {isEditing ? (
+        <select
+          value={tempFormData.idioma}
+          onChange={(e) => updateField('idioma', e.target.value)}
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[36.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[8rem]"
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
+        >
+          <option value="Español">Español</option>
+          <option value="Inglés">Inglés</option>
+          <option value="Francés">Francés</option>
+          <option value="Valenciano">Valenciano</option>
+          <option value="Catalán">Catalán</option>
+        </select>
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[36.25rem] whitespace-pre"
+          data-node-id='426:884'
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
+        >
+          {formData.idioma}
+        </p>
+      )}
+      {!isEditing ? (
+        <button
+          type="button"
+          onClick={handleEdit}
+          className='absolute bg-[#f8fafb] box-border content-stretch flex gap-[0.5rem] items-center justify-center px-[0.5rem] py-[0.25rem] rounded-[1rem] top-[14.125rem] cursor-pointer hover:bg-[var(--color-brand-50)] transition-colors'
+          data-name='Remember - Button'
+          data-node-id='426:905'
+          style={{ left: 'calc(87.5% + 1.906rem)' }}
+        >
+          <div
+            aria-hidden='true'
+            className='absolute border border-[#51d6c7] border-solid inset-0 pointer-events-none rounded-[1rem]'
+          />
+          <EditRounded className='size-4 text-[#1e4947]' />
+          <p
+            className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic relative shrink-0 text-[#1e4947] text-[0.875rem] text-nowrap whitespace-pre"
+            data-node-id='I426:905;236:963'
+          >
+            Editar
+          </p>
+        </button>
+      ) : (
+        <div
+          className='absolute flex gap-[0.5rem] top-[14.125rem]'
+          style={{ left: 'calc(80% + 1rem)' }}
+        >
+          <button
+            type="button"
+            onClick={handleCancel}
+            className='bg-[#f8fafb] box-border flex gap-[0.5rem] items-center justify-center px-[0.75rem] py-[0.25rem] rounded-[1rem] cursor-pointer hover:bg-[var(--color-neutral-100)] transition-colors border border-[var(--color-neutral-300)]'
+          >
+            <CloseRounded className='size-4 text-[var(--color-neutral-700)]' />
+            <span className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] text-[var(--color-neutral-700)] text-[0.875rem]">
+              Cancelar
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            className='bg-[var(--color-brand-500)] box-border flex gap-[0.5rem] items-center justify-center px-[0.75rem] py-[0.25rem] rounded-[1rem] cursor-pointer hover:bg-[var(--color-brand-600)] transition-colors'
+          >
+            <CheckRounded className='size-4 text-white' />
+            <span className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] text-white text-[0.875rem]">
+              Guardar
+            </span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

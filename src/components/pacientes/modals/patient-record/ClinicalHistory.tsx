@@ -9,12 +9,26 @@ import {
   DownloadRounded,
   EditRounded,
   ImageRounded,
-  PlaceRounded
+  PlaceRounded,
+  CheckRounded
 } from '@/components/icons/md3'
 import SelectorCard from '@/components/pacientes/SelectorCard'
 
 type ClinicalHistoryProps = {
   onClose?: () => void
+}
+
+// Datos iniciales del historial clínico
+const initialClinicalData = {
+  titulo: 'Limpieza dental',
+  subjetivo: 'Siente dolor 7/10 al frío en 2.6 desde hace 3 días',
+  objetivo: 'Caries oclusal profunda en 2.6; sensibilidad al frío positiva; RX: proximidad pulpar',
+  evaluacion: 'Pulpitis reversible 2.6. Dx diferencial: hipersensibilidad dentinaria.',
+  plan: 'Operatoria en 2.6 hoy; barniz desensibilizante; ibuprofeno PRN; control en 2 semanas; higiene en 6 meses (recall).',
+  profesional1Nombre: 'Daniel Soriano',
+  profesional1Rol: 'Higienista',
+  profesional2Nombre: 'Carlos Ramirez',
+  profesional2Rol: 'Odontólogo'
 }
 
 export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
@@ -23,6 +37,30 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
   >('proximas')
 
   const [selectedCardId, setSelectedCardId] = React.useState<string>('c1')
+  
+  // Estado de edición
+  const [isEditing, setIsEditing] = React.useState(false)
+  const [formData, setFormData] = React.useState(initialClinicalData)
+  const [tempFormData, setTempFormData] = React.useState(initialClinicalData)
+
+  const handleEdit = () => {
+    setTempFormData(formData)
+    setIsEditing(true)
+  }
+
+  const handleSave = () => {
+    setFormData(tempFormData)
+    setIsEditing(false)
+  }
+
+  const handleCancel = () => {
+    setTempFormData(formData)
+    setIsEditing(false)
+  }
+
+  const updateField = (field: keyof typeof formData, value: string) => {
+    setTempFormData(prev => ({ ...prev, [field]: value }))
+  }
 
   type Filter = 'proximas' | 'pasadas' | 'confirmadas' | 'inaxistencia'
   const orderedFilters: Filter[] = [
@@ -222,178 +260,269 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
         }}
       >
         <div
-          className='relative rounded-[inherit] overflow-y-auto px-0 py-fluid-md'
+          className='relative rounded-[inherit] overflow-y-auto px-plnav py-6'
           style={{ height: '100%' }}
         >
-          <p className="absolute font-['Inter:Medium',_sans-serif] left-plnav not-italic text-neutral-900 text-title-lg text-nowrap top-[1.5rem] whitespace-pre">
-            Limpieza dental
-          </p>
-          <div
-            className='absolute size-6'
-            style={{ left: '42.3125rem', top: 'var(--spacing-gapmd)' }}
-          >
-            <EditRounded className='size-6 text-neutral-900' />
+          {/* Header with title and edit button */}
+          <div className='flex items-center justify-between mb-6'>
+            {isEditing ? (
+              <input
+                type="text"
+                value={tempFormData.titulo}
+                onChange={(e) => updateField('titulo', e.target.value)}
+                className="font-['Inter:Medium',_sans-serif] text-neutral-900 text-title-lg bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[20rem]"
+              />
+            ) : (
+              <p className="font-['Inter:Medium',_sans-serif] text-neutral-900 text-title-lg">
+                {formData.titulo}
+              </p>
+            )}
+            {!isEditing ? (
+              <button
+                type="button"
+                onClick={handleEdit}
+                className='relative box-border flex gap-[0.5rem] items-center justify-center px-[0.5rem] py-[0.25rem] rounded-[1rem] cursor-pointer hover:bg-[var(--color-brand-50)] transition-colors'
+              >
+                <div
+                  aria-hidden='true'
+                  className='absolute border border-[#51d6c7] border-solid inset-0 pointer-events-none rounded-[1rem]'
+                />
+                <EditRounded className='size-4 text-[#1e4947]' />
+                <span className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] text-[#1e4947] text-[0.875rem]">
+                  Editar
+                </span>
+              </button>
+            ) : (
+              <div className='flex gap-[0.5rem]'>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className='bg-[#f8fafb] box-border flex gap-[0.5rem] items-center justify-center px-[0.75rem] py-[0.25rem] rounded-[1rem] cursor-pointer hover:bg-[var(--color-neutral-100)] transition-colors border border-[var(--color-neutral-300)]'
+                >
+                  <CloseRounded className='size-4 text-[var(--color-neutral-700)]' />
+                  <span className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] text-[var(--color-neutral-700)] text-[0.875rem]">
+                    Cancelar
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className='bg-[var(--color-brand-500)] box-border flex gap-[0.5rem] items-center justify-center px-[0.75rem] py-[0.25rem] rounded-[1rem] cursor-pointer hover:bg-[var(--color-brand-600)] transition-colors'
+                >
+                  <CheckRounded className='size-4 text-white' />
+                  <span className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] text-white text-[0.875rem]">
+                    Guardar
+                  </span>
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Attachments */}
-          <div className='absolute content-stretch flex flex-col gap-[var(--spacing-gapmd)] items-start left-plnav top-[36.75rem] w-[42.3125rem]'>
-            <div className='content-stretch flex items-center justify-between relative shrink-0 w-full'>
-              <p className="font-['Inter:Medium',_sans-serif] relative shrink-0 text-neutral-900 text-body-md text-nowrap whitespace-pre">
-                Archivos adjuntos
-              </p>
-              <div className='content-stretch flex gap-[0.25rem] items-center relative shrink-0'>
-                <div className='relative shrink-0 size-6'>
-                  <AddRounded className='size-6 text-brand-400' />
-                </div>
-                <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-brand-400 text-body-sm text-nowrap whitespace-pre">
-                  Subir documento
-                </p>
-              </div>
-            </div>
-            <div className='border border-neutral-300 border-solid box-border content-stretch flex gap-[var(--spacing-gapsm)] items-center justify-center px-[0.75rem] py-[var(--spacing-gapsm)] relative rounded-[calc(var(--radius-xl)/2)] shrink-0'>
-              <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-700 text-body-sm text-nowrap whitespace-pre">
-                Copia póliza seguro
-              </p>
-              <div className='relative shrink-0 size-6'>
-                <DownloadRounded className='size-6 text-neutral-700' />
-              </div>
-            </div>
-          </div>
-
-          {/* Odontograma */}
-          <div className='absolute content-stretch flex flex-col gap-[var(--spacing-gapsm)] items-start left-plnav top-[43.75rem] w-[42.3125rem]'>
-            <div className='content-stretch flex items-center justify-between relative shrink-0 w-full'>
-              <p className="font-['Inter:Medium',_sans-serif] relative shrink-0 text-neutral-900 text-body-md text-nowrap whitespace-pre">
-                Odontograma
-              </p>
-              <div className='content-stretch flex gap-[0.25rem] items-center relative shrink-0'>
-                <div className='relative shrink-0 size-6'>
-                  <AddRounded className='size-6 text-brand-400' />
-                </div>
-                <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-brand-400 text-body-sm text-nowrap whitespace-pre">
-                  Subir odontograma
-                </p>
-              </div>
-            </div>
-            <div className='border border-neutral-400 border-solid h-[10.875rem] relative rounded-[calc(var(--radius-xl)/2)] shrink-0 w-[14.1875rem]'>
-              <div className='h-[10.875rem] overflow-clip relative rounded-[inherit] w-[14.1875rem]'>
-                <div className='absolute inset-0 grid place-items-center pointer-events-none'>
-                  <ImageRounded className='text-neutral-400 size-12' />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* SOAP sections */}
-          <div className='absolute content-stretch flex flex-col gap-[1.5rem] items-start left-plnav top-[5rem] w-[42.3125rem]'>
-            <div className='content-stretch flex flex-col gap-[var(--spacing-gapsm)] items-start relative shrink-0 w-full'>
-              <div className='content-stretch flex flex-col items-start relative shrink-0 w-full'>
-                <p className="font-['Inter:Medium',_sans-serif] relative shrink-0 text-[#24282c] text-body-md w-full">
+          {/* All content in a single flex column - no absolute positioning */}
+          <div className='flex flex-col gap-6 w-full max-w-[42.3125rem]'>
+            {/* SOAP: Subjetivo */}
+            <div className='flex flex-col gap-[var(--spacing-gapsm)]'>
+              <div className='flex flex-col'>
+                <p className="font-['Inter:Medium',_sans-serif] text-[#24282c] text-body-md">
                   Subjetivo
                 </p>
-                <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-[#aeb8c2] text-label-sm w-full">
+                <p className="font-['Inter:Regular',_sans-serif] text-[#aeb8c2] text-label-sm">
                   ¿Por qué viene?
                 </p>
               </div>
-              <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-700 text-body-sm w-full">
-                Siente dolor 7/10 al frío en 2.6 desde hace 3 días
-              </p>
+              {isEditing ? (
+                <textarea
+                  value={tempFormData.subjetivo}
+                  onChange={(e) => updateField('subjetivo', e.target.value)}
+                  className="font-['Inter:Regular',_sans-serif] text-neutral-700 text-body-sm w-full bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] resize-none min-h-[3rem]"
+                />
+              ) : (
+                <p className="font-['Inter:Regular',_sans-serif] text-neutral-700 text-body-sm">
+                  {formData.subjetivo}
+                </p>
+              )}
             </div>
-            <div className='content-stretch flex flex-col gap-[var(--spacing-gapsm)] items-start relative shrink-0 w-full'>
-              <div className='content-stretch flex flex-col items-start relative shrink-0 w-full'>
-                <p className="font-['Inter:Medium',_sans-serif] relative shrink-0 text-[#24282c] text-body-md w-full">
+
+            {/* SOAP: Objetivo */}
+            <div className='flex flex-col gap-[var(--spacing-gapsm)]'>
+              <div className='flex flex-col'>
+                <p className="font-['Inter:Medium',_sans-serif] text-[#24282c] text-body-md">
                   Objetivo
                 </p>
-                <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-[#aeb8c2] text-label-sm w-full">
+                <p className="font-['Inter:Regular',_sans-serif] text-[#aeb8c2] text-label-sm">
                   ¿Qué tiene?
                 </p>
               </div>
-              <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-700 text-body-sm w-full">
-                Caries oclusal profunda en 2.6; sensibilidad al frío positiva;
-                RX: proximidad pulpar
-              </p>
+              {isEditing ? (
+                <textarea
+                  value={tempFormData.objetivo}
+                  onChange={(e) => updateField('objetivo', e.target.value)}
+                  className="font-['Inter:Regular',_sans-serif] text-neutral-700 text-body-sm w-full bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] resize-none min-h-[3rem]"
+                />
+              ) : (
+                <p className="font-['Inter:Regular',_sans-serif] text-neutral-700 text-body-sm">
+                  {formData.objetivo}
+                </p>
+              )}
             </div>
-            <div className='content-stretch flex flex-col gap-[var(--spacing-gapsm)] items-start relative shrink-0 w-full'>
-              <div className='content-stretch flex flex-col items-start relative shrink-0 w-full'>
-                <p className="font-['Inter:Medium',_sans-serif] relative shrink-0 text-[#24282c] text-body-md w-full">
+
+            {/* SOAP: Evaluación */}
+            <div className='flex flex-col gap-[var(--spacing-gapsm)]'>
+              <div className='flex flex-col'>
+                <p className="font-['Inter:Medium',_sans-serif] text-[#24282c] text-body-md">
                   Evaluación
                 </p>
-                <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-[#aeb8c2] text-label-sm w-full">
+                <p className="font-['Inter:Regular',_sans-serif] text-[#aeb8c2] text-label-sm">
                   ¿Qué le hacemos?
                 </p>
               </div>
-              <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-700 text-body-sm w-full">
-                Pulpitis reversible 2.6. Dx diferencial: hipersensibilidad
-                dentinaria.
-              </p>
+              {isEditing ? (
+                <textarea
+                  value={tempFormData.evaluacion}
+                  onChange={(e) => updateField('evaluacion', e.target.value)}
+                  className="font-['Inter:Regular',_sans-serif] text-neutral-700 text-body-sm w-full bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] resize-none min-h-[3rem]"
+                />
+              ) : (
+                <p className="font-['Inter:Regular',_sans-serif] text-neutral-700 text-body-sm">
+                  {formData.evaluacion}
+                </p>
+              )}
             </div>
-            <div className='content-stretch flex flex-col gap-[var(--spacing-gapsm)] items-start relative shrink-0 w-full'>
-              <div className='content-stretch flex flex-col items-start relative shrink-0 w-full'>
-                <p className="font-['Inter:Medium',_sans-serif] relative shrink-0 text-[#24282c] text-body-md w-full">
+
+            {/* SOAP: Plan */}
+            <div className='flex flex-col gap-[var(--spacing-gapsm)]'>
+              <div className='flex flex-col'>
+                <p className="font-['Inter:Medium',_sans-serif] text-[#24282c] text-body-md">
                   Plan
                 </p>
-                <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-[#aeb8c2] text-label-sm w-full">
+                <p className="font-['Inter:Regular',_sans-serif] text-[#aeb8c2] text-label-sm">
                   Tratamiento a seguir
                 </p>
               </div>
-              <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-700 text-body-sm w-full">
-                Operatoria en 2.6 hoy; barniz desensibilizante; ibuprofeno PRN;
-                control en 2 semanas; higiene en 6 meses (recall).
-              </p>
+              {isEditing ? (
+                <textarea
+                  value={tempFormData.plan}
+                  onChange={(e) => updateField('plan', e.target.value)}
+                  className="font-['Inter:Regular',_sans-serif] text-neutral-700 text-body-sm w-full bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] resize-none min-h-[3rem]"
+                />
+              ) : (
+                <p className="font-['Inter:Regular',_sans-serif] text-neutral-700 text-body-sm">
+                  {formData.plan}
+                </p>
+              )}
             </div>
-          </div>
 
-          {/* Attended by */}
-          <div className='absolute content-stretch flex flex-col gap-[var(--spacing-gapmd)] items-start left-[var(--spacing-plnav)] top-[29.75rem] w-[21.0625rem]'>
-            <p className="font-['Inter:Medium',_sans-serif] relative shrink-0 text-[#24282c] text-body-md w-full">
-              Atendido Por:
-            </p>
-            <div className='content-stretch flex gap-[2.0625rem] items-center relative shrink-0 w-full'>
-              <div className='content-stretch flex gap-[0.75rem] items-center relative shrink-0 w-[9.5rem]'>
-                <div className='relative rounded-full shrink-0 size-9'>
-                  <div
-                    aria-hidden='true'
-                    className='absolute inset-0 pointer-events-none rounded-full'
-                  >
+            {/* Atendido Por */}
+            <div className='flex flex-col gap-[var(--spacing-gapmd)]'>
+              <p className="font-['Inter:Medium',_sans-serif] text-[#24282c] text-body-md">
+                Atendido Por:
+              </p>
+              <div className='flex gap-8 items-center'>
+                <div className='flex gap-3 items-center'>
+                  <div className='relative rounded-full size-9'>
                     <div className='absolute bg-white inset-0 rounded-full' />
-                    <div className='absolute inset-0 overflow-hidden rounded-full'>
-                      <div className='absolute inset-0 grid place-items-center'>
-                        <AccountCircleRounded className='text-neutral-400 size-6' />
-                      </div>
+                    <div className='absolute inset-0 overflow-hidden rounded-full grid place-items-center'>
+                      <AccountCircleRounded className='text-neutral-400 size-6' />
                     </div>
                   </div>
+                  <div className="flex flex-col font-['Inter:Regular',_sans-serif] gap-1 w-24">
+                    {isEditing ? (
+                      <>
+                        <input
+                          type="text"
+                          value={tempFormData.profesional1Nombre}
+                          onChange={(e) => updateField('profesional1Nombre', e.target.value)}
+                          placeholder="Nombre"
+                          className="text-[#24282c] text-body-sm w-full bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-1 py-0.5 outline-none focus:border-[var(--color-brand-500)]"
+                        />
+                        <input
+                          type="text"
+                          value={tempFormData.profesional1Rol}
+                          onChange={(e) => updateField('profesional1Rol', e.target.value)}
+                          placeholder="Rol"
+                          className="text-[#cbd3d9] text-label-sm w-full bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-1 py-0.5 outline-none focus:border-[var(--color-brand-500)]"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <p className='text-[#24282c] text-body-sm'>{formData.profesional1Nombre}</p>
+                        <p className='text-[#cbd3d9] text-label-sm'>{formData.profesional1Rol}</p>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="content-stretch flex flex-col font-['Inter:Regular',_sans-serif] font-normal gap-[0.25rem] items-start relative shrink-0 w-[6rem]">
-                  <p className='relative shrink-0 text-[#24282c] text-body-sm w-full'>
-                    Daniel Soriano
-                  </p>
-                  <p className='relative shrink-0 text-[#cbd3d9] text-label-sm w-full'>
-                    Higienista
+                <div className='flex gap-3 items-center'>
+                  <div className='relative rounded-full size-9'>
+                    <div className='absolute bg-white inset-0 rounded-full' />
+                    <div className='absolute inset-0 overflow-hidden rounded-full grid place-items-center'>
+                      <AccountCircleRounded className='text-neutral-400 size-6' />
+                    </div>
+                  </div>
+                  <div className="flex flex-col font-['Inter:Regular',_sans-serif] gap-1 w-24">
+                    {isEditing ? (
+                      <>
+                        <input
+                          type="text"
+                          value={tempFormData.profesional2Nombre}
+                          onChange={(e) => updateField('profesional2Nombre', e.target.value)}
+                          placeholder="Nombre"
+                          className="text-[#24282c] text-body-sm w-full bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-1 py-0.5 outline-none focus:border-[var(--color-brand-500)]"
+                        />
+                        <input
+                          type="text"
+                          value={tempFormData.profesional2Rol}
+                          onChange={(e) => updateField('profesional2Rol', e.target.value)}
+                          placeholder="Rol"
+                          className="text-[#cbd3d9] text-label-sm w-full bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-1 py-0.5 outline-none focus:border-[var(--color-brand-500)]"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <p className='text-[#24282c] text-body-sm'>{formData.profesional2Nombre}</p>
+                        <p className='text-[#cbd3d9] text-label-sm'>{formData.profesional2Rol}</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Archivos adjuntos */}
+            <div className='flex flex-col gap-[var(--spacing-gapmd)]'>
+              <div className='flex items-center justify-between w-full'>
+                <p className="font-['Inter:Medium',_sans-serif] text-neutral-900 text-body-md">
+                  Archivos adjuntos
+                </p>
+                <div className='flex gap-1 items-center cursor-pointer'>
+                  <AddRounded className='size-6 text-brand-400' />
+                  <p className="font-['Inter:Regular',_sans-serif] text-brand-400 text-body-sm">
+                    Subir documento
                   </p>
                 </div>
               </div>
-              <div className='content-stretch flex gap-[0.75rem] items-center relative shrink-0 w-[9.5rem]'>
-                <div className='relative rounded-full shrink-0 size-9'>
-                  <div
-                    aria-hidden='true'
-                    className='absolute inset-0 pointer-events-none rounded-full'
-                  >
-                    <div className='absolute bg-white inset-0 rounded-full' />
-                    <div className='absolute inset-0 overflow-hidden rounded-full'>
-                      <div className='absolute inset-0 grid place-items-center'>
-                        <AccountCircleRounded className='text-neutral-400 size-6' />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="basis-0 content-stretch flex flex-col font-['Inter:Regular',_sans-serif] font-normal gap-[0.25rem] grow items-start min-h-px min-w-px relative shrink-0">
-                  <p className='relative shrink-0 text-[#24282c] text-body-sm w-full'>
-                    Carlos Ramirez
-                  </p>
-                  <p className='relative shrink-0 text-[#cbd3d9] text-label-sm w-full'>
-                    Odontólogo
+              <div className='border border-neutral-300 box-border flex gap-[var(--spacing-gapsm)] items-center justify-center px-3 py-[var(--spacing-gapsm)] rounded-[calc(var(--radius-xl)/2)] w-fit'>
+                <p className="font-['Inter:Regular',_sans-serif] text-neutral-700 text-body-sm">
+                  Copia póliza seguro
+                </p>
+                <DownloadRounded className='size-6 text-neutral-700' />
+              </div>
+            </div>
+
+            {/* Odontograma */}
+            <div className='flex flex-col gap-[var(--spacing-gapsm)]'>
+              <div className='flex items-center justify-between w-full'>
+                <p className="font-['Inter:Medium',_sans-serif] text-neutral-900 text-body-md">
+                  Odontograma
+                </p>
+                <div className='flex gap-1 items-center cursor-pointer'>
+                  <AddRounded className='size-6 text-brand-400' />
+                  <p className="font-['Inter:Regular',_sans-serif] text-brand-400 text-body-sm">
+                    Subir odontograma
                   </p>
                 </div>
+              </div>
+              <div className='border border-neutral-400 h-[10.875rem] rounded-[calc(var(--radius-xl)/2)] w-[14.1875rem] grid place-items-center'>
+                <ImageRounded className='text-neutral-400 size-12' />
               </div>
             </div>
           </div>

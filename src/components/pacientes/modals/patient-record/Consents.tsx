@@ -175,69 +175,71 @@ export default function Consents({ onClose }: ConsentsProps) {
                   </div>
 
                   {/* Actions */}
-                  <div className='absolute right-8 h-[72px] flex items-center gap-2 relative'>
-                    <VisibilityRounded className='size-6 text-neutral-900' />
-                    <button
-                      type='button'
-                      aria-haspopup='menu'
-                      aria-expanded={openMenuRowId === row.id}
-                      onClick={() =>
-                        setOpenMenuRowId((prev) =>
-                          prev === row.id ? null : row.id
-                        )
-                      }
-                      className='size-8 grid place-items-center rounded-md hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
-                      data-consents-trigger='true'
-                      aria-label='Más opciones'
-                    >
-                      <MoreVertRounded className='size-6 text-neutral-900' />
-                    </button>
-
-                    {openMenuRowId === row.id && (
-                      <div
-                        role='menu'
-                        className='absolute right-0 top-full mt-2 w-64 rounded-lg bg-[var(--color-neutral-50)] shadow-[var(--shadow-cta)] border border-[var(--color-neutral-200)] p-2 z-10'
-                        data-consents-menu='true'
+                  <div className='absolute right-8 h-[72px] flex items-center gap-2'>
+                    <VisibilityRounded className='size-6 text-neutral-900 cursor-pointer' />
+                    <div className='relative'>
+                      <button
+                        type='button'
+                        aria-haspopup='menu'
+                        aria-expanded={openMenuRowId === row.id}
+                        onClick={() =>
+                          setOpenMenuRowId((prev) =>
+                            prev === row.id ? null : row.id
+                          )
+                        }
+                        className='cursor-pointer'
+                        data-consents-trigger='true'
+                        aria-label='Más opciones'
                       >
-                        <button
-                          type='button'
-                          role='menuitem'
-                          onClick={() => {
-                            // Acción: Enviar consentimiento
-                            setOpenMenuRowId(null)
-                          }}
-                          className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
+                        <MoreVertRounded className='size-6 text-neutral-900' />
+                      </button>
+
+                      {openMenuRowId === row.id && (
+                        <div
+                          role='menu'
+                          className='absolute right-0 top-full mt-2 w-64 rounded-lg bg-[var(--color-neutral-50)] shadow-[var(--shadow-cta)] border border-[var(--color-neutral-200)] p-2 z-10'
+                          data-consents-menu='true'
                         >
-                          <AttachEmailRounded className='size-5' />
-                          <span className='text-body-md'>
-                            Enviar Consentimiento
-                          </span>
-                        </button>
-                        <button
-                          type='button'
-                          role='menuitem'
-                          disabled
-                          className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left text-[var(--color-neutral-600)] cursor-not-allowed'
-                        >
-                          <AttachEmailRounded className='size-5' />
-                          <span className='text-body-md'>
-                            Enviar copia firmada
-                          </span>
-                        </button>
-                        <button
-                          type='button'
-                          role='menuitem'
-                          onClick={() => {
-                            // Acción: Descargar
-                            setOpenMenuRowId(null)
-                          }}
-                          className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
-                        >
-                          <DownloadRounded className='size-5' />
-                          <span className='text-body-md'>Descargar</span>
-                        </button>
-                      </div>
-                    )}
+                          <button
+                            type='button'
+                            role='menuitem'
+                            onClick={() => {
+                              // Acción: Enviar consentimiento
+                              setOpenMenuRowId(null)
+                            }}
+                            className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
+                          >
+                            <AttachEmailRounded className='size-5' />
+                            <span className='text-body-md'>
+                              Enviar Consentimiento
+                            </span>
+                          </button>
+                          <button
+                            type='button'
+                            role='menuitem'
+                            disabled
+                            className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left text-[var(--color-neutral-600)] cursor-not-allowed'
+                          >
+                            <AttachEmailRounded className='size-5' />
+                            <span className='text-body-md'>
+                              Enviar copia firmada
+                            </span>
+                          </button>
+                          <button
+                            type='button'
+                            role='menuitem'
+                            onClick={() => {
+                              // Acción: Descargar
+                              setOpenMenuRowId(null)
+                            }}
+                            className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
+                          >
+                            <DownloadRounded className='size-5' />
+                            <span className='text-body-md'>Descargar</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )

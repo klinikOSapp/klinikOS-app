@@ -456,6 +456,11 @@ export function DatePickerInput({
   const monthRef = React.useRef<HTMLInputElement>(null)
   const yearRef = React.useRef<HTMLInputElement>(null)
 
+  // Sync internal state when external value prop changes
+  React.useEffect(() => {
+    setSelectedDate(value ?? null)
+  }, [value])
+
   // Actualizar inputs cuando cambia selectedDate
   React.useEffect(() => {
     if (selectedDate) {
@@ -715,7 +720,7 @@ export function DatePickerInput({
           createPortal(
             <div
               ref={calendarRef}
-              className='fixed z-[100] w-[22.5rem] bg-[var(--color-surface-popover,#fff)] rounded-[1rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)] overflow-hidden'
+              className='fixed z-[10000] w-[22.5rem] bg-[var(--color-surface-popover,#fff)] rounded-[1rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)] overflow-hidden'
               style={{
                 left: popoverPos.left,
                 top: popoverPos.top,
