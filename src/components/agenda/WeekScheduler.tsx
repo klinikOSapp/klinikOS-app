@@ -19,6 +19,8 @@ import DayCalendar from './DayCalendar'
 import MonthCalendar from './MonthCalendar'
 import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
 import CreateAppointmentModal from './modals/CreateAppointmentModal'
+import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
+import RegisterPaymentModal from '@/components/pacientes/modals/patient-record/RegisterPaymentModal'
 import type {
   AgendaEvent,
   DayColumn,
@@ -208,6 +210,93 @@ const DATE_BY_DAY: Record<Weekday, string> = {
 }
 
 const OVERLAY_GUTTER = '0.75rem' // 12px - gap between event card and overlay
+
+// ==========================================
+// CURRENT TIME INDICATOR COMPONENT
+// ==========================================
+
+/**
+ * Componente que muestra una línea roja horizontal indicando la hora actual.
+ * Solo se muestra si la hora actual está dentro del rango visible (9:00 - 20:00).
+ * Se actualiza cada minuto para mantener la posición sincronizada.
+ */
+function CurrentTimeIndicator({
+  startHour,
+  endHour,
+  timeColumnWidth = 'var(--scheduler-time-width)'
+}: {
+  startHour: number
+  endHour: number
+  timeColumnWidth?: string
+}) {
+  const [currentTime, setCurrentTime] = useState<Date>(new Date())
+
+  // Actualizar cada minuto
+  useEffect(() => {
+    const updateTime = () => setCurrentTime(new Date())
+    
+    // Calcular milisegundos hasta el próximo minuto
+    const now = new Date()
+    const msUntilNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds()
+    
+    // Primer timeout para sincronizar con el inicio del minuto
+    const initialTimeout = setTimeout(() => {
+      updateTime()
+      // Después, actualizar cada minuto exacto
+      const interval = setInterval(updateTime, 60000)
+      return () => clearInterval(interval)
+    }, msUntilNextMinute)
+    
+    return () => clearTimeout(initialTimeout)
+  }, [])
+
+  const hours = currentTime.getHours()
+  const minutes = currentTime.getMinutes()
+  
+  // Solo mostrar si estamos dentro del rango de horas (9:00 - 20:00)
+  const totalMinutes = hours * 60 + minutes
+  const rangeStart = startHour * 60
+  const rangeEnd = endHour * 60
+  
+  if (totalMinutes < rangeStart || totalMinutes >= rangeEnd) {
+    return null
+  }
+  
+  // Calcular posición: minutos desde las 9:00 / minutos totales del rango
+  const minutesFromStart = totalMinutes - rangeStart
+  const totalRangeMinutes = rangeEnd - rangeStart // 660 minutos (11 horas)
+  const positionPercent = (minutesFromStart / totalRangeMinutes) * 100
+  
+  // Formatear hora actual
+  const timeLabel = `${hours}:${minutes.toString().padStart(2, '0')}`
+  
+  return (
+    <div
+      className='pointer-events-none absolute left-0 z-[20] flex w-full items-center'
+      style={{
+        top: `${positionPercent}%`
+      }}
+    >
+      {/* Badge con la hora */}
+      <div
+        className='flex items-center justify-center rounded-[0.25rem] bg-[#EF4444] px-[0.375rem] py-[0.125rem]'
+        style={{
+          width: timeColumnWidth,
+          minWidth: timeColumnWidth,
+          maxWidth: timeColumnWidth
+        }}
+      >
+        <span className='text-[0.75rem] font-medium leading-[1rem] text-white'>
+          {timeLabel}
+        </span>
+      </div>
+      
+      {/* Línea roja */}
+      <div className='h-[2px] flex-1 bg-[#EF4444]' />
+    </div>
+  )
+}
+
 // ============================================
 // DATOS REALISTAS DE CLÍNICA DENTAL
 // ============================================
@@ -633,7 +722,19 @@ const EVENT_DATA: Record<Weekday, AgendaEvent[]> = {
         economicStatus: 'Financiado (3 pagos)',
         notes:
           'Endodoncia pieza 15. Segunda sesión. Paciente con ansiedad leve.',
-        duration: '10:00 - 11:00 (60 minutos)'
+        duration: '10:00 - 11:00 (60 minutos)',
+        // Pagos parciales: 1 de 3 cuotas pagadas
+        paymentInfo: {
+          totalAmount: 320,
+          paidAmount: 106.67,
+          pendingAmount: 213.33,
+          currency: '€'
+        },
+        installmentPlan: {
+          totalInstallments: 3,
+          currentInstallment: 2,
+          amountPerInstallment: 106.67
+        }
       })
     },
     {
@@ -734,7 +835,15 @@ const EVENT_DATA: Record<Weekday, AgendaEvent[]> = {
         economicStatus: 'Pendiente de pago',
         notes:
           'Tratamiento periodontal cuadrante superior derecho. Gingivitis avanzada.',
-        duration: '12:00 - 12:45 (45 minutos)'
+        duration: '12:00 - 12:45 (45 minutos)',
+        // Pago parcial SIN plan de cuotas (flexible)
+        paymentInfo: {
+          totalAmount: 180,
+          paidAmount: 50,
+          pendingAmount: 130,
+          currency: '€'
+        }
+        // Sin installmentPlan - el paciente paga lo que puede
       })
     },
     {
@@ -776,7 +885,19 @@ const EVENT_DATA: Record<Weekday, AgendaEvent[]> = {
         economicStatus: 'Financiado (12 pagos)',
         notes:
           'Colocación implante pieza 46. Paciente sin patologías previas. Antibiótico preventivo.',
-        duration: '16:00 - 17:30 (90 minutos)'
+        duration: '16:00 - 17:30 (90 minutos)',
+        // Pagos parciales: 5 de 12 cuotas pagadas
+        paymentInfo: {
+          totalAmount: 1200,
+          paidAmount: 500,
+          pendingAmount: 700,
+          currency: '€'
+        },
+        installmentPlan: {
+          totalInstallments: 12,
+          currentInstallment: 6,
+          amountPerInstallment: 100
+        }
       })
     },
     {
@@ -901,7 +1022,19 @@ const EVENT_DATA: Record<Weekday, AgendaEvent[]> = {
         economicStatus: 'Financiado (24 pagos)',
         notes:
           'Colocación brackets metálicos arcada superior. Clase II división 1.',
-        duration: '09:00 - 10:00 (60 minutos)'
+        duration: '09:00 - 10:00 (60 minutos)',
+        // Pagos parciales: 3 de 24 cuotas pagadas (inicio del tratamiento)
+        paymentInfo: {
+          totalAmount: 2800,
+          paidAmount: 350,
+          pendingAmount: 2450,
+          currency: '€'
+        },
+        installmentPlan: {
+          totalInstallments: 24,
+          currentInstallment: 4,
+          amountPerInstallment: 116.67
+        }
       })
     },
     {
@@ -1163,7 +1296,19 @@ const EVENT_DATA: Record<Weekday, AgendaEvent[]> = {
         economicAmount: '2.400 € (6 carillas)',
         economicStatus: 'Financiado (12 pagos)',
         notes: 'Cementado carillas definitivas 11, 12, 13, 21, 22, 23.',
-        duration: '18:30 - 19:15 (45 minutos)'
+        duration: '18:30 - 19:15 (45 minutos)',
+        // Pagos parciales: 10 de 12 cuotas pagadas (casi terminado)
+        paymentInfo: {
+          totalAmount: 2400,
+          paidAmount: 2000,
+          pendingAmount: 400,
+          currency: '€'
+        },
+        installmentPlan: {
+          totalInstallments: 12,
+          currentInstallment: 11,
+          amountPerInstallment: 200
+        }
       })
     },
     {
@@ -2452,7 +2597,9 @@ function DayGrid({
   draggingEventId,
   onClearSelection,
   selectedBoxes,
-  selectedProfessionals
+  selectedProfessionals,
+  completedEvents,
+  onToggleComplete
 }: {
   column: DayColumn
   activeSelection: EventSelection
@@ -2472,6 +2619,8 @@ function DayGrid({
   onClearSelection: () => void
   selectedBoxes: string[]
   selectedProfessionals: string[]
+  completedEvents?: Record<string, boolean>
+  onToggleComplete?: (eventId: string, completed: boolean) => void
 }) {
   // Calculate dynamic box layout based on selected boxes
   const boxLayout = getBoxLayout(selectedBoxes)
@@ -2582,7 +2731,8 @@ function DayGrid({
             key={event.id}
             event={{
               ...event,
-              ...(boxLayout[event.box?.toLowerCase() ?? ''] ?? {})
+              ...(boxLayout[event.box?.toLowerCase() ?? ''] ?? {}),
+              completed: completedEvents?.[event.id] ?? event.completed
             }}
             onHover={() => onHover({ event, column })}
             onLeave={() => onHover(null)}
@@ -2595,6 +2745,7 @@ function DayGrid({
             onDragStart={(type, evt, clientX, clientY) =>
               onEventDragStart?.(type, evt, column, clientX, clientY)
             }
+            onToggleComplete={onToggleComplete}
           />
         ))}
       </div>
@@ -3601,6 +3752,32 @@ export default function WeekScheduler() {
     }[]
   >([])
 
+  // Payment modal state for quick actions
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedEventForPayment, setSelectedEventForPayment] = useState<{
+    id: string
+    patientName: string
+    treatment: string
+    amount: string
+    paymentInfo?: {
+      totalAmount: number
+      paidAmount: number
+      pendingAmount: number
+      currency: string
+    }
+    installmentPlan?: {
+      totalInstallments: number
+      currentInstallment: number
+      amountPerInstallment: number
+    }
+  } | null>(null)
+
+  // Patient record modal state for "Ver ficha" action
+  const [showPatientRecordModal, setShowPatientRecordModal] = useState(false)
+
+  // Estado para citas completadas (ID del evento -> completado)
+  const [completedEvents, setCompletedEvents] = useState<Record<string, boolean>>({})
+
   // Week navigation state - starts with current week
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     const today = new Date()
@@ -3669,8 +3846,14 @@ export default function WeekScheduler() {
   }, [viewOption, selectedDate, currentWeekStart])
 
   // Only show overlay on click (active), not on hover
+  // IMPORTANTE: Buscar el evento actualizado en dayColumnsState para obtener datos frescos
   const overlaySource = active
-  const activeDetail = overlaySource?.event.detail
+  const freshEvent = active
+    ? dayColumnsState
+        .flatMap((col) => col.events)
+        .find((e) => e.id === active.event.id)
+    : null
+  const activeDetail = freshEvent?.detail ?? overlaySource?.event.detail
   const overlayPosition =
     overlaySource && activeDetail
       ? activeDetail.overlayOffsets?.top && activeDetail.overlayOffsets?.left
@@ -3716,6 +3899,153 @@ export default function WeekScheduler() {
       setSelectedDate(new Date())
     }
   }
+
+  // Handler para abrir modal de pago desde acciones rápidas
+  const handlePaymentAction = useCallback(() => {
+    if (!active?.event) return
+
+    const event = active.event
+    const detail = event.detail
+
+    setSelectedEventForPayment({
+      id: detail?.appointmentId ?? event.id,
+      patientName: detail?.patientFull ?? event.patient,
+      treatment: detail?.treatmentDescription ?? event.title,
+      amount: detail?.economicAmount ?? '0,00 €',
+      // Pasar información de pagos parciales si existe
+      paymentInfo: detail?.paymentInfo,
+      installmentPlan: detail?.installmentPlan
+    })
+    setShowPaymentModal(true)
+    setActive(null) // Cerrar overlay
+  }, [active])
+
+  // Handler para registrar pago (soporta pagos parciales)
+  const handleRegisterPayment = useCallback(
+    (data: { paymentMethod: string; paymentDate: Date | null; reference: string; amountToPay: number }) => {
+      if (selectedEventForPayment) {
+        const paymentInfo = selectedEventForPayment.paymentInfo
+        const installmentPlan = selectedEventForPayment.installmentPlan
+        const isFullyPaid = paymentInfo 
+          ? data.amountToPay >= paymentInfo.pendingAmount 
+          : true
+
+        // Solo marcar como "No" cobro si se pagó completamente
+        if (isFullyPaid) {
+          updateAppointment(selectedEventForPayment.id, {
+            charge: 'No' // Ya cobrado completamente
+          })
+        }
+
+        // ✅ ACTUALIZAR LA AGENDA EN TIEMPO REAL
+        const eventIdToUpdate = selectedEventForPayment.id
+        console.log('🔄 Buscando evento para actualizar:', eventIdToUpdate)
+        
+        setDayColumnsState((prevColumns) => {
+          const updatedColumns = prevColumns.map((column) => ({
+            ...column,
+            events: column.events.map((event) => {
+              // Encontrar el evento que se actualizó
+              const isMatch = event.id === eventIdToUpdate || 
+                              event.detail?.appointmentId === eventIdToUpdate
+              
+              if (!isMatch) return event
+              
+              console.log('✅ Evento encontrado:', event.id, 'Actualizando paymentInfo...')
+
+              // Obtener el monto total del tratamiento
+              const currentPaymentInfo = event.detail?.paymentInfo
+              const totalAmount = currentPaymentInfo?.totalAmount ?? 
+                parseFloat(event.detail?.economicAmount?.replace(/[^\d,.-]/g, '').replace(',', '.') || '0')
+
+              // Calcular nuevos valores de pago
+              const previouslyPaid = currentPaymentInfo?.paidAmount ?? 0
+              const newPaidAmount = previouslyPaid + data.amountToPay
+              const newPendingAmount = Math.max(0, totalAmount - newPaidAmount)
+              const fullyPaid = newPendingAmount === 0
+
+              // Actualizar plan de cuotas si existe
+              const currentInstallmentPlan = event.detail?.installmentPlan
+              const newInstallmentPlan = currentInstallmentPlan && !fullyPaid
+                ? {
+                    ...currentInstallmentPlan,
+                    currentInstallment: currentInstallmentPlan.currentInstallment + 1
+                  }
+                : currentInstallmentPlan
+
+              // Crear el nuevo paymentInfo
+              const newPaymentInfo = {
+                totalAmount: totalAmount,
+                paidAmount: newPaidAmount,
+                pendingAmount: newPendingAmount,
+                currency: currentPaymentInfo?.currency ?? '€'
+              }
+
+              // Determinar el nuevo economicStatus
+              const newEconomicStatus = fullyPaid
+                ? 'Pagado'
+                : `Pago parcial (${newPaidAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} € de ${totalAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €)`
+
+              console.log('📊 Nuevo paymentInfo:', newPaymentInfo)
+              console.log('📊 Nuevo economicStatus:', newEconomicStatus)
+
+              // Retornar el evento actualizado
+              const updatedEvent = {
+                ...event,
+                detail: {
+                  ...event.detail!,
+                  paymentInfo: newPaymentInfo,
+                  installmentPlan: newInstallmentPlan,
+                  economicStatus: newEconomicStatus,
+                  economicAmount: fullyPaid
+                    ? `${totalAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} € (Pagado)`
+                    : `${newPendingAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} € pendiente`
+                }
+              }
+              
+              return updatedEvent
+            })
+          }))
+          
+          return updatedColumns
+        })
+
+        // TODO: Cuando el backend esté listo:
+        // - Guardar el pago en la tabla de pagos
+        // - Sincronizar con base de datos
+        console.log('✅ Pago registrado y agenda actualizada:', {
+          appointmentId: selectedEventForPayment.id,
+          amountPaid: data.amountToPay,
+          isFullyPaid,
+          remainingAfterPayment: paymentInfo ? paymentInfo.pendingAmount - data.amountToPay : 0,
+          ...data
+        })
+      }
+
+      setShowPaymentModal(false)
+      setSelectedEventForPayment(null)
+    },
+    [selectedEventForPayment, updateAppointment]
+  )
+
+  // Handler para ver ficha del paciente - Abre el modal directamente
+  const handleViewPatient = useCallback(() => {
+    if (!active?.event?.detail) return
+
+    // Abrir el modal de ficha del paciente
+    setShowPatientRecordModal(true)
+    setActive(null) // Cerrar overlay
+  }, [active])
+
+  // Handler para marcar cita como completada/pendiente
+  const handleToggleComplete = useCallback((eventId: string, completed: boolean) => {
+    setCompletedEvents(prev => ({
+      ...prev,
+      [eventId]: completed
+    }))
+    // TODO: Aquí se podría sincronizar con el backend
+    console.log(`✅ Cita ${eventId} marcada como ${completed ? 'completada' : 'pendiente'}`)
+  }, [])
 
   const timeToMinutes = (time: string): number => {
     const [hh = '09', mm = '00'] = time.split(':')
@@ -4799,8 +5129,17 @@ export default function WeekScheduler() {
                   }}
                   selectedBoxes={selectedBoxes}
                   selectedProfessionals={selectedProfessionals}
+                  completedEvents={completedEvents}
+                  onToggleComplete={handleToggleComplete}
                 />
               ))}
+
+              {/* Indicador de hora actual - línea roja horizontal */}
+              <CurrentTimeIndicator
+                startHour={START_HOUR}
+                endHour={END_HOUR}
+                timeColumnWidth='var(--scheduler-time-width)'
+              />
 
               {/* Hover overlay - Simplified detail view */}
               {hovered &&
@@ -5011,8 +5350,10 @@ export default function WeekScheduler() {
               {overlaySource && activeDetail && overlayPosition ? (
                 <AppointmentDetailOverlay
                   detail={activeDetail}
-                  box={overlaySource.event.box}
+                  box={freshEvent?.box ?? overlaySource.event.box}
                   position={overlayPosition}
+                  onPaymentAction={handlePaymentAction}
+                  onViewPatient={handleViewPatient}
                 />
               ) : null}
             </div>
@@ -5026,6 +5367,30 @@ export default function WeekScheduler() {
         onClose={handleCreateModalClose}
         initialData={appointmentPrefill ?? undefined}
         onSubmit={handleCreateAppointmentSubmit}
+      />
+
+      {/* Register Payment Modal - Quick action from agenda */}
+      {showPaymentModal && selectedEventForPayment && (
+        <RegisterPaymentModal
+          open={showPaymentModal}
+          onClose={() => {
+            setShowPaymentModal(false)
+            setSelectedEventForPayment(null)
+          }}
+          onSubmit={handleRegisterPayment}
+          invoiceId={selectedEventForPayment.id}
+          treatment={selectedEventForPayment.treatment}
+          amount={selectedEventForPayment.amount}
+          paymentInfo={selectedEventForPayment.paymentInfo}
+          installmentPlan={selectedEventForPayment.installmentPlan}
+        />
+      )}
+
+      {/* Patient Record Modal - Quick action "Ver ficha" from agenda */}
+      <PatientRecordModal
+        open={showPatientRecordModal}
+        onClose={() => setShowPatientRecordModal(false)}
+        initialTab='Resumen'
       />
     </section>
   )

@@ -3,6 +3,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
+import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
+import RegisterPaymentModal from '@/components/pacientes/modals/patient-record/RegisterPaymentModal'
 import {
   CSSProperties,
   useCallback,
@@ -16,6 +18,92 @@ import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
 import type { EventDetail } from './types'
 
 const OVERLAY_GUTTER = '1rem'
+
+// ==========================================
+// CURRENT TIME INDICATOR COMPONENT
+// ==========================================
+
+/**
+ * Componente que muestra una línea roja horizontal indicando la hora actual.
+ * Solo se muestra si la hora actual está dentro del rango visible (9:00 - 20:00).
+ * Se actualiza cada minuto para mantener la posición sincronizada.
+ */
+function CurrentTimeIndicator({
+  startHour,
+  endHour,
+  timeColumnWidth = 'var(--day-time-column-width)'
+}: {
+  startHour: number
+  endHour: number
+  timeColumnWidth?: string
+}) {
+  const [currentTime, setCurrentTime] = useState<Date>(new Date())
+
+  // Actualizar cada minuto
+  useEffect(() => {
+    const updateTime = () => setCurrentTime(new Date())
+    
+    // Calcular milisegundos hasta el próximo minuto
+    const now = new Date()
+    const msUntilNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds()
+    
+    // Primer timeout para sincronizar con el inicio del minuto
+    const initialTimeout = setTimeout(() => {
+      updateTime()
+      // Después, actualizar cada minuto exacto
+      const interval = setInterval(updateTime, 60000)
+      return () => clearInterval(interval)
+    }, msUntilNextMinute)
+    
+    return () => clearTimeout(initialTimeout)
+  }, [])
+
+  const hours = currentTime.getHours()
+  const minutes = currentTime.getMinutes()
+  
+  // Solo mostrar si estamos dentro del rango de horas (9:00 - 20:00)
+  const totalMinutes = hours * 60 + minutes
+  const rangeStart = startHour * 60
+  const rangeEnd = endHour * 60
+  
+  if (totalMinutes < rangeStart || totalMinutes >= rangeEnd) {
+    return null
+  }
+  
+  // Calcular posición: minutos desde las 9:00 / minutos totales del rango
+  const minutesFromStart = totalMinutes - rangeStart
+  const totalRangeMinutes = rangeEnd - rangeStart // 660 minutos (11 horas)
+  const positionPercent = (minutesFromStart / totalRangeMinutes) * 100
+  
+  // Formatear hora actual
+  const timeLabel = `${hours}:${minutes.toString().padStart(2, '0')}`
+  
+  return (
+    <div
+      className='pointer-events-none absolute left-0 z-[20] flex w-full items-center'
+      style={{
+        top: `${positionPercent}%`
+      }}
+    >
+      {/* Badge con la hora */}
+      <div
+        className='flex items-center justify-center rounded-[0.25rem] bg-[#EF4444] px-[0.375rem] py-[0.125rem]'
+        style={{
+          width: timeColumnWidth,
+          minWidth: timeColumnWidth,
+          maxWidth: timeColumnWidth
+        }}
+      >
+        <span className='text-[0.75rem] font-medium leading-[1rem] text-white'>
+          {timeLabel}
+        </span>
+      </div>
+      
+      {/* Línea roja */}
+      <div className='h-[2px] flex-1 bg-[#EF4444]' />
+    </div>
+  )
+}
 
 // Constantes para el sistema de drag (EXACTAMENTE IGUALES a vista semanal)
 const START_HOUR = 9
@@ -167,6 +255,7 @@ type DayEvent = {
   height?: string
   detail?: EventDetail
   box?: string
+  completed?: boolean // Indica si la cita ya se ha realizado
 }
 
 type DayEventSelection = {
@@ -654,7 +743,8 @@ function DayEvent({
   isDragging,
   onDragStart,
   onResizeStart,
-  styleOverride
+  styleOverride,
+  onToggleComplete
 }: {
   event: DayEvent
   onHover: () => void
@@ -666,21 +756,32 @@ function DayEvent({
   onDragStart?: (e: React.MouseEvent<HTMLElement>) => void
   onResizeStart?: (e: React.MouseEvent<HTMLElement>) => void
   styleOverride?: CSSProperties
+  onToggleComplete?: (eventId: string, completed: boolean) => void
 }) {
   // Calcular si hay suficiente altura para mostrar notas (igual que vista semanal)
   const canShowNotes = parseDimensionToPx(event.height) >= MIN_HEIGHT_FOR_NOTES_PX
+  const isCompleted = event.completed ?? false
 
   // Estados de borde/sombra idénticos a AppointmentSummaryCard (vista semanal)
   const stateClasses = isActive
     ? 'border-[var(--color-brand-500)] shadow-[0px_4px_12px_rgba(81,214,199,0.35)]'
     : isHovered
     ? 'border-[var(--color-brand-500)]'
+    : isCompleted
+    ? 'border-[var(--color-success-400)]'
     : 'border-[var(--color-border)]'
 
   // Separar título y paciente del label
   const labelParts = event.label.split('\n')
   const title = labelParts[0] ?? ''
   const patient = labelParts[1] ?? ''
+
+  // Handler para el checkbox de completado
+  const handleToggleComplete = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    onToggleComplete?.(event.id, !isCompleted)
+  }
 
   return (
     <button
@@ -709,8 +810,9 @@ function DayEvent({
       }}
       className={[
         // Clases idénticas a AppointmentSummaryCard (sin text-body-sm ni font-normal que interfieren)
-        'group absolute flex flex-col gap-[var(--scheduler-event-gap)] overflow-hidden rounded-[var(--radius-lg)] border p-[var(--scheduler-event-padding)] text-left shadow-[0px_1px_2px_rgba(36,40,44,0.08)] transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-brand-500)] active:brightness-[0.98]',
-        stateClasses
+        'group/daycard absolute flex flex-col gap-[var(--scheduler-event-gap)] overflow-hidden rounded-[var(--radius-lg)] border p-[var(--scheduler-event-padding)] text-left shadow-[0px_1px_2px_rgba(36,40,44,0.08)] transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-brand-500)] active:brightness-[0.98]',
+        stateClasses,
+        isCompleted ? 'opacity-70' : ''
       ].join(' ')}
       style={{
         top: event.top,
@@ -721,12 +823,50 @@ function DayEvent({
         cursor: isDragging ? 'grabbing' : onDragStart ? 'grab' : 'pointer',
         zIndex: isDragging ? 50 : undefined,
         // Efecto de drag idéntico a AppointmentSummaryCard
-        opacity: isDragging ? 0.88 : 1,
+        opacity: isDragging ? 0.88 : isCompleted ? 0.7 : 1,
         transform: isDragging ? 'scale(1.02)' : 'none',
         ...styleOverride
       }}
       aria-pressed={isActive}
     >
+      {/* Checkbox de cita completada - esquina superior derecha */}
+      {onToggleComplete && (
+        <div
+          role='checkbox'
+          aria-checked={isCompleted}
+          aria-label={isCompleted ? 'Marcar como pendiente' : 'Marcar como completada'}
+          tabIndex={0}
+          onClick={handleToggleComplete}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              e.stopPropagation()
+              onToggleComplete(event.id, !isCompleted)
+            }
+          }}
+          className={[
+            'absolute right-1.5 top-1.5 z-20 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border-2 transition-all duration-200',
+            'opacity-0 group-hover/daycard:opacity-100 focus:opacity-100',
+            isCompleted
+              ? 'border-[var(--color-success-500)] bg-[var(--color-success-500)] opacity-100 shadow-[0_0_0_2px_rgba(34,197,94,0.2)]'
+              : 'border-[var(--color-neutral-400)] bg-white/90 hover:border-[var(--color-success-400)] hover:bg-[var(--color-success-50)]'
+          ].join(' ')}
+        >
+          {isCompleted && (
+            <svg
+              className='h-3 w-3 animate-[checkmark_0.2s_ease-out] text-white'
+              viewBox='0 0 12 12'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2.5'
+              strokeLinecap='round'
+              strokeLinejoin='round'
+            >
+              <path d='M2.5 6L5 8.5L9.5 3.5' />
+            </svg>
+          )}
+        </div>
+      )}
       {/* Contenido idéntico a AppointmentSummaryCard */}
       <div className='flex items-start justify-between gap-2'>
         <div className='flex min-w-0 flex-1 flex-col gap-[0.375rem]'>
@@ -953,7 +1093,9 @@ function DayGrid({
   boxLayout,
   boxCount,
   visibleSlotCount,
-  selectedProfessionals
+  selectedProfessionals,
+  completedEvents,
+  onToggleComplete
 }: {
   timeLabels: string[]
   timeSlotsOverride?: TimeSlot[]
@@ -976,6 +1118,8 @@ function DayGrid({
   boxCount: number
   visibleSlotCount: number // Número de slots de 30 min visibles según el período
   selectedProfessionals: string[]
+  completedEvents?: Record<string, boolean>
+  onToggleComplete?: (eventId: string, completed: boolean) => void
 }) {
   // Filtrar slots según los horarios visibles
   const sourceSlots = timeSlotsOverride ?? TIME_SLOTS
@@ -1074,7 +1218,10 @@ function DayGrid({
         {allEvents.map(({ event, boxId }) => (
           <DayEvent
             key={event.id}
-            event={event}
+            event={{
+              ...event,
+              completed: completedEvents?.[event.id] ?? event.completed
+            }}
             onHover={() => onHover({ event, boxId })}
             onLeave={() => onHover(null)}
             onActivate={() => onActivate({ event, boxId })}
@@ -1111,6 +1258,7 @@ function DayGrid({
               marginLeft: '0.25rem',
               marginRight: '0.25rem'
             }}
+            onToggleComplete={onToggleComplete}
           />
         ))}
       </div>
@@ -1272,6 +1420,31 @@ export default function DayCalendar({
   const [hovered, setHovered] = useState<DayEventSelection>(null)
   const [active, setActive] = useState<DayEventSelection>(null)
   const [localEvents, setLocalEvents] = useState<TimeSlot[]>([])
+  // Estado para citas completadas (ID del evento -> completado)
+  const [completedEvents, setCompletedEvents] = useState<Record<string, boolean>>({})
+
+  // Payment modal state for quick actions
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedEventForPayment, setSelectedEventForPayment] = useState<{
+    id: string
+    patientName: string
+    treatment: string
+    amount: string
+    paymentInfo?: {
+      totalAmount: number
+      paidAmount: number
+      pendingAmount: number
+      currency: string
+    }
+    installmentPlan?: {
+      totalInstallments: number
+      currentInstallment: number
+      amountPerInstallment: number
+    }
+  } | null>(null)
+
+  // Patient record modal state for "Ver ficha" action
+  const [showPatientRecordModal, setShowPatientRecordModal] = useState(false)
   const isDraggingRef = useRef(false)
   const gridRef = useRef<HTMLDivElement | null>(null)
   const boxRefs = useRef<Record<BoxId, HTMLDivElement | null>>({
@@ -1320,6 +1493,70 @@ export default function DayCalendar({
   const handleRootClick = () => {
     setActive(null)
   }
+
+  // Handler para abrir modal de pago desde acciones rápidas
+  const handlePaymentAction = useCallback(() => {
+    if (!active?.event) return
+
+    const event = active.event
+    const detail = event.detail
+
+    setSelectedEventForPayment({
+      id: detail?.appointmentId ?? event.id,
+      patientName: detail?.patientFull ?? event.label.split('\n')[1] ?? '',
+      treatment: detail?.treatmentDescription ?? event.label.split('\n')[0] ?? '',
+      amount: detail?.economicAmount ?? '0,00 €',
+      // Pasar información de pagos parciales si existe
+      paymentInfo: detail?.paymentInfo,
+      installmentPlan: detail?.installmentPlan
+    })
+    setShowPaymentModal(true)
+    setActive(null) // Cerrar overlay
+  }, [active])
+
+  // Handler para registrar pago (soporta pagos parciales)
+  const handleRegisterPayment = useCallback(
+    (data: { paymentMethod: string; paymentDate: Date | null; reference: string; amountToPay: number }) => {
+      if (selectedEventForPayment) {
+        const paymentInfo = selectedEventForPayment.paymentInfo
+        const isFullyPaid = paymentInfo 
+          ? data.amountToPay >= paymentInfo.pendingAmount 
+          : true
+
+        // TODO: Integrar con contexto/backend para actualizar estado de cobro
+        console.log('✅ Pago registrado desde vista día:', {
+          appointmentId: selectedEventForPayment.id,
+          amountPaid: data.amountToPay,
+          isFullyPaid,
+          remainingAfterPayment: paymentInfo ? paymentInfo.pendingAmount - data.amountToPay : 0,
+          ...data
+        })
+      }
+
+      setShowPaymentModal(false)
+      setSelectedEventForPayment(null)
+    },
+    [selectedEventForPayment]
+  )
+
+  // Handler para ver ficha del paciente - Abre el modal directamente
+  const handleViewPatient = useCallback(() => {
+    if (!active?.event?.detail) return
+
+    // Abrir el modal de ficha del paciente
+    setShowPatientRecordModal(true)
+    setActive(null) // Cerrar overlay
+  }, [active])
+
+  // Handler para marcar cita como completada/pendiente
+  const handleToggleComplete = useCallback((eventId: string, completed: boolean) => {
+    setCompletedEvents(prev => ({
+      ...prev,
+      [eventId]: completed
+    }))
+    // TODO: Aquí se podría sincronizar con el backend
+    console.log(`✅ Cita ${eventId} marcada como ${completed ? 'completada' : 'pendiente'}`)
+  }, [])
 
   // Filtrar horarios según el período seleccionado
   const getFilteredTimeLabels = () => {
@@ -1704,7 +1941,24 @@ export default function DayCalendar({
         boxCount={boxCount}
         visibleSlotCount={visibleSlotCount}
         selectedProfessionals={selectedProfessionals}
+        completedEvents={completedEvents}
+        onToggleComplete={handleToggleComplete}
       />
+
+      {/* Indicador de hora actual - línea roja horizontal */}
+      <div
+        className='pointer-events-none absolute left-0 w-full'
+        style={{
+          top: dayOffsetTop,
+          height: `calc(${TOTAL_SLOTS} * var(--scheduler-slot-height-quarter))`
+        }}
+      >
+        <CurrentTimeIndicator
+          startHour={START_HOUR}
+          endHour={END_HOUR}
+          timeColumnWidth='var(--day-time-column-width)'
+        />
+      </div>
 
       {/* Hover overlay - Simplified detail view */}
       {hovered &&
@@ -1812,9 +2066,35 @@ export default function DayCalendar({
               detail={activeDetail}
               box={overlaySource.event.box || ''}
               position={position}
+              onPaymentAction={handlePaymentAction}
+              onViewPatient={handleViewPatient}
             />
           )
         })()}
+
+      {/* Register Payment Modal - Quick action from day view */}
+      {showPaymentModal && selectedEventForPayment && (
+        <RegisterPaymentModal
+          open={showPaymentModal}
+          onClose={() => {
+            setShowPaymentModal(false)
+            setSelectedEventForPayment(null)
+          }}
+          onSubmit={handleRegisterPayment}
+          invoiceId={selectedEventForPayment.id}
+          treatment={selectedEventForPayment.treatment}
+          amount={selectedEventForPayment.amount}
+          paymentInfo={selectedEventForPayment.paymentInfo}
+          installmentPlan={selectedEventForPayment.installmentPlan}
+        />
+      )}
+
+      {/* Patient Record Modal - Quick action "Ver ficha" from day view */}
+      <PatientRecordModal
+        open={showPatientRecordModal}
+        onClose={() => setShowPatientRecordModal(false)}
+        initialTab='Resumen'
+      />
     </div>
   )
 }

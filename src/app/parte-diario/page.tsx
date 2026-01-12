@@ -10,7 +10,8 @@ import {
   formatDateToISO,
   formatDateToShort,
   useAppointments,
-  type Appointment
+  type Appointment,
+  type PaymentInfo
 } from '@/context/AppointmentsContext'
 import React from 'react'
 
@@ -166,6 +167,7 @@ type DailyRow = {
   status: 'Confirmada' | 'No confirmada' | 'Reagendar'
   charge: 'Si' | 'No'
   tags?: Array<'deuda' | 'confirmada'>
+  paymentInfo?: PaymentInfo
 }
 
 // Función para convertir Appointment del contexto a DailyRow para la tabla
@@ -180,8 +182,54 @@ function appointmentToRow(apt: Appointment): DailyRow {
     phone: apt.patientPhone,
     status: apt.status,
     charge: apt.charge,
-    tags: apt.tags
+    tags: apt.tags,
+    paymentInfo: apt.paymentInfo
   }
+}
+
+// Componente para mostrar el estado de pago
+function PaymentStatusCell({ row }: { row: DailyRow }) {
+  if (!row.paymentInfo) {
+    // Sin información de pago - mostrar solo Si/No
+    return (
+      <span className={row.charge === 'Si' ? 'text-amber-600 font-medium' : 'text-[var(--color-neutral-600)]'}>
+        {row.charge}
+      </span>
+    )
+  }
+
+  const { totalAmount, paidAmount, pendingAmount, currency } = row.paymentInfo
+  const percentage = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0
+  const isFullyPaid = pendingAmount === 0
+
+  if (isFullyPaid) {
+    return (
+      <span className='inline-flex items-center gap-1 text-[var(--color-success-600)] font-medium'>
+        <span className='size-2 rounded-full bg-[var(--color-success-500)]' />
+        Pagado
+      </span>
+    )
+  }
+
+  return (
+    <div className='flex flex-col gap-1'>
+      <div className='flex items-center gap-2'>
+        <span className='text-amber-600 font-medium'>
+          {pendingAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} {currency}
+        </span>
+        <span className='text-xs text-[var(--color-neutral-500)]'>
+          ({percentage}%)
+        </span>
+      </div>
+      {/* Mini barra de progreso */}
+      <div className='h-1 w-16 overflow-hidden rounded-full bg-[var(--color-neutral-200)]'>
+        <div 
+          className='h-full rounded-full bg-[var(--color-brand-500)]'
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
+  )
 }
 
 export default function ParteDiarioPage() {
@@ -656,8 +704,8 @@ export default function ParteDiarioPage() {
                   <TableHeaderCell className='w-[160px] pr-2'>
                     Estado
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[120px] pr-2'>
-                    A cobrar
+                  <TableHeaderCell className='w-[140px] pr-2'>
+                    Pendiente
                   </TableHeaderCell>
                 </tr>
               </thead>
@@ -754,8 +802,8 @@ export default function ParteDiarioPage() {
                       <TableBodyCell className='w-[160px] pr-2'>
                         <StatusPill type={row.status} />
                       </TableBodyCell>
-                      <TableBodyCell className='w-[120px] pr-2'>
-                        {row.charge}
+                      <TableBodyCell className='w-[140px] pr-2'>
+                        <PaymentStatusCell row={row} />
                       </TableBodyCell>
                     </tr>
                   ))}

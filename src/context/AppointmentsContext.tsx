@@ -3,6 +3,36 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
 
 // ============================================
+// TIPOS UNIFICADOS PARA PAGOS
+// ============================================
+
+export type PaymentInfo = {
+  totalAmount: number      // Monto total del tratamiento
+  paidAmount: number       // Ya pagado
+  pendingAmount: number    // Pendiente
+  currency: string         // "€"
+}
+
+export type InstallmentPlan = {
+  totalInstallments: number    // Total de cuotas
+  currentInstallment: number   // Cuota actual a pagar
+  amountPerInstallment: number // Monto por cuota
+}
+
+export type PaymentRecord = {
+  id: string
+  appointmentId: string
+  patientName: string
+  treatment: string
+  amount: number
+  currency: string
+  paymentMethod: string
+  paymentDate: Date
+  reference?: string
+  createdAt: Date
+}
+
+// ============================================
 // TIPOS UNIFICADOS PARA CITAS
 // ============================================
 
@@ -17,6 +47,7 @@ export type Appointment = {
   // Información del paciente
   patientName: string
   patientPhone: string
+  patientId?: string // ID único del paciente
   // Información de la cita
   professional: string
   reason: string // motivo de consulta
@@ -30,6 +61,11 @@ export type Appointment = {
   bgColor?: string
   // Notas adicionales
   notes?: string
+  // Información de pagos parciales
+  paymentInfo?: PaymentInfo
+  installmentPlan?: InstallmentPlan
+  // Estado de la cita
+  completed?: boolean // Si la cita ya se realizó
 }
 
 // ============================================
@@ -79,9 +115,21 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     reason: 'Endodoncia (2ª sesión)',
     status: 'Confirmada',
     box: 'box 1',
-    charge: 'No',
+    charge: 'Si',
     tags: ['confirmada'],
-    bgColor: 'var(--color-brand-0)'
+    bgColor: 'var(--color-brand-0)',
+    // Pago parcial: 1 de 3 cuotas pagadas
+    paymentInfo: {
+      totalAmount: 320,
+      paidAmount: 106.67,
+      pendingAmount: 213.33,
+      currency: '€'
+    },
+    installmentPlan: {
+      totalInstallments: 3,
+      currentInstallment: 2,
+      amountPerInstallment: 106.67
+    }
   },
   {
     id: 'apt-4',
@@ -153,9 +201,16 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     reason: 'Tratamiento periodontal',
     status: 'No confirmada',
     box: 'box 2',
-    charge: 'No',
+    charge: 'Si',
     tags: ['deuda'],
-    bgColor: 'var(--color-event-purple)'
+    bgColor: 'var(--color-event-purple)',
+    // Pago parcial SIN plan de cuotas (flexible)
+    paymentInfo: {
+      totalAmount: 180,
+      paidAmount: 50,
+      pendingAmount: 130,
+      currency: '€'
+    }
   },
   {
     id: 'apt-9',
@@ -183,9 +238,21 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     reason: 'Implante dental',
     status: 'Confirmada',
     box: 'box 1',
-    charge: 'No',
+    charge: 'Si',
     tags: ['confirmada'],
-    bgColor: 'var(--color-brand-0)'
+    bgColor: 'var(--color-brand-0)',
+    // Pago parcial: 5 de 12 cuotas pagadas
+    paymentInfo: {
+      totalAmount: 1200,
+      paidAmount: 500,
+      pendingAmount: 700,
+      currency: '€'
+    },
+    installmentPlan: {
+      totalInstallments: 12,
+      currentInstallment: 6,
+      amountPerInstallment: 100
+    }
   },
   {
     id: 'apt-11',
@@ -447,16 +514,35 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
 // CONTEXTO
 // ============================================
 
+type RegisterPaymentData = {
+  appointmentId: string
+  patientName: string
+  treatment: string
+  amount: number
+  paymentMethod: string
+  paymentDate: Date
+  reference?: string
+}
+
 type AppointmentsContextType = {
   appointments: Appointment[]
-  // Funciones CRUD
+  payments: PaymentRecord[]
+  // Funciones CRUD de citas
   addAppointment: (appointment: Omit<Appointment, 'id'>) => void
   updateAppointment: (id: string, updates: Partial<Appointment>) => void
   deleteAppointment: (id: string) => void
-  // Funciones de consulta
+  // Funciones de consulta de citas
   getAppointmentsByDate: (date: string) => Appointment[]
   getAppointmentsByDateRange: (startDate: string, endDate: string) => Appointment[]
   getAppointmentById: (id: string) => Appointment | undefined
+  // Funciones de pagos
+  registerPayment: (data: RegisterPaymentData) => void
+  getPaymentsByAppointment: (appointmentId: string) => PaymentRecord[]
+  getPaymentsByDateRange: (startDate: Date, endDate: Date) => PaymentRecord[]
+  getPaymentsByPatient: (patientName: string) => PaymentRecord[]
+  getTotalPaymentsForDate: (date: Date) => number
+  // Funciones de estado de cita
+  toggleAppointmentComplete: (id: string, completed: boolean) => void
 }
 
 const AppointmentsContext = createContext<AppointmentsContextType | undefined>(undefined)
@@ -467,6 +553,7 @@ const AppointmentsContext = createContext<AppointmentsContextType | undefined>(u
 
 export function AppointmentsProvider({ children }: { children: ReactNode }) {
   const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS)
+  const [payments, setPayments] = useState<PaymentRecord[]>([])
 
   // Agregar una nueva cita
   const addAppointment = useCallback((appointmentData: Omit<Appointment, 'id'>) => {
@@ -504,14 +591,115 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     return appointments.find(apt => apt.id === id)
   }, [appointments])
 
+  // ============================================
+  // FUNCIONES DE PAGOS
+  // ============================================
+
+  // Registrar un pago y actualizar la cita correspondiente
+  const registerPayment = useCallback((data: RegisterPaymentData) => {
+    // Crear el registro de pago
+    const paymentRecord: PaymentRecord = {
+      id: `pay-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      appointmentId: data.appointmentId,
+      patientName: data.patientName,
+      treatment: data.treatment,
+      amount: data.amount,
+      currency: '€',
+      paymentMethod: data.paymentMethod,
+      paymentDate: data.paymentDate,
+      reference: data.reference,
+      createdAt: new Date()
+    }
+
+    // Añadir al historial de pagos
+    setPayments(prev => [...prev, paymentRecord])
+
+    // Actualizar la cita con el nuevo estado de pago
+    setAppointments(prev => prev.map(apt => {
+      if (apt.id === data.appointmentId) {
+        const currentPaymentInfo = apt.paymentInfo
+        const totalAmount = currentPaymentInfo?.totalAmount ?? 0
+        const previouslyPaid = currentPaymentInfo?.paidAmount ?? 0
+        const newPaidAmount = previouslyPaid + data.amount
+        const newPendingAmount = Math.max(0, totalAmount - newPaidAmount)
+        const isFullyPaid = newPendingAmount === 0
+
+        // Actualizar installmentPlan si existe
+        const newInstallmentPlan = apt.installmentPlan && !isFullyPaid
+          ? {
+              ...apt.installmentPlan,
+              currentInstallment: apt.installmentPlan.currentInstallment + 1
+            }
+          : apt.installmentPlan
+
+        return {
+          ...apt,
+          charge: isFullyPaid ? 'No' : 'Si',
+          paymentInfo: {
+            totalAmount,
+            paidAmount: newPaidAmount,
+            pendingAmount: newPendingAmount,
+            currency: '€'
+          },
+          installmentPlan: newInstallmentPlan
+        }
+      }
+      return apt
+    }))
+
+    console.log('✅ Pago registrado en contexto:', paymentRecord)
+  }, [])
+
+  // Obtener pagos por cita
+  const getPaymentsByAppointment = useCallback((appointmentId: string) => {
+    return payments.filter(p => p.appointmentId === appointmentId)
+  }, [payments])
+
+  // Obtener pagos por rango de fechas
+  const getPaymentsByDateRange = useCallback((startDate: Date, endDate: Date) => {
+    return payments.filter(p => {
+      const paymentDate = new Date(p.paymentDate)
+      return paymentDate >= startDate && paymentDate <= endDate
+    })
+  }, [payments])
+
+  // Obtener pagos por paciente
+  const getPaymentsByPatient = useCallback((patientName: string) => {
+    return payments.filter(p => 
+      p.patientName.toLowerCase().includes(patientName.toLowerCase())
+    )
+  }, [payments])
+
+  // Obtener total de pagos para una fecha
+  const getTotalPaymentsForDate = useCallback((date: Date) => {
+    const dateStr = formatDateToISO(date)
+    return payments
+      .filter(p => formatDateToISO(new Date(p.paymentDate)) === dateStr)
+      .reduce((sum, p) => sum + p.amount, 0)
+  }, [payments])
+
+  // Marcar cita como completada/pendiente
+  const toggleAppointmentComplete = useCallback((id: string, completed: boolean) => {
+    setAppointments(prev => 
+      prev.map(apt => apt.id === id ? { ...apt, completed } : apt)
+    )
+  }, [])
+
   const value: AppointmentsContextType = {
     appointments,
+    payments,
     addAppointment,
     updateAppointment,
     deleteAppointment,
     getAppointmentsByDate,
     getAppointmentsByDateRange,
-    getAppointmentById
+    getAppointmentById,
+    registerPayment,
+    getPaymentsByAppointment,
+    getPaymentsByDateRange,
+    getPaymentsByPatient,
+    getTotalPaymentsForDate,
+    toggleAppointmentComplete
   }
 
   return (

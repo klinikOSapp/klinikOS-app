@@ -7,6 +7,21 @@ export type Weekday =
   | 'saturday'
   | 'sunday'
 
+// Información de pagos parciales
+export type PaymentInfo = {
+  totalAmount: number // Monto total del tratamiento (ej: 600)
+  paidAmount: number // Ya pagado (ej: 200)
+  pendingAmount: number // Pendiente (ej: 400)
+  currency: string // "€"
+}
+
+// Plan de cuotas (opcional)
+export type InstallmentPlan = {
+  totalInstallments: number // Total de cuotas (ej: 6)
+  currentInstallment: number // Cuota actual a pagar (ej: 2)
+  amountPerInstallment: number // Monto por cuota (ej: 100)
+}
+
 export type EventDetail = {
   title: string
   date: string
@@ -29,6 +44,15 @@ export type EventDetail = {
     top?: string
     left?: string
   }
+  // Campos para integración de cobros
+  patientId?: string // ID del paciente para navegación
+  appointmentId?: string // ID de la cita para tracking
+  invoiceId?: string // ID de factura si existe
+  treatmentDescription?: string // Descripción del tratamiento para el modal de cobro
+  // Información de pagos parciales
+  paymentInfo?: PaymentInfo
+  // Plan de cuotas (opcional)
+  installmentPlan?: InstallmentPlan
 }
 
 export type AgendaEvent = {
@@ -45,6 +69,7 @@ export type AgendaEvent = {
   width?: string
   detail?: EventDetail
   professionalId?: string
+  completed?: boolean // Indica si la cita ya se ha realizado
 }
 
 export type DayColumn = {

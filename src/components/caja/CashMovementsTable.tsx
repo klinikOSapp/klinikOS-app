@@ -6,6 +6,7 @@ import type { CSSProperties, FormEvent, ReactNode } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
+import { useAppointments, type PaymentRecord } from '@/context/AppointmentsContext'
 
 type InvoiceStatus = 'Cobrado' | 'Por cobrar'
 type ProductionState = 'Hecho' | 'Pendiente'
@@ -229,9 +230,43 @@ const formatDateInput = (value: string) => {
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
 }
 
+// Convertir PaymentRecord del contexto a CashMovement
+function paymentRecordToMovement(payment: PaymentRecord): CashMovement {
+  const paymentDate = new Date(payment.paymentDate)
+  const dateStr = paymentDate.toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  })
+  
+  // Mapear método de pago a categoría
+  const methodToCategory: Record<string, PaymentCategory> = {
+    efectivo: 'Efectivo',
+    tarjeta: 'TPV',
+    transferencia: 'Financiación',
+    bizum: 'TPV'
+  }
+  
+  return {
+    date: payment.paymentDate.toISOString().split('T')[0],
+    time: dateStr,
+    patient: payment.patientName,
+    concept: payment.treatment,
+    amount: `${payment.amount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} ${payment.currency}`,
+    status: 'Cobrado',
+    produced: 'Hecho',
+    method: payment.paymentMethod.charAt(0).toUpperCase() + payment.paymentMethod.slice(1),
+    insurer: '—',
+    paymentCategory: methodToCategory[payment.paymentMethod.toLowerCase()] ?? 'Efectivo'
+  }
+}
+
 export default function CashMovementsTable({
   onViewPatient
 }: CashMovementsTableProps) {
+  // Obtener pagos del contexto
+  const { payments } = useAppointments()
+  
   const [query, setQuery] = useState('')
   const [fromDateInput, setFromDateInput] = useState('')
   const [toDateInput, setToDateInput] = useState('')
@@ -491,12 +526,19 @@ export default function CashMovementsTable({
     onViewPatient
   ])
 
+  // Combinar movimientos mock con pagos reales del contexto
+  const allMovements = useMemo(() => {
+    const contextPayments = payments.map(paymentRecordToMovement)
+    // Los pagos del contexto van primero (más recientes)
+    return [...contextPayments, ...MOVEMENTS]
+  }, [payments])
+
   const filteredMovements = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
     const fromDate = parseDDMMYYYY(fromDateInput)
     const toDate = parseDDMMYYYY(toDateInput)
 
-    return MOVEMENTS.filter((movement) => {
+    return allMovements.filter((movement) => {
       const matchesQuery = normalizedQuery
         ? [
             movement.patient,
@@ -521,7 +563,7 @@ export default function CashMovementsTable({
 
       return matchesQuery && matchesFilter && matchesFrom && matchesTo
     })
-  }, [query, activePaymentFilters, fromDateInput, toDateInput])
+  }, [query, activePaymentFilters, fromDateInput, toDateInput, allMovements])
   const totalColumns = columns.length
   return (
     <section
