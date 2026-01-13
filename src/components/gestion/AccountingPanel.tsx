@@ -263,7 +263,7 @@ export default function AccountingPanel({
             <p className='text-neutral-600 whitespace-nowrap text-[clamp(0.875rem,2.2vw,1.75rem)] leading-[1.2]'>
               {card.value}
             </p>
-            <span 
+            <span
               className={`shrink-0 whitespace-nowrap text-[clamp(0.5rem,1.2vw,0.75rem)] leading-[1.2] font-medium ${
                 card.delta.startsWith('-') ? 'text-red-500' : 'text-brand-500'
               }`}
