@@ -15,12 +15,32 @@ import {
 import { LayoutProps } from '@/types/layout'
 import AddPatientModal from '@/components/pacientes/modals/add-patient/AddPatientModal'
 
+const SIDEBAR_COLLAPSED_KEY = 'klinikos-sidebar-collapsed'
+
 export default function Layout({ children, ctaMenuItems }: LayoutProps) {
+  // Inicializar siempre con false para evitar hydration mismatch
   const [collapsed, setCollapsed] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
   const [isAddPatientModalOpen, setIsAddPatientModalOpen] = useState(false)
   const [initialPatientName, setInitialPatientName] = useState<string>('')
   const router = useRouter()
   const pathname = usePathname()
+
+  // Leer localStorage solo después del montaje (cliente)
+  useEffect(() => {
+    const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY)
+    if (saved === 'true') {
+      setCollapsed(true)
+    }
+    setIsHydrated(true)
+  }, [])
+
+  // Persistir estado del sidebar en localStorage (solo después de hidratación)
+  useEffect(() => {
+    if (isHydrated) {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed))
+    }
+  }, [collapsed, isHydrated])
 
   const itemsTop = [
     {
@@ -119,7 +139,7 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
           collapsed={collapsed}
           onToggleCollapsed={setCollapsed}
         />
-        <main className='bg-white rounded-tl-[var(--radius-xl)] w-full h-[calc(100dvh-var(--spacing-topbar))] min-h-0 overflow-hidden relative'>
+        <main className='bg-white rounded-tl-[var(--radius-xl)] w-full h-[calc(100dvh-var(--spacing-topbar))] min-h-0 overflow-hidden relative z-20'>
           {children}
         </main>
       </div>

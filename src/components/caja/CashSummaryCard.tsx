@@ -2,52 +2,10 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useMemo, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
-
-type SummaryCard = {
-  id: string
-  title: string
-  value: string
-  delta: string
-  color: string
-  accessory: string
-}
-
-const SUMMARY_CARDS: SummaryCard[] = [
-  {
-    id: 'produced',
-    title: 'Producido',
-    value: '1.200 €',
-    delta: '+ 12%',
-    color: 'var(--color-info-50)',
-    accessory: 'money_bag'
-  },
-  {
-    id: 'invoiced',
-    title: 'Facturado',
-    value: '1.200 €',
-    delta: '+ 12%',
-    color: '#e9f6fb',
-    accessory: 'receipt_long'
-  },
-  {
-    id: 'collected',
-    title: 'Cobrado',
-    value: '1.200 €',
-    delta: '+ 12%',
-    color: 'var(--color-brand-50)',
-    accessory: 'check'
-  },
-  {
-    id: 'toCollect',
-    title: 'Por cobrar',
-    value: '-1.200 €',
-    delta: '+ 12%',
-    color: 'var(--color-warning-50)',
-    accessory: 'money_bag'
-  }
-]
+import type { CashTimeScale } from '@/components/caja/cajaTypes'
+import { getAccountingKpis, getAccountingDonut } from '@/data/accountingData'
 
 const CARD_HEIGHT_REM = 17.5 // 280px — reducir alto total para ganar espacio a la tabla
 const CARD_HEIGHT_PX = 280
@@ -86,24 +44,18 @@ const pxToRem = (px: number, rootFontSize = BASE_ROOT_FONT_SIZE_PX) =>
   px / rootFontSize
 
 const DONUT_LABEL_OFFSET_REM = 1
-const DONUT_VALUE = 1200
-const DONUT_TARGET = 1800
-const DONUT_DATA = [
-  { name: 'actual', value: DONUT_VALUE, color: 'var(--color-brand-500)' },
-  {
-    name: 'remaining',
-    value: Math.max(DONUT_TARGET - DONUT_VALUE, 0),
-    color: 'var(--color-brand-50)'
-  }
-]
 
 type CashSummaryCardProps = {
+  timeScale: CashTimeScale
   onHeightChange?: (heightRem: number) => void
 }
 
 export default function CashSummaryCard({
+  timeScale,
   onHeightChange
 }: CashSummaryCardProps) {
+  const kpis = useMemo(() => getAccountingKpis(timeScale), [timeScale])
+  const donutData = useMemo(() => getAccountingDonut(timeScale), [timeScale])
   const cardRef = useRef<HTMLDivElement | null>(null)
   const scaleRef = useRef(1)
   const [scale, setScale] = useState(1)
@@ -129,7 +81,6 @@ export default function CashSummaryCard({
 
   const sharedCardStyles: CSSProperties = {
     width: '100%',
-    maxWidth: `${INCOME_CARD_WIDTH_REM}rem`,
     height: `${CARD_HEIGHT_REM}rem`,
     overflow: 'hidden'
   }
@@ -154,17 +105,11 @@ export default function CashSummaryCard({
       style={sharedCardStyles}
     >
       <div
-        className='flex flex-col px-[1.5rem] py-[1rem]'
-        style={{
-          width: `${INCOME_CARD_WIDTH_REM}rem`,
-          height: `${CARD_HEIGHT_REM}rem`,
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left'
-        }}
+        className='flex flex-col px-[1.5rem] py-[1rem] w-full h-full'
       >
         <div className='mt-[1rem] flex flex-1 gap-gapmd'>
           <div className='grid flex-none' style={summaryGridStyles}>
-            {SUMMARY_CARDS.map((card) => (
+            {kpis.map((card) => (
               <SummaryInsightCard
                 key={card.id}
                 card={card}
@@ -173,7 +118,7 @@ export default function CashSummaryCard({
             ))}
           </div>
           <div className='flex flex-1 min-h-0'>
-            <CashDonutGauge />
+            <CashDonutGauge donutData={donutData} />
           </div>
         </div>
       </div>
@@ -185,11 +130,11 @@ function SummaryInsightCard({
   card,
   iconSizeRem
 }: {
-  card: SummaryCard
+  card: { id: string; title: string; value: string; delta: string; bg: string; icon: string }
   iconSizeRem: number
 }) {
   const cardStyles: CSSProperties = {
-    backgroundColor: card.color,
+    backgroundColor: card.bg,
     height: `${SUMMARY_CARD_HEIGHT_REM}rem`,
     width: `${SUMMARY_CARD_WIDTH_REM}rem`
   }
@@ -209,7 +154,7 @@ function SummaryInsightCard({
             }}
             aria-hidden
           >
-            {card.accessory}
+            {card.icon}
           </span>
         </div>
         <div className='flex flex-col gap-[0.125rem] text-neutral-600'>
@@ -218,7 +163,7 @@ function SummaryInsightCard({
             <p className='text-headline-sm text-neutral-600 whitespace-nowrap'>
               {card.value}
             </p>
-            <div className='flex items-center gap-[0.25rem] text-body-sm text-brand-500 whitespace-nowrap'>
+            <div className={`flex items-center gap-[0.25rem] text-body-sm whitespace-nowrap ${card.delta.startsWith('-') ? 'text-red-500' : 'text-brand-500'}`}>
               {card.delta}
               <span
                 className='material-symbols-rounded text-[1rem] leading-[1rem]'
@@ -237,7 +182,7 @@ function SummaryInsightCard({
   )
 }
 
-function CashDonutGauge() {
+function CashDonutGauge({ donutData }: { donutData: { data: Array<{ name: string; value: number; color: string }>; value: number; target: number } }) {
   const donutCardRef = useRef<HTMLDivElement | null>(null)
   const [chartDimensions, setChartDimensions] = useState(() => {
     const rootFontSize = BASE_ROOT_FONT_SIZE_PX
@@ -283,7 +228,7 @@ function CashDonutGauge() {
   }, [])
 
   const donutCardStyles: CSSProperties = {
-    width: `${DONUT_CARD_WIDTH_REM}rem`,
+    width: '100%',
     height: `${DONUT_CARD_HEIGHT_REM}rem`,
     position: 'relative',
     overflow: 'hidden',
@@ -336,7 +281,7 @@ function CashDonutGauge() {
           <ResponsiveContainer width='100%' height='100%'>
             <PieChart>
               <Pie
-                data={DONUT_DATA}
+                data={donutData.data}
                 dataKey='value'
                 startAngle={180}
                 endAngle={0}
@@ -346,7 +291,7 @@ function CashDonutGauge() {
                 cy='100%'
                 stroke='transparent'
               >
-                {DONUT_DATA.map((slice) => (
+                {donutData.data.map((slice) => (
                   <Cell key={slice.name} fill={slice.color} />
                 ))}
               </Pie>
@@ -360,7 +305,7 @@ function CashDonutGauge() {
         style={valueStackStyles}
       >
         <p className='text-[2.25rem] leading-[2.75rem] text-neutral-600'>
-          {DONUT_VALUE.toLocaleString('es-ES', {
+          {donutData.value.toLocaleString('es-ES', {
             minimumFractionDigits: 0
           })}{' '}
           €
@@ -368,7 +313,7 @@ function CashDonutGauge() {
         <div className='flex items-baseline gap-[0.5rem] text-[0.6875rem] leading-[1rem]'>
           <span className='font-medium'>de</span>
           <span className='text-[1.125rem] font-medium leading-[1.75rem]'>
-            {DONUT_TARGET.toLocaleString('es-ES', {
+            {donutData.target.toLocaleString('es-ES', {
               minimumFractionDigits: 0
             })}{' '}
             €

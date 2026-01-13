@@ -1,4 +1,5 @@
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
+import type { Specialty, SpecialtyFilter } from './gestionTypes'
 
 type ProductionTotalCardProps = {
   produced?: string
@@ -6,12 +7,43 @@ type ProductionTotalCardProps = {
   producedDelta?: string
   invoicedDelta?: string
   timeScale?: CashTimeScale
+  selectedSpecialty?: SpecialtyFilter
 }
 
-function getCardData(timeScale: CashTimeScale) {
+// Datos por especialidad - Semana
+const SPECIALTY_DATA_WEEK: Record<Specialty, { produced: number; invoiced: number; producedDelta: string; invoicedDelta: string }> = {
+  Conservadora: { produced: 3360, invoiced: 2880, producedDelta: '+15%', invoicedDelta: '+12%' },
+  Ortodoncia: { produced: 2520, invoiced: 2160, producedDelta: '+10%', invoicedDelta: '+8%' },
+  Implantes: { produced: 1680, invoiced: 1440, producedDelta: '+14%', invoicedDelta: '+11%' },
+  Estética: { produced: 840, invoiced: 720, producedDelta: '+8%', invoicedDelta: '+7%' }
+}
+
+// Datos por especialidad - Mes
+const SPECIALTY_DATA_MONTH: Record<Specialty, { produced: number; invoiced: number; producedDelta: string; invoicedDelta: string }> = {
+  Conservadora: { produced: 15120, invoiced: 12960, producedDelta: '+20%', invoicedDelta: '+17%' },
+  Ortodoncia: { produced: 11340, invoiced: 9720, producedDelta: '+16%', invoicedDelta: '+13%' },
+  Implantes: { produced: 7560, invoiced: 6480, producedDelta: '+19%', invoicedDelta: '+16%' },
+  Estética: { produced: 3780, invoiced: 3240, producedDelta: '+12%', invoicedDelta: '+10%' }
+}
+
+function getCardData(timeScale: CashTimeScale, specialty?: SpecialtyFilter) {
+  const periodLabel = timeScale === 'month' ? 'Mes' : 'Semana'
+  
+  if (specialty) {
+    const source = timeScale === 'month' ? SPECIALTY_DATA_MONTH : SPECIALTY_DATA_WEEK
+    const data = source[specialty]
+    return {
+      periodLabel: `${periodLabel} · ${specialty}`,
+      produced: data.produced,
+      invoiced: data.invoiced,
+      producedDelta: data.producedDelta,
+      invoicedDelta: data.invoicedDelta
+    }
+  }
+
   if (timeScale === 'month') {
     return {
-      periodLabel: 'Mes',
+      periodLabel,
       produced: 37800.0,
       invoiced: 32400.0,
       producedDelta: '+18%',
@@ -20,7 +52,7 @@ function getCardData(timeScale: CashTimeScale) {
   }
 
   return {
-    periodLabel: 'Semana',
+    periodLabel,
     produced: 8400.0,
     invoiced: 7200.0,
     producedDelta: '+12%',
@@ -40,9 +72,10 @@ export default function ProductionTotalCard({
   invoiced,
   producedDelta,
   invoicedDelta,
-  timeScale = 'week'
+  timeScale = 'week',
+  selectedSpecialty
 }: ProductionTotalCardProps) {
-  const data = getCardData(timeScale)
+  const data = getCardData(timeScale, selectedSpecialty)
 
   const producedValue = produced
     ? parseFloat(produced.replace(/[^0-9,.]/g, '').replace(',', '.'))

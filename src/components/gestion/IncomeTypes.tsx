@@ -1,14 +1,17 @@
+import type { CashTimeScale } from '@/components/caja/cajaTypes'
+import type { SpecialtyFilter } from './gestionTypes'
+
 type IncomeItem = {
   label: string
   value: string
   percent: string
 }
-import type { CashTimeScale } from '@/components/caja/cajaTypes'
 
 type IncomeTypesProps = {
   yearLabel?: string
   items?: IncomeItem[]
   timeScale?: CashTimeScale
+  selectedSpecialty?: SpecialtyFilter
 }
 
 function getItems(timeScale: CashTimeScale): IncomeItem[] {
@@ -33,9 +36,11 @@ function getItems(timeScale: CashTimeScale): IncomeItem[] {
 export default function IncomeTypes({
   yearLabel = '2024',
   items,
-  timeScale = 'week'
+  timeScale = 'week',
+  selectedSpecialty
 }: IncomeTypesProps) {
   void yearLabel
+  void selectedSpecialty // Will be used for filtering when connected to real data
   const data = items ?? getItems(timeScale)
 
   return (

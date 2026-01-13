@@ -2,6 +2,7 @@
 'use client'
 
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
+import type { SpecialtyFilter } from './gestionTypes'
 import type { CSSProperties } from 'react'
 import {
   Bar,
@@ -40,33 +41,83 @@ const HEADER_HEIGHT = '7.018%' // 24 / 342
 
 // Semana: Producido = 8.400 € (valores en €)
 const DATA_WEEK = [
-  { name: 'Dr. Guille', value: 3360, color: '#2A6B67' }, // 3.360 € (40%)
-  { name: 'Dra. Laura', value: 2520, color: '#51D6C7' }, // 2.520 € (30%)
-  { name: 'Tamara (Hig.)', value: 1260, color: '#D3F7F3' }, // 1.260 € (15%)
-  { name: 'Nerea (Hig.)', value: 1260, color: '#A8EFE7' } // 1.260 € (15%)
+  { name: 'Dr. Guille', value: 3360, color: '#2A6B67', specialties: ['Conservadora', 'Implantes'] },
+  { name: 'Dra. Laura', value: 2520, color: '#51D6C7', specialties: ['Ortodoncia', 'Estética'] },
+  { name: 'Tamara (Hig.)', value: 1260, color: '#D3F7F3', specialties: ['Conservadora'] },
+  { name: 'Nerea (Hig.)', value: 1260, color: '#A8EFE7', specialties: ['Conservadora', 'Estética'] }
 ]
 
 // Mes: Producido = 37.800 € (valores en €)
 const DATA_MONTH = [
-  { name: 'Dr. Guille', value: 15120, color: '#2A6B67' }, // 15.120 € (40%)
-  { name: 'Dra. Laura', value: 11340, color: '#51D6C7' }, // 11.340 € (30%)
-  { name: 'Tamara (Hig.)', value: 5670, color: '#D3F7F3' }, // 5.670 € (15%)
-  { name: 'Nerea (Hig.)', value: 5670, color: '#A8EFE7' } // 5.670 € (15%)
+  { name: 'Dr. Guille', value: 15120, color: '#2A6B67', specialties: ['Conservadora', 'Implantes'] },
+  { name: 'Dra. Laura', value: 11340, color: '#51D6C7', specialties: ['Ortodoncia', 'Estética'] },
+  { name: 'Tamara (Hig.)', value: 5670, color: '#D3F7F3', specialties: ['Conservadora'] },
+  { name: 'Nerea (Hig.)', value: 5670, color: '#A8EFE7', specialties: ['Conservadora', 'Estética'] }
 ]
 
+// Production values per professional by specialty (week)
+const SPECIALTY_PRODUCTION_WEEK: Record<string, Record<string, number>> = {
+  'Dr. Guille': { Conservadora: 1680, Ortodoncia: 0, Implantes: 1680, Estética: 0 },
+  'Dra. Laura': { Conservadora: 0, Ortodoncia: 1890, Implantes: 0, Estética: 630 },
+  'Tamara (Hig.)': { Conservadora: 1260, Ortodoncia: 0, Implantes: 0, Estética: 0 },
+  'Nerea (Hig.)': { Conservadora: 840, Ortodoncia: 0, Implantes: 0, Estética: 420 }
+}
+
+// Production values per professional by specialty (month)
+const SPECIALTY_PRODUCTION_MONTH: Record<string, Record<string, number>> = {
+  'Dr. Guille': { Conservadora: 7560, Ortodoncia: 0, Implantes: 7560, Estética: 0 },
+  'Dra. Laura': { Conservadora: 0, Ortodoncia: 8505, Implantes: 0, Estética: 2835 },
+  'Tamara (Hig.)': { Conservadora: 5670, Ortodoncia: 0, Implantes: 0, Estética: 0 },
+  'Nerea (Hig.)': { Conservadora: 3780, Ortodoncia: 0, Implantes: 0, Estética: 1890 }
+}
+
 export default function ProfessionalBars({
-  timeScale = 'week'
+  timeScale = 'week',
+  selectedSpecialty
 }: {
   timeScale?: CashTimeScale
+  selectedSpecialty?: SpecialtyFilter
 }) {
   const cardStyles: CSSProperties = {
     width: '100%',
     height: `min(${CARD_HEIGHT_REM}, var(--chart-prof-height-limit, ${CARD_HEIGHT_REM}))`
   }
 
-  const data = timeScale === 'month' ? DATA_MONTH : DATA_WEEK
-  const axisLabels = timeScale === 'month' ? AXIS_LABELS_MONTH : AXIS_LABELS_WEEK
-  const yDomain = timeScale === 'month' ? [0, 16000] : [0, 3500]
+  // Get base data for the time scale
+  const baseData = timeScale === 'month' ? DATA_MONTH : DATA_WEEK
+  const productionSource = timeScale === 'month' ? SPECIALTY_PRODUCTION_MONTH : SPECIALTY_PRODUCTION_WEEK
+
+  // Filter and adjust data based on selected specialty
+  const data = selectedSpecialty
+    ? baseData
+        .filter((prof) => prof.specialties.includes(selectedSpecialty))
+        .map((prof) => ({
+          ...prof,
+          value: productionSource[prof.name]?.[selectedSpecialty] ?? 0
+        }))
+        .filter((prof) => prof.value > 0)
+    : baseData
+
+  // Adjust Y-axis based on filtered data
+  const maxValue = Math.max(...data.map((d) => d.value), 1000)
+  const getYConfig = () => {
+    if (selectedSpecialty) {
+      // Dynamic scale based on max filtered value
+      const roundedMax = Math.ceil(maxValue / 1000) * 1000
+      const step = roundedMax / 5
+      return {
+        domain: [0, roundedMax] as [number, number],
+        ticks: Array.from({ length: 6 }, (_, i) => (5 - i) * step)
+      }
+    }
+    // Default scales
+    if (timeScale === 'month') {
+      return { domain: [0, 16000] as [number, number], ticks: AXIS_LABELS_MONTH }
+    }
+    return { domain: [0, 3500] as [number, number], ticks: AXIS_LABELS_WEEK }
+  }
+
+  const { domain: yDomain, ticks: axisLabels } = getYConfig()
 
   return (
     <section
@@ -84,6 +135,9 @@ export default function ProfessionalBars({
       >
         <h3 className='text-[1rem] font-medium leading-[1.5rem] text-[#24282C]'>
           Producción por profesional
+          {selectedSpecialty && (
+            <span className='text-brand-500 font-normal'> · {selectedSpecialty}</span>
+          )}
         </h3>
       </header>
 

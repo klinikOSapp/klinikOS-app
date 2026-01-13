@@ -1,6 +1,7 @@
 'use client'
 
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
+import type { SpecialtyFilter } from './gestionTypes'
 import type { CSSProperties } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 
@@ -14,57 +15,74 @@ const toWidth = (px: number) => {
   return `min(calc(${CARD_WIDTH} * ${ratio}), calc(${CARD_WIDTH_LIMIT} * ${ratio}))`
 }
 
-function getKpiCards(timeScale: CashTimeScale) {
-  if (timeScale === 'week') {
-    return [
-      {
-        title: 'Producido',
-        value: '8.400 €',
-        delta: '+ 12%',
-        bg: 'var(--color-info-50)',
-        icon: 'attach_money',
-        left: 16,
-        top: 64,
-        width: 198
-      },
-      {
-        title: 'Facturado',
-        value: '7.200 €',
-        delta: '+ 10%',
-        bg: '#e9f6fb',
-        icon: 'receipt_long',
-        left: 236,
-        top: 64,
-        width: 198
-      },
-      {
-        title: 'Cobrado',
-        value: '6.000 €',
-        delta: '+ 8%',
-        bg: 'var(--color-brand-50)',
-        icon: 'check_circle',
-        left: 16,
-        top: 196,
-        width: 198
-      },
-      {
-        title: 'Por cobrar',
-        value: '1.200 €',
-        delta: '- 5%',
-        bg: 'var(--color-warning-50)',
-        icon: 'hourglass_top',
-        left: 236,
-        top: 196,
-        width: 204
-      }
-    ] as const
+// Data by specialty for week
+const SPECIALTY_DATA_WEEK = {
+  Conservadora: {
+    produced: '3.360 €',
+    invoiced: '2.880 €',
+    collected: '2.400 €',
+    pending: '480 €',
+    deltas: { produced: '+ 15%', invoiced: '+ 12%', collected: '+ 10%', pending: '- 8%' }
+  },
+  Ortodoncia: {
+    produced: '2.520 €',
+    invoiced: '2.160 €',
+    collected: '1.800 €',
+    pending: '360 €',
+    deltas: { produced: '+ 10%', invoiced: '+ 8%', collected: '+ 6%', pending: '- 4%' }
+  },
+  Implantes: {
+    produced: '1.680 €',
+    invoiced: '1.440 €',
+    collected: '1.200 €',
+    pending: '240 €',
+    deltas: { produced: '+ 14%', invoiced: '+ 11%', collected: '+ 9%', pending: '- 6%' }
+  },
+  Estética: {
+    produced: '840 €',
+    invoiced: '720 €',
+    collected: '600 €',
+    pending: '120 €',
+    deltas: { produced: '+ 8%', invoiced: '+ 7%', collected: '+ 5%', pending: '- 3%' }
   }
+} as const
 
-  return [
+// Data by specialty for month
+const SPECIALTY_DATA_MONTH = {
+  Conservadora: {
+    produced: '15.120 €',
+    invoiced: '12.960 €',
+    collected: '10.800 €',
+    pending: '2.160 €',
+    deltas: { produced: '+ 20%', invoiced: '+ 17%', collected: '+ 14%', pending: '- 5%' }
+  },
+  Ortodoncia: {
+    produced: '11.340 €',
+    invoiced: '9.720 €',
+    collected: '8.100 €',
+    pending: '1.620 €',
+    deltas: { produced: '+ 16%', invoiced: '+ 13%', collected: '+ 11%', pending: '- 3%' }
+  },
+  Implantes: {
+    produced: '7.560 €',
+    invoiced: '6.480 €',
+    collected: '5.400 €',
+    pending: '1.080 €',
+    deltas: { produced: '+ 19%', invoiced: '+ 16%', collected: '+ 13%', pending: '- 4%' }
+  },
+  Estética: {
+    produced: '3.780 €',
+    invoiced: '3.240 €',
+    collected: '2.700 €',
+    pending: '540 €',
+    deltas: { produced: '+ 12%', invoiced: '+ 10%', collected: '+ 8%', pending: '- 2%' }
+  }
+} as const
+
+function getKpiCards(timeScale: CashTimeScale, specialty?: SpecialtyFilter) {
+  const baseCards = [
     {
       title: 'Producido',
-      value: '37.800 €',
-      delta: '+ 18%',
       bg: 'var(--color-info-50)',
       icon: 'attach_money',
       left: 16,
@@ -73,8 +91,6 @@ function getKpiCards(timeScale: CashTimeScale) {
     },
     {
       title: 'Facturado',
-      value: '32.400 €',
-      delta: '+ 15%',
       bg: '#e9f6fb',
       icon: 'receipt_long',
       left: 236,
@@ -83,8 +99,6 @@ function getKpiCards(timeScale: CashTimeScale) {
     },
     {
       title: 'Cobrado',
-      value: '27.000 €',
-      delta: '+ 12%',
       bg: 'var(--color-brand-50)',
       icon: 'check_circle',
       left: 16,
@@ -93,8 +107,6 @@ function getKpiCards(timeScale: CashTimeScale) {
     },
     {
       title: 'Por cobrar',
-      value: '5.400 €',
-      delta: '- 3%',
       bg: 'var(--color-warning-50)',
       icon: 'hourglass_top',
       left: 236,
@@ -102,31 +114,71 @@ function getKpiCards(timeScale: CashTimeScale) {
       width: 204
     }
   ] as const
-}
 
-function getDonut(timeScale: CashTimeScale) {
-  if (timeScale === 'week') {
-    // Cobrado vs Facturado (objetivo de cobro)
-    const value = 6000
-    const target = 7200
-    return {
-      data: [
-        { name: 'actual', value, color: 'var(--color-brand-500)' },
-        {
-          name: 'remaining',
-          value: Math.max(target - value, 0),
-          color: 'var(--color-brand-50)'
-        }
-      ],
-      progress: value / target,
-      valueLabel: '6.000 €',
-      targetLabel: '7.200 €'
-    }
+  // If specialty is selected, use specialty-specific data
+  if (specialty) {
+    const dataSource = timeScale === 'month' ? SPECIALTY_DATA_MONTH : SPECIALTY_DATA_WEEK
+    const specialtyData = dataSource[specialty]
+    return baseCards.map((card, index) => ({
+      ...card,
+      value: index === 0 ? specialtyData.produced :
+             index === 1 ? specialtyData.invoiced :
+             index === 2 ? specialtyData.collected :
+             specialtyData.pending,
+      delta: index === 0 ? specialtyData.deltas.produced :
+             index === 1 ? specialtyData.deltas.invoiced :
+             index === 2 ? specialtyData.deltas.collected :
+             specialtyData.deltas.pending
+    }))
   }
 
-  // Mes: Cobrado vs Facturado
-  const value = 27000
-  const target = 32400
+  // Default totals (no filter)
+  if (timeScale === 'week') {
+    return baseCards.map((card, index) => ({
+      ...card,
+      value: ['8.400 €', '7.200 €', '6.000 €', '1.200 €'][index],
+      delta: ['+ 12%', '+ 10%', '+ 8%', '- 5%'][index]
+    }))
+  }
+
+  return baseCards.map((card, index) => ({
+    ...card,
+    value: ['37.800 €', '32.400 €', '27.000 €', '5.400 €'][index],
+    delta: ['+ 18%', '+ 15%', '+ 12%', '- 3%'][index]
+  }))
+}
+
+function getDonut(timeScale: CashTimeScale, specialty?: SpecialtyFilter) {
+  // Specialty-specific values
+  const specialtyValuesWeek = {
+    Conservadora: { value: 2400, target: 2880 },
+    Ortodoncia: { value: 1800, target: 2160 },
+    Implantes: { value: 1200, target: 1440 },
+    Estética: { value: 600, target: 720 }
+  }
+
+  const specialtyValuesMonth = {
+    Conservadora: { value: 10800, target: 12960 },
+    Ortodoncia: { value: 8100, target: 9720 },
+    Implantes: { value: 5400, target: 6480 },
+    Estética: { value: 2700, target: 3240 }
+  }
+
+  let value: number
+  let target: number
+
+  if (specialty) {
+    const source = timeScale === 'month' ? specialtyValuesMonth : specialtyValuesWeek
+    value = source[specialty].value
+    target = source[specialty].target
+  } else if (timeScale === 'week') {
+    value = 6000
+    target = 7200
+  } else {
+    value = 27000
+    target = 32400
+  }
+
   return {
     data: [
       { name: 'actual', value, color: 'var(--color-brand-500)' },
@@ -137,39 +189,15 @@ function getDonut(timeScale: CashTimeScale) {
       }
     ],
     progress: value / target,
-    valueLabel: '27.000 €',
-    targetLabel: '32.400 €'
+    valueLabel: value.toLocaleString('es-ES') + ' €',
+    targetLabel: target.toLocaleString('es-ES') + ' €'
   }
 }
 
-function getSideStack(timeScale: CashTimeScale) {
-  if (timeScale === 'week') {
-    return [
-      {
-        title: 'Total facturación',
-        value: '7.200 €',
-        top: 64,
-        height: 248,
-        bg: 'var(--color-brand-50)',
-        percent: undefined,
-        textClass: 'text-fg-secondary'
-      },
-      {
-        title: 'Gastos fijos',
-        value: '4.320 €',
-        top: 160,
-        height: 177,
-        bg: 'var(--color-brand-200)',
-        percent: '60%',
-        textClass: 'text-fg-secondary'
-      }
-    ] as const
-  }
-
-  return [
+function getSideStack(timeScale: CashTimeScale, specialty?: SpecialtyFilter) {
+  const baseStack = [
     {
-      title: 'Total facturación',
-      value: '32.400 €',
+      title: specialty ? `Facturación ${specialty}` : 'Total facturación',
       top: 64,
       height: 248,
       bg: 'var(--color-brand-50)',
@@ -178,7 +206,6 @@ function getSideStack(timeScale: CashTimeScale) {
     },
     {
       title: 'Gastos fijos',
-      value: '19.440 €',
       top: 160,
       height: 177,
       bg: 'var(--color-brand-200)',
@@ -186,6 +213,41 @@ function getSideStack(timeScale: CashTimeScale) {
       textClass: 'text-fg-secondary'
     }
   ] as const
+
+  // Specialty-specific invoiced values
+  const specialtyInvoicedWeek = {
+    Conservadora: 2880,
+    Ortodoncia: 2160,
+    Implantes: 1440,
+    Estética: 720
+  }
+
+  const specialtyInvoicedMonth = {
+    Conservadora: 12960,
+    Ortodoncia: 9720,
+    Implantes: 6480,
+    Estética: 3240
+  }
+
+  let invoiced: number
+  if (specialty) {
+    invoiced = timeScale === 'month' ? specialtyInvoicedMonth[specialty] : specialtyInvoicedWeek[specialty]
+  } else {
+    invoiced = timeScale === 'month' ? 32400 : 7200
+  }
+
+  const fixedCosts = Math.round(invoiced * 0.6) // 60% fixed costs ratio
+
+  return [
+    {
+      ...baseStack[0],
+      value: invoiced.toLocaleString('es-ES') + ' €'
+    },
+    {
+      ...baseStack[1],
+      value: fixedCosts.toLocaleString('es-ES') + ' €'
+    }
+  ]
 }
 
 const toHeight = (px: number) => {
@@ -205,13 +267,15 @@ const STACK_SCALE = Number((DONUT_CARD_HEIGHT / STACK_TOTAL_SPAN_PX).toFixed(6))
 const DONUT_LEFT = 457 // px
 
 export default function AccountingPanel({
-  timeScale
+  timeScale,
+  selectedSpecialty
 }: {
   timeScale: CashTimeScale
+  selectedSpecialty?: SpecialtyFilter
 }) {
-  const kpis = getKpiCards(timeScale)
-  const sideStack = getSideStack(timeScale)
-  const donut = getDonut(timeScale)
+  const kpis = getKpiCards(timeScale, selectedSpecialty)
+  const sideStack = getSideStack(timeScale, selectedSpecialty)
+  const donut = getDonut(timeScale, selectedSpecialty)
 
   const sectionStyle: AccountingStyle = {
     width: '100%',
@@ -236,7 +300,12 @@ export default function AccountingPanel({
           top: toHeight(16)
         }}
       >
-        <span>Panel de contabilidad</span>
+        <span>
+          Panel de contabilidad
+          {selectedSpecialty && (
+            <span className='text-brand-500 font-normal'> · {selectedSpecialty}</span>
+          )}
+        </span>
       </header>
 
       {kpis.map((card) => (

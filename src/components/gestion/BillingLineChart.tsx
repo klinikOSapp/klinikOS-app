@@ -1,6 +1,7 @@
 'use client'
 
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
+import type { Specialty, SpecialtyFilter } from './gestionTypes'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Line,
@@ -16,6 +17,7 @@ type BillingLineChartProps = {
   yearLabel?: string
   timeScale: CashTimeScale
   anchorDate: Date
+  selectedSpecialty?: SpecialtyFilter
 }
 
 const CARD_HEIGHT_VAR = 'var(--height-card-chart-fluid)'
@@ -54,6 +56,14 @@ const WEEKLY_DATA = [
   { brand: 7200, accent: 6400 }
 ] as const
 
+// Porcentajes de facturación por especialidad (suman 100%)
+const SPECIALTY_PERCENTAGES: Record<Specialty, number> = {
+  Conservadora: 0.40, // 40%
+  Ortodoncia: 0.30,   // 30%
+  Implantes: 0.20,    // 20%
+  Estética: 0.10      // 10%
+}
+
 // Escalas Y dinámicas según timeScale
 const Y_CONFIG = {
   month: {
@@ -70,20 +80,47 @@ const Y_CONFIG = {
   }
 }
 
+// Y config for filtered specialties
+const Y_CONFIG_SPECIALTY: Record<Specialty, { month: { domain: [number, number]; labels: string[] }; week: { domain: [number, number]; labels: string[] } }> = {
+  Conservadora: {
+    month: { domain: [0, 16000], labels: ['16K', '12.8K', '9.6K', '6.4K', '3.2K', '0'] },
+    week: { domain: [0, 4000], labels: ['4K', '3.2K', '2.4K', '1.6K', '800', '0'] }
+  },
+  Ortodoncia: {
+    month: { domain: [0, 12000], labels: ['12K', '9.6K', '7.2K', '4.8K', '2.4K', '0'] },
+    week: { domain: [0, 3000], labels: ['3K', '2.4K', '1.8K', '1.2K', '600', '0'] }
+  },
+  Implantes: {
+    month: { domain: [0, 8000], labels: ['8K', '6.4K', '4.8K', '3.2K', '1.6K', '0'] },
+    week: { domain: [0, 2000], labels: ['2K', '1.6K', '1.2K', '800', '400', '0'] }
+  },
+  Estética: {
+    month: { domain: [0, 4000], labels: ['4K', '3.2K', '2.4K', '1.6K', '800', '0'] },
+    week: { domain: [0, 1000], labels: ['1K', '800', '600', '400', '200', '0'] }
+  }
+}
+
 export default function BillingLineChart({
   timeScale,
-  anchorDate
+  anchorDate,
+  selectedSpecialty
 }: BillingLineChartProps) {
   const [isMounted, setIsMounted] = useState(false)
   const chartContainerRef = useRef<HTMLDivElement | null>(null)
 
   const chartData = useMemo(
-    () => buildChartData(timeScale, anchorDate),
-    [timeScale, anchorDate]
+    () => buildChartData(timeScale, anchorDate, selectedSpecialty),
+    [timeScale, anchorDate, selectedSpecialty]
   )
 
-  // Escala Y dinámica según timeScale
-  const yConfig = Y_CONFIG[timeScale] ?? Y_CONFIG.month
+  // Escala Y dinámica según timeScale y especialidad
+  const yConfig = useMemo(() => {
+    if (selectedSpecialty) {
+      const specialtyConfig = Y_CONFIG_SPECIALTY[selectedSpecialty]
+      return timeScale === 'month' ? specialtyConfig.month : specialtyConfig.week
+    }
+    return Y_CONFIG[timeScale] ?? Y_CONFIG.month
+  }, [timeScale, selectedSpecialty])
 
   // La línea amarilla marca el período actual (último punto con datos)
   // En vista mensual, el mes actual es el último con datos
@@ -138,7 +175,12 @@ export default function BillingLineChart({
     >
       {/* Header */}
       <header className='flex shrink-0 items-center justify-between px-4 pt-4'>
-        <h3 className='text-title-sm font-medium text-fg'>Facturación</h3>
+        <h3 className='text-title-sm font-medium text-fg'>
+          Facturación
+          {selectedSpecialty && (
+            <span className='text-brand-500 font-normal'> · {selectedSpecialty}</span>
+          )}
+        </h3>
         {/* Legend */}
         <div className='flex items-center gap-4 text-label-sm'>
           <div className='flex items-center gap-1.5'>
@@ -356,18 +398,19 @@ function ChartTooltip(props: ChartTooltipProps) {
 
 type ChartPoint = { month: string; brand: number | null; accent: number | null }
 
-function buildChartData(scale: CashTimeScale, anchorDate: Date): ChartPoint[] {
+function buildChartData(scale: CashTimeScale, anchorDate: Date, specialty?: SpecialtyFilter): ChartPoint[] {
   switch (scale) {
     case 'week':
-      return buildWeeklyData(anchorDate)
+      return buildWeeklyData(anchorDate, specialty)
     case 'month':
     default:
-      return buildMonthlyData(anchorDate)
+      return buildMonthlyData(anchorDate, specialty)
   }
 }
 
-function buildMonthlyData(anchorDate: Date): ChartPoint[] {
+function buildMonthlyData(anchorDate: Date, specialty?: SpecialtyFilter): ChartPoint[] {
   const formatter = new Intl.DateTimeFormat('es-ES', { month: 'short' })
+  const multiplier = specialty ? SPECIALTY_PERCENTAGES[specialty] : 1
   
   // El mes actual estará en posición 9, dejando 2 meses futuros vacíos (posiciones 10 y 11)
   const currentPeriodIdx = 9
@@ -386,8 +429,8 @@ function buildMonthlyData(anchorDate: Date): ChartPoint[] {
     if (i <= currentPeriodIdx) {
       result.push({
         month: monthLabel,
-        brand: CHART_DATA[dataIndex].brand,
-        accent: CHART_DATA[dataIndex].accent
+        brand: Math.round(CHART_DATA[dataIndex].brand * multiplier),
+        accent: Math.round(CHART_DATA[dataIndex].accent * multiplier)
       })
     } else {
       // Meses futuros sin datos
@@ -401,8 +444,9 @@ function buildMonthlyData(anchorDate: Date): ChartPoint[] {
   return result
 }
 
-function buildWeeklyData(anchorDate: Date): ChartPoint[] {
+function buildWeeklyData(anchorDate: Date, specialty?: SpecialtyFilter): ChartPoint[] {
   const data: ChartPoint[] = []
+  const multiplier = specialty ? SPECIALTY_PERCENTAGES[specialty] : 1
   // La semana actual estará en posición 9, dejando 2 semanas futuras vacías
   const currentWeekIdx = 9
   
@@ -420,8 +464,8 @@ function buildWeeklyData(anchorDate: Date): ChartPoint[] {
     if (i <= currentWeekIdx) {
       data.push({
         month: `S${weekNumber}`,
-        brand: weekData.brand,
-        accent: weekData.accent
+        brand: Math.round(weekData.brand * multiplier),
+        accent: Math.round(weekData.accent * multiplier)
       })
     } else {
       // Semanas futuras sin datos

@@ -1,4 +1,5 @@
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
+import type { SpecialtyFilter } from './gestionTypes'
 
 type PatientItem = {
   label: string
@@ -11,6 +12,7 @@ type PatientsSummaryProps = {
   yearLabel?: string
   items?: PatientItem[]
   timeScale?: CashTimeScale
+  selectedSpecialty?: SpecialtyFilter
 }
 
 function getItems(timeScale: CashTimeScale): PatientItem[] {
@@ -34,9 +36,11 @@ function getItems(timeScale: CashTimeScale): PatientItem[] {
 export default function PatientsSummary({
   yearLabel = '2024',
   items,
-  timeScale = 'week'
+  timeScale = 'week',
+  selectedSpecialty
 }: PatientsSummaryProps) {
   void yearLabel
+  void selectedSpecialty // Will be used for filtering when connected to real data
   const data = items ?? getItems(timeScale)
 
   return (

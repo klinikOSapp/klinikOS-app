@@ -10,6 +10,7 @@ import ProductionTotalCard from '@/components/gestion/ProductionTotalCard'
 import ProfessionalBars from '@/components/gestion/ProfessionalBars'
 import SpecialtyDonut from '@/components/gestion/SpecialtyDonut'
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
+import type { SpecialtyFilter } from '@/components/gestion/gestionTypes'
 import type { CSSProperties } from 'react'
 import { useCallback, useMemo, useState } from 'react'
 
@@ -29,6 +30,7 @@ const thirdRowStyles = {
 export default function GestionPage() {
   const [timeScale, setTimeScale] = useState<CashTimeScale>('week')
   const [anchorDate, setAnchorDate] = useState(() => new Date())
+  const [selectedSpecialty, setSelectedSpecialty] = useState<SpecialtyFilter>(null)
 
   const dateLabel = useMemo(
     () => formatToolbarLabel(anchorDate, timeScale),
@@ -58,21 +60,43 @@ export default function GestionPage() {
             className='container-page py-fluid-md pb-plnav flex h-full flex-col gap-gapmd overflow-hidden'
             style={{ '--dashboard-max-width': '100%' } as React.CSSProperties}
           >
-            <CashToolbar
-              dateLabel={dateLabel}
-              onNavigateNext={() => handleNavigate(1)}
-              onNavigatePrevious={() => handleNavigate(-1)}
-              timeScale={timeScale}
-              onTimeScaleChange={handleTimeScaleChange}
-              showClosingButton={false}
-            />
+            {/* Toolbar row with filter indicator */}
+            <div className='flex items-center justify-between gap-gapmd'>
+              <CashToolbar
+                dateLabel={dateLabel}
+                onNavigateNext={() => handleNavigate(1)}
+                onNavigatePrevious={() => handleNavigate(-1)}
+                timeScale={timeScale}
+                onTimeScaleChange={handleTimeScaleChange}
+                showClosingButton={false}
+              />
+
+              {/* Specialty filter indicator - inline with controls */}
+              {selectedSpecialty && (
+                <div className='flex items-center gap-2 shrink-0'>
+                  <span className='text-sm text-neutral-600 hidden sm:inline'>
+                    Filtrando por:
+                  </span>
+                  <button
+                    type='button'
+                    onClick={() => setSelectedSpecialty(null)}
+                    className='inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-100'
+                  >
+                    {selectedSpecialty}
+                    <span className='material-symbols-rounded text-base leading-none'>
+                      close
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
 
             <div className='flex h-full flex-col gap-gapmd min-h-0'>
               {/* First row - Stats cards - 3 columns on desktop (aligned with charts rows) */}
               <div className='dashboard-stats-row flex-none min-w-0'>
-                <IncomeTypes timeScale={timeScale} />
-                <PatientsSummary timeScale={timeScale} />
-                <ProductionTotalCard timeScale={timeScale} />
+                <IncomeTypes timeScale={timeScale} selectedSpecialty={selectedSpecialty} />
+                <PatientsSummary timeScale={timeScale} selectedSpecialty={selectedSpecialty} />
+                <ProductionTotalCard timeScale={timeScale} selectedSpecialty={selectedSpecialty} />
               </div>
 
               {/* Second row - Billing chart + Specialty donut - 2:1 ratio on desktop */}
@@ -83,8 +107,13 @@ export default function GestionPage() {
                 <BillingLineChart
                   timeScale={timeScale}
                   anchorDate={anchorDate}
+                  selectedSpecialty={selectedSpecialty}
                 />
-                <SpecialtyDonut timeScale={timeScale} />
+                <SpecialtyDonut
+                  timeScale={timeScale}
+                  selectedSpecialty={selectedSpecialty}
+                  onSpecialtySelect={setSelectedSpecialty}
+                />
               </div>
 
               {/* Third row - Accounting + Professional bars - 2:1 ratio on desktop */}
@@ -92,8 +121,8 @@ export default function GestionPage() {
                 className='dashboard-charts-row dashboard-grid-bottom flex-1 min-h-0 min-w-0'
                 style={thirdRowStyles}
               >
-                <AccountingPanel timeScale={timeScale} />
-                <ProfessionalBars timeScale={timeScale} />
+                <AccountingPanel timeScale={timeScale} selectedSpecialty={selectedSpecialty} />
+                <ProfessionalBars timeScale={timeScale} selectedSpecialty={selectedSpecialty} />
               </div>
             </div>
           </div>

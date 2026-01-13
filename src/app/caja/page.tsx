@@ -11,12 +11,10 @@ import PatientRecordModal, {
 } from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import { useCallback, useMemo, useState } from 'react'
 
+// Proporción entre las tarjetas (Summary : Trend)
 const SUMMARY_CARD_WIDTH_REM = 66.8125 // 1069px
 const TREND_CARD_MIN_WIDTH_REM = 32.6875 // 523px
-const SUMMARY_TREND_TOTAL_REM =
-  SUMMARY_CARD_WIDTH_REM + TREND_CARD_MIN_WIDTH_REM // 99.5rem total Figma
 const SUMMARY_TO_TREND_RATIO = SUMMARY_CARD_WIDTH_REM / TREND_CARD_MIN_WIDTH_REM
-const SUMMARY_MIN_WIDTH_REM = 40 // 640px mínimo visible (Figma-friendly)
 
 export default function CajaPage() {
   const [timeScale, setTimeScale] = useState<CashTimeScale>('week')
@@ -67,15 +65,13 @@ export default function CajaPage() {
 
             <div className='flex flex-col flex-1 overflow-hidden gap-gapmd min-w-0'>
               <div
-                className='flex flex-col gap-gapmd xl:grid xl:items-stretch min-w-0'
+                className='flex flex-col gap-gapmd xl:grid xl:items-stretch min-w-0 w-full'
                 style={{
-                  width: '100%',
-                  maxWidth: `min(${SUMMARY_TREND_TOTAL_REM}rem, 100%)`,
-                  gridTemplateColumns: `minmax(${SUMMARY_MIN_WIDTH_REM}rem, ${SUMMARY_TO_TREND_RATIO}fr) minmax(${TREND_CARD_MIN_WIDTH_REM}rem, 1fr)`
+                  gridTemplateColumns: `minmax(0, ${SUMMARY_TO_TREND_RATIO}fr) minmax(0, 1fr)`
                 }}
               >
                 <div className='w-full min-w-0'>
-                  <CashSummaryCard onHeightChange={handleSummaryHeight} />
+                  <CashSummaryCard timeScale={timeScale} onHeightChange={handleSummaryHeight} />
                 </div>
                 <div className='w-full min-w-0'>
                   <CashTrendCard
