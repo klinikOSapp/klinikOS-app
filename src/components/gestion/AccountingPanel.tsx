@@ -1,9 +1,9 @@
 'use client'
 
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
-import type { SpecialtyFilter } from './gestionTypes'
 import type { CSSProperties } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
+import type { SpecialtyFilter } from './gestionTypes'
 
 const CARD_WIDTH = 'var(--width-card-chart-lg-fluid)'
 const CARD_HEIGHT_CLAMP = 'clamp(15rem, 34vh, 21.375rem)'
@@ -22,28 +22,48 @@ const SPECIALTY_DATA_WEEK = {
     invoiced: '2.880 €',
     collected: '2.400 €',
     pending: '480 €',
-    deltas: { produced: '+ 15%', invoiced: '+ 12%', collected: '+ 10%', pending: '- 8%' }
+    deltas: {
+      produced: '+ 15%',
+      invoiced: '+ 12%',
+      collected: '+ 10%',
+      pending: '- 8%'
+    }
   },
   Ortodoncia: {
     produced: '2.520 €',
     invoiced: '2.160 €',
     collected: '1.800 €',
     pending: '360 €',
-    deltas: { produced: '+ 10%', invoiced: '+ 8%', collected: '+ 6%', pending: '- 4%' }
+    deltas: {
+      produced: '+ 10%',
+      invoiced: '+ 8%',
+      collected: '+ 6%',
+      pending: '- 4%'
+    }
   },
   Implantes: {
     produced: '1.680 €',
     invoiced: '1.440 €',
     collected: '1.200 €',
     pending: '240 €',
-    deltas: { produced: '+ 14%', invoiced: '+ 11%', collected: '+ 9%', pending: '- 6%' }
+    deltas: {
+      produced: '+ 14%',
+      invoiced: '+ 11%',
+      collected: '+ 9%',
+      pending: '- 6%'
+    }
   },
   Estética: {
     produced: '840 €',
     invoiced: '720 €',
     collected: '600 €',
     pending: '120 €',
-    deltas: { produced: '+ 8%', invoiced: '+ 7%', collected: '+ 5%', pending: '- 3%' }
+    deltas: {
+      produced: '+ 8%',
+      invoiced: '+ 7%',
+      collected: '+ 5%',
+      pending: '- 3%'
+    }
   }
 } as const
 
@@ -54,28 +74,48 @@ const SPECIALTY_DATA_MONTH = {
     invoiced: '12.960 €',
     collected: '10.800 €',
     pending: '2.160 €',
-    deltas: { produced: '+ 20%', invoiced: '+ 17%', collected: '+ 14%', pending: '- 5%' }
+    deltas: {
+      produced: '+ 20%',
+      invoiced: '+ 17%',
+      collected: '+ 14%',
+      pending: '- 5%'
+    }
   },
   Ortodoncia: {
     produced: '11.340 €',
     invoiced: '9.720 €',
     collected: '8.100 €',
     pending: '1.620 €',
-    deltas: { produced: '+ 16%', invoiced: '+ 13%', collected: '+ 11%', pending: '- 3%' }
+    deltas: {
+      produced: '+ 16%',
+      invoiced: '+ 13%',
+      collected: '+ 11%',
+      pending: '- 3%'
+    }
   },
   Implantes: {
     produced: '7.560 €',
     invoiced: '6.480 €',
     collected: '5.400 €',
     pending: '1.080 €',
-    deltas: { produced: '+ 19%', invoiced: '+ 16%', collected: '+ 13%', pending: '- 4%' }
+    deltas: {
+      produced: '+ 19%',
+      invoiced: '+ 16%',
+      collected: '+ 13%',
+      pending: '- 4%'
+    }
   },
   Estética: {
     produced: '3.780 €',
     invoiced: '3.240 €',
     collected: '2.700 €',
     pending: '540 €',
-    deltas: { produced: '+ 12%', invoiced: '+ 10%', collected: '+ 8%', pending: '- 2%' }
+    deltas: {
+      produced: '+ 12%',
+      invoiced: '+ 10%',
+      collected: '+ 8%',
+      pending: '- 2%'
+    }
   }
 } as const
 
@@ -117,18 +157,27 @@ function getKpiCards(timeScale: CashTimeScale, specialty?: SpecialtyFilter) {
 
   // If specialty is selected, use specialty-specific data
   if (specialty) {
-    const dataSource = timeScale === 'month' ? SPECIALTY_DATA_MONTH : SPECIALTY_DATA_WEEK
+    const dataSource =
+      timeScale === 'month' ? SPECIALTY_DATA_MONTH : SPECIALTY_DATA_WEEK
     const specialtyData = dataSource[specialty]
     return baseCards.map((card, index) => ({
       ...card,
-      value: index === 0 ? specialtyData.produced :
-             index === 1 ? specialtyData.invoiced :
-             index === 2 ? specialtyData.collected :
-             specialtyData.pending,
-      delta: index === 0 ? specialtyData.deltas.produced :
-             index === 1 ? specialtyData.deltas.invoiced :
-             index === 2 ? specialtyData.deltas.collected :
-             specialtyData.deltas.pending
+      value:
+        index === 0
+          ? specialtyData.produced
+          : index === 1
+          ? specialtyData.invoiced
+          : index === 2
+          ? specialtyData.collected
+          : specialtyData.pending,
+      delta:
+        index === 0
+          ? specialtyData.deltas.produced
+          : index === 1
+          ? specialtyData.deltas.invoiced
+          : index === 2
+          ? specialtyData.deltas.collected
+          : specialtyData.deltas.pending
     }))
   }
 
@@ -168,7 +217,8 @@ function getDonut(timeScale: CashTimeScale, specialty?: SpecialtyFilter) {
   let target: number
 
   if (specialty) {
-    const source = timeScale === 'month' ? specialtyValuesMonth : specialtyValuesWeek
+    const source =
+      timeScale === 'month' ? specialtyValuesMonth : specialtyValuesWeek
     value = source[specialty].value
     target = source[specialty].target
   } else if (timeScale === 'week') {
@@ -231,7 +281,10 @@ function getSideStack(timeScale: CashTimeScale, specialty?: SpecialtyFilter) {
 
   let invoiced: number
   if (specialty) {
-    invoiced = timeScale === 'month' ? specialtyInvoicedMonth[specialty] : specialtyInvoicedWeek[specialty]
+    invoiced =
+      timeScale === 'month'
+        ? specialtyInvoicedMonth[specialty]
+        : specialtyInvoicedWeek[specialty]
   } else {
     invoiced = timeScale === 'month' ? 32400 : 7200
   }
@@ -303,7 +356,10 @@ export default function AccountingPanel({
         <span>
           Panel de contabilidad
           {selectedSpecialty && (
-            <span className='text-brand-500 font-normal'> · {selectedSpecialty}</span>
+            <span className='text-brand-500 font-normal'>
+              {' '}
+              · {selectedSpecialty}
+            </span>
           )}
         </span>
       </header>
