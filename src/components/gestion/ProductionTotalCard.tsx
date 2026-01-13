@@ -12,19 +12,19 @@ function getCardData(timeScale: CashTimeScale) {
   if (timeScale === 'month') {
     return {
       periodLabel: 'Mes',
-      produced: 12450.0,
-      invoiced: 9800.0,
-      producedDelta: '+22%',
-      invoicedDelta: '+18%'
+      produced: 37800.0,
+      invoiced: 32400.0,
+      producedDelta: '+18%',
+      invoicedDelta: '+15%'
     }
   }
 
   return {
     periodLabel: 'Semana',
-    produced: 3200.89,
-    invoiced: 2500.89,
-    producedDelta: '+42%',
-    invoicedDelta: '+35%'
+    produced: 8400.0,
+    invoiced: 7200.0,
+    producedDelta: '+12%',
+    invoicedDelta: '+10%'
   }
 }
 
@@ -43,10 +43,14 @@ export default function ProductionTotalCard({
   timeScale = 'week'
 }: ProductionTotalCardProps) {
   const data = getCardData(timeScale)
-  
-  const producedValue = produced ? parseFloat(produced.replace(/[^0-9,.]/g, '').replace(',', '.')) : data.produced
-  const invoicedValue = invoiced ? parseFloat(invoiced.replace(/[^0-9,.]/g, '').replace(',', '.')) : data.invoiced
-  
+
+  const producedValue = produced
+    ? parseFloat(produced.replace(/[^0-9,.]/g, '').replace(',', '.'))
+    : data.produced
+  const invoicedValue = invoiced
+    ? parseFloat(invoiced.replace(/[^0-9,.]/g, '').replace(',', '.'))
+    : data.invoiced
+
   // Calculate the billing ratio (what % of produced has been invoiced)
   const billingRatio = Math.min((invoicedValue / producedValue) * 100, 100)
   const pendingAmount = producedValue - invoicedValue
@@ -72,7 +76,9 @@ export default function ProductionTotalCard({
             <div className='flex flex-col min-w-0 overflow-hidden'>
               <div className='flex items-center gap-[0.25rem] mb-[0.125rem]'>
                 <span className='w-[6px] h-[6px] rounded-full bg-[var(--color-brand-300)] shrink-0' />
-                <span className='text-label-sm text-[var(--color-brand-300)] truncate'>Producido</span>
+                <span className='text-label-sm text-[var(--color-brand-300)] truncate'>
+                  Producido
+                </span>
               </div>
               <div className='flex items-baseline gap-[0.25rem] flex-wrap'>
                 <span className='text-title-md font-bold text-[var(--color-text-inverse)]'>
@@ -88,7 +94,9 @@ export default function ProductionTotalCard({
             <div className='flex flex-col min-w-0 overflow-hidden'>
               <div className='flex items-center gap-[0.25rem] mb-[0.125rem]'>
                 <span className='w-[6px] h-[6px] rounded-full bg-[var(--color-brand-500)] shrink-0' />
-                <span className='text-label-sm text-[var(--color-brand-400)] truncate'>Facturado</span>
+                <span className='text-label-sm text-[var(--color-brand-400)] truncate'>
+                  Facturado
+                </span>
               </div>
               <div className='flex items-baseline gap-[0.25rem] flex-wrap'>
                 <span className='text-title-md font-bold text-[var(--color-text-inverse)]'>
@@ -107,16 +115,16 @@ export default function ProductionTotalCard({
           {/* Progress bar */}
           <div className='relative w-full h-[6px] bg-[var(--color-brand-800)] rounded-full overflow-hidden'>
             <div className='absolute inset-0 bg-[var(--color-brand-700)] rounded-full opacity-40' />
-            <div 
+            <div
               className='absolute left-0 top-0 h-full bg-gradient-to-r from-[var(--color-brand-500)] to-[var(--color-brand-400)] rounded-full transition-all duration-700'
               style={{ width: `${billingRatio}%` }}
             />
           </div>
-          
+
           {/* Bottom row */}
           <div className='flex items-center justify-between mt-[0.375rem] gap-[0.5rem]'>
             <span className='text-label-sm font-medium text-[var(--color-brand-300)] truncate'>
-              {billingRatio.toFixed(0)}% cobrado
+              {billingRatio.toFixed(0)}% facturado
             </span>
             {pendingAmount > 0 && (
               <span className='text-label-sm text-[var(--color-brand-500)] truncate shrink-0'>

@@ -19,8 +19,8 @@ function getKpiCards(timeScale: CashTimeScale) {
     return [
       {
         title: 'Producido',
-        value: '320 €',
-        delta: '+ 3%',
+        value: '8.400 €',
+        delta: '+ 12%',
         bg: 'var(--color-info-50)',
         icon: 'attach_money',
         left: 16,
@@ -29,8 +29,8 @@ function getKpiCards(timeScale: CashTimeScale) {
       },
       {
         title: 'Facturado',
-        value: '420 €',
-        delta: '+ 5%',
+        value: '7.200 €',
+        delta: '+ 10%',
         bg: '#e9f6fb',
         icon: 'receipt_long',
         left: 236,
@@ -39,8 +39,8 @@ function getKpiCards(timeScale: CashTimeScale) {
       },
       {
         title: 'Cobrado',
-        value: '380 €',
-        delta: '+ 4%',
+        value: '6.000 €',
+        delta: '+ 8%',
         bg: 'var(--color-brand-50)',
         icon: 'check_circle',
         left: 16,
@@ -49,8 +49,8 @@ function getKpiCards(timeScale: CashTimeScale) {
       },
       {
         title: 'Por cobrar',
-        value: '-150 €',
-        delta: '+ 2%',
+        value: '1.200 €',
+        delta: '- 5%',
         bg: 'var(--color-warning-50)',
         icon: 'hourglass_top',
         left: 236,
@@ -63,8 +63,8 @@ function getKpiCards(timeScale: CashTimeScale) {
   return [
     {
       title: 'Producido',
-      value: '1.200 €',
-      delta: '+ 12%',
+      value: '37.800 €',
+      delta: '+ 18%',
       bg: 'var(--color-info-50)',
       icon: 'attach_money',
       left: 16,
@@ -73,8 +73,8 @@ function getKpiCards(timeScale: CashTimeScale) {
     },
     {
       title: 'Facturado',
-      value: '1.200 €',
-      delta: '+ 12%',
+      value: '32.400 €',
+      delta: '+ 15%',
       bg: '#e9f6fb',
       icon: 'receipt_long',
       left: 236,
@@ -83,7 +83,7 @@ function getKpiCards(timeScale: CashTimeScale) {
     },
     {
       title: 'Cobrado',
-      value: '1.200 €',
+      value: '27.000 €',
       delta: '+ 12%',
       bg: 'var(--color-brand-50)',
       icon: 'check_circle',
@@ -93,8 +93,8 @@ function getKpiCards(timeScale: CashTimeScale) {
     },
     {
       title: 'Por cobrar',
-      value: '-1.200 €',
-      delta: '+ 12%',
+      value: '5.400 €',
+      delta: '- 3%',
       bg: 'var(--color-warning-50)',
       icon: 'hourglass_top',
       left: 236,
@@ -106,8 +106,9 @@ function getKpiCards(timeScale: CashTimeScale) {
 
 function getDonut(timeScale: CashTimeScale) {
   if (timeScale === 'week') {
-    const value = 380
-    const target = 500
+    // Cobrado vs Facturado (objetivo de cobro)
+    const value = 6000
+    const target = 7200
     return {
       data: [
         { name: 'actual', value, color: 'var(--color-brand-500)' },
@@ -118,13 +119,14 @@ function getDonut(timeScale: CashTimeScale) {
         }
       ],
       progress: value / target,
-      valueLabel: `${value} €`,
-      targetLabel: `${target} €`
+      valueLabel: '6.000 €',
+      targetLabel: '7.200 €'
     }
   }
 
-  const value = 1200
-  const target = 1800
+  // Mes: Cobrado vs Facturado
+  const value = 27000
+  const target = 32400
   return {
     data: [
       { name: 'actual', value, color: 'var(--color-brand-500)' },
@@ -135,8 +137,8 @@ function getDonut(timeScale: CashTimeScale) {
       }
     ],
     progress: value / target,
-    valueLabel: `${value} €`,
-    targetLabel: `${target} €`
+    valueLabel: '27.000 €',
+    targetLabel: '32.400 €'
   }
 }
 
@@ -145,7 +147,7 @@ function getSideStack(timeScale: CashTimeScale) {
     return [
       {
         title: 'Total facturación',
-        value: '15.000 €',
+        value: '7.200 €',
         top: 64,
         height: 248,
         bg: 'var(--color-brand-50)',
@@ -154,7 +156,7 @@ function getSideStack(timeScale: CashTimeScale) {
       },
       {
         title: 'Gastos fijos',
-        value: '9.000 €',
+        value: '4.320 €',
         top: 160,
         height: 177,
         bg: 'var(--color-brand-200)',
@@ -167,7 +169,7 @@ function getSideStack(timeScale: CashTimeScale) {
   return [
     {
       title: 'Total facturación',
-      value: '60.000 €',
+      value: '32.400 €',
       top: 64,
       height: 248,
       bg: 'var(--color-brand-50)',
@@ -176,11 +178,11 @@ function getSideStack(timeScale: CashTimeScale) {
     },
     {
       title: 'Gastos fijos',
-      value: '36.000 €',
+      value: '19.440 €',
       top: 160,
       height: 177,
       bg: 'var(--color-brand-200)',
-      percent: '62%',
+      percent: '60%',
       textClass: 'text-fg-secondary'
     }
   ] as const
@@ -240,7 +242,7 @@ export default function AccountingPanel({
       {kpis.map((card) => (
         <article
           key={card.title}
-          className='absolute flex flex-col rounded-lg p-[0.5rem]'
+          className='absolute flex flex-col rounded-lg p-[0.5rem] overflow-hidden'
           style={{
             left: toWidth(card.left),
             top: toHeight(card.top),
@@ -257,16 +259,17 @@ export default function AccountingPanel({
           <div className='mt-gapsm text-label-md text-neutral-600'>
             {card.title}
           </div>
-          <div className='mt-[0.25rem] flex items-baseline justify-between gap-[0.5rem] min-w-0'>
-            <p className='text-neutral-600 whitespace-nowrap text-[min(1.75rem,5vw)] leading-[min(2.25rem,6vw)]'>
+          <div className='mt-auto flex items-baseline justify-between gap-[0.25rem]'>
+            <p className='text-neutral-600 whitespace-nowrap text-[clamp(0.875rem,2.2vw,1.75rem)] leading-[1.2]'>
               {card.value}
             </p>
-            <div className='flex items-center gap-[0.25rem] text-brand-500 whitespace-nowrap text-[min(0.875rem,3.2vw)] leading-[min(1.25rem,4vw)]'>
+            <span 
+              className={`shrink-0 whitespace-nowrap text-[clamp(0.5rem,1.2vw,0.75rem)] leading-[1.2] font-medium ${
+                card.delta.startsWith('-') ? 'text-red-500' : 'text-brand-500'
+              }`}
+            >
               {card.delta}
-              <span className='material-symbols-rounded text-[1rem] leading-[1rem] text-brand-500'>
-                arrow_outward
-              </span>
-            </div>
+            </span>
           </div>
         </article>
       ))}
@@ -282,7 +285,7 @@ export default function AccountingPanel({
           padding: '1rem'
         }}
       >
-        <p className='text-label-md text-fg-secondary'>Cobrado</p>
+        <p className='text-label-md text-fg-secondary'>Cobrado vs Facturado</p>
         <div
           className='relative mx-auto mt-[1rem] flex items-center justify-center'
           style={{

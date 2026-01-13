@@ -12,18 +12,21 @@ type IncomeTypesProps = {
 }
 
 function getItems(timeScale: CashTimeScale): IncomeItem[] {
+  // Los tipos de ingreso = desglose del COBRADO
   if (timeScale === 'month') {
+    // Total Cobrado mes: 27.000 €
     return [
-      { label: 'Efectivo', value: '4.800 €', percent: '32%' },
-      { label: 'Tarjeta/TPV', value: '9.200 €', percent: '52%' },
-      { label: 'Financiación', value: '1.800 €', percent: '16%' }
+      { label: 'Efectivo', value: '8.100 €', percent: '30%' },
+      { label: 'Tarjeta/TPV', value: '14.850 €', percent: '55%' },
+      { label: 'Financiación', value: '4.050 €', percent: '15%' }
     ]
   }
 
+  // Total Cobrado semana: 6.000 €
   return [
-    { label: 'Efectivo', value: '1.200 €', percent: '32%' },
-    { label: 'Tarjeta/TPV', value: '2.000 €', percent: '55%' },
-    { label: 'Financiación', value: '450 €', percent: '13%' }
+    { label: 'Efectivo', value: '1.800 €', percent: '30%' },
+    { label: 'Tarjeta/TPV', value: '3.300 €', percent: '55%' },
+    { label: 'Financiación', value: '900 €', percent: '15%' }
   ]
 }
 

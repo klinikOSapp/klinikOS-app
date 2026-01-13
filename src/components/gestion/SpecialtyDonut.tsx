@@ -27,26 +27,29 @@ const BRAND_COLORS = {
   brand800: '#004D42'
 }
 
+// Desglose del FACTURADO por especialidad
 const DEFAULT_SPECIALTIES: SpecialtyShare[] = [
+  // Semana: Total Facturado = 7.200 €
   {
     label: 'Conservadora',
-    percentage: 40,
+    percentage: 40, // 2.880 €
     colorToken: BRAND_COLORS.brand50
   },
-  { label: 'Ortodoncia', percentage: 30, colorToken: BRAND_COLORS.brand200 },
-  { label: 'Implantes', percentage: 20, colorToken: BRAND_COLORS.brand500 },
-  { label: 'Estética', percentage: 10, colorToken: BRAND_COLORS.brand800 }
+  { label: 'Ortodoncia', percentage: 30, colorToken: BRAND_COLORS.brand200 }, // 2.160 €
+  { label: 'Implantes', percentage: 20, colorToken: BRAND_COLORS.brand500 }, // 1.440 €
+  { label: 'Estética', percentage: 10, colorToken: BRAND_COLORS.brand800 } // 720 €
 ]
 
 const MONTH_SPECIALTIES: SpecialtyShare[] = [
+  // Mes: Total Facturado = 32.400 €
   {
     label: 'Conservadora',
-    percentage: 42,
+    percentage: 40, // 12.960 €
     colorToken: BRAND_COLORS.brand50
   },
-  { label: 'Ortodoncia', percentage: 28, colorToken: BRAND_COLORS.brand200 },
-  { label: 'Implantes', percentage: 22, colorToken: BRAND_COLORS.brand500 },
-  { label: 'Estética', percentage: 8, colorToken: BRAND_COLORS.brand800 }
+  { label: 'Ortodoncia', percentage: 30, colorToken: BRAND_COLORS.brand200 }, // 9.720 €
+  { label: 'Implantes', percentage: 20, colorToken: BRAND_COLORS.brand500 }, // 6.480 €
+  { label: 'Estética', percentage: 10, colorToken: BRAND_COLORS.brand800 } // 3.240 €
 ]
 
 const CARD_HEIGHT = 'var(--height-card-chart-fluid)'
@@ -64,9 +67,10 @@ export default function ProductionTotalCard({
   const resolvedSpecialties =
     specialties ??
     (timeScale === 'month' ? MONTH_SPECIALTIES : DEFAULT_SPECIALTIES)
+  // Valor central = Total Facturado
   const resolvedValue =
-    value ?? (timeScale === 'month' ? '€ 210 K' : '€ 56 K')
-  const resolvedDelta = delta ?? (timeScale === 'month' ? '+ 22%' : '+ 35%')
+    value ?? (timeScale === 'month' ? '€ 32,4 K' : '€ 7,2 K')
+  const resolvedDelta = delta ?? (timeScale === 'month' ? '+ 15%' : '+ 10%')
 
   const sectionStyles: CSSProperties = {
     width: '100%',
@@ -75,20 +79,22 @@ export default function ProductionTotalCard({
 
   return (
     <section
-      className='relative overflow-hidden rounded-lg bg-surface text-fg shadow-elevation-card'
+      className='relative overflow-hidden rounded-lg bg-surface text-fg shadow-elevation-card flex flex-col'
       style={sectionStyles}
     >
-      <header className='px-4 pt-4'>
+      {/* Header */}
+      <header className='px-4 pt-4 shrink-0'>
         <h3 className='text-title-sm font-medium text-fg'>
           Facturación por especialidad
         </h3>
       </header>
 
-      <div className='flex h-[calc(100%-4rem)] items-center gap-4 px-4 pb-4'>
-        {/* Donut container - explicit size for ResponsiveContainer to work */}
+      {/* Content - donut on left, legend aligned horizontally */}
+      <div className='flex-1 flex items-center px-6 pb-4'>
+        {/* Donut - bigger */}
         <div
           className='relative shrink-0'
-          style={{ width: '10rem', height: '10rem' }}
+          style={{ width: '12rem', height: '12rem' }}
         >
           <ResponsiveContainer width='100%' height='100%'>
             <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
@@ -97,10 +103,9 @@ export default function ProductionTotalCard({
                 dataKey='percentage'
                 startAngle={90}
                 endAngle={-270}
-                innerRadius='80%'
+                innerRadius='75%'
                 outerRadius='100%'
                 paddingAngle={0}
-                cornerRadius={10}
                 stroke='transparent'
                 isAnimationActive
               >
@@ -112,31 +117,24 @@ export default function ProductionTotalCard({
           </ResponsiveContainer>
           {/* Center content */}
           <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center'>
-            <p className='text-xl font-bold text-neutral-900'>{resolvedValue}</p>
-            <div className='flex items-center gap-1'>
-              <span className='text-xs font-normal text-brand-500'>
-                {resolvedDelta}
-              </span>
-              <span className='material-symbols-rounded text-xs text-brand-500'>
-                arrow_outward
-              </span>
-            </div>
+            <p className='text-lg font-bold text-neutral-900'>{resolvedValue}</p>
+            <span className='text-xs font-medium text-brand-500'>
+              {resolvedDelta}
+            </span>
           </div>
         </div>
 
-        {/* Legend */}
-        <dl className='flex min-w-0 flex-1 flex-col gap-2 text-xs text-neutral-800'>
+        {/* Legend - percentages aligned */}
+        <dl className='flex flex-col gap-2.5 text-sm text-neutral-800 ml-auto'>
           {resolvedSpecialties.map(({ label, percentage, colorToken }) => (
-            <div key={label} className='flex items-center gap-2'>
+            <div key={label} className='flex items-center gap-3'>
               <span
-                className='h-3 w-3 shrink-0 rounded-full'
+                className='h-2.5 w-2.5 shrink-0 rounded-full'
                 style={{ backgroundColor: colorToken }}
                 aria-hidden='true'
               />
-              <div className='flex min-w-0 flex-1 items-center justify-between gap-1'>
-                <dt className='truncate font-normal'>{label}</dt>
-                <dd className='shrink-0 font-medium'>{percentage}%</dd>
-              </div>
+              <dt className='font-normal w-24'>{label}</dt>
+              <dd className='font-semibold tabular-nums text-right w-10'>{percentage}%</dd>
             </div>
           ))}
         </dl>

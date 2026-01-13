@@ -14,18 +14,20 @@ type PatientsSummaryProps = {
 }
 
 function getItems(timeScale: CashTimeScale): PatientItem[] {
+  // Datos realistas para clínica dental pequeña (4 profesionales)
   if (timeScale === 'month') {
     return [
-      { label: 'Activos', value: '5.020', percent: '48%', change: '+ 8%' },
-      { label: 'Nuevos', value: '96', percent: '52%', change: '+ 10%' },
-      { label: 'Crecimiento', value: '+ 9%', percent: '', kpi: true }
+      { label: 'Activos', value: '186', percent: '85%', change: '+ 8%' },
+      { label: 'Nuevos', value: '32', percent: '15%', change: '+ 12%' },
+      { label: 'Crecimiento', value: '+ 10%', percent: '', kpi: true }
     ]
   }
 
+  // Semana: ~47 pacientes activos, 8 nuevos
   return [
-    { label: 'Activos', value: '1.245', percent: '44%', change: '+ 12%' },
-    { label: 'Nuevos', value: '23', percent: '56%', change: '+ 12%' },
-    { label: 'Crecimiento', value: '+ 12%', percent: '', kpi: true }
+    { label: 'Activos', value: '47', percent: '85%', change: '+ 6%' },
+    { label: 'Nuevos', value: '8', percent: '15%', change: '+ 14%' },
+    { label: 'Crecimiento', value: '+ 8%', percent: '', kpi: true }
   ]
 }
 
