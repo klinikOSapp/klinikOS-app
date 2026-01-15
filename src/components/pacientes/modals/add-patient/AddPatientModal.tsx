@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
+import Portal from '@/components/ui/Portal'
 import React from 'react'
 import AddPatientStepAdministrativo from './AddPatientStepAdministrativo'
 import AddPatientStepConsentimientos from './AddPatientStepConsentimientos'
@@ -381,12 +382,13 @@ export default function AddPatientModal({
   }
 
   return (
-    <div
-      className='fixed inset-0 z-50 bg-black/30'
-      onClick={onClose}
-      aria-hidden
-    >
-      <div className='absolute inset-0 flex items-start justify-center p-8'>
+    <Portal>
+      <div
+        className='fixed inset-0 z-50 bg-black/30'
+        onClick={onClose}
+        aria-hidden
+      >
+        <div className='absolute inset-0 flex items-start justify-center p-8'>
         <div
           role='dialog'
           aria-modal='true'
@@ -656,7 +658,8 @@ export default function AddPatientModal({
             </div>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </Portal>
   )
 }

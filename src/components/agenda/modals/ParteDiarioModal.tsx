@@ -1,6 +1,7 @@
 'use client'
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
+import Portal from '@/components/ui/Portal'
 import React, { useEffect, useRef, useState } from 'react'
 import { MultiDatePickerInput } from '../MultiDatePickerInput'
 
@@ -125,7 +126,7 @@ export default function ParteDiarioModal({
   }
 
   return (
-    <>
+    <Portal>
       {/* Backdrop */}
       <div
         className='fixed inset-0 z-50 bg-black/30'
@@ -226,7 +227,7 @@ export default function ParteDiarioModal({
           </div>
         </div>
       </div>
-    </>
+    </Portal>
   )
 }
 

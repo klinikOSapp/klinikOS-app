@@ -2,6 +2,7 @@
 
 import { CloseRounded } from '@/components/icons/md3'
 import ClinicalHistory from '@/components/pacientes/modals/patient-record/ClinicalHistory'
+import Portal from '@/components/ui/Portal'
 import React from 'react'
 
 type PatientFileModalProps = {
@@ -107,12 +108,13 @@ export default function PatientFileModal({
   }
 
   return (
-    <div
-      className='fixed inset-0 z-50 bg-black/30'
-      onClick={onClose}
-      aria-hidden
-    >
-      <div className='absolute inset-0 flex items-start justify-center p-8'>
+    <Portal>
+      <div
+        className='fixed inset-0 z-50 bg-black/30'
+        onClick={onClose}
+        aria-hidden
+      >
+        <div className='absolute inset-0 flex items-start justify-center p-8'>
         <div
           role='dialog'
           aria-modal='true'
@@ -178,7 +180,8 @@ export default function PatientFileModal({
             </div>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </Portal>
   )
 }

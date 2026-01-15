@@ -2,8 +2,8 @@
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import type { CSSProperties } from 'react'
-import type { EventDetail } from '../types'
 import QuickActionsSection from '../QuickActionsSection'
+import type { EventDetail } from '../types'
 
 export interface AppointmentDetailOverlayProps {
   detail: EventDetail
@@ -79,7 +79,9 @@ export default function AppointmentDetailOverlay({
         )}
 
         {/* Económico - Con soporte para pagos parciales */}
-        {(detail.economicAmount || detail.economicStatus || detail.paymentInfo) && (
+        {(detail.economicAmount ||
+          detail.economicStatus ||
+          detail.paymentInfo) && (
           <OverlaySection
             icon={
               <MD3Icon
@@ -96,47 +98,82 @@ export default function AppointmentDetailOverlay({
                 <>
                   {/* Total */}
                   <div className='flex items-center justify-between text-sm leading-5'>
-                    <span className='font-normal text-[var(--color-neutral-600)]'>Total:</span>
+                    <span className='font-normal text-[var(--color-neutral-600)]'>
+                      Total:
+                    </span>
                     <span className='font-medium text-[var(--color-neutral-900)]'>
-                      {detail.paymentInfo.totalAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} {detail.paymentInfo.currency}
+                      {detail.paymentInfo.totalAmount.toLocaleString('es-ES', {
+                        minimumFractionDigits: 2
+                      })}{' '}
+                      {detail.paymentInfo.currency}
                     </span>
                   </div>
-                  
+
                   {/* Pagado con porcentaje */}
                   <div className='flex items-center justify-between text-sm leading-5'>
-                    <span className='font-normal text-[var(--color-neutral-600)]'>Pagado:</span>
+                    <span className='font-normal text-[var(--color-neutral-600)]'>
+                      Pagado:
+                    </span>
                     <span className='font-medium text-[var(--color-success-600)]'>
-                      {detail.paymentInfo.paidAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} {detail.paymentInfo.currency}
+                      {detail.paymentInfo.paidAmount.toLocaleString('es-ES', {
+                        minimumFractionDigits: 2
+                      })}{' '}
+                      {detail.paymentInfo.currency}
                       {detail.paymentInfo.totalAmount > 0 && (
                         <span className='ml-1 text-xs text-[var(--color-neutral-500)]'>
-                          ({Math.round((detail.paymentInfo.paidAmount / detail.paymentInfo.totalAmount) * 100)}%)
+                          (
+                          {Math.round(
+                            (detail.paymentInfo.paidAmount /
+                              detail.paymentInfo.totalAmount) *
+                              100
+                          )}
+                          %)
                         </span>
                       )}
                     </span>
                   </div>
-                  
+
                   {/* Pendiente */}
                   <div className='flex items-center justify-between text-sm leading-5'>
-                    <span className='font-normal text-[var(--color-neutral-600)]'>Pendiente:</span>
-                    <span className={`font-medium ${detail.paymentInfo.pendingAmount > 0 ? 'text-amber-600' : 'text-[var(--color-success-600)]'}`}>
-                      {detail.paymentInfo.pendingAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} {detail.paymentInfo.currency}
+                    <span className='font-normal text-[var(--color-neutral-600)]'>
+                      Pendiente:
+                    </span>
+                    <span
+                      className={`font-medium ${
+                        detail.paymentInfo.pendingAmount > 0
+                          ? 'text-amber-600'
+                          : 'text-[var(--color-success-600)]'
+                      }`}
+                    >
+                      {detail.paymentInfo.pendingAmount.toLocaleString(
+                        'es-ES',
+                        { minimumFractionDigits: 2 }
+                      )}{' '}
+                      {detail.paymentInfo.currency}
                     </span>
                   </div>
-                  
+
                   {/* Barra de progreso */}
                   <div className='mt-1'>
                     <div className='h-2 w-full overflow-hidden rounded-full bg-[var(--color-neutral-200)]'>
-                      <div 
+                      <div
                         className='h-full rounded-full bg-[var(--color-brand-500)] transition-all duration-300'
-                        style={{ 
-                          width: `${detail.paymentInfo.totalAmount > 0 
-                            ? Math.min(100, (detail.paymentInfo.paidAmount / detail.paymentInfo.totalAmount) * 100) 
-                            : 0}%` 
+                        style={{
+                          width: `${
+                            detail.paymentInfo.totalAmount > 0
+                              ? Math.min(
+                                  100,
+                                  (detail.paymentInfo.paidAmount /
+                                    detail.paymentInfo.totalAmount) *
+                                    100
+                                )
+                              : 0
+                          }%`
                         }}
                       />
                     </div>
                   </div>
-                  
+
                   {/* Plan de cuotas si existe */}
                   {detail.installmentPlan && (
                     <div className='mt-1 flex items-center gap-1.5 text-sm leading-5'>
@@ -146,10 +183,16 @@ export default function AppointmentDetailOverlay({
                         className='text-[var(--color-neutral-500)]'
                       />
                       <span className='font-normal text-[var(--color-neutral-600)]'>
-                        Cuota {detail.installmentPlan.currentInstallment} de {detail.installmentPlan.totalInstallments}
+                        Cuota {detail.installmentPlan.currentInstallment} de{' '}
+                        {detail.installmentPlan.totalInstallments}
                       </span>
                       <span className='text-xs text-[var(--color-neutral-500)]'>
-                        ({detail.installmentPlan.amountPerInstallment.toLocaleString('es-ES', { minimumFractionDigits: 2 })} {detail.paymentInfo.currency}/cuota)
+                        (
+                        {detail.installmentPlan.amountPerInstallment.toLocaleString(
+                          'es-ES',
+                          { minimumFractionDigits: 2 }
+                        )}{' '}
+                        {detail.paymentInfo.currency}/cuota)
                       </span>
                     </div>
                   )}
@@ -291,20 +334,20 @@ export default function AppointmentDetailOverlay({
           <QuickActionsSection
             showPaymentAction={
               !!onPaymentAction &&
-              (
-                // Usar paymentInfo si existe
-                (detail.paymentInfo && detail.paymentInfo.pendingAmount > 0) ||
+              // Usar paymentInfo si existe
+              ((detail.paymentInfo && detail.paymentInfo.pendingAmount > 0) ||
                 // Fallback al sistema anterior
                 detail.economicStatus === 'Pendiente de cobro' ||
                 detail.economicStatus === 'Pendiente de pago' ||
                 detail.economicStatus?.includes('Pendiente') ||
-                false
-              )
+                false)
             }
             paymentAmount={
               // Mostrar el monto pendiente si hay paymentInfo
-              detail.paymentInfo 
-                ? `${detail.paymentInfo.pendingAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} ${detail.paymentInfo.currency}`
+              detail.paymentInfo
+                ? `${detail.paymentInfo.pendingAmount.toLocaleString('es-ES', {
+                    minimumFractionDigits: 2
+                  })} ${detail.paymentInfo.currency}`
                 : detail.economicAmount
             }
             onPaymentClick={() => onPaymentAction?.()}

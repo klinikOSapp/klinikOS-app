@@ -1,6 +1,7 @@
 'use client'
 
 import { SelectInput } from '@/components/pacientes/modals/add-patient/AddPatientInputs'
+import Portal from '@/components/ui/Portal'
 import { useEffect, useState } from 'react'
 
 type CreateAppointmentModalProps = {
@@ -87,10 +88,11 @@ export default function CreateAppointmentModal({
   ]
 
   return (
-    <div
-      className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'
-      onClick={onClose}
-    >
+    <Portal>
+      <div
+        className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'
+        onClick={onClose}
+      >
       <div
         className='relative w-[min(54rem,88vw)] h-[min(46rem,78vh)] overflow-clip rounded-lg bg-[#f8fafb]'
         onClick={(e) => e.stopPropagation()}
@@ -211,9 +213,10 @@ export default function CreateAppointmentModal({
             </div>
           </div>
         </div>
+        </div>
       </div>
-    </div>
-    </div>
+      </div>
+    </Portal>
   )
 }
 

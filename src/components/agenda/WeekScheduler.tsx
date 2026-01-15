@@ -5181,8 +5181,7 @@ export default function WeekScheduler() {
                       >
                         {/* Notas (prioridad) */}
                         <div
-                          className='absolute left-[1rem] top-[1rem] flex w-[12.1875rem] flex-col gap-[0.375rem]'
-                          style={{ width: '12.1875rem' }}
+                          className='absolute left-[1rem] right-[1rem] top-[1rem] flex flex-col gap-[0.375rem]'
                         >
                           <div className='flex items-center gap-[0.25rem]'>
                             <MD3Icon

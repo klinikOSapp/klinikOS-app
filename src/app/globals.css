@@ -118,7 +118,11 @@
   --space-card-metric: 0.25rem; /* 4px between value and KPI */
 
   /* Dashboard-specific spacing - usando clamp() con vh para escalar verticalmente */
-  --spacing-card-gap: clamp(1rem, 2vw, 1.5rem); /* 24px exactos con degradado seguro */
+  --spacing-card-gap: clamp(
+    1rem,
+    2vw,
+    1.5rem
+  ); /* 24px exactos con degradado seguro */
   --spacing-section-gap: clamp(
     1rem,
     2.5vh,
@@ -200,7 +204,7 @@
   --height-card-chart-prof: 21.375rem; /* 342px ÷ 16 = 21.375rem */
   --chart-prof-width-limit: 95vw; /* Viewport safety limit */
   --chart-prof-height-limit: 85vh; /* Viewport safety limit (adjusted from 39.1vh) */
-  
+
   /* Chart ratios calculated from Figma measurements */
   --chart-prof-axis-left-ratio: 0.10397; /* 55px ÷ 529px */
   --chart-prof-axis-label-left-ratio: 0.03025; /* 16px ÷ 529px */
@@ -211,15 +215,15 @@
   --chart-prof-labels-bottom-ratio: 0.88304; /* 302px ÷ 342px */
   --chart-prof-content-height-ratio: 0.93567; /* 320px ÷ 342px */
   --chart-prof-bar-width-ratio: 0.10964; /* 58px ÷ 529px */
-  
+
   /* Bar positions - extracted from Figma MCP */
   --chart-prof-bar-1-left-ratio: 0.10397; /* 55px ÷ 529px - Dr. Guille */
-  --chart-prof-bar-2-left-ratio: 0.31570; /* 167px ÷ 529px - Dra. Laura */
+  --chart-prof-bar-2-left-ratio: 0.3157; /* 167px ÷ 529px - Dra. Laura */
   --chart-prof-bar-3-left-ratio: 0.55955; /* 296px ÷ 529px - Tamara */
   --chart-prof-bar-4-left-ratio: 0.81285; /* 430px ÷ 529px - Nerea */
   --chart-prof-bar-1-top-ratio: 0.28363; /* 97px ÷ 342px */
   --chart-prof-bar-2-top-ratio: 0.38012; /* 130px ÷ 342px */
-  --chart-prof-bar-3-top-ratio: 0.51170; /* 175px ÷ 342px */
+  --chart-prof-bar-3-top-ratio: 0.5117; /* 175px ÷ 342px */
   --chart-prof-bar-4-top-ratio: 0.46491; /* 159px ÷ 342px */
   --chart-prof-bar-1-height-ratio: 0.57018; /* 195px ÷ 342px */
   --chart-prof-bar-2-height-ratio: 0.47368; /* 162px ÷ 342px */
@@ -472,7 +476,7 @@
   --modal-create-line-top: 53.25rem; /* 852px */
   --modal-create-line-width: 31.5rem; /* 504px */
   --modal-create-button-top: 55.75rem; /* 892px */
-  
+
   /* Field positions (top values) */
   --modal-create-field-servicio-top: 11.5rem; /* 184px */
   --modal-create-field-paciente-top: 17.9375rem; /* 287px */
@@ -481,7 +485,7 @@
   --modal-create-field-presupuesto-top: 37.9375rem; /* 607px */
   --modal-create-field-fecha-top: 43.9375rem; /* 703px */
   --modal-create-field-hora-top: 48.9375rem; /* ~783px - calculado manteniendo gap similar */
-  
+
   /* Input/Select styling */
   --input-border-width: 0.5px;
   --input-radius: 0.5rem; /* 8px */
@@ -490,7 +494,7 @@
   --input-text-color: var(--color-neutral-900);
   --input-placeholder-color: var(--color-neutral-400);
   --input-description-color: var(--color-neutral-600);
-  
+
   /* Button pill styling */
   --button-pill-radius: 8.5rem; /* 136px - muy redondeado */
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import Portal from '@/components/ui/Portal'
 import React from 'react'
 import BudgetsPayments from './BudgetsPayments'
 import ClientSummary from './ClientSummary'
@@ -85,12 +86,13 @@ export default function PatientRecordModal({
   ]
 
   return (
-    <div
-      className='fixed inset-0 z-50 bg-black/30 overflow-hidden'
-      onClick={onClose}
-      aria-hidden
-    >
-      <div className='absolute inset-0 flex items-center justify-center px-8'>
+    <Portal>
+      <div
+        className='fixed inset-0 z-50 bg-black/30 overflow-hidden'
+        onClick={onClose}
+        aria-hidden
+      >
+        <div className='absolute inset-0 flex items-center justify-center px-8'>
         <div
           role='dialog'
           aria-modal='true'
@@ -170,7 +172,8 @@ export default function PatientRecordModal({
             </div>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </Portal>
   )
 }

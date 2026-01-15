@@ -453,20 +453,20 @@ export default function ParteDiarioPage() {
           }}
         >
           <KpiCard
-            title='Pacientes del día'
-            value={String(patientsForSelectedDay.length)}
-            badge={
-              <span className='text-body-md text-[var(--color-success-600)]'>
-                +12%
-              </span>
-            }
-          />
-          <KpiCard
             title='Pacientes semana'
             value={`${appointments.length}/75`}
             badge={
               <span className='text-body-md text-[var(--color-success-600)]'>
                 {Math.round((appointments.length / 75) * 100)}%
+              </span>
+            }
+          />
+          <KpiCard
+            title='Pacientes del día'
+            value={String(patientsForSelectedDay.length)}
+            badge={
+              <span className='text-body-md text-[var(--color-success-600)]'>
+                +12%
               </span>
             }
           />

@@ -1,5 +1,6 @@
 'use client'
 
+import Portal from '@/components/ui/Portal'
 import React from 'react'
 
 type PrescriptionPdfPreviewProps = {
@@ -224,11 +225,12 @@ export default function PrescriptionPdfPreview({
   if (!open) return null
 
   return (
-    <div
-      className='fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4'
-      onClick={onClose}
-      aria-hidden
-    >
+    <Portal>
+      <div
+        className='fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4'
+        onClick={onClose}
+        aria-hidden
+      >
       <div
         className='relative bg-white shadow-xl overflow-hidden'
         style={{
@@ -326,7 +328,8 @@ export default function PrescriptionPdfPreview({
           ×
         </button>
       </div>
-    </div>
+      </div>
+    </Portal>
   )
 }
 
