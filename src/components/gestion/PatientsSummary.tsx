@@ -49,11 +49,11 @@ export default function PatientsSummary({
         <header className='mt-[1rem] flex items-baseline justify-between'>
           <h3 className='text-title-sm font-medium text-fg'>Pacientes</h3>
         </header>
-        <div className='mt-[0.9375rem] grid gap-[0.75rem] grid-cols-3 auto-rows-fr'>
+        <div className='mt-[0.9375rem] grid gap-[0.5rem] lg:gap-[0.75rem] grid-cols-1 sm:grid-cols-3 auto-rows-fr'>
           {data.map((i) => (
             <div
               key={i.label}
-              className='bg-surface-app rounded-lg px-[0.5rem] py-[0.5rem] flex h-income-card w-full flex-col justify-between items-start text-left'
+              className='bg-surface-app rounded-lg px-[0.5rem] py-[0.5rem] flex min-h-[4rem] lg:h-income-card w-full flex-col justify-between items-start text-left'
             >
               <div className='flex flex-col items-start gap-[0.5rem] w-full'>
                 <div className='flex items-center justify-between gap-[0.5rem] text-label-md text-fg-secondary whitespace-nowrap w-full'>

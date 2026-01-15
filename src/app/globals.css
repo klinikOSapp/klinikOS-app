@@ -704,11 +704,13 @@ body {
   }
 }
 
-/* Dashboard row layouts - 3-column grid for desktop (1280px-1920px target) */
+/* Dashboard row layouts - responsive grid (768px tablet to 1920px desktop) */
+
+/* Stats row: 2 cols on tablet (768-1023px), 3 cols on desktop (1024px+) */
 .dashboard-stats-row {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr); /* Default: 2 cols for tablet */
   width: 100%;
 }
 
@@ -716,10 +718,26 @@ body {
   min-width: 0;
 }
 
+/* Third card spans full width on 2-column layout */
+.dashboard-stats-row > *:last-child {
+  grid-column: span 2;
+}
+
+/* Desktop: 3 columns, third card back to normal */
+@media (min-width: 1024px) {
+  .dashboard-stats-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .dashboard-stats-row > *:last-child {
+    grid-column: span 1;
+  }
+}
+
+/* Charts row: stack on tablet, 2:1 ratio on desktop */
 .dashboard-charts-row {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr; /* Stack on tablet */
   width: 100%;
 }
 
@@ -727,13 +745,11 @@ body {
   min-width: 0;
 }
 
-/* Charts row: first item spans 2 columns (2:1 ratio) */
-.dashboard-charts-row > *:first-child {
-  grid-column: span 2;
-}
-
-.dashboard-charts-row > *:nth-child(2) {
-  grid-column: span 1;
+/* Desktop: 2:1 ratio (first item 2fr, second item 1fr) */
+@media (min-width: 1024px) {
+  .dashboard-charts-row {
+    grid-template-columns: 2fr 1fr;
+  }
 }
 
 /* Legacy classes for backwards compatibility */
@@ -743,15 +759,7 @@ body {
   }
 
   body .dashboard-grid-charts {
-    grid-template-columns: repeat(3, 1fr) !important;
-  }
-
-  body .dashboard-grid-charts > *:first-child {
-    grid-column: span 2 !important;
-  }
-
-  body .dashboard-grid-charts > *:nth-child(2) {
-    grid-column: span 1 !important;
+    grid-template-columns: 2fr 1fr !important;
   }
 }
 
@@ -763,6 +771,43 @@ body {
     margin-inline: auto;
     padding-inline: var(--container-gutter);
     box-sizing: border-box;
+  }
+
+  /* Remove focus outline from chart containers and all interactive elements */
+  .recharts-wrapper,
+  .recharts-wrapper *,
+  .recharts-surface,
+  .recharts-pie,
+  .recharts-pie-sector,
+  .recharts-layer,
+  section:focus,
+  section:focus-visible,
+  section:active,
+  div:focus,
+  div:focus-visible,
+  svg:focus,
+  svg:focus-visible,
+  path:focus,
+  path:focus-visible,
+  g:focus,
+  g:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Remove blue highlight on tap for mobile/touch */
+  *:focus {
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+  }
+  
+  /* Specifically target elements that might get focus ring */
+  [tabindex]:focus,
+  [tabindex]:focus-visible,
+  button:focus:not(:focus-visible),
+  [role="button"]:focus:not(:focus-visible) {
+    outline: none !important;
+    box-shadow: none !important;
   }
   /* Oculta scrollbars pero mantiene el scroll funcional */
   .scrollbar-hide::-webkit-scrollbar {
@@ -802,5 +847,17 @@ body {
       calc(36.455vh - 1.5rem),
       24.58125rem
     );
+  }
+}
+
+/* Tablet-specific adjustments (768px - 1023px) */
+@media (max-width: 1023px) {
+  :root {
+    /* More compact card heights for tablet */
+    --height-card-stat-fluid: min(var(--height-card-stat), 16vh);
+    --height-card-chart-fluid: min(21.375rem, 28vh);
+    /* Reduce spacing for tablet */
+    --spacing-card-gap: 0.75rem;
+    --spacing-section-gap: clamp(0.75rem, 2vh, 1.25rem);
   }
 }

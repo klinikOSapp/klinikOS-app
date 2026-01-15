@@ -90,10 +90,10 @@ export default function ProductionTotalCard({
 
   return (
     <section className='bg-brand-900 text-[var(--color-text-inverse)] rounded-lg shadow-elevation-card h-card-stat-fluid overflow-hidden min-w-0'>
-      <div className='flex h-full flex-col p-[0.875rem] overflow-hidden'>
+      <div className='flex h-full flex-col p-3 lg:p-[0.875rem] overflow-hidden'>
         {/* Header */}
         <header className='flex shrink-0 items-center justify-between mb-[0.5rem] gap-[0.5rem]'>
-          <h3 className='text-body-sm font-medium text-[var(--color-text-inverse)] truncate'>
+          <h3 className='text-title-sm font-medium text-[var(--color-text-inverse)] truncate'>
             Producido vs Facturado
           </h3>
           <span className='text-label-sm text-[var(--color-brand-400)] shrink-0'>
@@ -114,7 +114,7 @@ export default function ProductionTotalCard({
                 </span>
               </div>
               <div className='flex items-baseline gap-[0.25rem] flex-wrap'>
-                <span className='text-title-md font-bold text-[var(--color-text-inverse)]'>
+                <span className='text-title-sm font-bold text-[var(--color-text-inverse)]'>
                   €{formatCompactCurrency(producedValue)}
                 </span>
                 <span className='text-label-sm text-[var(--color-brand-400)]'>
@@ -132,7 +132,7 @@ export default function ProductionTotalCard({
                 </span>
               </div>
               <div className='flex items-baseline gap-[0.25rem] flex-wrap'>
-                <span className='text-title-md font-bold text-[var(--color-text-inverse)]'>
+                <span className='text-title-sm font-bold text-[var(--color-text-inverse)]'>
                   €{formatCompactCurrency(invoicedValue)}
                 </span>
                 <span className='text-label-sm text-[var(--color-brand-500)]'>
@@ -155,13 +155,13 @@ export default function ProductionTotalCard({
           </div>
 
           {/* Bottom row */}
-          <div className='flex items-center justify-between mt-[0.375rem] gap-[0.5rem]'>
+          <div className='flex items-center justify-between mt-[0.375rem] gap-2 flex-wrap'>
             <span className='text-label-sm font-medium text-[var(--color-brand-300)] truncate'>
               {billingRatio.toFixed(0)}% facturado
             </span>
             {pendingAmount > 0 && (
-              <span className='text-label-sm text-[var(--color-brand-500)] truncate shrink-0'>
-                €{formatCompactCurrency(pendingAmount)} pdte
+              <span className='text-label-sm text-[var(--color-warning-600)] truncate shrink-0'>
+                €{formatCompactCurrency(pendingAmount)} pdte facturar
               </span>
             )}
           </div>

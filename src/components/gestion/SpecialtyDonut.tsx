@@ -1,9 +1,9 @@
 'use client'
 
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
-import type { Specialty, SpecialtyFilter } from './gestionTypes'
 import type { CSSProperties } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
+import type { Specialty, SpecialtyFilter } from './gestionTypes'
 
 type SpecialtyShare = {
   label: Specialty
@@ -115,15 +115,19 @@ export default function ProductionTotalCard({
         )}
       </header>
 
-      {/* Content - donut on left, legend aligned horizontally */}
-      <div className='flex-1 flex items-center px-6 pb-4'>
-        {/* Donut - bigger */}
+      {/* Content - responsive layout: column on tablet, row on desktop */}
+      <div className='flex-1 flex flex-col lg:flex-row items-center px-4 lg:px-6 pb-4 gap-2'>
+        {/* Donut - responsive size */}
         <div
-          className='relative shrink-0'
-          style={{ width: '12rem', height: '12rem' }}
+          className='relative shrink-0 outline-none'
+          style={{ width: 'min(11rem, 38vw)', height: 'min(11rem, 38vw)' }}
+          tabIndex={-1}
         >
           <ResponsiveContainer width='100%' height='100%'>
-            <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+            <PieChart
+              margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+              style={{ outline: 'none' }}
+            >
               <Pie
                 data={resolvedSpecialties}
                 dataKey='percentage'
@@ -142,7 +146,8 @@ export default function ProductionTotalCard({
               >
                 {resolvedSpecialties.map(({ label, colorToken }) => {
                   const isSelected = selectedSpecialty === label
-                  const isOtherSelected = selectedSpecialty && selectedSpecialty !== label
+                  const isOtherSelected =
+                    selectedSpecialty && selectedSpecialty !== label
                   return (
                     <Cell
                       key={label}
@@ -158,24 +163,27 @@ export default function ProductionTotalCard({
           </ResponsiveContainer>
           {/* Center content */}
           <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center'>
-            <p className='text-lg font-bold text-neutral-900'>{resolvedValue}</p>
-            <span className='text-xs font-medium text-brand-500'>
+            <p className='text-title-md font-bold text-neutral-900'>
+              {resolvedValue}
+            </p>
+            <span className='text-label-sm font-medium text-brand-500'>
               {resolvedDelta}
             </span>
           </div>
         </div>
 
-        {/* Legend - percentages aligned, clickable */}
-        <dl className='flex flex-col gap-2.5 text-sm text-neutral-800 ml-auto'>
+        {/* Legend - horizontal wrap on tablet, vertical on desktop */}
+        <dl className='flex flex-wrap lg:flex-col gap-2 lg:gap-2.5 text-sm text-neutral-800 justify-center lg:justify-start lg:ml-20'>
           {resolvedSpecialties.map(({ label, percentage, colorToken }) => {
             const isSelected = selectedSpecialty === label
-            const isOtherSelected = selectedSpecialty && selectedSpecialty !== label
+            const isOtherSelected =
+              selectedSpecialty && selectedSpecialty !== label
             return (
               <button
                 key={label}
                 type='button'
                 onClick={() => handleSpecialtyClick(label)}
-                className={`flex items-center gap-3 rounded-md px-2 py-1 -mx-2 transition-all duration-150 ${
+                className={`flex items-center gap-3 rounded-md px-2 py-1 -mx-2 transition-all duration-150 outline-none focus:outline-none ${
                   onSpecialtySelect ? 'hover:bg-neutral-100 cursor-pointer' : ''
                 } ${isSelected ? 'bg-brand-50 ring-1 ring-brand-500' : ''} ${
                   isOtherSelected ? 'opacity-40' : ''
@@ -187,8 +195,12 @@ export default function ProductionTotalCard({
                   style={{ backgroundColor: colorToken }}
                   aria-hidden='true'
                 />
-                <dt className='font-normal w-24 text-left'>{label}</dt>
-                <dd className='font-semibold tabular-nums text-right w-10'>{percentage}%</dd>
+                <dt className='font-normal w-20 lg:w-24 text-left truncate'>
+                  {label}
+                </dt>
+                <dd className='font-semibold tabular-nums text-right w-8 lg:w-10'>
+                  {percentage}%
+                </dd>
               </button>
             )
           })}

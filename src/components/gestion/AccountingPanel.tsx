@@ -229,18 +229,22 @@ function getDonut(timeScale: CashTimeScale, specialty?: SpecialtyFilter) {
     target = 32400
   }
 
+  const pending = Math.max(target - value, 0)
+
   return {
     data: [
       { name: 'actual', value, color: 'var(--color-brand-500)' },
       {
         name: 'remaining',
-        value: Math.max(target - value, 0),
+        value: pending,
         color: 'var(--color-brand-50)'
       }
     ],
     progress: value / target,
     valueLabel: value.toLocaleString('es-ES') + ' €',
-    targetLabel: target.toLocaleString('es-ES') + ' €'
+    targetLabel: target.toLocaleString('es-ES') + ' €',
+    pendingValue: pending,
+    pendingLabel: pending.toLocaleString('es-ES') + ' €'
   }
 }
 
@@ -385,11 +389,11 @@ export default function AccountingPanel({
             {card.title}
           </div>
           <div className='mt-auto flex items-baseline justify-between gap-[0.25rem]'>
-            <p className='text-neutral-600 whitespace-nowrap text-[clamp(0.875rem,2.2vw,1.75rem)] leading-[1.2]'>
+            <p className='text-neutral-600 whitespace-nowrap text-headline-sm font-normal'>
               {card.value}
             </p>
             <span
-              className={`shrink-0 whitespace-nowrap text-[clamp(0.5rem,1.2vw,0.75rem)] leading-[1.2] font-medium ${
+              className={`shrink-0 whitespace-nowrap text-label-sm font-medium ${
                 card.delta.startsWith('-') ? 'text-red-500' : 'text-brand-500'
               }`}
             >
@@ -412,7 +416,7 @@ export default function AccountingPanel({
       >
         <p className='text-label-md text-fg-secondary'>Cobrado vs Facturado</p>
         <div
-          className='relative mx-auto mt-[1rem] flex items-center justify-center'
+          className='relative mx-auto mt-[1rem] flex items-center justify-center outline-none'
           style={{
             width: '170%',
             height: '170%',
@@ -424,9 +428,10 @@ export default function AccountingPanel({
             minWidth: 0,
             minHeight: 0
           }}
+          tabIndex={-1}
         >
           <ResponsiveContainer width='100%' height='100%'>
-            <PieChart>
+            <PieChart style={{ outline: 'none' }}>
               <Pie
                 data={donut.data}
                 dataKey='value'
@@ -469,6 +474,14 @@ export default function AccountingPanel({
                 {donut.targetLabel}
               </span>
             </p>
+            {donut.pendingValue > 0 && (
+              <p
+                className='text-label-sm font-medium'
+                style={{ color: 'var(--color-warning-600)' }}
+              >
+                {donut.pendingLabel} pdte cobrar
+              </p>
+            )}
           </div>
         </div>
       </div>
