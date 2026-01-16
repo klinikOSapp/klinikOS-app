@@ -22,22 +22,31 @@ type PatientRecordModalProps = {
   onClose: () => void
   initialTab?: PatientRecordTab
   openBudgetCreation?: boolean
+  openInEditMode?: boolean
 }
 
 export default function PatientRecordModal({
   open,
   onClose,
   initialTab = 'Resumen',
-  openBudgetCreation = false
+  openBudgetCreation = false,
+  openInEditMode = false
 }: PatientRecordModalProps) {
   const [active, setActive] = React.useState<PatientRecordTab>(initialTab)
   const [shouldOpenBudget, setShouldOpenBudget] = React.useState(openBudgetCreation)
+  const [shouldOpenEdit, setShouldOpenEdit] = React.useState(openInEditMode)
 
   React.useEffect(() => {
     if (open && openBudgetCreation) {
       setShouldOpenBudget(true)
     }
   }, [open, openBudgetCreation])
+
+  React.useEffect(() => {
+    if (open && openInEditMode) {
+      setShouldOpenEdit(true)
+    }
+  }, [open, openInEditMode])
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -144,7 +153,13 @@ export default function PatientRecordModal({
               </div>
               {/* Right content: vertical scroll only; never horizontal */}
               <div className='w-[74.75rem] h-full overflow-y-auto overflow-x-hidden box-border'>
-                {active === 'Resumen' && <ClientSummary onClose={onClose} />}
+                {active === 'Resumen' && (
+                  <ClientSummary
+                    onClose={onClose}
+                    initialEditMode={shouldOpenEdit}
+                    onEditModeOpened={() => setShouldOpenEdit(false)}
+                  />
+                )}
                 {active === 'Historial clínico' && (
                   <ClinicalHistory onClose={onClose} />
                 )}

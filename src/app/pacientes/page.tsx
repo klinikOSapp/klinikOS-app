@@ -265,6 +265,7 @@ function PacientesPageContent() {
   )
   const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
   const [openBudgetCreation, setOpenBudgetCreation] = React.useState(false)
+  const [openEditMode, setOpenEditMode] = React.useState(false)
   const [openMenuId, setOpenMenuId] = React.useState<string | null>(null)
   const searchParams = useSearchParams()
   const navRouter = useRouter()
@@ -308,9 +309,11 @@ function PacientesPageContent() {
           onClose={() => {
             setIsFichaModalOpen(false)
             setOpenBudgetCreation(false)
+            setOpenEditMode(false)
           }}
           initialTab={openBudgetCreation ? 'Presupuestos y pagos' : 'Resumen'}
           openBudgetCreation={openBudgetCreation}
+          openInEditMode={openEditMode}
         />
 
         {/* Header Section - Fixed size */}
@@ -424,14 +427,14 @@ function PacientesPageContent() {
             </div>
           </div>
 
-          <div className='flex-1 rounded-[8px] overflow-auto'>
+          <div className='flex-1 rounded-[8px] overflow-hidden'>
             <table className='w-full table-fixed border-collapse'>
               <thead>
                 <tr>
-                  <TableHeaderCell className='w-[2.5rem] pr-2'>
+                  <TableHeaderCell className='w-[3%] min-w-[2rem] pr-1'>
                     <span className='sr-only'>Seleccionar fila</span>
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[min(21.5rem,30vw)] pr-2'>
+                  <TableHeaderCell className='w-[28%] pr-2'>
                     <div className='flex items-center gap-2'>
                       <MD3Icon
                         name='AccountCircleRounded'
@@ -441,22 +444,22 @@ function PacientesPageContent() {
                       <span>Paciente</span>
                     </div>
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[min(16.25rem,22vw)] pr-2'>
+                  <TableHeaderCell className='w-[16%] pr-2'>
                     Teléfono
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[min(19rem,26vw)] pr-2'>
+                  <TableHeaderCell className='w-[18%] pr-2'>
                     Próxima cita
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[min(16.3125rem,22vw)] pr-2'>
+                  <TableHeaderCell className='w-[14%] pr-2'>
                     Estado
                   </TableHeaderCell>
                   <TableHeaderCell
-                    className='w-[min(10.9375rem,15vw)] pr-2'
+                    className='w-[12%] pr-2'
                     align='right'
                   >
                     Deuda
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[3.5rem] pr-2 text-right sticky right-0 bg-[var(--color-surface-app)]'>
+                  <TableHeaderCell className='w-[5%] min-w-[2.5rem] pr-2 text-right sticky right-0 bg-[var(--color-surface-app)]'>
                     <span className='sr-only'>Acciones</span>
                   </TableHeaderCell>
                 </tr>
@@ -487,7 +490,7 @@ function PacientesPageContent() {
                       isPatientSelected(row.id) ? 'bg-[#E9FBF9]' : ''
                     ].join(' ')}
                   >
-                    <TableBodyCell className='w-[2.5rem] pr-2'>
+                    <TableBodyCell className='w-[3%] min-w-[2rem] pr-1'>
                       <button
                         type='button'
                         onClick={() => togglePatientSelection(row.id)}
@@ -521,7 +524,7 @@ function PacientesPageContent() {
                         <span className='sr-only'>Seleccionar fila</span>
                       </button>
                     </TableBodyCell>
-                    <TableBodyCell className='w-[min(21.5rem,30vw)] pr-2'>
+                    <TableBodyCell className='w-[28%] pr-2'>
                       <button
                         type='button'
                         onClick={() => setIsFichaModalOpen(true)}
@@ -530,23 +533,23 @@ function PacientesPageContent() {
                         {row.name}
                       </button>
                     </TableBodyCell>
-                    <TableBodyCell className='w-[min(16.25rem,22vw)] pr-2'>
+                    <TableBodyCell className='w-[16%] pr-2'>
                       <p className='truncate'>{row.phone}</p>
                     </TableBodyCell>
-                    <TableBodyCell className='w-[min(19rem,26vw)] pr-2'>
-                      {row.nextDate}
+                    <TableBodyCell className='w-[18%] pr-2'>
+                      <span className='truncate'>{row.nextDate}</span>
                     </TableBodyCell>
-                    <TableBodyCell className='w-[min(16.3125rem,22vw)] pr-2'>
+                    <TableBodyCell className='w-[14%] pr-2'>
                       <StatusPill type={row.status} />
                     </TableBodyCell>
                     <TableBodyCell
-                      className='w-[min(10.9375rem,15vw)] pr-2'
+                      className='w-[12%] pr-2'
                       align='right'
                     >
                       {row.debt}
                     </TableBodyCell>
                     <TableBodyCell
-                      className='w-[3.5rem] pr-2 sticky right-0 bg-[var(--color-surface-app)] group-hover:bg-[var(--color-neutral-50)]'
+                      className='w-[5%] min-w-[2.5rem] pr-2 sticky right-0 bg-[var(--color-surface-app)] group-hover:bg-[var(--color-neutral-50)]'
                       align='right'
                     >
                       <div className='relative'>
@@ -579,8 +582,8 @@ function PacientesPageContent() {
                             }}
                             onEdit={() => {
                               setOpenMenuId(null)
-                              // TODO: Implementar editar datos
-                              console.log('Editar:', row.name)
+                              setOpenEditMode(true)
+                              setIsFichaModalOpen(true)
                             }}
                             onDelete={() => {
                               setOpenMenuId(null)

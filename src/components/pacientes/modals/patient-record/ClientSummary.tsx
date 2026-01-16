@@ -14,6 +14,8 @@ import React from 'react'
 
 type ClientSummaryProps = {
   onClose?: () => void
+  initialEditMode?: boolean
+  onEditModeOpened?: () => void
 }
 
 // Datos iniciales del paciente (en producción vendrían de props o API)
@@ -38,7 +40,7 @@ const initialPatientData = {
   comentario: ''
 }
 
-export default function ClientSummary({ onClose }: ClientSummaryProps) {
+export default function ClientSummary({ onClose, initialEditMode = false, onEditModeOpened }: ClientSummaryProps) {
   const [avatarPreviewUrl, setAvatarPreviewUrl] = React.useState<string | null>(
     null
   )
@@ -50,6 +52,15 @@ export default function ClientSummary({ onClose }: ClientSummaryProps) {
   // Estados para todos los campos editables
   const [formData, setFormData] = React.useState(initialPatientData)
   const [tempFormData, setTempFormData] = React.useState(initialPatientData)
+
+  // Efecto para abrir en modo edición cuando se pasa initialEditMode
+  React.useEffect(() => {
+    if (initialEditMode) {
+      setTempFormData(formData)
+      setIsEditing(true)
+      onEditModeOpened?.()
+    }
+  }, [initialEditMode, formData, onEditModeOpened])
 
   const setPreviewFromFile = React.useCallback((file: File) => {
     const url = URL.createObjectURL(file)
