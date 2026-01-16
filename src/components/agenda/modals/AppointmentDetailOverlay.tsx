@@ -87,11 +87,14 @@ export default function AppointmentDetailOverlay({
           <p className='text-sm italic text-[var(--color-neutral-700)] leading-5'>
             {detail.treatmentDescription || detail.title}
           </p>
-          {/* Notas */}
+          {/* Separador y Notas */}
           {detail.notes && (
-            <p className='mt-1 text-sm font-normal text-[var(--color-neutral-600)] leading-5'>
-              {detail.notes}
-            </p>
+            <>
+              <hr className='my-2 border-t border-[var(--color-border-default)]' />
+              <p className='text-sm font-normal text-[var(--color-neutral-600)] leading-5'>
+                {detail.notes}
+              </p>
+            </>
           )}
         </div>
 
