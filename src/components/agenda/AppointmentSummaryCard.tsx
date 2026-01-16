@@ -55,13 +55,13 @@ export default function AppointmentSummaryCard({
   const canShowNotes =
     parseDimensionToPx(event.height) >= MIN_HEIGHT_FOR_NOTES_PX
   const isCompleted = event.completed ?? false
-  
+
   const stateClasses = isActive
     ? 'border-[var(--color-brand-500)] shadow-[0px_4px_12px_rgba(81,214,199,0.35)]'
     : isHovered
     ? 'border-[var(--color-brand-500)]'
     : isCompleted
-    ? 'border-[var(--color-success-400)]'
+    ? 'border-[#4F46E5]'
     : 'border-[var(--color-border)]'
 
   // Handler para el checkbox de completado
@@ -113,7 +113,9 @@ export default function AppointmentSummaryCard({
         <div
           role='checkbox'
           aria-checked={isCompleted}
-          aria-label={isCompleted ? 'Marcar como pendiente' : 'Marcar como completada'}
+          aria-label={
+            isCompleted ? 'Marcar como pendiente' : 'Marcar como completada'
+          }
           tabIndex={0}
           onClick={handleToggleComplete}
           onKeyDown={(e) => {
@@ -127,8 +129,8 @@ export default function AppointmentSummaryCard({
             'absolute right-1.5 top-1.5 z-20 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border-2 transition-all duration-200',
             'opacity-0 group-hover/card:opacity-100 focus:opacity-100',
             isCompleted
-              ? 'border-[var(--color-success-500)] bg-[var(--color-success-500)] opacity-100 shadow-[0_0_0_2px_rgba(34,197,94,0.2)]'
-              : 'border-[var(--color-neutral-400)] bg-white/90 hover:border-[var(--color-success-400)] hover:bg-[var(--color-success-50)]'
+              ? 'border-[#4F46E5] bg-[#4F46E5] opacity-100 shadow-[0_0_0_2px_rgba(79,70,229,0.25)]'
+              : 'border-[var(--color-neutral-400)] bg-white/90 hover:border-[#818CF8] hover:bg-[#EEF2FF]'
           ].join(' ')}
         >
           {isCompleted && (
@@ -149,17 +151,18 @@ export default function AppointmentSummaryCard({
 
       <div className='flex items-start justify-between gap-2'>
         <div className='flex min-w-0 flex-1 flex-col gap-[0.375rem]'>
+          {/* Nombre del paciente - Negrita */}
           <div className='flex items-center gap-1.5'>
             {/* Indicador de cobro pendiente - usa paymentInfo si existe, sino fallback a economicStatus */}
-            {(
-              // Usar paymentInfo.pendingAmount si está disponible
-              (event.detail?.paymentInfo && event.detail.paymentInfo.pendingAmount > 0) ||
+            {// Usar paymentInfo.pendingAmount si está disponible
+            ((event.detail?.paymentInfo &&
+              event.detail.paymentInfo.pendingAmount > 0) ||
               // Fallback al sistema anterior basado en economicStatus
-              (!event.detail?.paymentInfo && event.detail?.economicStatus &&
+              (!event.detail?.paymentInfo &&
+                event.detail?.economicStatus &&
                 (event.detail.economicStatus === 'Pendiente de cobro' ||
                   event.detail.economicStatus === 'Pendiente de pago' ||
-                  event.detail.economicStatus.includes('Pendiente')))
-            ) && (
+                  event.detail.economicStatus.includes('Pendiente')))) && (
               <MD3Icon
                 name='PaymentsRounded'
                 size={0.875}
@@ -167,58 +170,39 @@ export default function AppointmentSummaryCard({
               />
             )}
             <p
-              className='font-medium text-[var(--color-neutral-900)]'
+              className='font-bold text-[var(--color-neutral-900)]'
               style={{
-                fontSize: '0.75rem', // 12px
-                lineHeight: '1rem',
+                fontSize: '0.875rem', // 14px
+                lineHeight: '1.25rem',
                 ...clampStyle(1)
               }}
             >
-              {event.title}
+              {event.patient}
             </p>
           </div>
+          {/* Tratamiento - Cursiva */}
           <p
-            className='font-medium text-[var(--color-neutral-900)]'
+            className='font-normal italic text-[var(--color-neutral-700)]'
             style={{
-              fontSize: '0.875rem', // 14px
-              lineHeight: '1.25rem',
+              fontSize: '0.75rem', // 12px
+              lineHeight: '1rem',
               ...clampStyle(1)
             }}
           >
-            {event.patient}
+            {event.title}
           </p>
-          {event.detail && canShowNotes ? (
-            <div className='flex flex-col gap-[0.375rem]'>
-              <div className='flex items-center gap-1 text-[var(--color-neutral-600)]'>
-                <MD3Icon
-                  name='DescriptionRounded'
-                  size={1}
-                  className='text-[var(--color-neutral-600)]'
-                />
-                <span
-                  className='font-normal'
-                  style={{
-                    fontSize: '0.75rem',
-                    lineHeight: '1rem',
-                    ...clampStyle(1)
-                  }}
-                >
-                  {event.detail.notesLabel ?? 'Notas'}
-                </span>
-              </div>
-              {event.detail.notes ? (
-                <p
-                  className='font-normal text-[var(--color-neutral-900)]'
-                  style={{
-                    fontSize: '0.875rem',
-                    lineHeight: '1.25rem',
-                    ...clampStyle(2)
-                  }}
-                >
-                  {event.detail.notes}
-                </p>
-              ) : null}
-            </div>
+          {/* Notas */}
+          {event.detail && canShowNotes && event.detail.notes ? (
+            <p
+              className='font-normal text-[var(--color-neutral-600)]'
+              style={{
+                fontSize: '0.75rem', // 12px
+                lineHeight: '1rem',
+                ...clampStyle(2)
+              }}
+            >
+              {event.detail.notes}
+            </p>
           ) : null}
         </div>
       </div>

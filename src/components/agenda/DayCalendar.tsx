@@ -5,14 +5,7 @@
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import RegisterPaymentModal from '@/components/pacientes/modals/patient-record/RegisterPaymentModal'
-import {
-  CSSProperties,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  MouseEvent as ReactMouseEvent
-} from 'react'
+import { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
 
 import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
 import type { EventDetail } from './types'
@@ -42,11 +35,12 @@ function CurrentTimeIndicator({
   // Actualizar cada minuto
   useEffect(() => {
     const updateTime = () => setCurrentTime(new Date())
-    
+
     // Calcular milisegundos hasta el próximo minuto
     const now = new Date()
-    const msUntilNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds()
-    
+    const msUntilNextMinute =
+      (60 - now.getSeconds()) * 1000 - now.getMilliseconds()
+
     // Primer timeout para sincronizar con el inicio del minuto
     const initialTimeout = setTimeout(() => {
       updateTime()
@@ -54,30 +48,30 @@ function CurrentTimeIndicator({
       const interval = setInterval(updateTime, 60000)
       return () => clearInterval(interval)
     }, msUntilNextMinute)
-    
+
     return () => clearTimeout(initialTimeout)
   }, [])
 
   const hours = currentTime.getHours()
   const minutes = currentTime.getMinutes()
-  
+
   // Solo mostrar si estamos dentro del rango de horas (9:00 - 20:00)
   const totalMinutes = hours * 60 + minutes
   const rangeStart = startHour * 60
   const rangeEnd = endHour * 60
-  
+
   if (totalMinutes < rangeStart || totalMinutes >= rangeEnd) {
     return null
   }
-  
+
   // Calcular posición: minutos desde las 9:00 / minutos totales del rango
   const minutesFromStart = totalMinutes - rangeStart
   const totalRangeMinutes = rangeEnd - rangeStart // 660 minutos (11 horas)
   const positionPercent = (minutesFromStart / totalRangeMinutes) * 100
-  
+
   // Formatear hora actual
   const timeLabel = `${hours}:${minutes.toString().padStart(2, '0')}`
-  
+
   return (
     <div
       className='pointer-events-none absolute left-0 z-[20] flex w-full items-center'
@@ -98,7 +92,7 @@ function CurrentTimeIndicator({
           {timeLabel}
         </span>
       </div>
-      
+
       {/* Línea roja */}
       <div className='h-[2px] flex-1 bg-[#EF4444]' />
     </div>
@@ -606,7 +600,7 @@ const TIME_SLOTS: TimeSlot[] = [
 function TimeColumn() {
   // Usar TOTAL_SLOTS de 15 min igual que la vista semanal (44 slots = 11 horas × 4)
   // Altura de cada slot: --scheduler-slot-height-quarter (igual que vista semanal)
-  
+
   return (
     <div
       className='absolute left-0 z-[5] bg-[var(--color-neutral-100)]'
@@ -629,11 +623,13 @@ function TimeColumn() {
           const isFirstCell = index === 0
           // Resto: mostrar etiqueta cuando el borde inferior es una hora en punto
           const isHourBorder = (index + 1) % SLOTS_PER_HOUR === 0
-          
+
           // Calcular la hora
           const hourAtBorder = START_HOUR + (index + 1) / SLOTS_PER_HOUR
-          const timeLabel = isFirstCell ? `${START_HOUR}:00` : `${hourAtBorder}:00`
-          
+          const timeLabel = isFirstCell
+            ? `${START_HOUR}:00`
+            : `${hourAtBorder}:00`
+
           return (
             <div
               key={index}
@@ -641,11 +637,11 @@ function TimeColumn() {
             >
               {/* Etiqueta de 9:00 al inicio de la primera celda */}
               {isFirstCell && (
-                <p 
+                <p
                   className='absolute left-1/2 z-10 text-body-md font-normal text-[var(--color-neutral-600)]'
                   style={{
                     top: 0,
-                    transform: 'translate(-50%, 0)',
+                    transform: 'translate(-50%, 0)'
                   }}
                 >
                   {timeLabel}
@@ -653,11 +649,11 @@ function TimeColumn() {
               )}
               {/* Etiquetas de las demás horas en el borde inferior */}
               {isHourBorder && (
-                <p 
+                <p
                   className='absolute left-1/2 z-10 text-body-md font-normal text-[var(--color-neutral-600)]'
                   style={{
                     bottom: 0,
-                    transform: 'translate(-50%, 50%)',
+                    transform: 'translate(-50%, 50%)'
                   }}
                 >
                   {timeLabel}
@@ -671,11 +667,7 @@ function TimeColumn() {
   )
 }
 
-function BoxHeaders({
-  visibleBoxes
-}: {
-  visibleBoxes: typeof BOX_HEADERS
-}) {
+function BoxHeaders({ visibleBoxes }: { visibleBoxes: typeof BOX_HEADERS }) {
   return (
     <div
       className='sticky top-0 z-10 flex w-full border-b border-[var(--color-border-default)] bg-[var(--color-neutral-50)]'
@@ -759,7 +751,8 @@ function DayEvent({
   onToggleComplete?: (eventId: string, completed: boolean) => void
 }) {
   // Calcular si hay suficiente altura para mostrar notas (igual que vista semanal)
-  const canShowNotes = parseDimensionToPx(event.height) >= MIN_HEIGHT_FOR_NOTES_PX
+  const canShowNotes =
+    parseDimensionToPx(event.height) >= MIN_HEIGHT_FOR_NOTES_PX
   const isCompleted = event.completed ?? false
 
   // Estados de borde/sombra idénticos a AppointmentSummaryCard (vista semanal)
@@ -768,7 +761,7 @@ function DayEvent({
     : isHovered
     ? 'border-[var(--color-brand-500)]'
     : isCompleted
-    ? 'border-[var(--color-success-400)]'
+    ? 'border-[#4F46E5]'
     : 'border-[var(--color-border)]'
 
   // Separar título y paciente del label
@@ -834,7 +827,9 @@ function DayEvent({
         <div
           role='checkbox'
           aria-checked={isCompleted}
-          aria-label={isCompleted ? 'Marcar como pendiente' : 'Marcar como completada'}
+          aria-label={
+            isCompleted ? 'Marcar como pendiente' : 'Marcar como completada'
+          }
           tabIndex={0}
           onClick={handleToggleComplete}
           onKeyDown={(e) => {
@@ -848,8 +843,8 @@ function DayEvent({
             'absolute right-1.5 top-1.5 z-20 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border-2 transition-all duration-200',
             'opacity-0 group-hover/daycard:opacity-100 focus:opacity-100',
             isCompleted
-              ? 'border-[var(--color-success-500)] bg-[var(--color-success-500)] opacity-100 shadow-[0_0_0_2px_rgba(34,197,94,0.2)]'
-              : 'border-[var(--color-neutral-400)] bg-white/90 hover:border-[var(--color-success-400)] hover:bg-[var(--color-success-50)]'
+              ? 'border-[#4F46E5] bg-[#4F46E5] opacity-100 shadow-[0_0_0_2px_rgba(79,70,229,0.25)]'
+              : 'border-[var(--color-neutral-400)] bg-white/90 hover:border-[#818CF8] hover:bg-[#EEF2FF]'
           ].join(' ')}
         >
           {isCompleted && (
@@ -870,21 +865,10 @@ function DayEvent({
       {/* Contenido idéntico a AppointmentSummaryCard */}
       <div className='flex items-start justify-between gap-2'>
         <div className='flex min-w-0 flex-1 flex-col gap-[0.375rem]'>
-          {/* Título - estilos inline fijos */}
-          <p
-            className='font-medium text-[var(--color-neutral-900)]'
-            style={{
-              fontSize: '0.75rem',
-              lineHeight: '1rem',
-              ...clampStyle(1)
-            }}
-          >
-            {title}
-          </p>
-          {/* Paciente - estilos inline fijos */}
+          {/* Nombre del paciente - Negrita */}
           {patient && (
             <p
-              className='font-medium text-[var(--color-neutral-900)]'
+              className='font-bold text-[var(--color-neutral-900)]'
               style={{
                 fontSize: '0.875rem',
                 lineHeight: '1.25rem',
@@ -894,37 +878,29 @@ function DayEvent({
               {patient}
             </p>
           )}
+          {/* Tratamiento - Cursiva */}
+          <p
+            className='font-normal italic text-[var(--color-neutral-700)]'
+            style={{
+              fontSize: '0.75rem',
+              lineHeight: '1rem',
+              ...clampStyle(1)
+            }}
+          >
+            {title}
+          </p>
           {/* Notas - Solo se muestran si hay suficiente altura */}
           {event.detail && canShowNotes && event.detail.notes && (
-            <div className='flex flex-col gap-[0.375rem]'>
-              <div className='flex items-center gap-1 text-[var(--color-neutral-600)]'>
-                <MD3Icon
-                  name='DescriptionRounded'
-                  size={1}
-                  className='text-[var(--color-neutral-600)]'
-                />
-                <span
-                  className='font-normal'
-                  style={{
-                    fontSize: '0.75rem',
-                    lineHeight: '1rem',
-                    ...clampStyle(1)
-                  }}
-                >
-                  {event.detail.notesLabel ?? 'Notas'}
-                </span>
-              </div>
-              <p
-                className='font-normal text-[var(--color-neutral-900)]'
-                style={{
-                  fontSize: '0.875rem',
-                  lineHeight: '1.25rem',
-                  ...clampStyle(2)
-                }}
-              >
-                {event.detail.notes}
-              </p>
-            </div>
+            <p
+              className='font-normal text-[var(--color-neutral-600)]'
+              style={{
+                fontSize: '0.75rem',
+                lineHeight: '1rem',
+                ...clampStyle(2)
+              }}
+            >
+              {event.detail.notes}
+            </p>
           )}
         </div>
       </div>
@@ -932,7 +908,9 @@ function DayEvent({
       {/* Drag overlay - inicia el drag desde cualquier punto de la tarjeta */}
       {onDragStart && (
         <div
-          className={`absolute inset-0 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`absolute inset-0 ${
+            isDragging ? 'cursor-grabbing' : 'cursor-grab'
+          }`}
           onMouseDown={(e) => {
             e.stopPropagation()
             onDragStart(e)
@@ -940,7 +918,7 @@ function DayEvent({
           aria-hidden
         />
       )}
-      
+
       {/* Handle de resize en la parte inferior - idéntico a AppointmentSummaryCard */}
       {onResizeStart && (
         <div
@@ -1139,7 +1117,11 @@ function DayGrid({
             selectedProfessionals.length === 0 ||
             !event.detail?.professional ||
             selectedProfessionals.some((profId) =>
-              event.detail?.professional?.toLowerCase().includes(profId.toLowerCase().replace('dr', '').replace('dra', ''))
+              event.detail?.professional
+                ?.toLowerCase()
+                .includes(
+                  profId.toLowerCase().replace('dr', '').replace('dra', '')
+                )
             )
           if (professionalMatch) {
             allEvents.push({ event, boxId: box.id as BoxId })
@@ -1208,7 +1190,11 @@ function DayGrid({
         {Array.from({ length: boxCount }).map((_, index) => (
           <div
             key={index}
-            className={`flex-1 ${index < boxCount - 1 ? 'border-r border-[var(--color-border-default)]' : ''}`}
+            className={`flex-1 ${
+              index < boxCount - 1
+                ? 'border-r border-[var(--color-border-default)]'
+                : ''
+            }`}
           />
         ))}
       </div>
@@ -1231,13 +1217,7 @@ function DayGrid({
             onDragStart={
               onEventDragStart
                 ? (e) =>
-                    onEventDragStart(
-                      'move',
-                      event,
-                      boxId,
-                      e.clientX,
-                      e.clientY
-                    )
+                    onEventDragStart('move', event, boxId, e.clientX, e.clientY)
                 : undefined
             }
             onResizeStart={
@@ -1353,7 +1333,7 @@ function buildEventsFromAppointments(
     const startMin = timeToMinutes(appt.start)
     const endMin = timeToMinutes(appt.end)
     const durationMin = Math.max(MINUTES_STEP, endMin - startMin)
-    
+
     // Calcular slot de inicio (granularidad de 15 min, igual que vista semanal)
     const startSlot = Math.floor((startMin - START_HOUR * 60) / MINUTES_STEP)
     // Calcular altura en slots (granularidad de 15 min)
@@ -1380,7 +1360,9 @@ function buildEventsFromAppointments(
       top,
       bgColor: appt.bgColor ?? 'var(--color-event-purple)',
       // Usar el detail de la cita si existe, sino crear uno básico
-      detail: appt.detail ?? createEventDetail(`${appt.start} ${title}`, appt.box ?? 'Box 1'),
+      detail:
+        appt.detail ??
+        createEventDetail(`${appt.start} ${title}`, appt.box ?? 'Box 1'),
       box: appt.box ?? boxId,
       height
     }
@@ -1421,7 +1403,9 @@ export default function DayCalendar({
   const [active, setActive] = useState<DayEventSelection>(null)
   const [localEvents, setLocalEvents] = useState<TimeSlot[]>([])
   // Estado para citas completadas (ID del evento -> completado)
-  const [completedEvents, setCompletedEvents] = useState<Record<string, boolean>>({})
+  const [completedEvents, setCompletedEvents] = useState<
+    Record<string, boolean>
+  >({})
 
   // Payment modal state for quick actions
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -1504,7 +1488,8 @@ export default function DayCalendar({
     setSelectedEventForPayment({
       id: detail?.appointmentId ?? event.id,
       patientName: detail?.patientFull ?? event.label.split('\n')[1] ?? '',
-      treatment: detail?.treatmentDescription ?? event.label.split('\n')[0] ?? '',
+      treatment:
+        detail?.treatmentDescription ?? event.label.split('\n')[0] ?? '',
       amount: detail?.economicAmount ?? '0,00 €',
       // Pasar información de pagos parciales si existe
       paymentInfo: detail?.paymentInfo,
@@ -1516,11 +1501,16 @@ export default function DayCalendar({
 
   // Handler para registrar pago (soporta pagos parciales)
   const handleRegisterPayment = useCallback(
-    (data: { paymentMethod: string; paymentDate: Date | null; reference: string; amountToPay: number }) => {
+    (data: {
+      paymentMethod: string
+      paymentDate: Date | null
+      reference: string
+      amountToPay: number
+    }) => {
       if (selectedEventForPayment) {
         const paymentInfo = selectedEventForPayment.paymentInfo
-        const isFullyPaid = paymentInfo 
-          ? data.amountToPay >= paymentInfo.pendingAmount 
+        const isFullyPaid = paymentInfo
+          ? data.amountToPay >= paymentInfo.pendingAmount
           : true
 
         // TODO: Integrar con contexto/backend para actualizar estado de cobro
@@ -1528,7 +1518,9 @@ export default function DayCalendar({
           appointmentId: selectedEventForPayment.id,
           amountPaid: data.amountToPay,
           isFullyPaid,
-          remainingAfterPayment: paymentInfo ? paymentInfo.pendingAmount - data.amountToPay : 0,
+          remainingAfterPayment: paymentInfo
+            ? paymentInfo.pendingAmount - data.amountToPay
+            : 0,
           ...data
         })
       }
@@ -1549,14 +1541,21 @@ export default function DayCalendar({
   }, [active])
 
   // Handler para marcar cita como completada/pendiente
-  const handleToggleComplete = useCallback((eventId: string, completed: boolean) => {
-    setCompletedEvents(prev => ({
-      ...prev,
-      [eventId]: completed
-    }))
-    // TODO: Aquí se podría sincronizar con el backend
-    console.log(`✅ Cita ${eventId} marcada como ${completed ? 'completada' : 'pendiente'}`)
-  }, [])
+  const handleToggleComplete = useCallback(
+    (eventId: string, completed: boolean) => {
+      setCompletedEvents((prev) => ({
+        ...prev,
+        [eventId]: completed
+      }))
+      // TODO: Aquí se podría sincronizar con el backend
+      console.log(
+        `✅ Cita ${eventId} marcada como ${
+          completed ? 'completada' : 'pendiente'
+        }`
+      )
+    },
+    []
+  )
 
   // Filtrar horarios según el período seleccionado
   const getFilteredTimeLabels = () => {
@@ -1628,7 +1627,10 @@ export default function DayCalendar({
     const clampedHour = Math.max(START_HOUR, Math.min(hours, END_HOUR - 1))
     const slotFromHour = (clampedHour - START_HOUR) * SLOTS_PER_HOUR
     const slotFromMinutes = Math.floor(minutes / MINUTES_STEP)
-    return Math.max(0, Math.min(slotFromHour + slotFromMinutes, TOTAL_SLOTS - 1))
+    return Math.max(
+      0,
+      Math.min(slotFromHour + slotFromMinutes, TOTAL_SLOTS - 1)
+    )
   }
 
   // Encontrar evento por ID en localEvents
@@ -1767,7 +1769,10 @@ export default function DayCalendar({
                   top: `${newSlot * SLOT_REM}rem`,
                   height: `${newHeightSlots * SLOT_REM}rem`,
                   box: targetBox,
-                  label: `${startTime} ${dragState.originalEvent.label.split('\n')[1] || dragState.originalEvent.label.split(' ').slice(1).join(' ')}`
+                  label: `${startTime} ${
+                    dragState.originalEvent.label.split('\n')[1] ||
+                    dragState.originalEvent.label.split(' ').slice(1).join(' ')
+                  }`
                 }
                 newSlots[fallbackIndex].boxes[boxIdx].events.push(updatedEvent)
               }
@@ -1781,7 +1786,10 @@ export default function DayCalendar({
             top: `${newSlot * SLOT_REM}rem`,
             height: `${newHeightSlots * SLOT_REM}rem`,
             box: targetBox,
-            label: `${startTime} ${dragState.originalEvent.label.split('\n')[1] || dragState.originalEvent.label.split(' ').slice(1).join(' ')}`
+            label: `${startTime} ${
+              dragState.originalEvent.label.split('\n')[1] ||
+              dragState.originalEvent.label.split(' ').slice(1).join(' ')
+            }`
           }
 
           // Añadir al box correcto
