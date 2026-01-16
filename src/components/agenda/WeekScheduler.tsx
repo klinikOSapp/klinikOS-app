@@ -272,7 +272,7 @@ function CurrentTimeIndicator({
   
   return (
     <div
-      className='pointer-events-none absolute left-0 z-[20] flex w-full items-center'
+      className='pointer-events-none absolute left-0 z-[5] flex w-full items-center'
       style={{
         top: `${positionPercent}%`
       }}
@@ -5153,6 +5153,9 @@ export default function WeekScheduler() {
                     overlayHeight,
                     hovered.event
                   )
+                  // Extraer color de backgroundClass (ej: 'bg-[#fbe9f0]' -> '#fbe9f0')
+                  const bgMatch = hovered.event.backgroundClass?.match(/bg-\[([^\]]+)\]/)
+                  const headerBgColor = bgMatch ? bgMatch[1] : 'var(--color-brand-100)'
                   return (
                     <div
                       className='pointer-events-none absolute z-10 flex flex-col overflow-hidden rounded-t-[0.5rem] rounded-b-none border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)]'
@@ -5164,8 +5167,11 @@ export default function WeekScheduler() {
                         height: overlayHeight
                       }}
                     >
-                      {/* Header */}
-                      <div className='flex items-center justify-between bg-[var(--color-brand-100)] px-[1rem] py-[0.5rem]'>
+                      {/* Header - Color dinámico según la cita */}
+                      <div
+                        className='flex items-center justify-between px-[1rem] py-[0.5rem]'
+                        style={{ backgroundColor: headerBgColor }}
+                      >
                         <p className='font-medium text-[1.125rem] leading-[1.75rem] text-[var(--color-neutral-900)]'>
                           {hovered.event.detail.title}
                         </p>
@@ -5351,6 +5357,7 @@ export default function WeekScheduler() {
                   detail={activeDetail}
                   box={freshEvent?.box ?? overlaySource.event.box}
                   position={overlayPosition}
+                  backgroundClass={freshEvent?.backgroundClass ?? overlaySource.event.backgroundClass}
                   onPaymentAction={handlePaymentAction}
                   onViewPatient={handleViewPatient}
                 />

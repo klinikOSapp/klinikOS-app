@@ -1031,8 +1031,11 @@ export default function MonthCalendar({
                 maxHeight: position.maxHeight
               }}
             >
-              {/* Header */}
-              <div className='flex items-center justify-between bg-[var(--color-brand-100)] px-4 py-2'>
+              {/* Header - Color dinámico según la cita */}
+              <div
+                className='flex items-center justify-between px-4 py-2'
+                style={{ backgroundColor: hovered.event.bgColor || 'var(--color-brand-100)' }}
+              >
                 <p className='text-title-md font-medium text-[var(--color-neutral-900)]'>
                   {hovered.event.detail.title}
                 </p>
@@ -1117,6 +1120,7 @@ export default function MonthCalendar({
               detail={activeDetail}
               box={overlaySource.event.box || ''}
               position={position}
+              backgroundClass={`bg-[${overlaySource.event.bgColor}]`}
             />
           )
         })()}

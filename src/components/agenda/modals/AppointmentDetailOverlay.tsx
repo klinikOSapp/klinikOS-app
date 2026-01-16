@@ -9,9 +9,19 @@ export interface AppointmentDetailOverlayProps {
   detail: EventDetail
   box: string
   position: { top: string; left: string; maxHeight?: string }
+  // Clase de fondo de la cita (ej: 'bg-[var(--color-brand-100)]' o 'bg-[#fbe9f0]')
+  backgroundClass?: string
   // Callbacks para acciones rápidas
   onPaymentAction?: () => void
   onViewPatient?: () => void
+}
+
+// Extrae el color CSS de una clase de Tailwind bg-[...]
+function extractBgColor(backgroundClass?: string): string | undefined {
+  if (!backgroundClass) return undefined
+  // Match bg-[...] pattern
+  const match = backgroundClass.match(/bg-\[([^\]]+)\]/)
+  return match ? match[1] : undefined
 }
 
 const overlayStyle: CSSProperties = {
@@ -23,10 +33,12 @@ export default function AppointmentDetailOverlay({
   detail,
   box,
   position,
+  backgroundClass,
   onPaymentAction,
   onViewPatient
 }: AppointmentDetailOverlayProps) {
   const showQuickActions = onPaymentAction || onViewPatient
+  const headerBgColor = extractBgColor(backgroundClass) || 'var(--color-brand-100)'
 
   return (
     <div
@@ -42,8 +54,11 @@ export default function AppointmentDetailOverlay({
       }}
       onClick={(event) => event.stopPropagation()}
     >
-      {/* Header - 44px height from Figma */}
-      <div className='flex shrink-0 items-center justify-between rounded-tl-[0.5rem] rounded-tr-[0.5rem] bg-[var(--color-brand-100)] px-[var(--scheduler-overlay-header-pad-x)] py-[var(--scheduler-overlay-header-pad-y)]'>
+      {/* Header - Color dinámico según la cita */}
+      <div
+        className='flex shrink-0 items-center justify-between rounded-tl-[0.5rem] rounded-tr-[0.5rem] px-[var(--scheduler-overlay-header-pad-x)] py-[var(--scheduler-overlay-header-pad-y)]'
+        style={{ backgroundColor: headerBgColor }}
+      >
         <h3 className='text-title-md font-medium text-[var(--color-neutral-900)] leading-[var(--leading-title-md)]'>
           {detail.title}
         </h3>
