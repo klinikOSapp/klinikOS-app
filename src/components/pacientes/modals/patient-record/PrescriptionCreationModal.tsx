@@ -25,6 +25,7 @@ type PrescriptionCreationModalProps = {
     duracion: string
     administracion: string
   }) => void
+  patientName?: string
 }
 
 const TITLE_LEFT_REM = 14.3125
@@ -223,8 +224,11 @@ export default function PrescriptionCreationModal({
   open,
   onClose,
   onBack,
-  onContinue
+  onContinue,
+  patientName
 }: PrescriptionCreationModalProps) {
+  // Nombre del paciente para mostrar (usa prop o mock)
+  const displayPatientName = patientName || 'María García López'
   const [mounted, setMounted] = React.useState(false)
   const [medicamento, setMedicamento] = React.useState('')
   const [especialista, setEspecialista] = React.useState('')
@@ -302,16 +306,21 @@ export default function PrescriptionCreationModal({
                 </header>
 
                 {/* Title */}
-                <p
-                  className='absolute text-title-lg text-neutral-900'
+                <div
+                  className='absolute flex flex-col gap-1'
                   style={{
                     left: `${TITLE_LEFT_REM}rem`,
                     top: `${TITLE_TOP_REM}rem`,
                     width: '34rem'
                   }}
                 >
-                  Datos de la receta
-                </p>
+                  <p className='text-title-lg text-neutral-900'>
+                    Datos de la receta
+                  </p>
+                  <p className='text-body-md font-medium text-brand-600'>
+                    Paciente: {displayPatientName}
+                  </p>
+                </div>
 
                 {/* Form frame */}
                 <div

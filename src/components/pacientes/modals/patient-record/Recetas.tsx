@@ -63,10 +63,28 @@ function StatusBadge({ status }: { status: PrescriptionRow['status'] }) {
 
 type RecetasProps = {
   onClose?: () => void
+  openPrescriptionCreation?: boolean
+  onPrescriptionCreationOpened?: () => void
+  patientName?: string
 }
 
-export default function Recetas({ onClose }: RecetasProps) {
-  const [isCreateOpen, setIsCreateOpen] = React.useState(false)
+export default function Recetas({ 
+  onClose,
+  openPrescriptionCreation = false,
+  onPrescriptionCreationOpened,
+  patientName
+}: RecetasProps) {
+  // Nombre del paciente para mostrar (usa prop o mock)
+  const displayPatientName = patientName || 'María García López'
+  const [isCreateOpen, setIsCreateOpen] = React.useState(openPrescriptionCreation)
+
+  // Abrir modal de creación si se solicita desde props
+  React.useEffect(() => {
+    if (openPrescriptionCreation && !isCreateOpen) {
+      setIsCreateOpen(true)
+      onPrescriptionCreationOpened?.()
+    }
+  }, [openPrescriptionCreation, isCreateOpen, onPrescriptionCreationOpened])
   const [isPdfOpen, setIsPdfOpen] = React.useState(false)
   const [pdfData, setPdfData] = React.useState<{
     medicamento?: string
@@ -92,8 +110,11 @@ export default function Recetas({ onClose }: RecetasProps) {
       {/* Header */}
       <div className='absolute left-8 top-10 w-[35.5rem]'>
         <p className='font-inter text-headline-sm text-neutral-900'>Recetas</p>
+        <p className='text-body-md font-medium text-brand-600 mt-1'>
+          {displayPatientName}
+        </p>
         <p className='text-body-sm text-neutral-900 mt-2'>
-          Gestiona todos los consentimientos de los pacientes.
+          Gestiona las recetas del paciente.
         </p>
       </div>
 
@@ -176,6 +197,7 @@ export default function Recetas({ onClose }: RecetasProps) {
           setIsCreateOpen(false)
           setIsPdfOpen(true)
         }}
+        patientName={displayPatientName}
       />
       <PrescriptionPdfPreview
         open={isPdfOpen}

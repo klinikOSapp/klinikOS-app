@@ -14,6 +14,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 import type { AppointmentFormData } from './modals/CreateAppointmentModal'
 
+import AppointmentContextMenu, { type ContextMenuAction } from './AppointmentContextMenu'
 import AppointmentSummaryCard from './AppointmentSummaryCard'
 import DayCalendar from './DayCalendar'
 import MonthCalendar from './MonthCalendar'
@@ -2599,7 +2600,8 @@ function DayGrid({
   selectedBoxes,
   selectedProfessionals,
   completedEvents,
-  onToggleComplete
+  onToggleComplete,
+  onEventContextMenu
 }: {
   column: DayColumn
   activeSelection: EventSelection
@@ -2621,6 +2623,7 @@ function DayGrid({
   selectedProfessionals: string[]
   completedEvents?: Record<string, boolean>
   onToggleComplete?: (eventId: string, completed: boolean) => void
+  onEventContextMenu?: (e: React.MouseEvent<HTMLElement>, event: AgendaEvent) => void
 }) {
   // Calculate dynamic box layout based on selected boxes
   const boxLayout = getBoxLayout(selectedBoxes)
@@ -2746,6 +2749,7 @@ function DayGrid({
               onEventDragStart?.(type, evt, column, clientX, clientY)
             }
             onToggleComplete={onToggleComplete}
+            onContextMenu={onEventContextMenu}
           />
         ))}
       </div>
@@ -3772,11 +3776,28 @@ export default function WeekScheduler() {
     }
   } | null>(null)
 
-  // Patient record modal state for "Ver ficha" action
-  const [showPatientRecordModal, setShowPatientRecordModal] = useState(false)
+  // Patient record modal state for "Ver ficha" action and context menu actions
+  const [patientRecordConfig, setPatientRecordConfig] = useState<{
+    open: boolean
+    initialTab: 'Resumen' | 'Historial clínico' | 'Imágenes RX' | 'Presupuestos y pagos' | 'Consentimientos' | 'Recetas'
+    openBudgetCreation?: boolean
+    openPrescriptionCreation?: boolean
+    openClinicalHistoryEdit?: boolean
+    patientId?: string
+    patientName?: string
+  }>({
+    open: false,
+    initialTab: 'Resumen'
+  })
 
   // Estado para citas completadas (ID del evento -> completado)
   const [completedEvents, setCompletedEvents] = useState<Record<string, boolean>>({})
+
+  // Context menu state for right-click actions on appointments
+  const [contextMenu, setContextMenu] = useState<{
+    position: { x: number; y: number }
+    event: AgendaEvent
+  } | null>(null)
 
   // Week navigation state - starts with current week
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
@@ -4033,7 +4054,10 @@ export default function WeekScheduler() {
     if (!active?.event?.detail) return
 
     // Abrir el modal de ficha del paciente
-    setShowPatientRecordModal(true)
+    setPatientRecordConfig({
+      open: true,
+      initialTab: 'Resumen'
+    })
     setActive(null) // Cerrar overlay
   }, [active])
 
@@ -4046,6 +4070,102 @@ export default function WeekScheduler() {
     // TODO: Aquí se podría sincronizar con el backend
     console.log(`✅ Cita ${eventId} marcada como ${completed ? 'completada' : 'pendiente'}`)
   }, [])
+
+  // Handler para abrir menú contextual (clic derecho en cita)
+  const handleEventContextMenu = useCallback(
+    (e: React.MouseEvent<HTMLElement>, event: AgendaEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      // Cerrar cualquier overlay activo
+      setActive(null)
+      setHovered(null)
+      // Abrir menú contextual
+      setContextMenu({
+        position: { x: e.clientX, y: e.clientY },
+        event
+      })
+    },
+    []
+  )
+
+  // Handler para cerrar menú contextual
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null)
+  }, [])
+
+  // Callback para abrir modal de nueva cita (definido antes de handleContextMenuAction que lo usa)
+  const openCreateAppointmentModal = useCallback(
+    (prefill?: Partial<AppointmentFormData>) => {
+      setAppointmentPrefill(prefill ?? null)
+      setIsCreateAppointmentModalOpen(true)
+    },
+    []
+  )
+
+  // Handler para acciones del menú contextual
+  const handleContextMenuAction = useCallback(
+    (action: ContextMenuAction) => {
+      if (!contextMenu?.event) return
+
+      const event = contextMenu.event
+      const detail = event.detail
+
+      switch (action) {
+        case 'view-appointment':
+          // Abrir overlay de detalle de la cita - encontrar la columna correspondiente
+          const column = dayColumnsState.find(col => 
+            col.events.some(e => e.id === event.id)
+          )
+          if (column) {
+            setActive({ event, column })
+          }
+          break
+
+        case 'new-appointment':
+          // Abrir modal de nueva cita con datos pre-rellenados del paciente
+          openCreateAppointmentModal({
+            paciente: detail?.patientFull || ''
+          })
+          break
+
+        case 'new-budget':
+          // Abrir modal de ficha del paciente en tab Presupuestos con creación abierta
+          setPatientRecordConfig({
+            open: true,
+            initialTab: 'Presupuestos y pagos',
+            openBudgetCreation: true,
+            patientId: event.id, // Mock: usando event.id como patientId
+            patientName: detail?.patientFull || 'Paciente'
+          })
+          break
+
+        case 'new-prescription':
+          // Abrir modal de ficha del paciente en tab Recetas con creación abierta
+          setPatientRecordConfig({
+            open: true,
+            initialTab: 'Recetas',
+            openPrescriptionCreation: true,
+            patientId: event.id,
+            patientName: detail?.patientFull || 'Paciente'
+          })
+          break
+
+        case 'report':
+          // Abrir modal de ficha del paciente en Historial clínico en modo edición
+          setPatientRecordConfig({
+            open: true,
+            initialTab: 'Historial clínico',
+            openClinicalHistoryEdit: true,
+            patientId: event.id,
+            patientName: detail?.patientFull || 'Paciente'
+          })
+          break
+      }
+
+      setContextMenu(null)
+    },
+    [contextMenu, dayColumnsState, openCreateAppointmentModal]
+  )
 
   const timeToMinutes = (time: string): number => {
     const [hh = '09', mm = '00'] = time.split(':')
@@ -4466,14 +4586,6 @@ export default function WeekScheduler() {
     setActive(null)
     setOpenDropdown(null)
   }
-
-  const openCreateAppointmentModal = useCallback(
-    (prefill?: Partial<AppointmentFormData>) => {
-      setAppointmentPrefill(prefill ?? null)
-      setIsCreateAppointmentModalOpen(true)
-    },
-    []
-  )
 
   useEffect(() => {
     const handleExternalOpen = (event: Event) => {
@@ -5090,6 +5202,7 @@ export default function WeekScheduler() {
             onAppointmentMove={handleDayAppointmentMove}
             selectedBoxes={selectedBoxes}
             selectedProfessionals={selectedProfessionals}
+            onOpenCreateAppointment={(prefill) => openCreateAppointmentModal(prefill)}
           />
         </div>
       ) : (
@@ -5131,6 +5244,7 @@ export default function WeekScheduler() {
                   selectedProfessionals={selectedProfessionals}
                   completedEvents={completedEvents}
                   onToggleComplete={handleToggleComplete}
+                  onEventContextMenu={handleEventContextMenu}
                 />
               ))}
 
@@ -5394,10 +5508,25 @@ export default function WeekScheduler() {
 
       {/* Patient Record Modal - Quick action "Ver ficha" from agenda */}
       <PatientRecordModal
-        open={showPatientRecordModal}
-        onClose={() => setShowPatientRecordModal(false)}
-        initialTab='Resumen'
+        open={patientRecordConfig.open}
+        onClose={() => setPatientRecordConfig(prev => ({ ...prev, open: false }))}
+        initialTab={patientRecordConfig.initialTab}
+        openBudgetCreation={patientRecordConfig.openBudgetCreation}
+        openPrescriptionCreation={patientRecordConfig.openPrescriptionCreation}
+        openClinicalHistoryEdit={patientRecordConfig.openClinicalHistoryEdit}
+        patientId={patientRecordConfig.patientId}
+        patientName={patientRecordConfig.patientName}
       />
+
+      {/* Context Menu - Right-click actions on appointments */}
+      {contextMenu && (
+        <AppointmentContextMenu
+          position={contextMenu.position}
+          eventDetail={contextMenu.event.detail}
+          onAction={handleContextMenuAction}
+          onClose={handleCloseContextMenu}
+        />
+      )}
     </section>
   )
 }

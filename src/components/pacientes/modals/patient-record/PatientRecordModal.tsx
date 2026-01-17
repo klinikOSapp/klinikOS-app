@@ -23,6 +23,10 @@ type PatientRecordModalProps = {
   initialTab?: PatientRecordTab
   openBudgetCreation?: boolean
   openInEditMode?: boolean
+  openPrescriptionCreation?: boolean
+  openClinicalHistoryEdit?: boolean
+  patientId?: string
+  patientName?: string
 }
 
 export default function PatientRecordModal({
@@ -30,11 +34,17 @@ export default function PatientRecordModal({
   onClose,
   initialTab = 'Resumen',
   openBudgetCreation = false,
-  openInEditMode = false
+  openInEditMode = false,
+  openPrescriptionCreation = false,
+  openClinicalHistoryEdit = false,
+  patientId,
+  patientName
 }: PatientRecordModalProps) {
   const [active, setActive] = React.useState<PatientRecordTab>(initialTab)
   const [shouldOpenBudget, setShouldOpenBudget] = React.useState(openBudgetCreation)
   const [shouldOpenEdit, setShouldOpenEdit] = React.useState(openInEditMode)
+  const [shouldOpenPrescription, setShouldOpenPrescription] = React.useState(openPrescriptionCreation)
+  const [shouldOpenClinicalEdit, setShouldOpenClinicalEdit] = React.useState(openClinicalHistoryEdit)
 
   React.useEffect(() => {
     if (open && openBudgetCreation) {
@@ -47,6 +57,18 @@ export default function PatientRecordModal({
       setShouldOpenEdit(true)
     }
   }, [open, openInEditMode])
+
+  React.useEffect(() => {
+    if (open && openPrescriptionCreation) {
+      setShouldOpenPrescription(true)
+    }
+  }, [open, openPrescriptionCreation])
+
+  React.useEffect(() => {
+    if (open && openClinicalHistoryEdit) {
+      setShouldOpenClinicalEdit(true)
+    }
+  }, [open, openClinicalHistoryEdit])
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -161,7 +183,12 @@ export default function PatientRecordModal({
                   />
                 )}
                 {active === 'Historial clínico' && (
-                  <ClinicalHistory onClose={onClose} />
+                  <ClinicalHistory 
+                    onClose={onClose}
+                    initialEditMode={shouldOpenClinicalEdit}
+                    onEditModeOpened={() => setShouldOpenClinicalEdit(false)}
+                    patientName={patientName}
+                  />
                 )}
                 {active === 'Imágenes RX' && <RxImages onClose={onClose} />}
                 {active === 'Presupuestos y pagos' && (
@@ -169,10 +196,18 @@ export default function PatientRecordModal({
                     onClose={onClose}
                     openBudgetCreation={shouldOpenBudget}
                     onBudgetCreationOpened={() => setShouldOpenBudget(false)}
+                    patientName={patientName}
                   />
                 )}
                 {active === 'Consentimientos' && <Consents onClose={onClose} />}
-                {active === 'Recetas' && <Recetas onClose={onClose} />}
+                {active === 'Recetas' && (
+                  <Recetas 
+                    onClose={onClose}
+                    openPrescriptionCreation={shouldOpenPrescription}
+                    onPrescriptionCreationOpened={() => setShouldOpenPrescription(false)}
+                    patientName={patientName}
+                  />
+                )}
                 {active !== 'Resumen' &&
                   active !== 'Historial clínico' &&
                   active !== 'Imágenes RX' &&

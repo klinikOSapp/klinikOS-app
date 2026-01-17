@@ -51,6 +51,7 @@ type QuickBudgetModalProps = {
   open: boolean
   onClose: () => void
   onContinue?: (selection: QuickBudgetOption) => void
+  patientName?: string
 }
 
 type ModalStep = 'select' | 'details'
@@ -68,8 +69,11 @@ type ComboBoxProps = {
 const QuickBudgetModal = ({
   open,
   onClose,
-  onContinue
+  onContinue,
+  patientName
 }: QuickBudgetModalProps) => {
+  // Nombre del paciente para mostrar (usa prop o mock)
+  const displayPatientName = patientName || 'María García López'
   const [mounted, setMounted] = React.useState(false)
   const [step, setStep] = React.useState<ModalStep>('select')
   const [selectedId, setSelectedId] = React.useState<string>('blanqueo')
@@ -199,12 +203,17 @@ const QuickBudgetModal = ({
 
   const renderSelectionStep = () => (
     <>
-      <p
-        className='absolute text-title-lg text-neutral-900'
+      <div
+        className='absolute flex flex-col gap-1'
         style={{ left: '14.3125rem', top: '6rem' }}
       >
-        Selección del plan
-      </p>
+        <p className='text-title-lg text-neutral-900'>
+          Selección del plan
+        </p>
+        <p className='text-body-md font-medium text-brand-600'>
+          Paciente: {displayPatientName}
+        </p>
+      </div>
       {OPTIONS.map((option, index) => {
         const top = 10 + index * 5
         const isSelected = option.id === selectedId

@@ -39,6 +39,7 @@ export interface AppointmentSummaryCardProps {
     clientY: number
   ) => void
   onToggleComplete?: (eventId: string, completed: boolean) => void
+  onContextMenu?: (e: React.MouseEvent<HTMLElement>, event: AgendaEvent) => void
 }
 
 export default function AppointmentSummaryCard({
@@ -50,7 +51,8 @@ export default function AppointmentSummaryCard({
   onLeave,
   onActivate,
   onDragStart,
-  onToggleComplete
+  onToggleComplete,
+  onContextMenu
 }: AppointmentSummaryCardProps) {
   const canShowNotes =
     parseDimensionToPx(event.height) >= MIN_HEIGHT_FOR_NOTES_PX
@@ -88,6 +90,11 @@ export default function AppointmentSummaryCard({
           eventObj.preventDefault()
           onActivate()
         }
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onContextMenu?.(e, event)
       }}
       className={[
         'group/card absolute left-[var(--scheduler-event-left-offset)] flex flex-col gap-[var(--scheduler-event-gap)] overflow-hidden rounded-[var(--radius-lg)] border p-[var(--scheduler-event-padding)] text-left shadow-[0px_1px_2px_rgba(36,40,44,0.08)] transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-brand-500)] active:brightness-[0.98]',

@@ -16,6 +16,9 @@ import SelectorCard from '@/components/pacientes/SelectorCard'
 
 type ClinicalHistoryProps = {
   onClose?: () => void
+  initialEditMode?: boolean
+  onEditModeOpened?: () => void
+  patientName?: string
 }
 
 // Datos iniciales del historial clínico
@@ -31,7 +34,14 @@ const initialClinicalData = {
   profesional2Rol: 'Odontólogo'
 }
 
-export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
+export default function ClinicalHistory({ 
+  onClose,
+  initialEditMode = false,
+  onEditModeOpened,
+  patientName
+}: ClinicalHistoryProps) {
+  // Nombre del paciente para mostrar (usa prop o mock)
+  const displayPatientName = patientName || 'María García López'
   const [filter, setFilter] = React.useState<
     'proximas' | 'pasadas' | 'confirmadas' | 'inaxistencia'
   >('proximas')
@@ -39,9 +49,18 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
   const [selectedCardId, setSelectedCardId] = React.useState<string>('c1')
   
   // Estado de edición
-  const [isEditing, setIsEditing] = React.useState(false)
+  const [isEditing, setIsEditing] = React.useState(initialEditMode)
   const [formData, setFormData] = React.useState(initialClinicalData)
   const [tempFormData, setTempFormData] = React.useState(initialClinicalData)
+
+  // Activar modo edición si se abre con initialEditMode
+  React.useEffect(() => {
+    if (initialEditMode && !isEditing) {
+      setTempFormData(formData)
+      setIsEditing(true)
+      onEditModeOpened?.()
+    }
+  }, [initialEditMode, isEditing, formData, onEditModeOpened])
 
   const handleEdit = () => {
     setTempFormData(formData)
@@ -238,9 +257,12 @@ export default function ClinicalHistory({ onClose }: ClinicalHistoryProps) {
         className='absolute bg-neutral-50 content-stretch flex flex-col gap-[var(--spacing-gapsm)] items-start left-[var(--spacing-plnav)] top-[2.5rem] w-[35.5rem]'
         data-name='Header'
       >
-        <div className='content-stretch flex gap-[var(--spacing-gapsm)] items-center relative shrink-0'>
+        <div className='content-stretch flex flex-col gap-1 items-start relative shrink-0'>
           <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-900 text-title-lg text-nowrap whitespace-pre">
             Historial clínico
+          </p>
+          <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-brand-600 text-body-md font-medium">
+            {displayPatientName}
           </p>
         </div>
         <p className="font-['Inter:Regular',_sans-serif] min-w-full relative shrink-0 text-neutral-900 text-body-sm w-[min-content]">

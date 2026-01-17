@@ -40,6 +40,7 @@ type BudgetsPaymentsProps = {
   onClose?: () => void
   openBudgetCreation?: boolean
   onBudgetCreationOpened?: () => void
+  patientName?: string
 }
 
 type ActionMenuItem = {
@@ -1229,8 +1230,11 @@ function StatusBadge({ status, rowId, onStatusChange }: StatusBadgeProps) {
 export default function BudgetsPayments({
   onClose,
   openBudgetCreation = false,
-  onBudgetCreationOpened
+  onBudgetCreationOpened,
+  patientName
 }: BudgetsPaymentsProps) {
+  // Nombre del paciente para mostrar (usa prop o mock)
+  const displayPatientName = patientName || 'María García López'
   type TabKey = 'Presupuestos' | 'Producción' | 'Facturas'
   const [activeTab, setActiveTab] = React.useState<TabKey>('Presupuestos')
   const [showProposalModal, setShowProposalModal] = React.useState(false)
@@ -2726,6 +2730,7 @@ export default function BudgetsPayments({
           setShowQuickBudgetModal(false)
           setShowProposalModal(true)
         }}
+        patientName={displayPatientName}
       />
       <AddProductionModal
         open={showAddProductionModal}
