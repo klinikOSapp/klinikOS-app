@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { MD3Icon } from '@/components/icons/MD3Icon'
+import { MD3Icon, type MD3IconName } from '@/components/icons/MD3Icon'
 import Portal from '@/components/ui/Portal'
 import type { EventDetail } from './types'
 
@@ -23,7 +23,7 @@ export interface AppointmentContextMenuProps {
   onClose: () => void
 }
 
-const MENU_ITEMS: { id: ContextMenuAction; label: string; icon: string }[] = [
+const MENU_ITEMS: { id: ContextMenuAction; label: string; icon: MD3IconName }[] = [
   { id: 'view-appointment', label: 'Ver cita', icon: 'CalendarMonthRounded' },
   { id: 'new-appointment', label: 'Nueva cita', icon: 'AddRounded' },
   { id: 'new-budget', label: 'Nuevo presupuesto', icon: 'ReceiptLongRounded' },
@@ -126,7 +126,7 @@ export default function AppointmentContextMenu({
               className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
             >
               <MD3Icon
-                name={item.icon as any}
+                name={item.icon}
                 size={1.125}
                 className='text-[var(--color-neutral-600)]'
               />
