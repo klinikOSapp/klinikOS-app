@@ -5,6 +5,7 @@
 import ClientLayout from '@/app/client-layout'
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
+import Portal from '@/components/ui/Portal'
 import { useRouter, useSearchParams } from 'next/navigation'
 import React, { Suspense, useEffect, useRef } from 'react'
 
@@ -22,13 +23,15 @@ function PatientActionsMenu({
   onViewFile,
   onCreateBudget,
   onEdit,
-  onDelete
+  onDelete,
+  patientName
 }: {
   onClose: () => void
   onViewFile: () => void
   onCreateBudget: () => void
   onEdit: () => void
   onDelete: () => void
+  patientName?: string
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -38,54 +41,79 @@ function PatientActionsMenu({
         onClose()
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('keydown', handleEscape)
+    }, 0)
+    return () => {
+      clearTimeout(timeoutId)
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
   }, [onClose])
 
   const menuItemClass =
-    'flex items-center gap-[0.25rem] p-0 cursor-pointer hover:opacity-70 transition-opacity'
-  const menuTextClass =
-    'font-medium text-[1rem] leading-[1.5rem] text-[var(--color-neutral-900)]'
+    'flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
 
   return (
     <div
       ref={menuRef}
-      className='absolute right-full top-0 mr-2 z-50 backdrop-blur-[2px] bg-[rgba(248,250,251,0.9)] flex flex-col gap-[1.5rem] p-[1rem] rounded-[0.5rem] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)] min-w-max whitespace-nowrap'
+      role='menu'
+      aria-label='Acciones de paciente'
+      className='absolute right-full top-0 mr-2 z-50 min-w-[12rem] overflow-hidden rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] py-1 shadow-lg'
     >
-      <button type='button' className={menuItemClass} onClick={onViewFile}>
-        <MD3Icon
-          name='DescriptionRounded'
-          size='md'
-          className='text-[var(--color-neutral-900)]'
-        />
-        <span className={menuTextClass}>Ver ficha</span>
-      </button>
-      <button type='button' className={menuItemClass} onClick={onCreateBudget}>
-        <MD3Icon
-          name='EuroRounded'
-          size='md'
-          className='text-[var(--color-neutral-900)]'
-        />
-        <span className={menuTextClass}>Crear presupuesto</span>
-      </button>
-      <button type='button' className={menuItemClass} onClick={onEdit}>
-        <MD3Icon
-          name='EditRounded'
-          size='md'
-          className='text-[var(--color-neutral-900)]'
-        />
-        <span className={menuTextClass}>Editar datos</span>
-      </button>
-      <button type='button' className={menuItemClass} onClick={onDelete}>
-        <MD3Icon
-          name='DeleteRounded'
-          size='md'
-          className='text-[var(--color-error-600)]'
-        />
-        <span className={`${menuTextClass} !text-[var(--color-error-600)]`}>
-          Eliminar
-        </span>
-      </button>
+      {/* Header con nombre del paciente */}
+      {patientName && (
+        <div className='border-b border-[var(--color-border-default)] px-3 py-2'>
+          <p className='text-xs font-medium text-[var(--color-neutral-500)]'>
+            Acciones para
+          </p>
+          <p className='truncate text-sm font-semibold text-[var(--color-neutral-900)]'>
+            {patientName}
+          </p>
+        </div>
+      )}
+
+      {/* Opciones del menú */}
+      <div className='py-1'>
+        <button type='button' role='menuitem' className={menuItemClass} onClick={onViewFile}>
+          <MD3Icon
+            name='DescriptionRounded'
+            size={1.125}
+            className='text-[var(--color-neutral-600)]'
+          />
+          <span>Ver ficha</span>
+        </button>
+        <button type='button' role='menuitem' className={menuItemClass} onClick={onCreateBudget}>
+          <MD3Icon
+            name='EuroRounded'
+            size={1.125}
+            className='text-[var(--color-neutral-600)]'
+          />
+          <span>Crear presupuesto</span>
+        </button>
+        <button type='button' role='menuitem' className={menuItemClass} onClick={onEdit}>
+          <MD3Icon
+            name='EditRounded'
+            size={1.125}
+            className='text-[var(--color-neutral-600)]'
+          />
+          <span>Editar datos</span>
+        </button>
+        <button type='button' role='menuitem' className={menuItemClass} onClick={onDelete}>
+          <MD3Icon
+            name='DeleteRounded'
+            size={1.125}
+            className='text-[var(--color-error-600)]'
+          />
+          <span className='text-[var(--color-error-600)]'>Eliminar</span>
+        </button>
+      </div>
     </div>
   )
 }
@@ -122,6 +150,112 @@ function Chip({
     <span className={['px-2 py-0.5', sizeClass, styles, radius].join(' ')}>
       {children}
     </span>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────────
+   DeleteConfirmationModal - Modal de confirmación para eliminar pacientes
+   ───────────────────────────────────────────────────────────── */
+function DeleteConfirmationModal({
+  open,
+  onClose,
+  onConfirm,
+  count,
+  patientNames
+}: {
+  open: boolean
+  onClose: () => void
+  onConfirm: () => void
+  count: number
+  patientNames: string[]
+}) {
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClickOutside(event: MouseEvent) {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+        onClose()
+      }
+    }
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [open, onClose])
+
+  if (!open) return null
+
+  return (
+    <Portal>
+      <div className='fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-[2px]'>
+        <div
+          ref={modalRef}
+          className='bg-white rounded-[1rem] shadow-xl w-[min(28rem,90vw)] p-6 flex flex-col gap-4'
+        >
+          <div className='flex items-center gap-3'>
+            <div className='size-10 rounded-full bg-[var(--color-error-100)] flex items-center justify-center'>
+              <MD3Icon name='DeleteRounded' size='md' className='text-[var(--color-error-600)]' />
+            </div>
+            <h2 className='text-title-md text-[var(--color-neutral-900)]'>
+              Eliminar {count} {count === 1 ? 'paciente' : 'pacientes'}
+            </h2>
+          </div>
+          
+          <p className='text-body-md text-[var(--color-neutral-700)]'>
+            ¿Estás seguro de que deseas eliminar {count === 1 ? 'este paciente' : 'estos pacientes'}? Esta acción no se puede deshacer.
+          </p>
+
+          {patientNames.length > 0 && patientNames.length <= 5 && (
+            <div className='bg-[var(--color-neutral-50)] rounded-[0.5rem] p-3'>
+              <p className='text-body-sm text-[var(--color-neutral-600)] mb-2'>
+                {count === 1 ? 'Paciente a eliminar:' : 'Pacientes a eliminar:'}
+              </p>
+              <ul className='space-y-1'>
+                {patientNames.map((name, i) => (
+                  <li key={i} className='text-body-md text-[var(--color-neutral-900)]'>
+                    • {name}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {patientNames.length > 5 && (
+            <div className='bg-[var(--color-neutral-50)] rounded-[0.5rem] p-3'>
+              <p className='text-body-sm text-[var(--color-neutral-600)]'>
+                Se eliminarán {count} pacientes incluyendo: {patientNames.slice(0, 3).join(', ')} y {count - 3} más.
+              </p>
+            </div>
+          )}
+
+          <div className='flex items-center justify-end gap-3 mt-2'>
+            <button
+              type='button'
+              onClick={onClose}
+              className='px-4 py-2 rounded-[136px] text-body-md font-medium text-[var(--color-neutral-700)] bg-[var(--color-neutral-100)] hover:bg-[var(--color-neutral-200)] transition-colors cursor-pointer'
+            >
+              Cancelar
+            </button>
+            <button
+              type='button'
+              onClick={() => {
+                onConfirm()
+                onClose()
+              }}
+              className='px-4 py-2 rounded-[136px] text-body-md font-medium text-white bg-[var(--color-error-600)] hover:bg-[var(--color-error-700)] transition-colors cursor-pointer'
+            >
+              Eliminar {count === 1 ? 'paciente' : 'pacientes'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Portal>
   )
 }
 
@@ -267,6 +401,8 @@ function PacientesPageContent() {
   const [openBudgetCreation, setOpenBudgetCreation] = React.useState(false)
   const [openEditMode, setOpenEditMode] = React.useState(false)
   const [openMenuId, setOpenMenuId] = React.useState<string | null>(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false)
+  const [patients, setPatients] = React.useState(MOCK_PATIENTS)
   const searchParams = useSearchParams()
   const navRouter = useRouter()
 
@@ -296,6 +432,21 @@ function PacientesPageContent() {
   }
   const clearFilters = () => setSelectedFilters([])
 
+  // Obtener nombres de pacientes seleccionados
+  const getSelectedPatientNames = () => {
+    return patients
+      .filter((p) => selectedPatientIds.includes(p.id))
+      .map((p) => p.name)
+  }
+
+  // Eliminar pacientes seleccionados
+  const handleDeleteSelectedPatients = () => {
+    setPatients((prev) => prev.filter((p) => !selectedPatientIds.includes(p.id)))
+    setSelectedPatientIds([])
+    // TODO: Aquí iría la llamada a la API para eliminar en el backend
+    console.log('Pacientes eliminados:', selectedPatientIds)
+  }
+
   const searchCtaStyles: React.CSSProperties = {
     width: `min(${CTA_WIDTH_REM}rem, 100%)`,
     minHeight: `min(${CTA_HEIGHT_REM}rem, 6vh)`
@@ -314,6 +465,14 @@ function PacientesPageContent() {
           initialTab={openBudgetCreation ? 'Presupuestos y pagos' : 'Resumen'}
           openBudgetCreation={openBudgetCreation}
           openInEditMode={openEditMode}
+        />
+
+        <DeleteConfirmationModal
+          open={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={handleDeleteSelectedPatients}
+          count={selectedPatientIds.length}
+          patientNames={getSelectedPatientNames()}
         />
 
         {/* Header Section - Fixed size */}
@@ -364,17 +523,27 @@ function PacientesPageContent() {
           <div className='flex-shrink-0 mb-6 flex items-center justify-between'>
             <div className='flex items-center gap-2'>
               {selectedPatientIds.length > 0 && (
-                <Chip color='teal'>{selectedPatientIds.length} selected</Chip>
+                <div className='flex items-center gap-2'>
+                  <Chip color='teal'>
+                    {selectedPatientIds.length} {selectedPatientIds.length === 1 ? 'seleccionado' : 'seleccionados'}
+                  </Chip>
+                  <button
+                    onClick={() => setSelectedPatientIds([])}
+                    className='text-body-sm text-[var(--color-neutral-600)] hover:text-[var(--color-neutral-900)] underline cursor-pointer'
+                  >
+                    Deseleccionar
+                  </button>
+                </div>
               )}
-              <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-body-sm text-[var(--color-neutral-700)] cursor-pointer'>
-                Estado
-              </button>
-              <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-body-sm text-[var(--color-neutral-700)] cursor-pointer'>
-                Check-in
-              </button>
-              <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
-                <MD3Icon name='DeleteRounded' size='md' />
-              </button>
+              {selectedPatientIds.length > 0 && (
+                <button
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  className='bg-[var(--color-neutral-50)] border border-[var(--color-error-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer hover:bg-[var(--color-error-50)] hover:border-[var(--color-error-500)] transition-colors rounded-[4px]'
+                  title={`Eliminar ${selectedPatientIds.length} paciente${selectedPatientIds.length > 1 ? 's' : ''}`}
+                >
+                  <MD3Icon name='DeleteRounded' size='md' className='text-[var(--color-error-600)]' />
+                </button>
+              )}
             </div>
             <div className='flex items-center gap-2'>
               <div className='flex items-center gap-2 border-b border-[var(--color-neutral-900)] px-2 py-1'>
@@ -465,7 +634,7 @@ function PacientesPageContent() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_PATIENTS.filter((p) => {
+                {patients.filter((p) => {
                   const q = query.trim().toLowerCase()
                   const matchesQuery = q
                     ? p.name.toLowerCase().includes(q) ||
@@ -571,6 +740,7 @@ function PacientesPageContent() {
                         {openMenuId === row.id && (
                           <PatientActionsMenu
                             onClose={() => setOpenMenuId(null)}
+                            patientName={row.name}
                             onViewFile={() => {
                               setOpenMenuId(null)
                               setIsFichaModalOpen(true)

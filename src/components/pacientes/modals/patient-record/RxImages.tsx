@@ -97,21 +97,9 @@ export default function RxImages({ onClose }: RxImagesProps) {
 
   return (
     <div
-      className='bg-[#f8fafb] relative w-[74.75rem] h-[56.25rem]'
+      className='bg-[#f8fafb] relative w-[74.75rem] h-full'
       data-node-id='457:41'
     >
-      <button
-        type='button'
-        aria-label='Cerrar'
-        onClick={onClose}
-        className='absolute size-[24px] top-[16px] cursor-pointer'
-        style={{ left: 'calc(93.75% + 34.75px)' }}
-        data-name='close'
-        data-node-id='457:42'
-      >
-        <CloseRounded className='block max-w-none size-full text-[#24282c]' />
-      </button>
-
       {/* Header */}
       <div
         className='absolute bg-[#f8fafb] content-stretch flex flex-col gap-[8px] items-start left-[32px] top-[40px] w-[568px]'

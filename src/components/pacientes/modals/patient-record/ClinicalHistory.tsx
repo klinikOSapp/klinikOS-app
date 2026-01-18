@@ -18,7 +18,6 @@ type ClinicalHistoryProps = {
   onClose?: () => void
   initialEditMode?: boolean
   onEditModeOpened?: () => void
-  patientName?: string
 }
 
 // Datos iniciales del historial clínico
@@ -37,11 +36,8 @@ const initialClinicalData = {
 export default function ClinicalHistory({ 
   onClose,
   initialEditMode = false,
-  onEditModeOpened,
-  patientName
+  onEditModeOpened
 }: ClinicalHistoryProps) {
-  // Nombre del paciente para mostrar (usa prop o mock)
-  const displayPatientName = patientName || 'María García López'
   const [filter, setFilter] = React.useState<
     'proximas' | 'pasadas' | 'confirmadas' | 'inaxistencia'
   >('proximas')
@@ -106,20 +102,9 @@ export default function ClinicalHistory({
   }
   return (
     <div
-      className='bg-neutral-50 relative w-full max-w-[74.75rem] h-full min-h-[56.25rem] overflow-hidden'
+      className='bg-neutral-50 relative w-full max-w-[74.75rem] h-full overflow-hidden'
       data-node-id='426:934'
     >
-      <button
-        type='button'
-        aria-label='Cerrar'
-        onClick={onClose}
-        className='absolute size-6 top-[var(--spacing-gapmd)] right-[var(--spacing-plnav)] cursor-pointer'
-        data-name='close'
-        data-node-id='426:935'
-      >
-        <CloseRounded className='size-6 text-neutral-900' />
-      </button>
-
       <div className='absolute left-[var(--spacing-plnav)] top-[10.25rem] flex items-center gap-[var(--spacing-gapmd)]'>
         <div
           role='tab'
@@ -257,14 +242,9 @@ export default function ClinicalHistory({
         className='absolute bg-neutral-50 content-stretch flex flex-col gap-[var(--spacing-gapsm)] items-start left-[var(--spacing-plnav)] top-[2.5rem] w-[35.5rem]'
         data-name='Header'
       >
-        <div className='content-stretch flex flex-col gap-1 items-start relative shrink-0'>
-          <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-900 text-title-lg text-nowrap whitespace-pre">
-            Historial clínico
-          </p>
-          <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-brand-600 text-body-md font-medium">
-            {displayPatientName}
-          </p>
-        </div>
+        <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-neutral-900 text-title-lg text-nowrap whitespace-pre">
+          Historial clínico
+        </p>
         <p className="font-['Inter:Regular',_sans-serif] min-w-full relative shrink-0 text-neutral-900 text-body-sm w-[min-content]">
           Filtra el historial clínico, consulta los detalles y sube imágenes y
           documentos.

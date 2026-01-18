@@ -93,39 +93,45 @@ export default function ProductionTotalCard({
 
   const sectionStyles: CSSProperties = {
     width: '100%',
-    height: `min(${CARD_HEIGHT}, calc(100vh - 6rem))`
+    height: '100%',
+    minHeight: 'min(14rem, 20vh)'
   }
 
   return (
     <section
-      className='relative overflow-hidden rounded-lg bg-surface text-fg shadow-elevation-card flex flex-col'
+      className='relative overflow-hidden rounded-lg bg-surface text-fg shadow-elevation-card flex flex-col min-w-0'
       style={sectionStyles}
     >
       {/* Header */}
-      <header className='px-4 pt-4 shrink-0'>
-        <h3 className='text-title-sm font-medium text-fg'>
+      <header className='px-3 lg:px-4 pt-3 lg:pt-4 shrink-0 flex items-center gap-2 justify-between'>
+        <h3 className='text-title-sm font-medium text-fg truncate'>
           Facturación por especialidad
         </h3>
         {/* Hint for filtering - only show when not filtered */}
         {onSpecialtySelect && !selectedSpecialty && (
-          <p className='text-label-sm text-neutral-400 mt-0.5 flex items-center gap-1'>
+          <p className='text-label-sm text-neutral-400 flex items-center gap-1 shrink-0'>
             <span className='material-symbols-rounded text-sm'>touch_app</span>
-            Clic para filtrar el dashboard
+            <span className='hidden lg:inline'>Clic para filtrar el dashboard</span>
           </p>
         )}
       </header>
 
       {/* Content - responsive layout: column on tablet, row on desktop */}
-      <div className='flex-1 flex flex-col lg:flex-row items-center px-4 lg:px-6 pb-4 gap-2'>
-        {/* Donut - responsive size */}
+      <div className='flex-1 flex flex-col lg:flex-row items-center px-3 lg:px-4 pt-2 pb-3 lg:pb-4 gap-2 lg:gap-4 min-w-0 overflow-hidden'>
+        {/* Donut - responsive size, can shrink */}
         <div
-          className='relative shrink-0 outline-none'
-          style={{ width: 'min(11rem, 38vw)', height: 'min(11rem, 38vw)' }}
+          className='relative outline-none shrink-0'
+          style={{ 
+            width: 'min(11rem, 40vw)', 
+            height: 'min(11rem, 40vw)',
+            minWidth: '7rem',
+            minHeight: '7rem'
+          }}
           tabIndex={-1}
         >
           <ResponsiveContainer width='100%' height='100%'>
             <PieChart
-              margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+              margin={{ top: 2, right: 2, bottom: 2, left: 2 }}
               style={{ outline: 'none' }}
             >
               <Pie
@@ -133,7 +139,7 @@ export default function ProductionTotalCard({
                 dataKey='percentage'
                 startAngle={90}
                 endAngle={-270}
-                innerRadius='75%'
+                innerRadius='70%'
                 outerRadius='100%'
                 paddingAngle={0}
                 stroke='transparent'
@@ -163,17 +169,17 @@ export default function ProductionTotalCard({
           </ResponsiveContainer>
           {/* Center content */}
           <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center'>
-            <p className='text-title-md font-bold text-neutral-900'>
+            <p className='text-base lg:text-title-md font-bold text-neutral-900 whitespace-nowrap'>
               {resolvedValue}
             </p>
-            <span className='text-label-sm font-medium text-brand-500'>
+            <span className='text-xs lg:text-label-sm font-medium text-brand-500'>
               {resolvedDelta}
             </span>
           </div>
         </div>
 
-        {/* Legend - horizontal wrap on tablet, vertical on desktop */}
-        <dl className='flex flex-wrap lg:flex-col gap-2 lg:gap-2.5 text-sm text-neutral-800 justify-center lg:justify-start lg:ml-20'>
+        {/* Legend - vertical list */}
+        <dl className='flex flex-col gap-1 lg:gap-1.5 text-sm text-neutral-800 justify-center min-w-0 overflow-visible'>
           {resolvedSpecialties.map(({ label, percentage, colorToken }) => {
             const isSelected = selectedSpecialty === label
             const isOtherSelected =
@@ -183,9 +189,9 @@ export default function ProductionTotalCard({
                 key={label}
                 type='button'
                 onClick={() => handleSpecialtyClick(label)}
-                className={`flex items-center gap-3 rounded-md px-2 py-1 -mx-2 transition-all duration-150 outline-none focus:outline-none ${
+                className={`flex items-center gap-2 lg:gap-3 rounded-md px-2 py-1 transition-colors duration-150 outline-none focus:outline-none min-w-0 ${
                   onSpecialtySelect ? 'hover:bg-neutral-100 cursor-pointer' : ''
-                } ${isSelected ? 'bg-brand-50 ring-1 ring-brand-500' : ''} ${
+                } ${isSelected ? 'bg-brand-50 ring-1 ring-inset ring-brand-500' : ''} ${
                   isOtherSelected ? 'opacity-40' : ''
                 }`}
                 disabled={!onSpecialtySelect}
@@ -195,10 +201,10 @@ export default function ProductionTotalCard({
                   style={{ backgroundColor: colorToken }}
                   aria-hidden='true'
                 />
-                <dt className='font-normal w-20 lg:w-24 text-left truncate'>
+                <dt className='font-normal text-sm text-left truncate min-w-0 flex-1'>
                   {label}
                 </dt>
-                <dd className='font-semibold tabular-nums text-right w-8 lg:w-10'>
+                <dd className='font-semibold tabular-nums text-right text-sm shrink-0'>
                   {percentage}%
                 </dd>
               </button>

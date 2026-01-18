@@ -18,6 +18,7 @@ export interface SidebarProps {
   ctaMenuItems?: { id: string; label: string; onClick?: () => void }[]
   collapsed?: boolean
   onToggleCollapsed?: (next: boolean) => void
+  isHydrated?: boolean
 }
 
 export interface TopBarProps {

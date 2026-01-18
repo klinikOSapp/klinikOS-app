@@ -1704,19 +1704,9 @@ export default function BudgetsPayments({
 
   return (
     <div
-      className='relative w-[74.75rem] h-[56.25rem] bg-neutral-50'
+      className='relative w-[74.75rem] h-full bg-neutral-50'
       data-node-id='3092:10807'
     >
-      {/* Close button */}
-      <button
-        type='button'
-        aria-label='Cerrar'
-        onClick={onClose}
-        className='absolute size-6 top-4 right-4 text-neutral-900 cursor-pointer hover:text-neutral-600 transition-colors'
-      >
-        <CloseRounded className='size-6' />
-      </button>
-
       {/* Header */}
       <div
         className='absolute left-8 top-10 flex flex-col gap-2 w-[35.5rem]'

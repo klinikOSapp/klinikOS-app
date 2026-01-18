@@ -18,7 +18,6 @@ import AddPatientModal from '@/components/pacientes/modals/add-patient/AddPatien
 const SIDEBAR_COLLAPSED_KEY = 'klinikos-sidebar-collapsed'
 
 export default function Layout({ children, ctaMenuItems }: LayoutProps) {
-  // Inicializar siempre con false para evitar hydration mismatch
   const [collapsed, setCollapsed] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
   const [isAddPatientModalOpen, setIsAddPatientModalOpen] = useState(false)
@@ -26,13 +25,16 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
 
-  // Leer localStorage solo después del montaje (cliente)
+  // Leer localStorage y marcar como hidratado después del montaje
   useEffect(() => {
     const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY)
     if (saved === 'true') {
       setCollapsed(true)
     }
-    setIsHydrated(true)
+    // Pequeño delay para asegurar que el estado se actualice antes de mostrar
+    requestAnimationFrame(() => {
+      setIsHydrated(true)
+    })
   }, [])
 
   // Persistir estado del sidebar en localStorage (solo después de hidratación)
@@ -138,6 +140,7 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
           ctaMenuItems={menuItems}
           collapsed={collapsed}
           onToggleCollapsed={setCollapsed}
+          isHydrated={isHydrated}
         />
         <main className='bg-white rounded-tl-[var(--radius-xl)] w-full h-[calc(100dvh-var(--spacing-topbar))] min-h-0 overflow-hidden relative z-20'>
           {children}

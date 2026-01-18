@@ -8,13 +8,15 @@ import React from 'react'
 type PatientFileModalProps = {
   open: boolean
   onClose: () => void
+  patientName?: string
 }
 
 type TabKey = 'summary' | 'history' | 'rx' | 'billing' | 'consents'
 
 export default function PatientFileModal({
   open,
-  onClose
+  onClose,
+  patientName
 }: PatientFileModalProps) {
   const [activeTab, setActiveTab] = React.useState<TabKey>('summary')
 
@@ -115,71 +117,72 @@ export default function PatientFileModal({
         aria-hidden
       >
         <div className='absolute inset-0 flex items-start justify-center p-8'>
-        <div
-          role='dialog'
-          aria-modal='true'
-          onClick={(e) => e.stopPropagation()}
-        >
           <div
-            className='w-[82rem] h-[60rem] max-w-[95vw] max-h-[90vh] relative bg-[var(--color-surface-modal,#fff)] rounded-[1rem] overflow-hidden flex'
-            style={{
-              width: 'min(82rem, calc(82rem * (90vh / 60rem)))',
-              height: 'min(60rem, 90vh)'
-            }}
+            role='dialog'
+            aria-modal='true'
+            onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className='absolute top-0 left-0 right-0 h-14 border-b border-[var(--color-neutral-300)] flex items-center justify-between px-6'>
-              <div className='text-title-lg text-[var(--color-neutral-900)]'>
-                Ficha del paciente
+            <div
+              className='w-[82rem] h-[60rem] max-w-[95vw] max-h-[90vh] relative bg-[var(--color-surface-modal,#fff)] rounded-[1rem] overflow-hidden flex'
+              style={{
+                width: 'min(82rem, calc(82rem * (90vh / 60rem)))',
+                height: 'min(60rem, 90vh)'
+              }}
+            >
+              {/* Header */}
+              <div className='absolute top-0 left-0 right-0 h-14 border-b border-[var(--color-neutral-300)] flex items-center justify-between px-6'>
+                <p className='text-title-lg text-[var(--color-neutral-900)]'>
+                  <span className='text-[var(--color-neutral-600)]'>Ficha de </span>
+                  <span className='text-[var(--color-brand-600)]'>{patientName || 'Paciente'}</span>
+                </p>
+                <button
+                  type='button'
+                  aria-label='Cerrar'
+                  onClick={onClose}
+                  className='w-3.5 h-3.5 cursor-pointer'
+                >
+                  <CloseRounded className='block w-3.5 h-3.5' />
+                </button>
               </div>
-              <button
-                type='button'
-                aria-label='Cerrar'
-                onClick={onClose}
-                className='w-3.5 h-3.5 cursor-pointer'
-              >
-                <CloseRounded className='block w-3.5 h-3.5' />
-              </button>
-            </div>
 
-            {/* Body layout */}
-            <div className='pt-14 w-full h-full flex'>
-              {/* Left navigation (304px) */}
-              <nav className='w-[304px] shrink-0 h-full border-r border-[var(--color-neutral-300)] p-4 overflow-auto'>
-                <NavItem
-                  title='Resumen'
-                  subtitle='Datos básicos de consulta, alertas, próximas citas, deuda, …'
-                  tab='summary'
-                />
-                <NavItem
-                  title='Historial clínico'
-                  subtitle='Notas SOAP, odontograma, actos y adjuntos.'
-                  tab='history'
-                />
-                <NavItem
-                  title='Imágenes RX'
-                  subtitle='capturas intraorales/fotos antes-después y escáner 3D.'
-                  tab='rx'
-                />
-                <NavItem
-                  title='Presupuestos y pagos'
-                  subtitle='Cobros, financiación embebida, facturas/recibos y conciliación.'
-                  tab='billing'
-                />
-                <NavItem
-                  title='Consentimientos'
-                  subtitle='Accede a todos los consentimientos de los pacientes.'
-                  tab='consents'
-                />
-              </nav>
+              {/* Body layout */}
+              <div className='pt-14 w-full h-full flex'>
+                {/* Left navigation (304px) */}
+                <nav className='w-[304px] shrink-0 h-full border-r border-[var(--color-neutral-300)] p-4 overflow-auto'>
+                  <NavItem
+                    title='Resumen'
+                    subtitle='Datos básicos de consulta, alertas, próximas citas, deuda, …'
+                    tab='summary'
+                  />
+                  <NavItem
+                    title='Historial clínico'
+                    subtitle='Notas SOAP, odontograma, actos y adjuntos.'
+                    tab='history'
+                  />
+                  <NavItem
+                    title='Imágenes RX'
+                    subtitle='capturas intraorales/fotos antes-después y escáner 3D.'
+                    tab='rx'
+                  />
+                  <NavItem
+                    title='Presupuestos y pagos'
+                    subtitle='Cobros, financiación embebida, facturas/recibos y conciliación.'
+                    tab='billing'
+                  />
+                  <NavItem
+                    title='Consentimientos'
+                    subtitle='Accede a todos los consentimientos de los pacientes.'
+                    tab='consents'
+                  />
+                </nav>
 
-              {/* Right content */}
-              <section className='flex-1 h-full overflow-hidden bg-[var(--color-neutral-50)]'>
-                <RightPaneContent />
-              </section>
+                {/* Right content */}
+                <section className='flex-1 h-full overflow-hidden bg-[var(--color-neutral-50)]'>
+                  <RightPaneContent />
+                </section>
+              </div>
             </div>
           </div>
-        </div>
         </div>
       </div>
     </Portal>

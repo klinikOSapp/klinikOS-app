@@ -6,6 +6,7 @@ import Portal from '@/components/ui/Portal'
 import type { EventDetail } from './types'
 
 export type ContextMenuAction = 
+  | 'view-patient'
   | 'view-appointment'
   | 'new-appointment'
   | 'new-budget'
@@ -24,6 +25,7 @@ export interface AppointmentContextMenuProps {
 }
 
 const MENU_ITEMS: { id: ContextMenuAction; label: string; icon: string }[] = [
+  { id: 'view-patient', label: 'Ver paciente', icon: 'AccountCircleRounded' },
   { id: 'view-appointment', label: 'Ver cita', icon: 'CalendarMonthRounded' },
   { id: 'new-appointment', label: 'Nueva cita', icon: 'AddRounded' },
   { id: 'new-budget', label: 'Nuevo presupuesto', icon: 'ReceiptLongRounded' },

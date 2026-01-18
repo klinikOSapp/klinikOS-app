@@ -6,7 +6,7 @@ import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import type { SpecialtyFilter } from './gestionTypes'
 
 const CARD_WIDTH = 'var(--width-card-chart-lg-fluid)'
-const CARD_HEIGHT_CLAMP = 'clamp(15rem, 34vh, 21.375rem)'
+const CARD_HEIGHT_CLAMP = 'clamp(17rem, 34vh, 21.375rem)'
 const CARD_WIDTH_LIMIT = 'var(--accounting-width-limit)'
 const CARD_HEIGHT_LIMIT = 'var(--accounting-height-limit)'
 
@@ -371,7 +371,7 @@ export default function AccountingPanel({
       {kpis.map((card) => (
         <article
           key={card.title}
-          className='absolute flex flex-col rounded-lg p-[0.5rem] overflow-hidden'
+          className='absolute flex flex-col rounded-lg p-2 overflow-hidden min-w-0'
           style={{
             left: toWidth(card.left),
             top: toHeight(card.top),
@@ -380,20 +380,21 @@ export default function AccountingPanel({
             backgroundColor: card.bg
           }}
         >
-          <header className='flex items-center justify-between text-label-md text-neutral-600'>
-            <span className='material-symbols-rounded text-[1rem] leading-[1rem] text-neutral-600'>
-              {card.icon}
-            </span>
-          </header>
-          <div className='mt-gapsm text-label-md text-neutral-600'>
+          {/* Icon - fixed size */}
+          <span className='material-symbols-rounded text-base leading-none text-neutral-600 shrink-0'>
+            {card.icon}
+          </span>
+          {/* Title */}
+          <p className='text-label-sm text-neutral-600 mt-1 truncate shrink-0'>
             {card.title}
-          </div>
-          <div className='mt-auto flex items-baseline justify-between gap-[0.25rem]'>
-            <p className='text-neutral-600 whitespace-nowrap text-headline-sm font-normal'>
+          </p>
+          {/* Value + Delta - pushed to bottom */}
+          <div className='mt-auto flex items-baseline justify-between gap-1 min-w-0 overflow-hidden'>
+            <p className='text-neutral-600 text-lg lg:text-xl font-normal truncate min-w-0'>
               {card.value}
             </p>
             <span
-              className={`shrink-0 whitespace-nowrap text-label-sm font-medium ${
+              className={`shrink-0 text-xs lg:text-label-sm font-medium ${
                 card.delta.startsWith('-') ? 'text-red-500' : 'text-brand-500'
               }`}
             >

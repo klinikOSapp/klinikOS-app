@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import ClientLayout from '@/app/client-layout'
+import AppointmentContextMenu, { type ContextMenuAction } from '@/components/agenda/AppointmentContextMenu'
 import ParteDiarioModal from '@/components/agenda/modals/ParteDiarioModal'
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
@@ -161,6 +162,7 @@ type DailyRow = {
   day: string
   hour: string
   name: string
+  age?: number
   professional?: string
   reason: string
   phone: string
@@ -177,6 +179,7 @@ function appointmentToRow(apt: Appointment): DailyRow {
     day: formatDateToShort(apt.date),
     hour: apt.startTime,
     name: apt.patientName,
+    age: apt.patientAge,
     professional: apt.professional,
     reason: apt.reason,
     phone: apt.patientPhone,
@@ -185,6 +188,25 @@ function appointmentToRow(apt: Appointment): DailyRow {
     tags: apt.tags,
     paymentInfo: apt.paymentInfo
   }
+}
+
+// Componente para mostrar la edad con estilo especial para menores
+function AgeCell({ age }: { age?: number }) {
+  if (age === undefined) {
+    return <span className='text-[var(--color-neutral-400)]'>—</span>
+  }
+
+  const isMinor = age < 18
+
+  if (isMinor) {
+    return (
+      <span className='text-[#E65100] font-medium'>
+        {age}
+      </span>
+    )
+  }
+
+  return <span>{age}</span>
 }
 
 // Componente para mostrar el estado de pago
@@ -249,6 +271,21 @@ export default function ParteDiarioPage() {
   )
   const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
   const [isParteModalOpen, setIsParteModalOpen] = React.useState(false)
+  
+  // Estado para el menú contextual de acciones rápidas
+  const [contextMenu, setContextMenu] = React.useState<{
+    isOpen: boolean
+    position: { x: number; y: number }
+    rowData: DailyRow | null
+  }>({
+    isOpen: false,
+    position: { x: 0, y: 0 },
+    rowData: null
+  })
+  
+  // Estado para controlar qué tab abrir en el modal
+  const [initialTab, setInitialTab] = React.useState<string>('Resumen')
+  const [openBudgetCreation, setOpenBudgetCreation] = React.useState(false)
 
   // Estado para el filtro de profesional
   const [selectedProfessional, setSelectedProfessional] = React.useState<
@@ -342,6 +379,81 @@ export default function ParteDiarioPage() {
   const hasActiveFilters =
     selectedFilters.length > 0 || selectedProfessional !== null
 
+  // Función para abrir el menú contextual
+  const handleOpenContextMenu = (
+    e: React.MouseEvent,
+    row: DailyRow
+  ) => {
+    e.stopPropagation()
+    const rect = (e.target as HTMLElement).getBoundingClientRect()
+    const menuWidth = 200
+    const menuHeight = 280
+    const padding = 8
+    
+    // Calcular posición X - preferir a la izquierda del botón
+    let x = rect.left - menuWidth - padding
+    // Si se sale por la izquierda, ponerlo a la derecha del botón
+    if (x < padding) {
+      x = rect.right + padding
+    }
+    // Si aún se sale por la derecha, ajustar al borde derecho
+    if (x + menuWidth > window.innerWidth - padding) {
+      x = window.innerWidth - menuWidth - padding
+    }
+    
+    // Calcular posición Y - preferir debajo del botón
+    let y = rect.top
+    // Si se sale por abajo, ajustar hacia arriba
+    if (y + menuHeight > window.innerHeight - padding) {
+      y = window.innerHeight - menuHeight - padding
+    }
+    // Si se sale por arriba, ajustar al borde superior
+    if (y < padding) {
+      y = padding
+    }
+    
+    setContextMenu({
+      isOpen: true,
+      position: { x, y },
+      rowData: row
+    })
+  }
+
+  // Función para manejar las acciones del menú contextual
+  const handleContextMenuAction = (action: ContextMenuAction) => {
+    switch (action) {
+      case 'view-patient':
+        setInitialTab('Resumen')
+        setOpenBudgetCreation(false)
+        setIsFichaModalOpen(true)
+        break
+      case 'view-appointment':
+        setInitialTab('Historial clínico')
+        setOpenBudgetCreation(false)
+        setIsFichaModalOpen(true)
+        break
+      case 'new-appointment':
+        // TODO: Abrir modal de nueva cita
+        console.log('Nueva cita para:', contextMenu.rowData?.name)
+        break
+      case 'new-budget':
+        setInitialTab('Presupuestos y pagos')
+        setOpenBudgetCreation(true)
+        setIsFichaModalOpen(true)
+        break
+      case 'new-prescription':
+        setInitialTab('Recetas')
+        setOpenBudgetCreation(false)
+        setIsFichaModalOpen(true)
+        break
+      case 'report':
+        // TODO: Implementar reportar
+        console.log('Reportar:', contextMenu.rowData?.name)
+        break
+    }
+    setContextMenu({ isOpen: false, position: { x: 0, y: 0 }, rowData: null })
+  }
+
   const searchCtaStyles: React.CSSProperties = {
     width: `min(${CTA_WIDTH_REM}rem, 100%)`,
     minHeight: `min(${CTA_HEIGHT_REM}rem, 6vh)`
@@ -352,11 +464,37 @@ export default function ParteDiarioPage() {
       <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] px-[min(3rem,4vw)] py-[min(1.5rem,2vw)] flex flex-col overflow-auto'>
         <PatientRecordModal
           open={isFichaModalOpen}
-          onClose={() => setIsFichaModalOpen(false)}
+          onClose={() => {
+            setIsFichaModalOpen(false)
+            setOpenBudgetCreation(false)
+            setInitialTab('Resumen')
+          }}
+          initialTab={initialTab}
+          openBudgetCreation={openBudgetCreation}
         />
+        
+        {/* Menú contextual de acciones rápidas */}
+        {contextMenu.isOpen && contextMenu.rowData && (
+          <AppointmentContextMenu
+            position={contextMenu.position}
+            eventDetail={{
+              patientFull: contextMenu.rowData.name,
+              id: contextMenu.rowData.id,
+              title: contextMenu.rowData.reason,
+              subtitle: contextMenu.rowData.professional || '',
+              start: contextMenu.rowData.hour,
+              end: '',
+              bgColor: ''
+            }}
+            onAction={handleContextMenuAction}
+            onClose={() => setContextMenu({ isOpen: false, position: { x: 0, y: 0 }, rowData: null })}
+          />
+        )}
         <ParteDiarioModal
           isOpen={isParteModalOpen}
           onClose={() => setIsParteModalOpen(false)}
+          initialProfessional={selectedProfessional ?? undefined}
+          initialDate={selectedDate}
         />
 
         {/* Header Section - Fixed size */}
@@ -561,11 +699,17 @@ export default function ParteDiarioPage() {
               </button>
             </div>
             <div className='flex items-center gap-2'>
-              <div className='flex items-center gap-2 px-2 py-1'>
+              <div className='flex items-center gap-2 border-b border-[var(--color-neutral-900)] px-2 py-1'>
                 <MD3Icon
                   name='SearchRounded'
                   size='sm'
                   className='text-[var(--color-neutral-900)]'
+                />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder='Buscar por nombre, teléfono, motivo,...'
+                  className='bg-transparent outline-none text-body-sm text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-900)]'
                 />
               </div>
               <button
@@ -673,7 +817,7 @@ export default function ParteDiarioPage() {
             <table className='w-full table-fixed border-collapse'>
               <thead>
                 <tr>
-                  <TableHeaderCell className='w-[40px] pr-2'>
+                  <TableHeaderCell className='w-[40px] pr-2 sticky left-0 z-10 bg-[var(--color-neutral-50)]/70 backdrop-blur-md'>
                     <span className='sr-only'>Seleccionar fila</span>
                   </TableHeaderCell>
                   <TableHeaderCell className='w-[120px] pr-2'>
@@ -692,6 +836,9 @@ export default function ParteDiarioPage() {
                       <span>Paciente</span>
                     </div>
                   </TableHeaderCell>
+                  <TableHeaderCell className='w-[80px] pr-2'>
+                    Edad
+                  </TableHeaderCell>
                   <TableHeaderCell className='w-[200px] pr-2'>
                     Profesional
                   </TableHeaderCell>
@@ -706,6 +853,9 @@ export default function ParteDiarioPage() {
                   </TableHeaderCell>
                   <TableHeaderCell className='w-[140px] pr-2'>
                     Pendiente
+                  </TableHeaderCell>
+                  <TableHeaderCell className='w-[50px] pr-2 sticky right-0 bg-[var(--color-neutral-50)]/70 backdrop-blur-md'>
+                    <span className='sr-only'>Acciones</span>
                   </TableHeaderCell>
                 </tr>
               </thead>
@@ -744,7 +894,7 @@ export default function ParteDiarioPage() {
                       className='group hover:bg-[var(--color-neutral-50)]'
                       onClick={() => setIsFichaModalOpen(true)}
                     >
-                      <TableBodyCell className='w-[40px] pr-2'>
+                      <TableBodyCell className='w-[40px] pr-2 sticky left-0 z-10 bg-[var(--color-neutral-50)]/70 backdrop-blur-md'>
                         <button
                           type='button'
                           onClick={(e) => {
@@ -790,6 +940,9 @@ export default function ParteDiarioPage() {
                       <TableBodyCell className='w-[220px] pr-2'>
                         <p className='truncate'>{row.name}</p>
                       </TableBodyCell>
+                      <TableBodyCell className='w-[80px] pr-2'>
+                        <AgeCell age={row.age} />
+                      </TableBodyCell>
                       <TableBodyCell className='w-[200px] pr-2'>
                         <p className='truncate'>{row.professional ?? '—'}</p>
                       </TableBodyCell>
@@ -804,6 +957,20 @@ export default function ParteDiarioPage() {
                       </TableBodyCell>
                       <TableBodyCell className='w-[140px] pr-2'>
                         <PaymentStatusCell row={row} />
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[50px] pr-2 sticky right-0 bg-[var(--color-neutral-50)]/70 backdrop-blur-md'>
+                        <button
+                          type='button'
+                          onClick={(e) => handleOpenContextMenu(e, row)}
+                          aria-label='Más acciones'
+                          className='inline-flex size-8 items-center justify-center rounded-full hover:bg-[var(--color-neutral-100)] transition-colors cursor-pointer'
+                        >
+                          <MD3Icon
+                            name='MoreVertRounded'
+                            size='md'
+                            className='text-[var(--color-neutral-700)]'
+                          />
+                        </button>
                       </TableBodyCell>
                     </tr>
                   ))}
