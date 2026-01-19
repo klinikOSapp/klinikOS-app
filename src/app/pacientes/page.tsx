@@ -10,27 +10,71 @@ import React, { Suspense, useEffect, useRef } from 'react'
 
 /* ─────────────────────────────────────────────────────────────
    PatientActionsMenu - Dropdown de acciones por paciente
-   Medidas de Figma:
-   - Padding: 16px = 1rem
-   - Gap: 24px = 1.5rem
-   - Border radius: 8px = 0.5rem
-   - Icon: 24px, Gap icon-text: 4px = 0.25rem
-   - Font: Inter Medium 16px/24px
+   Estilo unificado con AppointmentContextMenu de la agenda
    ───────────────────────────────────────────────────────────── */
 function PatientActionsMenu({
   onClose,
   onViewFile,
   onCreateBudget,
   onEdit,
-  onDelete
+  onDelete,
+  triggerRect
 }: {
   onClose: () => void
   onViewFile: () => void
   onCreateBudget: () => void
   onEdit: () => void
   onDelete: () => void
+  triggerRect?: DOMRect
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = React.useState<{
+    top?: number
+    bottom?: number
+    right?: number
+  }>({})
+
+  // Calcular posición óptima del menú
+  useEffect(() => {
+    if (!menuRef.current || !triggerRect) return
+
+    const menu = menuRef.current
+    const menuRect = menu.getBoundingClientRect()
+    const viewportHeight = window.innerHeight
+    const margin = 8
+
+    // Espacio disponible arriba y abajo del trigger
+    const spaceBelow = viewportHeight - triggerRect.bottom
+    const spaceAbove = triggerRect.top
+
+    // Decidir si mostrar arriba o abajo
+    if (spaceBelow >= menuRect.height + margin) {
+      // Hay espacio abajo
+      setPosition({
+        top: triggerRect.bottom + margin,
+        right: window.innerWidth - triggerRect.right
+      })
+    } else if (spaceAbove >= menuRect.height + margin) {
+      // Mostrar arriba
+      setPosition({
+        bottom: viewportHeight - triggerRect.top + margin,
+        right: window.innerWidth - triggerRect.right
+      })
+    } else {
+      // No hay espacio suficiente, centrar verticalmente
+      const centeredTop = Math.max(
+        margin,
+        Math.min(
+          viewportHeight - menuRect.height - margin,
+          triggerRect.top + triggerRect.height / 2 - menuRect.height / 2
+        )
+      )
+      setPosition({
+        top: centeredTop,
+        right: window.innerWidth - triggerRect.right
+      })
+    }
+  }, [triggerRect])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -38,54 +82,100 @@ function PatientActionsMenu({
         onClose()
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [onClose])
 
-  const menuItemClass =
-    'flex items-center gap-[0.25rem] p-0 cursor-pointer hover:opacity-70 transition-opacity'
-  const menuTextClass =
-    'font-medium text-[1rem] leading-[1.5rem] text-[var(--color-neutral-900)]'
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    // Pequeño delay para evitar que el mismo click que abre el menú lo cierre
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('keydown', handleEscape)
+    }, 0)
+
+    return () => {
+      clearTimeout(timeoutId)
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [onClose])
 
   return (
     <div
       ref={menuRef}
-      className='absolute right-full top-0 mr-2 z-50 backdrop-blur-[2px] bg-[rgba(248,250,251,0.9)] flex flex-col gap-[1.5rem] p-[1rem] rounded-[0.5rem] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)] min-w-max whitespace-nowrap'
+      className='fixed z-[9999] min-w-[12rem] overflow-hidden rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] py-1 shadow-lg'
+      style={{
+        top: position.top,
+        bottom: position.bottom,
+        right: position.right
+      }}
+      role='menu'
+      aria-label='Acciones rápidas de paciente'
     >
-      <button type='button' className={menuItemClass} onClick={onViewFile}>
-        <MD3Icon
-          name='DescriptionRounded'
-          size='md'
-          className='text-[var(--color-neutral-900)]'
-        />
-        <span className={menuTextClass}>Ver ficha</span>
-      </button>
-      <button type='button' className={menuItemClass} onClick={onCreateBudget}>
-        <MD3Icon
-          name='EuroRounded'
-          size='md'
-          className='text-[var(--color-neutral-900)]'
-        />
-        <span className={menuTextClass}>Crear presupuesto</span>
-      </button>
-      <button type='button' className={menuItemClass} onClick={onEdit}>
-        <MD3Icon
-          name='EditRounded'
-          size='md'
-          className='text-[var(--color-neutral-900)]'
-        />
-        <span className={menuTextClass}>Editar datos</span>
-      </button>
-      <button type='button' className={menuItemClass} onClick={onDelete}>
-        <MD3Icon
-          name='DeleteRounded'
-          size='md'
-          className='text-[var(--color-error-600)]'
-        />
-        <span className={`${menuTextClass} !text-[var(--color-error-600)]`}>
-          Eliminar
-        </span>
-      </button>
+      {/* Opciones del menú */}
+      <div className='py-1'>
+        <button
+          type='button'
+          role='menuitem'
+          onClick={onViewFile}
+          className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+        >
+          <MD3Icon
+            name='FolderOpenRounded'
+            size={1.125}
+            className='text-[var(--color-neutral-600)]'
+          />
+          <span>Ver ficha</span>
+        </button>
+        <button
+          type='button'
+          role='menuitem'
+          onClick={onCreateBudget}
+          className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+        >
+          <MD3Icon
+            name='ReceiptLongRounded'
+            size={1.125}
+            className='text-[var(--color-neutral-600)]'
+          />
+          <span>Crear presupuesto</span>
+        </button>
+        <button
+          type='button'
+          role='menuitem'
+          onClick={onEdit}
+          className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+        >
+          <MD3Icon
+            name='EditRounded'
+            size={1.125}
+            className='text-[var(--color-neutral-600)]'
+          />
+          <span>Editar datos</span>
+        </button>
+      </div>
+
+      {/* Separador antes de la acción destructiva */}
+      <div className='my-1 h-px bg-[var(--color-border-default)]' />
+
+      {/* Acción destructiva */}
+      <div className='py-1'>
+        <button
+          type='button'
+          role='menuitem'
+          onClick={onDelete}
+          className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-error-600)] transition-colors hover:bg-[var(--color-error-50)] focus:bg-[var(--color-error-50)] focus:outline-none'
+        >
+          <MD3Icon
+            name='DeleteRounded'
+            size={1.125}
+            className='text-[var(--color-error-600)]'
+          />
+          <span>Eliminar paciente</span>
+        </button>
+      </div>
     </div>
   )
 }
@@ -267,6 +357,7 @@ function PacientesPageContent() {
   const [openBudgetCreation, setOpenBudgetCreation] = React.useState(false)
   const [openEditMode, setOpenEditMode] = React.useState(false)
   const [openMenuId, setOpenMenuId] = React.useState<string | null>(null)
+  const [menuTriggerRect, setMenuTriggerRect] = React.useState<DOMRect | null>(null)
   const searchParams = useSearchParams()
   const navRouter = useRouter()
 
@@ -555,9 +646,15 @@ function PacientesPageContent() {
                       <div className='relative'>
                         <button
                           type='button'
-                          onClick={() =>
-                            setOpenMenuId(openMenuId === row.id ? null : row.id)
-                          }
+                          onClick={(e) => {
+                            if (openMenuId === row.id) {
+                              setOpenMenuId(null)
+                              setMenuTriggerRect(null)
+                            } else {
+                              setOpenMenuId(row.id)
+                              setMenuTriggerRect(e.currentTarget.getBoundingClientRect())
+                            }
+                          }}
                           aria-label='Abrir acciones'
                           aria-expanded={openMenuId === row.id}
                           className='inline-flex size-8 items-center justify-center rounded-full hover:bg-[var(--color-neutral-100)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-300)]'
@@ -568,25 +665,33 @@ function PacientesPageContent() {
                             className='text-[var(--color-neutral-700)]'
                           />
                         </button>
-                        {openMenuId === row.id && (
+                        {openMenuId === row.id && menuTriggerRect && (
                           <PatientActionsMenu
-                            onClose={() => setOpenMenuId(null)}
+                            triggerRect={menuTriggerRect}
+                            onClose={() => {
+                              setOpenMenuId(null)
+                              setMenuTriggerRect(null)
+                            }}
                             onViewFile={() => {
                               setOpenMenuId(null)
+                              setMenuTriggerRect(null)
                               setIsFichaModalOpen(true)
                             }}
                             onCreateBudget={() => {
                               setOpenMenuId(null)
+                              setMenuTriggerRect(null)
                               setOpenBudgetCreation(true)
                               setIsFichaModalOpen(true)
                             }}
                             onEdit={() => {
                               setOpenMenuId(null)
+                              setMenuTriggerRect(null)
                               setOpenEditMode(true)
                               setIsFichaModalOpen(true)
                             }}
                             onDelete={() => {
                               setOpenMenuId(null)
+                              setMenuTriggerRect(null)
                               // TODO: Implementar eliminar con confirmación
                               console.log('Eliminar:', row.name)
                             }}

@@ -4,8 +4,17 @@
 
 import ClientLayout from '@/app/client-layout'
 import ParteDiarioModal from '@/components/agenda/modals/ParteDiarioModal'
+import {
+  VISIT_STATUS_CONFIG,
+  VISIT_STATUS_ORDER,
+  type VisitStatus,
+  type VisitStatusLog
+} from '@/components/agenda/types'
+import VisitStatusCounters from '@/components/agenda/VisitStatusCounters'
+import VisitStatusMenu from '@/components/agenda/VisitStatusMenu'
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
+import Portal from '@/components/ui/Portal'
 import {
   formatDateToISO,
   formatDateToShort,
@@ -84,32 +93,6 @@ function Chip({
   )
 }
 
-function StatusPill({
-  type
-}: {
-  type: 'Confirmada' | 'No confirmada' | 'Reagendar'
-}) {
-  if (type === 'Confirmada') {
-    return (
-      <span className='inline-flex items-center bg-[#e0f2fe] text-[#075985] px-2 py-1 rounded-[4px] text-body-sm'>
-        Confirmada
-      </span>
-    )
-  }
-  if (type === 'Reagendar') {
-    return (
-      <span className='inline-flex items-center bg-[var(--color-neutral-200)] text-[var(--color-neutral-900)] px-2 py-1 rounded-[4px] text-body-sm'>
-        Reagendar
-      </span>
-    )
-  }
-  return (
-    <span className='inline-flex items-center bg-[var(--color-neutral-200)] text-[var(--color-neutral-900)] px-2 py-1 rounded-[4px] text-body-sm'>
-      No confirmada
-    </span>
-  )
-}
-
 function TableHeaderCell({
   children,
   className,
@@ -164,10 +147,25 @@ type DailyRow = {
   professional?: string
   reason: string
   phone: string
-  status: 'Confirmada' | 'No confirmada' | 'Reagendar'
   charge: 'Si' | 'No'
   tags?: Array<'deuda' | 'confirmada'>
   paymentInfo?: PaymentInfo
+  // Nuevos campos para el sistema de estados de visita
+  visitStatus: VisitStatus
+  visitStatusHistory?: VisitStatusLog[]
+  arrivalTime?: string // Hora de llegada (extraída del historial)
+  confirmed: boolean // Si el paciente confirmó asistencia
+}
+
+// Función para extraer la hora de llegada del historial de estados
+function getArrivalTime(history?: VisitStatusLog[]): string | undefined {
+  if (!history) return undefined
+  const waitingEntry = history.find((log) => log.status === 'waiting_room')
+  if (!waitingEntry) return undefined
+  return waitingEntry.timestamp.toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 // Función para convertir Appointment del contexto a DailyRow para la tabla
@@ -180,10 +178,14 @@ function appointmentToRow(apt: Appointment): DailyRow {
     professional: apt.professional,
     reason: apt.reason,
     phone: apt.patientPhone,
-    status: apt.status,
     charge: apt.charge,
     tags: apt.tags,
-    paymentInfo: apt.paymentInfo
+    paymentInfo: apt.paymentInfo,
+    // Nuevos campos
+    visitStatus: apt.visitStatus ?? 'scheduled',
+    visitStatusHistory: apt.visitStatusHistory,
+    arrivalTime: getArrivalTime(apt.visitStatusHistory),
+    confirmed: apt.confirmed ?? false
   }
 }
 
@@ -192,14 +194,21 @@ function PaymentStatusCell({ row }: { row: DailyRow }) {
   if (!row.paymentInfo) {
     // Sin información de pago - mostrar solo Si/No
     return (
-      <span className={row.charge === 'Si' ? 'text-amber-600 font-medium' : 'text-[var(--color-neutral-600)]'}>
+      <span
+        className={
+          row.charge === 'Si'
+            ? 'text-amber-600 font-medium'
+            : 'text-[var(--color-neutral-600)]'
+        }
+      >
         {row.charge}
       </span>
     )
   }
 
   const { totalAmount, paidAmount, pendingAmount, currency } = row.paymentInfo
-  const percentage = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0
+  const percentage =
+    totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0
   const isFullyPaid = pendingAmount === 0
 
   if (isFullyPaid) {
@@ -215,7 +224,8 @@ function PaymentStatusCell({ row }: { row: DailyRow }) {
     <div className='flex flex-col gap-1'>
       <div className='flex items-center gap-2'>
         <span className='text-amber-600 font-medium'>
-          {pendingAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} {currency}
+          {pendingAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}{' '}
+          {currency}
         </span>
         <span className='text-xs text-[var(--color-neutral-500)]'>
           ({percentage}%)
@@ -223,12 +233,431 @@ function PaymentStatusCell({ row }: { row: DailyRow }) {
       </div>
       {/* Mini barra de progreso */}
       <div className='h-1 w-16 overflow-hidden rounded-full bg-[var(--color-neutral-200)]'>
-        <div 
+        <div
           className='h-full rounded-full bg-[var(--color-brand-500)]'
           style={{ width: `${percentage}%` }}
         />
       </div>
     </div>
+  )
+}
+
+// Componente para mostrar y cambiar el estado de visita
+function VisitStatusCell({
+  appointmentId,
+  currentStatus,
+  onStatusChange
+}: {
+  appointmentId: string
+  currentStatus: VisitStatus
+  onStatusChange: (id: string, status: VisitStatus) => void
+}) {
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false)
+  const buttonRef = React.useRef<HTMLButtonElement>(null)
+  const menuRef = React.useRef<HTMLDivElement>(null)
+  const [menuPosition, setMenuPosition] = React.useState({ top: 0, left: 0 })
+
+  const config = VISIT_STATUS_CONFIG[currentStatus]
+
+  // Calcular posición del menú
+  const openMenu = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      const menuHeight = 280 // Altura aproximada del menú
+      const viewportHeight = window.innerHeight
+      const spaceBelow = viewportHeight - rect.bottom
+      const spaceAbove = rect.top
+
+      // Determinar si abrir arriba o abajo
+      let top: number
+      if (spaceBelow >= menuHeight || spaceBelow >= spaceAbove) {
+        top = rect.bottom + 4
+      } else {
+        top = rect.top - menuHeight - 4
+      }
+
+      // Asegurar que no se salga del viewport
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - 200))
+
+      setMenuPosition({ top, left })
+      setIsMenuOpen(true)
+    }
+  }
+
+  // Cerrar menú al hacer clic fuera
+  React.useEffect(() => {
+    if (!isMenuOpen) return
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (
+        buttonRef.current &&
+        !buttonRef.current.contains(target) &&
+        menuRef.current &&
+        !menuRef.current.contains(target)
+      ) {
+        setIsMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isMenuOpen])
+
+  const handleSelect = (status: VisitStatus) => {
+    onStatusChange(appointmentId, status)
+    setIsMenuOpen(false)
+  }
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type='button'
+        onClick={openMenu}
+        className='inline-flex items-center gap-2 px-2 py-1 rounded-[4px] text-body-sm transition-all hover:opacity-80 cursor-pointer'
+        style={{
+          backgroundColor: config.bgColor,
+          color: config.textColor
+        }}
+      >
+        <span
+          className='h-2.5 w-2.5 shrink-0 rounded-full'
+          style={{ backgroundColor: config.color }}
+        />
+        <span className='font-medium'>{config.label}</span>
+        <MD3Icon
+          name='KeyboardArrowDownRounded'
+          size='xs'
+          className='shrink-0'
+        />
+      </button>
+
+      {isMenuOpen && (
+        <Portal>
+          <div
+            ref={menuRef}
+            className='fixed z-[9999]'
+            style={{
+              top: menuPosition.top,
+              left: menuPosition.left
+            }}
+          >
+            <VisitStatusMenu
+              currentStatus={currentStatus}
+              onSelect={handleSelect}
+              onClose={() => setIsMenuOpen(false)}
+            />
+          </div>
+        </Portal>
+      )}
+    </>
+  )
+}
+
+// Componente para el menú de acciones rápidas por fila
+function RowActionsMenu({
+  row,
+  onClose,
+  triggerRect,
+  onViewAppointment,
+  onNewAppointment,
+  onNewBudget,
+  onNewPrescription,
+  onVisitStatusChange,
+  onToggleConfirmed
+}: {
+  row: DailyRow
+  onClose: () => void
+  triggerRect?: DOMRect
+  onViewAppointment: () => void
+  onNewAppointment: () => void
+  onNewBudget: () => void
+  onNewPrescription: () => void
+  onVisitStatusChange: (status: VisitStatus) => void
+  onToggleConfirmed: (confirmed: boolean) => void
+}) {
+  const menuRef = React.useRef<HTMLDivElement>(null)
+  const [position, setPosition] = React.useState<{
+    top?: number
+    bottom?: number
+    right?: number
+  }>({})
+  const [showStatusSubmenu, setShowStatusSubmenu] = React.useState(false)
+
+  // Calcular posición óptima del menú
+  React.useEffect(() => {
+    if (!menuRef.current || !triggerRect) return
+
+    const menu = menuRef.current
+    const menuRect = menu.getBoundingClientRect()
+    const viewportHeight = window.innerHeight
+    const margin = 8
+
+    const spaceBelow = viewportHeight - triggerRect.bottom
+    const spaceAbove = triggerRect.top
+
+    if (spaceBelow >= menuRect.height + margin) {
+      setPosition({
+        top: triggerRect.bottom + margin,
+        right: window.innerWidth - triggerRect.right
+      })
+    } else if (spaceAbove >= menuRect.height + margin) {
+      setPosition({
+        bottom: viewportHeight - triggerRect.top + margin,
+        right: window.innerWidth - triggerRect.right
+      })
+    } else {
+      const centeredTop = Math.max(
+        margin,
+        Math.min(
+          viewportHeight - menuRect.height - margin,
+          triggerRect.top + triggerRect.height / 2 - menuRect.height / 2
+        )
+      )
+      setPosition({
+        top: centeredTop,
+        right: window.innerWidth - triggerRect.right
+      })
+    }
+  }, [triggerRect])
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose()
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('keydown', handleEscape)
+    }, 0)
+
+    return () => {
+      clearTimeout(timeoutId)
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [onClose])
+
+  return (
+    <div
+      ref={menuRef}
+      className='fixed z-[9999] min-w-[14rem] overflow-hidden rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] py-1 shadow-lg'
+      style={{
+        top: position.top,
+        bottom: position.bottom,
+        right: position.right
+      }}
+      role='menu'
+      aria-label='Acciones rápidas'
+    >
+      {/* Acciones principales */}
+      <div className='py-1'>
+        <button
+          type='button'
+          role='menuitem'
+          onClick={() => {
+            onViewAppointment()
+            onClose()
+          }}
+          className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+        >
+          <MD3Icon
+            name='CalendarMonthRounded'
+            size={1.125}
+            className='text-[var(--color-neutral-600)]'
+          />
+          <span>Ver cita</span>
+        </button>
+        <button
+          type='button'
+          role='menuitem'
+          onClick={() => {
+            onNewAppointment()
+            onClose()
+          }}
+          className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+        >
+          <MD3Icon
+            name='AddRounded'
+            size={1.125}
+            className='text-[var(--color-neutral-600)]'
+          />
+          <span>Nueva cita</span>
+        </button>
+        <button
+          type='button'
+          role='menuitem'
+          onClick={() => {
+            onNewBudget()
+            onClose()
+          }}
+          className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+        >
+          <MD3Icon
+            name='ReceiptLongRounded'
+            size={1.125}
+            className='text-[var(--color-neutral-600)]'
+          />
+          <span>Nuevo presupuesto</span>
+        </button>
+        <button
+          type='button'
+          role='menuitem'
+          onClick={() => {
+            onNewPrescription()
+            onClose()
+          }}
+          className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+        >
+          <MD3Icon
+            name='DescriptionRounded'
+            size={1.125}
+            className='text-[var(--color-neutral-600)]'
+          />
+          <span>Nueva receta</span>
+        </button>
+      </div>
+
+      {/* Separador */}
+      <div className='my-1 h-px bg-[var(--color-border-default)]' />
+
+      {/* Toggle de confirmación */}
+      <div className='py-1'>
+        <button
+          type='button'
+          role='menuitem'
+          onClick={() => {
+            onToggleConfirmed(!row.confirmed)
+            onClose()
+          }}
+          className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+        >
+          <MD3Icon
+            name={row.confirmed ? 'CheckCircleRounded' : 'RadioButtonUncheckedRounded'}
+            size={1.125}
+            className={row.confirmed ? 'text-[#3B82F6]' : 'text-[var(--color-neutral-600)]'}
+          />
+          <span className={row.confirmed ? 'text-[#3B82F6] font-medium' : 'text-[var(--color-neutral-800)]'}>
+            {row.confirmed ? 'Confirmada' : 'Marcar como confirmada'}
+          </span>
+        </button>
+      </div>
+
+      {/* Separador */}
+      <div className='my-1 h-px bg-[var(--color-border-default)]' />
+
+      {/* Estado de visita (acordeón) */}
+      <div className='py-1'>
+        <button
+          type='button'
+          onClick={() => setShowStatusSubmenu(!showStatusSubmenu)}
+          className='flex w-full items-center justify-between px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+        >
+          <div className='flex items-center gap-3'>
+            <span
+              className='h-3 w-3 shrink-0 rounded-full'
+              style={{ backgroundColor: VISIT_STATUS_CONFIG[row.visitStatus].color }}
+            />
+            <span>Estado de visita</span>
+          </div>
+          <MD3Icon
+            name={showStatusSubmenu ? 'KeyboardArrowUpRounded' : 'KeyboardArrowDownRounded'}
+            size='sm'
+            className='text-[var(--color-neutral-500)]'
+          />
+        </button>
+
+        {/* Submenu de estados */}
+        {showStatusSubmenu && (
+          <div className='bg-[var(--color-neutral-50)] py-1'>
+            {VISIT_STATUS_ORDER.map((status) => {
+              const config = VISIT_STATUS_CONFIG[status]
+              const isSelected = status === row.visitStatus
+              return (
+                <button
+                  key={status}
+                  type='button'
+                  onClick={() => {
+                    onVisitStatusChange(status)
+                    onClose()
+                  }}
+                  className={[
+                    'flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-colors',
+                    isSelected
+                      ? 'bg-[var(--color-brand-0)]'
+                      : 'hover:bg-[var(--color-neutral-100)]'
+                  ].join(' ')}
+                >
+                  <span
+                    className='h-2.5 w-2.5 shrink-0 rounded-full'
+                    style={{ backgroundColor: config.color }}
+                  />
+                  <span
+                    className={isSelected ? 'font-medium' : 'font-normal'}
+                    style={{ color: isSelected ? config.textColor : 'var(--color-neutral-800)' }}
+                  >
+                    {config.label}
+                  </span>
+                  {isSelected && (
+                    <MD3Icon
+                      name='CheckRounded'
+                      size='sm'
+                      className='ml-auto text-[var(--color-brand-600)]'
+                    />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Componente para el toggle de confirmación
+function ConfirmationToggle({
+  appointmentId,
+  isConfirmed,
+  onToggle
+}: {
+  appointmentId: string
+  isConfirmed: boolean
+  onToggle: (id: string, confirmed: boolean) => void
+}) {
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onToggle(appointmentId, !isConfirmed)
+  }
+
+  return (
+    <button
+      type='button'
+      onClick={handleClick}
+      className={[
+        'inline-flex items-center gap-1.5 px-2 py-1 rounded-[4px] text-body-sm transition-all cursor-pointer',
+        isConfirmed
+          ? 'bg-[#DBEAFE] text-[#1D4ED8] hover:bg-[#BFDBFE]'
+          : 'bg-[var(--color-neutral-100)] text-[var(--color-neutral-600)] hover:bg-[var(--color-neutral-200)]'
+      ].join(' ')}
+      title={isConfirmed ? 'Confirmada' : 'Sin confirmar'}
+    >
+      <MD3Icon
+        name={isConfirmed ? 'CheckCircleRounded' : 'RadioButtonUncheckedRounded'}
+        size='sm'
+      />
+      <span className='font-medium'>{isConfirmed ? 'Sí' : 'No'}</span>
+    </button>
   )
 }
 
@@ -238,7 +667,10 @@ export default function ParteDiarioPage() {
     appointments,
     getAppointmentsByDate,
     deleteAppointment,
-    updateAppointment
+    updateAppointment,
+    updateVisitStatus,
+    getVisitStatusCounts,
+    toggleAppointmentConfirmed
   } = useAppointments()
 
   const [query, setQuery] = React.useState('')
@@ -249,6 +681,19 @@ export default function ParteDiarioPage() {
   )
   const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
   const [isParteModalOpen, setIsParteModalOpen] = React.useState(false)
+
+  // Estado para el menú de acciones por fila
+  const [openRowMenuId, setOpenRowMenuId] = React.useState<string | null>(null)
+  const [rowMenuTriggerRect, setRowMenuTriggerRect] = React.useState<DOMRect | null>(null)
+
+  // Estado para el menú de cambio de estado masivo
+  const [isBulkStatusMenuOpen, setIsBulkStatusMenuOpen] = React.useState(false)
+  const bulkStatusMenuRef = React.useRef<HTMLDivElement>(null)
+
+  // Estado para filtro de estado de visita
+  const [activeVisitStatusFilters, setActiveVisitStatusFilters] = React.useState<
+    VisitStatus[] | null
+  >(null)
 
   // Estado para el filtro de profesional
   const [selectedProfessional, setSelectedProfessional] = React.useState<
@@ -336,11 +781,62 @@ export default function ParteDiarioPage() {
   const clearFilters = () => {
     setSelectedFilters([])
     setSelectedProfessional(null)
+    setActiveVisitStatusFilters(null)
   }
 
   // Verificar si hay algún filtro activo (para el botón "Todos")
   const hasActiveFilters =
-    selectedFilters.length > 0 || selectedProfessional !== null
+    selectedFilters.length > 0 ||
+    selectedProfessional !== null ||
+    activeVisitStatusFilters !== null
+
+  // Obtener conteo de estados de visita para la fecha seleccionada
+  const visitStatusCounts = getVisitStatusCounts(selectedDateISO)
+
+  // Handler para cambiar filtro de estado de visita
+  const handleVisitStatusFilterChange = (status: VisitStatus | null) => {
+    if (status === null) {
+      setActiveVisitStatusFilters(null)
+    } else {
+      setActiveVisitStatusFilters([status])
+    }
+  }
+
+  // Handlers para cambiar estados
+  const handleStatusChange = (appointmentId: string, newStatus: VisitStatus) => {
+    updateVisitStatus(appointmentId, newStatus)
+  }
+
+  const handleConfirmationToggle = (appointmentId: string, confirmed: boolean) => {
+    toggleAppointmentConfirmed(appointmentId, confirmed)
+  }
+
+  // Handler para cambio de estado masivo
+  const handleBulkStatusChange = (newStatus: VisitStatus) => {
+    selectedPatientIds.forEach((id) => {
+      updateVisitStatus(id, newStatus)
+    })
+    // Limpiar selección después de aplicar el cambio
+    setSelectedPatientIds([])
+    setIsBulkStatusMenuOpen(false)
+  }
+
+  // Cerrar menú de estado masivo al hacer clic fuera
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        bulkStatusMenuRef.current &&
+        !bulkStatusMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsBulkStatusMenuOpen(false)
+      }
+    }
+    if (isBulkStatusMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+    return undefined
+  }, [isBulkStatusMenuOpen])
 
   const searchCtaStyles: React.CSSProperties = {
     width: `min(${CTA_WIDTH_REM}rem, 100%)`,
@@ -473,15 +969,16 @@ export default function ParteDiarioPage() {
           <KpiCard
             title='Pacientes recibidos'
             value={`${
-              patientsForSelectedDay.filter((p) => p.status === 'Confirmada')
-                .length
+              patientsForSelectedDay.filter(
+                (p) => p.visitStatus !== 'scheduled'
+              ).length
             }/${patientsForSelectedDay.length}`}
             badge={
               patientsForSelectedDay.length > 0 ? (
                 <span className='text-body-md text-[var(--color-success-600)]'>
                   {Math.round(
                     (patientsForSelectedDay.filter(
-                      (p) => p.status === 'Confirmada'
+                      (p) => p.visitStatus !== 'scheduled'
                     ).length /
                       patientsForSelectedDay.length) *
                       100
@@ -494,16 +991,13 @@ export default function ParteDiarioPage() {
           <KpiCard
             title='Citas confirmadas'
             value={String(
-              patientsForSelectedDay.filter((p) => p.status === 'Confirmada')
-                .length
+              patientsForSelectedDay.filter((p) => p.confirmed).length
             )}
             badge={
               patientsForSelectedDay.length > 0 ? (
                 <span className='text-body-md text-[var(--color-success-600)]'>
                   {Math.round(
-                    (patientsForSelectedDay.filter(
-                      (p) => p.status === 'Confirmada'
-                    ).length /
+                    (patientsForSelectedDay.filter((p) => p.confirmed).length /
                       patientsForSelectedDay.length) *
                       100
                   )}
@@ -540,20 +1034,104 @@ export default function ParteDiarioPage() {
           </div>
         </div>
 
+        {/* Contadores de estado de visita */}
+        <div className='flex-shrink-0 mt-6'>
+          <div className='flex items-center gap-3'>
+            <p className='text-body-md font-medium text-[var(--color-neutral-700)]'>
+              Estado de visita:
+            </p>
+            <VisitStatusCounters
+              counts={visitStatusCounts}
+              activeFilters={activeVisitStatusFilters}
+              onFilterChange={handleVisitStatusFilterChange}
+              showEmpty={false}
+              size='sm'
+            />
+          </div>
+        </div>
+
         {/* Table Section - Flexible container */}
         <div className='flex-1 flex flex-col mt-8 overflow-hidden'>
           <div className='flex-shrink-0 mb-6 flex items-center justify-between'>
             <div className='flex items-center gap-2'>
               {selectedPatientIds.length > 0 && (
-                <Chip color='teal'>{selectedPatientIds.length} selected</Chip>
+                <Chip color='teal'>{selectedPatientIds.length} seleccionados</Chip>
               )}
-              <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-body-sm text-[var(--color-neutral-700)] cursor-pointer'>
-                Estado
-              </button>
-              <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-body-sm text-[var(--color-neutral-700)] cursor-pointer'>
-                Check-in
-              </button>
-              <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
+              {/* Botón de cambio de estado masivo */}
+              <div className='relative' ref={bulkStatusMenuRef}>
+                <button
+                  onClick={() => {
+                    if (selectedPatientIds.length > 0) {
+                      setIsBulkStatusMenuOpen(!isBulkStatusMenuOpen)
+                    }
+                  }}
+                  disabled={selectedPatientIds.length === 0}
+                  className={[
+                    'flex items-center gap-1 px-2 py-1 text-body-sm border cursor-pointer transition-colors',
+                    selectedPatientIds.length > 0
+                      ? 'bg-[var(--color-brand-0)] border-[var(--color-brand-500)] text-[var(--color-brand-700)] hover:bg-[var(--color-brand-100)]'
+                      : 'bg-[var(--color-neutral-50)] border-[var(--color-neutral-300)] text-[var(--color-neutral-400)] cursor-not-allowed'
+                  ].join(' ')}
+                >
+                  <span>Estado</span>
+                  {selectedPatientIds.length > 0 && (
+                    <MD3Icon
+                      name={isBulkStatusMenuOpen ? 'KeyboardArrowUpRounded' : 'KeyboardArrowDownRounded'}
+                      size='xs'
+                    />
+                  )}
+                </button>
+
+                {/* Dropdown de estados */}
+                {isBulkStatusMenuOpen && selectedPatientIds.length > 0 && (
+                  <div className='absolute top-full left-0 mt-1 z-50 min-w-[200px] overflow-hidden rounded-[8px] border border-[var(--color-neutral-200)] bg-white shadow-lg'>
+                    <div className='border-b border-[var(--color-neutral-200)] bg-[var(--color-neutral-50)] px-3 py-2'>
+                      <p className='text-label-sm font-medium text-[var(--color-neutral-600)]'>
+                        Cambiar estado de {selectedPatientIds.length} cita{selectedPatientIds.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <div className='py-1'>
+                      {VISIT_STATUS_ORDER.map((status) => {
+                        const config = VISIT_STATUS_CONFIG[status]
+                        return (
+                          <button
+                            key={status}
+                            onClick={() => handleBulkStatusChange(status)}
+                            className='flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-[var(--color-neutral-50)]'
+                          >
+                            <span
+                              className='h-3 w-3 shrink-0 rounded-full'
+                              style={{ backgroundColor: config.color }}
+                            />
+                            <span className='flex-1 text-body-sm text-[var(--color-neutral-900)]'>
+                              {config.label}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  if (selectedPatientIds.length > 0) {
+                    // Eliminar las citas seleccionadas
+                    selectedPatientIds.forEach((id) => {
+                      deleteAppointment(id)
+                    })
+                    setSelectedPatientIds([])
+                  }
+                }}
+                disabled={selectedPatientIds.length === 0}
+                className={[
+                  'p-1 size-[32px] inline-flex items-center justify-center border transition-colors',
+                  selectedPatientIds.length > 0
+                    ? 'bg-[var(--color-error-50)] border-[var(--color-error-300)] text-[var(--color-error-600)] hover:bg-[var(--color-error-100)] cursor-pointer'
+                    : 'bg-[var(--color-neutral-50)] border-[var(--color-neutral-300)] text-[var(--color-neutral-400)] cursor-not-allowed'
+                ].join(' ')}
+                title={selectedPatientIds.length > 0 ? `Eliminar ${selectedPatientIds.length} cita(s)` : 'Selecciona citas para eliminar'}
+              >
                 <MD3Icon name='DeleteRounded' size='md' />
               </button>
               <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
@@ -676,13 +1254,23 @@ export default function ParteDiarioPage() {
                   <TableHeaderCell className='w-[40px] pr-2'>
                     <span className='sr-only'>Seleccionar fila</span>
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[120px] pr-2'>
+                  <TableHeaderCell className='w-[100px] pr-2'>
                     Día
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[120px] pr-2'>
+                  <TableHeaderCell className='w-[80px] pr-2'>
                     Hora
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[220px] pr-2'>
+                  <TableHeaderCell className='w-[80px] pr-2'>
+                    <div className='flex items-center gap-1'>
+                      <MD3Icon
+                        name='EventAvailableRounded'
+                        size='xs'
+                        className='text-[var(--color-neutral-700)]'
+                      />
+                      <span>Llegada</span>
+                    </div>
+                  </TableHeaderCell>
+                  <TableHeaderCell className='w-[180px] pr-2'>
                     <div className='flex items-center gap-2'>
                       <MD3Icon
                         name='AccountCircleRounded'
@@ -692,20 +1280,26 @@ export default function ParteDiarioPage() {
                       <span>Paciente</span>
                     </div>
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[200px] pr-2'>
+                  <TableHeaderCell className='w-[160px] pr-2'>
                     Profesional
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[320px] pr-2'>
+                  <TableHeaderCell className='w-[200px] pr-2'>
                     Motivo consulta
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[180px] pr-2'>
+                  <TableHeaderCell className='w-[120px] pr-2'>
                     Teléfono
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[160px] pr-2'>
-                    Estado
-                  </TableHeaderCell>
                   <TableHeaderCell className='w-[140px] pr-2'>
+                    Estado visita
+                  </TableHeaderCell>
+                  <TableHeaderCell className='w-[90px] pr-2'>
+                    Confirm.
+                  </TableHeaderCell>
+                  <TableHeaderCell className='w-[120px] pr-2'>
                     Pendiente
+                  </TableHeaderCell>
+                  <TableHeaderCell className='w-[50px] pr-2'>
+                    <span className='sr-only'>Acciones</span>
                   </TableHeaderCell>
                 </tr>
               </thead>
@@ -734,15 +1328,21 @@ export default function ParteDiarioPage() {
                     const matchesProfessional = selectedProfessional
                       ? p.professional === selectedProfessional
                       : true
+                    // Filtro por estado de visita
+                    const matchesVisitStatus = activeVisitStatusFilters
+                      ? activeVisitStatusFilters.includes(p.visitStatus)
+                      : true
                     return Boolean(
-                      matchesQuery && matchesFilter && matchesProfessional
+                      matchesQuery &&
+                        matchesFilter &&
+                        matchesProfessional &&
+                        matchesVisitStatus
                     )
                   })
                   .map((row, i) => (
                     <tr
                       key={row.id}
                       className='group hover:bg-[var(--color-neutral-50)]'
-                      onClick={() => setIsFichaModalOpen(true)}
                     >
                       <TableBodyCell className='w-[40px] pr-2'>
                         <button
@@ -781,29 +1381,100 @@ export default function ParteDiarioPage() {
                           <span className='sr-only'>Seleccionar fila</span>
                         </button>
                       </TableBodyCell>
-                      <TableBodyCell className='w-[120px] pr-2'>
+                      <TableBodyCell className='w-[100px] pr-2'>
                         {row.day}
                       </TableBodyCell>
-                      <TableBodyCell className='w-[120px] pr-2'>
+                      <TableBodyCell className='w-[80px] pr-2'>
                         {row.hour}
                       </TableBodyCell>
-                      <TableBodyCell className='w-[220px] pr-2'>
-                        <p className='truncate'>{row.name}</p>
-                      </TableBodyCell>
-                      <TableBodyCell className='w-[200px] pr-2'>
-                        <p className='truncate'>{row.professional ?? '—'}</p>
-                      </TableBodyCell>
-                      <TableBodyCell className='w-[320px] pr-2'>
-                        <p className='truncate'>{row.reason}</p>
+                      <TableBodyCell className='w-[80px] pr-2'>
+                        {row.arrivalTime ? (
+                          <span className='font-medium text-[#B45309]'>
+                            {row.arrivalTime}
+                          </span>
+                        ) : (
+                          <span className='text-[var(--color-neutral-400)]'>
+                            —
+                          </span>
+                        )}
                       </TableBodyCell>
                       <TableBodyCell className='w-[180px] pr-2'>
-                        <p className='truncate'>{row.phone}</p>
+                        <p className='truncate'>{row.name}</p>
                       </TableBodyCell>
                       <TableBodyCell className='w-[160px] pr-2'>
-                        <StatusPill type={row.status} />
+                        <p className='truncate'>{row.professional ?? '—'}</p>
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[200px] pr-2'>
+                        <p className='truncate'>{row.reason}</p>
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[120px] pr-2'>
+                        <p className='truncate'>{row.phone}</p>
                       </TableBodyCell>
                       <TableBodyCell className='w-[140px] pr-2'>
+                        <VisitStatusCell
+                          appointmentId={row.id}
+                          currentStatus={row.visitStatus}
+                          onStatusChange={handleStatusChange}
+                        />
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[90px] pr-2'>
+                        <ConfirmationToggle
+                          appointmentId={row.id}
+                          isConfirmed={row.confirmed}
+                          onToggle={handleConfirmationToggle}
+                        />
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[120px] pr-2'>
                         <PaymentStatusCell row={row} />
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[50px] pr-2'>
+                        <button
+                          type='button'
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const rect = e.currentTarget.getBoundingClientRect()
+                            setRowMenuTriggerRect(rect)
+                            setOpenRowMenuId(openRowMenuId === row.id ? null : row.id)
+                          }}
+                          className='inline-flex size-8 items-center justify-center rounded-full hover:bg-[var(--color-neutral-100)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-300)]'
+                        >
+                          <MD3Icon
+                            name='MoreVertRounded'
+                            size='md'
+                            className='text-[var(--color-neutral-700)]'
+                          />
+                        </button>
+                        {openRowMenuId === row.id && rowMenuTriggerRect && (
+                          <RowActionsMenu
+                            row={row}
+                            triggerRect={rowMenuTriggerRect}
+                            onClose={() => {
+                              setOpenRowMenuId(null)
+                              setRowMenuTriggerRect(null)
+                            }}
+                            onViewAppointment={() => {
+                              setIsFichaModalOpen(true)
+                            }}
+                            onNewAppointment={() => {
+                              // TODO: Abrir modal de nueva cita
+                              console.log('Nueva cita para:', row.name)
+                            }}
+                            onNewBudget={() => {
+                              // TODO: Abrir modal de nuevo presupuesto
+                              console.log('Nuevo presupuesto para:', row.name)
+                            }}
+                            onNewPrescription={() => {
+                              // TODO: Abrir modal de nueva receta
+                              console.log('Nueva receta para:', row.name)
+                            }}
+                            onVisitStatusChange={(status) => {
+                              handleStatusChange(row.id, status)
+                            }}
+                            onToggleConfirmed={(confirmed) => {
+                              handleConfirmationToggle(row.id, confirmed)
+                            }}
+                          />
+                        )}
                       </TableBodyCell>
                     </tr>
                   ))}

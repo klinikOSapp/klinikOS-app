@@ -33,6 +33,7 @@ const ICON_GLYPHS = {
   ElectricBoltRounded: 'electric_bolt',
   EmailRounded: 'mail',
   EuroRounded: 'euro',
+  EventAvailableRounded: 'event_available',
   FilterListRounded: 'filter_list',
   FirstPageRounded: 'first_page',
   FolderOpenRounded: 'folder_open',

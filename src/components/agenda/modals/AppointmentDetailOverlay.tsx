@@ -14,6 +14,9 @@ export interface AppointmentDetailOverlayProps {
   // Callbacks para acciones rápidas
   onPaymentAction?: () => void
   onViewPatient?: () => void
+  // Estado de confirmación de la cita
+  isConfirmed?: boolean
+  onToggleConfirmed?: (confirmed: boolean) => void
 }
 
 // Extrae el color CSS de una clase de Tailwind bg-[...]
@@ -35,7 +38,9 @@ export default function AppointmentDetailOverlay({
   position,
   backgroundClass,
   onPaymentAction,
-  onViewPatient
+  onViewPatient,
+  isConfirmed = false,
+  onToggleConfirmed
 }: AppointmentDetailOverlayProps) {
   const showQuickActions = onPaymentAction || onViewPatient
   const headerBgColor = extractBgColor(backgroundClass) || 'var(--color-brand-100)'
@@ -62,9 +67,31 @@ export default function AppointmentDetailOverlay({
         <h3 className='text-title-md font-medium text-[var(--color-neutral-900)] leading-[var(--leading-title-md)]'>
           {detail.title}
         </h3>
-        <span className='text-base font-bold text-[var(--color-neutral-900)] leading-6'>
-          {box}
-        </span>
+        <div className='flex items-center gap-3'>
+          {/* Toggle de confirmación */}
+          {onToggleConfirmed && (
+            <button
+              type='button'
+              onClick={() => onToggleConfirmed(!isConfirmed)}
+              className={[
+                'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all',
+                isConfirmed
+                  ? 'bg-[#3B82F6] text-white shadow-sm'
+                  : 'bg-white/80 text-[var(--color-neutral-600)] hover:bg-white hover:text-[#3B82F6]'
+              ].join(' ')}
+            >
+              <MD3Icon
+                name={isConfirmed ? 'CheckCircleRounded' : 'EventAvailableRounded'}
+                size={0.875}
+                fill={isConfirmed ? 1 : 0}
+              />
+              <span>{isConfirmed ? 'Confirmada' : 'Sin confirmar'}</span>
+            </button>
+          )}
+          <span className='text-base font-bold text-[var(--color-neutral-900)] leading-6'>
+            {box}
+          </span>
+        </div>
       </div>
 
       {/* Body - Scrollable content area */}

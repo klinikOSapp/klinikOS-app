@@ -12,23 +12,35 @@ import type {
 } from 'react'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
-import type { AppointmentFormData } from './modals/CreateAppointmentModal'
+import type { AppointmentFormData, BlockFormData } from './modals/CreateAppointmentModal'
 
-import AppointmentContextMenu, { type ContextMenuAction } from './AppointmentContextMenu'
+import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
+import RegisterPaymentModal from '@/components/pacientes/modals/patient-record/RegisterPaymentModal'
+import AppointmentContextMenu, {
+  type ContextMenuAction
+} from './AppointmentContextMenu'
+import AgendaBlockCard from './AgendaBlockCard'
 import AppointmentSummaryCard from './AppointmentSummaryCard'
 import DayCalendar from './DayCalendar'
 import MonthCalendar from './MonthCalendar'
 import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
 import CreateAppointmentModal from './modals/CreateAppointmentModal'
-import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
-import RegisterPaymentModal from '@/components/pacientes/modals/patient-record/RegisterPaymentModal'
 import type {
   AgendaEvent,
   DayColumn,
   EventDetail,
   EventSelection,
-  Weekday
+  VisitStatus,
+  Weekday,
+  AgendaBlock
 } from './types'
+import type { BlockType } from '@/context/AppointmentsContext'
+import { BLOCK_TYPE_CONFIG } from '@/context/AppointmentsContext'
+import { VISIT_STATUS_CONFIG, VISIT_STATUS_ORDER } from './types'
+import VisitStatusMenu from './VisitStatusMenu'
+import { VisitStatusCountersCompact } from './VisitStatusCounters'
+import TimeIndicator, { slotIndexToTime } from './TimeIndicator'
+import SlotDragSelection, { type SlotDragState, getSelectionBounds } from './SlotDragSelection'
 
 type SpecialistAvailability = {
   id: string
@@ -235,11 +247,12 @@ function CurrentTimeIndicator({
   // Actualizar cada minuto
   useEffect(() => {
     const updateTime = () => setCurrentTime(new Date())
-    
+
     // Calcular milisegundos hasta el próximo minuto
     const now = new Date()
-    const msUntilNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds()
-    
+    const msUntilNextMinute =
+      (60 - now.getSeconds()) * 1000 - now.getMilliseconds()
+
     // Primer timeout para sincronizar con el inicio del minuto
     const initialTimeout = setTimeout(() => {
       updateTime()
@@ -247,30 +260,30 @@ function CurrentTimeIndicator({
       const interval = setInterval(updateTime, 60000)
       return () => clearInterval(interval)
     }, msUntilNextMinute)
-    
+
     return () => clearTimeout(initialTimeout)
   }, [])
 
   const hours = currentTime.getHours()
   const minutes = currentTime.getMinutes()
-  
+
   // Solo mostrar si estamos dentro del rango de horas (9:00 - 20:00)
   const totalMinutes = hours * 60 + minutes
   const rangeStart = startHour * 60
   const rangeEnd = endHour * 60
-  
+
   if (totalMinutes < rangeStart || totalMinutes >= rangeEnd) {
     return null
   }
-  
+
   // Calcular posición: minutos desde las 9:00 / minutos totales del rango
   const minutesFromStart = totalMinutes - rangeStart
   const totalRangeMinutes = rangeEnd - rangeStart // 660 minutos (11 horas)
   const positionPercent = (minutesFromStart / totalRangeMinutes) * 100
-  
+
   // Formatear hora actual
   const timeLabel = `${hours}:${minutes.toString().padStart(2, '0')}`
-  
+
   return (
     <div
       className='pointer-events-none absolute left-0 z-[5] flex w-full items-center'
@@ -291,7 +304,7 @@ function CurrentTimeIndicator({
           {timeLabel}
         </span>
       </div>
-      
+
       {/* Línea roja */}
       <div className='h-[2px] flex-1 bg-[#EF4444]' />
     </div>
@@ -2586,6 +2599,21 @@ type DaySlotSelection = {
   slotIndex: number
 }
 
+// Visual block type for week view
+type WeekBlock = {
+  id: string
+  top: string
+  height: string
+  blockType: BlockType
+  description: string
+  box?: string
+  timeRange: string
+  responsibleName?: string
+  isRecurring?: boolean
+  left?: string
+  width?: string
+}
+
 function DayGrid({
   column,
   activeSelection,
@@ -2601,7 +2629,27 @@ function DayGrid({
   selectedProfessionals,
   completedEvents,
   onToggleComplete,
-  onEventContextMenu
+  onEventContextMenu,
+  visitStatusMap,
+  onVisitStatusChange,
+  confirmedEvents,
+  showConfirmedOnly,
+  // Block-related props
+  blocks = [],
+  activeBlockId,
+  hoveredBlockId,
+  onBlockHover,
+  onBlockActivate,
+  onEditBlock,
+  onDeleteBlock,
+  // Quick appointment creation props
+  hoverSlotIndex,
+  hoverBoxId,
+  onHoverSlotChange,
+  slotDragState,
+  onSlotDragStart,
+  onSlotDragMove,
+  onSlotDragEnd
 }: {
   column: DayColumn
   activeSelection: EventSelection
@@ -2623,12 +2671,35 @@ function DayGrid({
   selectedProfessionals: string[]
   completedEvents?: Record<string, boolean>
   onToggleComplete?: (eventId: string, completed: boolean) => void
-  onEventContextMenu?: (e: React.MouseEvent<HTMLElement>, event: AgendaEvent) => void
+  onEventContextMenu?: (
+    e: React.MouseEvent<HTMLElement>,
+    event: AgendaEvent
+  ) => void
+  visitStatusMap?: Record<string, VisitStatus>
+  onVisitStatusChange?: (eventId: string, newStatus: VisitStatus) => void
+  confirmedEvents?: Record<string, boolean>
+  showConfirmedOnly?: boolean
+  // Block-related props
+  blocks?: WeekBlock[]
+  activeBlockId?: string | null
+  hoveredBlockId?: string | null
+  onBlockHover?: (blockId: string | null) => void
+  onBlockActivate?: (blockId: string | null) => void
+  onEditBlock?: (blockId: string) => void
+  onDeleteBlock?: (blockId: string, deleteRecurrence?: boolean) => void
+  // Quick appointment creation props
+  hoverSlotIndex?: number | null
+  hoverBoxId?: string | null
+  onHoverSlotChange?: (slotIndex: number | null, columnId: string, boxId: string | null) => void
+  slotDragState?: SlotDragState | null
+  onSlotDragStart?: (slotIndex: number, columnId: string, boxId: string, clientY: number) => void
+  onSlotDragMove?: (slotIndex: number) => void
+  onSlotDragEnd?: () => void
 }) {
   // Calculate dynamic box layout based on selected boxes
   const boxLayout = getBoxLayout(selectedBoxes)
 
-  // Filter events to only show those in selected boxes AND selected professionals
+  // Filter events to only show those in selected boxes AND selected professionals AND confirmed (if filter active)
   const filteredEvents = column.events.filter((event) => {
     // Filter by box
     const boxName = event.box?.toLowerCase() ?? ''
@@ -2640,7 +2711,11 @@ function DayGrid({
       !event.professionalId ||
       selectedProfessionals.includes(event.professionalId)
 
-    return boxMatch && professionalMatch
+    // Filter by confirmed status (if showConfirmedOnly is true)
+    const isConfirmed = confirmedEvents?.[event.id] ?? event.confirmed ?? false
+    const confirmedMatch = !showConfirmedOnly || isConfirmed
+
+    return boxMatch && professionalMatch && confirmedMatch
   })
   // Domingo con patrón de puntos SVG
   const isSunday = column.id === 'sunday'
@@ -2654,13 +2729,110 @@ function DayGrid({
       }
     : {}
 
+  // Local ref for grid dimensions
+  const gridRef = useRef<HTMLDivElement | null>(null)
+
+  // Get sorted list of visible box names for position calculation
+  const visibleBoxNames = Object.keys(boxLayout).sort()
+  const boxCount = visibleBoxNames.length || 1
+
+  // Calculate slot index from mouse Y position
+  const getSlotFromY = (clientY: number): number => {
+    if (!gridRef.current) return 0
+    const rect = gridRef.current.getBoundingClientRect()
+    if (rect.height <= 0) return 0
+    const relativeY = clientY - rect.top
+    const slotHeight = rect.height / TOTAL_SLOTS
+    if (slotHeight <= 0) return 0
+    const rawIndex = Math.floor(relativeY / slotHeight)
+    return Math.max(0, Math.min(rawIndex, TOTAL_SLOTS - 1))
+  }
+
+  // Calculate which box the mouse is in based on X position
+  const getBoxFromX = (clientX: number): string | null => {
+    if (!gridRef.current || visibleBoxNames.length === 0) return null
+    const rect = gridRef.current.getBoundingClientRect()
+    const relativeX = clientX - rect.left
+    const columnWidth = rect.width
+
+    // Find which box contains this X position
+    for (const boxName of visibleBoxNames) {
+      const layout = boxLayout[boxName]
+      if (!layout) continue
+      
+      // Parse percentage values
+      const leftPercent = parseFloat(layout.left) / 100
+      const widthPercent = parseFloat(layout.width) / 100
+      const boxLeft = leftPercent * columnWidth
+      const boxRight = boxLeft + widthPercent * columnWidth
+
+      if (relativeX >= boxLeft && relativeX < boxRight) {
+        return boxName
+      }
+    }
+    
+    // Fallback to first box
+    return visibleBoxNames[0] || null
+  }
+
+  // Handle mouse move for time indicator
+  const handleGridMouseMove = (event: ReactMouseEvent<HTMLDivElement>) => {
+    // Don't update hover if dragging an existing appointment
+    if (draggingEventId) return
+    
+    const target = event.target as HTMLElement | null
+    if (target && target.closest('[data-appointment-card="true"]')) {
+      onHoverSlotChange?.(null, column.id, null)
+      return
+    }
+
+    const slotIndex = getSlotFromY(event.clientY)
+    const boxId = getBoxFromX(event.clientX)
+    onHoverSlotChange?.(slotIndex, column.id, boxId)
+
+    // If dragging to select, update the current slot
+    if (slotDragState?.isDragging && slotDragState.columnId === column.id) {
+      onSlotDragMove?.(slotIndex)
+    }
+  }
+
+  // Handle mouse leave to hide time indicator
+  const handleGridMouseLeave = () => {
+    if (!slotDragState?.isDragging) {
+      onHoverSlotChange?.(null, column.id, null)
+    }
+  }
+
+  // Handle mouse down to start drag selection
+  const handleGridMouseDown = (event: ReactMouseEvent<HTMLDivElement>) => {
+    // Only handle left click
+    if (event.button !== 0) return
+    
+    const target = event.target as HTMLElement | null
+    if (target && target.closest('[data-appointment-card="true"]')) {
+      return
+    }
+    if (target && target.closest('[data-block-card="true"]')) {
+      return
+    }
+
+    const slotIndex = getSlotFromY(event.clientY)
+    const boxId = getBoxFromX(event.clientX)
+    if (boxId) {
+      onSlotDragStart?.(slotIndex, column.id, boxId, event.clientY)
+    }
+    
+    // Clear any existing selection
+    onClearSelection()
+    event.preventDefault()
+  }
+
   const handleGridClick = (event: ReactMouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement | null
     if (target && target.closest('[data-appointment-card="true"]')) {
       return
     }
-    // Click izquierdo: limpiar hover/overlay y no abrir nada
-    onClearSelection()
+    // Click is now handled by mousedown/mouseup for drag selection
     event.stopPropagation()
   }
 
@@ -2685,12 +2857,35 @@ function DayGrid({
     onSlotSelect({ column, slotIndex })
   }
 
+  // Calculate slot height for visual components
+  const slotHeightRem = 2.5 // var(--scheduler-slot-height-quarter)
+
+  // Show time indicator if hovering this column and not dragging
+  const showTimeIndicator = hoverSlotIndex !== null && 
+    hoverSlotIndex !== undefined && 
+    hoverBoxId !== null &&
+    !slotDragState?.isDragging &&
+    !draggingEventId
+
+  // Show drag selection if dragging in this column
+  const showDragSelection = slotDragState?.isDragging && slotDragState.columnId === column.id
+
+  // Get layout for the hovered/dragged box
+  const getBoxLayoutStyle = (boxId: string | null | undefined) => {
+    if (!boxId) return { left: '0', width: '100%' }
+    const layout = boxLayout[boxId]
+    return layout || { left: '0', width: '100%' }
+  }
+
   return (
     <div
       className={`absolute border-r border-[var(--color-border-default)] ${
         isSunday ? '' : 'bg-[var(--color-neutral-0)]'
       }`}
-      ref={columnRef}
+      ref={(el) => {
+        gridRef.current = el
+        columnRef?.(el)
+      }}
       style={{
         left: `var(${column.leftVar})`,
         top: '0',
@@ -2700,7 +2895,58 @@ function DayGrid({
       }}
       onClick={handleGridClick}
       onContextMenu={handleGridContextMenu}
+      onMouseMove={handleGridMouseMove}
+      onMouseLeave={handleGridMouseLeave}
+      onMouseDown={handleGridMouseDown}
     >
+      {/* Time indicator on hover - positioned within the hovered box */}
+      {showTimeIndicator && hoverSlotIndex !== null && hoverBoxId && (() => {
+        const hoverLayout = getBoxLayoutStyle(hoverBoxId)
+        return (
+          <div
+            className='pointer-events-none absolute z-[3]'
+            style={{
+              top: `${hoverSlotIndex * slotHeightRem}rem`,
+              left: hoverLayout.left,
+              width: hoverLayout.width,
+              transform: 'translateY(-50%)'
+            }}
+          >
+            {/* Time badge */}
+            <div className='flex items-center'>
+              <div className='flex items-center justify-center rounded-[0.25rem] bg-[var(--color-brand-500)] px-[0.5rem] py-[0.125rem]'>
+                <span className='text-[0.75rem] font-medium leading-[1rem] text-white'>
+                  {slotIndexToTime(hoverSlotIndex, START_HOUR, MINUTES_STEP)}
+                </span>
+              </div>
+              <div className='h-[2px] flex-1 border-t-2 border-dashed border-[var(--color-brand-400)]' />
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Drag selection overlay - positioned within the selected box */}
+      {showDragSelection && slotDragState && slotDragState.boxId && (() => {
+        const { minSlot, maxSlot, slotCount } = getSelectionBounds(
+          slotDragState.startSlot,
+          slotDragState.currentSlot
+        )
+        const durationMinutes = slotCount * MINUTES_STEP
+        const dragLayout = getBoxLayoutStyle(slotDragState.boxId)
+        return (
+          <SlotDragSelection
+            top={`${minSlot * slotHeightRem}rem`}
+            height={`${slotCount * slotHeightRem}rem`}
+            left={dragLayout.left}
+            width={dragLayout.width}
+            startTime={slotIndexToTime(minSlot, START_HOUR, MINUTES_STEP)}
+            endTime={slotIndexToTime(maxSlot + 1, START_HOUR, MINUTES_STEP)}
+            durationMinutes={durationMinutes}
+            visible
+          />
+        )
+      })()}
+
       {/* Líneas horizontales para cada 15 min */}
       <div
         className='absolute inset-0 grid'
@@ -2727,6 +2973,33 @@ function DayGrid({
         })}
       </div>
 
+      {/* Bloques (debajo de eventos) */}
+      <div className='absolute inset-0'>
+        {blocks.map((block) => (
+          <AgendaBlockCard
+            key={block.id}
+            id={block.id}
+            blockType={block.blockType}
+            description={block.description}
+            box={block.box}
+            timeRange={block.timeRange}
+            responsibleName={block.responsibleName}
+            isRecurring={block.isRecurring}
+            top={block.top}
+            height={block.height}
+            left={block.left}
+            width={block.width}
+            isActive={activeBlockId === block.id}
+            isHovered={hoveredBlockId === block.id && activeBlockId !== block.id}
+            onHover={() => onBlockHover?.(block.id)}
+            onLeave={() => onBlockHover?.(null)}
+            onActivate={() => onBlockActivate?.(block.id)}
+            onEdit={() => onEditBlock?.(block.id)}
+            onDelete={(deleteRecurrence) => onDeleteBlock?.(block.id, deleteRecurrence)}
+          />
+        ))}
+      </div>
+
       {/* Eventos */}
       <div className='absolute inset-0'>
         {filteredEvents.map((event) => (
@@ -2735,7 +3008,9 @@ function DayGrid({
             event={{
               ...event,
               ...(boxLayout[event.box?.toLowerCase() ?? ''] ?? {}),
-              completed: completedEvents?.[event.id] ?? event.completed
+              completed: completedEvents?.[event.id] ?? event.completed,
+              confirmed: confirmedEvents?.[event.id] ?? event.confirmed,
+              visitStatus: visitStatusMap?.[event.id] ?? event.visitStatus
             }}
             onHover={() => onHover({ event, column })}
             onLeave={() => onHover(null)}
@@ -2750,6 +3025,7 @@ function DayGrid({
             }
             onToggleComplete={onToggleComplete}
             onContextMenu={onEventContextMenu}
+            onVisitStatusChange={onVisitStatusChange}
           />
         ))}
       </div>
@@ -3719,11 +3995,18 @@ export default function WeekScheduler() {
     addAppointment,
     deleteAppointment,
     updateAppointment,
-    getAppointmentsByDateRange
+    getAppointmentsByDateRange,
+    getBlocksByDateRange,
+    deleteBlock,
+    addBlock
   } = useAppointments()
 
   const [hovered, setHovered] = useState<EventSelection>(null)
   const [active, setActive] = useState<EventSelection>(null)
+  
+  // Block-related state
+  const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null)
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
   const [viewOption, setViewOption] = useState<ViewOption>('semana')
   const [dayPeriod, setDayPeriod] = useState<DayPeriod>('full')
   const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>(
@@ -3733,6 +4016,10 @@ export default function WeekScheduler() {
     BOX_OPTIONS.map((option) => option.id)
   )
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(false)
+
+  // Estado para filtro de estado de visita (null = mostrar todos)
+  const [activeVisitStatusFilter, setActiveVisitStatusFilter] = useState<VisitStatus[] | null>(null)
+
   const isDraggingRef = useRef(false)
   const [openDropdown, setOpenDropdown] = useState<
     null | 'view' | 'professional' | 'box'
@@ -3779,7 +4066,13 @@ export default function WeekScheduler() {
   // Patient record modal state for "Ver ficha" action and context menu actions
   const [patientRecordConfig, setPatientRecordConfig] = useState<{
     open: boolean
-    initialTab: 'Resumen' | 'Historial clínico' | 'Imágenes RX' | 'Presupuestos y pagos' | 'Consentimientos' | 'Recetas'
+    initialTab:
+      | 'Resumen'
+      | 'Historial clínico'
+      | 'Imágenes RX'
+      | 'Presupuestos y pagos'
+      | 'Consentimientos'
+      | 'Recetas'
     openBudgetCreation?: boolean
     openPrescriptionCreation?: boolean
     openClinicalHistoryEdit?: boolean
@@ -3791,13 +4084,33 @@ export default function WeekScheduler() {
   })
 
   // Estado para citas completadas (ID del evento -> completado)
-  const [completedEvents, setCompletedEvents] = useState<Record<string, boolean>>({})
+  const [completedEvents, setCompletedEvents] = useState<
+    Record<string, boolean>
+  >({})
+
+  // Estado para citas confirmadas (ID del evento -> confirmado)
+  const [confirmedEvents, setConfirmedEvents] = useState<
+    Record<string, boolean>
+  >({})
+
+  // Estado para el estado de visita de cada cita (ID del evento -> VisitStatus)
+  const [visitStatusMap, setVisitStatusMap] = useState<
+    Record<string, VisitStatus>
+  >({})
 
   // Context menu state for right-click actions on appointments
   const [contextMenu, setContextMenu] = useState<{
     position: { x: number; y: number }
     event: AgendaEvent
   } | null>(null)
+
+  // Quick appointment creation state - hover and drag
+  const [hoverSlotInfo, setHoverSlotInfo] = useState<{
+    slotIndex: number
+    columnId: string
+    boxId: string | null
+  } | null>(null)
+  const [slotDragState, setSlotDragState] = useState<SlotDragState | null>(null)
 
   // Week navigation state - starts with current week
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
@@ -3893,6 +4206,26 @@ export default function WeekScheduler() {
   const currentViewLabel =
     VIEW_OPTIONS.find((option) => option.id === viewOption)?.label ?? ''
 
+  // Calcular conteos de estado de visita para la vista actual
+  const visitStatusCounts: Record<VisitStatus, number> = (() => {
+    const counts: Record<VisitStatus, number> = {
+      scheduled: 0,
+      waiting_room: 0,
+      call_patient: 0,
+      in_consultation: 0,
+      completed: 0
+    }
+
+    // Obtener todos los eventos de la vista actual
+    const allEvents = dayColumnsState.flatMap((col) => col.events)
+    allEvents.forEach((event) => {
+      const status = visitStatusMap[event.id] ?? event.visitStatus ?? 'scheduled'
+      counts[status]++
+    })
+
+    return counts
+  })()
+
   const handleViewChipClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()
     setOpenDropdown((current) => (current === 'view' ? null : 'view'))
@@ -3943,12 +4276,17 @@ export default function WeekScheduler() {
 
   // Handler para registrar pago (soporta pagos parciales)
   const handleRegisterPayment = useCallback(
-    (data: { paymentMethod: string; paymentDate: Date | null; reference: string; amountToPay: number }) => {
+    (data: {
+      paymentMethod: string
+      paymentDate: Date | null
+      reference: string
+      amountToPay: number
+    }) => {
       if (selectedEventForPayment) {
         const paymentInfo = selectedEventForPayment.paymentInfo
         const installmentPlan = selectedEventForPayment.installmentPlan
-        const isFullyPaid = paymentInfo 
-          ? data.amountToPay >= paymentInfo.pendingAmount 
+        const isFullyPaid = paymentInfo
+          ? data.amountToPay >= paymentInfo.pendingAmount
           : true
 
         // Solo marcar como "No" cobro si se pagó completamente
@@ -3961,23 +4299,33 @@ export default function WeekScheduler() {
         // ✅ ACTUALIZAR LA AGENDA EN TIEMPO REAL
         const eventIdToUpdate = selectedEventForPayment.id
         console.log('🔄 Buscando evento para actualizar:', eventIdToUpdate)
-        
+
         setDayColumnsState((prevColumns) => {
           const updatedColumns = prevColumns.map((column) => ({
             ...column,
             events: column.events.map((event) => {
               // Encontrar el evento que se actualizó
-              const isMatch = event.id === eventIdToUpdate || 
-                              event.detail?.appointmentId === eventIdToUpdate
-              
+              const isMatch =
+                event.id === eventIdToUpdate ||
+                event.detail?.appointmentId === eventIdToUpdate
+
               if (!isMatch) return event
-              
-              console.log('✅ Evento encontrado:', event.id, 'Actualizando paymentInfo...')
+
+              console.log(
+                '✅ Evento encontrado:',
+                event.id,
+                'Actualizando paymentInfo...'
+              )
 
               // Obtener el monto total del tratamiento
               const currentPaymentInfo = event.detail?.paymentInfo
-              const totalAmount = currentPaymentInfo?.totalAmount ?? 
-                parseFloat(event.detail?.economicAmount?.replace(/[^\d,.-]/g, '').replace(',', '.') || '0')
+              const totalAmount =
+                currentPaymentInfo?.totalAmount ??
+                parseFloat(
+                  event.detail?.economicAmount
+                    ?.replace(/[^\d,.-]/g, '')
+                    .replace(',', '.') || '0'
+                )
 
               // Calcular nuevos valores de pago
               const previouslyPaid = currentPaymentInfo?.paidAmount ?? 0
@@ -3987,12 +4335,14 @@ export default function WeekScheduler() {
 
               // Actualizar plan de cuotas si existe
               const currentInstallmentPlan = event.detail?.installmentPlan
-              const newInstallmentPlan = currentInstallmentPlan && !fullyPaid
-                ? {
-                    ...currentInstallmentPlan,
-                    currentInstallment: currentInstallmentPlan.currentInstallment + 1
-                  }
-                : currentInstallmentPlan
+              const newInstallmentPlan =
+                currentInstallmentPlan && !fullyPaid
+                  ? {
+                      ...currentInstallmentPlan,
+                      currentInstallment:
+                        currentInstallmentPlan.currentInstallment + 1
+                    }
+                  : currentInstallmentPlan
 
               // Crear el nuevo paymentInfo
               const newPaymentInfo = {
@@ -4005,7 +4355,11 @@ export default function WeekScheduler() {
               // Determinar el nuevo economicStatus
               const newEconomicStatus = fullyPaid
                 ? 'Pagado'
-                : `Pago parcial (${newPaidAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} € de ${totalAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €)`
+                : `Pago parcial (${newPaidAmount.toLocaleString('es-ES', {
+                    minimumFractionDigits: 2
+                  })} € de ${totalAmount.toLocaleString('es-ES', {
+                    minimumFractionDigits: 2
+                  })} €)`
 
               console.log('📊 Nuevo paymentInfo:', newPaymentInfo)
               console.log('📊 Nuevo economicStatus:', newEconomicStatus)
@@ -4019,15 +4373,19 @@ export default function WeekScheduler() {
                   installmentPlan: newInstallmentPlan,
                   economicStatus: newEconomicStatus,
                   economicAmount: fullyPaid
-                    ? `${totalAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} € (Pagado)`
-                    : `${newPendingAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} € pendiente`
+                    ? `${totalAmount.toLocaleString('es-ES', {
+                        minimumFractionDigits: 2
+                      })} € (Pagado)`
+                    : `${newPendingAmount.toLocaleString('es-ES', {
+                        minimumFractionDigits: 2
+                      })} € pendiente`
                 }
               }
-              
+
               return updatedEvent
             })
           }))
-          
+
           return updatedColumns
         })
 
@@ -4038,7 +4396,9 @@ export default function WeekScheduler() {
           appointmentId: selectedEventForPayment.id,
           amountPaid: data.amountToPay,
           isFullyPaid,
-          remainingAfterPayment: paymentInfo ? paymentInfo.pendingAmount - data.amountToPay : 0,
+          remainingAfterPayment: paymentInfo
+            ? paymentInfo.pendingAmount - data.amountToPay
+            : 0,
           ...data
         })
       }
@@ -4062,14 +4422,60 @@ export default function WeekScheduler() {
   }, [active])
 
   // Handler para marcar cita como completada/pendiente
-  const handleToggleComplete = useCallback((eventId: string, completed: boolean) => {
-    setCompletedEvents(prev => ({
-      ...prev,
-      [eventId]: completed
-    }))
-    // TODO: Aquí se podría sincronizar con el backend
-    console.log(`✅ Cita ${eventId} marcada como ${completed ? 'completada' : 'pendiente'}`)
-  }, [])
+  const handleToggleComplete = useCallback(
+    (eventId: string, completed: boolean) => {
+      setCompletedEvents((prev) => ({
+        ...prev,
+        [eventId]: completed
+      }))
+      // TODO: Aquí se podría sincronizar con el backend
+      console.log(
+        `✅ Cita ${eventId} marcada como ${
+          completed ? 'completada' : 'pendiente'
+        }`
+      )
+    },
+    []
+  )
+
+  // Handler para marcar cita como confirmada/no confirmada
+  const handleToggleConfirmed = useCallback(
+    (eventId: string, confirmed: boolean) => {
+      setConfirmedEvents((prev) => ({
+        ...prev,
+        [eventId]: confirmed
+      }))
+      console.log(
+        `✅ Cita ${eventId} ${confirmed ? 'confirmada' : 'desconfirmada'}`
+      )
+    },
+    []
+  )
+
+  // Handler para cambiar el estado de visita
+  const handleVisitStatusChange = useCallback(
+    (eventId: string, newStatus: VisitStatus) => {
+      // Actualizar estado local para feedback visual inmediato
+      setVisitStatusMap((prev) => ({
+        ...prev,
+        [eventId]: newStatus
+      }))
+
+      // Si el estado es 'completed', también marcar como completado
+      if (newStatus === 'completed') {
+        setCompletedEvents((prev) => ({
+          ...prev,
+          [eventId]: true
+        }))
+      }
+
+      // TODO: Aquí se integraría con el contexto/backend
+      console.log(
+        `✅ Estado de visita actualizado: ${eventId} → ${newStatus} (${new Date().toLocaleTimeString('es-ES')})`
+      )
+    },
+    []
+  )
 
   // Handler para abrir menú contextual (clic derecho en cita)
   const handleEventContextMenu = useCallback(
@@ -4113,8 +4519,8 @@ export default function WeekScheduler() {
       switch (action) {
         case 'view-appointment':
           // Abrir overlay de detalle de la cita - encontrar la columna correspondiente
-          const column = dayColumnsState.find(col => 
-            col.events.some(e => e.id === event.id)
+          const column = dayColumnsState.find((col) =>
+            col.events.some((e) => e.id === event.id)
           )
           if (column) {
             setActive({ event, column })
@@ -4534,6 +4940,84 @@ export default function WeekScheduler() {
     return `${capitalize(weekday)} ${day} ${formattedMonth} ${year}`.trim()
   }
 
+  // Helper to get ISO date string for a weekday
+  const getDateForWeekday = (weekdayIndex: number): string => {
+    const date = new Date(currentWeekStart)
+    date.setDate(currentWeekStart.getDate() + weekdayIndex)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Get blocks for the current week and convert to visual format
+  const getBlocksForWeekday = (weekdayIndex: number): WeekBlock[] => {
+    const dateStr = getDateForWeekday(weekdayIndex)
+    const startDate = getDateForWeekday(0) // Monday
+    const endDate = getDateForWeekday(4) // Friday
+    
+    const allBlocks = getBlocksByDateRange(startDate, endDate)
+    const blocksForDay = allBlocks.filter(block => block.date === dateStr)
+    
+    // Convert to visual format with position calculation
+    return blocksForDay
+      .filter((block) => {
+        // Filter by selected boxes
+        if (block.box) {
+          const boxFilterId = block.box.replace(' ', '-')
+          if (!selectedBoxes.includes(boxFilterId)) return false
+        }
+        return true
+      })
+      .map((block) => {
+        // Calculate position based on time (same logic as events)
+        const [startH, startM] = block.startTime.split(':').map(Number)
+        const [endH, endM] = block.endTime.split(':').map(Number)
+        const startMinutes = startH * 60 + startM
+        const endMinutes = endH * 60 + endM
+        const durationMinutes = endMinutes - startMinutes
+        
+        // Calculate slot position (15 min slots, starting at 9:00)
+        const START_HOUR = 9
+        const MINUTES_STEP = 15
+        const SLOT_REM = 2.5
+        
+        const startSlot = Math.floor((startMinutes - START_HOUR * 60) / MINUTES_STEP)
+        const heightSlots = Math.max(1, Math.ceil(durationMinutes / MINUTES_STEP))
+        
+        const top = `${startSlot * SLOT_REM}rem`
+        const height = `${heightSlots * SLOT_REM}rem`
+        
+        // Calculate left/width based on box layout
+        const boxLayout = getBoxLayout(selectedBoxes)
+        const boxName = block.box?.toLowerCase() ?? ''
+        const layout = boxLayout[boxName]
+        
+        return {
+          id: block.id,
+          top,
+          height,
+          blockType: block.blockType,
+          description: block.description,
+          box: block.box,
+          timeRange: `${block.startTime} - ${block.endTime}`,
+          responsibleName: block.responsibleName,
+          isRecurring: !!block.recurrence && block.recurrence.type !== 'none',
+          left: layout?.left,
+          width: layout?.width ? `calc(${layout.width} - 0.5rem)` : undefined
+        }
+      })
+  }
+
+  // Handler for block deletion
+  const handleDeleteBlock = useCallback(
+    (blockId: string, deleteRecurrence?: boolean) => {
+      deleteBlock(blockId, deleteRecurrence)
+      setActiveBlockId(null)
+    },
+    [deleteBlock]
+  )
+
   // Generate header cells with actual dates
   const getHeaderCells = (): typeof HEADER_CELLS => {
     const weekdayIds: Weekday[] = [
@@ -4875,24 +5359,33 @@ export default function WeekScheduler() {
       return
     }
 
+    // Calculate duration and end time from form data
+    const durationMinutes = parseInt(data.duracion || '30', 10)
+    const [startH, startM] = data.hora.split(':').map(Number)
+    const endMinutes = startH * 60 + startM + durationMinutes
+    const endH = Math.floor(endMinutes / 60)
+    const endM = endMinutes % 60
+    const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`
+
     const slotIndex = getSlotIndexFromTime(data.hora)
     const topRem = slotIndex * 2.5 // matches --scheduler-slot-height-quarter
+    const heightSlots = Math.ceil(durationMinutes / 15) // 15 min per slot
+    const heightRem = heightSlots * 2.5
     const eventId = `new-${Date.now()}`
-    const endTime = formatEndTime(data.hora)
 
     const newEvent: AgendaEvent = {
       id: eventId,
       top: `${topRem}rem`,
-      height: '4rem',
+      height: `${heightRem}rem`,
       title: data.servicio || 'Nueva cita',
       patient: data.paciente || 'Paciente',
-      box: 'Box 1',
+      box: data.box || 'Box 1',
       timeRange: `${data.hora} - ${endTime}`,
       backgroundClass: 'bg-[var(--color-brand-100)]',
       detail: {
         title: data.servicio || 'Nueva cita',
         date: data.fecha,
-        duration: `${data.hora} - ${endTime} (60 minutos)`,
+        duration: `${data.hora} - ${endTime} (${durationMinutes} minutos)`,
         patientFull: data.paciente || 'Paciente',
         professional: data.responsable || 'Profesional',
         notes: data.observaciones || 'Sin notas',
@@ -4929,6 +5422,38 @@ export default function WeekScheduler() {
     handleCreateModalClose()
   }
 
+  // Handler para crear un bloqueo de agenda
+  const handleCreateBlockSubmit = (data: BlockFormData) => {
+    // Calculate end time based on duration
+    const [startH, startM] = data.hora.split(':').map(Number)
+    const durationMinutes = parseInt(data.duracion, 10)
+    const endMinutes = startH * 60 + startM + durationMinutes
+    const endH = Math.floor(endMinutes / 60)
+    const endM = endMinutes % 60
+    const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`
+
+    // Add the block via context
+    addBlock({
+      date: data.fecha,
+      startTime: data.hora,
+      endTime: endTime,
+      blockType: data.blockType,
+      description: data.observaciones || BLOCK_TYPE_CONFIG[data.blockType].label,
+      responsibleName: data.responsable || undefined,
+      box: data.box,
+      recurrence: data.recurrence.type !== 'none' ? data.recurrence : undefined
+    })
+
+    console.log('✅ Bloqueo creado:', {
+      fecha: data.fecha,
+      hora: `${data.hora} - ${endTime}`,
+      tipo: data.blockType,
+      box: data.box
+    })
+
+    handleCreateModalClose()
+  }
+
   const handleDaySlotSelect = useCallback(
     ({ column, slotIndex }: DaySlotSelection) => {
       const dayOffset = WEEKDAY_ORDER.indexOf(column.id)
@@ -4952,6 +5477,94 @@ export default function WeekScheduler() {
     },
     [currentWeekStart, openCreateAppointmentModal]
   )
+
+  // === Quick appointment creation handlers ===
+  
+  // Handle hover slot change (time indicator)
+  const handleHoverSlotChange = useCallback(
+    (slotIndex: number | null, columnId: string, boxId: string | null) => {
+      if (slotIndex === null) {
+        setHoverSlotInfo(null)
+      } else {
+        setHoverSlotInfo({ slotIndex, columnId, boxId })
+      }
+    },
+    []
+  )
+
+  // Handle slot drag start
+  const handleSlotDragStart = useCallback(
+    (slotIndex: number, columnId: string, boxId: string, clientY: number) => {
+      setSlotDragState({
+        startSlot: slotIndex,
+        currentSlot: slotIndex,
+        columnId,
+        boxId,
+        isDragging: true,
+        startY: clientY
+      })
+    },
+    []
+  )
+
+  // Handle slot drag move
+  const handleSlotDragMove = useCallback((slotIndex: number) => {
+    setSlotDragState((prev) => {
+      if (!prev) return null
+      return { ...prev, currentSlot: slotIndex }
+    })
+  }, [])
+
+  // Handle slot drag end - opens appointment modal with selected time range
+  const handleSlotDragEnd = useCallback(() => {
+    if (!slotDragState) return
+
+    const { startSlot, currentSlot, columnId, boxId } = slotDragState
+    const { minSlot, slotCount } = getSelectionBounds(startSlot, currentSlot)
+    
+    // Find the column to get the date
+    const column = dayColumnsState.find((col) => col.id === columnId)
+    if (!column) {
+      setSlotDragState(null)
+      return
+    }
+
+    // Calculate start time
+    const startTime = slotIndexToTime(minSlot, START_HOUR, MINUTES_STEP)
+    
+    // Calculate duration in minutes
+    const durationMinutes = slotCount * MINUTES_STEP
+
+    // Get the date for this column
+    const dayOffset = WEEKDAY_ORDER.indexOf(column.id as Weekday)
+    const safeOffset = dayOffset >= 0 ? dayOffset : 0
+    const slotDate = new Date(currentWeekStart)
+    slotDate.setDate(currentWeekStart.getDate() + safeOffset)
+
+    // Open modal with pre-filled data including box
+    openCreateAppointmentModal({
+      fecha: slotDate.toLocaleDateString('en-CA'),
+      hora: startTime,
+      duracion: durationMinutes.toString(),
+      box: boxId || undefined
+    })
+
+    // Clear drag state
+    setSlotDragState(null)
+    setHoverSlotInfo(null)
+  }, [slotDragState, dayColumnsState, currentWeekStart, openCreateAppointmentModal])
+
+  // Window mouseup listener for ending drag
+  useEffect(() => {
+    if (!slotDragState?.isDragging) return
+
+    const handleMouseUp = () => {
+      handleSlotDragEnd()
+    }
+
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => window.removeEventListener('mouseup', handleMouseUp)
+  }, [slotDragState?.isDragging, handleSlotDragEnd])
 
   // Calcula anchos/posiciones de columnas en función del espacio disponible
   const schedulerBaseWidth = '100%'
@@ -5116,7 +5729,7 @@ export default function WeekScheduler() {
                   className={[
                     'absolute inset-0 rounded-[4.375rem] transition-colors',
                     showConfirmedOnly
-                      ? 'bg-[#51D6C7]'
+                      ? 'bg-[#3B82F6]'
                       : 'border border-[#CBD3D9] bg-[#F8FAFB]'
                   ].join(' ')}
                 />
@@ -5125,7 +5738,7 @@ export default function WeekScheduler() {
                   className={[
                     'absolute size-[1.125rem] rounded-full transition-all',
                     showConfirmedOnly
-                      ? 'left-[1.1875rem] top-[0.1875rem] bg-[#E9FBF9]'
+                      ? 'left-[1.1875rem] top-[0.1875rem] bg-[#DBEAFE]'
                       : 'left-[0.125rem] top-[0.125rem] bg-[#6D7783]'
                   ].join(' ')}
                 />
@@ -5135,6 +5748,22 @@ export default function WeekScheduler() {
                 Confirmadas
               </span>
             </div>
+
+            {/* Separador vertical */}
+            <div className='h-4 w-px bg-[var(--color-neutral-300)]' />
+
+            {/* Contadores de estado de visita */}
+            <VisitStatusCountersCompact
+              counts={visitStatusCounts}
+              activeFilters={activeVisitStatusFilter}
+              onFilterChange={(status) => {
+                if (status === null) {
+                  setActiveVisitStatusFilter(null)
+                } else {
+                  setActiveVisitStatusFilter([status])
+                }
+              }}
+            />
           </div>
         </div>
         <div className='flex shrink-0 items-center gap-2'>
@@ -5198,11 +5827,15 @@ export default function WeekScheduler() {
           <DayCalendar
             period={dayPeriod}
             appointments={selectedDayAppointments}
+            currentDate={(selectedDate ?? currentWeekStart).toISOString().split('T')[0]}
             bands={getDayBands(selectedDate ?? currentWeekStart)}
             onAppointmentMove={handleDayAppointmentMove}
             selectedBoxes={selectedBoxes}
             selectedProfessionals={selectedProfessionals}
-            onOpenCreateAppointment={(prefill) => openCreateAppointmentModal(prefill)}
+            onOpenCreateAppointment={(prefill) =>
+              openCreateAppointmentModal(prefill)
+            }
+            showConfirmedOnly={showConfirmedOnly}
           />
         </div>
       ) : (
@@ -5222,7 +5855,7 @@ export default function WeekScheduler() {
             >
               <TimeColumn />
 
-              {dayColumnsState.map((column) => (
+              {dayColumnsState.map((column, index) => (
                 <DayGrid
                   key={column.id}
                   column={column}
@@ -5245,6 +5878,35 @@ export default function WeekScheduler() {
                   completedEvents={completedEvents}
                   onToggleComplete={handleToggleComplete}
                   onEventContextMenu={handleEventContextMenu}
+                  visitStatusMap={visitStatusMap}
+                  onVisitStatusChange={handleVisitStatusChange}
+                  confirmedEvents={confirmedEvents}
+                  showConfirmedOnly={showConfirmedOnly}
+                  // Block-related props
+                  blocks={getBlocksForWeekday(index)}
+                  activeBlockId={activeBlockId}
+                  hoveredBlockId={hoveredBlockId}
+                  onBlockHover={setHoveredBlockId}
+                  onBlockActivate={setActiveBlockId}
+                  onDeleteBlock={handleDeleteBlock}
+                  // Quick appointment creation props
+                  hoverSlotIndex={
+                    hoverSlotInfo?.columnId === column.id
+                      ? hoverSlotInfo.slotIndex
+                      : null
+                  }
+                  hoverBoxId={
+                    hoverSlotInfo?.columnId === column.id
+                      ? hoverSlotInfo.boxId
+                      : null
+                  }
+                  onHoverSlotChange={handleHoverSlotChange}
+                  slotDragState={
+                    slotDragState?.columnId === column.id ? slotDragState : null
+                  }
+                  onSlotDragStart={handleSlotDragStart}
+                  onSlotDragMove={handleSlotDragMove}
+                  onSlotDragEnd={handleSlotDragEnd}
                 />
               ))}
 
@@ -5268,8 +5930,11 @@ export default function WeekScheduler() {
                     hovered.event
                   )
                   // Extraer color de backgroundClass (ej: 'bg-[#fbe9f0]' -> '#fbe9f0')
-                  const bgMatch = hovered.event.backgroundClass?.match(/bg-\[([^\]]+)\]/)
-                  const headerBgColor = bgMatch ? bgMatch[1] : 'var(--color-brand-100)'
+                  const bgMatch =
+                    hovered.event.backgroundClass?.match(/bg-\[([^\]]+)\]/)
+                  const headerBgColor = bgMatch
+                    ? bgMatch[1]
+                    : 'var(--color-brand-100)'
                   return (
                     <div
                       className='pointer-events-none absolute z-10 flex flex-col overflow-hidden rounded-t-[0.5rem] rounded-b-none border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)]'
@@ -5300,9 +5965,7 @@ export default function WeekScheduler() {
                         style={{ height: '19.125rem' }} // 306px
                       >
                         {/* Notas (prioridad) */}
-                        <div
-                          className='absolute left-[1rem] right-[1rem] top-[1rem] flex flex-col gap-[0.375rem]'
-                        >
+                        <div className='absolute left-[1rem] right-[1rem] top-[1rem] flex flex-col gap-[0.375rem]'>
                           <div className='flex items-center gap-[0.25rem]'>
                             <MD3Icon
                               name='DescriptionRounded'
@@ -5471,9 +6134,20 @@ export default function WeekScheduler() {
                   detail={activeDetail}
                   box={freshEvent?.box ?? overlaySource.event.box}
                   position={overlayPosition}
-                  backgroundClass={freshEvent?.backgroundClass ?? overlaySource.event.backgroundClass}
+                  backgroundClass={
+                    freshEvent?.backgroundClass ??
+                    overlaySource.event.backgroundClass
+                  }
                   onPaymentAction={handlePaymentAction}
                   onViewPatient={handleViewPatient}
+                  isConfirmed={
+                    confirmedEvents[overlaySource.event.id] ??
+                    overlaySource.event.confirmed ??
+                    false
+                  }
+                  onToggleConfirmed={(confirmed) =>
+                    handleToggleConfirmed(overlaySource.event.id, confirmed)
+                  }
                 />
               ) : null}
             </div>
@@ -5487,6 +6161,7 @@ export default function WeekScheduler() {
         onClose={handleCreateModalClose}
         initialData={appointmentPrefill ?? undefined}
         onSubmit={handleCreateAppointmentSubmit}
+        onSubmitBlock={handleCreateBlockSubmit}
       />
 
       {/* Register Payment Modal - Quick action from agenda */}
@@ -5509,7 +6184,9 @@ export default function WeekScheduler() {
       {/* Patient Record Modal - Quick action "Ver ficha" from agenda */}
       <PatientRecordModal
         open={patientRecordConfig.open}
-        onClose={() => setPatientRecordConfig(prev => ({ ...prev, open: false }))}
+        onClose={() =>
+          setPatientRecordConfig((prev) => ({ ...prev, open: false }))
+        }
         initialTab={patientRecordConfig.initialTab}
         openBudgetCreation={patientRecordConfig.openBudgetCreation}
         openPrescriptionCreation={patientRecordConfig.openPrescriptionCreation}
@@ -5525,6 +6202,10 @@ export default function WeekScheduler() {
           eventDetail={contextMenu.event.detail}
           onAction={handleContextMenuAction}
           onClose={handleCloseContextMenu}
+          currentVisitStatus={visitStatusMap[contextMenu.event.id] ?? contextMenu.event.visitStatus ?? 'scheduled'}
+          onVisitStatusChange={(newStatus) => handleVisitStatusChange(contextMenu.event.id, newStatus)}
+          isConfirmed={confirmedEvents[contextMenu.event.id] ?? contextMenu.event.confirmed ?? false}
+          onToggleConfirmed={(confirmed) => handleToggleConfirmed(contextMenu.event.id, confirmed)}
         />
       )}
     </section>

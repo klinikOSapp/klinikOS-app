@@ -7,9 +7,18 @@ import PatientRecordModal from '@/components/pacientes/modals/patient-record/Pat
 import RegisterPaymentModal from '@/components/pacientes/modals/patient-record/RegisterPaymentModal'
 import { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
 
-import AppointmentContextMenu, { type ContextMenuAction } from './AppointmentContextMenu'
+import Portal from '@/components/ui/Portal'
+import AppointmentContextMenu, {
+  type ContextMenuAction
+} from './AppointmentContextMenu'
+import AgendaBlockCard from './AgendaBlockCard'
 import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
-import type { EventDetail } from './types'
+import type { EventDetail, VisitStatus, AgendaBlock } from './types'
+import { VISIT_STATUS_CONFIG } from './types'
+import VisitStatusMenu from './VisitStatusMenu'
+import { useAppointments } from '@/context/AppointmentsContext'
+import TimeIndicator, { slotIndexToTime } from './TimeIndicator'
+import SlotDragSelection, { type SlotDragState, getSelectionBounds } from './SlotDragSelection'
 
 const OVERLAY_GUTTER = '1rem'
 
@@ -251,6 +260,8 @@ type DayEvent = {
   detail?: EventDetail
   box?: string
   completed?: boolean // Indica si la cita ya se ha realizado
+  confirmed?: boolean // Indica si el paciente confirmó la cita
+  visitStatus?: VisitStatus // Estado de visita del paciente
 }
 
 type DayEventSelection = {
@@ -738,7 +749,8 @@ function DayEvent({
   onResizeStart,
   styleOverride,
   onToggleComplete,
-  onContextMenu
+  onContextMenu,
+  onVisitStatusChange
 }: {
   event: DayEvent
   onHover: () => void
@@ -752,19 +764,68 @@ function DayEvent({
   styleOverride?: CSSProperties
   onToggleComplete?: (eventId: string, completed: boolean) => void
   onContextMenu?: (e: React.MouseEvent<HTMLElement>, event: DayEvent) => void
+  onVisitStatusChange?: (eventId: string, newStatus: VisitStatus) => void
 }) {
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false)
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
+  const indicatorRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Calcular posición del menú cuando se abre
+  useEffect(() => {
+    if (isStatusMenuOpen && indicatorRef.current) {
+      const rect = indicatorRef.current.getBoundingClientRect()
+      setMenuPosition({
+        top: rect.top,
+        left: rect.right + 8 // 8px de margen
+      })
+    }
+  }, [isStatusMenuOpen])
+
+  // Cerrar menú al hacer clic fuera (del indicador Y del menú)
+  useEffect(() => {
+    if (!isStatusMenuOpen) return
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node
+      const isInsideIndicator = indicatorRef.current?.contains(target)
+      const isInsideMenu = menuRef.current?.contains(target)
+      
+      if (!isInsideIndicator && !isInsideMenu) {
+        setIsStatusMenuOpen(false)
+      }
+    }
+
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside)
+    }, 0)
+
+    return () => {
+      clearTimeout(timeoutId)
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isStatusMenuOpen])
+
   // Calcular si hay suficiente altura para mostrar notas (igual que vista semanal)
   const canShowNotes =
     parseDimensionToPx(event.height) >= MIN_HEIGHT_FOR_NOTES_PX
   const isCompleted = event.completed ?? false
+  const isConfirmed = event.confirmed ?? false
 
-  // Estados de borde/sombra idénticos a AppointmentSummaryCard (vista semanal)
+  // Estado de visita actual (default: 'scheduled')
+  const visitStatus: VisitStatus = event.visitStatus ?? 'scheduled'
+  const statusConfig = VISIT_STATUS_CONFIG[visitStatus]
+
+  // Animación pulsante para estado "Llamar"
+  const isPulsing = visitStatus === 'call_patient'
+
+  // Estados de borde/sombra - Azul para confirmadas (igual que vista semanal)
   const stateClasses = isActive
     ? 'border-[var(--color-brand-500)] shadow-[0px_4px_12px_rgba(81,214,199,0.35)]'
     : isHovered
     ? 'border-[var(--color-brand-500)]'
-    : isCompleted
-    ? 'border-[#4F46E5]'
+    : isConfirmed
+    ? 'border-[#3B82F6] shadow-[0_0_0_1px_rgba(59,130,246,0.15)]'
     : 'border-[var(--color-border)]'
 
   // Separar título y paciente del label
@@ -772,14 +833,8 @@ function DayEvent({
   const title = labelParts[0] ?? ''
   const patient = labelParts[1] ?? ''
 
-  // Handler para el checkbox de completado
-  const handleToggleComplete = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    e.preventDefault()
-    onToggleComplete?.(event.id, !isCompleted)
-  }
-
   return (
+    <>
     <button
       type='button'
       data-appointment-card='true'
@@ -830,46 +885,44 @@ function DayEvent({
       }}
       aria-pressed={isActive}
     >
-      {/* Checkbox de cita completada - esquina superior derecha */}
-      {onToggleComplete && (
-        <div
-          role='checkbox'
-          aria-checked={isCompleted}
-          aria-label={
-            isCompleted ? 'Marcar como pendiente' : 'Marcar como completada'
+      {/* Indicador de estado de visita - borde izquierdo */}
+      <div
+        ref={indicatorRef}
+        className='absolute left-0 top-0 bottom-0 z-10'
+        onClick={(e) => {
+          e.stopPropagation()
+          if (onVisitStatusChange) {
+            setIsStatusMenuOpen(!isStatusMenuOpen)
           }
-          tabIndex={0}
-          onClick={handleToggleComplete}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              e.stopPropagation()
-              onToggleComplete(event.id, !isCompleted)
-            }
-          }}
+        }}
+        onKeyDown={(e) => {
+          if (onVisitStatusChange && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault()
+            e.stopPropagation()
+            setIsStatusMenuOpen(!isStatusMenuOpen)
+          }
+        }}
+        role={onVisitStatusChange ? 'button' : 'presentation'}
+        tabIndex={onVisitStatusChange ? 0 : -1}
+        aria-label={`Estado: ${statusConfig.label}${onVisitStatusChange ? '. Clic para cambiar' : ''}`}
+        aria-haspopup={onVisitStatusChange ? 'menu' : undefined}
+        aria-expanded={onVisitStatusChange ? isStatusMenuOpen : undefined}
+      >
+        <div
           className={[
-            'absolute right-1.5 top-1.5 z-20 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border-2 transition-all duration-200',
-            'opacity-0 group-hover/daycard:opacity-100 focus:opacity-100',
-            isCompleted
-              ? 'border-[#4F46E5] bg-[#4F46E5] opacity-100 shadow-[0_0_0_2px_rgba(79,70,229,0.25)]'
-              : 'border-[var(--color-neutral-400)] bg-white/90 hover:border-[#818CF8] hover:bg-[#EEF2FF]'
-          ].join(' ')}
-        >
-          {isCompleted && (
-            <svg
-              className='h-3 w-3 animate-[checkmark_0.2s_ease-out] text-white'
-              viewBox='0 0 12 12'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2.5'
-              strokeLinecap='round'
-              strokeLinejoin='round'
-            >
-              <path d='M2.5 6L5 8.5L9.5 3.5' />
-            </svg>
-          )}
-        </div>
-      )}
+            'h-full w-[4px] rounded-l-[var(--radius-lg)] transition-all duration-200',
+            onVisitStatusChange && 'cursor-pointer hover:w-[6px]',
+            isPulsing && 'animate-pulse'
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          style={{
+            backgroundColor: statusConfig.color,
+            boxShadow: isPulsing ? `0 0 8px ${statusConfig.color}` : undefined
+          }}
+        />
+      </div>
+
       {/* Contenido idéntico a AppointmentSummaryCard */}
       <div className='flex items-start justify-between gap-2'>
         <div className='flex min-w-0 flex-1 flex-col gap-[0.375rem]'>
@@ -940,6 +993,31 @@ function DayEvent({
         />
       )}
     </button>
+
+    {/* Menú de selección de estado - renderizado via Portal fuera del button */}
+    {isStatusMenuOpen && onVisitStatusChange && menuPosition && (
+      <Portal>
+        <div
+          ref={menuRef}
+          className='fixed z-[9999]'
+          style={{
+            top: menuPosition.top,
+            left: menuPosition.left
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <VisitStatusMenu
+            currentStatus={visitStatus}
+            onSelect={(newStatus) => {
+              onVisitStatusChange(event.id, newStatus)
+              setIsStatusMenuOpen(false)
+            }}
+            onClose={() => setIsStatusMenuOpen(false)}
+          />
+        </div>
+      </Portal>
+    )}
+    </>
   )
 }
 
@@ -1064,6 +1142,20 @@ function TimeSlotRow({
   )
 }
 
+// Type for visual block in day view
+type DayBlock = {
+  id: string
+  top: string
+  height: string
+  blockType: import('@/context/AppointmentsContext').BlockType
+  description: string
+  box?: string
+  timeRange: string
+  responsibleName?: string
+  isRecurring?: boolean
+  parentBlockId?: string
+}
+
 function DayGrid({
   timeLabels,
   timeSlotsOverride,
@@ -1081,8 +1173,26 @@ function DayGrid({
   visibleSlotCount,
   selectedProfessionals,
   completedEvents,
+  confirmedEvents,
   onToggleComplete,
-  onEventContextMenu
+  onEventContextMenu,
+  visitStatusMap,
+  onVisitStatusChange,
+  showConfirmedOnly = false,
+  blocks = [],
+  onEditBlock,
+  onDeleteBlock,
+  activeBlockId,
+  hoveredBlockId,
+  onBlockHover,
+  onBlockActivate,
+  // Quick appointment creation props
+  hoverSlotIndex,
+  onHoverSlotChange,
+  slotDragState,
+  onSlotDragStart,
+  onSlotDragMove,
+  onSlotDragEnd
 }: {
   timeLabels: string[]
   timeSlotsOverride?: TimeSlot[]
@@ -1106,15 +1216,37 @@ function DayGrid({
   visibleSlotCount: number // Número de slots de 30 min visibles según el período
   selectedProfessionals: string[]
   completedEvents?: Record<string, boolean>
+  confirmedEvents?: Record<string, boolean>
   onToggleComplete?: (eventId: string, completed: boolean) => void
-  onEventContextMenu?: (e: React.MouseEvent<HTMLElement>, event: DayEvent) => void
+  onEventContextMenu?: (
+    e: React.MouseEvent<HTMLElement>,
+    event: DayEvent
+  ) => void
+  visitStatusMap?: Record<string, VisitStatus>
+  onVisitStatusChange?: (eventId: string, newStatus: VisitStatus) => void
+  showConfirmedOnly?: boolean
+  // Block-related props
+  blocks?: DayBlock[]
+  onEditBlock?: (blockId: string) => void
+  onDeleteBlock?: (blockId: string, deleteRecurrence?: boolean) => void
+  activeBlockId?: string | null
+  hoveredBlockId?: string | null
+  onBlockHover?: (blockId: string | null) => void
+  onBlockActivate?: (blockId: string | null) => void
+  // Quick appointment creation props
+  hoverSlotIndex?: number | null
+  onHoverSlotChange?: (slotIndex: number | null, boxId: string) => void
+  slotDragState?: SlotDragState | null
+  onSlotDragStart?: (slotIndex: number, boxId: string, clientY: number) => void
+  onSlotDragMove?: (slotIndex: number) => void
+  onSlotDragEnd?: () => void
 }) {
   // Filtrar slots según los horarios visibles
   const sourceSlots = timeSlotsOverride ?? TIME_SLOTS
 
   // Extraer todos los eventos de todos los slots para renderizarlos en capa absoluta
   // Similar a cómo funciona en la vista semanal
-  // Filter events to only show those in selected boxes AND selected professionals
+  // Filter events to only show those in selected boxes AND selected professionals AND confirmed (if filter active)
   const allEvents: { event: DayEvent; boxId: BoxId }[] = []
   sourceSlots.forEach((slot) => {
     slot.boxes.forEach((box) => {
@@ -1133,7 +1265,12 @@ function DayGrid({
                   profId.toLowerCase().replace('dr', '').replace('dra', '')
                 )
             )
-          if (professionalMatch) {
+          
+          // Filter by confirmed status (if showConfirmedOnly is true)
+          const isConfirmed = confirmedEvents?.[event.id] ?? event.confirmed ?? false
+          const confirmedMatch = !showConfirmedOnly || isConfirmed
+          
+          if (professionalMatch && confirmedMatch) {
             allEvents.push({ event, boxId: box.id as BoxId })
           }
         })
@@ -1154,11 +1291,102 @@ function DayGrid({
     return boxLayout[boxName]?.width ?? '33.33%'
   }
 
+  // Local ref for mouse event calculations
+  const localGridRef = useRef<HTMLDivElement | null>(null)
+
+  // Calculate slot index from mouse Y position
+  const getSlotFromY = (clientY: number): number => {
+    if (!localGridRef.current) return 0
+    const rect = localGridRef.current.getBoundingClientRect()
+    if (rect.height <= 0) return 0
+    const relativeY = clientY - rect.top
+    const slotHeight = rect.height / TOTAL_SLOTS
+    if (slotHeight <= 0) return 0
+    const rawIndex = Math.floor(relativeY / slotHeight)
+    return Math.max(0, Math.min(rawIndex, TOTAL_SLOTS - 1))
+  }
+
+  // Get box ID from mouse X position
+  const getBoxFromX = (clientX: number): BoxId => {
+    if (!localGridRef.current) return 'box1'
+    const rect = localGridRef.current.getBoundingClientRect()
+    const relativeX = clientX - rect.left
+    const boxWidth = rect.width / boxCount
+    const boxIndex = Math.max(0, Math.min(boxCount - 1, Math.floor(relativeX / boxWidth)))
+    return (['box1', 'box2', 'box3'] as const)[boxIndex] || 'box1'
+  }
+
+  // Handle mouse move for time indicator
+  const handleGridMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    // Don't update hover if dragging an existing appointment
+    if (draggingId) return
+    
+    const target = event.target as HTMLElement | null
+    if (target && target.closest('[data-appointment-card="true"]')) {
+      onHoverSlotChange?.(null, '')
+      return
+    }
+
+    const slotIndex = getSlotFromY(event.clientY)
+    const boxId = getBoxFromX(event.clientX)
+    onHoverSlotChange?.(slotIndex, boxId)
+
+    // If dragging to select, update the current slot
+    if (slotDragState?.isDragging) {
+      onSlotDragMove?.(slotIndex)
+    }
+  }
+
+  // Handle mouse leave to hide time indicator
+  const handleGridMouseLeave = () => {
+    if (!slotDragState?.isDragging) {
+      onHoverSlotChange?.(null, '')
+    }
+  }
+
+  // Handle mouse down to start drag selection
+  const handleGridMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    // Only handle left click
+    if (event.button !== 0) return
+    
+    const target = event.target as HTMLElement | null
+    if (target && target.closest('[data-appointment-card="true"]')) {
+      return
+    }
+    if (target && target.closest('[data-block-card="true"]')) {
+      return
+    }
+
+    const slotIndex = getSlotFromY(event.clientY)
+    const boxId = getBoxFromX(event.clientX)
+    onSlotDragStart?.(slotIndex, boxId, event.clientY)
+    event.preventDefault()
+  }
+
+  // Calculate slot height for visual components
+  const slotHeightRem = 2.5 // var(--scheduler-slot-height-quarter)
+
+  // Show time indicator if hovering and not dragging
+  const showTimeIndicator = hoverSlotIndex !== null && 
+    hoverSlotIndex !== undefined && 
+    !slotDragState?.isDragging &&
+    !draggingId
+
+  // Show drag selection if dragging
+  const showDragSelection = slotDragState?.isDragging
+
   // Usar TOTAL_SLOTS de 15 min igual que la vista semanal (44 slots)
   return (
     <div
       className='absolute w-full'
-      ref={gridRef}
+      ref={(el) => {
+        localGridRef.current = el
+        if (typeof gridRef === 'function') {
+          gridRef(el)
+        } else if (gridRef) {
+          (gridRef as React.MutableRefObject<HTMLDivElement | null>).current = el
+        }
+      }}
       style={{
         left: 'var(--day-time-column-width)',
         top: 'var(--day-offset-top)',
@@ -1166,7 +1394,44 @@ function DayGrid({
         // Altura = TOTAL_SLOTS × altura de cada slot de 15 min (igual que vista semanal)
         height: `calc(${TOTAL_SLOTS} * var(--scheduler-slot-height-quarter))`
       }}
+      onMouseMove={handleGridMouseMove}
+      onMouseLeave={handleGridMouseLeave}
+      onMouseDown={handleGridMouseDown}
     >
+      {/* Time indicator on hover */}
+      {showTimeIndicator && hoverSlotIndex !== null && (
+        <TimeIndicator
+          top={`${hoverSlotIndex * slotHeightRem}rem`}
+          timeLabel={slotIndexToTime(hoverSlotIndex, START_HOUR, MINUTES_STEP)}
+          timeColumnWidth='4rem'
+          visible
+        />
+      )}
+
+      {/* Drag selection overlay */}
+      {showDragSelection && slotDragState && (() => {
+        const { minSlot, maxSlot, slotCount } = getSelectionBounds(
+          slotDragState.startSlot,
+          slotDragState.currentSlot
+        )
+        const durationMinutes = slotCount * MINUTES_STEP
+        // Get the width based on the selected box
+        const boxName = slotDragState.columnId.replace('box', 'box ')
+        const selectionLayout = boxLayout[boxName]
+        return (
+          <SlotDragSelection
+            top={`${minSlot * slotHeightRem}rem`}
+            height={`${slotCount * slotHeightRem}rem`}
+            left={selectionLayout?.left ?? '0'}
+            width={selectionLayout?.width ?? '33.33%'}
+            startTime={slotIndexToTime(minSlot, START_HOUR, MINUTES_STEP)}
+            endTime={slotIndexToTime(maxSlot + 1, START_HOUR, MINUTES_STEP)}
+            durationMinutes={durationMinutes}
+            visible
+          />
+        )
+      })()}
+
       {/* Rejilla de líneas cada 15 min (igual que vista semanal) */}
       <div className='pointer-events-none absolute inset-0 z-[1]'>
         <div
@@ -1209,6 +1474,44 @@ function DayGrid({
         ))}
       </div>
 
+      {/* Capa de bloques - z-index 1 (debajo de eventos) */}
+      <div className='absolute inset-0 z-[1]'>
+        {blocks.map((block) => {
+          // Get box layout for block positioning
+          const boxName = block.box || ''
+          const blockLayout = boxLayout[boxName]
+          if (!blockLayout && block.box) return null // Skip if box not visible
+          
+          return (
+            <AgendaBlockCard
+              key={block.id}
+              id={block.id}
+              blockType={block.blockType}
+              description={block.description}
+              box={block.box}
+              timeRange={block.timeRange}
+              responsibleName={block.responsibleName}
+              isRecurring={block.isRecurring}
+              top={block.top}
+              height={block.height}
+              isActive={activeBlockId === block.id}
+              isHovered={hoveredBlockId === block.id && activeBlockId !== block.id}
+              onHover={() => onBlockHover?.(block.id)}
+              onLeave={() => onBlockHover?.(null)}
+              onActivate={() => onBlockActivate?.(block.id)}
+              onEdit={() => onEditBlock?.(block.id)}
+              onDelete={(deleteRecurrence) => onDeleteBlock?.(block.id, deleteRecurrence)}
+              styleOverride={blockLayout ? {
+                left: blockLayout.left,
+                width: `calc(${blockLayout.width} - 0.5rem)`,
+                marginLeft: '0.25rem',
+                marginRight: '0.25rem'
+              } : undefined}
+            />
+          )
+        })}
+      </div>
+
       {/* Capa de eventos - Posición absoluta sobre toda la cuadrícula (igual que vista semanal) */}
       <div className='absolute inset-0 z-[2]'>
         {allEvents.map(({ event, boxId }) => (
@@ -1216,7 +1519,9 @@ function DayGrid({
             key={event.id}
             event={{
               ...event,
-              completed: completedEvents?.[event.id] ?? event.completed
+              completed: completedEvents?.[event.id] ?? event.completed,
+              confirmed: confirmedEvents?.[event.id] ?? event.confirmed,
+              visitStatus: visitStatusMap?.[event.id] ?? event.visitStatus
             }}
             onHover={() => onHover({ event, boxId })}
             onLeave={() => onHover(null)}
@@ -1250,6 +1555,7 @@ function DayGrid({
             }}
             onToggleComplete={onToggleComplete}
             onContextMenu={onEventContextMenu}
+            onVisitStatusChange={onVisitStatusChange}
           />
         ))}
       </div>
@@ -1281,6 +1587,7 @@ interface DayCalendarProps {
   period?: DayPeriod
   appointments?: ExternalAppointment[]
   dateLabel?: string
+  currentDate?: string // ISO date string for the day being displayed
   bands?: DayBand[] // Bandas de profesionales para el día
   onAppointmentMove?: (payload: {
     id: string
@@ -1290,7 +1597,15 @@ interface DayCalendarProps {
   }) => void
   selectedBoxes?: string[] // Boxes selected in the filter
   selectedProfessionals?: string[] // Professionals selected in the filter
-  onOpenCreateAppointment?: (prefill?: { paciente?: string }) => void
+  onOpenCreateAppointment?: (prefill?: { paciente?: string; fecha?: string; hora?: string; duracion?: string; box?: string }) => void
+  /** Callback para cambiar el estado de visita de una cita */
+  onVisitStatusChange?: (appointmentId: string, newStatus: VisitStatus) => void
+  /** Filtrar solo citas confirmadas */
+  showConfirmedOnly?: boolean
+  /** Callback para editar un bloqueo */
+  onEditBlock?: (blockId: string) => void
+  /** Callback para eliminar un bloqueo */
+  onDeleteBlock?: (blockId: string, deleteRecurrence?: boolean) => void
 }
 
 function timeToMinutes(time: string): number {
@@ -1400,12 +1715,20 @@ export default function DayCalendar({
   period = 'full',
   appointments = [],
   dateLabel,
+  currentDate,
   bands = DAILY_BANDS,
   onAppointmentMove,
   selectedBoxes = BOX_HEADERS.map((b) => b.id), // Default to all boxes
   selectedProfessionals = [], // Empty means all professionals
-  onOpenCreateAppointment
+  onOpenCreateAppointment,
+  onVisitStatusChange,
+  showConfirmedOnly = false,
+  onEditBlock,
+  onDeleteBlock
 }: DayCalendarProps) {
+  // Get blocks from context
+  const { getBlocksByDate, deleteBlock } = useAppointments()
+  
   // Get visible boxes based on filter
   const visibleBoxes = BOX_HEADERS.filter((box) =>
     selectedBoxes.includes(box.id)
@@ -1415,9 +1738,31 @@ export default function DayCalendar({
   const [hovered, setHovered] = useState<DayEventSelection>(null)
   const [active, setActive] = useState<DayEventSelection>(null)
   const [localEvents, setLocalEvents] = useState<TimeSlot[]>([])
+  
+  // Block-related state
+  const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null)
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
+  
+  // Quick appointment creation state - hover and drag
+  const [hoverSlotInfo, setHoverSlotInfo] = useState<{
+    slotIndex: number
+    boxId: string
+  } | null>(null)
+  const [slotDragState, setSlotDragState] = useState<SlotDragState | null>(null)
+  
   // Estado para citas completadas (ID del evento -> completado)
   const [completedEvents, setCompletedEvents] = useState<
     Record<string, boolean>
+  >({})
+
+  // Estado para citas confirmadas (ID del evento -> confirmado)
+  const [confirmedEvents, setConfirmedEvents] = useState<
+    Record<string, boolean>
+  >({})
+
+  // Estado para el estado de visita de cada cita (ID del evento -> VisitStatus)
+  const [visitStatusMap, setVisitStatusMap] = useState<
+    Record<string, VisitStatus>
   >({})
 
   // Payment modal state for quick actions
@@ -1443,7 +1788,13 @@ export default function DayCalendar({
   // Patient record modal state for "Ver ficha" action and context menu actions
   const [patientRecordConfig, setPatientRecordConfig] = useState<{
     open: boolean
-    initialTab: 'Resumen' | 'Historial clínico' | 'Imágenes RX' | 'Presupuestos y pagos' | 'Consentimientos' | 'Recetas'
+    initialTab:
+      | 'Resumen'
+      | 'Historial clínico'
+      | 'Imágenes RX'
+      | 'Presupuestos y pagos'
+      | 'Consentimientos'
+      | 'Recetas'
     openBudgetCreation?: boolean
     openPrescriptionCreation?: boolean
     openClinicalHistoryEdit?: boolean
@@ -1453,13 +1804,13 @@ export default function DayCalendar({
     open: false,
     initialTab: 'Resumen'
   })
-  
+
   // Context menu state for right-click actions
   const [contextMenu, setContextMenu] = useState<{
     position: { x: number; y: number }
     event: DayEvent
   } | null>(null)
-  
+
   const isDraggingRef = useRef(false)
   const gridRef = useRef<HTMLDivElement | null>(null)
   const boxRefs = useRef<Record<BoxId, HTMLDivElement | null>>({
@@ -1591,6 +1942,43 @@ export default function DayCalendar({
     []
   )
 
+  // Handler para marcar cita como confirmada/no confirmada
+  const handleToggleConfirmed = useCallback(
+    (eventId: string, confirmed: boolean) => {
+      setConfirmedEvents((prev) => ({
+        ...prev,
+        [eventId]: confirmed
+      }))
+      console.log(
+        `✅ Cita ${eventId} ${confirmed ? 'confirmada' : 'desconfirmada'}`
+      )
+    },
+    []
+  )
+
+  // Handler para cambiar el estado de visita
+  const handleVisitStatusChange = useCallback(
+    (eventId: string, newStatus: VisitStatus) => {
+      // Actualizar estado local para feedback visual inmediato
+      setVisitStatusMap((prev) => ({
+        ...prev,
+        [eventId]: newStatus
+      }))
+
+      // Si el estado es 'completed', también marcar como completado
+      if (newStatus === 'completed') {
+        setCompletedEvents((prev) => ({
+          ...prev,
+          [eventId]: true
+        }))
+      }
+
+      // Notificar al padre si existe el callback
+      onVisitStatusChange?.(eventId, newStatus)
+    },
+    [onVisitStatusChange]
+  )
+
   // Handler para abrir menú contextual (clic derecho en cita)
   const handleEventContextMenu = useCallback(
     (e: React.MouseEvent<HTMLElement>, event: DayEvent) => {
@@ -1624,7 +2012,10 @@ export default function DayCalendar({
       switch (action) {
         case 'view-appointment':
           // Abrir overlay de detalle de la cita
-          setActive({ event, boxId: event.box?.toLowerCase().replace(' ', '') || 'box1' } as DayEventSelection)
+          setActive({
+            event,
+            boxId: event.box?.toLowerCase().replace(' ', '') || 'box1'
+          } as DayEventSelection)
           break
 
         case 'new-appointment':
@@ -1673,6 +2064,88 @@ export default function DayCalendar({
     [contextMenu, onOpenCreateAppointment]
   )
 
+  // === Quick appointment creation handlers ===
+  
+  // Handle hover slot change (time indicator)
+  const handleHoverSlotChange = useCallback(
+    (slotIndex: number | null, boxId: string) => {
+      if (slotIndex === null) {
+        setHoverSlotInfo(null)
+      } else {
+        setHoverSlotInfo({ slotIndex, boxId })
+      }
+    },
+    []
+  )
+
+  // Handle slot drag start
+  const handleSlotDragStart = useCallback(
+    (slotIndex: number, boxId: string, clientY: number) => {
+      setSlotDragState({
+        startSlot: slotIndex,
+        currentSlot: slotIndex,
+        columnId: boxId,
+        isDragging: true,
+        startY: clientY
+      })
+      // Clear any hover/active state
+      setHovered(null)
+      setActive(null)
+    },
+    []
+  )
+
+  // Handle slot drag move
+  const handleSlotDragMove = useCallback((slotIndex: number) => {
+    setSlotDragState((prev) => {
+      if (!prev) return null
+      return { ...prev, currentSlot: slotIndex }
+    })
+  }, [])
+
+  // Handle slot drag end - opens appointment modal with selected time range
+  const handleSlotDragEnd = useCallback(() => {
+    if (!slotDragState) return
+
+    const { startSlot, currentSlot, columnId } = slotDragState
+    const { minSlot, slotCount } = getSelectionBounds(startSlot, currentSlot)
+    
+    // Calculate start time
+    const startTime = slotIndexToTime(minSlot, START_HOUR, MINUTES_STEP)
+    
+    // Calculate duration in minutes
+    const durationMinutes = slotCount * MINUTES_STEP
+
+    // Convert box ID to display format (box1 -> box 1)
+    const boxDisplayName = columnId.replace('box', 'box ')
+
+    // Open modal with pre-filled data using the parent's callback
+    if (onOpenCreateAppointment) {
+      onOpenCreateAppointment({
+        fecha: currentDate || '',
+        hora: startTime,
+        duracion: durationMinutes.toString(),
+        box: boxDisplayName
+      })
+    }
+
+    // Clear drag state
+    setSlotDragState(null)
+    setHoverSlotInfo(null)
+  }, [slotDragState, onOpenCreateAppointment, currentDate])
+
+  // Window mouseup listener for ending drag
+  useEffect(() => {
+    if (!slotDragState?.isDragging) return
+
+    const handleMouseUp = () => {
+      handleSlotDragEnd()
+    }
+
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => window.removeEventListener('mouseup', handleMouseUp)
+  }, [slotDragState?.isDragging, handleSlotDragEnd])
+
   // Filtrar horarios según el período seleccionado
   const getFilteredTimeLabels = () => {
     if (period === 'morning') {
@@ -1704,6 +2177,63 @@ export default function DayCalendar({
   }
 
   const filteredEvents = getFilteredEvents()
+
+  // Get blocks for the current date and convert to visual format
+  const visualBlocks: DayBlock[] = (() => {
+    if (!currentDate) return []
+    
+    const blocksForDate = getBlocksByDate(currentDate)
+    
+    return blocksForDate
+      .filter((block) => {
+        // Filter by selected boxes
+        if (block.box) {
+          const boxFilterId = block.box.replace(' ', '-')
+          if (!selectedBoxes.includes(boxFilterId)) return false
+        }
+        return true
+      })
+      .map((block) => {
+        // Calculate position based on time
+        const startMinutes = timeToMinutes(block.startTime)
+        const endMinutes = timeToMinutes(block.endTime)
+        const durationMinutes = endMinutes - startMinutes
+        
+        // Calculate slot position (using same logic as events)
+        const startSlot = Math.floor((startMinutes - START_HOUR * 60) / MINUTES_STEP)
+        const heightSlots = Math.max(1, Math.ceil(durationMinutes / MINUTES_STEP))
+        
+        const top = `${startSlot * SLOT_REM}rem`
+        const height = `${heightSlots * SLOT_REM}rem`
+        
+        return {
+          id: block.id,
+          top,
+          height,
+          blockType: block.blockType,
+          description: block.description,
+          box: block.box,
+          timeRange: `${block.startTime} - ${block.endTime}`,
+          responsibleName: block.responsibleName,
+          isRecurring: !!block.recurrence && block.recurrence.type !== 'none',
+          parentBlockId: block.parentBlockId
+        }
+      })
+  })()
+
+  // Handler for block deletion
+  const handleDeleteBlock = useCallback(
+    (blockId: string, deleteRecurrence?: boolean) => {
+      if (onDeleteBlock) {
+        onDeleteBlock(blockId, deleteRecurrence)
+      } else {
+        // Default: use context's deleteBlock
+        deleteBlock(blockId, deleteRecurrence)
+      }
+      setActiveBlockId(null)
+    },
+    [onDeleteBlock, deleteBlock]
+  )
 
   // Funciones auxiliares para convertir entre slots y tiempo (IGUAL que vista semanal)
   const toSlots = (value: string | undefined): number => {
@@ -2066,8 +2596,27 @@ export default function DayCalendar({
         visibleSlotCount={visibleSlotCount}
         selectedProfessionals={selectedProfessionals}
         completedEvents={completedEvents}
+        confirmedEvents={confirmedEvents}
         onToggleComplete={handleToggleComplete}
         onEventContextMenu={handleEventContextMenu}
+        visitStatusMap={visitStatusMap}
+        onVisitStatusChange={handleVisitStatusChange}
+        showConfirmedOnly={showConfirmedOnly}
+        // Block-related props
+        blocks={visualBlocks}
+        onEditBlock={onEditBlock}
+        onDeleteBlock={handleDeleteBlock}
+        activeBlockId={activeBlockId}
+        hoveredBlockId={hoveredBlockId}
+        onBlockHover={setHoveredBlockId}
+        onBlockActivate={setActiveBlockId}
+        // Quick appointment creation props
+        hoverSlotIndex={hoverSlotInfo?.slotIndex ?? null}
+        onHoverSlotChange={handleHoverSlotChange}
+        slotDragState={slotDragState}
+        onSlotDragStart={handleSlotDragStart}
+        onSlotDragMove={handleSlotDragMove}
+        onSlotDragEnd={handleSlotDragEnd}
       />
 
       {/* Indicador de hora actual - línea roja horizontal */}
@@ -2108,7 +2657,10 @@ export default function DayCalendar({
               {/* Header - Color dinámico según la cita */}
               <div
                 className='flex items-center justify-between px-4 py-2'
-                style={{ backgroundColor: hovered.event.bgColor || 'var(--color-brand-100)' }}
+                style={{
+                  backgroundColor:
+                    hovered.event.bgColor || 'var(--color-brand-100)'
+                }}
               >
                 <p className='text-title-md font-medium text-[var(--color-neutral-900)]'>
                   {hovered.event.detail.title}
@@ -2197,6 +2749,14 @@ export default function DayCalendar({
               backgroundClass={`bg-[${overlaySource.event.bgColor}]`}
               onPaymentAction={handlePaymentAction}
               onViewPatient={handleViewPatient}
+              isConfirmed={
+                confirmedEvents[overlaySource.event.id] ??
+                overlaySource.event.confirmed ??
+                false
+              }
+              onToggleConfirmed={(confirmed) =>
+                handleToggleConfirmed(overlaySource.event.id, confirmed)
+              }
             />
           )
         })()}
@@ -2221,7 +2781,9 @@ export default function DayCalendar({
       {/* Patient Record Modal - Quick action "Ver ficha" from day view */}
       <PatientRecordModal
         open={patientRecordConfig.open}
-        onClose={() => setPatientRecordConfig(prev => ({ ...prev, open: false }))}
+        onClose={() =>
+          setPatientRecordConfig((prev) => ({ ...prev, open: false }))
+        }
         initialTab={patientRecordConfig.initialTab}
         openBudgetCreation={patientRecordConfig.openBudgetCreation}
         openPrescriptionCreation={patientRecordConfig.openPrescriptionCreation}
@@ -2237,6 +2799,10 @@ export default function DayCalendar({
           eventDetail={contextMenu.event.detail}
           onAction={handleContextMenuAction}
           onClose={handleCloseContextMenu}
+          currentVisitStatus={visitStatusMap[contextMenu.event.id] ?? contextMenu.event.visitStatus ?? 'scheduled'}
+          onVisitStatusChange={(newStatus) => handleVisitStatusChange(contextMenu.event.id, newStatus)}
+          isConfirmed={confirmedEvents[contextMenu.event.id] ?? contextMenu.event.confirmed ?? false}
+          onToggleConfirmed={(confirmed) => handleToggleConfirmed(contextMenu.event.id, confirmed)}
         />
       )}
     </div>

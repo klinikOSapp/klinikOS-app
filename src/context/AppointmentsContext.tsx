@@ -1,21 +1,32 @@
 'use client'
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useState
+} from 'react'
+
+import type { VisitStatus, VisitStatusLog } from '@/components/agenda/types'
+
+// Re-exportar tipos de visita para uso en otros componentes
+export type { VisitStatus, VisitStatusLog }
 
 // ============================================
 // TIPOS UNIFICADOS PARA PAGOS
 // ============================================
 
 export type PaymentInfo = {
-  totalAmount: number      // Monto total del tratamiento
-  paidAmount: number       // Ya pagado
-  pendingAmount: number    // Pendiente
-  currency: string         // "€"
+  totalAmount: number // Monto total del tratamiento
+  paidAmount: number // Ya pagado
+  pendingAmount: number // Pendiente
+  currency: string // "€"
 }
 
 export type InstallmentPlan = {
-  totalInstallments: number    // Total de cuotas
-  currentInstallment: number   // Cuota actual a pagar
+  totalInstallments: number // Total de cuotas
+  currentInstallment: number // Cuota actual a pagar
   amountPerInstallment: number // Monto por cuota
 }
 
@@ -30,6 +41,51 @@ export type PaymentRecord = {
   paymentDate: Date
   reference?: string
   createdAt: Date
+}
+
+// ============================================
+// TIPOS PARA BLOQUEOS DE AGENDA
+// ============================================
+
+export type BlockType =
+  | 'cleaning' // Limpieza
+  | 'repair' // Reparación
+  | 'break' // Descanso
+  | 'meeting' // Reunión
+  | 'maintenance' // Mantenimiento
+  | 'other' // Otro
+
+export const BLOCK_TYPE_CONFIG: Record<
+  BlockType,
+  { label: string; icon: string }
+> = {
+  cleaning: { label: 'Limpieza', icon: 'CleaningServicesRounded' },
+  repair: { label: 'Reparación', icon: 'BuildRounded' },
+  break: { label: 'Descanso', icon: 'FreeBreakfastRounded' },
+  meeting: { label: 'Reunión', icon: 'GroupsRounded' },
+  maintenance: { label: 'Mantenimiento', icon: 'EngineeringRounded' },
+  other: { label: 'Otro', icon: 'BlockRounded' }
+}
+
+export type RecurrencePattern = {
+  type: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom'
+  daysOfWeek?: number[] // 0=domingo, 1=lunes, etc.
+  interval?: number // cada X días/semanas/meses
+  endDate?: string // fecha fin de recurrencia (formato ISO)
+}
+
+export type AgendaBlock = {
+  id: string
+  date: string // formato ISO: "2026-01-08"
+  startTime: string // "HH:MM"
+  endTime: string // "HH:MM"
+  blockType: BlockType
+  description: string // ej: "Limpiar gabinete", "Descanso"
+  responsibleId?: string // doctor/higienista asignado (opcional)
+  responsibleName?: string
+  box?: string // "box 1", "box 2", etc.
+  recurrence?: RecurrencePattern
+  parentBlockId?: string // para bloques generados por recurrencia
 }
 
 // ============================================
@@ -66,6 +122,10 @@ export type Appointment = {
   installmentPlan?: InstallmentPlan
   // Estado de la cita
   completed?: boolean // Si la cita ya se realizó
+  confirmed?: boolean // Si el paciente confirmó que asistirá (independiente del estado de visita)
+  // Estado de visita del paciente (flujo en consulta)
+  visitStatus?: VisitStatus // Estado actual (default: 'scheduled')
+  visitStatusHistory?: VisitStatusLog[] // Historial de cambios con timestamps
 }
 
 // ============================================
@@ -511,6 +571,64 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
 ]
 
 // ============================================
+// DATOS INICIALES DE BLOQUEOS (MOCK DATA)
+// ============================================
+
+const INITIAL_BLOCKS: AgendaBlock[] = [
+  {
+    id: 'block-1',
+    date: '2026-01-07',
+    startTime: '14:00',
+    endTime: '15:00',
+    blockType: 'break',
+    description: 'Descanso equipo',
+    box: 'box 1'
+  },
+  {
+    id: 'block-2',
+    date: '2026-01-07',
+    startTime: '14:00',
+    endTime: '14:30',
+    blockType: 'cleaning',
+    description: 'Limpieza gabinete 2',
+    box: 'box 2',
+    responsibleName: 'Personal limpieza'
+  },
+  {
+    id: 'block-3',
+    date: '2026-01-08',
+    startTime: '13:00',
+    endTime: '14:00',
+    blockType: 'meeting',
+    description: 'Reunión equipo semanal',
+    responsibleName: 'Dr. Antonio Ruiz'
+  },
+  {
+    id: 'block-4',
+    date: '2026-01-09',
+    startTime: '08:30',
+    endTime: '09:00',
+    blockType: 'cleaning',
+    description: 'Limpieza matutina',
+    box: 'box 1',
+    recurrence: {
+      type: 'daily',
+      endDate: '2026-01-31'
+    }
+  },
+  {
+    id: 'block-5',
+    date: '2026-01-10',
+    startTime: '14:00',
+    endTime: '14:30',
+    blockType: 'maintenance',
+    description: 'Revisión equipo RX',
+    box: 'box 3',
+    responsibleName: 'Técnico externo'
+  }
+]
+
+// ============================================
 // CONTEXTO
 // ============================================
 
@@ -527,13 +645,17 @@ type RegisterPaymentData = {
 type AppointmentsContextType = {
   appointments: Appointment[]
   payments: PaymentRecord[]
+  blocks: AgendaBlock[]
   // Funciones CRUD de citas
   addAppointment: (appointment: Omit<Appointment, 'id'>) => void
   updateAppointment: (id: string, updates: Partial<Appointment>) => void
   deleteAppointment: (id: string) => void
   // Funciones de consulta de citas
   getAppointmentsByDate: (date: string) => Appointment[]
-  getAppointmentsByDateRange: (startDate: string, endDate: string) => Appointment[]
+  getAppointmentsByDateRange: (
+    startDate: string,
+    endDate: string
+  ) => Appointment[]
   getAppointmentById: (id: string) => Appointment | undefined
   // Funciones de pagos
   registerPayment: (data: RegisterPaymentData) => void
@@ -543,53 +665,93 @@ type AppointmentsContextType = {
   getTotalPaymentsForDate: (date: Date) => number
   // Funciones de estado de cita
   toggleAppointmentComplete: (id: string, completed: boolean) => void
+  toggleAppointmentConfirmed: (id: string, confirmed: boolean) => void
+  // Funciones de estado de visita
+  updateVisitStatus: (appointmentId: string, newStatus: VisitStatus) => void
+  getVisitStatusCounts: (date: string) => Record<VisitStatus, number>
+  // Funciones CRUD de bloqueos
+  addBlock: (block: Omit<AgendaBlock, 'id'>) => string
+  updateBlock: (id: string, updates: Partial<AgendaBlock>) => void
+  deleteBlock: (id: string, deleteRecurrence?: boolean) => void
+  // Funciones de consulta de bloqueos
+  getBlocksByDate: (date: string) => AgendaBlock[]
+  getBlocksByDateRange: (startDate: string, endDate: string) => AgendaBlock[]
+  getBlockById: (id: string) => AgendaBlock | undefined
+  // Validación de conflictos
+  isTimeSlotBlocked: (
+    date: string,
+    startTime: string,
+    endTime: string,
+    box?: string
+  ) => boolean
 }
 
-const AppointmentsContext = createContext<AppointmentsContextType | undefined>(undefined)
+const AppointmentsContext = createContext<AppointmentsContextType | undefined>(
+  undefined
+)
 
 // ============================================
 // PROVIDER
 // ============================================
 
 export function AppointmentsProvider({ children }: { children: ReactNode }) {
-  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS)
+  const [appointments, setAppointments] =
+    useState<Appointment[]>(INITIAL_APPOINTMENTS)
   const [payments, setPayments] = useState<PaymentRecord[]>([])
+  const [blocks, setBlocks] = useState<AgendaBlock[]>(INITIAL_BLOCKS)
 
   // Agregar una nueva cita
-  const addAppointment = useCallback((appointmentData: Omit<Appointment, 'id'>) => {
-    const newAppointment: Appointment = {
-      ...appointmentData,
-      id: `apt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    }
-    setAppointments(prev => [...prev, newAppointment])
-  }, [])
+  const addAppointment = useCallback(
+    (appointmentData: Omit<Appointment, 'id'>) => {
+      const newAppointment: Appointment = {
+        ...appointmentData,
+        id: `apt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      }
+      setAppointments((prev) => [...prev, newAppointment])
+    },
+    []
+  )
 
   // Actualizar una cita existente
-  const updateAppointment = useCallback((id: string, updates: Partial<Appointment>) => {
-    setAppointments(prev => 
-      prev.map(apt => apt.id === id ? { ...apt, ...updates } : apt)
-    )
-  }, [])
+  const updateAppointment = useCallback(
+    (id: string, updates: Partial<Appointment>) => {
+      setAppointments((prev) =>
+        prev.map((apt) => (apt.id === id ? { ...apt, ...updates } : apt))
+      )
+    },
+    []
+  )
 
   // Eliminar una cita
   const deleteAppointment = useCallback((id: string) => {
-    setAppointments(prev => prev.filter(apt => apt.id !== id))
+    setAppointments((prev) => prev.filter((apt) => apt.id !== id))
   }, [])
 
   // Obtener citas por fecha
-  const getAppointmentsByDate = useCallback((date: string) => {
-    return appointments.filter(apt => apt.date === date)
-  }, [appointments])
+  const getAppointmentsByDate = useCallback(
+    (date: string) => {
+      return appointments.filter((apt) => apt.date === date)
+    },
+    [appointments]
+  )
 
   // Obtener citas por rango de fechas
-  const getAppointmentsByDateRange = useCallback((startDate: string, endDate: string) => {
-    return appointments.filter(apt => apt.date >= startDate && apt.date <= endDate)
-  }, [appointments])
+  const getAppointmentsByDateRange = useCallback(
+    (startDate: string, endDate: string) => {
+      return appointments.filter(
+        (apt) => apt.date >= startDate && apt.date <= endDate
+      )
+    },
+    [appointments]
+  )
 
   // Obtener una cita por ID
-  const getAppointmentById = useCallback((id: string) => {
-    return appointments.find(apt => apt.id === id)
-  }, [appointments])
+  const getAppointmentById = useCallback(
+    (id: string) => {
+      return appointments.find((apt) => apt.id === id)
+    },
+    [appointments]
+  )
 
   // ============================================
   // FUNCIONES DE PAGOS
@@ -612,82 +774,298 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     }
 
     // Añadir al historial de pagos
-    setPayments(prev => [...prev, paymentRecord])
+    setPayments((prev) => [...prev, paymentRecord])
 
     // Actualizar la cita con el nuevo estado de pago
-    setAppointments(prev => prev.map(apt => {
-      if (apt.id === data.appointmentId) {
-        const currentPaymentInfo = apt.paymentInfo
-        const totalAmount = currentPaymentInfo?.totalAmount ?? 0
-        const previouslyPaid = currentPaymentInfo?.paidAmount ?? 0
-        const newPaidAmount = previouslyPaid + data.amount
-        const newPendingAmount = Math.max(0, totalAmount - newPaidAmount)
-        const isFullyPaid = newPendingAmount === 0
+    setAppointments((prev) =>
+      prev.map((apt) => {
+        if (apt.id === data.appointmentId) {
+          const currentPaymentInfo = apt.paymentInfo
+          const totalAmount = currentPaymentInfo?.totalAmount ?? 0
+          const previouslyPaid = currentPaymentInfo?.paidAmount ?? 0
+          const newPaidAmount = previouslyPaid + data.amount
+          const newPendingAmount = Math.max(0, totalAmount - newPaidAmount)
+          const isFullyPaid = newPendingAmount === 0
 
-        // Actualizar installmentPlan si existe
-        const newInstallmentPlan = apt.installmentPlan && !isFullyPaid
-          ? {
-              ...apt.installmentPlan,
-              currentInstallment: apt.installmentPlan.currentInstallment + 1
-            }
-          : apt.installmentPlan
+          // Actualizar installmentPlan si existe
+          const newInstallmentPlan =
+            apt.installmentPlan && !isFullyPaid
+              ? {
+                  ...apt.installmentPlan,
+                  currentInstallment: apt.installmentPlan.currentInstallment + 1
+                }
+              : apt.installmentPlan
 
-        return {
-          ...apt,
-          charge: isFullyPaid ? 'No' : 'Si',
-          paymentInfo: {
-            totalAmount,
-            paidAmount: newPaidAmount,
-            pendingAmount: newPendingAmount,
-            currency: '€'
-          },
-          installmentPlan: newInstallmentPlan
+          return {
+            ...apt,
+            charge: isFullyPaid ? 'No' : 'Si',
+            paymentInfo: {
+              totalAmount,
+              paidAmount: newPaidAmount,
+              pendingAmount: newPendingAmount,
+              currency: '€'
+            },
+            installmentPlan: newInstallmentPlan
+          }
         }
-      }
-      return apt
-    }))
+        return apt
+      })
+    )
 
     console.log('✅ Pago registrado en contexto:', paymentRecord)
   }, [])
 
   // Obtener pagos por cita
-  const getPaymentsByAppointment = useCallback((appointmentId: string) => {
-    return payments.filter(p => p.appointmentId === appointmentId)
-  }, [payments])
+  const getPaymentsByAppointment = useCallback(
+    (appointmentId: string) => {
+      return payments.filter((p) => p.appointmentId === appointmentId)
+    },
+    [payments]
+  )
 
   // Obtener pagos por rango de fechas
-  const getPaymentsByDateRange = useCallback((startDate: Date, endDate: Date) => {
-    return payments.filter(p => {
-      const paymentDate = new Date(p.paymentDate)
-      return paymentDate >= startDate && paymentDate <= endDate
-    })
-  }, [payments])
+  const getPaymentsByDateRange = useCallback(
+    (startDate: Date, endDate: Date) => {
+      return payments.filter((p) => {
+        const paymentDate = new Date(p.paymentDate)
+        return paymentDate >= startDate && paymentDate <= endDate
+      })
+    },
+    [payments]
+  )
 
   // Obtener pagos por paciente
-  const getPaymentsByPatient = useCallback((patientName: string) => {
-    return payments.filter(p => 
-      p.patientName.toLowerCase().includes(patientName.toLowerCase())
-    )
-  }, [payments])
+  const getPaymentsByPatient = useCallback(
+    (patientName: string) => {
+      return payments.filter((p) =>
+        p.patientName.toLowerCase().includes(patientName.toLowerCase())
+      )
+    },
+    [payments]
+  )
 
   // Obtener total de pagos para una fecha
-  const getTotalPaymentsForDate = useCallback((date: Date) => {
-    const dateStr = formatDateToISO(date)
-    return payments
-      .filter(p => formatDateToISO(new Date(p.paymentDate)) === dateStr)
-      .reduce((sum, p) => sum + p.amount, 0)
-  }, [payments])
+  const getTotalPaymentsForDate = useCallback(
+    (date: Date) => {
+      const dateStr = formatDateToISO(date)
+      return payments
+        .filter((p) => formatDateToISO(new Date(p.paymentDate)) === dateStr)
+        .reduce((sum, p) => sum + p.amount, 0)
+    },
+    [payments]
+  )
 
   // Marcar cita como completada/pendiente
-  const toggleAppointmentComplete = useCallback((id: string, completed: boolean) => {
-    setAppointments(prev => 
-      prev.map(apt => apt.id === id ? { ...apt, completed } : apt)
-    )
+  const toggleAppointmentComplete = useCallback(
+    (id: string, completed: boolean) => {
+      setAppointments((prev) =>
+        prev.map((apt) => (apt.id === id ? { ...apt, completed } : apt))
+      )
+    },
+    []
+  )
+
+  // Marcar cita como confirmada/no confirmada
+  const toggleAppointmentConfirmed = useCallback(
+    (id: string, confirmed: boolean) => {
+      setAppointments((prev) =>
+        prev.map((apt) => (apt.id === id ? { ...apt, confirmed } : apt))
+      )
+      console.log(
+        `✅ Cita ${id} ${confirmed ? 'confirmada' : 'desconfirmada'}`
+      )
+    },
+    []
+  )
+
+  // ============================================
+  // FUNCIONES DE ESTADO DE VISITA
+  // ============================================
+
+  // Actualizar estado de visita del paciente (con timestamp automático)
+  const updateVisitStatus = useCallback(
+    (appointmentId: string, newStatus: VisitStatus) => {
+      setAppointments((prev) =>
+        prev.map((apt) => {
+          if (apt.id === appointmentId) {
+            const now = new Date()
+            const newLog: VisitStatusLog = {
+              status: newStatus,
+              timestamp: now
+            }
+            const updatedHistory = [...(apt.visitStatusHistory || []), newLog]
+
+            // Si el estado es 'completed', también marcar completed como true
+            const isCompleted = newStatus === 'completed'
+
+            console.log(
+              `✅ Estado de visita actualizado: ${apt.patientName} → ${newStatus} (${now.toLocaleTimeString('es-ES')})`
+            )
+
+            return {
+              ...apt,
+              visitStatus: newStatus,
+              visitStatusHistory: updatedHistory,
+              completed: isCompleted ? true : apt.completed
+            }
+          }
+          return apt
+        })
+      )
+    },
+    []
+  )
+
+  // Obtener conteo de citas por estado de visita para una fecha
+  const getVisitStatusCounts = useCallback(
+    (date: string): Record<VisitStatus, number> => {
+      const appointmentsForDate = appointments.filter((apt) => apt.date === date)
+
+      const counts: Record<VisitStatus, number> = {
+        scheduled: 0,
+        waiting_room: 0,
+        call_patient: 0,
+        in_consultation: 0,
+        completed: 0
+      }
+
+      appointmentsForDate.forEach((apt) => {
+        const status = apt.visitStatus || 'scheduled'
+        counts[status]++
+      })
+
+      return counts
+    },
+    [appointments]
+  )
+
+  // ============================================
+  // FUNCIONES DE BLOQUEOS DE AGENDA
+  // ============================================
+
+  // Agregar un nuevo bloqueo
+  const addBlock = useCallback((blockData: Omit<AgendaBlock, 'id'>): string => {
+    const newId = `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const newBlock: AgendaBlock = {
+      ...blockData,
+      id: newId
+    }
+    setBlocks((prev) => [...prev, newBlock])
+
+    // Si tiene recurrencia, generar bloques recurrentes
+    if (blockData.recurrence && blockData.recurrence.type !== 'none') {
+      const generatedBlocks = generateRecurringBlocks(newBlock)
+      setBlocks((prev) => [...prev, ...generatedBlocks])
+    }
+
+    console.log('✅ Bloqueo creado:', newBlock)
+    return newId
   }, [])
+
+  // Actualizar un bloqueo existente
+  const updateBlock = useCallback(
+    (id: string, updates: Partial<AgendaBlock>) => {
+      setBlocks((prev) =>
+        prev.map((block) =>
+          block.id === id ? { ...block, ...updates } : block
+        )
+      )
+      console.log(`✅ Bloqueo ${id} actualizado`)
+    },
+    []
+  )
+
+  // Eliminar un bloqueo (opcionalmente eliminar toda la recurrencia)
+  const deleteBlock = useCallback(
+    (id: string, deleteRecurrence: boolean = false) => {
+      setBlocks((prev) => {
+        const blockToDelete = prev.find((b) => b.id === id)
+        if (!blockToDelete) return prev
+
+        if (deleteRecurrence && blockToDelete.parentBlockId) {
+          // Eliminar todos los bloques con el mismo parentBlockId
+          return prev.filter(
+            (b) =>
+              b.id !== id &&
+              b.parentBlockId !== blockToDelete.parentBlockId &&
+              b.id !== blockToDelete.parentBlockId
+          )
+        } else if (deleteRecurrence && !blockToDelete.parentBlockId) {
+          // Este es el bloque padre, eliminar todos los hijos
+          return prev.filter(
+            (b) => b.id !== id && b.parentBlockId !== id
+          )
+        }
+
+        // Solo eliminar este bloqueo
+        return prev.filter((b) => b.id !== id)
+      })
+      console.log(
+        `✅ Bloqueo ${id} eliminado${deleteRecurrence ? ' (con recurrencia)' : ''}`
+      )
+    },
+    []
+  )
+
+  // Obtener bloqueos por fecha
+  const getBlocksByDate = useCallback(
+    (date: string): AgendaBlock[] => {
+      return blocks.filter((block) => block.date === date)
+    },
+    [blocks]
+  )
+
+  // Obtener bloqueos por rango de fechas
+  const getBlocksByDateRange = useCallback(
+    (startDate: string, endDate: string): AgendaBlock[] => {
+      return blocks.filter(
+        (block) => block.date >= startDate && block.date <= endDate
+      )
+    },
+    [blocks]
+  )
+
+  // Obtener un bloqueo por ID
+  const getBlockById = useCallback(
+    (id: string): AgendaBlock | undefined => {
+      return blocks.find((block) => block.id === id)
+    },
+    [blocks]
+  )
+
+  // Verificar si un horario está bloqueado
+  const isTimeSlotBlocked = useCallback(
+    (
+      date: string,
+      startTime: string,
+      endTime: string,
+      box?: string
+    ): boolean => {
+      const startMinutes = timeToMinutes(startTime)
+      const endMinutes = timeToMinutes(endTime)
+
+      return blocks.some((block) => {
+        // Debe ser la misma fecha
+        if (block.date !== date) return false
+
+        // Si se especifica box, debe coincidir (o el bloqueo no tiene box = bloquea todo)
+        if (box && block.box && block.box !== box) return false
+
+        // Verificar solapamiento de horarios
+        const blockStart = timeToMinutes(block.startTime)
+        const blockEnd = timeToMinutes(block.endTime)
+
+        // Hay solapamiento si: start < blockEnd AND end > blockStart
+        return startMinutes < blockEnd && endMinutes > blockStart
+      })
+    },
+    [blocks]
+  )
 
   const value: AppointmentsContextType = {
     appointments,
     payments,
+    blocks,
     addAppointment,
     updateAppointment,
     deleteAppointment,
@@ -699,7 +1077,18 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     getPaymentsByDateRange,
     getPaymentsByPatient,
     getTotalPaymentsForDate,
-    toggleAppointmentComplete
+    toggleAppointmentComplete,
+    toggleAppointmentConfirmed,
+    updateVisitStatus,
+    getVisitStatusCounts,
+    // Block functions
+    addBlock,
+    updateBlock,
+    deleteBlock,
+    getBlocksByDate,
+    getBlocksByDateRange,
+    getBlockById,
+    isTimeSlotBlocked
   }
 
   return (
@@ -716,7 +1105,9 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
 export function useAppointments() {
   const context = useContext(AppointmentsContext)
   if (context === undefined) {
-    throw new Error('useAppointments must be used within an AppointmentsProvider')
+    throw new Error(
+      'useAppointments must be used within an AppointmentsProvider'
+    )
   }
   return context
 }
@@ -725,12 +1116,87 @@ export function useAppointments() {
 // HELPERS DE FORMATO
 // ============================================
 
+// Convertir tiempo HH:MM a minutos desde medianoche
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number)
+  return hours * 60 + minutes
+}
+
+// Generar bloques recurrentes basados en el patrón de recurrencia
+function generateRecurringBlocks(parentBlock: AgendaBlock): AgendaBlock[] {
+  const { recurrence, date } = parentBlock
+  if (!recurrence || recurrence.type === 'none') return []
+
+  const generatedBlocks: AgendaBlock[] = []
+  const startDate = new Date(date + 'T00:00:00')
+  const endDate = recurrence.endDate
+    ? new Date(recurrence.endDate + 'T00:00:00')
+    : new Date(startDate.getTime() + 90 * 24 * 60 * 60 * 1000) // 90 días por defecto
+
+  const interval = recurrence.interval || 1
+  let currentDate = new Date(startDate)
+
+  // Avanzar desde la fecha inicial según el tipo de recurrencia
+  while (currentDate <= endDate) {
+    // Avanzar a la siguiente fecha según el tipo
+    switch (recurrence.type) {
+      case 'daily':
+        currentDate.setDate(currentDate.getDate() + interval)
+        break
+      case 'weekly':
+        currentDate.setDate(currentDate.getDate() + 7 * interval)
+        break
+      case 'monthly':
+        currentDate.setMonth(currentDate.getMonth() + interval)
+        break
+      case 'custom':
+        // Para custom, usamos daysOfWeek
+        if (recurrence.daysOfWeek && recurrence.daysOfWeek.length > 0) {
+          currentDate.setDate(currentDate.getDate() + 1)
+          // Buscar el siguiente día que coincida
+          let attempts = 0
+          while (
+            !recurrence.daysOfWeek.includes(currentDate.getDay()) &&
+            attempts < 7
+          ) {
+            currentDate.setDate(currentDate.getDate() + 1)
+            attempts++
+          }
+        } else {
+          currentDate.setDate(currentDate.getDate() + 1)
+        }
+        break
+    }
+
+    // Si excede la fecha fin, salir
+    if (currentDate > endDate) break
+
+    // Crear el bloque recurrente
+    const year = currentDate.getFullYear()
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0')
+    const day = String(currentDate.getDate()).padStart(2, '0')
+    const newDate = `${year}-${month}-${day}`
+
+    const newBlock: AgendaBlock = {
+      ...parentBlock,
+      id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      date: newDate,
+      parentBlockId: parentBlock.id
+    }
+
+    generatedBlocks.push(newBlock)
+  }
+
+  return generatedBlocks
+}
+
 // Formatear fecha ISO a formato "7 Ene"
 export function formatDateToShort(isoDate: string): string {
   const date = new Date(isoDate + 'T00:00:00')
   const day = date.getDate()
   const month = date.toLocaleDateString('es-ES', { month: 'short' })
-  const monthCapitalized = month.charAt(0).toUpperCase() + month.slice(1).replace('.', '')
+  const monthCapitalized =
+    month.charAt(0).toUpperCase() + month.slice(1).replace('.', '')
   return `${day} ${monthCapitalized}`
 }
 
@@ -741,5 +1207,3 @@ export function formatDateToISO(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
-
-

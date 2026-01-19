@@ -1,8 +1,13 @@
 'use client'
 
-import { MD3Icon } from '@/components/icons/MD3Icon'
+import { useState, useRef, useEffect } from 'react'
 
-import type { AgendaEvent } from './types'
+import { MD3Icon } from '@/components/icons/MD3Icon'
+import Portal from '@/components/ui/Portal'
+
+import type { AgendaEvent, VisitStatus } from './types'
+import { VISIT_STATUS_CONFIG } from './types'
+import VisitStatusMenu from './VisitStatusMenu'
 
 const clampStyle = (lines: number) =>
   ({
@@ -40,6 +45,8 @@ export interface AppointmentSummaryCardProps {
   ) => void
   onToggleComplete?: (eventId: string, completed: boolean) => void
   onContextMenu?: (e: React.MouseEvent<HTMLElement>, event: AgendaEvent) => void
+  /** Callback para cambiar el estado de visita */
+  onVisitStatusChange?: (eventId: string, newStatus: VisitStatus) => void
 }
 
 export default function AppointmentSummaryCard({
@@ -52,28 +59,73 @@ export default function AppointmentSummaryCard({
   onActivate,
   onDragStart,
   onToggleComplete,
-  onContextMenu
+  onContextMenu,
+  onVisitStatusChange
 }: AppointmentSummaryCardProps) {
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false)
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
+  const indicatorRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Calcular posición del menú cuando se abre
+  useEffect(() => {
+    if (isStatusMenuOpen && indicatorRef.current) {
+      const rect = indicatorRef.current.getBoundingClientRect()
+      setMenuPosition({
+        top: rect.top,
+        left: rect.right + 8 // 8px de margen
+      })
+    }
+  }, [isStatusMenuOpen])
+
+  // Cerrar menú al hacer clic fuera (del indicador Y del menú)
+  useEffect(() => {
+    if (!isStatusMenuOpen) return
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node
+      const isInsideIndicator = indicatorRef.current?.contains(target)
+      const isInsideMenu = menuRef.current?.contains(target)
+      
+      if (!isInsideIndicator && !isInsideMenu) {
+        setIsStatusMenuOpen(false)
+      }
+    }
+
+    // Pequeño delay para evitar que el mismo click cierre el menú
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside)
+    }, 0)
+
+    return () => {
+      clearTimeout(timeoutId)
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isStatusMenuOpen])
+
   const canShowNotes =
     parseDimensionToPx(event.height) >= MIN_HEIGHT_FOR_NOTES_PX
   const isCompleted = event.completed ?? false
+  const isConfirmed = event.confirmed ?? false
 
+  // Estado de visita actual (default: 'scheduled')
+  const visitStatus: VisitStatus = event.visitStatus ?? 'scheduled'
+  const statusConfig = VISIT_STATUS_CONFIG[visitStatus]
+
+  // Animación pulsante para estado "Llamar"
+  const isPulsing = visitStatus === 'call_patient'
+
+  // Color azul para citas confirmadas: #3B82F6 (blue-500)
   const stateClasses = isActive
     ? 'border-[var(--color-brand-500)] shadow-[0px_4px_12px_rgba(81,214,199,0.35)]'
     : isHovered
     ? 'border-[var(--color-brand-500)]'
-    : isCompleted
-    ? 'border-[#4F46E5]'
+    : isConfirmed
+    ? 'border-[#3B82F6] shadow-[0_0_0_1px_rgba(59,130,246,0.15)]'
     : 'border-[var(--color-border)]'
 
-  // Handler para el checkbox de completado
-  const handleToggleComplete = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    e.preventDefault()
-    onToggleComplete?.(event.id, !isCompleted)
-  }
-
   return (
+    <>
     <button
       type='button'
       data-appointment-card='true'
@@ -115,67 +167,66 @@ export default function AppointmentSummaryCard({
       aria-pressed={isActive}
       aria-controls={isActive ? 'scheduler-event-overlay' : undefined}
     >
-      {/* Checkbox de cita completada - esquina superior derecha */}
-      {onToggleComplete && (
-        <div
-          role='checkbox'
-          aria-checked={isCompleted}
-          aria-label={
-            isCompleted ? 'Marcar como pendiente' : 'Marcar como completada'
+      {/* Indicador de estado de visita - borde izquierdo */}
+      <div
+        ref={indicatorRef}
+        className='absolute left-0 top-0 bottom-0 z-10'
+        onClick={(e) => {
+          e.stopPropagation()
+          if (onVisitStatusChange) {
+            setIsStatusMenuOpen(!isStatusMenuOpen)
           }
-          tabIndex={0}
-          onClick={handleToggleComplete}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              e.stopPropagation()
-              onToggleComplete(event.id, !isCompleted)
-            }
-          }}
+        }}
+        onKeyDown={(e) => {
+          if (onVisitStatusChange && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault()
+            e.stopPropagation()
+            setIsStatusMenuOpen(!isStatusMenuOpen)
+          }
+        }}
+        role={onVisitStatusChange ? 'button' : 'presentation'}
+        tabIndex={onVisitStatusChange ? 0 : -1}
+        aria-label={`Estado: ${statusConfig.label}${onVisitStatusChange ? '. Clic para cambiar' : ''}`}
+        aria-haspopup={onVisitStatusChange ? 'menu' : undefined}
+        aria-expanded={onVisitStatusChange ? isStatusMenuOpen : undefined}
+      >
+        <div
           className={[
-            'absolute right-1.5 top-1.5 z-20 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border-2 transition-all duration-200',
-            'opacity-0 group-hover/card:opacity-100 focus:opacity-100',
-            isCompleted
-              ? 'border-[#4F46E5] bg-[#4F46E5] opacity-100 shadow-[0_0_0_2px_rgba(79,70,229,0.25)]'
-              : 'border-[var(--color-neutral-400)] bg-white/90 hover:border-[#818CF8] hover:bg-[#EEF2FF]'
-          ].join(' ')}
-        >
-          {isCompleted && (
-            <svg
-              className='h-3 w-3 animate-[checkmark_0.2s_ease-out] text-white'
-              viewBox='0 0 12 12'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2.5'
-              strokeLinecap='round'
-              strokeLinejoin='round'
-            >
-              <path d='M2.5 6L5 8.5L9.5 3.5' />
-            </svg>
-          )}
-        </div>
-      )}
+            'h-full w-[4px] rounded-l-[var(--radius-lg)] transition-all duration-200',
+            onVisitStatusChange && 'cursor-pointer hover:w-[6px]',
+            isPulsing && 'animate-pulse'
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          style={{
+            backgroundColor: statusConfig.color,
+            boxShadow: isPulsing ? `0 0 8px ${statusConfig.color}` : undefined
+          }}
+        />
+      </div>
 
       <div className='flex items-start justify-between gap-2'>
         <div className='flex min-w-0 flex-1 flex-col gap-[0.375rem]'>
           {/* Nombre del paciente - Negrita */}
           <div className='flex items-center gap-1.5'>
             {/* Indicador de cobro pendiente - usa paymentInfo si existe, sino fallback a economicStatus */}
-            {// Usar paymentInfo.pendingAmount si está disponible
-            ((event.detail?.paymentInfo &&
-              event.detail.paymentInfo.pendingAmount > 0) ||
-              // Fallback al sistema anterior basado en economicStatus
-              (!event.detail?.paymentInfo &&
-                event.detail?.economicStatus &&
-                (event.detail.economicStatus === 'Pendiente de cobro' ||
-                  event.detail.economicStatus === 'Pendiente de pago' ||
-                  event.detail.economicStatus.includes('Pendiente')))) && (
-              <MD3Icon
-                name='PaymentsRounded'
-                size={0.875}
-                className='shrink-0 text-amber-600'
-              />
-            )}
+            {
+              // Usar paymentInfo.pendingAmount si está disponible
+              ((event.detail?.paymentInfo &&
+                event.detail.paymentInfo.pendingAmount > 0) ||
+                // Fallback al sistema anterior basado en economicStatus
+                (!event.detail?.paymentInfo &&
+                  event.detail?.economicStatus &&
+                  (event.detail.economicStatus === 'Pendiente de cobro' ||
+                    event.detail.economicStatus === 'Pendiente de pago' ||
+                    event.detail.economicStatus.includes('Pendiente')))) && (
+                <MD3Icon
+                  name='PaymentsRounded'
+                  size={0.875}
+                  className='shrink-0 text-amber-600'
+                />
+              )
+            }
             <p
               className='font-bold text-[var(--color-neutral-900)]'
               style={{
@@ -241,5 +292,30 @@ export default function AppointmentSummaryCard({
         aria-hidden
       />
     </button>
+
+    {/* Menú de selección de estado - renderizado fuera del botón via Portal */}
+    {isStatusMenuOpen && onVisitStatusChange && menuPosition && (
+      <Portal>
+        <div
+          ref={menuRef}
+          className='fixed z-[9999]'
+          style={{
+            top: menuPosition.top,
+            left: menuPosition.left
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <VisitStatusMenu
+            currentStatus={visitStatus}
+            onSelect={(newStatus) => {
+              onVisitStatusChange(event.id, newStatus)
+              setIsStatusMenuOpen(false)
+            }}
+            onClose={() => setIsStatusMenuOpen(false)}
+          />
+        </div>
+      </Portal>
+    )}
+    </>
   )
 }
