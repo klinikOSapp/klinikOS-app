@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, CSSProperties } from 'react'
 
-import { MD3Icon } from '@/components/icons/MD3Icon'
+import { MD3Icon, type MD3IconName } from '@/components/icons/MD3Icon'
 import Portal from '@/components/ui/Portal'
 
 import type { BlockType } from '@/context/AppointmentsContext'
@@ -239,7 +239,7 @@ export default function AgendaBlockCard({
         {/* Header with icon and type */}
         <div className='flex items-center gap-1.5'>
           <MD3Icon
-            name={blockConfig.icon as any}
+            name={blockConfig.icon as MD3IconName}
             size={0.875}
             className='shrink-0 text-white'
           />
