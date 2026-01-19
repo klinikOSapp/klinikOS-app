@@ -27,6 +27,7 @@ const ICON_GLYPHS = {
   CloudDownloadRounded: 'cloud_download',
   CloudUploadRounded: 'cloud_upload',
   DeleteRounded: 'delete',
+  DeleteSweepRounded: 'delete_sweep',
   DescriptionRounded: 'description',
   DownloadRounded: 'download',
   EditRounded: 'edit',
