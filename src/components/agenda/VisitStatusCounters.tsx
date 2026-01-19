@@ -174,8 +174,8 @@ export function VisitStatusCountersCompact({
             style={{
               backgroundColor: config.bgColor,
               color: config.textColor,
-              ringColor: isActive ? config.color : undefined
-            }}
+              '--tw-ring-color': isActive ? config.color : undefined
+            } as React.CSSProperties}
             title={`${config.label}: ${count} cita${count !== 1 ? 's' : ''}`}
           >
             {/* Indicador de color */}
