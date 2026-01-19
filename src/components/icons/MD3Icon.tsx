@@ -58,6 +58,7 @@ const ICON_GLYPHS = {
   ReceiptLongRounded: 'receipt_long',
   RadioButtonCheckedRounded: 'radio_button_checked',
   RadioButtonUncheckedRounded: 'radio_button_unchecked',
+  RepeatRounded: 'repeat',
   SearchRounded: 'search',
   SellRounded: 'sell',
   SettingsRounded: 'settings',
