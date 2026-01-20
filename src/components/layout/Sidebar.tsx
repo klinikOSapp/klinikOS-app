@@ -13,7 +13,8 @@ export default function Sidebar({
   cta,
   ctaMenuItems,
   collapsed = false,
-  onToggleCollapsed
+  onToggleCollapsed,
+  isHydrated = true
 }: SidebarProps) {
   const widthClass = collapsed
     ? 'w-[min(var(--spacing-sidebar-collapsed),95vw)]'
@@ -38,7 +39,7 @@ export default function Sidebar({
         'pt-6',
         'relative',
         'z-30',
-        'transition-[width] duration-300 ease-in-out'
+        isHydrated ? 'transition-[width] duration-300 ease-in-out opacity-100' : 'opacity-0'
       ].join(' ')}
       aria-label='Sidebar navigation'
     >
@@ -86,7 +87,7 @@ export default function Sidebar({
               const sectionActive = pathname === it.href
 
               return (
-                <div key={it.id} className='group/navitem'>
+                <div key={it.id} className='group/navitem relative'>
                   <NavElement
                     href={it.href}
                     label={it.label}
@@ -95,28 +96,49 @@ export default function Sidebar({
                     isActiveOverride={sectionActive}
                   />
                   {it.children && it.children.length > 0 && (
-                    <div
-                      className={[
-                        'grid gap-0 overflow-hidden transition-[max-height,opacity,transform] duration-200 ease-out',
-                        collapsed
-                          ? 'max-h-0 opacity-0 -translate-y-1 pointer-events-none'
-                          : childActive
-                            ? 'max-h-24 opacity-100 translate-y-0'
-                            : 'max-h-0 opacity-0 -translate-y-1 pointer-events-none group-hover/navitem:max-h-24 group-hover/navitem:opacity-100 group-hover/navitem:translate-y-0 group-hover/navitem:pointer-events-auto group-focus-within/navitem:max-h-24 group-focus-within/navitem:opacity-100 group-focus-within/navitem:translate-y-0 group-focus-within/navitem:pointer-events-auto'
-                      ].join(' ')}
-                    >
-                      {it.children.map((child) => (
-                        <NavElement
-                          key={child.id}
-                          href={child.href}
-                          label={child.label}
-                          icon={child.icon}
-                          collapsed={collapsed}
-                          isChild
-                          isActiveOverride={pathname === child.href}
-                        />
-                      ))}
-                    </div>
+                    <>
+                      {/* Submenú expandido (sidebar abierto) */}
+                      {!collapsed && (
+                        <div
+                          className={[
+                            'grid gap-0 overflow-hidden transition-[max-height,opacity,transform] duration-200 ease-out',
+                            childActive
+                              ? 'max-h-24 opacity-100 translate-y-0'
+                              : 'max-h-0 opacity-0 -translate-y-1 pointer-events-none group-hover/navitem:max-h-24 group-hover/navitem:opacity-100 group-hover/navitem:translate-y-0 group-hover/navitem:pointer-events-auto group-focus-within/navitem:max-h-24 group-focus-within/navitem:opacity-100 group-focus-within/navitem:translate-y-0 group-focus-within/navitem:pointer-events-auto'
+                          ].join(' ')}
+                        >
+                          {it.children.map((child) => (
+                            <NavElement
+                              key={child.id}
+                              href={child.href}
+                              label={child.label}
+                              icon={child.icon}
+                              collapsed={collapsed}
+                              isChild
+                              isActiveOverride={pathname === child.href}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {/* Popover (sidebar colapsado) */}
+                      {collapsed && (
+                        <div
+                          className='absolute left-full top-0 ml-2 min-w-[10rem] bg-white rounded-xl shadow-lg border border-[var(--color-brand-100)] py-2 opacity-0 invisible translate-x-[-0.5rem] transition-all duration-200 ease-out group-hover/navitem:opacity-100 group-hover/navitem:visible group-hover/navitem:translate-x-0 group-focus-within/navitem:opacity-100 group-focus-within/navitem:visible group-focus-within/navitem:translate-x-0 z-50'
+                        >
+                          {it.children.map((child) => (
+                            <NavElement
+                              key={child.id}
+                              href={child.href}
+                              label={child.label}
+                              icon={child.icon}
+                              collapsed={false}
+                              isChild
+                              isActiveOverride={pathname === child.href}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )

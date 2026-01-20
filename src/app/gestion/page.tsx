@@ -111,7 +111,7 @@ export default function GestionPage() {
 
               {/* Second row - Billing chart + Specialty donut - stacked on tablet, 2:1 ratio on desktop */}
               <div
-                className='dashboard-charts-row flex-none lg:flex-1 min-h-[14rem] lg:min-h-0 min-w-0'
+                className='dashboard-charts-row flex-none lg:flex-1 min-h-[17rem] lg:min-h-0 min-w-0'
                 style={secondRowStyles}
               >
                 <BillingLineChart
@@ -128,7 +128,7 @@ export default function GestionPage() {
 
               {/* Third row - Accounting + Professional bars - stacked on tablet, 2:1 ratio on desktop */}
               <div
-                className='dashboard-charts-row dashboard-grid-bottom flex-none lg:flex-1 min-h-[14rem] lg:min-h-0 min-w-0'
+                className='dashboard-charts-row dashboard-grid-bottom flex-none lg:flex-1 min-h-[17rem] lg:min-h-0 min-w-0'
                 style={thirdRowStyles}
               >
                 <AccountingPanel

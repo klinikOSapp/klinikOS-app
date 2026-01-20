@@ -8,6 +8,8 @@ import { MultiDatePickerInput } from '../MultiDatePickerInput'
 type ParteDiarioModalProps = {
   isOpen: boolean
   onClose: () => void
+  initialProfessional?: string
+  initialDate?: Date
 }
 
 const PROFESSIONAL_OPTIONS = [
@@ -110,10 +112,34 @@ function ComboBox({
 
 export default function ParteDiarioModal({
   isOpen,
-  onClose
+  onClose,
+  initialProfessional,
+  initialDate
 }: ParteDiarioModalProps) {
   const [selectedProfesional, setSelectedProfesional] = useState('')
   const [selectedDates, setSelectedDates] = useState<Date[]>([])
+
+  // Pre-rellenar con los valores iniciales cuando se abre el modal
+  useEffect(() => {
+    if (isOpen) {
+      // Pre-rellenar profesional si viene filtrado
+      if (initialProfessional) {
+        setSelectedProfesional(initialProfessional)
+      }
+      // Pre-rellenar fecha con el día seleccionado en la página
+      if (initialDate) {
+        setSelectedDates([initialDate])
+      }
+    }
+  }, [isOpen, initialProfessional, initialDate])
+
+  // Limpiar estado cuando se cierra el modal
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedProfesional('')
+      setSelectedDates([])
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 

@@ -91,17 +91,7 @@ export default function Consents({ onClose }: ConsentsProps) {
     return () => document.removeEventListener('mousedown', handleGlobalClick)
   }, [openMenuRowId])
   return (
-    <div className='relative w-[74.75rem] h-[56.25rem] bg-neutral-50'>
-      {/* Close */}
-      <button
-        type='button'
-        aria-label='Cerrar'
-        onClick={onClose}
-        className='absolute size-6 top-4 right-4 text-neutral-900'
-      >
-        <CloseRounded className='size-6' />
-      </button>
-
+    <div className='relative w-[74.75rem] h-full bg-neutral-50'>
       {/* Header */}
       <div className='absolute left-8 top-10 w-[35.5rem]'>
         <p className='font-inter text-headline-sm text-neutral-900'>

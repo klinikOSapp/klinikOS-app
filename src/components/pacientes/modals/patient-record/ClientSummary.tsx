@@ -96,20 +96,9 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
   }
   return (
     <div
-      className='relative bg-[#f8fafb] overflow-hidden w-[74.75rem] h-[56.25rem]'
+      className='relative bg-[#f8fafb] overflow-hidden w-[74.75rem] h-full'
       data-node-id='423:822'
     >
-      <button
-        type='button'
-        aria-label='Cerrar'
-        onClick={onClose}
-        className='absolute size-[1.5rem] top-[1rem] cursor-pointer'
-        data-name='close'
-        data-node-id='410:779'
-        style={{ left: 'calc(93.75% + 2.172rem)' }}
-      >
-        <CloseRounded className='size-6 text-[#24282c]' />
-      </button>
       <div
         className='absolute content-stretch flex gap-[1.5rem] items-center left-[2rem] top-[3rem]'
         data-node-id='426:854'

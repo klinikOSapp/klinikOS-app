@@ -800,12 +800,12 @@ body {
     -webkit-tap-highlight-color: transparent;
     outline: none;
   }
-  
+
   /* Specifically target elements that might get focus ring */
   [tabindex]:focus,
   [tabindex]:focus-visible,
   button:focus:not(:focus-visible),
-  [role="button"]:focus:not(:focus-visible) {
+  [role='button']:focus:not(:focus-visible) {
     outline: none !important;
     box-shadow: none !important;
   }

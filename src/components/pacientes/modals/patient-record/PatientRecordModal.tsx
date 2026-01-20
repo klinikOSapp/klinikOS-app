@@ -1,5 +1,6 @@
 'use client'
 
+import { CloseRounded } from '@/components/icons/md3'
 import Portal from '@/components/ui/Portal'
 import React from 'react'
 import BudgetsPayments from './BudgetsPayments'
@@ -41,10 +42,15 @@ export default function PatientRecordModal({
   patientName
 }: PatientRecordModalProps) {
   const [active, setActive] = React.useState<PatientRecordTab>(initialTab)
-  const [shouldOpenBudget, setShouldOpenBudget] = React.useState(openBudgetCreation)
+  const [shouldOpenBudget, setShouldOpenBudget] =
+    React.useState(openBudgetCreation)
   const [shouldOpenEdit, setShouldOpenEdit] = React.useState(openInEditMode)
-  const [shouldOpenPrescription, setShouldOpenPrescription] = React.useState(openPrescriptionCreation)
-  const [shouldOpenClinicalEdit, setShouldOpenClinicalEdit] = React.useState(openClinicalHistoryEdit)
+  const [shouldOpenPrescription, setShouldOpenPrescription] = React.useState(
+    openPrescriptionCreation
+  )
+  const [shouldOpenClinicalEdit, setShouldOpenClinicalEdit] = React.useState(
+    openClinicalHistoryEdit
+  )
 
   React.useEffect(() => {
     if (open && openBudgetCreation) {
@@ -124,104 +130,122 @@ export default function PatientRecordModal({
         aria-hidden
       >
         <div className='absolute inset-0 flex items-center justify-center px-8'>
-        <div
-          role='dialog'
-          aria-modal='true'
-          className='bg-white rounded-xl shadow-xl overflow-hidden w-[93.75rem] h-[56.25rem] max-w-[92vw] max-h-[85vh]'
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            width:
-              'calc(93.75rem * min(1, calc(85vh / 56.25rem), calc((100vw - 4rem) / 93.75rem), calc(92vw / 93.75rem)))',
-            height:
-              'calc(56.25rem * min(1, calc(85vh / 56.25rem), calc((100vw - 4rem) / 93.75rem), calc(92vw / 93.75rem)))'
-          }}
-        >
-          {/* Scaled content to always fit within 85vh without scroll */}
           <div
-            className='w-[93.75rem] h-[56.25rem]'
+            role='dialog'
+            aria-modal='true'
+            className='bg-white rounded-xl shadow-xl overflow-hidden w-[93.75rem] h-[56.25rem] max-w-[92vw] max-h-[85vh]'
+            onClick={(e) => e.stopPropagation()}
             style={{
-              transform:
-                'scale(min(1, calc(85vh / 56.25rem), calc((100vw - 4rem) / 93.75rem), calc(92vw / 93.75rem)))',
-              transformOrigin: 'top left'
+              width:
+                'calc(93.75rem * min(1, calc(85vh / 56.25rem), calc((100vw - 4rem) / 93.75rem), calc(92vw / 93.75rem)))',
+              height:
+                'calc(56.25rem * min(1, calc(85vh / 56.25rem), calc((100vw - 4rem) / 93.75rem), calc(92vw / 93.75rem)))'
             }}
           >
-            {/* Content split: left navigation (320px) + right summary */}
-            <div className='flex h-full'>
-              {/* Left navigation */}
-              <div className='w-[19rem] h-full shrink-0 border-r border-[var(--color-neutral-200)] box-border'>
-                <ul className='h-auto'>
-                  {items.map((it) => {
-                    const selected = active === it.title
-                    return (
-                      <li key={it.title}>
-                        <button
-                          className={[
-                            'w-full text-left px-6 pt-6 pb-4 cursor-pointer',
-                            selected ? 'bg-[#E9FBF9]' : ''
-                          ].join(' ')}
-                          onClick={() => setActive(it.title)}
-                        >
-                          <p className='text-title-lg font-medium text-[var(--color-neutral-900)]'>
-                            {it.title}
-                          </p>
-                          <p className='text-body-sm text-[var(--color-neutral-900)]'>
-                            {it.body}
-                          </p>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
+            {/* Scaled content to always fit within 85vh without scroll */}
+            <div
+              className='w-[93.75rem] h-[56.25rem]'
+              style={{
+                transform:
+                  'scale(min(1, calc(85vh / 56.25rem), calc((100vw - 4rem) / 93.75rem), calc(92vw / 93.75rem)))',
+                transformOrigin: 'top left'
+              }}
+            >
+              {/* Header with patient name */}
+              <div className='h-14 border-b border-[var(--color-neutral-200)] flex items-center justify-between px-6 bg-white'>
+                <p className='text-title-lg text-[var(--color-neutral-900)]'>
+                  <span className='text-[var(--color-neutral-600)]'>Ficha de </span>
+                  <span className='text-[var(--color-brand-600)]'>{patientName || 'Paciente'}</span>
+                </p>
+                <button
+                  type='button'
+                  aria-label='Cerrar'
+                  onClick={onClose}
+                  className='w-6 h-6 cursor-pointer hover:opacity-70 transition-opacity'
+                >
+                  <CloseRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
+                </button>
               </div>
-              {/* Right content: vertical scroll only; never horizontal */}
-              <div className='w-[74.75rem] h-full overflow-y-auto overflow-x-hidden box-border'>
-                {active === 'Resumen' && (
-                  <ClientSummary
-                    onClose={onClose}
-                    initialEditMode={shouldOpenEdit}
-                    onEditModeOpened={() => setShouldOpenEdit(false)}
-                  />
-                )}
-                {active === 'Historial clínico' && (
-                  <ClinicalHistory 
-                    onClose={onClose}
-                    initialEditMode={shouldOpenClinicalEdit}
-                    onEditModeOpened={() => setShouldOpenClinicalEdit(false)}
-                    patientName={patientName}
-                  />
-                )}
-                {active === 'Imágenes RX' && <RxImages onClose={onClose} />}
-                {active === 'Presupuestos y pagos' && (
-                  <BudgetsPayments
-                    onClose={onClose}
-                    openBudgetCreation={shouldOpenBudget}
-                    onBudgetCreationOpened={() => setShouldOpenBudget(false)}
-                    patientName={patientName}
-                  />
-                )}
-                {active === 'Consentimientos' && <Consents onClose={onClose} />}
-                {active === 'Recetas' && (
-                  <Recetas 
-                    onClose={onClose}
-                    openPrescriptionCreation={shouldOpenPrescription}
-                    onPrescriptionCreationOpened={() => setShouldOpenPrescription(false)}
-                    patientName={patientName}
-                  />
-                )}
-                {active !== 'Resumen' &&
-                  active !== 'Historial clínico' &&
-                  active !== 'Imágenes RX' &&
-                  active !== 'Consentimientos' &&
-                  active !== 'Presupuestos y pagos' &&
-                  active !== 'Recetas' && (
-                    <div className='p-6 text-body-md text-[var(--color-neutral-900)]'>
-                      {active}
-                    </div>
+              {/* Content split: left navigation (320px) + right summary */}
+              <div className='flex' style={{ height: 'calc(100% - 3.5rem)' }}>
+                {/* Left navigation */}
+                <div className='w-[19rem] shrink-0 border-r border-[var(--color-neutral-200)] box-border overflow-y-auto'>
+                  <ul className='h-auto'>
+                    {items.map((it) => {
+                      const selected = active === it.title
+                      return (
+                        <li key={it.title}>
+                          <button
+                            className={[
+                              'w-full text-left px-6 pt-6 pb-4 cursor-pointer',
+                              selected ? 'bg-[#E9FBF9]' : ''
+                            ].join(' ')}
+                            onClick={() => setActive(it.title)}
+                          >
+                            <p className='text-title-lg font-medium text-[var(--color-neutral-900)]'>
+                              {it.title}
+                            </p>
+                            <p className='text-body-sm text-[var(--color-neutral-900)]'>
+                              {it.body}
+                            </p>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+                {/* Right content: vertical scroll only; never horizontal */}
+                <div className='w-[74.75rem] overflow-y-auto overflow-x-hidden box-border'>
+                  {active === 'Resumen' && (
+                    <ClientSummary
+                      onClose={onClose}
+                      initialEditMode={shouldOpenEdit}
+                      onEditModeOpened={() => setShouldOpenEdit(false)}
+                    />
                   )}
+                  {active === 'Historial clínico' && (
+                    <ClinicalHistory
+                      onClose={onClose}
+                      initialEditMode={shouldOpenClinicalEdit}
+                      onEditModeOpened={() => setShouldOpenClinicalEdit(false)}
+                    />
+                  )}
+                  {active === 'Imágenes RX' && <RxImages onClose={onClose} />}
+                  {active === 'Presupuestos y pagos' && (
+                    <BudgetsPayments
+                      onClose={onClose}
+                      openBudgetCreation={shouldOpenBudget}
+                      onBudgetCreationOpened={() => setShouldOpenBudget(false)}
+                      patientName={patientName}
+                    />
+                  )}
+                  {active === 'Consentimientos' && (
+                    <Consents onClose={onClose} />
+                  )}
+                  {active === 'Recetas' && (
+                    <Recetas
+                      onClose={onClose}
+                      openPrescriptionCreation={shouldOpenPrescription}
+                      onPrescriptionCreationOpened={() =>
+                        setShouldOpenPrescription(false)
+                      }
+                      patientName={patientName}
+                    />
+                  )}
+                  {active !== 'Resumen' &&
+                    active !== 'Historial clínico' &&
+                    active !== 'Imágenes RX' &&
+                    active !== 'Consentimientos' &&
+                    active !== 'Presupuestos y pagos' &&
+                    active !== 'Recetas' && (
+                      <div className='p-6 text-body-md text-[var(--color-neutral-900)]'>
+                        {active}
+                      </div>
+                    )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
         </div>
       </div>
     </Portal>
