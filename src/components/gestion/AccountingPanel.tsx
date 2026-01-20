@@ -419,11 +419,11 @@ export default function AccountingPanel({
         <div
           className='relative mx-auto mt-[1rem] flex items-center justify-center outline-none'
           style={{
-            width: '170%',
-            height: '170%',
+            width: 'clamp(100%, 20vw + 70%, 170%)',
+            height: 'clamp(100%, 20vw + 70%, 170%)',
             position: 'absolute',
             left: '50%',
-            top: '10%',
+            top: 'clamp(0%, 5%, 10%)',
             transform: 'translate(-50%, -50%)',
             transformOrigin: 'center center',
             minWidth: 0,
