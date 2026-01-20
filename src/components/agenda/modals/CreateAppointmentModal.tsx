@@ -46,7 +46,7 @@ const getEmptyFormData = (): AppointmentFormData => ({
   presupuesto: '',
   fecha: '',
   hora: '',
-  duracion: '30',
+  duracion: '',
   box: ''
 })
 
@@ -56,7 +56,7 @@ const getEmptyBlockFormData = (): BlockFormData => ({
   observaciones: '',
   fecha: '',
   hora: '',
-  duracion: '30',
+  duracion: '',
   box: '',
   recurrence: { type: 'none' }
 })
@@ -230,6 +230,186 @@ function TimePickerInput({
   )
 }
 
+// Duration options for the dropdown
+const DURATION_OPTIONS = [
+  { value: '15', label: '15 min' },
+  { value: '30', label: '30 min' },
+  { value: '45', label: '45 min' },
+  { value: '60', label: '1 hora' },
+  { value: '75', label: '1h 15m' },
+  { value: '90', label: '1h 30m' },
+  { value: '105', label: '1h 45m' },
+  { value: '120', label: '2 horas' },
+  { value: '150', label: '2h 30m' },
+  { value: '180', label: '3 horas' },
+]
+
+// Duration Input Component - editable input with dropdown suggestions
+function DurationInput({
+  value,
+  onChange
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [inputValue, setInputValue] = useState('')
+  const [popoverPos, setPopoverPos] = useState<{ left: number; top: number; width: number } | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
+
+  // Sync input value with prop value when not focused
+  useEffect(() => {
+    if (document.activeElement !== inputRef.current) {
+      setInputValue(value || '')
+    }
+  }, [value])
+
+  // Close on outside click
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (
+        containerRef.current && !containerRef.current.contains(target) &&
+        popoverRef.current && !popoverRef.current.contains(target)
+      ) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [isOpen])
+
+  // Position the popover
+  useEffect(() => {
+    if (!isOpen || !containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    const popoverHeight = 280
+    const margin = 8
+    
+    let top = rect.bottom + 4
+    if (top + popoverHeight > window.innerHeight - margin) {
+      top = rect.top - popoverHeight - 4
+    }
+    
+    setPopoverPos({
+      left: rect.left,
+      top: Math.max(margin, top),
+      width: rect.width
+    })
+  }, [isOpen])
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value.replace(/[^0-9]/g, '')
+    setInputValue(newValue)
+    if (newValue) {
+      const mins = parseInt(newValue, 10)
+      if (!isNaN(mins) && mins > 0) {
+        onChange(newValue)
+      }
+    }
+  }
+
+  const handleInputFocus = () => {
+    setIsOpen(true)
+    setInputValue(value || '')
+  }
+
+  const handleInputBlur = () => {
+    // Small delay to allow clicking on dropdown options
+    setTimeout(() => {
+      if (!inputValue && value) {
+        setInputValue(value)
+      }
+    }, 150)
+  }
+
+  const handleSelectPreset = (optionValue: string) => {
+    onChange(optionValue)
+    setInputValue(optionValue)
+    setIsOpen(false)
+    inputRef.current?.blur()
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      setIsOpen(false)
+      inputRef.current?.blur()
+    } else if (e.key === 'Escape') {
+      setIsOpen(false)
+      inputRef.current?.blur()
+    }
+  }
+
+  // Get display value - show formatted label when not focused
+  const displayValue = document.activeElement === inputRef.current ? inputValue : (value || '')
+
+  return (
+    <>
+      <div ref={containerRef} className='relative'>
+        <div className='relative'>
+          <input
+            ref={inputRef}
+            type='text'
+            inputMode='numeric'
+            value={displayValue}
+            onChange={handleInputChange}
+            onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
+            onKeyDown={handleKeyDown}
+            placeholder='Minutos'
+            className='h-12 w-full rounded-lg border bg-[var(--color-neutral-50)] pl-3 pr-10 text-left text-sm transition-colors focus:outline-none focus:ring-2 border-[var(--color-neutral-300)] focus:border-brand-400 focus:ring-brand-100 text-[var(--color-neutral-900)] placeholder:text-[var(--color-neutral-400)]'
+          />
+          <button
+            type='button'
+            tabIndex={-1}
+            onClick={() => {
+              setIsOpen(v => !v)
+              if (!isOpen) inputRef.current?.focus()
+            }}
+            className='absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600'
+          >
+            <span className='material-symbols-rounded text-lg'>
+              {isOpen ? 'expand_less' : 'expand_more'}
+            </span>
+          </button>
+        </div>
+      </div>
+      
+      {isOpen && popoverPos && createPortal(
+        <div
+          ref={popoverRef}
+          className='fixed z-[10000] bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden'
+          style={{ left: popoverPos.left, top: popoverPos.top, width: popoverPos.width }}
+        >
+          <div className='max-h-[260px] overflow-y-auto py-1'>
+            {DURATION_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type='button'
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSelectPreset(option.value)}
+                className={`w-full h-10 px-4 text-left text-sm transition-colors flex items-center justify-between ${
+                  option.value === value
+                    ? 'bg-brand-50 text-brand-600 font-medium'
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <span>{option.label}</span>
+                <span className='text-xs text-gray-400'>{option.value} min</span>
+              </button>
+            ))}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
+
 // Helper to convert Date to YYYY-MM-DD string
 function dateToString(date: Date | null | undefined): string {
   if (!date) return ''
@@ -367,18 +547,6 @@ export default function CreateAppointmentModal({
     { value: 'box 3', label: 'Box 3' },
   ]
 
-  const duraciones = [
-    { value: '15', label: '15 min' },
-    { value: '30', label: '30 min' },
-    { value: '45', label: '45 min' },
-    { value: '60', label: '1 hora' },
-    { value: '75', label: '1h 15m' },
-    { value: '90', label: '1h 30m' },
-    { value: '105', label: '1h 45m' },
-    { value: '120', label: '2 horas' },
-    { value: '150', label: '2h 30m' },
-    { value: '180', label: '3 horas' },
-  ]
 
   const recurrenceTypes = [
     { value: 'none', label: 'No repetir' },
@@ -400,6 +568,7 @@ export default function CreateAppointmentModal({
     formData.paciente && 
     formData.fecha && 
     formData.hora &&
+    formData.duracion &&
     !hasTimeSlotConflict
 
   const canSubmit = isBlockMode ? isBlockFormValid : isAppointmentFormValid
@@ -509,11 +678,9 @@ export default function CreateAppointmentModal({
                   </FormRow>
 
                   <FormRow label='Duración' icon='timelapse' required>
-                    <SelectInput
-                      placeholder='Seleccionar...'
+                    <DurationInput
                       value={blockFormData.duracion}
                       onChange={(v) => setBlockFormData(prev => ({ ...prev, duracion: v }))}
-                      options={duraciones}
                     />
                   </FormRow>
 
@@ -637,12 +804,10 @@ export default function CreateAppointmentModal({
                     />
                   </FormRow>
 
-                  <FormRow label='Duración' icon='timelapse'>
-                    <SelectInput
-                      placeholder='Seleccionar...'
+                  <FormRow label='Duración' icon='timelapse' required>
+                    <DurationInput
                       value={formData.duracion}
                       onChange={(v) => setFormData(prev => ({ ...prev, duracion: v }))}
-                      options={duraciones}
                     />
                   </FormRow>
 

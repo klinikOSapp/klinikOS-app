@@ -38,6 +38,7 @@ const ICON_GLYPHS = {
   FilterListRounded: 'filter_list',
   FirstPageRounded: 'first_page',
   FolderOpenRounded: 'folder_open',
+  FreeBreakfastRounded: 'free_breakfast',
   ImageRounded: 'image',
   InfoRounded: 'info',
   KeyboardArrowDownRounded: 'keyboard_arrow_down',

@@ -110,12 +110,37 @@ function CurrentTimeIndicator({
 }
 
 // Constantes para el sistema de drag (EXACTAMENTE IGUALES a vista semanal)
-const START_HOUR = 9
-const END_HOUR = 20
+const FULL_START_HOUR = 9
+const FULL_END_HOUR = 20
 const MINUTES_STEP = 15 // Misma granularidad que vista semanal (15 min)
 const SLOTS_PER_HOUR = 60 / MINUTES_STEP // 4 slots por hora (cada 15 min)
-const TOTAL_SLOTS = (END_HOUR - START_HOUR) * SLOTS_PER_HOUR // 44 slots
 const SLOT_REM = 2.5 // Mismo valor que vista semanal: var(--scheduler-slot-height-quarter)
+
+// Configuración de períodos del día
+type DayPeriodType = 'full' | 'morning' | 'afternoon'
+
+const PERIOD_CONFIG: Record<DayPeriodType, { startHour: number; endHour: number }> = {
+  full: { startHour: 9, endHour: 20 },      // 9:00 - 20:00 (11 horas)
+  morning: { startHour: 9, endHour: 14 },    // 9:00 - 14:00 (5 horas)
+  afternoon: { startHour: 14, endHour: 20 }  // 14:00 - 20:00 (6 horas)
+}
+
+// Función helper para obtener configuración del período
+function getPeriodConfig(period: DayPeriodType) {
+  const config = PERIOD_CONFIG[period]
+  const totalSlots = (config.endHour - config.startHour) * SLOTS_PER_HOUR
+  return {
+    ...config,
+    totalSlots,
+    // Offset para convertir posiciones absolutas (desde las 9:00) a relativas al período
+    slotOffset: (config.startHour - FULL_START_HOUR) * SLOTS_PER_HOUR
+  }
+}
+
+// Constantes por defecto (para compatibilidad)
+const START_HOUR = FULL_START_HOUR
+const END_HOUR = FULL_END_HOUR
+const TOTAL_SLOTS = (END_HOUR - START_HOUR) * SLOTS_PER_HOUR // 44 slots
 // Altura de cada fila de 30 minutos en la cuadrícula visual
 const VISUAL_SLOT_HEIGHT_REM = 5 // var(--scheduler-slot-height-half)
 
@@ -609,9 +634,9 @@ const TIME_SLOTS: TimeSlot[] = [
   }
 ]
 
-function TimeColumn() {
-  // Usar TOTAL_SLOTS de 15 min igual que la vista semanal (44 slots = 11 horas × 4)
-  // Altura de cada slot: --scheduler-slot-height-quarter (igual que vista semanal)
+function TimeColumn({ period = 'full' }: { period?: DayPeriodType }) {
+  const periodConfig = getPeriodConfig(period)
+  const { startHour, totalSlots } = periodConfig
 
   return (
     <div
@@ -619,27 +644,22 @@ function TimeColumn() {
       style={{
         top: 'var(--day-offset-top)',
         width: 'var(--day-time-column-width)',
-        // Altura total = TOTAL_SLOTS × altura de cada slot de 15 min
-        height: `calc(${TOTAL_SLOTS} * var(--scheduler-slot-height-quarter))`
+        height: `calc(${totalSlots} * var(--scheduler-slot-height-quarter))`
       }}
     >
       <div
         className='grid h-full overflow-visible'
         style={{
-          // Cada fila representa 15 min (un slot) - igual que vista semanal
-          gridTemplateRows: `repeat(${TOTAL_SLOTS}, var(--scheduler-slot-height-quarter))`
+          gridTemplateRows: `repeat(${totalSlots}, var(--scheduler-slot-height-quarter))`
         }}
       >
-        {Array.from({ length: TOTAL_SLOTS }).map((_, index) => {
-          // Primera celda: mostrar 9:00 al inicio
+        {Array.from({ length: totalSlots }).map((_, index) => {
           const isFirstCell = index === 0
-          // Resto: mostrar etiqueta cuando el borde inferior es una hora en punto
           const isHourBorder = (index + 1) % SLOTS_PER_HOUR === 0
 
-          // Calcular la hora
-          const hourAtBorder = START_HOUR + (index + 1) / SLOTS_PER_HOUR
+          const hourAtBorder = startHour + (index + 1) / SLOTS_PER_HOUR
           const timeLabel = isFirstCell
-            ? `${START_HOUR}:00`
+            ? `${startHour}:00`
             : `${hourAtBorder}:00`
 
           return (
@@ -647,7 +667,6 @@ function TimeColumn() {
               key={index}
               className='relative flex items-end justify-center overflow-visible border-r border-[var(--color-border-default)]'
             >
-              {/* Etiqueta de 9:00 al inicio de la primera celda */}
               {isFirstCell && (
                 <p
                   className='absolute left-1/2 z-10 text-body-md font-normal text-[var(--color-neutral-600)]'
@@ -659,7 +678,6 @@ function TimeColumn() {
                   {timeLabel}
                 </p>
               )}
-              {/* Etiquetas de las demás horas en el borde inferior */}
               {isHourBorder && (
                 <p
                   className='absolute left-1/2 z-10 text-body-md font-normal text-[var(--color-neutral-600)]'
@@ -1192,7 +1210,9 @@ function DayGrid({
   slotDragState,
   onSlotDragStart,
   onSlotDragMove,
-  onSlotDragEnd
+  onSlotDragEnd,
+  // Period prop
+  period = 'full'
 }: {
   timeLabels: string[]
   timeSlotsOverride?: TimeSlot[]
@@ -1240,13 +1260,49 @@ function DayGrid({
   onSlotDragStart?: (slotIndex: number, boxId: string, clientY: number) => void
   onSlotDragMove?: (slotIndex: number) => void
   onSlotDragEnd?: () => void
+  // Period prop
+  period?: DayPeriodType
 }) {
+  // Get period configuration
+  const periodConfig = getPeriodConfig(period)
+  const { totalSlots: periodTotalSlots, startHour: periodStartHour, slotOffset, endHour: periodEndHour } = periodConfig
   // Filtrar slots según los horarios visibles
   const sourceSlots = timeSlotsOverride ?? TIME_SLOTS
 
+  // Helper: extraer el slot desde el valor top (ej: "10rem" -> 4)
+  const getSlotFromTop = (top: string): number => {
+    const match = top.match(/^([\d.]+)rem$/)
+    if (match) {
+      return parseFloat(match[1]) / SLOT_REM
+    }
+    return 0
+  }
+
+  // Helper: check if event is within period time range
+  const isEventInPeriod = (event: DayEvent): boolean => {
+    if (period === 'full') return true
+    const eventSlot = getSlotFromTop(event.top)
+    // Event slot is relative to FULL_START_HOUR (9:00)
+    // slotOffset is the offset from 9:00 to period start
+    return eventSlot >= slotOffset && eventSlot < (slotOffset + periodTotalSlots)
+  }
+
+  // Helper: adjust event top position for period
+  const adjustEventTopForPeriod = (top: string): string => {
+    if (period === 'full') return top
+    const match = top.match(/^([\d.]+)rem$/)
+    if (match) {
+      const originalRem = parseFloat(match[1])
+      // Subtract the offset to make position relative to period start
+      const adjustedRem = originalRem - (slotOffset * SLOT_REM)
+      return `${adjustedRem}rem`
+    }
+    return top
+  }
+
   // Extraer todos los eventos de todos los slots para renderizarlos en capa absoluta
-  // Similar a cómo funciona en la vista semanal
   // Filter events to only show those in selected boxes AND selected professionals AND confirmed (if filter active)
+  // AND within the selected period's time range
   const allEvents: { event: DayEvent; boxId: BoxId }[] = []
   sourceSlots.forEach((slot) => {
     slot.boxes.forEach((box) => {
@@ -1254,6 +1310,9 @@ function DayGrid({
       const boxFilterId = box.id.replace('box', 'box-')
       if (selectedBoxes.includes(boxFilterId)) {
         box.events.forEach((event) => {
+          // Filter by period (time range)
+          if (!isEventInPeriod(event)) return
+          
           // Filter by professional if selectedProfessionals is not empty
           const professionalMatch =
             selectedProfessionals.length === 0 ||
@@ -1271,7 +1330,12 @@ function DayGrid({
           const confirmedMatch = !showConfirmedOnly || isConfirmed
           
           if (professionalMatch && confirmedMatch) {
-            allEvents.push({ event, boxId: box.id as BoxId })
+            // Adjust event top position for the period
+            const adjustedEvent = {
+              ...event,
+              top: adjustEventTopForPeriod(event.top)
+            }
+            allEvents.push({ event: adjustedEvent, boxId: box.id as BoxId })
           }
         })
       }
@@ -1294,16 +1358,17 @@ function DayGrid({
   // Local ref for mouse event calculations
   const localGridRef = useRef<HTMLDivElement | null>(null)
 
-  // Calculate slot index from mouse Y position
+  // Calculate slot index from mouse Y position (relative to period)
   const getSlotFromY = (clientY: number): number => {
     if (!localGridRef.current) return 0
     const rect = localGridRef.current.getBoundingClientRect()
     if (rect.height <= 0) return 0
     const relativeY = clientY - rect.top
-    const slotHeight = rect.height / TOTAL_SLOTS
+    const slotHeight = rect.height / periodTotalSlots
     if (slotHeight <= 0) return 0
     const rawIndex = Math.floor(relativeY / slotHeight)
-    return Math.max(0, Math.min(rawIndex, TOTAL_SLOTS - 1))
+    // Return slot index relative to period start
+    return Math.max(0, Math.min(rawIndex, periodTotalSlots - 1))
   }
 
   // Get box ID from mouse X position
@@ -1375,7 +1440,7 @@ function DayGrid({
   // Show drag selection if dragging
   const showDragSelection = slotDragState?.isDragging
 
-  // Usar TOTAL_SLOTS de 15 min igual que la vista semanal (44 slots)
+  // Usar slots del período seleccionado
   return (
     <div
       className='absolute w-full'
@@ -1391,8 +1456,7 @@ function DayGrid({
         left: 'var(--day-time-column-width)',
         top: 'var(--day-offset-top)',
         width: 'calc(100% - var(--day-time-column-width))',
-        // Altura = TOTAL_SLOTS × altura de cada slot de 15 min (igual que vista semanal)
-        height: `calc(${TOTAL_SLOTS} * var(--scheduler-slot-height-quarter))`
+        height: `calc(${periodTotalSlots} * var(--scheduler-slot-height-quarter))`
       }}
       onMouseMove={handleGridMouseMove}
       onMouseLeave={handleGridMouseLeave}
@@ -1402,7 +1466,7 @@ function DayGrid({
       {showTimeIndicator && hoverSlotIndex !== null && (
         <TimeIndicator
           top={`${hoverSlotIndex * slotHeightRem}rem`}
-          timeLabel={slotIndexToTime(hoverSlotIndex, START_HOUR, MINUTES_STEP)}
+          timeLabel={slotIndexToTime(hoverSlotIndex + slotOffset, FULL_START_HOUR, MINUTES_STEP)}
           timeColumnWidth='4rem'
           visible
         />
@@ -1424,28 +1488,27 @@ function DayGrid({
             height={`${slotCount * slotHeightRem}rem`}
             left={selectionLayout?.left ?? '0'}
             width={selectionLayout?.width ?? '33.33%'}
-            startTime={slotIndexToTime(minSlot, START_HOUR, MINUTES_STEP)}
-            endTime={slotIndexToTime(maxSlot + 1, START_HOUR, MINUTES_STEP)}
+            startTime={slotIndexToTime(minSlot + slotOffset, FULL_START_HOUR, MINUTES_STEP)}
+            endTime={slotIndexToTime(maxSlot + 1 + slotOffset, FULL_START_HOUR, MINUTES_STEP)}
             durationMinutes={durationMinutes}
             visible
           />
         )
       })()}
 
-      {/* Rejilla de líneas cada 15 min (igual que vista semanal) */}
+      {/* Rejilla de líneas cada 15 min */}
       <div className='pointer-events-none absolute inset-0 z-[1]'>
         <div
           className='grid h-full'
           style={{
-            gridTemplateRows: `repeat(${TOTAL_SLOTS}, var(--scheduler-slot-height-quarter))`
+            gridTemplateRows: `repeat(${periodTotalSlots}, var(--scheduler-slot-height-quarter))`
           }}
         >
-          {Array.from({ length: TOTAL_SLOTS }).map((_, index) => {
-            // El borde inferior de la celda `index` está en el tiempo:
-            // 9:00 + (index + 1) * 15min
-            // Para que la línea oscura esté en las horas en punto (10:00, 11:00, etc.),
-            // necesitamos que (index + 1) sea múltiplo de 4 (SLOTS_PER_HOUR)
-            const isHourLine = (index + 1) % SLOTS_PER_HOUR === 0
+          {Array.from({ length: periodTotalSlots }).map((_, index) => {
+            // El borde inferior de la celda en las horas en punto
+            // Necesitamos considerar el offset del período
+            const absoluteIndex = index + slotOffset
+            const isHourLine = (absoluteIndex + 1) % SLOTS_PER_HOUR === 0
             return (
               <div
                 key={index}
@@ -2191,6 +2254,20 @@ export default function DayCalendar({
           const boxFilterId = block.box.replace(' ', '-')
           if (!selectedBoxes.includes(boxFilterId)) return false
         }
+        
+        // Filter by period - check if block overlaps with period time range
+        if (period !== 'full') {
+          const blockStartMinutes = timeToMinutes(block.startTime)
+          const blockEndMinutes = timeToMinutes(block.endTime)
+          const periodStartMinutes = periodConfig.startHour * 60
+          const periodEndMinutes = periodConfig.endHour * 60
+          
+          // Block must overlap with period
+          if (blockEndMinutes <= periodStartMinutes || blockStartMinutes >= periodEndMinutes) {
+            return false
+          }
+        }
+        
         return true
       })
       .map((block) => {
@@ -2199,11 +2276,13 @@ export default function DayCalendar({
         const endMinutes = timeToMinutes(block.endTime)
         const durationMinutes = endMinutes - startMinutes
         
-        // Calculate slot position (using same logic as events)
-        const startSlot = Math.floor((startMinutes - START_HOUR * 60) / MINUTES_STEP)
+        // Calculate slot position relative to full day
+        const startSlot = Math.floor((startMinutes - FULL_START_HOUR * 60) / MINUTES_STEP)
         const heightSlots = Math.max(1, Math.ceil(durationMinutes / MINUTES_STEP))
         
-        const top = `${startSlot * SLOT_REM}rem`
+        // Adjust for period offset
+        const adjustedStartSlot = startSlot - periodConfig.slotOffset
+        const top = `${adjustedStartSlot * SLOT_REM}rem`
         const height = `${heightSlots * SLOT_REM}rem`
         
         return {
@@ -2528,11 +2607,14 @@ export default function DayCalendar({
     }
   }, [dragState, onAppointmentMove])
 
-  // Altura basada en TOTAL_SLOTS de 15 min (igual que vista semanal)
+  // Obtener configuración del período actual
+  const periodConfig = getPeriodConfig(period)
+  const periodTotalSlots = periodConfig.totalSlots
+  
+  // Altura basada en slots del período seleccionado
   const bandsTotalHeight = `${bands.length * DAILY_BAND_HEIGHT_REM}rem`
   const dayOffsetTop = `calc(var(--scheduler-day-header-height) + ${bandsTotalHeight})`
-  // TOTAL_SLOTS = 44 slots de 15 min = 11 horas (igual que vista semanal)
-  const fullDayHeight = `calc(${TOTAL_SLOTS} * var(--scheduler-slot-height-quarter) + var(--scheduler-day-header-height) + ${bandsTotalHeight})`
+  const fullDayHeight = `calc(${periodTotalSlots} * var(--scheduler-slot-height-quarter) + var(--scheduler-day-header-height) + ${bandsTotalHeight})`
 
   const overlaySource = active
   const activeDetail = overlaySource?.event.detail
@@ -2551,9 +2633,11 @@ export default function DayCalendar({
       onClick={handleRootClick}
     >
       <BoxHeaders visibleBoxes={visibleBoxes} />
+      {/* Bandas de especialistas - sticky para que no hagan scroll */}
       <div
-        className='absolute left-0 top-[var(--scheduler-day-header-height)] z-[2] flex w-full flex-col'
+        className='sticky left-0 z-[8] flex w-full flex-col'
         style={{
+          top: 'var(--scheduler-day-header-height)',
           height: bandsTotalHeight
         }}
         aria-hidden
@@ -2578,8 +2662,9 @@ export default function DayCalendar({
           </div>
         ))}
       </div>
-      <TimeColumn />
+      <TimeColumn period={period} />
       <DayGrid
+        period={period}
         timeLabels={filteredTimeLabels}
         timeSlotsOverride={filteredEvents}
         onHover={handleHover}
@@ -2624,12 +2709,12 @@ export default function DayCalendar({
         className='pointer-events-none absolute left-0 w-full'
         style={{
           top: dayOffsetTop,
-          height: `calc(${TOTAL_SLOTS} * var(--scheduler-slot-height-quarter))`
+          height: `calc(${periodTotalSlots} * var(--scheduler-slot-height-quarter))`
         }}
       >
         <CurrentTimeIndicator
-          startHour={START_HOUR}
-          endHour={END_HOUR}
+          startHour={periodConfig.startHour}
+          endHour={periodConfig.endHour}
           timeColumnWidth='var(--day-time-column-width)'
         />
       </div>

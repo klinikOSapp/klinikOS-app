@@ -311,6 +311,7 @@ function MonthEvent({
   return (
     <button
       type='button'
+      data-event
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
       onFocus={onHover}
@@ -420,10 +421,10 @@ function DayCell({
     window.addEventListener('contextmenu', close, { once: true })
   }
 
-  const handleOpenDay = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleOpenDay = (event: React.MouseEvent<HTMLButtonElement | HTMLDivElement>) => {
     event.stopPropagation()
     setShowDayMenu(false)
-    if (!cell.isCurrentMonth) return
+    if (!cell.isCurrentMonth || cell.isSunday) return
     window.dispatchEvent(
       new CustomEvent('agenda:open-day-view', {
         detail: { date: cell.date?.toISOString() }
@@ -431,16 +432,29 @@ function DayCell({
     )
   }
 
+  // Manejar clic en el día (no en eventos)
+  const handleDayClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    // Solo abrir vista diaria si el clic fue directamente en el día, no en un evento
+    const target = event.target as HTMLElement
+    // Verificar que no se hizo clic en un evento o en el especialista
+    if (target.closest('[data-event]') || target.closest('[data-specialist]')) {
+      return
+    }
+    handleOpenDay(event)
+  }
+
   return (
     <div
       className={[
         'relative flex-1 overflow-hidden border-b border-r border-[var(--color-border-default)]',
-        bgClass
+        bgClass,
+        cell.isCurrentMonth && !cell.isSunday ? 'cursor-pointer hover:bg-[var(--color-brand-0)] transition-colors' : ''
       ].join(' ')}
       style={{
         ...dotStyle
       }}
       onContextMenu={handleDayContextMenu}
+      onClick={handleDayClick}
     >
       <div
         className='absolute left-0 right-0 flex items-center justify-between px-[1rem]'
@@ -448,13 +462,22 @@ function DayCell({
           top: 'var(--month-cell-padding-top)'
         }}
       >
-        <p className={['text-body-md', dayTextClass].join(' ')}>{cell.day}</p>
+        <p 
+          className={[
+            'text-body-md',
+            dayTextClass,
+            cell.isCurrentMonth && !cell.isSunday ? 'hover:text-[var(--color-brand-600)]' : ''
+          ].join(' ')}
+        >
+          {cell.day}
+        </p>
         {cell.specialists.length > 0 && (
           <div className='flex items-center gap-[0.5rem]'>
             {cell.specialists.map((spec) => (
               <button
                 key={spec.id}
                 type='button'
+                data-specialist
                 onClick={(e) => {
                   e.stopPropagation()
                   setActiveSpecId((prev) => (prev === spec.id ? null : spec.id))

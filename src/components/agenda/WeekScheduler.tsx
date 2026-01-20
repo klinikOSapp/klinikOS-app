@@ -38,7 +38,7 @@ import type { BlockType } from '@/context/AppointmentsContext'
 import { BLOCK_TYPE_CONFIG } from '@/context/AppointmentsContext'
 import { VISIT_STATUS_CONFIG, VISIT_STATUS_ORDER } from './types'
 import VisitStatusMenu from './VisitStatusMenu'
-import { VisitStatusCountersCompact } from './VisitStatusCounters'
+import { VisitStatusCountersCompact, VisitStatusDropdown } from './VisitStatusCounters'
 import TimeIndicator, { slotIndexToTime } from './TimeIndicator'
 import SlotDragSelection, { type SlotDragState, getSelectionBounds } from './SlotDragSelection'
 
@@ -5610,8 +5610,9 @@ export default function WeekScheduler() {
       onClick={handleRootClick}
     >
       {/* Fixed Header - Compartido entre todas las vistas */}
-      <header className='relative z-30 flex h-[var(--scheduler-toolbar-height)] w-full shrink-0 items-center justify-between gap-2 border-b border-[var(--color-border-default)] bg-[var(--color-neutral-100)] px-[min(var(--scheduler-grid-gutter),1rem)]'>
-        <div className='flex min-w-0 flex-1 items-center gap-2'>
+      <header className='relative z-30 flex h-[var(--scheduler-toolbar-height)] w-full shrink-0 items-center justify-between border-b border-[var(--color-border-default)] bg-[var(--color-neutral-100)] px-3 lg:px-4'>
+        {/* Grupo izquierdo: Navegación */}
+        <div className='flex items-center gap-3'>
           {/* Segmented control solo para vista diaria */}
           {viewOption === 'dia' && (
             <DayPeriodSegmentedControl
@@ -5623,26 +5624,31 @@ export default function WeekScheduler() {
           {viewOption === 'mes' ? (
             <NavigationControl
               label={getMonthString()}
-              widthRem={5.9375} // 95px ÷ 16
+              widthRem={5.9375}
               onPrevious={goToPreviousMonth}
               onNext={goToNextMonth}
             />
           ) : viewOption === 'dia' ? (
             <NavigationControl
               label={getDayString()}
-              widthRem={8} // Reducido para vista diaria
+              widthRem={8}
               onPrevious={goToPreviousDay}
               onNext={goToNextDay}
             />
           ) : (
             <NavigationControl
               label={getWeekRangeString()}
-              widthRem={10.0625} // 161px ÷ 16
+              widthRem={10.0625}
               onPrevious={goToPreviousWeek}
               onNext={goToNextWeek}
             />
           )}
-          <div className='flex min-w-0 items-center gap-2'>
+        </div>
+
+        {/* Grupo central: Filtros */}
+        <div className='flex items-center gap-2'>
+          {/* Filtros de vista */}
+          <div className='flex items-center gap-1.5'>
             <div ref={viewDropdownRef} className='relative'>
               <ToolbarChip
                 label={currentViewLabel}
@@ -5717,42 +5723,40 @@ export default function WeekScheduler() {
                 />
               ) : null}
             </div>
-            <div className='flex shrink-0 items-center gap-2 rounded-[136px] px-2 py-1'>
-              <button
-                type='button'
-                aria-pressed={showConfirmedOnly}
-                onClick={() => setShowConfirmedOnly((prev) => !prev)}
-                className='relative inline-flex h-[1.5rem] w-[2.5rem] shrink-0 items-center overflow-hidden rounded-[4.375rem]'
-              >
-                <span
-                  aria-hidden
-                  className={[
-                    'absolute inset-0 rounded-[4.375rem] transition-colors',
-                    showConfirmedOnly
-                      ? 'bg-[#3B82F6]'
-                      : 'border border-[#CBD3D9] bg-[#F8FAFB]'
-                  ].join(' ')}
-                />
-                <span
-                  aria-hidden
-                  className={[
-                    'absolute size-[1.125rem] rounded-full transition-all',
-                    showConfirmedOnly
-                      ? 'left-[1.1875rem] top-[0.1875rem] bg-[#DBEAFE]'
-                      : 'left-[0.125rem] top-[0.125rem] bg-[#6D7783]'
-                  ].join(' ')}
-                />
-                <span className='sr-only'>Alternar confirmadas</span>
-              </button>
-              <span className='whitespace-nowrap text-title-sm font-medium text-[var(--color-neutral-900)]'>
-                Confirmadas
-              </span>
-            </div>
+          </div>
 
-            {/* Separador vertical */}
-            <div className='h-4 w-px bg-[var(--color-neutral-300)]' />
+          {/* Separador sutil */}
+          <div className='h-5 w-px bg-[var(--color-neutral-300)]' />
 
-            {/* Contadores de estado de visita */}
+          {/* Toggle Confirmadas */}
+          <button
+            type='button'
+            aria-pressed={showConfirmedOnly}
+            onClick={() => setShowConfirmedOnly((prev) => !prev)}
+            className={[
+              'inline-flex h-[2.25rem] items-center gap-2 rounded-full border px-3 text-body-sm font-medium transition-all duration-150',
+              showConfirmedOnly
+                ? 'border-[#3B82F6] bg-[#EFF6FF] text-[#1D4ED8]'
+                : 'border-[var(--color-border-default)] bg-[var(--color-neutral-50)] text-[var(--color-neutral-600)] hover:bg-[var(--color-brand-0)]'
+            ].join(' ')}
+            title='Mostrar solo confirmadas'
+          >
+            <span
+              className={[
+                'flex h-4 w-4 items-center justify-center rounded-full text-xs transition-colors',
+                showConfirmedOnly ? 'bg-[#3B82F6] text-white' : 'bg-[var(--color-neutral-300)]'
+              ].join(' ')}
+            >
+              {showConfirmedOnly && <MD3Icon name='CheckRounded' size={0.75} />}
+            </span>
+            <span className='hidden xl:inline'>Confirmadas</span>
+          </button>
+
+          {/* Separador sutil */}
+          <div className='h-5 w-px bg-[var(--color-neutral-300)]' />
+
+          {/* Estados de visita */}
+          <div className='hidden 2xl:block'>
             <VisitStatusCountersCompact
               counts={visitStatusCounts}
               activeFilters={activeVisitStatusFilter}
@@ -5765,31 +5769,30 @@ export default function WeekScheduler() {
               }}
             />
           </div>
+          <div className='2xl:hidden'>
+            <VisitStatusDropdown
+              counts={visitStatusCounts}
+              activeFilters={activeVisitStatusFilter}
+              onFilterChange={(status) => {
+                if (status === null) {
+                  setActiveVisitStatusFilter(null)
+                } else {
+                  setActiveVisitStatusFilter([status])
+                }
+              }}
+            />
+          </div>
         </div>
-        <div className='flex shrink-0 items-center gap-2'>
-          <ToolbarAction
-            label='Parte diario'
-            icon={
-              <MD3Icon
-                name='DescriptionRounded'
-                size='sm'
-                className='text-[var(--color-neutral-600)]'
-              />
-            }
-            onClick={() => router.push('/parte-diario')}
-          />
-          <button
-            onClick={() => openCreateAppointmentModal()}
-            className='flex items-center gap-2 rounded-full bg-brand-500 px-4 py-2 transition-all hover:bg-brand-600 active:scale-95'
-          >
-            <span className='material-symbols-rounded text-xl text-brand-900'>
-              add
-            </span>
-            <span className='font-medium text-sm text-brand-900'>
-              Añadir cita
-            </span>
-          </button>
-        </div>
+
+        {/* Grupo derecho: Acción principal */}
+        <button
+          onClick={() => openCreateAppointmentModal()}
+          className='inline-flex h-[2.5rem] items-center gap-2 rounded-full bg-brand-500 px-4 text-sm font-medium text-brand-900 shadow-sm transition-all duration-150 hover:bg-brand-600 hover:shadow active:scale-[0.98]'
+          title='Añadir cita'
+        >
+          <MD3Icon name='AddRounded' size='sm' />
+          <span className='hidden lg:inline'>Añadir cita</span>
+        </button>
       </header>
 
       {/* Contenido condicional según la vista */}
