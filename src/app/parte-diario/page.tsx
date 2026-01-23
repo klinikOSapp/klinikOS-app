@@ -682,6 +682,8 @@ export default function ParteDiarioPage() {
   )
   const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
   const [isParteModalOpen, setIsParteModalOpen] = React.useState(false)
+  const [initialTab, setInitialTab] = React.useState<'Resumen' | 'Información General' | 'Historial clínico' | 'Tratamientos' | 'Imágenes RX' | 'Finanzas' | 'Consentimientos' | 'Recetas'>('Resumen')
+  const [openBudgetCreation, setOpenBudgetCreation] = React.useState(false)
 
   // Estado para el menú de acciones por fila
   const [openRowMenuId, setOpenRowMenuId] = React.useState<string | null>(null)
@@ -883,7 +885,13 @@ export default function ParteDiarioPage() {
       <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-[var(--color-neutral-50)] rounded-tl-[var(--radius-xl)] px-[min(3rem,4vw)] py-[min(1.5rem,2vw)] flex flex-col overflow-auto'>
         <PatientRecordModal
           open={isFichaModalOpen}
-          onClose={() => setIsFichaModalOpen(false)}
+          onClose={() => {
+            setIsFichaModalOpen(false)
+            setInitialTab('Resumen')
+            setOpenBudgetCreation(false)
+          }}
+          initialTab={initialTab}
+          openBudgetCreation={openBudgetCreation}
         />
         <ParteDiarioModal
           isOpen={isParteModalOpen}
