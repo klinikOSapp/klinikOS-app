@@ -1685,31 +1685,31 @@ export default function BudgetsPayments({
     }
   }
 
-  // Column widths for PRODUCCIÓN from Figma (converted to rem)
-  const PROD_COL_FECHA = 'w-[6.8125rem]' // 109px
-  const PROD_COL_DESC = 'w-[21.375rem]' // 342px
-  const PROD_COL_MONTO = 'w-[7.625rem]' // 122px
-  const PROD_COL_ESTADO = 'w-[9.625rem]' // 154px
-  const PROD_COL_PROFESIONAL = 'w-[13.1875rem]' // 211px
-  const PROD_COL_ID = 'w-[6.625rem]' // 106px
+  // Column widths for PRODUCCIÓN - flexible layout
+  const PROD_COL_FECHA = 'w-24 shrink-0' // Fixed
+  const PROD_COL_DESC = 'flex-1 min-w-0' // Flexible - expands
+  const PROD_COL_MONTO = 'w-24 shrink-0' // Fixed
+  const PROD_COL_ESTADO = 'w-28 shrink-0' // Fixed
+  const PROD_COL_PROFESIONAL = 'w-32 shrink-0' // Fixed
+  const PROD_COL_ID = 'w-24 shrink-0' // Fixed
 
-  // Column widths for PRESUPUESTOS from Figma (converted to rem)
-  const BUDGET_COL_ID = 'w-[6rem]' // 96px
-  const BUDGET_COL_DESC = 'w-[19.375rem]' // 310px
-  const BUDGET_COL_MONTO = 'w-[6.875rem]' // 110px
-  const BUDGET_COL_FECHA = 'w-[6.9375rem]' // 111px
-  const BUDGET_COL_ESTADO = 'w-[6.75rem]' // 108px
-  const BUDGET_COL_PROFESIONAL = 'w-[10rem]' // 160px
-  const BUDGET_COL_INSURER = 'w-[9.3125rem]' // 149px
+  // Column widths for PRESUPUESTOS - flexible layout
+  const BUDGET_COL_ID = 'w-20 shrink-0' // Fixed
+  const BUDGET_COL_DESC = 'flex-1 min-w-0' // Flexible - expands
+  const BUDGET_COL_MONTO = 'w-24 shrink-0' // Fixed
+  const BUDGET_COL_FECHA = 'w-24 shrink-0' // Fixed
+  const BUDGET_COL_ESTADO = 'w-28 shrink-0' // Fixed
+  const BUDGET_COL_PROFESIONAL = 'w-32 shrink-0' // Fixed
+  const BUDGET_COL_INSURER = 'w-28 shrink-0' // Fixed
 
   return (
     <div
-      className='relative w-full h-full bg-neutral-50'
+      className='w-full h-full bg-neutral-50 flex flex-col p-8 overflow-hidden'
       data-node-id='3092:10807'
     >
       {/* Header */}
       <div
-        className='absolute left-8 top-10 flex flex-col gap-2 w-[35.5rem]'
+        className='flex flex-col gap-2 mb-6'
         data-node-id='3092:10815'
       >
         <p className='text-headline-sm text-neutral-900'>
@@ -1743,9 +1743,8 @@ export default function BudgetsPayments({
         })
 
         return (
-          <>
+          <div className='flex gap-16 mb-6'>
             <div
-              className='absolute left-8 top-[10.25rem]'
               data-node-id='3092:10811'
             >
               <p className='text-title-md text-neutral-900'>Saldo pendiente</p>
@@ -1758,7 +1757,6 @@ export default function BudgetsPayments({
               </p>
             </div>
             <div
-              className='absolute left-[18.75rem] top-[10.25rem]'
               data-node-id='3092:10812'
             >
               <p className='text-title-md text-neutral-900'>Facturas vencidas</p>
@@ -1770,13 +1768,13 @@ export default function BudgetsPayments({
                 {String(pendingCount).padStart(2, '0')}
               </p>
             </div>
-          </>
+          </div>
         )
       })()}
 
       {/* Main Card */}
       <div
-        className='absolute left-8 top-[17.4375rem] w-[70.25rem] h-[36.3125rem] bg-white rounded-lg border border-neutral-200 overflow-hidden'
+        className='flex-1 bg-white rounded-lg border border-neutral-200 overflow-hidden relative'
         data-node-id='3092:10816'
       >
         {/* Tabs */}
@@ -2336,7 +2334,7 @@ export default function BudgetsPayments({
         {/* Table Container - PRESUPUESTOS */}
         {activeTab === 'Presupuestos' && (
           <div
-            className='absolute left-8 top-[7.4375rem] w-[65.25rem]'
+            className='absolute left-8 right-8 top-[7.4375rem]'
             data-node-id='3092:10352'
           >
             {/* Table Header */}
@@ -2455,7 +2453,7 @@ export default function BudgetsPayments({
         {/* Table Container - PRODUCCIÓN */}
         {activeTab === 'Producción' && (
           <div
-            className='absolute left-8 top-[7.4375rem] w-[65.25rem]'
+            className='absolute left-8 right-8 top-[7.4375rem]'
             data-node-id='3092:10838'
           >
             {/* Table Header */}
@@ -2564,7 +2562,7 @@ export default function BudgetsPayments({
         {/* Table Container - FACTURAS */}
         {activeTab === 'Facturas' && (
           <div
-            className='absolute left-8 top-[7.4375rem] w-[65.25rem]'
+            className='absolute left-8 right-8 top-[7.4375rem]'
             data-node-id='facturas-table'
           >
             {/* Column widths from Figma */}
@@ -2574,25 +2572,25 @@ export default function BudgetsPayments({
 
             {/* Table Header */}
             <div className='flex items-center border-b border-neutral-300'>
-              <div className='w-[6rem] px-2 py-1 text-body-md text-neutral-600'>
+              <div className='w-20 shrink-0 px-2 py-1 text-body-md text-neutral-600'>
                 ID
               </div>
-              <div className='w-[19.375rem] px-2 py-1 text-body-md text-neutral-600'>
+              <div className='flex-1 min-w-0 px-2 py-1 text-body-md text-neutral-600'>
                 Descripción
               </div>
-              <div className='w-[6.875rem] px-2 py-1 text-body-md text-neutral-600'>
+              <div className='w-24 shrink-0 px-2 py-1 text-body-md text-neutral-600'>
                 Monto
               </div>
-              <div className='w-[7.0625rem] px-2 py-1 text-body-md text-neutral-600'>
+              <div className='w-24 shrink-0 px-2 py-1 text-body-md text-neutral-600'>
                 Fecha fact.
               </div>
-              <div className='w-[7.625rem] px-2 py-1 text-body-md text-neutral-600'>
+              <div className='w-28 shrink-0 px-2 py-1 text-body-md text-neutral-600'>
                 Estado cobro
               </div>
-              <div className='w-[9.0625rem] px-2 py-1 text-body-md text-neutral-600'>
+              <div className='w-28 shrink-0 px-2 py-1 text-body-md text-neutral-600'>
                 Método pago
               </div>
-              <div className='w-[9.3125rem] px-2 py-1 text-body-md text-neutral-600'>
+              <div className='w-28 shrink-0 px-2 py-1 text-body-md text-neutral-600'>
                 Aseguradora
               </div>
             </div>
@@ -2619,29 +2617,29 @@ export default function BudgetsPayments({
                   key={row.id}
                   className='flex items-center border-b border-neutral-300 h-10 group'
                 >
-                  <div className='w-[6rem] px-2 text-body-md text-neutral-900'>
+                  <div className='w-20 shrink-0 px-2 text-body-md text-neutral-900'>
                     {row.id}
                   </div>
-                  <div className='w-[19.375rem] px-2 text-body-md text-neutral-900'>
+                  <div className='flex-1 min-w-0 px-2 text-body-md text-neutral-900 truncate'>
                     {row.description}
                   </div>
-                  <div className='w-[6.875rem] px-2 text-body-md text-neutral-900'>
+                  <div className='w-24 shrink-0 px-2 text-body-md text-neutral-900'>
                     {row.amount}
                   </div>
-                  <div className='w-[7.0625rem] px-2 text-body-md text-neutral-900'>
+                  <div className='w-24 shrink-0 px-2 text-body-md text-neutral-900'>
                     {row.date}
                   </div>
-                  <div className='w-[7.625rem] px-2'>
+                  <div className='w-28 shrink-0 px-2'>
                     <InvoiceStatusBadge
                       status={row.status}
                       rowId={row.id}
                       onStatusChange={handleInvoiceStatusChange}
                     />
                   </div>
-                  <div className='w-[9.0625rem] px-2 text-body-md text-neutral-900'>
+                  <div className='w-28 shrink-0 px-2 text-body-md text-neutral-900'>
                     {row.paymentMethod}
                   </div>
-                  <div className='w-[9.3125rem] px-2 text-body-md text-neutral-900'>
+                  <div className='w-28 shrink-0 px-2 text-body-md text-neutral-900'>
                     {row.insurer}
                   </div>
                   {/* More actions menu */}
