@@ -437,7 +437,7 @@ export default function ParteDiarioPage() {
         console.log('Nueva cita para:', contextMenu.rowData?.name)
         break
       case 'new-budget':
-        setInitialTab('Presupuestos y pagos')
+        setInitialTab('Finanzas')
         setOpenBudgetCreation(true)
         setIsFichaModalOpen(true)
         break

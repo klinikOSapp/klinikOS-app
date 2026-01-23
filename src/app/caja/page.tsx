@@ -46,7 +46,7 @@ export default function CajaPage() {
 
   const handleViewPatient = useCallback((movement: { patient: string }) => {
     void movement
-    setPatientRecordTab('Presupuestos y pagos')
+    setPatientRecordTab('Finanzas')
     setPatientRecordOpen(true)
   }, [])
 

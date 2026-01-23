@@ -3,11 +3,11 @@
 /* eslint-disable @next/next/no-img-element */
 
 import {
-  CallRounded,
-  CloseRounded,
-  MailRounded,
-  CheckRounded,
-  EditRounded
+    CallRounded,
+    CheckRounded,
+    CloseRounded,
+    EditRounded,
+    MailRounded
 } from '@/components/icons/md3'
 import AvatarImageDropdown from '@/components/pacientes/AvatarImageDropdown'
 import React from 'react'

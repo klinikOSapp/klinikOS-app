@@ -3779,7 +3779,7 @@ export default function WeekScheduler() {
   // Patient record modal state for "Ver ficha" action and context menu actions
   const [patientRecordConfig, setPatientRecordConfig] = useState<{
     open: boolean
-    initialTab: 'Resumen' | 'Historial clínico' | 'Imágenes RX' | 'Presupuestos y pagos' | 'Consentimientos' | 'Recetas'
+    initialTab: 'Resumen' | 'Información General' | 'Historial clínico' | 'Imágenes RX' | 'Finanzas' | 'Consentimientos' | 'Recetas'
     openBudgetCreation?: boolean
     openPrescriptionCreation?: boolean
     openClinicalHistoryEdit?: boolean
@@ -4129,10 +4129,10 @@ export default function WeekScheduler() {
           break
 
         case 'new-budget':
-          // Abrir modal de ficha del paciente en tab Presupuestos con creación abierta
+          // Abrir modal de ficha del paciente en tab Finanzas con creación abierta
           setPatientRecordConfig({
             open: true,
-            initialTab: 'Presupuestos y pagos',
+            initialTab: 'Finanzas',
             openBudgetCreation: true,
             patientId: event.id, // Mock: usando event.id como patientId
             patientName: detail?.patientFull || 'Paciente'

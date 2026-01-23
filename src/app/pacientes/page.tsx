@@ -462,7 +462,7 @@ function PacientesPageContent() {
             setOpenBudgetCreation(false)
             setOpenEditMode(false)
           }}
-          initialTab={openBudgetCreation ? 'Presupuestos y pagos' : 'Resumen'}
+          initialTab={openBudgetCreation ? 'Finanzas' : 'Resumen'}
           openBudgetCreation={openBudgetCreation}
           openInEditMode={openEditMode}
         />

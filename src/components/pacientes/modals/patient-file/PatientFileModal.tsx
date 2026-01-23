@@ -2,6 +2,7 @@
 
 import { CloseRounded } from '@/components/icons/md3'
 import ClinicalHistory from '@/components/pacientes/modals/patient-record/ClinicalHistory'
+import Treatments from './Treatments'
 import Portal from '@/components/ui/Portal'
 import React from 'react'
 
@@ -11,14 +12,14 @@ type PatientFileModalProps = {
   patientName?: string
 }
 
-type TabKey = 'summary' | 'history' | 'rx' | 'billing' | 'consents'
+type TabKey = 'resumen' | 'summary' | 'history' | 'treatments' | 'rx' | 'billing' | 'consents'
 
 export default function PatientFileModal({
   open,
   onClose,
   patientName
 }: PatientFileModalProps) {
-  const [activeTab, setActiveTab] = React.useState<TabKey>('summary')
+  const [activeTab, setActiveTab] = React.useState<TabKey>('resumen')
 
   if (!open) return null
 
@@ -53,6 +54,17 @@ export default function PatientFileModal({
 
   const RightPaneContent = () => {
     switch (activeTab) {
+      case 'resumen':
+        return (
+          <div className='p-8'>
+            <h2 className='text-title-lg text-[var(--color-neutral-900)] mb-2'>
+              Resumen
+            </h2>
+            <p className='text-body-sm text-[var(--color-neutral-700)]'>
+              Vista general del paciente con información clave y estadísticas.
+            </p>
+          </div>
+        )
       case 'history':
         return (
           <div className='w-full h-full overflow-hidden'>
@@ -60,11 +72,17 @@ export default function PatientFileModal({
             <ClinicalHistory onClose={onClose} />
           </div>
         )
+      case 'treatments':
+        return (
+          <div className='w-full h-full overflow-hidden'>
+            <Treatments />
+          </div>
+        )
       case 'summary':
         return (
           <div className='p-8'>
             <h2 className='text-title-lg text-[var(--color-neutral-900)] mb-2'>
-              Resumen
+              Información General
             </h2>
             <p className='text-body-sm text-[var(--color-neutral-700)]'>
               Datos básicos de consulta, alertas, próximas citas, deuda, …
@@ -151,6 +169,11 @@ export default function PatientFileModal({
                 <nav className='w-[304px] shrink-0 h-full border-r border-[var(--color-neutral-300)] p-4 overflow-auto'>
                   <NavItem
                     title='Resumen'
+                    subtitle='Vista general del paciente con información clave y estadísticas.'
+                    tab='resumen'
+                  />
+                  <NavItem
+                    title='Información General'
                     subtitle='Datos básicos de consulta, alertas, próximas citas, deuda, …'
                     tab='summary'
                   />
@@ -158,6 +181,11 @@ export default function PatientFileModal({
                     title='Historial clínico'
                     subtitle='Notas SOAP, odontograma, actos y adjuntos.'
                     tab='history'
+                  />
+                  <NavItem
+                    title='Tratamientos'
+                    subtitle='Tratamientos pendientes e historial de tratamientos.'
+                    tab='treatments'
                   />
                   <NavItem
                     title='Imágenes RX'
