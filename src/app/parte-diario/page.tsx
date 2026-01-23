@@ -839,7 +839,7 @@ export default function ParteDiarioPage() {
         break
       case 'new-appointment':
         // TODO: Abrir modal de nueva cita
-        console.log('Nueva cita para:', contextMenu.rowData?.name)
+        console.log('Nueva cita')
         break
       case 'new-budget':
         setInitialTab('Finanzas')
@@ -853,7 +853,7 @@ export default function ParteDiarioPage() {
         break
       case 'report':
         // TODO: Implementar reportar
-        console.log('Reportar:', contextMenu.rowData?.name)
+        console.log('Reportar')
         break
     }
   }
