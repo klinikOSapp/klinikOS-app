@@ -102,7 +102,7 @@ export default function ClinicalHistory({
   }
   return (
     <div
-      className='bg-neutral-50 relative w-full max-w-[74.75rem] h-full overflow-hidden'
+      className='bg-neutral-50 relative w-full h-full overflow-hidden'
       data-node-id='426:934'
     >
       <div className='absolute left-[var(--spacing-plnav)] top-[10.25rem] flex items-center gap-[var(--spacing-gapmd)]'>

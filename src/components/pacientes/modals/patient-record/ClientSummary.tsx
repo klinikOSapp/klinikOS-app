@@ -96,7 +96,7 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
   }
   return (
     <div
-      className='relative bg-[#f8fafb] overflow-hidden w-[74.75rem] h-full'
+      className='relative bg-[#f8fafb] overflow-hidden w-full h-full'
       data-node-id='423:822'
     >
       <div

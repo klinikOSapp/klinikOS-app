@@ -47,6 +47,7 @@ export default function PatientRecordModal({
 }: PatientRecordModalProps) {
   const [active, setActive] = React.useState<PatientRecordTab>(initialTab)
   const [sidebarVisible, setSidebarVisible] = React.useState(true)
+  const [sidebarHovered, setSidebarHovered] = React.useState(false)
   const [shouldOpenBudget, setShouldOpenBudget] =
     React.useState(openBudgetCreation)
   const [shouldOpenEdit, setShouldOpenEdit] = React.useState(openInEditMode)
@@ -184,7 +185,7 @@ export default function PatientRecordModal({
                 {/* Left navigation */}
                 <div
                   className={[
-                    'shrink-0 border-r border-[var(--color-neutral-200)] box-border overflow-y-auto transition-all duration-300 ease-in-out',
+                    'shrink-0 border-r border-[var(--color-neutral-200)] box-border overflow-y-auto overflow-x-hidden transition-all duration-300 ease-in-out',
                     sidebarVisible ? 'w-[19rem]' : 'w-0 border-r-0 overflow-hidden'
                   ].join(' ')}
                 >
@@ -211,10 +212,10 @@ export default function PatientRecordModal({
                             ].join(' ')}
                             onClick={() => setActive(it.title)}
                           >
-                            <p className='text-title-lg font-medium text-[var(--color-neutral-900)] whitespace-nowrap'>
+                            <p className='text-title-lg font-medium text-[var(--color-neutral-900)]'>
                               {it.title}
                             </p>
-                            <p className='text-body-sm text-[var(--color-neutral-900)] whitespace-nowrap'>
+                            <p className='text-body-sm text-[var(--color-neutral-900)]'>
                               {it.body}
                             </p>
                           </button>
@@ -225,21 +226,78 @@ export default function PatientRecordModal({
                 </div>
                 {/* Right content: vertical scroll only; never horizontal */}
                 <div
-                  className={[
-                    'overflow-y-auto overflow-x-hidden box-border transition-all duration-300 ease-in-out',
-                    sidebarVisible ? 'w-[74.75rem]' : 'w-full'
-                  ].join(' ')}
+                  className='flex-1 min-w-0 overflow-y-auto overflow-x-hidden box-border transition-all duration-300 ease-in-out'
                 >
-                  {/* Toggle button when sidebar is hidden */}
+                  {/* Toggle button when sidebar is hidden - shows sidebar on hover */}
                   {!sidebarVisible && (
-                    <button
-                      type='button'
-                      onClick={() => setSidebarVisible(true)}
-                      className='absolute left-4 top-[4.5rem] z-10 cursor-pointer hover:opacity-70 transition-opacity bg-white p-2 rounded-lg shadow-md border border-[var(--color-neutral-200)]'
-                      aria-label='Mostrar sidebar'
+                    <div
+                      className='absolute left-0 top-0 z-20'
+                      onMouseEnter={() => setSidebarHovered(true)}
+                      onMouseLeave={() => setSidebarHovered(false)}
                     >
-                      <FilePresentRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
-                    </button>
+                      {/* Icon button */}
+                      <button
+                        type='button'
+                        onClick={() => {
+                          setSidebarVisible(true)
+                          setSidebarHovered(false)
+                        }}
+                        className='absolute left-4 top-4 z-30 cursor-pointer hover:opacity-70 transition-opacity bg-white p-2 rounded-lg shadow-md border border-[var(--color-neutral-200)]'
+                        aria-label='Mostrar sidebar'
+                      >
+                        <FilePresentRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
+                      </button>
+                      
+                      {/* Sidebar overlay on hover */}
+                      {sidebarHovered && (
+                        <div 
+                          className='absolute left-0 top-0 w-[19rem] bg-white rounded-tr-lg rounded-br-lg shadow-[-2px_-2px_4px_0px_rgba(0,0,0,0.1),2px_2px_4px_0px_rgba(0,0,0,0.1)] border-r-2 border-[var(--color-neutral-100)] overflow-y-auto overflow-x-hidden'
+                          style={{ height: 'calc(56.25rem - 3.5rem)' }}
+                        >
+                          {/* Toggle button inside overlay */}
+                          <div className='px-6 pt-6 pb-4'>
+                            <button
+                              type='button'
+                              onClick={() => {
+                                setSidebarVisible(true)
+                                setSidebarHovered(false)
+                              }}
+                              className='cursor-pointer hover:opacity-70 transition-opacity'
+                              aria-label='Fijar sidebar'
+                            >
+                              <FilePresentRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
+                            </button>
+                          </div>
+                          {/* Navigation items */}
+                          <ul className='h-auto overflow-y-auto'>
+                            {items.map((it) => {
+                              const selected = active === it.title
+                              return (
+                                <li key={it.title}>
+                                  <button
+                                    className={[
+                                      'w-full text-left px-6 pt-6 pb-4 cursor-pointer',
+                                      selected ? 'bg-[#E9FBF9]' : ''
+                                    ].join(' ')}
+                                    onClick={() => {
+                                      setActive(it.title)
+                                      setSidebarHovered(false)
+                                    }}
+                                  >
+                                    <p className='text-title-lg font-medium text-[var(--color-neutral-900)]'>
+                                      {it.title}
+                                    </p>
+                                    <p className='text-body-sm text-[var(--color-neutral-900)]'>
+                                      {it.body}
+                                    </p>
+                                  </button>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   )}
                   {active === 'Resumen' && (
                     <Resumen onClose={onClose} />

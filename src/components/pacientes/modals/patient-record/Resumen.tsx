@@ -82,18 +82,18 @@ export default function Resumen({ onClose }: ResumenProps) {
 
   return (
     <div
-      className='relative bg-[#f8fafb] overflow-hidden w-[74.75rem] h-full overflow-y-auto'
+      className='bg-[#f8fafb] w-full h-full overflow-y-auto p-8'
       data-node-id='resumen-container'
     >
-      {/* Header con información del paciente - Posicionamiento exacto como ClientSummary */}
+      {/* Header con información del paciente */}
       <div
-        className='absolute content-stretch flex gap-[1.5rem] items-center left-[2rem] top-[2rem]'
+        className='flex gap-6 items-center mb-8'
         data-node-id='resumen-header'
       >
         {/* Avatar */}
         <div className='relative shrink-0'>
           <div
-            className='rounded-[12.5rem] size-[6rem] overflow-hidden bg-[var(--color-neutral-600)]'
+            className='rounded-full size-24 overflow-hidden bg-[var(--color-neutral-600)]'
             data-node-id='resumen-avatar'
           >
             {avatarPreviewUrl ? (
@@ -116,17 +116,17 @@ export default function Resumen({ onClose }: ResumenProps) {
 
         {/* Nombre y edad */}
         <div
-          className='content-stretch flex flex-col gap-[0.5rem] items-start relative shrink-0'
+          className='flex flex-col gap-2 items-start'
           data-node-id='resumen-name-section'
         >
           <p
-            className="font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] not-italic relative shrink-0 text-[#24282c] text-[1.5rem]"
+            className='font-medium leading-8 text-[#24282c] text-2xl'
             data-node-id='resumen-name'
           >
             {mockPatientData.nombre}
           </p>
           <p
-            className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic relative shrink-0 text-[#24282c] text-[1rem]"
+            className='font-normal leading-6 text-[#24282c] text-base'
             data-node-id='resumen-age'
           >
             Edad: {mockPatientData.edad}
@@ -135,51 +135,37 @@ export default function Resumen({ onClose }: ResumenProps) {
 
         {/* Contacto - Alineado a la derecha */}
         <div
-          className='content-stretch flex flex-col gap-[0.5rem] items-end relative shrink-0 ml-auto'
+          className='flex flex-col gap-2 items-end ml-auto'
           data-node-id='resumen-contact'
         >
           <div
-            className='content-stretch flex gap-[0.5rem] items-center relative shrink-0'
+            className='flex gap-2 items-center'
             data-node-id='resumen-email'
           >
-            <div
-              className='relative shrink-0 size-[1.5rem]'
-              data-name='mail'
-            >
-              <MailRounded className='size-6 text-[#24282c]' />
-            </div>
-            <p
-              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic relative shrink-0 text-[#24282c] text-[1rem] text-nowrap whitespace-pre"
-            >
+            <MailRounded className='size-6 text-[#24282c]' />
+            <p className='font-normal leading-6 text-[#24282c] text-base whitespace-nowrap'>
               {mockPatientData.email}
             </p>
           </div>
           <div
-            className='content-stretch flex gap-[0.5rem] items-center relative shrink-0'
+            className='flex gap-2 items-center'
             data-node-id='resumen-phone'
           >
-            <div
-              className='relative shrink-0 size-[1.5rem]'
-              data-name='call'
-            >
-              <CallRounded className='size-6 text-[#24282c]' />
-            </div>
-            <p
-              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic relative shrink-0 text-[#24282c] text-[1rem] text-nowrap whitespace-pre"
-            >
+            <CallRounded className='size-6 text-[#24282c]' />
+            <p className='font-normal leading-6 text-[#24282c] text-base whitespace-nowrap'>
               {mockPatientData.telefono}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Contenido principal - Dos columnas con flex para espaciado automático */}
+      {/* Contenido principal - Grid de dos columnas que se adaptan */}
       <div
-        className='absolute left-[2rem] top-[10rem] w-[70.75rem] flex gap-[1.5rem] items-start'
+        className='grid grid-cols-2 gap-6'
         data-node-id='resumen-content-columns'
       >
         {/* Columna izquierda */}
-        <div className='flex flex-col gap-[1.5rem] w-[34.375rem]'>
+        <div className='flex flex-col gap-6'>
           {/* Próxima cita */}
           <div
             className='bg-white rounded-xl border border-[var(--color-neutral-200)] p-[1.5rem]'
@@ -402,7 +388,7 @@ export default function Resumen({ onClose }: ResumenProps) {
         </div>
 
         {/* Columna derecha */}
-        <div className='flex flex-col gap-[1.5rem] w-[34.375rem]'>
+        <div className='flex flex-col gap-6'>
           {/* Saldo pendiente */}
           <div
             className='bg-white rounded-xl border border-[var(--color-neutral-200)] p-[1.5rem]'

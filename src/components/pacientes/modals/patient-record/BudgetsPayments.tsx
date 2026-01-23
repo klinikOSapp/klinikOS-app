@@ -1704,7 +1704,7 @@ export default function BudgetsPayments({
 
   return (
     <div
-      className='relative w-[74.75rem] h-full bg-neutral-50'
+      className='relative w-full h-full bg-neutral-50'
       data-node-id='3092:10807'
     >
       {/* Header */}

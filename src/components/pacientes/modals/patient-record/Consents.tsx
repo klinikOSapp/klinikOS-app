@@ -91,7 +91,7 @@ export default function Consents({ onClose }: ConsentsProps) {
     return () => document.removeEventListener('mousedown', handleGlobalClick)
   }, [openMenuRowId])
   return (
-    <div className='relative w-[74.75rem] h-full bg-neutral-50'>
+    <div className='relative w-full h-full bg-neutral-50'>
       {/* Header */}
       <div className='absolute left-8 top-10 w-[35.5rem]'>
         <p className='font-inter text-headline-sm text-neutral-900'>

@@ -97,7 +97,7 @@ export default function RxImages({ onClose }: RxImagesProps) {
 
   return (
     <div
-      className='bg-[#f8fafb] relative w-[74.75rem] h-full'
+      className='bg-[#f8fafb] relative w-full h-full'
       data-node-id='457:41'
     >
       {/* Header */}
