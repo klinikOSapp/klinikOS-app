@@ -1,6 +1,6 @@
 'use client'
 
-import { CloseRounded } from '@/components/icons/md3'
+import { CloseRounded, FilePresentRounded } from '@/components/icons/md3'
 import Portal from '@/components/ui/Portal'
 import React from 'react'
 import BudgetsPayments from './BudgetsPayments'
@@ -8,13 +8,17 @@ import ClientSummary from './ClientSummary'
 import ClinicalHistory from './ClinicalHistory'
 import Consents from './Consents'
 import Recetas from './Recetas'
+import Resumen from './Resumen'
 import RxImages from './RxImages'
+import Treatments from './Treatments'
 
 export type PatientRecordTab =
   | 'Resumen'
+  | 'Información General'
   | 'Historial clínico'
+  | 'Tratamientos'
   | 'Imágenes RX'
-  | 'Presupuestos y pagos'
+  | 'Finanzas'
   | 'Consentimientos'
   | 'Recetas'
 
@@ -42,6 +46,7 @@ export default function PatientRecordModal({
   patientName
 }: PatientRecordModalProps) {
   const [active, setActive] = React.useState<PatientRecordTab>(initialTab)
+  const [sidebarVisible, setSidebarVisible] = React.useState(true)
   const [shouldOpenBudget, setShouldOpenBudget] =
     React.useState(openBudgetCreation)
   const [shouldOpenEdit, setShouldOpenEdit] = React.useState(openInEditMode)
@@ -98,6 +103,10 @@ export default function PatientRecordModal({
   const items: Array<{ title: typeof active; body: string }> = [
     {
       title: 'Resumen',
+      body: 'Vista general del paciente con información clave y estadísticas.'
+    },
+    {
+      title: 'Información General',
       body: 'Datos básicos de consulta, alertas, próximas citas, deuda, ...'
     },
     {
@@ -105,11 +114,15 @@ export default function PatientRecordModal({
       body: 'Notas SOAP, odontograma, actos y adjuntos.'
     },
     {
+      title: 'Tratamientos',
+      body: 'Tratamientos pendientes e historial de tratamientos.'
+    },
+    {
       title: 'Imágenes RX',
       body: 'capturas intraorales/fotos antes-después y escáner 3D.'
     },
     {
-      title: 'Presupuestos y pagos',
+      title: 'Finanzas',
       body: 'Cobros, financiación embebida, facturas/recibos y conciliación.'
     },
     {
@@ -169,7 +182,23 @@ export default function PatientRecordModal({
               {/* Content split: left navigation (320px) + right summary */}
               <div className='flex' style={{ height: 'calc(100% - 3.5rem)' }}>
                 {/* Left navigation */}
-                <div className='w-[19rem] shrink-0 border-r border-[var(--color-neutral-200)] box-border overflow-y-auto'>
+                <div
+                  className={[
+                    'shrink-0 border-r border-[var(--color-neutral-200)] box-border overflow-y-auto transition-all duration-300 ease-in-out',
+                    sidebarVisible ? 'w-[19rem]' : 'w-0 border-r-0 overflow-hidden'
+                  ].join(' ')}
+                >
+                  {/* Icono del sidebar arriba a la izquierda - Toggle button */}
+                  <div className='px-6 pt-6 pb-4'>
+                    <button
+                      type='button'
+                      onClick={() => setSidebarVisible(!sidebarVisible)}
+                      className='cursor-pointer hover:opacity-70 transition-opacity'
+                      aria-label={sidebarVisible ? 'Ocultar sidebar' : 'Mostrar sidebar'}
+                    >
+                      <FilePresentRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
+                    </button>
+                  </div>
                   <ul className='h-auto'>
                     {items.map((it) => {
                       const selected = active === it.title
@@ -182,10 +211,10 @@ export default function PatientRecordModal({
                             ].join(' ')}
                             onClick={() => setActive(it.title)}
                           >
-                            <p className='text-title-lg font-medium text-[var(--color-neutral-900)]'>
+                            <p className='text-title-lg font-medium text-[var(--color-neutral-900)] whitespace-nowrap'>
                               {it.title}
                             </p>
-                            <p className='text-body-sm text-[var(--color-neutral-900)]'>
+                            <p className='text-body-sm text-[var(--color-neutral-900)] whitespace-nowrap'>
                               {it.body}
                             </p>
                           </button>
@@ -195,8 +224,27 @@ export default function PatientRecordModal({
                   </ul>
                 </div>
                 {/* Right content: vertical scroll only; never horizontal */}
-                <div className='w-[74.75rem] overflow-y-auto overflow-x-hidden box-border'>
+                <div
+                  className={[
+                    'overflow-y-auto overflow-x-hidden box-border transition-all duration-300 ease-in-out',
+                    sidebarVisible ? 'w-[74.75rem]' : 'w-full'
+                  ].join(' ')}
+                >
+                  {/* Toggle button when sidebar is hidden */}
+                  {!sidebarVisible && (
+                    <button
+                      type='button'
+                      onClick={() => setSidebarVisible(true)}
+                      className='absolute left-4 top-[4.5rem] z-10 cursor-pointer hover:opacity-70 transition-opacity bg-white p-2 rounded-lg shadow-md border border-[var(--color-neutral-200)]'
+                      aria-label='Mostrar sidebar'
+                    >
+                      <FilePresentRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
+                    </button>
+                  )}
                   {active === 'Resumen' && (
+                    <Resumen onClose={onClose} />
+                  )}
+                  {active === 'Información General' && (
                     <ClientSummary
                       onClose={onClose}
                       initialEditMode={shouldOpenEdit}
@@ -210,8 +258,11 @@ export default function PatientRecordModal({
                       onEditModeOpened={() => setShouldOpenClinicalEdit(false)}
                     />
                   )}
+                  {active === 'Tratamientos' && (
+                    <Treatments onClose={onClose} />
+                  )}
                   {active === 'Imágenes RX' && <RxImages onClose={onClose} />}
-                  {active === 'Presupuestos y pagos' && (
+                  {active === 'Finanzas' && (
                     <BudgetsPayments
                       onClose={onClose}
                       openBudgetCreation={shouldOpenBudget}
@@ -233,10 +284,12 @@ export default function PatientRecordModal({
                     />
                   )}
                   {active !== 'Resumen' &&
+                    active !== 'Información General' &&
                     active !== 'Historial clínico' &&
+                    active !== 'Tratamientos' &&
                     active !== 'Imágenes RX' &&
                     active !== 'Consentimientos' &&
-                    active !== 'Presupuestos y pagos' &&
+                    active !== 'Finanzas' &&
                     active !== 'Recetas' && (
                       <div className='p-6 text-body-md text-[var(--color-neutral-900)]'>
                         {active}

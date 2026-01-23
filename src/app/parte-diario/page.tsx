@@ -821,6 +821,40 @@ export default function ParteDiarioPage() {
     setIsBulkStatusMenuOpen(false)
   }
 
+  // Función para manejar las acciones del menú contextual
+  const handleContextMenuAction = (action: ContextMenuAction) => {
+    switch (action) {
+      case 'view-patient':
+        setInitialTab('Resumen')
+        setOpenBudgetCreation(false)
+        setIsFichaModalOpen(true)
+        break
+      case 'view-appointment':
+        setInitialTab('Historial clínico')
+        setOpenBudgetCreation(false)
+        setIsFichaModalOpen(true)
+        break
+      case 'new-appointment':
+        // TODO: Abrir modal de nueva cita
+        console.log('Nueva cita para:', contextMenu.rowData?.name)
+        break
+      case 'new-budget':
+        setInitialTab('Finanzas')
+        setOpenBudgetCreation(true)
+        setIsFichaModalOpen(true)
+        break
+      case 'new-prescription':
+        setInitialTab('Recetas')
+        setOpenBudgetCreation(false)
+        setIsFichaModalOpen(true)
+        break
+      case 'report':
+        // TODO: Implementar reportar
+        console.log('Reportar:', contextMenu.rowData?.name)
+        break
+    }
+  }
+
   // Cerrar menú de estado masivo al hacer clic fuera
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

@@ -35,6 +35,7 @@ const ICON_GLYPHS = {
   EmailRounded: 'mail',
   EuroRounded: 'euro',
   EventAvailableRounded: 'event_available',
+  FilePresentRounded: 'file_present',
   FilterAltRounded: 'filter_alt',
   FilterListRounded: 'filter_list',
   FirstPageRounded: 'first_page',

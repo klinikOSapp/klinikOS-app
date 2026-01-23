@@ -1713,7 +1713,7 @@ export default function BudgetsPayments({
         data-node-id='3092:10815'
       >
         <p className='text-headline-sm text-neutral-900'>
-          Presupuestos y pagos
+          Finanzas
         </p>
         <p className='text-body-sm text-neutral-900'>
           Cobros, financiación embebida, facturas/recibos y conciliación.

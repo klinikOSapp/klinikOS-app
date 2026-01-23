@@ -1,9 +1,8 @@
 'use client'
 
-import React from 'react'
-import { usePathname } from 'next/navigation'
 import { ChevronLeftRounded, ChevronRightRounded } from '@/components/icons/md3'
 import { SidebarProps } from '@/types/layout'
+import { usePathname } from 'next/navigation'
 import CTANav from './CTANav'
 import NavElement from './NavElement'
 
