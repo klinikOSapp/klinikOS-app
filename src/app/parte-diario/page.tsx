@@ -15,6 +15,7 @@ import VisitStatusMenu from '@/components/agenda/VisitStatusMenu'
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import Portal from '@/components/ui/Portal'
+import { type ContextMenuAction } from '@/components/agenda/AppointmentContextMenu'
 import {
   formatDateToISO,
   formatDateToShort,
