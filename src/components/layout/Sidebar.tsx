@@ -156,15 +156,20 @@ export default function Sidebar({
               Gestión
             </p>
             <nav className='mt-2 grid gap-0 -mx-6'>
-              {itemsBottom.map((it) => (
-                <NavElement
-                  key={it.id}
-                  href={it.href}
-                  label={it.label}
-                  icon={it.icon}
-                  collapsed={collapsed}
-                />
-              ))}
+              {itemsBottom.map((it) => {
+                // Check if current path starts with item href (for nested routes like /configuracion/facturacion)
+                const isActive = pathname === it.href || pathname.startsWith(`${it.href}/`)
+                return (
+                  <NavElement
+                    key={it.id}
+                    href={it.href}
+                    label={it.label}
+                    icon={it.icon}
+                    collapsed={collapsed}
+                    isActiveOverride={isActive}
+                  />
+                )
+              })}
             </nav>
           </div>
         )}

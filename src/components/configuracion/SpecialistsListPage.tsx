@@ -3,8 +3,6 @@
 /* eslint-disable @next/next/no-img-element */
 
 import React from 'react'
-import { usePathname, useRouter } from 'next/navigation'
-import configNavItems from './configNavItems'
 import AddProfessionalModal, { ProfessionalFormData } from './AddProfessionalModal'
 
 const ICON_HEART = 'http://localhost:3845/assets/cdb93707ac12a23a8385b257aa1b4e624414e81b.svg'
@@ -331,8 +329,6 @@ function TableRow({
 }
 
 export default function SpecialistsListPage() {
-  const router = useRouter()
-  const pathname = usePathname()
   const [showAddModal, setShowAddModal] = React.useState(false)
   const [data, setData] = React.useState<Specialist[]>(initialSpecialists)
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(
@@ -447,167 +443,125 @@ export default function SpecialistsListPage() {
     : undefined
 
   return (
-    <div className='bg-[var(--color-page-bg)] h-[calc(100dvh-var(--spacing-topbar))] overflow-hidden'>
-      <div className='w-full h-full flex flex-col px-[min(3rem,4vw)] py-[min(2.5rem,3vw)]'>
-        {/* Page Header */}
-        <header className='flex-none mb-[min(2.5rem,3vw)]'>
-          <h1 className='text-title-lg text-[var(--color-neutral-900)]'>Configuración</h1>
-        </header>
+    <>
+      {/* Section Header */}
+      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pl-8 pr-0 h-[2.5rem]'>
+        <p className='text-title-lg font-normal text-[var(--color-neutral-900)]'>
+          Lista de especialistas
+        </p>
+        <button
+          type='button'
+          className='flex items-center gap-2 px-4 py-2 rounded-full border border-neutral-300 bg-[var(--color-page-bg)] hover:bg-neutral-100 transition-colors cursor-pointer self-start sm:self-auto'
+          aria-label='Nuevo especialista'
+          onClick={() => setShowAddModal(true)}
+        >
+          <img src={ICON_ADD} alt='' className='size-6' />
+          <span className='text-body-md text-[var(--color-neutral-900)] whitespace-nowrap'>Nuevo especialista</span>
+        </button>
+      </div>
 
-        {/* Main Content Area */}
-        <div className='flex-1 flex flex-col lg:flex-row gap-0 rounded-lg overflow-hidden min-h-0'>
-          {/* Left Navigation Rail */}
-          <aside className='w-full lg:w-[min(19rem,25vw)] flex-none border-b lg:border-b-0 lg:border-r border-neutral-100 bg-[var(--color-surface)]'>
-            <nav className='flex lg:flex-col overflow-x-auto lg:overflow-x-visible divide-x lg:divide-x-0 lg:divide-y divide-neutral-100'>
-              {configNavItems.map((item, idx) => {
-                const isActive = item.href
-                  ? pathname === item.href
-                  : idx === 0 && pathname === '/configuracion'
-                return (
-                  <button
-                    key={item.label}
-                    type='button'
-                    onClick={() => {
-                      if (item.href) router.push(item.href)
-                    }}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={[
-                      'text-left w-full min-w-max lg:min-w-0 px-[min(1.5rem,2vw)] py-[min(1.25rem,1.5vw)] flex flex-col gap-[min(0.25rem,0.5vw)]',
-                      'text-title-sm whitespace-nowrap lg:whitespace-normal',
-                      isActive
-                        ? 'bg-[var(--color-brand-50)] text-[var(--color-brand-900)] font-medium'
-                        : 'text-[var(--color-neutral-800)] font-normal hover:bg-[var(--color-brand-50)] hover:text-[var(--color-brand-900)] transition-colors'
-                    ].join(' ')}
-                  >
-                    {item.label}
-                  </button>
-                )
-              })}
-            </nav>
-          </aside>
-
-          {/* Right Content */}
-          <section className='flex-1 flex flex-col min-w-0 bg-[var(--color-page-bg)] overflow-hidden'>
-            {/* Section Header */}
-            <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-[min(1rem,1.5vw)] px-[min(2rem,3vw)] py-[min(1rem,2vw)] lg:py-0 lg:pt-0'>
-              <p className='text-title-lg font-normal text-[var(--color-neutral-900)]'>
-                Lista de especialistas
-              </p>
+      {/* Content Card */}
+      <div className='flex-1 ml-8 mr-0 mt-6 mb-0 min-h-0'>
+        <div className='bg-[var(--color-surface)] border border-neutral-200 rounded-t-lg h-full overflow-hidden flex flex-col'>
+          {/* Toolbar */}
+          <div className='flex-none flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 min-h-[4rem]'>
+            <div className='flex items-center'>
+              <div className='flex items-center bg-[var(--color-brand-0)] text-[var(--color-brand-700)] px-2 py-1 rounded-l border border-[var(--color-brand-200)]'>
+                <span className='text-body-sm'>
+                  {selectionCount === 0
+                    ? '0 seleccionado'
+                    : `${selectionCount} seleccionado${selectionCount > 1 ? 's' : ''}`}
+                </span>
+              </div>
               <button
                 type='button'
-                className='flex items-center gap-[min(0.5rem,1vw)] px-[min(1rem,1.5vw)] py-[min(0.5rem,1vw)] rounded-full border border-neutral-300 bg-[var(--color-page-bg)] hover:bg-neutral-100 transition-colors cursor-pointer self-start sm:self-auto'
-                aria-label='Nuevo especialista'
-                onClick={() => setShowAddModal(true)}
+                className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-2 py-1 border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+                onClick={selectionCount === 1 ? handleOpenEdit : undefined}
+                disabled={selectionCount !== 1}
               >
-                <img src={ICON_ADD} alt='' className='size-[min(1.5rem,2vw)]' />
-                <span className='text-body-md text-[var(--color-neutral-900)] whitespace-nowrap'>Nuevo especialista</span>
+                <span className='text-body-sm'>Editar</span>
+              </button>
+              <button
+                type='button'
+                className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-2 py-1 border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors'
+              >
+                <span className='text-body-sm'>Desactivar</span>
+              </button>
+              <button
+                type='button'
+                className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-2 py-1 border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors'
+              >
+                <img src={ICON_DELETE} alt='Eliminar' className='size-5' />
+              </button>
+              <button
+                type='button'
+                className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-2 py-1 rounded-r border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors'
+              >
+                <img src={ICON_MORE} alt='Más opciones' className='size-5' />
               </button>
             </div>
 
-            {/* Content Card */}
-            <div className='flex-1 mx-[min(2rem,3vw)] mt-[min(1.5rem,2vw)] mb-[min(2rem,3vw)] min-h-0'>
-              <div className='bg-[var(--color-surface)] border border-neutral-200 rounded-lg h-full overflow-hidden flex flex-col'>
-                {/* Toolbar */}
-                <div className='flex-none flex flex-col sm:flex-row sm:items-center justify-between gap-[min(1rem,1.5vw)] px-[min(1.5rem,2vw)] py-[min(1rem,1.5vw)]'>
-                  <div className='flex items-center'>
-                    <div className='flex items-center bg-[var(--color-brand-0)] text-[var(--color-brand-700)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] rounded-l border border-[var(--color-brand-200)]'>
-                      <span className='text-body-sm'>
-                        {selectionCount === 0
-                          ? '0 seleccionado'
-                          : `${selectionCount} seleccionado${selectionCount > 1 ? 's' : ''}`}
-                      </span>
-                    </div>
-                    <button
-                      type='button'
-                      className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
-                      onClick={selectionCount === 1 ? handleOpenEdit : undefined}
-                      disabled={selectionCount !== 1}
-                    >
-                      <span className='text-body-sm'>Editar</span>
-                    </button>
-                    <button
-                      type='button'
-                      className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors'
-                    >
-                      <span className='text-body-sm'>Desactivar</span>
-                    </button>
-                    <button
-                      type='button'
-                      className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors'
-                    >
-                      <img src={ICON_DELETE} alt='Eliminar' className='size-[min(1.25rem,2vw)]' />
-                    </button>
-                    <button
-                      type='button'
-                      className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] rounded-r border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors'
-                    >
-                      <img src={ICON_MORE} alt='Más opciones' className='size-[min(1.25rem,2vw)]' />
-                    </button>
-                  </div>
-
-                  <div className='flex items-center gap-[min(0.5rem,1vw)]'>
-                    <button
-                      type='button'
-                      className='flex items-center justify-center size-[min(2rem,3vw)] rounded-full hover:bg-neutral-100 transition-colors'
-                      aria-label='Buscar'
-                    >
-                      <img src={ICON_SEARCH} alt='' className='size-[min(1.5rem,2vw)]' />
-                    </button>
-                    <button
-                      type='button'
-                      className='flex items-center gap-[min(0.25rem,0.5vw)] px-[min(0.5rem,1vw)] py-[min(0.25rem,0.5vw)] rounded-full border border-[var(--color-neutral-700)] hover:bg-neutral-100 transition-colors'
-                    >
-                      <img src={ICON_FILTER} alt='' className='size-[min(1.5rem,2vw)]' />
-                      <span className='text-body-sm text-[var(--color-neutral-700)]'>Todos</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Table with scroll */}
-                <div className='flex-1 overflow-auto px-[min(1.5rem,2vw)] pb-[min(1.5rem,2vw)]'>
-                  <div className='border border-neutral-300 rounded overflow-hidden min-w-[74rem]'>
-                    <TableHeader allSelected={allSelected} indeterminate={indeterminate} onToggleAll={toggleAll} />
-                    {data.map((s) => (
-                      <TableRow
-                        key={s.id}
-                        specialist={s}
-                        selected={selectedIds.has(s.id)}
-                        onToggle={() => toggleRow(s.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Pagination */}
-                <div className='flex-none flex items-center justify-end gap-[min(0.75rem,1vw)] px-[min(1.5rem,2vw)] pb-[min(1rem,1.5vw)] text-[var(--color-neutral-700)]'>
-                  <div className='flex items-center gap-[min(0.25rem,0.5vw)]'>
-                    <button type='button' className='p-[min(0.25rem,0.5vw)] hover:bg-neutral-100 rounded transition-colors'>
-                      <img src={ICON_FIRST} alt='Primera página' className='size-[min(1.5rem,2vw)]' />
-                    </button>
-                    <button type='button' className='p-[min(0.25rem,0.5vw)] hover:bg-neutral-100 rounded transition-colors'>
-                      <img src={ICON_PREV} alt='Anterior' className='size-[min(1.5rem,2vw)]' />
-                    </button>
-                  </div>
-                  <div className='flex items-center gap-[min(0.375rem,0.5vw)]'>
-                    <span className='text-body-sm font-bold underline text-[var(--color-neutral-900)]'>1</span>
-                    <span className='text-body-sm text-[var(--color-neutral-500)]'>2</span>
-                    <span className='text-body-sm text-[var(--color-neutral-500)]'>...</span>
-                    <span className='text-body-sm text-[var(--color-neutral-500)]'>12</span>
-                  </div>
-                  <div className='flex items-center gap-[min(0.25rem,0.5vw)]'>
-                    <button type='button' className='p-[min(0.25rem,0.5vw)] hover:bg-neutral-100 rounded transition-colors'>
-                      <img src={ICON_NEXT} alt='Siguiente' className='size-[min(1.5rem,2vw)]' />
-                    </button>
-                    <button type='button' className='p-[min(0.25rem,0.5vw)] hover:bg-neutral-100 rounded transition-colors'>
-                      <img src={ICON_LAST} alt='Última página' className='size-[min(1.5rem,2vw)]' />
-                    </button>
-                  </div>
-                </div>
-              </div>
+            <div className='flex items-center gap-2'>
+              <button
+                type='button'
+                className='flex items-center justify-center size-8 rounded-full hover:bg-neutral-100 transition-colors'
+                aria-label='Buscar'
+              >
+                <img src={ICON_SEARCH} alt='' className='size-6' />
+              </button>
+              <button
+                type='button'
+                className='flex items-center gap-1 px-2 py-1 rounded-full border border-[var(--color-neutral-700)] hover:bg-neutral-100 transition-colors'
+              >
+                <img src={ICON_FILTER} alt='' className='size-6' />
+                <span className='text-body-sm text-[var(--color-neutral-700)]'>Todos</span>
+              </button>
             </div>
-          </section>
+          </div>
+
+          {/* Table with scroll */}
+          <div className='flex-1 overflow-auto px-6 pb-6'>
+            <div className='border border-neutral-300 rounded overflow-hidden min-w-[74rem]'>
+              <TableHeader allSelected={allSelected} indeterminate={indeterminate} onToggleAll={toggleAll} />
+              {data.map((s) => (
+                <TableRow
+                  key={s.id}
+                  specialist={s}
+                  selected={selectedIds.has(s.id)}
+                  onToggle={() => toggleRow(s.id)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Pagination */}
+          <div className='flex-none flex items-center justify-end gap-3 px-6 pb-4 text-[var(--color-neutral-700)]'>
+            <div className='flex items-center gap-1'>
+              <button type='button' className='p-1 hover:bg-neutral-100 rounded transition-colors'>
+                <img src={ICON_FIRST} alt='Primera página' className='size-6' />
+              </button>
+              <button type='button' className='p-1 hover:bg-neutral-100 rounded transition-colors'>
+                <img src={ICON_PREV} alt='Anterior' className='size-6' />
+              </button>
+            </div>
+            <div className='flex items-center gap-1.5'>
+              <span className='text-body-sm font-bold underline text-[var(--color-neutral-900)]'>1</span>
+              <span className='text-body-sm text-[var(--color-neutral-500)]'>2</span>
+              <span className='text-body-sm text-[var(--color-neutral-500)]'>...</span>
+              <span className='text-body-sm text-[var(--color-neutral-500)]'>12</span>
+            </div>
+            <div className='flex items-center gap-1'>
+              <button type='button' className='p-1 hover:bg-neutral-100 rounded transition-colors'>
+                <img src={ICON_NEXT} alt='Siguiente' className='size-6' />
+              </button>
+              <button type='button' className='p-1 hover:bg-neutral-100 rounded transition-colors'>
+                <img src={ICON_LAST} alt='Última página' className='size-6' />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
+
       <AddProfessionalModal
         open={showAddModal}
         onClose={() => {
@@ -619,7 +573,6 @@ export default function SpecialistsListPage() {
         submitLabel={editingId ? 'Guardar cambios' : 'Añadir profesional'}
         initialData={modalInitialData}
       />
-    </div>
+    </>
   )
 }
-
