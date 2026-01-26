@@ -273,7 +273,7 @@ function CashDonutGauge({ donutData }: { donutData: { data: Array<{ name: string
           top: `${DONUT_LABEL_OFFSET_REM}rem`
         }}
       >
-        Cobrado
+        Cobrado vs Facturado
       </p>
 
       {chartDimensions.widthPx > 0 && chartDimensions.heightPx > 0 ? (
@@ -319,6 +319,17 @@ function CashDonutGauge({ donutData }: { donutData: { data: Array<{ name: string
             €
           </span>
         </div>
+        {donutData.target - donutData.value > 0 && (
+          <p
+            className='text-label-sm font-medium'
+            style={{ color: 'var(--color-warning-600)' }}
+          >
+            {(donutData.target - donutData.value).toLocaleString('es-ES', {
+              minimumFractionDigits: 0
+            })}{' '}
+            € pdte cobrar
+          </p>
+        )}
       </div>
     </div>
   )

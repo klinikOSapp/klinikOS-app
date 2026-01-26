@@ -1,7 +1,7 @@
 'use client'
 
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
-import type { CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import type { SpecialtyFilter } from './gestionTypes'
 
@@ -317,6 +317,28 @@ type AccountingStyle = CSSProperties &
 
 const DONUT_CARD_WIDTH = 400
 const DONUT_CARD_HEIGHT = 248
+
+// Constantes para el donut responsive (misma lógica que CashSummaryCard)
+const BASE_ROOT_FONT_SIZE_PX = 16
+const DONUT_HEIGHT_RATIO = 186.093 / 307 // mantener proporción real del semi-donut
+const DONUT_SCALE = 1.55
+const DONUT_MAX_WIDTH_REM = 25 // máximo ancho del donut
+const DONUT_MIN_WIDTH_REM = 10 // mínimo ancho del donut
+
+const getRootFontSize = (allowWindow = false) => {
+  if (!allowWindow || typeof window === 'undefined') return BASE_ROOT_FONT_SIZE_PX
+  const value = parseFloat(
+    getComputedStyle(document.documentElement).fontSize ||
+      String(BASE_ROOT_FONT_SIZE_PX)
+  )
+  return Number.isFinite(value) ? value : BASE_ROOT_FONT_SIZE_PX
+}
+
+const remToPx = (rem: number, rootFontSize = BASE_ROOT_FONT_SIZE_PX) =>
+  rem * rootFontSize
+
+const pxToRem = (px: number, rootFontSize = BASE_ROOT_FONT_SIZE_PX) =>
+  px / rootFontSize
 // Altura total del stack lateral (desde el top de la primera card hasta el bottom de la segunda) en Figma: top1=64, height1=248, top2=160, height2=177 → span=273px
 const STACK_TOTAL_SPAN_PX = 273
 const STACK_SCALE = Number((DONUT_CARD_HEIGHT / STACK_TOTAL_SPAN_PX).toFixed(6)) // ≈0.908058, iguala la altura total del stack al alto del donut
@@ -404,88 +426,15 @@ export default function AccountingPanel({
         </article>
       ))}
 
-      <div
-        className='absolute rounded-lg bg-surface shadow-[0px_4px_24px_rgba(36,40,44,0.08)]'
+      <AccountingDonut
+        donut={donut}
         style={{
           left: toWidth(457),
           right: toWidth(205),
           top: toHeight(64),
-          height: toHeight(DONUT_CARD_HEIGHT),
-          minWidth: '10rem',
-          padding: '1rem'
+          height: toHeight(DONUT_CARD_HEIGHT)
         }}
-      >
-        <p className='text-label-md text-fg-secondary'>Cobrado vs Facturado</p>
-        <div
-          className='relative mx-auto mt-[1rem] flex items-center justify-center outline-none'
-          style={{
-            width: 'clamp(100%, 20vw + 70%, 170%)',
-            height: 'clamp(100%, 20vw + 70%, 170%)',
-            position: 'absolute',
-            left: '50%',
-            top: 'clamp(0%, 5%, 10%)',
-            transform: 'translate(-50%, -50%)',
-            transformOrigin: 'center center',
-            minWidth: 0,
-            minHeight: 0
-          }}
-          tabIndex={-1}
-        >
-          <ResponsiveContainer width='100%' height='100%'>
-            <PieChart style={{ outline: 'none' }}>
-              <Pie
-                data={donut.data}
-                dataKey='value'
-                startAngle={180}
-                endAngle={0}
-                innerRadius='85%'
-                outerRadius='100%'
-                cx='50%'
-                cy='100%'
-                stroke='transparent'
-              >
-                {donut.data.map((slice) => (
-                  <Cell key={slice.name} fill={slice.color} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className='absolute left-1/2 top-[78%] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-card-row text-center text-fg-secondary'>
-            <p
-              className='text-headline-lg text-fg-secondary'
-              style={{ color: 'var(--color-neutral-600)' }}
-            >
-              {donut.valueLabel}
-            </p>
-            <p className='flex items-baseline gap-[0.5rem] text-label-sm leading-[1rem]'>
-              <span
-                className='font-medium'
-                style={{
-                  color: 'var(--color-neutral-600)',
-                  fontSize: '0.6875rem',
-                  lineHeight: '1rem'
-                }}
-              >
-                de
-              </span>
-              <span
-                className='text-title-sm font-medium leading-[1.75rem]'
-                style={{ color: 'var(--color-neutral-600)' }}
-              >
-                {donut.targetLabel}
-              </span>
-            </p>
-            {donut.pendingValue > 0 && (
-              <p
-                className='text-label-sm font-medium'
-                style={{ color: 'var(--color-warning-600)' }}
-              >
-                {donut.pendingLabel} pdte cobrar
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
+      />
 
       <div
         className='absolute'
@@ -534,5 +483,157 @@ export default function AccountingPanel({
         ))}
       </div>
     </section>
+  )
+}
+
+// Componente del donut con ResizeObserver (misma lógica que CashSummaryCard)
+function AccountingDonut({
+  donut,
+  style
+}: {
+  donut: {
+    data: Array<{ name: string; value: number; color: string }>
+    valueLabel: string
+    targetLabel: string
+    pendingValue: number
+    pendingLabel: string
+  }
+  style: CSSProperties
+}) {
+  const donutCardRef = useRef<HTMLDivElement | null>(null)
+  const [chartDimensions, setChartDimensions] = useState(() => {
+    const rootFontSize = BASE_ROOT_FONT_SIZE_PX
+    const widthPx = remToPx(DONUT_MAX_WIDTH_REM, rootFontSize)
+    return {
+      widthPx,
+      heightPx: widthPx * DONUT_HEIGHT_RATIO
+    }
+  })
+  const [rootFontSize, setRootFontSize] = useState(BASE_ROOT_FONT_SIZE_PX)
+
+  useEffect(() => {
+    setRootFontSize(getRootFontSize(true))
+
+    const node = donutCardRef.current
+    if (!node || typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      const measuredRootFontSize = getRootFontSize(true)
+      const maxWidthPx = remToPx(DONUT_MAX_WIDTH_REM, measuredRootFontSize)
+      const minWidthPx = remToPx(DONUT_MIN_WIDTH_REM, measuredRootFontSize)
+
+      const availableWidth = entry.contentRect.width
+      const widthPx = Math.min(maxWidthPx, Math.max(minWidthPx, availableWidth))
+
+      const maxHeightPx = entry.contentRect.height
+      const heightPx = Math.min(
+        widthPx * DONUT_HEIGHT_RATIO,
+        Math.max(0, maxHeightPx)
+      )
+
+      setChartDimensions((prev) => {
+        if (prev.widthPx === widthPx && prev.heightPx === heightPx) return prev
+        return { widthPx, heightPx }
+      })
+    })
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  const chartWrapperStyles: CSSProperties = {
+    position: 'absolute',
+    left: '50%',
+    top: '16%',
+    transform: 'translate(-50%, -50%)',
+    width: `${pxToRem(chartDimensions.widthPx * DONUT_SCALE, rootFontSize)}rem`,
+    height: `${pxToRem(chartDimensions.heightPx * DONUT_SCALE, rootFontSize)}rem`
+  }
+
+  const valueStackStyles: CSSProperties = {
+    position: 'absolute',
+    left: '50%',
+    top: '68%',
+    transform: 'translate(-50%, -50%)',
+    textAlign: 'center'
+  }
+
+  return (
+    <div
+      ref={donutCardRef}
+      className='absolute rounded-lg bg-surface shadow-[0px_4px_24px_rgba(36,40,44,0.08)]'
+      style={{
+        ...style,
+        minWidth: '10rem',
+        padding: '1rem',
+        overflow: 'hidden'
+      }}
+    >
+      <p className='text-label-md text-fg-secondary'>Cobrado vs Facturado</p>
+
+      {chartDimensions.widthPx > 0 && chartDimensions.heightPx > 0 ? (
+        <div className='absolute' style={chartWrapperStyles} aria-hidden='true'>
+          <ResponsiveContainer width='100%' height='100%'>
+            <PieChart style={{ outline: 'none' }}>
+              <Pie
+                data={donut.data}
+                dataKey='value'
+                startAngle={180}
+                endAngle={0}
+                innerRadius='85%'
+                outerRadius='100%'
+                cx='50%'
+                cy='100%'
+                stroke='transparent'
+              >
+                {donut.data.map((slice) => (
+                  <Cell key={slice.name} fill={slice.color} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      ) : null}
+
+      <div
+        className='absolute flex flex-col items-center gap-[0.25rem] text-center text-neutral-600'
+        style={valueStackStyles}
+      >
+        <p
+          className='text-headline-lg text-fg-secondary'
+          style={{ color: 'var(--color-neutral-600)' }}
+        >
+          {donut.valueLabel}
+        </p>
+        <p className='flex items-baseline gap-[0.5rem] text-label-sm leading-[1rem]'>
+          <span
+            className='font-medium'
+            style={{
+              color: 'var(--color-neutral-600)',
+              fontSize: '0.6875rem',
+              lineHeight: '1rem'
+            }}
+          >
+            de
+          </span>
+          <span
+            className='text-title-sm font-medium leading-[1.75rem]'
+            style={{ color: 'var(--color-neutral-600)' }}
+          >
+            {donut.targetLabel}
+          </span>
+        </p>
+        {donut.pendingValue > 0 && (
+          <p
+            className='text-label-sm font-medium'
+            style={{ color: 'var(--color-warning-600)' }}
+          >
+            {donut.pendingLabel} pdte cobrar
+          </p>
+        )}
+      </div>
+    </div>
   )
 }

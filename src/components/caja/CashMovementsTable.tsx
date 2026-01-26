@@ -6,6 +6,7 @@ import type { CSSProperties, FormEvent, ReactNode } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
+import Portal from '@/components/ui/Portal'
 import { useAppointments, type PaymentRecord } from '@/context/AppointmentsContext'
 
 type InvoiceStatus = 'Cobrado' | 'Por cobrar'
@@ -164,7 +165,6 @@ const MOVEMENTS: CashMovement[] = [
 
 const TABLE_WIDTH_REM = 101 // 1616px ÷ 16
 const TABLE_HEIGHT_REM = 27.5 // 440px ÷ 16
-const SEARCH_WIDTH_REM = 23 // 368px ÷ 16
 const CONTROL_HEIGHT_REM = 2 // 32px ÷ 16
 
 const getHeaderCellClasses = (
@@ -275,9 +275,6 @@ export default function CashMovementsTable({
   >([])
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const [scaleFactor, setScaleFactor] = useState(1)
-  const [openStatusMenu, setOpenStatusMenu] = useState<string | null>(null)
-  const [openProducedMenu, setOpenProducedMenu] = useState<string | null>(null)
-  const [openMethodMenu, setOpenMethodMenu] = useState<string | null>(null)
   const [openActionsMenu, setOpenActionsMenu] = useState<string | null>(null)
   const [rowStatuses, setRowStatuses] = useState<Record<string, InvoiceStatus>>(
     () => {
@@ -314,16 +311,7 @@ export default function CashMovementsTable({
 
     const handleOutsideClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null
-      if (
-        target?.closest('[data-status-dropdown]') ||
-        target?.closest('[data-produced-dropdown]') ||
-        target?.closest('[data-method-dropdown]') ||
-        target?.closest('[data-actions-dropdown]')
-      )
-        return
-      setOpenStatusMenu(null)
-      setOpenProducedMenu(null)
-      setOpenMethodMenu(null)
+      if (target?.closest('[data-actions-dropdown]')) return
       setOpenActionsMenu(null)
     }
 
@@ -421,20 +409,7 @@ export default function CashMovementsTable({
         render: (movement) => {
           const id = `${movement.time}-${movement.patient}`
           const currentStatus = rowStatuses[id] ?? movement.status
-          return (
-            <StatusBadge
-              id={id}
-              status={currentStatus}
-              isOpen={openStatusMenu === id}
-              onToggle={() =>
-                setOpenStatusMenu((prev) => (prev === id ? null : id))
-              }
-              onSelect={(nextStatus) => {
-                setRowStatuses((prev) => ({ ...prev, [id]: nextStatus }))
-                setOpenStatusMenu(null)
-              }}
-            />
-          )
+          return <StaticStatusBadge status={currentStatus} />
         }
       },
       {
@@ -444,20 +419,7 @@ export default function CashMovementsTable({
         render: (movement) => {
           const id = `${movement.time}-${movement.patient}`
           const currentProduced = rowProduced[id] ?? movement.produced
-          return (
-            <ProductionBadge
-              id={id}
-              state={currentProduced}
-              isOpen={openProducedMenu === id}
-              onToggle={() =>
-                setOpenProducedMenu((prev) => (prev === id ? null : id))
-              }
-              onSelect={(nextState) => {
-                setRowProduced((prev) => ({ ...prev, [id]: nextState }))
-                setOpenProducedMenu(null)
-              }}
-            />
-          )
+          return <StaticProductionBadge state={currentProduced} />
         }
       },
       {
@@ -468,19 +430,9 @@ export default function CashMovementsTable({
           const id = `${movement.time}-${movement.patient}`
           const currentMethod = rowMethods[id] ?? movement.method
           return (
-            <PaymentMethodBadge
-              id={id}
-              method={currentMethod}
-              options={methodOptions}
-              isOpen={openMethodMenu === id}
-              onToggle={() =>
-                setOpenMethodMenu((prev) => (prev === id ? null : id))
-              }
-              onSelect={(nextMethod) => {
-                setRowMethods((prev) => ({ ...prev, [id]: nextMethod }))
-                setOpenMethodMenu(null)
-              }}
-            />
+            <span className='text-body-md text-[var(--color-neutral-900)]'>
+              {currentMethod}
+            </span>
           )
         }
       },
@@ -497,27 +449,60 @@ export default function CashMovementsTable({
         align: 'center',
         cellClassName: 'px-0',
         cellStyle: { paddingLeft: 0, paddingRight: 0 },
-        render: (movement) => (
-          <RowActionsButton
-            ariaLabel={`Acciones para ${movement.patient}`}
-            iconColor='var(--color-neutral-900)'
-            isOpen={openActionsMenu === `${movement.time}-${movement.patient}`}
-            onToggle={() => {
-              const id = `${movement.time}-${movement.patient}`
-              setOpenActionsMenu((prev) => (prev === id ? null : id))
-            }}
-            onViewPatient={() => {
-              onViewPatient?.(movement)
-              setOpenActionsMenu(null)
-            }}
-          />
-        )
+        render: (movement) => {
+          const id = `${movement.time}-${movement.patient}`
+          const currentStatus = rowStatuses[id] ?? movement.status
+          const currentProduced = rowProduced[id] ?? movement.produced
+          const currentMethod = rowMethods[id] ?? movement.method
+          return (
+            <RowActionsButton
+              ariaLabel={`Acciones para ${movement.patient}`}
+              iconColor='var(--color-neutral-900)'
+              isOpen={openActionsMenu === id}
+              currentStatus={currentStatus}
+              currentProduced={currentProduced}
+              currentMethod={currentMethod}
+              methodOptions={methodOptions}
+              onToggle={() => {
+                setOpenActionsMenu((prev) => (prev === id ? null : id))
+              }}
+              onViewPatient={() => {
+                onViewPatient?.(movement)
+                setOpenActionsMenu(null)
+              }}
+              onViewInvoice={() => {
+                // TODO: Implementar ver factura
+                console.log('Ver factura para:', movement.patient)
+                setOpenActionsMenu(null)
+              }}
+              onNewPayment={() => {
+                // TODO: Implementar nuevo pago
+                console.log('Nuevo pago para:', movement.patient)
+                setOpenActionsMenu(null)
+              }}
+              onPrintReceipt={() => {
+                // TODO: Implementar impresión de recibo
+                console.log('Imprimir recibo para:', movement.patient)
+                setOpenActionsMenu(null)
+              }}
+              onStatusChange={(newStatus) => {
+                setRowStatuses((prev) => ({ ...prev, [id]: newStatus }))
+                setOpenActionsMenu(null)
+              }}
+              onProducedChange={(newProduced) => {
+                setRowProduced((prev) => ({ ...prev, [id]: newProduced }))
+                setOpenActionsMenu(null)
+              }}
+              onMethodChange={(newMethod) => {
+                setRowMethods((prev) => ({ ...prev, [id]: newMethod }))
+                setOpenActionsMenu(null)
+              }}
+            />
+          )
+        }
       }
     ]
   }, [
-    openStatusMenu,
-    openProducedMenu,
-    openMethodMenu,
     openActionsMenu,
     rowStatuses,
     rowProduced,
@@ -573,15 +558,27 @@ export default function CashMovementsTable({
         width: '100%'
       }}
     >
-      <div className='flex flex-wrap items-end gap-gapsm'>
-        <SearchInput value={query} onChange={setQuery} />
+      <div className='flex flex-wrap items-center justify-between gap-gapsm'>
         <DateRangeFilter
           fromValue={fromDateInput}
           toValue={toDateInput}
           onFromChange={setFromDateInput}
           onToChange={setToDateInput}
         />
-        <div className='ml-auto flex flex-wrap items-center gap-gapsm'>
+        <div className='flex flex-wrap items-center gap-2'>
+          <div className='flex items-center gap-2 border-b border-[var(--color-neutral-900)] px-2 py-1'>
+            <MD3Icon
+              name='SearchRounded'
+              size='sm'
+              className='text-[var(--color-neutral-900)]'
+            />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder='Buscar por paciente, concepto,...'
+              className='bg-transparent outline-none text-body-sm text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-900)] w-[14rem]'
+            />
+          </div>
           <FilterChip
             label='Todos'
             icon='filter_alt'
@@ -660,37 +657,6 @@ export default function CashMovementsTable({
         <PaginationIcon icon='last_page' ariaLabel='Última página' />
       </div>
     </section>
-  )
-}
-
-function SearchInput({
-  value,
-  onChange
-}: {
-  value: string
-  onChange: (value: string) => void
-}) {
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-  }
-
-  return (
-    <form
-      onSubmit={handleSubmit}
-      className='flex items-center gap-2 border-b border-[var(--color-neutral-900)] px-2 py-1 text-neutral-600'
-      style={{ width: `min(${SEARCH_WIDTH_REM}rem, 100%)` }}
-    >
-      <span className='material-symbols-rounded text-[var(--color-neutral-900)]'>
-        search
-      </span>
-      <input
-        className='w-full bg-transparent text-body-sm text-[var(--color-neutral-900)] placeholder:[color:var(--color-neutral-900)] focus:outline-none'
-        placeholder='Buscar'
-        aria-label='Buscar en caja diaria'
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </form>
   )
 }
 
@@ -895,6 +861,37 @@ function ProductionBadge({
   )
 }
 
+// Badges estáticos (sin dropdown) - solo se modifican desde acciones rápidas
+function StaticStatusBadge({ status }: { status: InvoiceStatus }) {
+  const isCollected = status === 'Cobrado'
+  const badgeClass = isCollected
+    ? 'bg-brand-50 text-brand-900'
+    : 'bg-warning-50 text-warning-200'
+
+  return (
+    <span
+      className={`inline-flex h-[2rem] items-center justify-center rounded-full px-[0.75rem] text-label-sm font-medium ${badgeClass}`}
+    >
+      {status}
+    </span>
+  )
+}
+
+function StaticProductionBadge({ state }: { state: ProductionState }) {
+  const isDone = state === 'Hecho'
+  const badgeClass = isDone
+    ? 'bg-success-200 text-success-800'
+    : 'bg-neutral-200 text-neutral-700'
+
+  return (
+    <span
+      className={`inline-flex h-[2rem] items-center justify-center rounded-full px-[0.75rem] text-label-sm font-medium ${badgeClass}`}
+    >
+      {state}
+    </span>
+  )
+}
+
 function PaymentMethodBadge({
   id,
   method,
@@ -976,22 +973,121 @@ function RowActionsButton({
   iconColor,
   isOpen,
   onToggle,
-  onViewPatient
+  onViewPatient,
+  onViewInvoice,
+  onNewPayment,
+  onPrintReceipt,
+  onStatusChange,
+  onProducedChange,
+  onMethodChange,
+  currentStatus,
+  currentProduced,
+  currentMethod,
+  methodOptions
 }: {
   ariaLabel: string
   iconColor: string
   isOpen: boolean
   onToggle: () => void
   onViewPatient: () => void
+  onViewInvoice?: () => void
+  onNewPayment?: () => void
+  onPrintReceipt?: () => void
+  onStatusChange?: (status: InvoiceStatus) => void
+  onProducedChange?: (produced: ProductionState) => void
+  onMethodChange?: (method: string) => void
+  currentStatus?: InvoiceStatus
+  currentProduced?: ProductionState
+  currentMethod?: string
+  methodOptions?: string[]
 }) {
+  const [showStatusSubmenu, setShowStatusSubmenu] = useState(false)
+  const [showProducedSubmenu, setShowProducedSubmenu] = useState(false)
+  const [showMethodSubmenu, setShowMethodSubmenu] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [menuPosition, setMenuPosition] = useState<{
+    top?: number
+    bottom?: number
+    right: number
+  }>({ right: 0 })
+
+  const statusOptions: InvoiceStatus[] = ['Cobrado', 'Por cobrar']
+  const producedOptions: ProductionState[] = ['Hecho', 'Pendiente']
+
+  // Calcular posición óptima del menú cuando se abre
+  useEffect(() => {
+    if (!isOpen || !buttonRef.current) return
+
+    const calculatePosition = () => {
+      const buttonRect = buttonRef.current!.getBoundingClientRect()
+      const menuHeight = 420 // Altura aproximada del menú con todos los submenús cerrados
+      const viewportHeight = window.innerHeight
+      const viewportWidth = window.innerWidth
+      const margin = 8
+
+      const spaceBelow = viewportHeight - buttonRect.bottom
+      const spaceAbove = buttonRect.top
+
+      // Calcular posición horizontal (alineado a la derecha del botón)
+      const right = Math.max(margin, viewportWidth - buttonRect.right)
+
+      // Determinar si abrir arriba o abajo
+      if (spaceBelow >= menuHeight + margin) {
+        // Hay espacio abajo
+        setMenuPosition({
+          top: buttonRect.bottom + margin,
+          right
+        })
+      } else if (spaceAbove >= menuHeight + margin) {
+        // Hay espacio arriba
+        setMenuPosition({
+          bottom: viewportHeight - buttonRect.top + margin,
+          right
+        })
+      } else {
+        // No hay espacio suficiente ni arriba ni abajo, centrar verticalmente
+        const centeredTop = Math.max(
+          margin,
+          Math.min(
+            viewportHeight - menuHeight - margin,
+            buttonRect.top + buttonRect.height / 2 - menuHeight / 2
+          )
+        )
+        setMenuPosition({
+          top: centeredTop,
+          right
+        })
+      }
+    }
+
+    calculatePosition()
+
+    // Recalcular en scroll y resize
+    window.addEventListener('scroll', calculatePosition, true)
+    window.addEventListener('resize', calculatePosition)
+
+    return () => {
+      window.removeEventListener('scroll', calculatePosition, true)
+      window.removeEventListener('resize', calculatePosition)
+    }
+  }, [isOpen])
+
   return (
     <div className='relative inline-flex' data-actions-dropdown>
       <button
+        ref={buttonRef}
         type='button'
         aria-label={ariaLabel}
         onClick={(event) => {
           event.stopPropagation()
           onToggle()
+          // Reset submenus cuando se cierra
+          if (isOpen) {
+            setShowStatusSubmenu(false)
+            setShowProducedSubmenu(false)
+            setShowMethodSubmenu(false)
+          }
         }}
         className='mx-auto flex h-[1.5rem] w-[1.5rem] items-center justify-center rounded-full text-[var(--color-neutral-900)] transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic'
       >
@@ -1004,20 +1100,299 @@ function RowActionsButton({
         />
       </button>
 
-      {isOpen ? (
-        <div className='absolute right-0 top-[calc(100%+0.25rem)] z-10 min-w-[9.5rem] overflow-hidden rounded-lg border border-border bg-neutral-0 shadow-elevation-popover'>
-          <button
-            type='button'
-            onClick={(event) => {
-              event.stopPropagation()
-              onViewPatient()
+      {isOpen && (
+        <Portal>
+          <div
+            ref={menuRef}
+            data-actions-dropdown
+            className='fixed z-[9999] min-w-[14rem] max-h-[calc(100vh-1rem)] overflow-y-auto overflow-x-hidden rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] py-1 shadow-lg'
+            style={{
+              top: menuPosition.top,
+              bottom: menuPosition.bottom,
+              right: menuPosition.right
             }}
-            className='flex w-full items-center gap-2 px-[0.75rem] py-[0.5rem] text-label-sm text-fg transition-colors hover:bg-neutral-50'
+            role='menu'
+            aria-label='Acciones rápidas'
           >
-            <span>Ver paciente</span>
-          </button>
+          {/* Acciones principales */}
+          <div className='py-1'>
+            <button
+              type='button'
+              role='menuitem'
+              onClick={(event) => {
+                event.stopPropagation()
+                onViewPatient()
+              }}
+              className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+            >
+              <MD3Icon
+                name='AccountCircleRounded'
+                size={1.125}
+                className='text-[var(--color-neutral-600)]'
+              />
+              <span>Ver paciente</span>
+            </button>
+            <button
+              type='button'
+              role='menuitem'
+              onClick={(event) => {
+                event.stopPropagation()
+                onViewInvoice?.()
+              }}
+              className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+            >
+              <MD3Icon
+                name='ReceiptLongRounded'
+                size={1.125}
+                className='text-[var(--color-neutral-600)]'
+              />
+              <span>Ver factura</span>
+            </button>
+            <button
+              type='button'
+              role='menuitem'
+              onClick={(event) => {
+                event.stopPropagation()
+                onNewPayment?.()
+              }}
+              className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+            >
+              <MD3Icon
+                name='PaymentsRounded'
+                size={1.125}
+                className='text-[var(--color-neutral-600)]'
+              />
+              <span>Nuevo pago</span>
+            </button>
+            <button
+              type='button'
+              role='menuitem'
+              onClick={(event) => {
+                event.stopPropagation()
+                onPrintReceipt?.()
+              }}
+              className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+            >
+              <MD3Icon
+                name='PrintRounded'
+                size={1.125}
+                className='text-[var(--color-neutral-600)]'
+              />
+              <span>Imprimir recibo</span>
+            </button>
+          </div>
+
+          {/* Separador */}
+          <div className='my-1 h-px bg-[var(--color-border-default)]' />
+
+          {/* Estado (acordeón) */}
+          <div className='py-1'>
+            <button
+              type='button'
+              onClick={(event) => {
+                event.stopPropagation()
+                setShowStatusSubmenu(!showStatusSubmenu)
+              }}
+              className='flex w-full items-center justify-between px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+            >
+              <div className='flex items-center gap-3'>
+                <span
+                  className='h-3 w-3 shrink-0 rounded-full'
+                  style={{
+                    backgroundColor: currentStatus === 'Cobrado' ? 'var(--color-brand-500)' : 'var(--color-warning-500)'
+                  }}
+                />
+                <span>Estado</span>
+              </div>
+              <MD3Icon
+                name={showStatusSubmenu ? 'KeyboardArrowUpRounded' : 'KeyboardArrowDownRounded'}
+                size='sm'
+                className='text-[var(--color-neutral-500)]'
+              />
+            </button>
+
+            {/* Submenu de estados */}
+            {showStatusSubmenu && (
+              <div className='bg-[var(--color-neutral-50)] py-1'>
+                {statusOptions.map((status) => {
+                  const isSelected = status === currentStatus
+                  return (
+                    <button
+                      key={status}
+                      type='button'
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onStatusChange?.(status)
+                      }}
+                      className={[
+                        'flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-colors',
+                        isSelected
+                          ? 'bg-[var(--color-brand-0)]'
+                          : 'hover:bg-[var(--color-neutral-100)]'
+                      ].join(' ')}
+                    >
+                      <span
+                        className='h-2.5 w-2.5 shrink-0 rounded-full'
+                        style={{
+                          backgroundColor: status === 'Cobrado' ? 'var(--color-brand-500)' : 'var(--color-warning-500)'
+                        }}
+                      />
+                      <span
+                        className={isSelected ? 'font-medium text-[var(--color-brand-700)]' : 'text-[var(--color-neutral-800)]'}
+                      >
+                        {status}
+                      </span>
+                      {isSelected && (
+                        <MD3Icon
+                          name='CheckRounded'
+                          size='sm'
+                          className='ml-auto text-[var(--color-brand-600)]'
+                        />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Producido (acordeón) */}
+          <div className='py-1'>
+            <button
+              type='button'
+              onClick={(event) => {
+                event.stopPropagation()
+                setShowProducedSubmenu(!showProducedSubmenu)
+              }}
+              className='flex w-full items-center justify-between px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+            >
+              <div className='flex items-center gap-3'>
+                <span
+                  className='h-3 w-3 shrink-0 rounded-full'
+                  style={{
+                    backgroundColor: currentProduced === 'Hecho' ? 'var(--color-success-500)' : 'var(--color-neutral-400)'
+                  }}
+                />
+                <span>Producido</span>
+              </div>
+              <MD3Icon
+                name={showProducedSubmenu ? 'KeyboardArrowUpRounded' : 'KeyboardArrowDownRounded'}
+                size='sm'
+                className='text-[var(--color-neutral-500)]'
+              />
+            </button>
+
+            {/* Submenu de producido */}
+            {showProducedSubmenu && (
+              <div className='bg-[var(--color-neutral-50)] py-1'>
+                {producedOptions.map((produced) => {
+                  const isSelected = produced === currentProduced
+                  return (
+                    <button
+                      key={produced}
+                      type='button'
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onProducedChange?.(produced)
+                      }}
+                      className={[
+                        'flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-colors',
+                        isSelected
+                          ? 'bg-[var(--color-brand-0)]'
+                          : 'hover:bg-[var(--color-neutral-100)]'
+                      ].join(' ')}
+                    >
+                      <span
+                        className='h-2.5 w-2.5 shrink-0 rounded-full'
+                        style={{
+                          backgroundColor: produced === 'Hecho' ? 'var(--color-success-500)' : 'var(--color-neutral-400)'
+                        }}
+                      />
+                      <span
+                        className={isSelected ? 'font-medium text-[var(--color-brand-700)]' : 'text-[var(--color-neutral-800)]'}
+                      >
+                        {produced}
+                      </span>
+                      {isSelected && (
+                        <MD3Icon
+                          name='CheckRounded'
+                          size='sm'
+                          className='ml-auto text-[var(--color-brand-600)]'
+                        />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Método (acordeón) */}
+          <div className='py-1'>
+            <button
+              type='button'
+              onClick={(event) => {
+                event.stopPropagation()
+                setShowMethodSubmenu(!showMethodSubmenu)
+              }}
+              className='flex w-full items-center justify-between px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+            >
+              <div className='flex items-center gap-3'>
+                <MD3Icon
+                  name='PaymentsRounded'
+                  size={0.75}
+                  className='text-[var(--color-neutral-600)]'
+                />
+                <span>Método</span>
+              </div>
+              <MD3Icon
+                name={showMethodSubmenu ? 'KeyboardArrowUpRounded' : 'KeyboardArrowDownRounded'}
+                size='sm'
+                className='text-[var(--color-neutral-500)]'
+              />
+            </button>
+
+            {/* Submenu de método */}
+            {showMethodSubmenu && methodOptions && (
+              <div className='bg-[var(--color-neutral-50)] py-1'>
+                {methodOptions.map((method) => {
+                  const isSelected = method === currentMethod
+                  return (
+                    <button
+                      key={method}
+                      type='button'
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onMethodChange?.(method)
+                      }}
+                      className={[
+                        'flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-colors',
+                        isSelected
+                          ? 'bg-[var(--color-brand-0)]'
+                          : 'hover:bg-[var(--color-neutral-100)]'
+                      ].join(' ')}
+                    >
+                      <span
+                        className={isSelected ? 'font-medium text-[var(--color-brand-700)]' : 'text-[var(--color-neutral-800)]'}
+                      >
+                        {method}
+                      </span>
+                      {isSelected && (
+                        <MD3Icon
+                          name='CheckRounded'
+                          size='sm'
+                          className='ml-auto text-[var(--color-brand-600)]'
+                        />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
-      ) : null}
+        </Portal>
+      )}
     </div>
   )
 }
