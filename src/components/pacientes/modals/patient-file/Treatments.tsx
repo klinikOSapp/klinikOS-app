@@ -238,7 +238,7 @@ export default function Treatments({
                     ID
                   </th>
                   <th className='px-[min(1rem,2vw)] py-[min(0.75rem,1.5vh)] text-left text-label-sm font-medium text-[var(--color-neutral-700)]'>
-                    Descripción
+                    Descripción/Anotaciones
                   </th>
                   <th className='px-[min(1rem,2vw)] py-[min(0.75rem,1.5vh)] text-left text-label-sm font-medium text-[var(--color-neutral-700)]'>
                     Fecha
@@ -376,7 +376,7 @@ export default function Treatments({
                     ID
                   </th>
                   <th className='px-[min(1rem,2vw)] py-[min(0.75rem,1.5vh)] text-left text-label-sm font-medium text-[var(--color-neutral-700)]'>
-                    Descripción
+                    Descripción/Anotaciones
                   </th>
                   <th className='px-[min(1rem,2vw)] py-[min(0.75rem,1.5vh)] text-left text-label-sm font-medium text-[var(--color-neutral-700)]'>
                     Fecha

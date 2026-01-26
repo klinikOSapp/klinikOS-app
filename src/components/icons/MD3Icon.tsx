@@ -22,6 +22,7 @@ const ICON_GLYPHS = {
   CheckCircleRounded: 'check_circle',
   CheckRounded: 'check',
   ChevronLeftRounded: 'chevron_left',
+  CleaningServicesRounded: 'cleaning_services',
   ChevronRightRounded: 'chevron_right',
   CloseRounded: 'close',
   CloudDownloadRounded: 'cloud_download',

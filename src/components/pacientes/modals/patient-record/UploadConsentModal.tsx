@@ -79,7 +79,7 @@ export default function UploadConsentModal({
             Consentimientos
           </p>
           <h2 className='font-inter text-display-md font-normal text-[var(--color-neutral-900)] mt-2'>
-            Subir consentimiento
+            Añadir consentimiento
           </h2>
           <p className='text-body-md text-[var(--color-neutral-900)] mt-2 max-w-[620px]'>
             Puedes subir un archivo sin firmar para enviarlo al paciente a

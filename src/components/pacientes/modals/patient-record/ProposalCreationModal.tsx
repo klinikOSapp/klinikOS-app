@@ -11,8 +11,6 @@ import {
   CloudDownloadRounded,
   CloudUploadRounded,
   KeyboardArrowDownRounded,
-  MailOutlineRounded,
-  PhoneRounded,
   RadioButtonCheckedRounded,
   RadioButtonUncheckedRounded
 } from '@/components/icons/md3'
@@ -553,8 +551,9 @@ export default function ProposalCreationModal({
     'plan' | 'pricing' | 'financiación' | 'firma' | 'resumen'
   >('plan')
   const baseFieldId = React.useId()
+  const [budgetName, setBudgetName] = React.useState('')
   const [selectedLocation, setSelectedLocation] = React.useState('')
-  const [selectedTreatment, setSelectedTreatment] = React.useState('')
+  const [treatments, setTreatments] = React.useState<string[]>([''])
   const [selectedProfessional, setSelectedProfessional] = React.useState('')
   const [selectedDiscount, setSelectedDiscount] = React.useState('')
   const [selectedTerm, setSelectedTerm] = React.useState('')
@@ -584,8 +583,9 @@ export default function ProposalCreationModal({
 
   React.useEffect(() => {
     if (!open) {
+      setBudgetName('')
       setSelectedLocation('')
-      setSelectedTreatment('')
+      setTreatments([''])
       setSelectedProfessional('')
       setSelectedDiscount('')
       setSelectedTerm('')
@@ -595,6 +595,18 @@ export default function ProposalCreationModal({
       setCurrentStep('plan')
     }
   }, [open])
+
+  const addTreatment = () => {
+    setTreatments((prev) => [...prev, ''])
+  }
+
+  const updateTreatment = (index: number, value: string) => {
+    setTreatments((prev) => {
+      const updated = [...prev]
+      updated[index] = value
+      return updated
+    })
+  }
 
   const isPlanStep = currentStep === 'plan'
   const isPricingStep = currentStep === 'pricing'
@@ -623,9 +635,6 @@ export default function ProposalCreationModal({
     'Higienista Marta López'
   ]
   const termOptions = ['12 meses', '18 meses', '24 meses']
-
-  const showIndividualPieceButton =
-    isPlanStep && selectedLocation === 'Piezas individuales'
 
   if (!open || !mounted) return null
 
@@ -762,124 +771,145 @@ export default function ProposalCreationModal({
                     ))}
 
                   {isPlanStep ? (
-                    <>
-                      <div className='absolute left-[14.3125rem] top-[6rem] flex w-[35.5rem] flex-col gap-[0.5rem]'>
-                        <p className='text-title-lg text-neutral-900'>
-                          Selección de plan
-                        </p>
-                      </div>
+                    (() => {
+                      // Calcular posiciones dinámicas basadas en número de tratamientos
+                      const budgetNameTop = 10 // rem
+                      const treatmentBaseTop = 16 // rem (después del nombre del presupuesto)
+                      const treatmentHeight = 3.5 // rem (altura de cada dropdown + espacio)
+                      const buttonTop = treatmentBaseTop + treatments.length * treatmentHeight // posición del botón
+                      const locationTop = buttonTop + 4.5 // rem (después del botón)
+                      const showIndividualPieceButton = selectedLocation === 'Piezas individuales'
+                      const individualPieceButtonTop = locationTop + 3.5 // rem (después de localización)
+                      const professionalTop = showIndividualPieceButton
+                        ? individualPieceButtonTop + 4.5
+                        : locationTop + 5.5 // rem
+                      const budgetNameLabelId = `${baseFieldId}-budget-name`
 
-                      <div className='absolute left-[18.375rem] top-[10rem] flex h-[6rem] w-[21.75rem] items-center gap-[1.5rem]'>
-                        <div className='size-[6rem] shrink-0 rounded-full bg-neutral-700' />
-                        <div className='flex flex-col gap-[0.5rem]'>
-                          <p className='text-title-lg text-neutral-900'>
-                            Lucia López Cano
+                      return (
+                        <>
+                          <div className='absolute left-[14.3125rem] top-[6rem] flex w-[35.5rem] flex-col gap-[0.5rem]'>
+                            <p className='text-title-lg text-neutral-900'>
+                              Selección de plan
+                            </p>
+                          </div>
+
+                          <p
+                            id={budgetNameLabelId}
+                            className='absolute left-[18.375rem] top-[10rem] text-body-md text-neutral-900'
+                          >
+                            Nombre presupuesto
                           </p>
-                          <div className='flex items-center gap-[0.5rem] text-body-md text-neutral-900'>
-                            <MailOutlineRounded className='size-[1.5rem]' />
-                            <span>Emailexample@gmail.com</span>
+                          <div
+                            className='absolute w-[19.1875rem]'
+                            style={{ left: '30.6875rem', top: `${budgetNameTop}rem` }}
+                          >
+                            <input
+                              type='text'
+                              value={budgetName}
+                              onChange={(e) => setBudgetName(e.target.value)}
+                              aria-labelledby={budgetNameLabelId}
+                              placeholder='Nombre del presupuesto'
+                              className='h-[3rem] w-full rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem] text-body-md text-neutral-900 placeholder:text-neutral-400 outline-none'
+                            />
                           </div>
-                          <div className='flex items-center gap-[0.5rem] text-body-md text-neutral-900'>
-                            <PhoneRounded className='size-[1.5rem]' />
-                            <span>+34 666 777 888</span>
-                          </div>
-                        </div>
-                      </div>
 
-                      <p className='absolute left-[18.375rem] top-[18.25rem] text-label-md text-neutral-500'>
-                        Alergias:
-                      </p>
-                      <div className='absolute left-[25.875rem] top-[18rem] inline-flex items-center gap-[0.5rem]'>
-                        <span className='inline-flex items-center rounded-full bg-error-200 px-[0.5rem] py-[0.25rem] text-label-md text-error-600'>
-                          Penicilina
-                        </span>
-                        <span className='inline-flex items-center rounded-full bg-error-200 px-[0.5rem] py-[0.25rem] text-label-md text-error-600'>
-                          Latex
-                        </span>
-                      </div>
+                          <p
+                            id={treatmentLabelId}
+                            className='absolute left-[18.375rem] text-body-md text-neutral-900'
+                            style={{ top: `${treatmentBaseTop}rem` }}
+                          >
+                            Tratamiento
+                          </p>
+                          <p
+                            id={locationLabelId}
+                            className='absolute left-[18.375rem] text-body-md text-neutral-900'
+                            style={{ top: `${locationTop}rem` }}
+                          >
+                            Localización
+                          </p>
+                          <p
+                            id={professionalLabelId}
+                            className='absolute left-[18.375rem] text-body-md text-neutral-900'
+                            style={{ top: `${professionalTop}rem` }}
+                          >
+                            Profesional
+                          </p>
 
-                      <p className='absolute left-[18.375rem] top-[21rem] text-label-md text-neutral-500'>
-                        Anotaciones:
-                      </p>
-                      <p className='absolute left-[25.875rem] top-[21rem] w-[24rem] text-body-md text-neutral-900'>
-                        El paciente lorem ipsum dolor sit aemet dolor aemet
-                        ipsum
-                      </p>
+                          {treatments.map((treatment, index) => (
+                            <ExampleDropdown
+                              key={index}
+                              top={`${treatmentBaseTop + index * treatmentHeight}rem`}
+                              label={`Tratamiento ${index + 1}`}
+                              labelId={`${treatmentLabelId}-${index}`}
+                              options={treatmentOptions}
+                              placeholder='Selecciona un tratamiento'
+                              required={index === 0}
+                              value={treatment}
+                              onValueChange={(value) => updateTreatment(index, value)}
+                            />
+                          ))}
 
-                      <p
-                        id={treatmentLabelId}
-                        className='absolute left-[18.375rem] top-[28rem] text-body-md text-neutral-900'
-                      >
-                        Tratamiento
-                      </p>
-                      <p
-                        id={locationLabelId}
-                        className='absolute left-[18.375rem] top-[33.5rem] text-body-md text-neutral-900'
-                      >
-                        Localización
-                      </p>
-                      <p
-                        id={professionalLabelId}
-                        className='absolute left-[18.375rem] top-[44rem] text-body-md text-neutral-900'
-                      >
-                        Profesional
-                      </p>
+                          <button
+                            type='button'
+                            className='absolute left-[30.6875rem] inline-flex h-[3rem] w-[19.1875rem] items-center gap-[0.5rem] rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem] text-left text-body-md text-neutral-900 transition-colors hover:border-brand-300 hover:bg-brand-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300'
+                            style={{ top: `${buttonTop}rem` }}
+                            onClick={addTreatment}
+                          >
+                            <AddRounded className='text-neutral-900' />
+                            <span className='text-body-md text-neutral-900'>
+                              Añadir tratamiento
+                            </span>
+                          </button>
 
-                      <ExampleDropdown
-                        top='28rem'
-                        label='Tratamiento'
-                        labelId={treatmentLabelId}
-                        options={treatmentOptions}
-                        placeholder='Selecciona un tratamiento'
-                        required
-                        value={selectedTreatment}
-                        onValueChange={setSelectedTreatment}
-                      />
-                      <ExampleDropdown
-                        top='33.5rem'
-                        label='Localización'
-                        labelId={locationLabelId}
-                        options={locationOptions}
-                        placeholder='Selecciona una localización'
-                        required
-                        value={selectedLocation}
-                        onValueChange={setSelectedLocation}
-                      />
-                      <ExampleDropdown
-                        top='44rem'
-                        label='Profesional'
-                        labelId={professionalLabelId}
-                        options={professionalOptions}
-                        placeholder='Selecciona un profesional'
-                        required
-                        value={selectedProfessional}
-                        onValueChange={setSelectedProfessional}
-                      />
+                          <ExampleDropdown
+                            top={`${locationTop}rem`}
+                            label='Localización'
+                            labelId={locationLabelId}
+                            options={locationOptions}
+                            placeholder='Selecciona una localización'
+                            required
+                            value={selectedLocation}
+                            onValueChange={setSelectedLocation}
+                          />
 
-                      {showIndividualPieceButton && (
-                        <button
-                          type='button'
-                          className='absolute left-[30.6875rem] top-[38.5rem] inline-flex h-[3rem] w-[19.1875rem] items-center gap-[0.5rem] rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem] text-left text-body-md text-neutral-900 transition-colors hover:border-brand-300 hover:bg-brand-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300'
-                          onClick={() => setOdontogramaOpen(true)}
-                        >
-                          <AddRounded className='text-neutral-900' />
-                          <span className='text-body-md text-neutral-900'>
-                            Añadir pieza individual
-                          </span>
-                        </button>
-                      )}
+                          {showIndividualPieceButton && (
+                            <button
+                              type='button'
+                              className='absolute left-[30.6875rem] inline-flex h-[3rem] w-[19.1875rem] items-center gap-[0.5rem] rounded-[0.5rem] border border-neutral-300 bg-neutral-50 px-[0.625rem] text-left text-body-md text-neutral-900 transition-colors hover:border-brand-300 hover:bg-brand-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300'
+                              style={{ top: `${individualPieceButtonTop}rem` }}
+                              onClick={() => setOdontogramaOpen(true)}
+                            >
+                              <AddRounded className='text-neutral-900' />
+                              <span className='text-body-md text-neutral-900'>
+                                Añadir pieza individual
+                              </span>
+                            </button>
+                          )}
 
-                      <div className='absolute left-[18.375rem] top-[53.25rem] h-px w-[31.5rem] bg-neutral-300' />
+                          <ExampleDropdown
+                            top={`${professionalTop}rem`}
+                            label='Profesional'
+                            labelId={professionalLabelId}
+                            options={professionalOptions}
+                            placeholder='Selecciona un profesional'
+                            required
+                            value={selectedProfessional}
+                            onValueChange={setSelectedProfessional}
+                          />
 
-                      <button
-                        type='button'
-                        onClick={handleContinue}
-                        className='absolute left-[36.4375rem] top-[55.75rem] inline-flex h-[2.5rem] w-[13.4375rem] items-center justify-center gap-[0.5rem] rounded-full border border-brand-500 bg-brand-500 px-[1rem] text-body-md font-medium text-brand-900 transition-colors hover:bg-brand-400'
-                      >
-                        Continuar
-                        <ArrowForwardRounded className='size-5' />
-                      </button>
-                    </>
+                          <div className='absolute left-[18.375rem] top-[53.25rem] h-px w-[31.5rem] bg-neutral-300' />
+
+                          <button
+                            type='button'
+                            onClick={handleContinue}
+                            className='absolute left-[36.4375rem] top-[55.75rem] inline-flex h-[2.5rem] w-[13.4375rem] items-center justify-center gap-[0.5rem] rounded-full border border-brand-500 bg-brand-500 px-[1rem] text-body-md font-medium text-brand-900 transition-colors hover:bg-brand-400'
+                          >
+                            Continuar
+                            <ArrowForwardRounded className='size-5' />
+                          </button>
+                        </>
+                      )
+                    })()
                   ) : isPricingStep ? (
                     <>
                       <div className='absolute left-[14.3125rem] top-[6rem] flex w-[34rem] flex-col gap-[0.5rem]'>

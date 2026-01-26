@@ -75,7 +75,7 @@ export default function Consents({ onClose }: ConsentsProps) {
           {/* Add button */}
           <button className='absolute top-4 right-4 flex items-center gap-2 rounded-[136px] px-4 py-2 text-body-md text-neutral-900 bg-neutral-50 border border-neutral-300 hover:bg-brand-100 hover:border-brand-300 active:bg-brand-900 active:text-neutral-50 active:border-brand-900 transition-colors cursor-pointer'>
             <AddRounded className='size-5' />
-            <span className='font-medium'>Subir consentimiento</span>
+            <span className='font-medium'>Añadir consentimiento</span>
           </button>
 
           {/* Column headers */}

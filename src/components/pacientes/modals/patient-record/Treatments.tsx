@@ -435,34 +435,34 @@ export default function Treatments({
               <table className='w-full table-fixed border-collapse text-left'>
                 <thead className='sticky top-0 z-10 bg-[var(--color-neutral-50)]'>
                   <tr>
-                    <th className='w-12 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left'>
+                    <th className='w-10 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left'>
                       {/* Checkbox header */}
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                    <th className='w-14 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
                       ID
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Descripción
+                    <th className='w-44 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                      Descripción/Anotaciones
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
                       Fecha
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                    <th className='w-16 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
                       Monto
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
                       Descuento
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
                       Monto final
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
                       Estado
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                    <th className='w-24 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
                       Profesional
                     </th>
-                    <th className='w-12 border-hairline-b py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-right'>
+                    <th className='w-10 border-hairline-b py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-right'>
                       {/* Menú */}
                     </th>
                   </tr>
@@ -634,34 +634,34 @@ export default function Treatments({
               <table className='w-full table-fixed border-collapse text-left'>
                 <thead className='sticky top-0 z-10 bg-[var(--color-neutral-50)]'>
                   <tr>
-                    <th className='w-12 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left'>
+                    <th className='w-10 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left'>
                       {/* Checkbox header */}
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                    <th className='w-14 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
                       ID
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Descripción
+                    <th className='w-44 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                      Descripción/Anotaciones
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
                       Fecha
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                    <th className='w-16 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
                       Monto
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
                       Descuento
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
                       Monto final
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
                       Estado
                     </th>
-                    <th className='border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
+                    <th className='w-24 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
                       Profesional
                     </th>
-                    <th className='w-12 border-hairline-b py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-right'>
+                    <th className='w-10 border-hairline-b py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-right'>
                       {/* Menú */}
                     </th>
                   </tr>
