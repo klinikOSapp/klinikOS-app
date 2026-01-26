@@ -907,6 +907,10 @@ function DayEvent({
       <div
         ref={indicatorRef}
         className='absolute left-0 top-0 bottom-0 z-10'
+        onMouseDown={(e) => {
+          // Prevenir que el mousedown inicie el drag selection del grid
+          e.stopPropagation()
+        }}
         onClick={(e) => {
           e.stopPropagation()
           if (onVisitStatusChange) {
@@ -984,12 +988,13 @@ function DayEvent({
         </div>
       </div>
 
-      {/* Drag overlay - inicia el drag desde cualquier punto de la tarjeta */}
+      {/* Drag overlay - inicia el drag desde cualquier punto de la tarjeta (excepto indicador de estado) */}
       {onDragStart && (
         <div
-          className={`absolute inset-0 ${
+          className={`absolute top-0 right-0 bottom-0 ${
             isDragging ? 'cursor-grabbing' : 'cursor-grab'
           }`}
+          style={{ left: '6px' }} // No cubrir el indicador de estado de visita
           onMouseDown={(e) => {
             e.stopPropagation()
             onDragStart(e)
@@ -1022,6 +1027,7 @@ function DayEvent({
             top: menuPosition.top,
             left: menuPosition.left
           }}
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
           <VisitStatusMenu

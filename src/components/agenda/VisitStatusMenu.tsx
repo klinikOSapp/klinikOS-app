@@ -57,6 +57,7 @@ export default function VisitStatusMenu({
       role='menu'
       tabIndex={-1}
       className='min-w-[180px] overflow-hidden rounded-[8px] border border-[var(--color-neutral-200)] bg-white shadow-lg'
+      onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
       {/* Header */}

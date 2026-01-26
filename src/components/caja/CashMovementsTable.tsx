@@ -40,7 +40,8 @@ type ColumnId =
 type ColumnDefinition = {
   id: ColumnId
   label: string
-  widthRem: number
+  /** Ancho en porcentaje del total de la tabla */
+  widthPercent: number
   align?: 'left' | 'right' | 'center'
   headerClassName?: string
   cellClassName?: string
@@ -163,8 +164,6 @@ const MOVEMENTS: CashMovement[] = [
   }
 ]
 
-const TABLE_WIDTH_REM = 101 // 1616px ÷ 16
-const TABLE_HEIGHT_REM = 27.5 // 440px ÷ 16
 const CONTROL_HEIGHT_REM = 2 // 32px ÷ 16
 
 const getHeaderCellClasses = (
@@ -273,8 +272,6 @@ export default function CashMovementsTable({
   const [activePaymentFilters, setActivePaymentFilters] = useState<
     PaymentCategory[]
   >([])
-  const tableContainerRef = useRef<HTMLDivElement>(null)
-  const [scaleFactor, setScaleFactor] = useState(1)
   const [openActionsMenu, setOpenActionsMenu] = useState<string | null>(null)
   const [rowStatuses, setRowStatuses] = useState<Record<string, InvoiceStatus>>(
     () => {
@@ -306,9 +303,6 @@ export default function CashMovementsTable({
   })
 
   useEffect(() => {
-    const container = tableContainerRef.current
-    if (!container || typeof window === 'undefined') return
-
     const handleOutsideClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null
       if (target?.closest('[data-actions-dropdown]')) return
@@ -317,25 +311,7 @@ export default function CashMovementsTable({
 
     document.addEventListener('mousedown', handleOutsideClick)
 
-    const updateScale = () => {
-      const { width } = container.getBoundingClientRect()
-      const rootFontSize =
-        parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-      const availableRem = width / rootFontSize
-      const nextScale = Math.min(1, availableRem / TABLE_WIDTH_REM)
-
-      setScaleFactor((prev) =>
-        Math.abs(prev - nextScale) < 0.001 ? prev : nextScale
-      )
-    }
-
-    updateScale()
-
-    const resizeObserver = new ResizeObserver(updateScale)
-    resizeObserver.observe(container)
-
     return () => {
-      resizeObserver.disconnect()
       document.removeEventListener('mousedown', handleOutsideClick)
     }
   }, [])
@@ -363,23 +339,25 @@ export default function CashMovementsTable({
   }, [])
 
   const columns: ColumnDefinition[] = useMemo(() => {
-    const COLUMN_WIDTHS_REM = {
-      time: 7, // 112px (Figma)
-      patient: 17.875, // 286px (Figma)
-      concept: 25.75, // 412px
-      amount: 9, // 144px (reduce to evitar wrap en Día)
-      status: 7.0625, // 113px
-      produced: 10.5625, // 169px
-      method: 12.5, // 200px
-      insurer: 8.6875, // 139px
-      actions: 1.5 // 24px
+    // Anchos en porcentaje - total = 100%
+    // Basado en proporciones de Figma pero usando % para responsividad
+    const COLUMN_WIDTHS_PERCENT = {
+      time: 8,        // Día (antes 7rem)
+      patient: 17,    // Paciente (antes 17.875rem)
+      concept: 24,    // Concepto (antes 25.75rem)
+      amount: 9,      // Cantidad (antes 9rem)
+      status: 8,      // Estado (antes 7.0625rem)
+      produced: 10,   // Producido (antes 10.5625rem)
+      method: 12,     // Método (antes 12.5rem)
+      insurer: 9,     // Aseguradora (antes 8.6875rem)
+      actions: 3      // Acciones (antes 1.5rem)
     } as const
 
     return [
       {
         id: 'time',
         label: 'Día',
-        widthRem: COLUMN_WIDTHS_REM.time,
+        widthPercent: COLUMN_WIDTHS_PERCENT.time,
         render: (movement) => (
           <span className='whitespace-nowrap'>{movement.time}</span>
         )
@@ -387,25 +365,31 @@ export default function CashMovementsTable({
       {
         id: 'patient',
         label: 'Paciente',
-        widthRem: COLUMN_WIDTHS_REM.patient,
-        render: (movement) => movement.patient
+        widthPercent: COLUMN_WIDTHS_PERCENT.patient,
+        render: (movement) => (
+          <span className='block truncate'>{movement.patient}</span>
+        )
       },
       {
         id: 'concept',
         label: 'Concepto',
-        widthRem: COLUMN_WIDTHS_REM.concept,
-        render: (movement) => movement.concept
+        widthPercent: COLUMN_WIDTHS_PERCENT.concept,
+        render: (movement) => (
+          <span className='block truncate'>{movement.concept}</span>
+        )
       },
       {
         id: 'amount',
         label: 'Cantidad',
-        widthRem: COLUMN_WIDTHS_REM.amount,
-        render: (movement) => movement.amount
+        widthPercent: COLUMN_WIDTHS_PERCENT.amount,
+        render: (movement) => (
+          <span className='whitespace-nowrap'>{movement.amount}</span>
+        )
       },
       {
         id: 'status',
         label: 'Estado',
-        widthRem: COLUMN_WIDTHS_REM.status,
+        widthPercent: COLUMN_WIDTHS_PERCENT.status,
         render: (movement) => {
           const id = `${movement.time}-${movement.patient}`
           const currentStatus = rowStatuses[id] ?? movement.status
@@ -415,7 +399,7 @@ export default function CashMovementsTable({
       {
         id: 'produced',
         label: 'Producido',
-        widthRem: COLUMN_WIDTHS_REM.produced,
+        widthPercent: COLUMN_WIDTHS_PERCENT.produced,
         render: (movement) => {
           const id = `${movement.time}-${movement.patient}`
           const currentProduced = rowProduced[id] ?? movement.produced
@@ -425,12 +409,12 @@ export default function CashMovementsTable({
       {
         id: 'method',
         label: 'Método',
-        widthRem: COLUMN_WIDTHS_REM.method,
+        widthPercent: COLUMN_WIDTHS_PERCENT.method,
         render: (movement) => {
           const id = `${movement.time}-${movement.patient}`
           const currentMethod = rowMethods[id] ?? movement.method
           return (
-            <span className='text-body-md text-[var(--color-neutral-900)]'>
+            <span className='block truncate text-body-md text-[var(--color-neutral-900)]'>
               {currentMethod}
             </span>
           )
@@ -439,13 +423,15 @@ export default function CashMovementsTable({
       {
         id: 'insurer',
         label: 'Aseguradora',
-        widthRem: COLUMN_WIDTHS_REM.insurer,
-        render: (movement) => movement.insurer
+        widthPercent: COLUMN_WIDTHS_PERCENT.insurer,
+        render: (movement) => (
+          <span className='block truncate'>{movement.insurer}</span>
+        )
       },
       {
         id: 'actions',
         label: '',
-        widthRem: COLUMN_WIDTHS_REM.actions,
+        widthPercent: COLUMN_WIDTHS_PERCENT.actions,
         align: 'center',
         cellClassName: 'px-0',
         cellStyle: { paddingLeft: 0, paddingRight: 0 },
@@ -596,12 +582,9 @@ export default function CashMovementsTable({
         </div>
       </div>
 
-      <div
-        ref={tableContainerRef}
-        className='mt-6 flex-1 overflow-hidden rounded-lg'
-      >
-        <div className='h-full overflow-y-auto overflow-x-hidden'>
-          <table className='w-full table-fixed border-collapse text-left'>
+      <div className='mt-6 flex-1 overflow-hidden rounded-lg'>
+        <div className='h-full overflow-y-auto overflow-x-auto'>
+          <table className='w-full min-w-[50rem] table-fixed border-collapse text-left'>
             <thead className='sticky top-0 z-10 bg-[var(--color-neutral-50)]'>
               <tr>
                 {columns.map((column, index) => (
@@ -613,7 +596,7 @@ export default function CashMovementsTable({
                       column.align
                     )} ${column.headerClassName ?? ''}`}
                     scope='col'
-                    style={{ width: `${column.widthRem * scaleFactor}rem` }}
+                    style={{ width: `${column.widthPercent}%` }}
                   >
                     {column.label}
                   </th>
@@ -632,7 +615,7 @@ export default function CashMovementsTable({
                         column.align
                       )} ${column.cellClassName ?? ''}`}
                       style={{
-                        width: `${column.widthRem * scaleFactor}rem`,
+                        width: `${column.widthPercent}%`,
                         ...(column.cellStyle ?? {})
                       }}
                     >

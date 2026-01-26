@@ -171,6 +171,10 @@ export default function AppointmentSummaryCard({
       <div
         ref={indicatorRef}
         className='absolute left-0 top-0 bottom-0 z-10'
+        onMouseDown={(e) => {
+          // Prevenir que el mousedown inicie el drag selection del grid
+          e.stopPropagation()
+        }}
         onClick={(e) => {
           e.stopPropagation()
           if (onVisitStatusChange) {
@@ -265,21 +269,22 @@ export default function AppointmentSummaryCard({
         </div>
       </div>
 
-      {/* Drag / resize handlers */}
+      {/* Drag / resize handlers - left: 6px para no cubrir el indicador de estado */}
       <div
-        className={`absolute inset-0 ${
+        className={`absolute top-0 right-0 bottom-0 ${
           isDragging ? 'cursor-grabbing' : 'cursor-grab'
         }`}
+        style={{
+          left: '6px', // No cubrir el indicador de estado de visita
+          opacity: isDragging ? 0.88 : 1,
+          transform: isDragging ? 'scale(1.02)' : 'none',
+          transition: 'transform 120ms ease, opacity 120ms ease'
+        }}
         onMouseDown={(e) => {
           e.stopPropagation()
           onDragStart?.('move', event, e.clientX, e.clientY)
         }}
         aria-hidden
-        style={{
-          opacity: isDragging ? 0.88 : 1,
-          transform: isDragging ? 'scale(1.02)' : 'none',
-          transition: 'transform 120ms ease, opacity 120ms ease'
-        }}
       />
       <div
         className={`absolute bottom-0 left-0 right-0 h-2 ${
@@ -303,6 +308,7 @@ export default function AppointmentSummaryCard({
             top: menuPosition.top,
             left: menuPosition.left
           }}
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
           <VisitStatusMenu

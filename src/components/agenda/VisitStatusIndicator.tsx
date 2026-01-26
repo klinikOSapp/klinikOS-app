@@ -102,6 +102,10 @@ export default function VisitStatusIndicator({
         aria-label={`Estado: ${config.label}. ${readOnly ? '' : 'Clic para cambiar'}`}
         aria-haspopup={readOnly ? undefined : 'menu'}
         aria-expanded={readOnly ? undefined : isMenuOpen}
+        onMouseDown={(e) => {
+          // Prevenir que el mousedown inicie el drag selection del grid
+          e.stopPropagation()
+        }}
         onClick={handleClick}
         onKeyDown={(e) => {
           if (!readOnly && (e.key === 'Enter' || e.key === ' ')) {
