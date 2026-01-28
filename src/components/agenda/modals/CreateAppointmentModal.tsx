@@ -501,7 +501,7 @@ export default function CreateAppointmentModal({
       .map(t => ({
         id: t.id,
         description: t.description,
-        amount: t.amount
+        amount: String(t.amount)
       }))
   }, [pendingTreatments])
 
