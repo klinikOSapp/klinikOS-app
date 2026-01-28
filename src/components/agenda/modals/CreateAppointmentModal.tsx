@@ -895,9 +895,9 @@ export default function CreateAppointmentModal({
                                 {treatment.amount}
                               </p>
                               <span className={`inline-flex text-xs px-1.5 py-0.5 rounded ${
-                                treatment.status === 'Aceptado' 
+                                treatment.status === 'Pendiente' 
                                   ? 'bg-blue-100 text-blue-700'
-                                  : treatment.status === 'Recall'
+                                  : treatment.status === 'En curso'
                                     ? 'bg-amber-100 text-amber-700'
                                     : 'bg-gray-100 text-gray-600'
                               }`}>
