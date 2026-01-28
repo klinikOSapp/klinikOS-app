@@ -221,12 +221,30 @@ function Chip({
   )
 }
 
-function StatusPill({ type }: { type: 'Activo' | 'Hecho' }) {
+function StatusPill({ type }: { type: 'Activo' | 'Inactivo' | 'Alta' | 'Hecho' }) {
   if (type === 'Activo') {
     return (
       <span className='inline-flex items-center'>
         <Chip color='sky' size='md'>
           Activo
+        </Chip>
+      </span>
+    )
+  }
+  if (type === 'Inactivo') {
+    return (
+      <span className='inline-flex items-center'>
+        <Chip color='gray' size='md'>
+          Inactivo
+        </Chip>
+      </span>
+    )
+  }
+  if (type === 'Alta') {
+    return (
+      <span className='inline-flex items-center'>
+        <Chip color='green' size='md'>
+          Alta
         </Chip>
       </span>
     )
