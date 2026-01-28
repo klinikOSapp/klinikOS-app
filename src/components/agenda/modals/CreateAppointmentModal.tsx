@@ -474,10 +474,10 @@ export default function CreateAppointmentModal({
     if (patientId) {
       // Get pending treatments for this patient
       const treatments = getPendingTreatments(patientId)
-      // Mark treatments with status 'Aceptado' as pre-selected
+      // Mark treatments with status 'Pendiente' as pre-selected
       const selectableTreatments: SelectableTreatment[] = treatments.map(t => ({
         ...t,
-        selected: t.status === 'Aceptado'
+        selected: t.status === 'Pendiente'
       }))
       setPendingTreatments(selectableTreatments)
     } else {
