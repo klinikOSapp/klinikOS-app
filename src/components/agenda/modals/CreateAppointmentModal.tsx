@@ -461,7 +461,7 @@ export default function CreateAppointmentModal({
   // Handle patient selection - load pending treatments
   const handlePatientChange = useCallback((patientId: string) => {
     const patient = getPatientById(patientId)
-    const patientName = patient?.name || ''
+    const patientName = patient?.fullName || ''
     
     setFormData(prev => ({ 
       ...prev, 
