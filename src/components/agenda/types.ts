@@ -48,6 +48,12 @@ export type VisitStatusLog = {
   timestamp: Date
 }
 
+// Timer duration fields (in milliseconds)
+export type TimerDurations = {
+  waitingDuration?: number // Time spent in waiting room
+  consultationDuration?: number // Time spent in consultation
+}
+
 export const VISIT_STATUS_CONFIG: Record<
   VisitStatus,
   {
@@ -158,6 +164,14 @@ export type AgendaEvent = {
   completed?: boolean // Indica si la cita ya se ha realizado
   confirmed?: boolean // Indica si el paciente confirmó la cita (independiente del estado)
   visitStatus?: VisitStatus // Estado de visita del paciente (dónde está en la clínica)
+  visitStatusHistory?: VisitStatusLog[] // Historial de cambios de estado con timestamps
+  waitingDuration?: number // Duración de espera en ms (para citas completadas)
+  consultationDuration?: number // Duración de consulta en ms (para citas completadas)
+  linkedTreatments?: {
+    id: string
+    description: string
+    amount: string
+  }[] // Tratamientos vinculados a esta cita
 }
 
 export type DayColumn = {

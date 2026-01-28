@@ -3,6 +3,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import ClientLayout from '@/app/client-layout'
+import { type ContextMenuAction } from '@/components/agenda/AppointmentContextMenu'
+import VisitStatusCounters from '@/components/agenda/VisitStatusCounters'
+import VisitStatusMenu from '@/components/agenda/VisitStatusMenu'
+import { TableTimerCell } from '@/components/agenda/WaitTimeDisplay'
 import ParteDiarioModal from '@/components/agenda/modals/ParteDiarioModal'
 import {
   VISIT_STATUS_CONFIG,
@@ -10,12 +14,9 @@ import {
   type VisitStatus,
   type VisitStatusLog
 } from '@/components/agenda/types'
-import VisitStatusCounters from '@/components/agenda/VisitStatusCounters'
-import VisitStatusMenu from '@/components/agenda/VisitStatusMenu'
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import Portal from '@/components/ui/Portal'
-import { type ContextMenuAction } from '@/components/agenda/AppointmentContextMenu'
 import {
   formatDateToISO,
   formatDateToShort,
@@ -23,6 +24,7 @@ import {
   type Appointment,
   type PaymentInfo
 } from '@/context/AppointmentsContext'
+import { useWaitTimer } from '@/hooks/useWaitTimer'
 import React from 'react'
 
 const CTA_WIDTH_REM = 7.3125 // 117px ÷ 16
@@ -84,8 +86,8 @@ function Chip({
     size === 'xs'
       ? 'text-label-sm font-normal'
       : size === 'md'
-      ? 'text-body-md'
-      : 'text-body-sm'
+        ? 'text-body-md'
+        : 'text-body-sm'
 
   return (
     <span className={['px-2 py-0.5', sizeClass, styles, radius].join(' ')}>
@@ -145,6 +147,8 @@ type DailyRow = {
   day: string
   hour: string
   name: string
+  age?: number // Edad del paciente
+  box?: string // Box de la cita
   professional?: string
   reason: string
   phone: string
@@ -156,6 +160,9 @@ type DailyRow = {
   visitStatusHistory?: VisitStatusLog[]
   arrivalTime?: string // Hora de llegada (extraída del historial)
   confirmed: boolean // Si el paciente confirmó asistencia
+  // Timer durations (for completed appointments)
+  waitingDuration?: number
+  consultationDuration?: number
 }
 
 // Función para extraer la hora de llegada del historial de estados
@@ -176,6 +183,8 @@ function appointmentToRow(apt: Appointment): DailyRow {
     day: formatDateToShort(apt.date),
     hour: apt.startTime,
     name: apt.patientName,
+    age: apt.patientAge,
+    box: apt.box,
     professional: apt.professional,
     reason: apt.reason,
     phone: apt.patientPhone,
@@ -186,8 +195,39 @@ function appointmentToRow(apt: Appointment): DailyRow {
     visitStatus: apt.visitStatus ?? 'scheduled',
     visitStatusHistory: apt.visitStatusHistory,
     arrivalTime: getArrivalTime(apt.visitStatusHistory),
-    confirmed: apt.confirmed ?? false
+    confirmed: apt.confirmed ?? false,
+    // Timer durations
+    waitingDuration: apt.waitingDuration,
+    consultationDuration: apt.consultationDuration
   }
+}
+
+// Componente para mostrar el tiempo de espera/consulta en la tabla
+function WaitTimerCell({ row }: { row: DailyRow }) {
+  const {
+    waitingTimeMs,
+    consultationTimeMs,
+    isWaitingActive,
+    isConsultationActive,
+    waitingAlertLevel,
+    consultationAlertLevel
+  } = useWaitTimer(
+    row.visitStatus,
+    row.visitStatusHistory,
+    row.waitingDuration,
+    row.consultationDuration
+  )
+
+  return (
+    <TableTimerCell
+      waitingTimeMs={waitingTimeMs}
+      consultationTimeMs={consultationTimeMs}
+      waitingAlertLevel={waitingAlertLevel}
+      consultationAlertLevel={consultationAlertLevel}
+      isWaitingActive={isWaitingActive}
+      isConsultationActive={isConsultationActive}
+    />
+  )
 }
 
 // Componente para mostrar el estado de pago
@@ -544,11 +584,25 @@ function RowActionsMenu({
           className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
         >
           <MD3Icon
-            name={row.confirmed ? 'CheckCircleRounded' : 'RadioButtonUncheckedRounded'}
+            name={
+              row.confirmed
+                ? 'CheckCircleRounded'
+                : 'RadioButtonUncheckedRounded'
+            }
             size={1.125}
-            className={row.confirmed ? 'text-[#3B82F6]' : 'text-[var(--color-neutral-600)]'}
+            className={
+              row.confirmed
+                ? 'text-[#3B82F6]'
+                : 'text-[var(--color-neutral-600)]'
+            }
           />
-          <span className={row.confirmed ? 'text-[#3B82F6] font-medium' : 'text-[var(--color-neutral-800)]'}>
+          <span
+            className={
+              row.confirmed
+                ? 'text-[#3B82F6] font-medium'
+                : 'text-[var(--color-neutral-800)]'
+            }
+          >
             {row.confirmed ? 'Confirmada' : 'Marcar como confirmada'}
           </span>
         </button>
@@ -567,12 +621,18 @@ function RowActionsMenu({
           <div className='flex items-center gap-3'>
             <span
               className='h-3 w-3 shrink-0 rounded-full'
-              style={{ backgroundColor: VISIT_STATUS_CONFIG[row.visitStatus].color }}
+              style={{
+                backgroundColor: VISIT_STATUS_CONFIG[row.visitStatus].color
+              }}
             />
             <span>Estado de visita</span>
           </div>
           <MD3Icon
-            name={showStatusSubmenu ? 'KeyboardArrowUpRounded' : 'KeyboardArrowDownRounded'}
+            name={
+              showStatusSubmenu
+                ? 'KeyboardArrowUpRounded'
+                : 'KeyboardArrowDownRounded'
+            }
             size='sm'
             className='text-[var(--color-neutral-500)]'
           />
@@ -605,7 +665,11 @@ function RowActionsMenu({
                   />
                   <span
                     className={isSelected ? 'font-medium' : 'font-normal'}
-                    style={{ color: isSelected ? config.textColor : 'var(--color-neutral-800)' }}
+                    style={{
+                      color: isSelected
+                        ? config.textColor
+                        : 'var(--color-neutral-800)'
+                    }}
                   >
                     {config.label}
                   </span>
@@ -654,7 +718,9 @@ function ConfirmationToggle({
       title={isConfirmed ? 'Confirmada' : 'Sin confirmar'}
     >
       <MD3Icon
-        name={isConfirmed ? 'CheckCircleRounded' : 'RadioButtonUncheckedRounded'}
+        name={
+          isConfirmed ? 'CheckCircleRounded' : 'RadioButtonUncheckedRounded'
+        }
         size='sm'
       />
       <span className='font-medium'>{isConfirmed ? 'Sí' : 'No'}</span>
@@ -682,29 +748,47 @@ export default function ParteDiarioPage() {
   )
   const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
   const [isParteModalOpen, setIsParteModalOpen] = React.useState(false)
-  const [initialTab, setInitialTab] = React.useState<'Resumen' | 'Información General' | 'Historial clínico' | 'Tratamientos' | 'Imágenes RX' | 'Finanzas' | 'Consentimientos' | 'Recetas'>('Resumen')
+  const [initialTab, setInitialTab] = React.useState<
+    | 'Resumen'
+    | 'Información General'
+    | 'Historial clínico'
+    | 'Tratamientos'
+    | 'Imágenes RX'
+    | 'Finanzas'
+    | 'Consentimientos'
+    | 'Recetas'
+  >('Resumen')
   const [openBudgetCreation, setOpenBudgetCreation] = React.useState(false)
 
   // Estado para el menú de acciones por fila
   const [openRowMenuId, setOpenRowMenuId] = React.useState<string | null>(null)
-  const [rowMenuTriggerRect, setRowMenuTriggerRect] = React.useState<DOMRect | null>(null)
+  const [rowMenuTriggerRect, setRowMenuTriggerRect] =
+    React.useState<DOMRect | null>(null)
 
   // Estado para el menú de cambio de estado masivo
   const [isBulkStatusMenuOpen, setIsBulkStatusMenuOpen] = React.useState(false)
   const bulkStatusMenuRef = React.useRef<HTMLDivElement>(null)
 
   // Estado para filtro de estado de visita
-  const [activeVisitStatusFilters, setActiveVisitStatusFilters] = React.useState<
-    VisitStatus[] | null
-  >(null)
+  const [activeVisitStatusFilters, setActiveVisitStatusFilters] =
+    React.useState<VisitStatus[] | null>(null)
 
-  // Estado para el filtro de profesional
-  const [selectedProfessional, setSelectedProfessional] = React.useState<
-    string | null
-  >(null)
+  // Estado para el filtro de profesional (multi-select)
+  const [selectedProfessionals, setSelectedProfessionals] = React.useState<
+    string[]
+  >([])
   const [isProfessionalDropdownOpen, setIsProfessionalDropdownOpen] =
     React.useState(false)
   const professionalDropdownRef = React.useRef<HTMLDivElement>(null)
+
+  // Toggle professional selection
+  const toggleProfessionalFilter = React.useCallback((professional: string) => {
+    setSelectedProfessionals((prev) =>
+      prev.includes(professional)
+        ? prev.filter((p) => p !== professional)
+        : [...prev, professional]
+    )
+  }, [])
 
   // Extraer lista única de profesionales de todas las citas
   const uniqueProfessionals = React.useMemo(() => {
@@ -783,14 +867,14 @@ export default function ParteDiarioPage() {
   }
   const clearFilters = () => {
     setSelectedFilters([])
-    setSelectedProfessional(null)
+    setSelectedProfessionals([])
     setActiveVisitStatusFilters(null)
   }
 
   // Verificar si hay algún filtro activo (para el botón "Todos")
   const hasActiveFilters =
     selectedFilters.length > 0 ||
-    selectedProfessional !== null ||
+    selectedProfessionals.length > 0 ||
     activeVisitStatusFilters !== null
 
   // Obtener conteo de estados de visita para la fecha seleccionada
@@ -806,11 +890,17 @@ export default function ParteDiarioPage() {
   }
 
   // Handlers para cambiar estados
-  const handleStatusChange = (appointmentId: string, newStatus: VisitStatus) => {
+  const handleStatusChange = (
+    appointmentId: string,
+    newStatus: VisitStatus
+  ) => {
     updateVisitStatus(appointmentId, newStatus)
   }
 
-  const handleConfirmationToggle = (appointmentId: string, confirmed: boolean) => {
+  const handleConfirmationToggle = (
+    appointmentId: string,
+    confirmed: boolean
+  ) => {
     toggleAppointmentConfirmed(appointmentId, confirmed)
   }
 
@@ -896,6 +986,8 @@ export default function ParteDiarioPage() {
         <ParteDiarioModal
           isOpen={isParteModalOpen}
           onClose={() => setIsParteModalOpen(false)}
+          initialProfessionals={selectedProfessionals}
+          initialDate={selectedDate}
         />
 
         {/* Header Section - Fixed size */}
@@ -1098,7 +1190,9 @@ export default function ParteDiarioPage() {
           <div className='flex-shrink-0 mb-6 flex items-center justify-between'>
             <div className='flex items-center gap-2'>
               {selectedPatientIds.length > 0 && (
-                <Chip color='teal'>{selectedPatientIds.length} seleccionados</Chip>
+                <Chip color='teal'>
+                  {selectedPatientIds.length} seleccionados
+                </Chip>
               )}
               {/* Botón de cambio de estado masivo */}
               <div className='relative' ref={bulkStatusMenuRef}>
@@ -1119,7 +1213,11 @@ export default function ParteDiarioPage() {
                   <span>Estado</span>
                   {selectedPatientIds.length > 0 && (
                     <MD3Icon
-                      name={isBulkStatusMenuOpen ? 'KeyboardArrowUpRounded' : 'KeyboardArrowDownRounded'}
+                      name={
+                        isBulkStatusMenuOpen
+                          ? 'KeyboardArrowUpRounded'
+                          : 'KeyboardArrowDownRounded'
+                      }
                       size='xs'
                     />
                   )}
@@ -1130,7 +1228,8 @@ export default function ParteDiarioPage() {
                   <div className='absolute top-full left-0 mt-1 z-50 min-w-[200px] overflow-hidden rounded-[8px] border border-[var(--color-neutral-200)] bg-white shadow-lg'>
                     <div className='border-b border-[var(--color-neutral-200)] bg-[var(--color-neutral-50)] px-3 py-2'>
                       <p className='text-label-sm font-medium text-[var(--color-neutral-600)]'>
-                        Cambiar estado de {selectedPatientIds.length} cita{selectedPatientIds.length !== 1 ? 's' : ''}
+                        Cambiar estado de {selectedPatientIds.length} cita
+                        {selectedPatientIds.length !== 1 ? 's' : ''}
                       </p>
                     </div>
                     <div className='py-1'>
@@ -1173,7 +1272,11 @@ export default function ParteDiarioPage() {
                     ? 'bg-[var(--color-error-50)] border-[var(--color-error-300)] text-[var(--color-error-600)] hover:bg-[var(--color-error-100)] cursor-pointer'
                     : 'bg-[var(--color-neutral-50)] border-[var(--color-neutral-300)] text-[var(--color-neutral-400)] cursor-not-allowed'
                 ].join(' ')}
-                title={selectedPatientIds.length > 0 ? `Eliminar ${selectedPatientIds.length} cita(s)` : 'Selecciona citas para eliminar'}
+                title={
+                  selectedPatientIds.length > 0
+                    ? `Eliminar ${selectedPatientIds.length} cita(s)`
+                    : 'Selecciona citas para eliminar'
+                }
               >
                 <MD3Icon name='DeleteRounded' size='md' />
               </button>
@@ -1202,7 +1305,7 @@ export default function ParteDiarioPage() {
                 <span>Todos</span>
               </button>
 
-              {/* Dropdown de Profesional */}
+              {/* Dropdown de Profesional (Multi-select) */}
               <div className='relative' ref={professionalDropdownRef}>
                 <button
                   onClick={() =>
@@ -1210,13 +1313,17 @@ export default function ParteDiarioPage() {
                   }
                   className={[
                     'flex items-center gap-1 px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC]',
-                    selectedProfessional
+                    selectedProfessionals.length > 0
                       ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                       : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
                   ].join(' ')}
                 >
                   <span className='truncate max-w-[150px]'>
-                    {selectedProfessional || 'Profesional'}
+                    {selectedProfessionals.length === 0
+                      ? 'Profesional'
+                      : selectedProfessionals.length === 1
+                        ? selectedProfessionals[0]
+                        : `${selectedProfessionals.length} profesionales`}
                   </span>
                   <MD3Icon
                     name={
@@ -1229,38 +1336,68 @@ export default function ParteDiarioPage() {
                 </button>
 
                 {isProfessionalDropdownOpen && (
-                  <div className='absolute top-full left-0 mt-1 z-50 min-w-[200px] max-h-[300px] overflow-auto bg-white rounded-[8px] border border-[var(--color-neutral-200)] shadow-lg'>
-                    <button
-                      onClick={() => {
-                        setSelectedProfessional(null)
-                        setIsProfessionalDropdownOpen(false)
-                      }}
-                      className={[
-                        'w-full text-left px-3 py-2 text-body-sm hover:bg-[var(--color-neutral-100)] transition-colors',
-                        selectedProfessional === null
-                          ? 'bg-[var(--color-brand-0)] text-[var(--color-brand-700)]'
-                          : 'text-[var(--color-neutral-900)]'
-                      ].join(' ')}
-                    >
-                      Todos los profesionales
-                    </button>
-                    {uniqueProfessionals.map((professional) => (
-                      <button
-                        key={professional}
-                        onClick={() => {
-                          setSelectedProfessional(professional)
-                          setIsProfessionalDropdownOpen(false)
-                        }}
-                        className={[
-                          'w-full text-left px-3 py-2 text-body-sm hover:bg-[var(--color-neutral-100)] transition-colors truncate',
-                          selectedProfessional === professional
-                            ? 'bg-[var(--color-brand-0)] text-[var(--color-brand-700)]'
-                            : 'text-[var(--color-neutral-900)]'
-                        ].join(' ')}
-                      >
-                        {professional}
-                      </button>
-                    ))}
+                  <div className='absolute top-full left-0 mt-1 z-50 min-w-[240px] max-h-[300px] overflow-auto bg-white rounded-[8px] border border-[var(--color-neutral-200)] shadow-lg'>
+                    {/* Header with clear button */}
+                    <div className='sticky top-0 flex items-center justify-between px-3 py-2 border-b border-[var(--color-neutral-200)] bg-[var(--color-neutral-50)]'>
+                      <span className='text-label-sm font-medium text-[var(--color-neutral-600)]'>
+                        Seleccionar profesionales
+                      </span>
+                      {selectedProfessionals.length > 0 && (
+                        <button
+                          type='button'
+                          onClick={() => setSelectedProfessionals([])}
+                          className='text-label-sm text-[var(--color-brand-600)] hover:text-[var(--color-brand-700)]'
+                        >
+                          Limpiar
+                        </button>
+                      )}
+                    </div>
+                    {/* Professional list with checkboxes */}
+                    <div className='py-1'>
+                      {uniqueProfessionals.map((professional) => {
+                        const isSelected = selectedProfessionals.includes(professional)
+                        return (
+                          <button
+                            key={professional}
+                            type='button'
+                            onClick={() => toggleProfessionalFilter(professional)}
+                            className={[
+                              'w-full flex items-center gap-3 px-3 py-2 text-body-sm hover:bg-[var(--color-neutral-100)] transition-colors',
+                              isSelected
+                                ? 'bg-[var(--color-brand-0)]'
+                                : ''
+                            ].join(' ')}
+                          >
+                            <div
+                              className={[
+                                'size-4 rounded border flex items-center justify-center shrink-0 transition-colors',
+                                isSelected
+                                  ? 'bg-[var(--color-brand-500)] border-[var(--color-brand-500)]'
+                                  : 'bg-white border-[var(--color-neutral-300)]'
+                              ].join(' ')}
+                            >
+                              {isSelected && (
+                                <MD3Icon
+                                  name='CheckRounded'
+                                  size={0.625}
+                                  className='text-white'
+                                />
+                              )}
+                            </div>
+                            <span
+                              className={[
+                                'truncate',
+                                isSelected
+                                  ? 'text-[var(--color-brand-700)] font-medium'
+                                  : 'text-[var(--color-neutral-900)]'
+                              ].join(' ')}
+                            >
+                              {professional}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1297,49 +1434,115 @@ export default function ParteDiarioPage() {
                   <TableHeaderCell className='w-[40px] pr-2'>
                     <span className='sr-only'>Seleccionar fila</span>
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[100px] pr-2'>
-                    Día
-                  </TableHeaderCell>
-                  <TableHeaderCell className='w-[80px] pr-2'>
-                    Hora
-                  </TableHeaderCell>
-                  <TableHeaderCell className='w-[80px] pr-2'>
+                  <TableHeaderCell className='w-[70px] pr-2'>
                     <div className='flex items-center gap-1'>
                       <MD3Icon
-                        name='EventAvailableRounded'
+                        name='CalendarMonthRounded'
                         size='xs'
                         className='text-[var(--color-neutral-700)]'
                       />
-                      <span>Llegada</span>
+                      <span>Hora</span>
+                    </div>
+                  </TableHeaderCell>
+                  <TableHeaderCell className='w-[90px] pr-2'>
+                    <div className='flex items-center gap-1'>
+                      <MD3Icon
+                        name='CheckCircleRounded'
+                        size='xs'
+                        className='text-[var(--color-neutral-700)]'
+                      />
+                      <span>Confirm.</span>
+                    </div>
+                  </TableHeaderCell>
+                  <TableHeaderCell className='w-[70px] pr-2'>
+                    <div className='flex items-center gap-1'>
+                      <MD3Icon
+                        name='PlaceRounded'
+                        size='xs'
+                        className='text-[var(--color-neutral-700)]'
+                      />
+                      <span>Box</span>
+                    </div>
+                  </TableHeaderCell>
+                  <TableHeaderCell className='w-[140px] pr-2'>
+                    <div className='flex items-center gap-1'>
+                      <MD3Icon
+                        name='MonitorHeartRounded'
+                        size='xs'
+                        className='text-[var(--color-neutral-700)]'
+                      />
+                      <span>Estado visita</span>
+                    </div>
+                  </TableHeaderCell>
+                  <TableHeaderCell className='w-[90px] pr-2'>
+                    <div className='flex items-center gap-1'>
+                      <MD3Icon
+                        name='TimelineRounded'
+                        size='xs'
+                        className='text-[var(--color-neutral-700)]'
+                      />
+                      <span>Tiempo</span>
                     </div>
                   </TableHeaderCell>
                   <TableHeaderCell className='w-[180px] pr-2'>
-                    <div className='flex items-center gap-2'>
+                    <div className='flex items-center gap-1'>
                       <MD3Icon
                         name='AccountCircleRounded'
-                        size='sm'
+                        size='xs'
                         className='text-[var(--color-neutral-700)]'
                       />
                       <span>Paciente</span>
                     </div>
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[160px] pr-2'>
-                    Profesional
+                  <TableHeaderCell className='w-[60px] pr-2'>
+                    <div className='flex items-center gap-1'>
+                      <MD3Icon
+                        name='BadgeRounded'
+                        size='xs'
+                        className='text-[var(--color-neutral-700)]'
+                      />
+                      <span>Edad</span>
+                    </div>
                   </TableHeaderCell>
                   <TableHeaderCell className='w-[200px] pr-2'>
-                    Motivo consulta
+                    <div className='flex items-center gap-1'>
+                      <MD3Icon
+                        name='DescriptionRounded'
+                        size='xs'
+                        className='text-[var(--color-neutral-700)]'
+                      />
+                      <span>Motivo consulta</span>
+                    </div>
+                  </TableHeaderCell>
+                  <TableHeaderCell className='w-[160px] pr-2'>
+                    <div className='flex items-center gap-1'>
+                      <MD3Icon
+                        name='PeopleRounded'
+                        size='xs'
+                        className='text-[var(--color-neutral-700)]'
+                      />
+                      <span>Profesional</span>
+                    </div>
                   </TableHeaderCell>
                   <TableHeaderCell className='w-[120px] pr-2'>
-                    Teléfono
-                  </TableHeaderCell>
-                  <TableHeaderCell className='w-[140px] pr-2'>
-                    Estado visita
-                  </TableHeaderCell>
-                  <TableHeaderCell className='w-[90px] pr-2'>
-                    Confirm.
+                    <div className='flex items-center gap-1'>
+                      <MD3Icon
+                        name='PhoneRounded'
+                        size='xs'
+                        className='text-[var(--color-neutral-700)]'
+                      />
+                      <span>Teléfono</span>
+                    </div>
                   </TableHeaderCell>
                   <TableHeaderCell className='w-[120px] pr-2'>
-                    Pendiente
+                    <div className='flex items-center gap-1'>
+                      <MD3Icon
+                        name='PaymentsRounded'
+                        size='xs'
+                        className='text-[var(--color-neutral-700)]'
+                      />
+                      <span>Pendiente</span>
+                    </div>
                   </TableHeaderCell>
                   <TableHeaderCell className='w-[50px] pr-2'>
                     <span className='sr-only'>Acciones</span>
@@ -1367,9 +1570,9 @@ export default function ParteDiarioPage() {
                         p.tags?.includes(tagMap[k])
                       )
                     })()
-                    // Filtro por profesional
-                    const matchesProfessional = selectedProfessional
-                      ? p.professional === selectedProfessional
+                    // Filtro por profesional (multi-select)
+                    const matchesProfessional = selectedProfessionals.length > 0
+                      ? selectedProfessionals.includes(p.professional ?? '')
                       : true
                     // Filtro por estado de visita
                     const matchesVisitStatus = activeVisitStatusFilters
@@ -1377,9 +1580,9 @@ export default function ParteDiarioPage() {
                       : true
                     return Boolean(
                       matchesQuery &&
-                        matchesFilter &&
-                        matchesProfessional &&
-                        matchesVisitStatus
+                      matchesFilter &&
+                      matchesProfessional &&
+                      matchesVisitStatus
                     )
                   })
                   .map((row, i) => (
@@ -1424,34 +1627,24 @@ export default function ParteDiarioPage() {
                           <span className='sr-only'>Seleccionar fila</span>
                         </button>
                       </TableBodyCell>
-                      <TableBodyCell className='w-[100px] pr-2'>
-                        {row.day}
-                      </TableBodyCell>
-                      <TableBodyCell className='w-[80px] pr-2'>
+                      <TableBodyCell className='w-[70px] pr-2'>
                         {row.hour}
                       </TableBodyCell>
-                      <TableBodyCell className='w-[80px] pr-2'>
-                        {row.arrivalTime ? (
-                          <span className='font-medium text-[#B45309]'>
-                            {row.arrivalTime}
+                      <TableBodyCell className='w-[90px] pr-2'>
+                        <ConfirmationToggle
+                          appointmentId={row.id}
+                          isConfirmed={row.confirmed}
+                          onToggle={handleConfirmationToggle}
+                        />
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[70px] pr-2'>
+                        {row.box ? (
+                          <span className='text-[var(--color-neutral-700)] capitalize'>
+                            {row.box.replace('box ', 'Box ')}
                           </span>
                         ) : (
-                          <span className='text-[var(--color-neutral-400)]'>
-                            —
-                          </span>
+                          <span className='text-[var(--color-neutral-400)]'>—</span>
                         )}
-                      </TableBodyCell>
-                      <TableBodyCell className='w-[180px] pr-2'>
-                        <p className='truncate'>{row.name}</p>
-                      </TableBodyCell>
-                      <TableBodyCell className='w-[160px] pr-2'>
-                        <p className='truncate'>{row.professional ?? '—'}</p>
-                      </TableBodyCell>
-                      <TableBodyCell className='w-[200px] pr-2'>
-                        <p className='truncate'>{row.reason}</p>
-                      </TableBodyCell>
-                      <TableBodyCell className='w-[120px] pr-2'>
-                        <p className='truncate'>{row.phone}</p>
                       </TableBodyCell>
                       <TableBodyCell className='w-[140px] pr-2'>
                         <VisitStatusCell
@@ -1461,11 +1654,26 @@ export default function ParteDiarioPage() {
                         />
                       </TableBodyCell>
                       <TableBodyCell className='w-[90px] pr-2'>
-                        <ConfirmationToggle
-                          appointmentId={row.id}
-                          isConfirmed={row.confirmed}
-                          onToggle={handleConfirmationToggle}
-                        />
+                        <WaitTimerCell row={row} />
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[180px] pr-2'>
+                        <p className='truncate'>{row.name}</p>
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[60px] pr-2'>
+                        {row.age ? (
+                          <span>{row.age}</span>
+                        ) : (
+                          <span className='text-[var(--color-neutral-400)]'>—</span>
+                        )}
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[200px] pr-2'>
+                        <p className='truncate'>{row.reason}</p>
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[160px] pr-2'>
+                        <p className='truncate'>{row.professional ?? '—'}</p>
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[120px] pr-2'>
+                        <p className='truncate'>{row.phone}</p>
                       </TableBodyCell>
                       <TableBodyCell className='w-[120px] pr-2'>
                         <PaymentStatusCell row={row} />
@@ -1477,7 +1685,9 @@ export default function ParteDiarioPage() {
                             e.stopPropagation()
                             const rect = e.currentTarget.getBoundingClientRect()
                             setRowMenuTriggerRect(rect)
-                            setOpenRowMenuId(openRowMenuId === row.id ? null : row.id)
+                            setOpenRowMenuId(
+                              openRowMenuId === row.id ? null : row.id
+                            )
                           }}
                           className='inline-flex size-8 items-center justify-center rounded-full hover:bg-[var(--color-neutral-100)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-300)]'
                         >

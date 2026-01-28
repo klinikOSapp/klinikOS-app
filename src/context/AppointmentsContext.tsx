@@ -9,6 +9,7 @@ import {
 } from 'react'
 
 import type { VisitStatus, VisitStatusLog } from '@/components/agenda/types'
+import { calculateFinalDurations } from '@/hooks/useWaitTimer'
 
 // Re-exportar tipos de visita para uso en otros componentes
 export type { VisitStatus, VisitStatusLog }
@@ -127,6 +128,15 @@ export type Appointment = {
   // Estado de visita del paciente (flujo en consulta)
   visitStatus?: VisitStatus // Estado actual (default: 'scheduled')
   visitStatusHistory?: VisitStatusLog[] // Historial de cambios con timestamps
+  // Tratamientos vinculados a esta cita
+  linkedTreatments?: {
+    id: string
+    description: string
+    amount: string
+  }[]
+  // Timer durations (in milliseconds) - recorded when appointment is completed
+  waitingDuration?: number // Time spent in waiting room
+  consultationDuration?: number // Time spent in consultation
 }
 
 // ============================================
@@ -134,10 +144,10 @@ export type Appointment = {
 // ============================================
 
 const INITIAL_APPOINTMENTS: Appointment[] = [
-  // 7 de enero de 2026
+  // 28 de enero de 2026 (HOY - para presentación)
   {
     id: 'apt-1',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '09:00',
     endTime: '09:30',
     patientName: 'María García López',
@@ -153,7 +163,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-2',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '09:30',
     endTime: '10:00',
     patientName: 'Carlos Rodríguez Fernández',
@@ -169,7 +179,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-3',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '10:00',
     endTime: '11:00',
     patientName: 'Ana Martínez Sánchez',
@@ -197,7 +207,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-4',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '10:30',
     endTime: '11:00',
     patientName: 'Pablo López García',
@@ -213,7 +223,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-5',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '11:00',
     endTime: '11:30',
     patientName: 'Laura Fernández Ruiz',
@@ -229,7 +239,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-6',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '11:30',
     endTime: '12:00',
     patientName: 'Javier Moreno Torres',
@@ -244,7 +254,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-7',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '12:00',
     endTime: '12:30',
     patientName: 'Sofía Navarro Díaz',
@@ -260,7 +270,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-8',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '12:00',
     endTime: '13:00',
     patientName: 'David Sánchez Martín',
@@ -283,7 +293,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-9',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '13:00',
     endTime: '13:30',
     patientName: 'Carmen Ruiz Jiménez',
@@ -299,7 +309,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-10',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '16:00',
     endTime: '17:00',
     patientName: 'Miguel Gómez Hernández',
@@ -327,7 +337,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-11',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '16:30',
     endTime: '17:30',
     patientName: 'Elena Vega Castillo',
@@ -343,7 +353,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-12',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '17:30',
     endTime: '18:00',
     patientName: 'Antonio Pérez Molina',
@@ -359,7 +369,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-13',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '18:00',
     endTime: '18:30',
     patientName: 'Marta Alonso Blanco',
@@ -375,7 +385,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-14',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '18:30',
     endTime: '19:00',
     patientName: 'Fernando Díaz Ortega',
@@ -391,7 +401,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-15',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '19:00',
     endTime: '19:30',
     patientName: 'Beatriz Muñoz Serrano',
@@ -407,7 +417,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   // 8 de enero de 2026
   {
     id: 'apt-16',
-    date: '2026-01-08',
+    date: '2026-01-29',
     startTime: '09:00',
     endTime: '10:00',
     patientName: 'Ramón Castro Vidal',
@@ -423,7 +433,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-17',
-    date: '2026-01-08',
+    date: '2026-01-29',
     startTime: '09:30',
     endTime: '10:00',
     patientName: 'Patricia Romero Nieto',
@@ -439,7 +449,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-18',
-    date: '2026-01-08',
+    date: '2026-01-29',
     startTime: '10:30',
     endTime: '12:00',
     patientName: 'María García López',
@@ -455,7 +465,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-19',
-    date: '2026-01-08',
+    date: '2026-01-29',
     startTime: '11:30',
     endTime: '12:00',
     patientName: 'Sofía Navarro Díaz',
@@ -470,7 +480,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-20',
-    date: '2026-01-08',
+    date: '2026-01-29',
     startTime: '16:30',
     endTime: '18:00',
     patientName: 'Miguel Gómez Hernández',
@@ -486,7 +496,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-21',
-    date: '2026-01-08',
+    date: '2026-01-29',
     startTime: '18:30',
     endTime: '19:30',
     patientName: 'Beatriz Muñoz Serrano',
@@ -503,7 +513,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   // 9 de enero de 2026
   {
     id: 'apt-22',
-    date: '2026-01-09',
+    date: '2026-01-30',
     startTime: '09:00',
     endTime: '09:30',
     patientName: 'Marta Alonso Blanco',
@@ -519,7 +529,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-23',
-    date: '2026-01-09',
+    date: '2026-01-30',
     startTime: '10:30',
     endTime: '11:30',
     patientName: 'Ramón Castro Vidal',
@@ -534,7 +544,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-24',
-    date: '2026-01-09',
+    date: '2026-01-30',
     startTime: '12:00',
     endTime: '12:30',
     patientName: 'Lucía Martín',
@@ -550,7 +560,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-25',
-    date: '2026-01-09',
+    date: '2026-01-30',
     startTime: '16:00',
     endTime: '17:30',
     patientName: 'Sofía Navarro Díaz',
@@ -567,7 +577,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   // 10 de enero de 2026
   {
     id: 'apt-26',
-    date: '2026-01-10',
+    date: '2026-01-31',
     startTime: '09:00',
     endTime: '10:00',
     patientName: 'Elena Vega Castillo',
@@ -582,7 +592,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-27',
-    date: '2026-01-10',
+    date: '2026-01-31',
     startTime: '16:00',
     endTime: '17:00',
     patientName: 'Sofía Navarro Díaz',
@@ -605,7 +615,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
 const INITIAL_BLOCKS: AgendaBlock[] = [
   {
     id: 'block-1',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '14:00',
     endTime: '15:00',
     blockType: 'break',
@@ -614,7 +624,7 @@ const INITIAL_BLOCKS: AgendaBlock[] = [
   },
   {
     id: 'block-2',
-    date: '2026-01-07',
+    date: '2026-01-28',
     startTime: '14:00',
     endTime: '14:30',
     blockType: 'cleaning',
@@ -624,7 +634,7 @@ const INITIAL_BLOCKS: AgendaBlock[] = [
   },
   {
     id: 'block-3',
-    date: '2026-01-08',
+    date: '2026-01-29',
     startTime: '13:00',
     endTime: '14:00',
     blockType: 'meeting',
@@ -633,7 +643,7 @@ const INITIAL_BLOCKS: AgendaBlock[] = [
   },
   {
     id: 'block-4',
-    date: '2026-01-09',
+    date: '2026-01-30',
     startTime: '08:30',
     endTime: '09:00',
     blockType: 'cleaning',
@@ -646,7 +656,7 @@ const INITIAL_BLOCKS: AgendaBlock[] = [
   },
   {
     id: 'block-5',
-    date: '2026-01-10',
+    date: '2026-01-31',
     startTime: '14:00',
     endTime: '14:30',
     blockType: 'maintenance',
@@ -924,7 +934,22 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
             const updatedHistory = [...(apt.visitStatusHistory || []), newLog]
 
             // Si el estado es 'completed', también marcar completed como true
+            // y calcular las duraciones finales
             const isCompleted = newStatus === 'completed'
+
+            // Calculate final durations when completing the appointment
+            let waitingDuration = apt.waitingDuration
+            let consultationDuration = apt.consultationDuration
+
+            if (isCompleted) {
+              const durations = calculateFinalDurations(updatedHistory)
+              waitingDuration = durations.waitingDuration ?? undefined
+              consultationDuration = durations.consultationDuration ?? undefined
+              
+              console.log(
+                `⏱️ Duraciones finales registradas: Espera=${waitingDuration ? Math.round(waitingDuration / 60000) + 'min' : 'N/A'}, Consulta=${consultationDuration ? Math.round(consultationDuration / 60000) + 'min' : 'N/A'}`
+              )
+            }
 
             console.log(
               `✅ Estado de visita actualizado: ${apt.patientName} → ${newStatus} (${now.toLocaleTimeString('es-ES')})`
@@ -934,7 +959,9 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
               ...apt,
               visitStatus: newStatus,
               visitStatusHistory: updatedHistory,
-              completed: isCompleted ? true : apt.completed
+              completed: isCompleted ? true : apt.completed,
+              waitingDuration,
+              consultationDuration
             }
           }
           return apt

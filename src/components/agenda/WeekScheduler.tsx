@@ -2631,6 +2631,7 @@ function DayGrid({
   onToggleComplete,
   onEventContextMenu,
   visitStatusMap,
+  visitStatusHistoryMap,
   onVisitStatusChange,
   confirmedEvents,
   showConfirmedOnly,
@@ -2676,6 +2677,7 @@ function DayGrid({
     event: AgendaEvent
   ) => void
   visitStatusMap?: Record<string, VisitStatus>
+  visitStatusHistoryMap?: Record<string, Array<{ status: VisitStatus; timestamp: Date }>>
   onVisitStatusChange?: (eventId: string, newStatus: VisitStatus) => void
   confirmedEvents?: Record<string, boolean>
   showConfirmedOnly?: boolean
@@ -3010,7 +3012,8 @@ function DayGrid({
               ...(boxLayout[event.box?.toLowerCase() ?? ''] ?? {}),
               completed: completedEvents?.[event.id] ?? event.completed,
               confirmed: confirmedEvents?.[event.id] ?? event.confirmed,
-              visitStatus: visitStatusMap?.[event.id] ?? event.visitStatus
+              visitStatus: visitStatusMap?.[event.id] ?? event.visitStatus,
+              visitStatusHistory: visitStatusHistoryMap?.[event.id] ?? event.visitStatusHistory
             }}
             onHover={() => onHover({ event, column })}
             onLeave={() => onHover(null)}
@@ -3998,7 +4001,9 @@ export default function WeekScheduler() {
     getAppointmentsByDateRange,
     getBlocksByDateRange,
     deleteBlock,
-    addBlock
+    addBlock,
+    updateVisitStatus,
+    getAppointmentById
   } = useAppointments()
 
   const [hovered, setHovered] = useState<EventSelection>(null)
@@ -4090,6 +4095,12 @@ export default function WeekScheduler() {
   // Estado para el estado de visita de cada cita (ID del evento -> VisitStatus)
   const [visitStatusMap, setVisitStatusMap] = useState<
     Record<string, VisitStatus>
+  >({})
+
+  // Estado para el historial de estados de visita (ID del evento -> array de logs)
+  // Esto permite que los timers funcionen en tiempo real
+  const [visitStatusHistoryMap, setVisitStatusHistoryMap] = useState<
+    Record<string, Array<{ status: VisitStatus; timestamp: Date }>>
   >({})
 
   // Context menu state for right-click actions on appointments
@@ -4449,11 +4460,22 @@ export default function WeekScheduler() {
   // Handler para cambiar el estado de visita
   const handleVisitStatusChange = useCallback(
     (eventId: string, newStatus: VisitStatus) => {
+      const now = new Date()
+
       // Actualizar estado local para feedback visual inmediato
       setVisitStatusMap((prev) => ({
         ...prev,
         [eventId]: newStatus
       }))
+
+      // Actualizar historial de estados localmente (para timers en tiempo real)
+      setVisitStatusHistoryMap((prev) => {
+        const currentHistory = prev[eventId] || []
+        return {
+          ...prev,
+          [eventId]: [...currentHistory, { status: newStatus, timestamp: now }]
+        }
+      })
 
       // Si el estado es 'completed', también marcar como completado
       if (newStatus === 'completed') {
@@ -4463,12 +4485,14 @@ export default function WeekScheduler() {
         }))
       }
 
-      // TODO: Aquí se integraría con el contexto/backend
+      // Sincronizar con el contexto global (actualiza visitStatusHistory y calcula duraciones finales si es 'completed')
+      updateVisitStatus(eventId, newStatus)
+
       console.log(
-        `✅ Estado de visita actualizado: ${eventId} → ${newStatus} (${new Date().toLocaleTimeString('es-ES')})`
+        `✅ Estado de visita actualizado: ${eventId} → ${newStatus} (${now.toLocaleTimeString('es-ES')})`
       )
     },
-    []
+    [updateVisitStatus]
   )
 
   // Handler para abrir menú contextual (clic derecho en cita)
@@ -5367,17 +5391,22 @@ export default function WeekScheduler() {
     const heightRem = heightSlots * 2.5
     const eventId = `new-${Date.now()}`
 
+    // Build event title: if there are linked treatments, show them; otherwise use servicio
+    const eventTreatments = data.linkedTreatments?.map(t => t.description).join(', ')
+    const eventTitle = eventTreatments || data.servicio || 'Nueva cita'
+    
     const newEvent: AgendaEvent = {
       id: eventId,
       top: `${topRem}rem`,
       height: `${heightRem}rem`,
-      title: data.servicio || 'Nueva cita',
+      title: eventTitle,
       patient: data.paciente || 'Paciente',
       box: data.box || 'Box 1',
       timeRange: `${data.hora} - ${endTime}`,
       backgroundClass: 'bg-[var(--color-brand-100)]',
+      linkedTreatments: data.linkedTreatments,
       detail: {
-        title: data.servicio || 'Nueva cita',
+        title: eventTitle,
         date: data.fecha,
         duration: `${data.hora} - ${endTime} (${durationMinutes} minutos)`,
         patientFull: data.paciente || 'Paciente',
@@ -5398,19 +5427,25 @@ export default function WeekScheduler() {
     )
 
     // Sincronizar con el contexto global para que aparezca en el Parte Diario
+    // Build reason: if there are linked treatments, show them; otherwise use servicio
+    const treatmentDescriptions = data.linkedTreatments?.map(t => t.description).join(', ')
+    const reason = treatmentDescriptions || data.servicio || 'Nueva cita'
+    
     addAppointment({
       date: data.fecha, // formato ISO: "2026-01-08"
       startTime: data.hora,
       endTime: endTime,
       patientName: data.paciente || 'Paciente',
+      patientId: data.pacienteId || undefined,
       patientPhone: '', // No disponible en el formulario actual
       professional: data.responsable || 'Profesional',
-      reason: data.servicio || 'Nueva cita',
+      reason: reason,
       status: 'No confirmada',
-      box: 'box 1',
+      box: data.box || 'box 1',
       charge: 'No',
       bgColor: 'var(--color-brand-100)',
-      notes: data.observaciones || ''
+      notes: data.observaciones || '',
+      linkedTreatments: data.linkedTreatments
     })
 
     handleCreateModalClose()
@@ -5876,6 +5911,7 @@ export default function WeekScheduler() {
                   onToggleComplete={handleToggleComplete}
                   onEventContextMenu={handleEventContextMenu}
                   visitStatusMap={visitStatusMap}
+                  visitStatusHistoryMap={visitStatusHistoryMap}
                   onVisitStatusChange={handleVisitStatusChange}
                   confirmedEvents={confirmedEvents}
                   showConfirmedOnly={showConfirmedOnly}

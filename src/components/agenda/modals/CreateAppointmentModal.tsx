@@ -2,10 +2,11 @@
 
 import { SelectInput, DatePickerInput } from '@/components/pacientes/modals/add-patient/AddPatientInputs'
 import Portal from '@/components/ui/Portal'
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import type { BlockType, RecurrencePattern } from '@/context/AppointmentsContext'
 import { BLOCK_TYPE_CONFIG, useAppointments } from '@/context/AppointmentsContext'
+import { usePatients, type PatientTreatment } from '@/context/PatientsContext'
 
 type CreateAppointmentModalProps = {
   isOpen: boolean
@@ -18,6 +19,7 @@ type CreateAppointmentModalProps = {
 export type AppointmentFormData = {
   servicio: string
   paciente: string
+  pacienteId: string
   responsable: string
   observaciones: string
   presupuesto: string
@@ -25,6 +27,11 @@ export type AppointmentFormData = {
   hora: string
   duracion: string
   box: string
+  linkedTreatments?: {
+    id: string
+    description: string
+    amount: string
+  }[]
 }
 
 export type BlockFormData = {
@@ -41,13 +48,15 @@ export type BlockFormData = {
 const getEmptyFormData = (): AppointmentFormData => ({
   servicio: '',
   paciente: '',
+  pacienteId: '',
   responsable: '',
   observaciones: '',
   presupuesto: '',
   fecha: '',
   hora: '',
   duracion: '',
-  box: ''
+  box: '',
+  linkedTreatments: []
 })
 
 const getEmptyBlockFormData = (): BlockFormData => ({
@@ -427,6 +436,9 @@ function stringToDate(str: string): Date | null {
   return new Date(y, m - 1, d)
 }
 
+// Type for treatment with selection state
+type SelectableTreatment = PatientTreatment & { selected: boolean }
+
 export default function CreateAppointmentModal({
   isOpen,
   onClose,
@@ -435,11 +447,63 @@ export default function CreateAppointmentModal({
   initialData
 }: CreateAppointmentModalProps) {
   const { isTimeSlotBlocked } = useAppointments()
+  const { getPatientsForSelect, getPendingTreatments, getPatientById } = usePatients()
   const [formData, setFormData] = useState<AppointmentFormData>(() => getEmptyFormData())
   const [blockFormData, setBlockFormData] = useState<BlockFormData>(() => getEmptyBlockFormData())
   const [blockConflictError, setBlockConflictError] = useState<string | null>(null)
+  const [pendingTreatments, setPendingTreatments] = useState<SelectableTreatment[]>([])
   
   const isBlockMode = formData.servicio === 'block'
+  
+  // Get patients list from context
+  const pacientes = getPatientsForSelect()
+
+  // Handle patient selection - load pending treatments
+  const handlePatientChange = useCallback((patientId: string) => {
+    const patient = getPatientById(patientId)
+    const patientName = patient?.name || ''
+    
+    setFormData(prev => ({ 
+      ...prev, 
+      paciente: patientName,
+      pacienteId: patientId,
+      // Clear block mode when selecting a patient
+      servicio: prev.servicio === 'block' ? '' : prev.servicio
+    }))
+    
+    if (patientId) {
+      // Get pending treatments for this patient
+      const treatments = getPendingTreatments(patientId)
+      // Mark treatments with status 'Aceptado' as pre-selected
+      const selectableTreatments: SelectableTreatment[] = treatments.map(t => ({
+        ...t,
+        selected: t.status === 'Aceptado'
+      }))
+      setPendingTreatments(selectableTreatments)
+    } else {
+      setPendingTreatments([])
+    }
+  }, [getPatientById, getPendingTreatments])
+
+  // Toggle treatment selection
+  const toggleTreatmentSelection = useCallback((treatmentId: string) => {
+    setPendingTreatments(prev => 
+      prev.map(t => 
+        t.id === treatmentId ? { ...t, selected: !t.selected } : t
+      )
+    )
+  }, [])
+
+  // Get selected treatments for form submission
+  const selectedTreatments = useMemo(() => {
+    return pendingTreatments
+      .filter(t => t.selected)
+      .map(t => ({
+        id: t.id,
+        description: t.description,
+        amount: t.amount
+      }))
+  }, [pendingTreatments])
 
   const hasTimeSlotConflict = useMemo(() => {
     if (isBlockMode) return false
@@ -474,6 +538,7 @@ export default function CreateAppointmentModal({
     if (!isOpen) {
       setFormData(getEmptyFormData())
       setBlockFormData(getEmptyBlockFormData())
+      setPendingTreatments([])
       return
     }
 
@@ -489,10 +554,16 @@ export default function CreateAppointmentModal({
     if (isBlockMode) {
       onSubmitBlock?.(blockFormData)
     } else {
-      onSubmit?.(formData)
+      // Include selected treatments in form data
+      const dataWithTreatments: AppointmentFormData = {
+        ...formData,
+        linkedTreatments: selectedTreatments
+      }
+      onSubmit?.(dataWithTreatments)
     }
     setFormData(getEmptyFormData())
     setBlockFormData(getEmptyBlockFormData())
+    setPendingTreatments([])
   }
 
   const toggleRecurrenceDay = (dayValue: number) => {
@@ -523,11 +594,7 @@ export default function CreateAppointmentModal({
     { value: 'extraccion', label: 'Extracción' },
   ]
 
-  const pacientes = [
-    { value: '1', label: 'Juan Pérez' },
-    { value: '2', label: 'María García' },
-    { value: '3', label: 'Carlos Rodríguez' },
-  ]
+  // pacientes now comes from context (getPatientsForSelect)
 
   const responsables = [
     { value: '', label: 'Sin asignar' },
@@ -563,13 +630,19 @@ export default function CreateAppointmentModal({
     blockFormData.duracion && 
     blockFormData.box
 
+  // Determine if patient has pending treatments
+  const hasPendingTreatments = formData.pacienteId && pendingTreatments.length > 0
+  
+  // Appointment is valid if:
+  // - Has patient, date, time, duration, and no conflict
+  // - AND either: has selected treatments OR has selected a service (when no pending treatments)
   const isAppointmentFormValid = !isBlockMode && 
-    formData.servicio && 
     formData.paciente && 
     formData.fecha && 
     formData.hora &&
     formData.duracion &&
-    !hasTimeSlotConflict
+    !hasTimeSlotConflict &&
+    (selectedTreatments.length > 0 || (!hasPendingTreatments && formData.servicio))
 
   const canSubmit = isBlockMode ? isBlockFormValid : isAppointmentFormValid
 
@@ -620,19 +693,19 @@ export default function CreateAppointmentModal({
           {/* Content */}
           <div className='max-h-[60vh] overflow-y-auto px-6 py-5'>
             <div className='flex flex-col gap-5'>
-              
-              {/* Servicio - Always visible */}
-              <FormRow label='Servicio' icon='medical_services' required>
-                <SelectInput
-                  placeholder='Seleccionar...'
-                  value={formData.servicio}
-                  onChange={(v) => setFormData(prev => ({ ...prev, servicio: v }))}
-                  options={servicios}
-                />
-              </FormRow>
 
               {isBlockMode ? (
                 <>
+                  {/* Back to appointment mode */}
+                  <button
+                    type='button'
+                    onClick={() => setFormData(prev => ({ ...prev, servicio: '' }))}
+                    className='flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 transition-colors -mb-2'
+                  >
+                    <span className='material-symbols-rounded text-base'>arrow_back</span>
+                    <span>Volver a crear cita</span>
+                  </button>
+
                   {/* Block mode fields */}
                   <FormRow label='Tipo' icon='category'>
                     <SelectInput
@@ -754,12 +827,12 @@ export default function CreateAppointmentModal({
                 </>
               ) : (
                 <>
-                  {/* Appointment mode fields */}
+                  {/* Appointment mode fields - Patient FIRST */}
                   <FormRow label='Paciente' icon='person' required>
                     <SelectInput
                       placeholder='Buscar paciente...'
-                      value={formData.paciente}
-                      onChange={(v) => setFormData(prev => ({ ...prev, paciente: v }))}
+                      value={formData.pacienteId}
+                      onChange={handlePatientChange}
                       options={pacientes}
                       onCreate={(text) => handleOpenCreatePatient(text)}
                       createLabel='Crear paciente'
@@ -768,6 +841,91 @@ export default function CreateAppointmentModal({
                       }
                     />
                   </FormRow>
+
+                  {/* Option to block agenda when no patient selected */}
+                  {!formData.pacienteId && (
+                    <button
+                      type='button'
+                      onClick={() => setFormData(prev => ({ ...prev, servicio: 'block' }))}
+                      className='flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors -mt-2'
+                    >
+                      <span className='material-symbols-rounded text-base'>block</span>
+                      <span>¿Necesitas bloquear la agenda?</span>
+                    </button>
+                  )}
+
+                  {/* Pending treatments section - shown when patient has treatments */}
+                  {formData.pacienteId && pendingTreatments.length > 0 && (
+                    <div className='rounded-xl border border-brand-200 bg-brand-50/50 p-4'>
+                      <div className='mb-3 flex items-center gap-2'>
+                        <span className='material-symbols-rounded text-lg text-brand-600'>
+                          medical_services
+                        </span>
+                        <h3 className='text-sm font-medium text-gray-800'>
+                          Tratamientos pendientes ({pendingTreatments.length})
+                        </h3>
+                      </div>
+                      <div className='space-y-2'>
+                        {pendingTreatments.map((treatment) => (
+                          <button
+                            key={treatment.id}
+                            type='button'
+                            onClick={() => toggleTreatmentSelection(treatment.id)}
+                            className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${
+                              treatment.selected
+                                ? 'border-brand-300 bg-white shadow-sm'
+                                : 'border-transparent bg-white/60 hover:bg-white hover:border-gray-200'
+                            }`}
+                          >
+                            <span className={`material-symbols-rounded text-xl ${
+                              treatment.selected ? 'text-brand-500' : 'text-gray-300'
+                            }`}>
+                              {treatment.selected ? 'check_box' : 'check_box_outline_blank'}
+                            </span>
+                            <div className='flex-1 min-w-0'>
+                              <p className='text-sm font-medium text-gray-900 truncate'>
+                                {treatment.description}
+                              </p>
+                              <p className='text-xs text-gray-500'>
+                                {treatment.professional}
+                              </p>
+                            </div>
+                            <div className='text-right'>
+                              <p className='text-sm font-semibold text-gray-900'>
+                                {treatment.amount}
+                              </p>
+                              <span className={`inline-flex text-xs px-1.5 py-0.5 rounded ${
+                                treatment.status === 'Aceptado' 
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : treatment.status === 'Recall'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-gray-100 text-gray-600'
+                              }`}>
+                                {treatment.status}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      {selectedTreatments.length > 0 && (
+                        <p className='mt-3 text-xs text-brand-600'>
+                          {selectedTreatments.length} tratamiento{selectedTreatments.length > 1 ? 's' : ''} seleccionado{selectedTreatments.length > 1 ? 's' : ''}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Servicio - Only shown when patient has NO pending treatments */}
+                  {formData.pacienteId && pendingTreatments.length === 0 && (
+                    <FormRow label='Servicio' icon='medical_services' required>
+                      <SelectInput
+                        placeholder='Seleccionar servicio...'
+                        value={formData.servicio}
+                        onChange={(v) => setFormData(prev => ({ ...prev, servicio: v }))}
+                        options={servicios.filter(s => s.value !== 'block')}
+                      />
+                    </FormRow>
+                  )}
 
                   <FormRow label='Profesional' icon='stethoscope'>
                     <SelectInput

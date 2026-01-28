@@ -5,8 +5,14 @@
 import ClientLayout from '@/app/client-layout'
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
+import {
+  formatDateShort,
+  usePatients,
+  type Patient,
+  type PatientTag
+} from '@/context/PatientsContext'
 import { useRouter, useSearchParams } from 'next/navigation'
-import React, { Suspense, useEffect, useRef } from 'react'
+import React, { Suspense, useEffect, useMemo, useRef } from 'react'
 
 /* ─────────────────────────────────────────────────────────────
    PatientActionsMenu - Dropdown de acciones por paciente
@@ -322,33 +328,46 @@ function Row() {
   )
 }
 
+// Tipo para las filas de la tabla (derivado de Patient del contexto)
 type PatientRow = {
   id: string
   name: string
-  nextDate: string
-  status: 'Activo' | 'Hecho'
   phone: string
-  checkin: 'Hecho' | 'Pendiente'
-  financing: 'Sí' | 'No'
+  nextDate: string
+  status: 'Activo' | 'Inactivo' | 'Alta'
   debt: string
-  tags?: Array<'deuda' | 'activo' | 'recall'>
+  debtAmount: number // Para ordenación
+  hasFinancing: boolean
+  tags: PatientTag[]
 }
 
-const MOCK_PATIENTS: PatientRow[] = Array.from({ length: 12 }).map((_, i) => ({
-  id: `p-${i}`,
-  name: 'Laura Rivas',
-  nextDate: 'DD/MM/AAAA',
-  status: 'Activo',
-  phone: '888 888 888',
-  checkin: 'Hecho',
-  financing: 'No',
-  debt: '380€',
-  tags: i % 3 === 0 ? ['deuda'] : i % 2 === 0 ? ['activo'] : ['recall']
-}))
+// Función para convertir Patient del contexto a PatientRow para la tabla
+function patientToRow(patient: Patient): PatientRow {
+  const debtInEuros = patient.finance.totalDebt / 100 // Convertir céntimos a euros
+  return {
+    id: patient.id,
+    name: patient.fullName,
+    phone: patient.phone,
+    nextDate: patient.nextAppointmentDate
+      ? formatDateShort(patient.nextAppointmentDate)
+      : 'Sin cita',
+    status: patient.status,
+    debt:
+      debtInEuros > 0
+        ? `${debtInEuros.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €`
+        : '0 €',
+    debtAmount: patient.finance.totalDebt,
+    hasFinancing: patient.finance.hasFinancing,
+    tags: patient.tags
+  }
+}
 
 function PacientesPageContent() {
+  // Hook del contexto de pacientes
+  const { patients, deletePatient, getPatientStats } = usePatients()
+
   const [query, setQuery] = React.useState('')
-  type FilterKey = 'deuda' | 'activos'
+  type FilterKey = 'deuda' | 'activos' | 'financiacion'
   const [selectedFilters, setSelectedFilters] = React.useState<FilterKey[]>([])
   const [selectedPatientIds, setSelectedPatientIds] = React.useState<string[]>(
     []
@@ -360,6 +379,15 @@ function PacientesPageContent() {
   const [menuTriggerRect, setMenuTriggerRect] = React.useState<DOMRect | null>(null)
   const searchParams = useSearchParams()
   const navRouter = useRouter()
+
+  // Convertir pacientes del contexto a filas para la tabla
+  const patientRows = useMemo(
+    () => patients.map(patientToRow),
+    [patients]
+  )
+
+  // Estadísticas de pacientes
+  const stats = useMemo(() => getPatientStats(), [getPatientStats])
 
   useEffect(() => {
     const shouldOpen = searchParams.get('openCreate') === '1'
@@ -455,17 +483,21 @@ function PacientesPageContent() {
           <div className='flex-shrink-0 mb-6 flex items-center justify-between'>
             <div className='flex items-center gap-2'>
               {selectedPatientIds.length > 0 && (
-                <Chip color='teal'>{selectedPatientIds.length} selected</Chip>
+                <>
+                  <Chip color='teal'>{selectedPatientIds.length} seleccionados</Chip>
+                  <button
+                    onClick={() => {
+                      // Eliminar pacientes seleccionados
+                      selectedPatientIds.forEach((id) => deletePatient(id))
+                      setSelectedPatientIds([])
+                    }}
+                    className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer hover:bg-[var(--color-error-50)] hover:border-[var(--color-error-300)] hover:text-[var(--color-error-600)] transition-colors'
+                    title={`Eliminar ${selectedPatientIds.length} paciente(s)`}
+                  >
+                    <MD3Icon name='DeleteRounded' size='md' />
+                  </button>
+                </>
               )}
-              <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-body-sm text-[var(--color-neutral-700)] cursor-pointer'>
-                Estado
-              </button>
-              <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-body-sm text-[var(--color-neutral-700)] cursor-pointer'>
-                Check-in
-              </button>
-              <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
-                <MD3Icon name='DeleteRounded' size='md' />
-              </button>
             </div>
             <div className='flex items-center gap-2'>
               <div className='flex items-center gap-2 border-b border-[var(--color-neutral-900)] px-2 py-1'>
@@ -515,6 +547,17 @@ function PacientesPageContent() {
               >
                 Activos
               </button>
+              <button
+                onClick={() => toggleFilter('financiacion')}
+                className={[
+                  'px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
+                  isFilterActive('financiacion')
+                    ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
+                    : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
+                ].join(' ')}
+              >
+                Financiación
+              </button>
             </div>
           </div>
 
@@ -536,19 +579,47 @@ function PacientesPageContent() {
                     </div>
                   </TableHeaderCell>
                   <TableHeaderCell className='w-[16%] pr-2'>
-                    Teléfono
+                    <div className='flex items-center gap-2'>
+                      <MD3Icon
+                        name='PhoneRounded'
+                        size='sm'
+                        className='text-[var(--color-neutral-700)]'
+                      />
+                      <span>Teléfono</span>
+                    </div>
                   </TableHeaderCell>
                   <TableHeaderCell className='w-[18%] pr-2'>
-                    Próxima cita
+                    <div className='flex items-center gap-2'>
+                      <MD3Icon
+                        name='CalendarMonthRounded'
+                        size='sm'
+                        className='text-[var(--color-neutral-700)]'
+                      />
+                      <span>Próxima cita</span>
+                    </div>
                   </TableHeaderCell>
                   <TableHeaderCell className='w-[14%] pr-2'>
-                    Estado
+                    <div className='flex items-center gap-2'>
+                      <MD3Icon
+                        name='CircleRounded'
+                        size='sm'
+                        className='text-[var(--color-neutral-700)]'
+                      />
+                      <span>Estado</span>
+                    </div>
                   </TableHeaderCell>
                   <TableHeaderCell
                     className='w-[12%] pr-2'
                     align='right'
                   >
-                    Deuda
+                    <div className='flex items-center gap-2 justify-end'>
+                      <MD3Icon
+                        name='PaymentsRounded'
+                        size='sm'
+                        className='text-[var(--color-neutral-700)]'
+                      />
+                      <span>Deuda</span>
+                    </div>
                   </TableHeaderCell>
                   <TableHeaderCell className='w-[5%] min-w-[2.5rem] pr-2 text-right sticky right-0 bg-[var(--color-surface-app)]'>
                     <span className='sr-only'>Acciones</span>
@@ -556,7 +627,7 @@ function PacientesPageContent() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_PATIENTS.filter((p) => {
+                {patientRows.filter((p) => {
                   const q = query.trim().toLowerCase()
                   const matchesQuery = q
                     ? p.name.toLowerCase().includes(q) ||
@@ -564,13 +635,18 @@ function PacientesPageContent() {
                     : true
                   const matchesFilter = (() => {
                     if (selectedFilters.length === 0) return true
-                    const tagMap: Record<FilterKey, 'deuda' | 'activo'> = {
-                      deuda: 'deuda',
-                      activos: 'activo'
-                    }
-                    return selectedFilters.some((k) =>
-                      p.tags?.includes(tagMap[k])
-                    )
+                    return selectedFilters.some((filterKey) => {
+                      if (filterKey === 'deuda') {
+                        return p.tags.includes('deuda') || p.debtAmount > 0
+                      }
+                      if (filterKey === 'activos') {
+                        return p.status === 'Activo'
+                      }
+                      if (filterKey === 'financiacion') {
+                        return p.hasFinancing
+                      }
+                      return false
+                    })
                   })()
                   return Boolean(matchesQuery && matchesFilter)
                 }).map((row, i) => (
@@ -692,8 +768,8 @@ function PacientesPageContent() {
                             onDelete={() => {
                               setOpenMenuId(null)
                               setMenuTriggerRect(null)
-                              // TODO: Implementar eliminar con confirmación
-                              console.log('Eliminar:', row.name)
+                              // TODO: Añadir confirmación antes de eliminar
+                              deletePatient(row.id)
                             }}
                           />
                         )}

@@ -3,11 +3,11 @@
 /* eslint-disable @next/next/no-img-element */
 
 import {
-    CallRounded,
-    CheckRounded,
-    CloseRounded,
-    EditRounded,
-    MailRounded
+  CallRounded,
+  CheckRounded,
+  CloseRounded,
+  EditRounded,
+  MailRounded
 } from '@/components/icons/md3'
 import AvatarImageDropdown from '@/components/pacientes/AvatarImageDropdown'
 import React from 'react'
@@ -16,6 +16,8 @@ type ClientSummaryProps = {
   onClose?: () => void
   initialEditMode?: boolean
   onEditModeOpened?: () => void
+  /** When true, hides edit buttons and disables all editing functionality */
+  readOnly?: boolean
 }
 
 // Datos iniciales del paciente (en producción vendrían de props o API)
@@ -28,7 +30,8 @@ const initialPatientData = {
   dni: '49587154S',
   pais: 'España',
   estado: 'Pre-registro',
-  motivoConsulta: 'Sufre de sensibilidad dental y necesita hacerse su limpieza bucal anual',
+  motivoConsulta:
+    'Sufre de sensibilidad dental y necesita hacerse su limpieza bucal anual',
   origenCliente: 'Recomendación',
   recomendadoPor: 'Sonia Pujante',
   ocupacion: 'Funcionario',
@@ -40,7 +43,12 @@ const initialPatientData = {
   comentario: ''
 }
 
-export default function ClientSummary({ onClose, initialEditMode = false, onEditModeOpened }: ClientSummaryProps) {
+export default function ClientSummary({
+  onClose,
+  initialEditMode = false,
+  onEditModeOpened,
+  readOnly = false
+}: ClientSummaryProps) {
   const [avatarPreviewUrl, setAvatarPreviewUrl] = React.useState<string | null>(
     null
   )
@@ -48,19 +56,19 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
 
   // Estado de edición
   const [isEditing, setIsEditing] = React.useState(false)
-  
+
   // Estados para todos los campos editables
   const [formData, setFormData] = React.useState(initialPatientData)
   const [tempFormData, setTempFormData] = React.useState(initialPatientData)
 
-  // Efecto para abrir en modo edición cuando se pasa initialEditMode
+  // Efecto para abrir en modo edición cuando se pasa initialEditMode (solo si no es readOnly)
   React.useEffect(() => {
-    if (initialEditMode) {
+    if (initialEditMode && !readOnly) {
       setTempFormData(formData)
       setIsEditing(true)
       onEditModeOpened?.()
     }
-  }, [initialEditMode, formData, onEditModeOpened])
+  }, [initialEditMode, formData, onEditModeOpened, readOnly])
 
   const setPreviewFromFile = React.useCallback((file: File) => {
     const url = URL.createObjectURL(file)
@@ -91,8 +99,11 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
     setIsEditing(false)
   }
 
-  const updateField = (field: keyof typeof formData, value: string | string[]) => {
-    setTempFormData(prev => ({ ...prev, [field]: value }))
+  const updateField = (
+    field: keyof typeof formData,
+    value: string | string[]
+  ) => {
+    setTempFormData((prev) => ({ ...prev, [field]: value }))
   }
   return (
     <div
@@ -131,7 +142,7 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
         >
           {isEditing ? (
             <input
-              type="text"
+              type='text'
               value={tempFormData.nombre}
               onChange={(e) => updateField('nombre', e.target.value)}
               className="font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] w-full not-italic text-[#24282c] text-[1.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)]"
@@ -158,7 +169,7 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
             </div>
             {isEditing ? (
               <input
-                type="email"
+                type='email'
                 value={tempFormData.email}
                 onChange={(e) => updateField('email', e.target.value)}
                 className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[1rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-full"
@@ -185,7 +196,7 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
             </div>
             {isEditing ? (
               <input
-                type="tel"
+                type='tel'
                 value={tempFormData.telefono}
                 onChange={(e) => updateField('telefono', e.target.value)}
                 className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[1rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-full"
@@ -238,8 +249,8 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
           <textarea
             value={tempFormData.comentario}
             onChange={(e) => updateField('comentario', e.target.value)}
-            placeholder="Añadir comentario sobre el paciente"
-            className="w-full h-full px-2 py-2 text-[0.875rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded-[0.5rem] outline-none focus:border-[var(--color-brand-500)] resize-none text-[#24282c]"
+            placeholder='Añadir comentario sobre el paciente'
+            className='w-full h-full px-2 py-2 text-[0.875rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded-[0.5rem] outline-none focus:border-[var(--color-brand-500)] resize-none text-[#24282c]'
           />
         ) : (
           <p
@@ -315,10 +326,12 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
       </p>
       {isEditing ? (
         <input
-          type="text"
+          type='text'
           value={tempFormData.contactoEmergenciaNombre}
-          onChange={(e) => updateField('contactoEmergenciaNombre', e.target.value)}
-          placeholder="Nombre contacto"
+          onChange={(e) =>
+            updateField('contactoEmergenciaNombre', e.target.value)
+          }
+          placeholder='Nombre contacto'
           className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] top-[43rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[12rem]"
         />
       ) : (
@@ -364,7 +377,7 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
       </p>
       {isEditing ? (
         <input
-          type="text"
+          type='text'
           value={tempFormData.edad}
           onChange={(e) => updateField('edad', e.target.value)}
           className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[18.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[6rem]"
@@ -381,10 +394,10 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
       )}
       {isEditing ? (
         <input
-          type="text"
+          type='text'
           value={tempFormData.recomendadoPor}
           onChange={(e) => updateField('recomendadoPor', e.target.value)}
-          placeholder="Nombre"
+          placeholder='Nombre'
           className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[31.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[10rem]"
           style={{ left: 'calc(18.75% + 1.922rem)' }}
         />
@@ -399,10 +412,10 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
       )}
       {isEditing ? (
         <input
-          type="text"
+          type='text'
           value={tempFormData.fechaNacimiento}
           onChange={(e) => updateField('fechaNacimiento', e.target.value)}
-          placeholder="DD/MM/AAAA"
+          placeholder='DD/MM/AAAA'
           className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[18.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[8rem]"
         />
       ) : (
@@ -420,10 +433,10 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
           className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[18.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[10rem]"
           style={{ left: 'calc(43.75% + 0.797rem)' }}
         >
-          <option value="Pre-registro">Pre-registro</option>
-          <option value="Activo">Activo</option>
-          <option value="Inactivo">Inactivo</option>
-          <option value="Pendiente">Pendiente</option>
+          <option value='Pre-registro'>Pre-registro</option>
+          <option value='Activo'>Activo</option>
+          <option value='Inactivo'>Inactivo</option>
+          <option value='Pendiente'>Pendiente</option>
         </select>
       ) : (
         <p
@@ -440,11 +453,11 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
           onChange={(e) => updateField('origenCliente', e.target.value)}
           className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[31.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[10rem]"
         >
-          <option value="Recomendación">Recomendación</option>
-          <option value="Internet">Internet</option>
-          <option value="Redes Sociales">Redes Sociales</option>
-          <option value="Publicidad">Publicidad</option>
-          <option value="Otro">Otro</option>
+          <option value='Recomendación'>Recomendación</option>
+          <option value='Internet'>Internet</option>
+          <option value='Redes Sociales'>Redes Sociales</option>
+          <option value='Publicidad'>Publicidad</option>
+          <option value='Otro'>Otro</option>
         </select>
       ) : (
         <p
@@ -456,10 +469,12 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
       )}
       {isEditing ? (
         <input
-          type="email"
+          type='email'
           value={tempFormData.contactoEmergenciaEmail}
-          onChange={(e) => updateField('contactoEmergenciaEmail', e.target.value)}
-          placeholder="Email contacto"
+          onChange={(e) =>
+            updateField('contactoEmergenciaEmail', e.target.value)
+          }
+          placeholder='Email contacto'
           className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[44.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[12rem]"
         />
       ) : (
@@ -472,10 +487,12 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
       )}
       {isEditing ? (
         <input
-          type="tel"
+          type='tel'
           value={tempFormData.contactoEmergenciaTelefono}
-          onChange={(e) => updateField('contactoEmergenciaTelefono', e.target.value)}
-          placeholder="Teléfono contacto"
+          onChange={(e) =>
+            updateField('contactoEmergenciaTelefono', e.target.value)
+          }
+          placeholder='Teléfono contacto'
           className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[46.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[10rem]"
         />
       ) : (
@@ -488,10 +505,10 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
       )}
       {isEditing ? (
         <input
-          type="text"
+          type='text'
           value={tempFormData.dni}
           onChange={(e) => updateField('dni', e.target.value)}
-          placeholder="DNI/NIE"
+          placeholder='DNI/NIE'
           className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[23.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[8rem]"
         />
       ) : (
@@ -506,7 +523,7 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
         <textarea
           value={tempFormData.motivoConsulta}
           onChange={(e) => updateField('motivoConsulta', e.target.value)}
-          placeholder="Motivo de la consulta"
+          placeholder='Motivo de la consulta'
           className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[23.25rem] w-[30.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] resize-none min-h-[3rem]"
           style={{ left: 'calc(43.75% + 0.797rem)' }}
         />
@@ -521,10 +538,10 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
       )}
       {isEditing ? (
         <input
-          type="text"
+          type='text'
           value={tempFormData.ocupacion}
           onChange={(e) => updateField('ocupacion', e.target.value)}
-          placeholder="Ocupación"
+          placeholder='Ocupación'
           className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[36.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[10rem]"
         />
       ) : (
@@ -537,10 +554,10 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
       )}
       {isEditing ? (
         <input
-          type="text"
+          type='text'
           value={tempFormData.pais}
           onChange={(e) => updateField('pais', e.target.value)}
-          placeholder="País"
+          placeholder='País'
           className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[23.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[8rem]"
           style={{ left: 'calc(18.75% + 1.922rem)' }}
         />
@@ -560,11 +577,11 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
           className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[36.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[8rem]"
           style={{ left: 'calc(18.75% + 1.922rem)' }}
         >
-          <option value="Español">Español</option>
-          <option value="Inglés">Inglés</option>
-          <option value="Francés">Francés</option>
-          <option value="Valenciano">Valenciano</option>
-          <option value="Catalán">Catalán</option>
+          <option value='Español'>Español</option>
+          <option value='Inglés'>Inglés</option>
+          <option value='Francés'>Francés</option>
+          <option value='Valenciano'>Valenciano</option>
+          <option value='Catalán'>Catalán</option>
         </select>
       ) : (
         <p
@@ -575,54 +592,56 @@ export default function ClientSummary({ onClose, initialEditMode = false, onEdit
           {formData.idioma}
         </p>
       )}
-      {!isEditing ? (
-        <button
-          type="button"
-          onClick={handleEdit}
-          className='absolute bg-[#f8fafb] box-border content-stretch flex gap-[0.5rem] items-center justify-center px-[0.5rem] py-[0.25rem] rounded-[1rem] top-[14.125rem] cursor-pointer hover:bg-[var(--color-brand-50)] transition-colors'
-          data-name='Remember - Button'
-          data-node-id='426:905'
-          style={{ left: 'calc(87.5% + 1.906rem)' }}
-        >
+      {/* Edit/Save buttons - hidden when readOnly */}
+      {!readOnly &&
+        (!isEditing ? (
+          <button
+            type='button'
+            onClick={handleEdit}
+            className='absolute bg-[#f8fafb] box-border content-stretch flex gap-[0.5rem] items-center justify-center px-[0.5rem] py-[0.25rem] rounded-[1rem] top-[14.125rem] cursor-pointer hover:bg-[var(--color-brand-50)] transition-colors'
+            data-name='Remember - Button'
+            data-node-id='426:905'
+            style={{ left: 'calc(87.5% + 1.906rem)' }}
+          >
+            <div
+              aria-hidden='true'
+              className='absolute border border-[#51d6c7] border-solid inset-0 pointer-events-none rounded-[1rem]'
+            />
+            <EditRounded className='size-4 text-[#1e4947]' />
+            <p
+              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic relative shrink-0 text-[#1e4947] text-[0.875rem] text-nowrap whitespace-pre"
+              data-node-id='I426:905;236:963'
+            >
+              Editar
+            </p>
+          </button>
+        ) : (
           <div
-            aria-hidden='true'
-            className='absolute border border-[#51d6c7] border-solid inset-0 pointer-events-none rounded-[1rem]'
-          />
-          <EditRounded className='size-4 text-[#1e4947]' />
-          <p
-            className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic relative shrink-0 text-[#1e4947] text-[0.875rem] text-nowrap whitespace-pre"
-            data-node-id='I426:905;236:963'
+            className='absolute flex gap-[0.5rem] top-[14.125rem]'
+            style={{ left: 'calc(80% + 1rem)' }}
           >
-            Editar
-          </p>
-        </button>
-      ) : (
-        <div
-          className='absolute flex gap-[0.5rem] top-[14.125rem]'
-          style={{ left: 'calc(80% + 1rem)' }}
-        >
-          <button
-            type="button"
-            onClick={handleCancel}
-            className='bg-[#f8fafb] box-border flex gap-[0.5rem] items-center justify-center px-[0.75rem] py-[0.25rem] rounded-[1rem] cursor-pointer hover:bg-[var(--color-neutral-100)] transition-colors border border-[var(--color-neutral-300)]'
-          >
-            <CloseRounded className='size-4 text-[var(--color-neutral-700)]' />
-            <span className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] text-[var(--color-neutral-700)] text-[0.875rem]">
-              Cancelar
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            className='bg-[var(--color-brand-500)] box-border flex gap-[0.5rem] items-center justify-center px-[0.75rem] py-[0.25rem] rounded-[1rem] cursor-pointer hover:bg-[var(--color-brand-600)] transition-colors'
-          >
-            <CheckRounded className='size-4 text-white' />
-            <span className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] text-white text-[0.875rem]">
-              Guardar
-            </span>
-          </button>
-        </div>
-      )}
+            <button
+              type='button'
+              onClick={handleCancel}
+              className='bg-[#f8fafb] box-border flex gap-[0.5rem] items-center justify-center px-[0.75rem] py-[0.25rem] rounded-[1rem] cursor-pointer hover:bg-[var(--color-neutral-100)] transition-colors border border-[var(--color-neutral-300)]'
+            >
+              <CloseRounded className='size-4 text-[var(--color-neutral-700)]' />
+              <span className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] text-[var(--color-neutral-700)] text-[0.875rem]">
+                Cancelar
+              </span>
+            </button>
+            <button
+              type='button'
+              onClick={handleSave}
+              className='bg-[var(--color-brand-500)] box-border flex gap-[0.5rem] items-center justify-center px-[0.75rem] py-[0.25rem] rounded-[1rem] cursor-pointer hover:bg-[var(--color-brand-600)] transition-colors'
+            >
+              <CheckRounded className='size-4 text-white' />
+              <span className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] text-white text-[0.875rem]">
+                Guardar
+              </span>
+            </button>
+          </div>
+        ))}
     </div>
   )
 }

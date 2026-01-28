@@ -9,95 +9,69 @@ import {
   MoreVertRounded,
   SearchRounded
 } from '@/components/icons/md3'
+import { MD3Icon } from '@/components/icons/MD3Icon'
 import { SelectInput } from '@/components/pacientes/modals/add-patient/AddPatientInputs'
+import ExpandedTextInput from '@/components/pacientes/shared/ExpandedTextInput'
+import { RowActionsMenu } from '@/components/pacientes/shared/RowActionsMenu'
+import { StatusBadge } from '@/components/pacientes/shared/StatusBadge'
+import type {
+  Treatment,
+  TreatmentStatus
+} from '@/components/pacientes/shared/treatmentTypes'
+import {
+  PROFESSIONALS,
+  TREATMENT_CATALOG
+} from '@/components/pacientes/shared/treatmentTypes'
+import { useTreatmentFilter } from '@/hooks/useTreatmentFilter'
+import { setPendingAppointmentData } from '@/utils/appointmentPrefill'
+import { useRouter } from 'next/navigation'
 import React from 'react'
 
-type TreatmentStatus = 'Aceptado' | 'Recall' | 'Pagado' | 'Sin pagar'
-
-type Treatment = {
-  id: string
-  description: string
-  date: string | 'Sin fecha'
-  amount: string
-  discount?: number // Porcentaje de descuento (0-100)
-  status: TreatmentStatus
-  professional: string
-  selected?: boolean
-  _internalId?: string // ID interno único que no cambia, usado para React keys
+// Table cell components (same as parte-diario)
+function TableHeaderCell({
+  children,
+  className,
+  align = 'left'
+}: {
+  children: React.ReactNode
+  className?: string
+  align?: 'left' | 'right'
+}) {
+  return (
+    <th
+      scope='col'
+      className={[
+        'border-hairline-b border-hairline-r last:border-hairline-b last:border-r-0 py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-body-md font-normal text-[var(--color-neutral-600)]',
+        align === 'right' ? 'text-right' : 'text-left',
+        className
+      ].join(' ')}
+    >
+      {children}
+    </th>
+  )
 }
 
-// Catálogo de tratamientos por acrónimo
-type TreatmentCatalog = {
-  [acronym: string]: {
-    description: string
-    amount: string
-  }
+function TableBodyCell({
+  children,
+  className,
+  align = 'left'
+}: {
+  children: React.ReactNode
+  className?: string
+  align?: 'left' | 'right'
+}) {
+  return (
+    <td
+      className={[
+        'border-hairline-b border-hairline-r last:border-hairline-b last:border-r-0 py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] align-middle text-body-md text-[var(--color-neutral-900)]',
+        align === 'right' ? 'text-right' : 'text-left',
+        className
+      ].join(' ')}
+    >
+      {children}
+    </td>
+  )
 }
-
-const TREATMENT_CATALOG: TreatmentCatalog = {
-  LDE: {
-    description: 'Limpieza dental',
-    amount: '72 €'
-  },
-  BLD: {
-    description: 'Blanqueamiento dental',
-    amount: '200 €'
-  },
-  OPM: {
-    description: 'Operación mandíbula',
-    amount: '2.300 €'
-  },
-  CI: {
-    description: 'Consulta inicial',
-    amount: '150 €'
-  },
-  RX: {
-    description: 'Radiografía',
-    amount: '100 €'
-  },
-  EXM: {
-    description: 'Extracción de muela',
-    amount: '500 €'
-  },
-  IMP: {
-    description: 'Implante dental',
-    amount: '1.200 €'
-  },
-  FER: {
-    description: 'Férula de descarga',
-    amount: '300 €'
-  },
-  EMP: {
-    description: 'Empaste / Obturación',
-    amount: '80 €'
-  },
-  END: {
-    description: 'Endodoncia',
-    amount: '400 €'
-  },
-  COR: {
-    description: 'Corona dental',
-    amount: '600 €'
-  },
-  ORT: {
-    description: 'Revisión ortodoncia',
-    amount: '120 €'
-  },
-  PER: {
-    description: 'Tratamiento periodontal',
-    amount: '800 €'
-  },
-  CAR: {
-    description: 'Carillas estéticas',
-    amount: '350 €'
-  }
-}
-
-// Lista de profesionales disponibles
-const PROFESSIONALS = [
-  { value: 'Dr. Guillermo', label: 'Dr. Guillermo' },
-  { value: 'Dra. Andrea', label: 'Dra. Andrea' }
-]
 
 // Mock data basado en Figma
 const PENDING_TREATMENTS: Treatment[] = [
@@ -194,73 +168,124 @@ const HISTORY_TREATMENTS: Treatment[] = [
   }
 ]
 
-function StatusBadge({ status }: { status: TreatmentStatus }) {
-  // Colores exactos según Figma - pixel perfect
-  if (status === 'Aceptado') {
-    return (
-      <span className='inline-flex items-center justify-center rounded-[5rem] border border-[#00BFFF] px-2 py-1 text-label-sm bg-[#E0F7FA] text-[#00BFFF]'>
-        {status}
-      </span>
-    )
-  }
-  if (status === 'Pagado') {
-    return (
-      <span className='inline-flex items-center justify-center rounded-[5rem] border border-[#28A745] px-2 py-1 text-label-sm bg-[#E8FFF3] text-[#28A745]'>
-        {status}
-      </span>
-    )
-  }
-  // Recall y Sin pagar - mismo estilo (amarillo)
-  return (
-    <span className='inline-flex items-center justify-center rounded-[5rem] border border-[#FFC107] px-2 py-1 text-label-sm bg-[#FFF8DC] text-[#FFC107]'>
-      {status}
-    </span>
-  )
-}
-
-// Helper function para calcular el monto final
-function calculateFinalAmount(amount: string, discount?: number): string {
-  if (!discount || discount === 0) return amount
-  
-  // Extraer el número del string "72 €" o "2.300 €" (puntos como separadores de miles)
-  const cleaned = amount.replace(/[^\d,.-]/g, '').trim()
-  // Reemplazar punto (separador de miles) y coma (decimal) para parsear correctamente
-  const numericValue = parseFloat(cleaned.replace(/\./g, '').replace(',', '.'))
-  if (isNaN(numericValue)) return amount
-  
-  // Calcular el descuento
-  const discountAmount = (numericValue * discount) / 100
-  const finalAmount = numericValue - discountAmount
-  
-  // Formatear el resultado con el mismo formato que el original (puntos como separadores de miles)
-  const formatted = finalAmount.toLocaleString('es-ES', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2
-  }).replace(/,/g, '.')
-  
-  return `${formatted} €`
-}
+// StatusBadge, RowActionsMenu and calculateFinalAmount imported from shared components
 
 type TreatmentsProps = {
   onCreateBudget?: (selectedTreatments: Treatment[]) => void
+  onCreateAppointment?: (treatment: Treatment) => void
   onCancel?: () => void
   onClose?: () => void
+  patientId?: string
+  patientName?: string
 }
 
 export default function Treatments({
   onCreateBudget,
+  onCreateAppointment,
   onCancel,
-  onClose
+  onClose,
+  patientId,
+  patientName
 }: TreatmentsProps) {
-  const [pendingTreatments, setPendingTreatments] = React.useState<
-    Treatment[]
-  >(PENDING_TREATMENTS)
-  const [historyTreatments, setHistoryTreatments] = React.useState<Treatment[]>(
-    HISTORY_TREATMENTS
-  )
+  const router = useRouter()
+
+  const [pendingTreatments, setPendingTreatments] =
+    React.useState<Treatment[]>(PENDING_TREATMENTS)
+  const [historyTreatments, setHistoryTreatments] =
+    React.useState<Treatment[]>(HISTORY_TREATMENTS)
   const [searchPending, setSearchPending] = React.useState('')
   const [searchHistory, setSearchHistory] = React.useState('')
   const [dateFilter, setDateFilter] = React.useState('Últimos 6 meses')
+
+  // Estado para el menú de acciones rápidas
+  const [activeMenu, setActiveMenu] = React.useState<{
+    treatment: Treatment
+    section: 'pending' | 'history'
+    index: number
+    triggerRect?: DOMRect
+  } | null>(null)
+
+  // Handler para abrir el menú de acciones
+  const handleOpenMenu = (
+    treatment: Treatment,
+    section: 'pending' | 'history',
+    index: number,
+    event: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    setActiveMenu({ treatment, section, index, triggerRect: rect })
+  }
+
+  // Handler para crear presupuesto desde el menú
+  const handleMenuCreateBudget = () => {
+    if (activeMenu) {
+      onCreateBudget?.([activeMenu.treatment])
+    }
+  }
+
+  // Handler para crear cita desde el menú (con campos pre-rellenados)
+  const handleMenuCreateAppointment = () => {
+    if (activeMenu) {
+      const treatment = activeMenu.treatment
+      // Guardar datos del tratamiento y paciente para pre-rellenar la cita
+      setPendingAppointmentData({
+        paciente: patientName,
+        pacienteId: patientId,
+        observaciones: `Tratamiento: ${treatment.id} - ${treatment.description}\nProfesional sugerido: ${treatment.professional}`,
+        linkedTreatments: [
+          {
+            id: treatment.id,
+            description: treatment.description,
+            amount: treatment.amount
+          }
+        ]
+      })
+      // Navegar a la agenda
+      router.push('/agenda')
+    }
+  }
+
+  // Handler para cambiar estado (aceptado/no aceptado)
+  const handleToggleStatus = () => {
+    if (!activeMenu) return
+    const { treatment, section } = activeMenu
+
+    if (section === 'pending') {
+      setPendingTreatments((prev) =>
+        prev.map((t) => {
+          if (t === treatment) {
+            const newStatus: TreatmentStatus =
+              t.status === 'Aceptado' ? 'No aceptado' : 'Aceptado'
+            return { ...t, status: newStatus }
+          }
+          return t
+        })
+      )
+    } else {
+      setHistoryTreatments((prev) =>
+        prev.map((t) => {
+          if (t === treatment) {
+            const newStatus: TreatmentStatus =
+              t.status === 'Aceptado' ? 'No aceptado' : 'Aceptado'
+            return { ...t, status: newStatus }
+          }
+          return t
+        })
+      )
+    }
+  }
+
+  // Handler para eliminar tratamiento
+  const handleDeleteTreatment = () => {
+    if (!activeMenu) return
+    const { treatment, section } = activeMenu
+
+    if (section === 'pending') {
+      setPendingTreatments((prev) => prev.filter((t) => t !== treatment))
+    } else {
+      setHistoryTreatments((prev) => prev.filter((t) => t !== treatment))
+    }
+  }
 
   const toggleSelection = (
     treatment: Treatment,
@@ -268,19 +293,11 @@ export default function Treatments({
   ) => {
     if (section === 'pending') {
       setPendingTreatments((prev) =>
-        prev.map((t) =>
-          t === treatment
-            ? { ...t, selected: !t.selected }
-            : t
-        )
+        prev.map((t) => (t === treatment ? { ...t, selected: !t.selected } : t))
       )
     } else {
       setHistoryTreatments((prev) =>
-        prev.map((t) =>
-          t === treatment
-            ? { ...t, selected: !t.selected }
-            : t
-        )
+        prev.map((t) => (t === treatment ? { ...t, selected: !t.selected } : t))
       )
     }
   }
@@ -294,7 +311,7 @@ export default function Treatments({
     const updateTreatment = (t: Treatment) => {
       if (t === treatment) {
         const updated = { ...t, [field]: value }
-        
+
         // Si se cambió el ID y coincide con un tratamiento del catálogo, autocompletar
         if (field === 'id' && typeof value === 'string') {
           const catalogEntry = TREATMENT_CATALOG[value.toUpperCase()]
@@ -306,7 +323,7 @@ export default function Treatments({
             }
           }
         }
-        
+
         return updated
       }
       return t
@@ -326,38 +343,27 @@ export default function Treatments({
     )
   }, [pendingTreatments, historyTreatments])
 
-  const filteredPending = React.useMemo(() => {
-    if (!searchPending) return pendingTreatments
-    const query = searchPending.toLowerCase()
-    return pendingTreatments.filter(
-      (t) =>
-        t.id.toLowerCase().includes(query) ||
-        t.description.toLowerCase().includes(query) ||
-        t.professional.toLowerCase().includes(query)
-    )
-  }, [pendingTreatments, searchPending])
-
-  const filteredHistory = React.useMemo(() => {
-    if (!searchHistory) return historyTreatments
-    const query = searchHistory.toLowerCase()
-    return historyTreatments.filter(
-      (t) =>
-        t.id.toLowerCase().includes(query) ||
-        t.description.toLowerCase().includes(query) ||
-        t.professional.toLowerCase().includes(query)
-    )
-  }, [historyTreatments, searchHistory])
+  // Use shared hook for filtering
+  const filteredPending = useTreatmentFilter(pendingTreatments, searchPending)
+  const filteredHistory = useTreatmentFilter(historyTreatments, searchHistory)
 
   // Obtener el índice original en el array sin filtrar para usar como key estable
-  const getStableKey = (treatment: Treatment, index: number, section: 'pending' | 'history') => {
+  const getStableKey = (
+    treatment: Treatment,
+    index: number,
+    section: 'pending' | 'history'
+  ) => {
     // Si el tratamiento tiene un ID interno, usarlo (más estable)
     if (treatment._internalId) {
       return `${section}-${treatment._internalId}`
     }
     // Si no, usar el índice del array original
-    const sourceArray = section === 'pending' ? pendingTreatments : historyTreatments
+    const sourceArray =
+      section === 'pending' ? pendingTreatments : historyTreatments
     const originalIndex = sourceArray.findIndex((t) => t === treatment)
-    return originalIndex >= 0 ? `${section}-${originalIndex}` : `${section}-new-${index}`
+    return originalIndex >= 0
+      ? `${section}-${originalIndex}`
+      : `${section}-new-${index}`
   }
 
   const handleCreateBudget = () => {
@@ -435,141 +441,198 @@ export default function Treatments({
               <table className='w-full table-fixed border-collapse text-left'>
                 <thead className='sticky top-0 z-10 bg-[var(--color-neutral-50)]'>
                   <tr>
-                    <th className='w-10 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left'>
-                      {/* Checkbox header */}
-                    </th>
-                    <th className='w-14 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      ID
-                    </th>
-                    <th className='w-44 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Descripción/Anotaciones
-                    </th>
-                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Fecha
-                    </th>
-                    <th className='w-16 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Monto
-                    </th>
-                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Descuento
-                    </th>
-                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Monto final
-                    </th>
-                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Estado
-                    </th>
-                    <th className='w-24 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Profesional
-                    </th>
-                    <th className='w-10 border-hairline-b py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-right'>
-                      {/* Menú */}
-                    </th>
+                    <TableHeaderCell className='w-10 sticky left-0 z-20 bg-[var(--color-neutral-50)]'>
+                      <span className='sr-only'>Seleccionar</span>
+                    </TableHeaderCell>
+                    <TableHeaderCell className='w-[106px]'>
+                      <div className='flex items-center gap-1'>
+                        <MD3Icon
+                          name='SellRounded'
+                          size='xs'
+                          className='text-[var(--color-neutral-600)]'
+                        />
+                        <span>ID</span>
+                      </div>
+                    </TableHeaderCell>
+                    <TableHeaderCell className='w-[342px]'>
+                      <div className='flex items-center gap-1'>
+                        <MD3Icon
+                          name='DescriptionRounded'
+                          size='xs'
+                          className='text-[var(--color-neutral-600)]'
+                        />
+                        <span>Descripción</span>
+                      </div>
+                    </TableHeaderCell>
+                    <TableHeaderCell className='w-[116px]'>
+                      <div className='flex items-center gap-1'>
+                        <MD3Icon
+                          name='CalendarMonthRounded'
+                          size='xs'
+                          className='text-[var(--color-neutral-600)]'
+                        />
+                        <span>Fecha</span>
+                      </div>
+                    </TableHeaderCell>
+                    <TableHeaderCell className='w-[88px]'>
+                      <div className='flex items-center gap-1'>
+                        <MD3Icon
+                          name='PaymentsRounded'
+                          size='xs'
+                          className='text-[var(--color-neutral-600)]'
+                        />
+                        <span>Monto</span>
+                      </div>
+                    </TableHeaderCell>
+                    <TableHeaderCell className='w-[117px]'>
+                      <div className='flex items-center gap-1'>
+                        <MD3Icon
+                          name='CheckCircleRounded'
+                          size='xs'
+                          className='text-[var(--color-neutral-600)]'
+                        />
+                        <span>Estado</span>
+                      </div>
+                    </TableHeaderCell>
+                    <TableHeaderCell className='w-[211px]'>
+                      <div className='flex items-center gap-1'>
+                        <MD3Icon
+                          name='AccountCircleRounded'
+                          size='xs'
+                          className='text-[var(--color-neutral-600)]'
+                        />
+                        <span>Profesional</span>
+                      </div>
+                    </TableHeaderCell>
+                    <TableHeaderCell className='w-10 sticky right-0 z-20 bg-[var(--color-neutral-50)]'>
+                      <span className='sr-only'>Acciones</span>
+                    </TableHeaderCell>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredPending.map((treatment, index) => {
                     const stableKey = getStableKey(treatment, index, 'pending')
+                    const rowBg = treatment.selected
+                      ? 'bg-[var(--color-brand-50)]'
+                      : 'bg-[var(--color-neutral-0)]'
                     return (
-                    <tr
-                      key={stableKey}
-                      className={[
-                        'transition-colors',
-                        treatment.selected
-                          ? 'bg-[var(--color-brand-50)]'
-                          : 'hover:bg-[var(--color-neutral-50)]'
-                      ].join(' ')}
-                    >
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <button
-                          type='button'
-                          onClick={() => toggleSelection(treatment, 'pending')}
-                          className='cursor-pointer'
-                        >
-                          {treatment.selected ? (
-                            <CheckBoxRounded className='w-6 h-6 text-[var(--color-brand-500)]' />
-                          ) : (
-                            <CheckBoxOutlineBlankRounded className='w-6 h-6 text-[var(--color-neutral-400)]' />
-                          )}
-                        </button>
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <input
-                          type='text'
-                          value={treatment.id}
-                          onChange={(e) => updateTreatmentField(treatment, 'id', e.target.value, 'pending')}
-                          className='w-full text-body-md font-semibold text-[var(--color-brand-700)] bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                          placeholder='ID'
-                        />
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <input
-                          type='text'
-                          value={treatment.description}
-                          onChange={(e) => updateTreatmentField(treatment, 'description', e.target.value, 'pending')}
-                          className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                        />
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <input
-                          type='text'
-                          value={treatment.date}
-                          onChange={(e) => updateTreatmentField(treatment, 'date', e.target.value, 'pending')}
-                          className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                          placeholder='DD/MM/AA'
-                        />
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <input
-                          type='text'
-                          value={treatment.amount}
-                          onChange={(e) => updateTreatmentField(treatment, 'amount', e.target.value, 'pending')}
-                          className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                          placeholder='0 €'
-                        />
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <div className='flex items-center'>
+                      <tr
+                        key={stableKey}
+                        className={[
+                          'group transition-colors',
+                          treatment.selected
+                            ? 'bg-[var(--color-brand-50)]'
+                            : 'hover:bg-[var(--color-neutral-50)]'
+                        ].join(' ')}
+                      >
+                        <TableBodyCell className={`w-10 sticky left-0 z-10 ${rowBg} group-hover:bg-[var(--color-neutral-50)]`}>
+                          <button
+                            type='button'
+                            onClick={() =>
+                              toggleSelection(treatment, 'pending')
+                            }
+                            className='cursor-pointer'
+                          >
+                            {treatment.selected ? (
+                              <CheckBoxRounded className='w-6 h-6 text-[var(--color-brand-500)]' />
+                            ) : (
+                              <CheckBoxOutlineBlankRounded className='w-6 h-6 text-[var(--color-neutral-400)]' />
+                            )}
+                          </button>
+                        </TableBodyCell>
+                        <TableBodyCell className='w-[106px]'>
                           <input
-                            type='number'
-                            value={treatment.discount ?? ''}
-                            onChange={(e) => {
-                              const value = e.target.value === '' ? undefined : Number(e.target.value)
-                              updateTreatmentField(treatment, 'discount', value, 'pending')
-                            }}
-                            className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                            placeholder='0'
-                            min='0'
-                            max='100'
+                            type='text'
+                            value={treatment.id}
+                            onChange={(e) =>
+                              updateTreatmentField(
+                                treatment,
+                                'id',
+                                e.target.value,
+                                'pending'
+                              )
+                            }
+                            className='w-full text-body-md font-semibold text-[var(--color-brand-700)] bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
+                            placeholder='ID'
                           />
-                          {treatment.discount !== undefined && treatment.discount > 0 && (
-                            <span className='text-body-md text-neutral-900 ml-1'>%</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] text-body-md text-neutral-900'>
-                        {calculateFinalAmount(treatment.amount, treatment.discount)}
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <StatusBadge status={treatment.status} />
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <SelectInput
-                          placeholder='Seleccionar profesional'
-                          value={treatment.professional || undefined}
-                          onChange={(v) => updateTreatmentField(treatment, 'professional', v || '', 'pending')}
-                          options={PROFESSIONALS}
-                        />
-                      </td>
-                      <td className='border-hairline-b py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] text-right'>
-                        <button
-                          type='button'
-                          className='p-2 hover:bg-[var(--color-neutral-100)] rounded-lg transition-colors cursor-pointer'
-                        >
-                          <MoreVertRounded className='w-5 h-5 text-[var(--color-neutral-600)]' />
-                        </button>
-                      </td>
-                    </tr>
+                        </TableBodyCell>
+                        <TableBodyCell className='w-[342px]'>
+                          <ExpandedTextInput
+                            value={treatment.description}
+                            onChange={(value) =>
+                              updateTreatmentField(
+                                treatment,
+                                'description',
+                                value,
+                                'pending'
+                              )
+                            }
+                            placeholder='Descripción del tratamiento'
+                          />
+                        </TableBodyCell>
+                        <TableBodyCell className='w-[116px]'>
+                          <input
+                            type='text'
+                            value={treatment.date}
+                            onChange={(e) =>
+                              updateTreatmentField(
+                                treatment,
+                                'date',
+                                e.target.value,
+                                'pending'
+                              )
+                            }
+                            className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
+                            placeholder='DD/MM/AA'
+                          />
+                        </TableBodyCell>
+                        <TableBodyCell className='w-[88px]'>
+                          <input
+                            type='text'
+                            value={treatment.amount}
+                            onChange={(e) =>
+                              updateTreatmentField(
+                                treatment,
+                                'amount',
+                                e.target.value,
+                                'pending'
+                              )
+                            }
+                            className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
+                            placeholder='0 €'
+                          />
+                        </TableBodyCell>
+                        <TableBodyCell className='w-[117px]'>
+                          <StatusBadge status={treatment.status} />
+                        </TableBodyCell>
+                        <TableBodyCell className='w-[211px]'>
+                          <SelectInput
+                            placeholder='Seleccionar profesional'
+                            value={treatment.professional || undefined}
+                            onChange={(v) =>
+                              updateTreatmentField(
+                                treatment,
+                                'professional',
+                                v || '',
+                                'pending'
+                              )
+                            }
+                            options={PROFESSIONALS}
+                          />
+                        </TableBodyCell>
+                        <TableBodyCell className={`w-10 sticky right-0 z-10 ${rowBg} group-hover:bg-[var(--color-neutral-50)]`} align='right'>
+                          <button
+                            type='button'
+                            onClick={(e) =>
+                              handleOpenMenu(treatment, 'pending', index, e)
+                            }
+                            className='p-2 hover:bg-[var(--color-neutral-100)] rounded-lg transition-colors cursor-pointer'
+                            aria-label='Acciones rápidas'
+                          >
+                            <MoreVertRounded className='w-5 h-5 text-[var(--color-neutral-600)]' />
+                          </button>
+                        </TableBodyCell>
+                      </tr>
                     )
                   })}
                 </tbody>
@@ -621,9 +684,7 @@ export default function Treatments({
                   <option>Último año</option>
                   <option>Todos</option>
                 </select>
-                <KeyboardArrowDownRounded
-                  className='absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-neutral-500)] pointer-events-none'
-                />
+                <KeyboardArrowDownRounded className='absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-neutral-500)] pointer-events-none' />
               </div>
             </div>
           </div>
@@ -634,141 +695,198 @@ export default function Treatments({
               <table className='w-full table-fixed border-collapse text-left'>
                 <thead className='sticky top-0 z-10 bg-[var(--color-neutral-50)]'>
                   <tr>
-                    <th className='w-10 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left'>
-                      {/* Checkbox header */}
-                    </th>
-                    <th className='w-14 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      ID
-                    </th>
-                    <th className='w-44 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Descripción/Anotaciones
-                    </th>
-                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Fecha
-                    </th>
-                    <th className='w-16 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Monto
-                    </th>
-                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Descuento
-                    </th>
-                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Monto final
-                    </th>
-                    <th className='w-20 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Estado
-                    </th>
-                    <th className='w-24 border-hairline-b border-hairline-r py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-left text-body-md font-normal text-[var(--color-neutral-600)]'>
-                      Profesional
-                    </th>
-                    <th className='w-10 border-hairline-b py-[0.5rem] pl-[0.5rem] pr-[0.5rem] text-right'>
-                      {/* Menú */}
-                    </th>
+                    <TableHeaderCell className='w-10 sticky left-0 z-20 bg-[var(--color-neutral-50)]'>
+                      <span className='sr-only'>Seleccionar</span>
+                    </TableHeaderCell>
+                    <TableHeaderCell className='w-[106px]'>
+                      <div className='flex items-center gap-1'>
+                        <MD3Icon
+                          name='SellRounded'
+                          size='xs'
+                          className='text-[var(--color-neutral-600)]'
+                        />
+                        <span>ID</span>
+                      </div>
+                    </TableHeaderCell>
+                    <TableHeaderCell className='w-[342px]'>
+                      <div className='flex items-center gap-1'>
+                        <MD3Icon
+                          name='DescriptionRounded'
+                          size='xs'
+                          className='text-[var(--color-neutral-600)]'
+                        />
+                        <span>Descripción</span>
+                      </div>
+                    </TableHeaderCell>
+                    <TableHeaderCell className='w-[116px]'>
+                      <div className='flex items-center gap-1'>
+                        <MD3Icon
+                          name='CalendarMonthRounded'
+                          size='xs'
+                          className='text-[var(--color-neutral-600)]'
+                        />
+                        <span>Fecha</span>
+                      </div>
+                    </TableHeaderCell>
+                    <TableHeaderCell className='w-[105px]'>
+                      <div className='flex items-center gap-1'>
+                        <MD3Icon
+                          name='PaymentsRounded'
+                          size='xs'
+                          className='text-[var(--color-neutral-600)]'
+                        />
+                        <span>Monto</span>
+                      </div>
+                    </TableHeaderCell>
+                    <TableHeaderCell className='w-[110px]'>
+                      <div className='flex items-center gap-1'>
+                        <MD3Icon
+                          name='CheckCircleRounded'
+                          size='xs'
+                          className='text-[var(--color-neutral-600)]'
+                        />
+                        <span>Estado</span>
+                      </div>
+                    </TableHeaderCell>
+                    <TableHeaderCell className='w-[203px]'>
+                      <div className='flex items-center gap-1'>
+                        <MD3Icon
+                          name='AccountCircleRounded'
+                          size='xs'
+                          className='text-[var(--color-neutral-600)]'
+                        />
+                        <span>Profesional</span>
+                      </div>
+                    </TableHeaderCell>
+                    <TableHeaderCell className='w-10 sticky right-0 z-20 bg-[var(--color-neutral-50)]'>
+                      <span className='sr-only'>Acciones</span>
+                    </TableHeaderCell>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredHistory.map((treatment, index) => {
                     const stableKey = getStableKey(treatment, index, 'history')
+                    const rowBg = treatment.selected
+                      ? 'bg-[var(--color-brand-50)]'
+                      : 'bg-[var(--color-neutral-0)]'
                     return (
-                    <tr
-                      key={stableKey}
-                      className={[
-                        'transition-colors',
-                        treatment.selected
-                          ? 'bg-[var(--color-brand-50)]'
-                          : 'hover:bg-[var(--color-neutral-50)]'
-                      ].join(' ')}
-                    >
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <button
-                          type='button'
-                          onClick={() => toggleSelection(treatment, 'history')}
-                          className='cursor-pointer'
-                        >
-                          {treatment.selected ? (
-                            <CheckBoxRounded className='w-6 h-6 text-[var(--color-brand-500)]' />
-                          ) : (
-                            <CheckBoxOutlineBlankRounded className='w-6 h-6 text-[var(--color-neutral-400)]' />
-                          )}
-                        </button>
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <input
-                          type='text'
-                          value={treatment.id}
-                          onChange={(e) => updateTreatmentField(treatment, 'id', e.target.value, 'history')}
-                          className='w-full text-body-md font-semibold text-[var(--color-brand-700)] bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                          placeholder='ID'
-                        />
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <input
-                          type='text'
-                          value={treatment.description}
-                          onChange={(e) => updateTreatmentField(treatment, 'description', e.target.value, 'history')}
-                          className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                        />
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <input
-                          type='text'
-                          value={treatment.date}
-                          onChange={(e) => updateTreatmentField(treatment, 'date', e.target.value, 'history')}
-                          className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                          placeholder='DD/MM/AA'
-                        />
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <input
-                          type='text'
-                          value={treatment.amount}
-                          onChange={(e) => updateTreatmentField(treatment, 'amount', e.target.value, 'history')}
-                          className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                          placeholder='0 €'
-                        />
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <div className='flex items-center'>
+                      <tr
+                        key={stableKey}
+                        className={[
+                          'group transition-colors',
+                          treatment.selected
+                            ? 'bg-[var(--color-brand-50)]'
+                            : 'hover:bg-[var(--color-neutral-50)]'
+                        ].join(' ')}
+                      >
+                        <TableBodyCell className={`w-10 sticky left-0 z-10 ${rowBg} group-hover:bg-[var(--color-neutral-50)]`}>
+                          <button
+                            type='button'
+                            onClick={() =>
+                              toggleSelection(treatment, 'history')
+                            }
+                            className='cursor-pointer'
+                          >
+                            {treatment.selected ? (
+                              <CheckBoxRounded className='w-6 h-6 text-[var(--color-brand-500)]' />
+                            ) : (
+                              <CheckBoxOutlineBlankRounded className='w-6 h-6 text-[var(--color-neutral-400)]' />
+                            )}
+                          </button>
+                        </TableBodyCell>
+                        <TableBodyCell className='w-[106px]'>
                           <input
-                            type='number'
-                            value={treatment.discount ?? ''}
-                            onChange={(e) => {
-                              const value = e.target.value === '' ? undefined : Number(e.target.value)
-                              updateTreatmentField(treatment, 'discount', value, 'history')
-                            }}
-                            className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                            placeholder='0'
-                            min='0'
-                            max='100'
+                            type='text'
+                            value={treatment.id}
+                            onChange={(e) =>
+                              updateTreatmentField(
+                                treatment,
+                                'id',
+                                e.target.value,
+                                'history'
+                              )
+                            }
+                            className='w-full text-body-md font-semibold text-[var(--color-brand-700)] bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
+                            placeholder='ID'
                           />
-                          {treatment.discount !== undefined && treatment.discount > 0 && (
-                            <span className='text-body-md text-neutral-900 ml-1'>%</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] text-body-md text-neutral-900'>
-                        {calculateFinalAmount(treatment.amount, treatment.discount)}
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <StatusBadge status={treatment.status} />
-                      </td>
-                      <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
-                        <SelectInput
-                          placeholder='Seleccionar profesional'
-                          value={treatment.professional || undefined}
-                          onChange={(v) => updateTreatmentField(treatment, 'professional', v || '', 'history')}
-                          options={PROFESSIONALS}
-                        />
-                      </td>
-                      <td className='border-hairline-b py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] text-right'>
-                        <button
-                          type='button'
-                          className='p-2 hover:bg-[var(--color-neutral-100)] rounded-lg transition-colors cursor-pointer'
-                        >
-                          <MoreVertRounded className='w-5 h-5 text-[var(--color-neutral-600)]' />
-                        </button>
-                      </td>
-                    </tr>
+                        </TableBodyCell>
+                        <TableBodyCell className='w-[342px]'>
+                          <ExpandedTextInput
+                            value={treatment.description}
+                            onChange={(value) =>
+                              updateTreatmentField(
+                                treatment,
+                                'description',
+                                value,
+                                'history'
+                              )
+                            }
+                            placeholder='Descripción del tratamiento'
+                          />
+                        </TableBodyCell>
+                        <TableBodyCell className='w-[116px]'>
+                          <input
+                            type='text'
+                            value={treatment.date}
+                            onChange={(e) =>
+                              updateTreatmentField(
+                                treatment,
+                                'date',
+                                e.target.value,
+                                'history'
+                              )
+                            }
+                            className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
+                            placeholder='DD/MM/AA'
+                          />
+                        </TableBodyCell>
+                        <TableBodyCell className='w-[105px]'>
+                          <input
+                            type='text'
+                            value={treatment.amount}
+                            onChange={(e) =>
+                              updateTreatmentField(
+                                treatment,
+                                'amount',
+                                e.target.value,
+                                'history'
+                              )
+                            }
+                            className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
+                            placeholder='0 €'
+                          />
+                        </TableBodyCell>
+                        <TableBodyCell className='w-[110px]'>
+                          <StatusBadge status={treatment.status} />
+                        </TableBodyCell>
+                        <TableBodyCell className='w-[203px]'>
+                          <SelectInput
+                            placeholder='Seleccionar profesional'
+                            value={treatment.professional || undefined}
+                            onChange={(v) =>
+                              updateTreatmentField(
+                                treatment,
+                                'professional',
+                                v || '',
+                                'history'
+                              )
+                            }
+                            options={PROFESSIONALS}
+                          />
+                        </TableBodyCell>
+                        <TableBodyCell className={`w-10 sticky right-0 z-10 ${rowBg} group-hover:bg-[var(--color-neutral-50)]`} align='right'>
+                          <button
+                            type='button'
+                            onClick={(e) =>
+                              handleOpenMenu(treatment, 'history', index, e)
+                            }
+                            className='p-2 hover:bg-[var(--color-neutral-100)] rounded-lg transition-colors cursor-pointer'
+                            aria-label='Acciones rápidas'
+                          >
+                            <MoreVertRounded className='w-5 h-5 text-[var(--color-neutral-600)]' />
+                          </button>
+                        </TableBodyCell>
+                      </tr>
                     )
                   })}
                 </tbody>
@@ -777,6 +895,19 @@ export default function Treatments({
           </div>
         </section>
       </div>
+
+      {/* Menú de acciones rápidas */}
+      {activeMenu && (
+        <RowActionsMenu
+          treatment={activeMenu.treatment}
+          onClose={() => setActiveMenu(null)}
+          triggerRect={activeMenu.triggerRect}
+          onCreateBudget={handleMenuCreateBudget}
+          onCreateAppointment={handleMenuCreateAppointment}
+          onToggleStatus={handleToggleStatus}
+          onDelete={handleDeleteTreatment}
+        />
+      )}
 
       {/* Footer sticky */}
       <footer className='sticky bottom-0 h-20 bg-[var(--color-neutral-0)] border-t border-[var(--color-neutral-300)] flex items-center justify-between px-8 shrink-0'>

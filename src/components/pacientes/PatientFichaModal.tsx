@@ -1,8 +1,8 @@
 'use client'
 
-import React from 'react'
 import UserModal from './UserModal'
-import ClientSummary from './ClientSummary'
+// Use the consolidated ClientSummary component with readOnly mode
+import ClientSummary from './modals/patient-record/ClientSummary'
 
 type PatientFichaModalProps = {
   open: boolean
@@ -25,7 +25,7 @@ export default function PatientFichaModal({
         <div className='bg-white rounded-[12px] shadow-xl overflow-hidden'>
           <div className='flex gap-6 p-6'>
             <UserModal />
-            <ClientSummary />
+            <ClientSummary readOnly />
           </div>
         </div>
       </div>

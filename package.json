@@ -13,10 +13,13 @@
   },
   "dependencies": {
     "@fontsource/material-symbols-rounded": "^5.2.30",
+    "jspdf": "^4.0.0",
+    "jspdf-autotable": "^5.0.7",
     "next": "15.5.9",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "recharts": "^3.4.0"
+    "recharts": "^3.4.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

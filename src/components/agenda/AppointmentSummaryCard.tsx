@@ -4,10 +4,12 @@ import { useState, useRef, useEffect } from 'react'
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import Portal from '@/components/ui/Portal'
+import { useWaitTimer } from '@/hooks/useWaitTimer'
 
 import type { AgendaEvent, VisitStatus } from './types'
 import { VISIT_STATUS_CONFIG } from './types'
 import VisitStatusMenu from './VisitStatusMenu'
+import { WaitTimerBadge } from './WaitTimeDisplay'
 
 const clampStyle = (lines: number) =>
   ({
@@ -114,6 +116,24 @@ export default function AppointmentSummaryCard({
 
   // Animación pulsante para estado "Llamar"
   const isPulsing = visitStatus === 'call_patient'
+
+  // Timer hook for real-time wait time tracking
+  const {
+    waitingTimeMs,
+    consultationTimeMs,
+    isWaitingActive,
+    isConsultationActive,
+    waitingAlertLevel,
+    consultationAlertLevel
+  } = useWaitTimer(
+    visitStatus,
+    event.visitStatusHistory,
+    event.waitingDuration,
+    event.consultationDuration
+  )
+
+  // Only show timer when there's something to display
+  const showTimer = waitingTimeMs > 0 || consultationTimeMs > 0 || isWaitingActive || isConsultationActive
 
   // Color azul para citas confirmadas: #3B82F6 (blue-500)
   const stateClasses = isActive
@@ -253,6 +273,18 @@ export default function AppointmentSummaryCard({
           >
             {event.title}
           </p>
+          {/* Timer de espera/consulta */}
+          {showTimer && (
+            <WaitTimerBadge
+              waitingTimeMs={waitingTimeMs}
+              consultationTimeMs={consultationTimeMs}
+              waitingAlertLevel={waitingAlertLevel}
+              consultationAlertLevel={consultationAlertLevel}
+              isWaitingActive={isWaitingActive}
+              isConsultationActive={isConsultationActive}
+              compact
+            />
+          )}
           {/* Notas */}
           {event.detail && canShowNotes && event.detail.notes ? (
             <p

@@ -168,8 +168,12 @@ export default function PatientRecordModal({
               {/* Header with patient name */}
               <div className='h-14 border-b border-[var(--color-neutral-200)] flex items-center justify-between px-6 bg-white'>
                 <p className='text-title-lg text-[var(--color-neutral-900)]'>
-                  <span className='text-[var(--color-neutral-600)]'>Ficha de </span>
-                  <span className='text-[var(--color-brand-600)]'>{patientName || 'Paciente'}</span>
+                  <span className='text-[var(--color-neutral-600)]'>
+                    Ficha de{' '}
+                  </span>
+                  <span className='text-[var(--color-brand-600)]'>
+                    {patientName || 'Paciente'}
+                  </span>
                 </p>
                 <button
                   type='button'
@@ -186,7 +190,9 @@ export default function PatientRecordModal({
                 <div
                   className={[
                     'shrink-0 border-r border-[var(--color-neutral-200)] box-border overflow-y-auto overflow-x-hidden transition-all duration-300 ease-in-out',
-                    sidebarVisible ? 'w-[19rem]' : 'w-0 border-r-0 overflow-hidden'
+                    sidebarVisible
+                      ? 'w-[19rem]'
+                      : 'w-0 border-r-0 overflow-hidden'
                   ].join(' ')}
                 >
                   {/* Icono del sidebar arriba a la izquierda - Toggle button */}
@@ -195,7 +201,9 @@ export default function PatientRecordModal({
                       type='button'
                       onClick={() => setSidebarVisible(!sidebarVisible)}
                       className='cursor-pointer hover:opacity-70 transition-opacity'
-                      aria-label={sidebarVisible ? 'Ocultar sidebar' : 'Mostrar sidebar'}
+                      aria-label={
+                        sidebarVisible ? 'Ocultar sidebar' : 'Mostrar sidebar'
+                      }
                     >
                       <FilePresentRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
                     </button>
@@ -225,9 +233,7 @@ export default function PatientRecordModal({
                   </ul>
                 </div>
                 {/* Right content: vertical scroll only; never horizontal */}
-                <div
-                  className='flex-1 min-w-0 overflow-y-auto overflow-x-hidden box-border transition-all duration-300 ease-in-out'
-                >
+                <div className='flex-1 min-w-0 overflow-y-auto overflow-x-hidden box-border transition-all duration-300 ease-in-out'>
                   {/* Toggle button when sidebar is hidden - shows sidebar on hover */}
                   {!sidebarVisible && (
                     <div
@@ -247,10 +253,10 @@ export default function PatientRecordModal({
                       >
                         <FilePresentRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
                       </button>
-                      
+
                       {/* Sidebar overlay on hover */}
                       {sidebarHovered && (
-                        <div 
+                        <div
                           className='absolute left-0 top-0 w-[19rem] bg-white rounded-tr-lg rounded-br-lg shadow-[-2px_-2px_4px_0px_rgba(0,0,0,0.1),2px_2px_4px_0px_rgba(0,0,0,0.1)] border-r-2 border-[var(--color-neutral-100)] overflow-y-auto overflow-x-hidden'
                           style={{ height: 'calc(56.25rem - 3.5rem)' }}
                         >
@@ -299,9 +305,7 @@ export default function PatientRecordModal({
                       )}
                     </div>
                   )}
-                  {active === 'Resumen' && (
-                    <Resumen onClose={onClose} />
-                  )}
+                  {active === 'Resumen' && <Resumen onClose={onClose} />}
                   {active === 'Información General' && (
                     <ClientSummary
                       onClose={onClose}
@@ -317,7 +321,11 @@ export default function PatientRecordModal({
                     />
                   )}
                   {active === 'Tratamientos' && (
-                    <Treatments onClose={onClose} />
+                    <Treatments 
+                      onClose={onClose} 
+                      patientId={patientId}
+                      patientName={patientName}
+                    />
                   )}
                   {active === 'Imágenes RX' && <RxImages onClose={onClose} />}
                   {active === 'Finanzas' && (
