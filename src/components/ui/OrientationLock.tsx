@@ -45,7 +45,8 @@ export default function OrientationLock() {
     const lockOrientation = async () => {
       try {
         if (screen.orientation && 'lock' in screen.orientation) {
-          await screen.orientation.lock('landscape')
+          const lockFn = screen.orientation.lock as (orientation: string) => Promise<void>
+          await lockFn('landscape')
         }
       } catch (error) {
         // Lock failed - probably not in fullscreen or PWA mode
