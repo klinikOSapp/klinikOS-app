@@ -28,55 +28,55 @@ function DocumentCard({ title, onEdit }: { title: string; onEdit: () => void }) 
         </button>
       </div>
 
-      {/* Document Preview */}
-      <div className='flex-1 bg-[var(--color-neutral-50)] p-4'>
-        <div className='bg-white border border-neutral-200 rounded shadow-sm p-4 h-[min(31rem,50vh)] overflow-hidden'>
+      {/* Document Preview - scaled down container for miniature effect */}
+      <div className='flex-1 bg-[var(--color-neutral-50)] p-4 overflow-hidden'>
+        <div className='bg-white border border-neutral-200 rounded shadow-sm p-6 h-[min(31rem,50vh)] overflow-hidden origin-top-left scale-[0.55]' style={{ width: '180%' }}>
           {/* Logo & Clinic Info */}
-          <div className='flex items-start justify-between mb-4'>
-            <div className='flex items-center gap-2'>
-              <div className='w-20 h-5 bg-neutral-200 rounded' />
-              <span className='text-[8px] text-neutral-500'>Dental</span>
+          <div className='flex items-start justify-between mb-6'>
+            <div className='flex items-center gap-3'>
+              <div className='w-32 h-8 bg-neutral-200 rounded' />
+              <span className='text-label-sm text-neutral-500'>Dental</span>
             </div>
             <div className='text-right'>
-              <p className='text-[8px] text-neutral-700'>Clínica Tama Dental</p>
-              <p className='text-[8px] text-neutral-500'>Dirección completa</p>
-              <p className='text-[8px] text-neutral-500'>Teléfono de contacto</p>
+              <p className='text-label-sm text-neutral-700'>Clínica Tama Dental</p>
+              <p className='text-label-sm text-neutral-500'>Dirección completa</p>
+              <p className='text-label-sm text-neutral-500'>Teléfono de contacto</p>
             </div>
           </div>
 
           {/* Patient Info */}
-          <div className='bg-neutral-50 rounded p-2 mb-3'>
-            <div className='flex justify-between mb-2'>
+          <div className='bg-neutral-50 rounded p-3 mb-4'>
+            <div className='flex justify-between mb-3'>
               <div>
-                <p className='text-[7px] text-neutral-500'>Paciente:</p>
-                <p className='text-[8px] text-neutral-700'>Nombre y apellidos</p>
+                <p className='text-label-sm text-neutral-500'>Paciente:</p>
+                <p className='text-label-sm text-neutral-700'>Nombre y apellidos</p>
               </div>
               <div className='text-right'>
-                <p className='text-[7px] text-neutral-500'>Fecha:</p>
-                <p className='text-[8px] text-neutral-700'>24/06/2025</p>
+                <p className='text-label-sm text-neutral-500'>Fecha:</p>
+                <p className='text-label-sm text-neutral-700'>24/06/2025</p>
               </div>
             </div>
-            <div className='flex gap-4'>
+            <div className='flex gap-6'>
               <div>
-                <p className='text-[7px] text-neutral-500'>DNI:</p>
-                <p className='text-[8px] text-neutral-700'>44556677 X</p>
+                <p className='text-label-sm text-neutral-500'>DNI:</p>
+                <p className='text-label-sm text-neutral-700'>44556677 X</p>
               </div>
               <div>
-                <p className='text-[7px] text-neutral-500'>Sexo:</p>
-                <p className='text-[8px] text-neutral-700'>Hombre</p>
+                <p className='text-label-sm text-neutral-500'>Sexo:</p>
+                <p className='text-label-sm text-neutral-700'>Hombre</p>
               </div>
               <div>
-                <p className='text-[7px] text-neutral-500'>Edad:</p>
-                <p className='text-[8px] text-neutral-700'>45</p>
+                <p className='text-label-sm text-neutral-500'>Edad:</p>
+                <p className='text-label-sm text-neutral-700'>45</p>
               </div>
             </div>
           </div>
 
           {/* Content rows */}
-          <div className='space-y-2 mb-3'>
+          <div className='space-y-3 mb-4'>
             {[1, 2, 3].map((i) => (
-              <div key={i} className='bg-neutral-50 rounded p-2'>
-                <div className='flex gap-3 text-[7px]'>
+              <div key={i} className='bg-neutral-50 rounded p-3'>
+                <div className='flex gap-4 text-label-sm'>
                   <div>
                     <p className='text-neutral-500'>Medicamento:</p>
                     <p className='text-neutral-700'>Antibiol</p>
@@ -103,25 +103,25 @@ function DocumentCard({ title, onEdit }: { title: string; onEdit: () => void }) 
           </div>
 
           {/* Case & Doctor Info */}
-          <div className='border-t border-neutral-200 pt-2'>
-            <div className='mb-2'>
-              <p className='text-[7px] text-neutral-500'>Caso:</p>
-              <p className='text-[8px] text-neutral-700'>Breve descripción del caso, (no es obligatorio rellenarlo)</p>
+          <div className='border-t border-neutral-200 pt-3'>
+            <div className='mb-3'>
+              <p className='text-label-sm text-neutral-500'>Caso:</p>
+              <p className='text-label-sm text-neutral-700'>Breve descripción del caso, (no es obligatorio rellenarlo)</p>
             </div>
-            <div className='border-t border-neutral-200 pt-2'>
+            <div className='border-t border-neutral-200 pt-3'>
               <div className='flex justify-between'>
                 <div>
-                  <p className='text-[7px] text-neutral-500'>Doctor:</p>
-                  <p className='text-[8px] text-neutral-700'>Nombre y apellidos</p>
+                  <p className='text-label-sm text-neutral-500'>Doctor:</p>
+                  <p className='text-label-sm text-neutral-700'>Nombre y apellidos</p>
                 </div>
                 <div className='text-right'>
-                  <p className='text-[7px] text-neutral-500'>Número colegiado:</p>
-                  <p className='text-[8px] text-neutral-700'>XX 895 895 895</p>
+                  <p className='text-label-sm text-neutral-500'>Número colegiado:</p>
+                  <p className='text-label-sm text-neutral-700'>XX 895 895 895</p>
                 </div>
               </div>
-              <div className='mt-2'>
-                <p className='text-[7px] text-neutral-500'>Firma:</p>
-                <p className='text-[8px] text-neutral-700'>-</p>
+              <div className='mt-3'>
+                <p className='text-label-sm text-neutral-500'>Firma:</p>
+                <p className='text-label-sm text-neutral-700'>-</p>
               </div>
             </div>
           </div>
