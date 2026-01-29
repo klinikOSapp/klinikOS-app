@@ -211,8 +211,8 @@ function Chip({
     size === 'xs'
       ? 'text-label-sm font-normal'
       : size === 'md'
-      ? 'text-body-md'
-      : 'text-body-sm'
+        ? 'text-body-md'
+        : 'text-body-sm'
 
   return (
     <span className={['px-2 py-0.5', sizeClass, styles, radius].join(' ')}>
@@ -221,7 +221,11 @@ function Chip({
   )
 }
 
-function StatusPill({ type }: { type: 'Activo' | 'Inactivo' | 'Alta' | 'Hecho' }) {
+function StatusPill({
+  type
+}: {
+  type: 'Activo' | 'Inactivo' | 'Alta' | 'Hecho'
+}) {
   if (type === 'Activo') {
     return (
       <span className='inline-flex items-center'>
@@ -394,15 +398,14 @@ function PacientesPageContent() {
   const [openBudgetCreation, setOpenBudgetCreation] = React.useState(false)
   const [openEditMode, setOpenEditMode] = React.useState(false)
   const [openMenuId, setOpenMenuId] = React.useState<string | null>(null)
-  const [menuTriggerRect, setMenuTriggerRect] = React.useState<DOMRect | null>(null)
+  const [menuTriggerRect, setMenuTriggerRect] = React.useState<DOMRect | null>(
+    null
+  )
   const searchParams = useSearchParams()
   const navRouter = useRouter()
 
   // Convertir pacientes del contexto a filas para la tabla
-  const patientRows = useMemo(
-    () => patients.map(patientToRow),
-    [patients]
-  )
+  const patientRows = useMemo(() => patients.map(patientToRow), [patients])
 
   // Estadísticas de pacientes
   const stats = useMemo(() => getPatientStats(), [getPatientStats])
@@ -502,7 +505,9 @@ function PacientesPageContent() {
             <div className='flex items-center gap-2'>
               {selectedPatientIds.length > 0 && (
                 <>
-                  <Chip color='teal'>{selectedPatientIds.length} seleccionados</Chip>
+                  <Chip color='teal'>
+                    {selectedPatientIds.length} seleccionados
+                  </Chip>
                   <button
                     onClick={() => {
                       // Eliminar pacientes seleccionados
@@ -626,10 +631,7 @@ function PacientesPageContent() {
                       <span>Estado</span>
                     </div>
                   </TableHeaderCell>
-                  <TableHeaderCell
-                    className='w-[12%] pr-2'
-                    align='right'
-                  >
+                  <TableHeaderCell className='w-[12%] pr-2' align='right'>
                     <div className='flex items-center gap-2 justify-end'>
                       <MD3Icon
                         name='PaymentsRounded'
@@ -645,156 +647,157 @@ function PacientesPageContent() {
                 </tr>
               </thead>
               <tbody>
-                {patientRows.filter((p) => {
-                  const q = query.trim().toLowerCase()
-                  const matchesQuery = q
-                    ? p.name.toLowerCase().includes(q) ||
-                      p.phone.toLowerCase().includes(q)
-                    : true
-                  const matchesFilter = (() => {
-                    if (selectedFilters.length === 0) return true
-                    return selectedFilters.some((filterKey) => {
-                      if (filterKey === 'deuda') {
-                        return p.tags.includes('deuda') || p.debtAmount > 0
-                      }
-                      if (filterKey === 'activos') {
-                        return p.status === 'Activo'
-                      }
-                      if (filterKey === 'financiacion') {
-                        return p.hasFinancing
-                      }
-                      return false
-                    })
-                  })()
-                  return Boolean(matchesQuery && matchesFilter)
-                }).map((row, i) => (
-                  <tr
-                    key={row.id}
-                    className={[
-                      'group hover:bg-[var(--color-neutral-50)]',
-                      isPatientSelected(row.id) ? 'bg-[#E9FBF9]' : ''
-                    ].join(' ')}
-                  >
-                    <TableBodyCell className='w-[3%] min-w-[2rem] pr-1'>
-                      <button
-                        type='button'
-                        onClick={() => togglePatientSelection(row.id)}
-                        aria-pressed={isPatientSelected(row.id)}
-                        className='relative size-6 inline-flex items-center justify-center cursor-pointer'
-                      >
-                        {/* Outline box on hover */}
-                        <span className='absolute inset-0 rounded-[4px] border border-[var(--color-neutral-300)] bg-white opacity-0 group-hover:opacity-100 transition-opacity' />
-                        {/* Selected border */}
-                        <span
-                          className={[
-                            'absolute inset-0 rounded-[4px] border-2 transition-opacity',
-                            isPatientSelected(row.id)
-                              ? 'border-[#1E4947] opacity-100'
-                              : 'opacity-0'
-                          ].join(' ')}
-                        />
-                        {/* Check icon when selected */}
-                        <MD3Icon
-                          aria-hidden='true'
-                          name='CheckRounded'
-                          size='sm'
-                          className={[
-                            'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
-                            'text-[#1E4947] transition-opacity',
-                            isPatientSelected(row.id)
-                              ? 'opacity-100'
-                              : 'opacity-0'
-                          ].join(' ')}
-                        />
-                        <span className='sr-only'>Seleccionar fila</span>
-                      </button>
-                    </TableBodyCell>
-                    <TableBodyCell className='w-[28%] pr-2'>
-                      <button
-                        type='button'
-                        onClick={() => setIsFichaModalOpen(true)}
-                        className='truncate hover:underline cursor-pointer text-left w-full'
-                      >
-                        {row.name}
-                      </button>
-                    </TableBodyCell>
-                    <TableBodyCell className='w-[16%] pr-2'>
-                      <p className='truncate'>{row.phone}</p>
-                    </TableBodyCell>
-                    <TableBodyCell className='w-[18%] pr-2'>
-                      <span className='truncate'>{row.nextDate}</span>
-                    </TableBodyCell>
-                    <TableBodyCell className='w-[14%] pr-2'>
-                      <StatusPill type={row.status} />
-                    </TableBodyCell>
-                    <TableBodyCell
-                      className='w-[12%] pr-2'
-                      align='right'
+                {patientRows
+                  .filter((p) => {
+                    const q = query.trim().toLowerCase()
+                    const matchesQuery = q
+                      ? p.name.toLowerCase().includes(q) ||
+                        p.phone.toLowerCase().includes(q)
+                      : true
+                    const matchesFilter = (() => {
+                      if (selectedFilters.length === 0) return true
+                      return selectedFilters.some((filterKey) => {
+                        if (filterKey === 'deuda') {
+                          return p.tags.includes('deuda') || p.debtAmount > 0
+                        }
+                        if (filterKey === 'activos') {
+                          return p.status === 'Activo'
+                        }
+                        if (filterKey === 'financiacion') {
+                          return p.hasFinancing
+                        }
+                        return false
+                      })
+                    })()
+                    return Boolean(matchesQuery && matchesFilter)
+                  })
+                  .map((row, i) => (
+                    <tr
+                      key={row.id}
+                      className={[
+                        'group hover:bg-[var(--color-neutral-50)]',
+                        isPatientSelected(row.id) ? 'bg-[#E9FBF9]' : ''
+                      ].join(' ')}
                     >
-                      {row.debt}
-                    </TableBodyCell>
-                    <TableBodyCell
-                      className='w-[5%] min-w-[2.5rem] pr-2 sticky right-0 bg-[var(--color-surface-app)] group-hover:bg-[var(--color-neutral-50)]'
-                      align='right'
-                    >
-                      <div className='relative'>
+                      <TableBodyCell className='w-[3%] min-w-[2rem] pr-1'>
                         <button
                           type='button'
-                          onClick={(e) => {
-                            if (openMenuId === row.id) {
-                              setOpenMenuId(null)
-                              setMenuTriggerRect(null)
-                            } else {
-                              setOpenMenuId(row.id)
-                              setMenuTriggerRect(e.currentTarget.getBoundingClientRect())
-                            }
-                          }}
-                          aria-label='Abrir acciones'
-                          aria-expanded={openMenuId === row.id}
-                          className='inline-flex size-8 items-center justify-center rounded-full hover:bg-[var(--color-neutral-100)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-300)]'
+                          onClick={() => togglePatientSelection(row.id)}
+                          aria-pressed={isPatientSelected(row.id)}
+                          className='relative size-6 inline-flex items-center justify-center cursor-pointer'
                         >
+                          {/* Outline box on hover */}
+                          <span className='absolute inset-0 rounded-[4px] border border-[var(--color-neutral-300)] bg-white opacity-0 group-hover:opacity-100 transition-opacity' />
+                          {/* Selected border */}
+                          <span
+                            className={[
+                              'absolute inset-0 rounded-[4px] border-2 transition-opacity',
+                              isPatientSelected(row.id)
+                                ? 'border-[#1E4947] opacity-100'
+                                : 'opacity-0'
+                            ].join(' ')}
+                          />
+                          {/* Check icon when selected */}
                           <MD3Icon
-                            name='MoreVertRounded'
-                            size='md'
-                            className='text-[var(--color-neutral-700)]'
+                            aria-hidden='true'
+                            name='CheckRounded'
+                            size='sm'
+                            className={[
+                              'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
+                              'text-[#1E4947] transition-opacity',
+                              isPatientSelected(row.id)
+                                ? 'opacity-100'
+                                : 'opacity-0'
+                            ].join(' ')}
                           />
+                          <span className='sr-only'>Seleccionar fila</span>
                         </button>
-                        {openMenuId === row.id && menuTriggerRect && (
-                          <PatientActionsMenu
-                            triggerRect={menuTriggerRect}
-                            onClose={() => {
-                              setOpenMenuId(null)
-                              setMenuTriggerRect(null)
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[28%] pr-2'>
+                        <button
+                          type='button'
+                          onClick={() => setIsFichaModalOpen(true)}
+                          className='truncate hover:underline cursor-pointer text-left w-full'
+                        >
+                          {row.name}
+                        </button>
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[16%] pr-2'>
+                        <p className='truncate'>{row.phone}</p>
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[18%] pr-2'>
+                        <span className='truncate'>{row.nextDate}</span>
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[14%] pr-2'>
+                        <StatusPill type={row.status} />
+                      </TableBodyCell>
+                      <TableBodyCell className='w-[12%] pr-2' align='right'>
+                        {row.debt}
+                      </TableBodyCell>
+                      <TableBodyCell
+                        className='w-[5%] min-w-[2.5rem] pr-2 sticky right-0 bg-[var(--color-surface-app)] group-hover:bg-[var(--color-neutral-50)]'
+                        align='right'
+                      >
+                        <div className='relative'>
+                          <button
+                            type='button'
+                            onClick={(e) => {
+                              if (openMenuId === row.id) {
+                                setOpenMenuId(null)
+                                setMenuTriggerRect(null)
+                              } else {
+                                setOpenMenuId(row.id)
+                                setMenuTriggerRect(
+                                  e.currentTarget.getBoundingClientRect()
+                                )
+                              }
                             }}
-                            onViewFile={() => {
-                              setOpenMenuId(null)
-                              setMenuTriggerRect(null)
-                              setIsFichaModalOpen(true)
-                            }}
-                            onCreateBudget={() => {
-                              setOpenMenuId(null)
-                              setMenuTriggerRect(null)
-                              setOpenBudgetCreation(true)
-                              setIsFichaModalOpen(true)
-                            }}
-                            onEdit={() => {
-                              setOpenMenuId(null)
-                              setMenuTriggerRect(null)
-                              setOpenEditMode(true)
-                              setIsFichaModalOpen(true)
-                            }}
-                            onDelete={() => {
-                              setOpenMenuId(null)
-                              setMenuTriggerRect(null)
-                              // TODO: Añadir confirmación antes de eliminar
-                              deletePatient(row.id)
-                            }}
-                          />
-                        )}
-                      </div>
-                    </TableBodyCell>
-                  </tr>
-                ))}
+                            aria-label='Abrir acciones'
+                            aria-expanded={openMenuId === row.id}
+                            className='inline-flex size-8 items-center justify-center rounded-full hover:bg-[var(--color-neutral-100)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-300)]'
+                          >
+                            <MD3Icon
+                              name='MoreVertRounded'
+                              size='md'
+                              className='text-[var(--color-neutral-700)]'
+                            />
+                          </button>
+                          {openMenuId === row.id && menuTriggerRect && (
+                            <PatientActionsMenu
+                              triggerRect={menuTriggerRect}
+                              onClose={() => {
+                                setOpenMenuId(null)
+                                setMenuTriggerRect(null)
+                              }}
+                              onViewFile={() => {
+                                setOpenMenuId(null)
+                                setMenuTriggerRect(null)
+                                setIsFichaModalOpen(true)
+                              }}
+                              onCreateBudget={() => {
+                                setOpenMenuId(null)
+                                setMenuTriggerRect(null)
+                                setOpenBudgetCreation(true)
+                                setIsFichaModalOpen(true)
+                              }}
+                              onEdit={() => {
+                                setOpenMenuId(null)
+                                setMenuTriggerRect(null)
+                                setOpenEditMode(true)
+                                setIsFichaModalOpen(true)
+                              }}
+                              onDelete={() => {
+                                setOpenMenuId(null)
+                                setMenuTriggerRect(null)
+                                // TODO: Añadir confirmación antes de eliminar
+                                deletePatient(row.id)
+                              }}
+                            />
+                          )}
+                        </div>
+                      </TableBodyCell>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>

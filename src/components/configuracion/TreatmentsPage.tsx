@@ -4,11 +4,18 @@ import {
     AddRounded,
     CheckBoxOutlineBlankRounded,
     CheckBoxRounded,
+    ChevronLeftRounded,
+    ChevronRightRounded,
     CloseRounded,
+    DeleteRounded,
     FilterAltRounded,
+    FirstPageRounded,
+    KeyboardArrowDownRounded,
+    LastPageRounded,
+    MoreHorizRounded,
     SearchRounded
 } from '@/components/icons/md3'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, useRef, useEffect } from 'react'
 
 // ============================================
 // TYPES
@@ -32,9 +39,77 @@ type Category = {
 
 type TabKey = 'treatments' | 'budgetType' | 'discounts' | 'medications'
 
+type QuickBudget = {
+  id: string
+  name: string
+  treatmentsCount: number
+  totalPrice: number
+  packDiscount: string
+  notes: string
+  isActive: boolean
+  selected: boolean
+}
+
+type DiscountOption = {
+  id: string
+  name: string
+  percentage: number
+}
+
+type DiscountType = 'percentage' | 'fixed'
+
+type Discount = {
+  id: string
+  name: string
+  type: DiscountType
+  value: number
+  notes: string
+  isActive: boolean
+}
+
 // ============================================
 // DATA
 // ============================================
+
+// ============================================
+// MOCK DATA - Quick Budgets (Presupuestos rápidos)
+// Structure: id, name, treatmentsCount, totalPrice, packDiscount, notes, isActive
+// ============================================
+
+const discountOptions: DiscountOption[] = [
+  { id: 'disc-001', name: 'Sin descuento', percentage: 0 },
+  { id: 'disc-002', name: '5% Pack básico', percentage: 5 },
+  { id: 'disc-003', name: '10% Pack premium', percentage: 10 },
+  { id: 'disc-004', name: '15% Pack familiar', percentage: 15 },
+  { id: 'disc-005', name: '20% Pack VIP', percentage: 20 },
+]
+
+// ============================================
+// MOCK DATA - Discounts (Descuentos/Convenios)
+// Structure: id, name, type (percentage/fixed), value, notes, isActive
+// ============================================
+
+const initialDiscounts: Discount[] = [
+  { id: 'disc-001', name: 'Descuento familiar', type: 'percentage', value: 15, notes: 'Aplicable a familiares directos de pacientes existentes', isActive: true },
+  { id: 'disc-002', name: 'Convenio empresa ABC', type: 'fixed', value: 100, notes: 'Precio fijo para empleados de empresa ABC', isActive: false },
+  { id: 'disc-003', name: 'Descuento estudiantes', type: 'percentage', value: 10, notes: 'Para estudiantes universitarios con carnet vigente', isActive: true },
+  { id: 'disc-004', name: 'Descuento tercera edad', type: 'percentage', value: 20, notes: 'Para mayores de 65 años', isActive: true },
+  { id: 'disc-005', name: 'Convenio Mutua Salud', type: 'percentage', value: 25, notes: 'Aplicable a afiliados de Mutua Salud', isActive: true },
+  { id: 'disc-006', name: 'Pack tratamiento completo', type: 'fixed', value: 200, notes: 'Descuento fijo al contratar tratamiento completo', isActive: false },
+  { id: 'disc-007', name: 'Primera visita gratis', type: 'fixed', value: 50, notes: 'Descuento en primera visita para nuevos pacientes', isActive: true },
+  { id: 'disc-008', name: 'Referido por paciente', type: 'percentage', value: 10, notes: 'Descuento para pacientes referidos', isActive: true },
+]
+
+const initialQuickBudgets: QuickBudget[] = [
+  { id: 'qb-001', name: 'Pack revisión completa', treatmentsCount: 3, totalPrice: 300, packDiscount: '5% Pack básico', notes: 'Incluye limpieza, revisión y radiografía panorámica', isActive: true, selected: false },
+  { id: 'qb-002', name: 'Pack blanqueamiento', treatmentsCount: 2, totalPrice: 1200, packDiscount: '10% Pack premium', notes: 'Blanqueamiento en clínica + kit domiciliario', isActive: false, selected: false },
+  { id: 'qb-003', name: 'Pack ortodoncia básico', treatmentsCount: 5, totalPrice: 60, packDiscount: '15% Pack familiar', notes: 'Estudio + fotografías + modelos + cefalometría + escáner', isActive: true, selected: false },
+  { id: 'qb-004', name: 'Pack periodoncia', treatmentsCount: 4, totalPrice: 450, packDiscount: '10% Pack premium', notes: 'Estudio periodontal + raspado completo + mantenimiento', isActive: true, selected: false },
+  { id: 'qb-005', name: 'Pack implante unitario', treatmentsCount: 3, totalPrice: 2100, packDiscount: '20% Pack VIP', notes: 'Implante + pilar + corona zirconio', isActive: true, selected: false },
+  { id: 'qb-006', name: 'Pack endodoncia + corona', treatmentsCount: 2, totalPrice: 650, packDiscount: '5% Pack básico', notes: 'Endodoncia multirradicular + corona cerámica', isActive: false, selected: false },
+  { id: 'qb-007', name: 'Pack estética dental', treatmentsCount: 6, totalPrice: 3500, packDiscount: '15% Pack familiar', notes: '4 carillas + blanqueamiento + diseño de sonrisa', isActive: true, selected: false },
+  { id: 'qb-008', name: 'Pack infantil', treatmentsCount: 4, totalPrice: 120, packDiscount: 'Sin descuento', notes: 'Revisión + sellados + flúor + educación higiene', isActive: true, selected: false },
+]
 
 // ============================================
 // MOCK DATA - Ready for database connection
@@ -495,7 +570,7 @@ const initialCategories: Category[] = [
 
 const tabs: { key: TabKey; label: string }[] = [
   { key: 'treatments', label: 'Lista de tratamientos' },
-  { key: 'budgetType', label: 'Presupuesto tipo' },
+  { key: 'budgetType', label: 'Presupuestos rápidos' },
   { key: 'discounts', label: 'Descuentos (convenios)' },
   { key: 'medications', label: 'Medicamentos con autoguardado' }
 ]
@@ -524,6 +599,404 @@ function FilterTag({
       <span className='text-body-sm text-[var(--color-success-600)] leading-none'>
         {label}
       </span>
+    </div>
+  )
+}
+
+// ============================================
+// QUICK BUDGET TABLE COMPONENTS
+// ============================================
+
+// Grid template for quick budgets: name | count | price | discount | notes | status
+const QUICK_BUDGET_GRID_CLASSES =
+  'grid grid-cols-[minmax(0,1.5fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.2fr)_minmax(0,0.6fr)_minmax(0,0.6fr)] w-full'
+
+function QuickBudgetTableHeader() {
+  const headers = [
+    'Nombre de plantilla',
+    'Nº tratamientos',
+    'Precio total',
+    'Descuento de pack',
+    'Notas',
+    'Estado'
+  ]
+
+  return (
+    <div className={QUICK_BUDGET_GRID_CLASSES}>
+      {headers.map((label, i) => (
+        <div
+          key={`qb-header-${i}`}
+          className='flex items-center border-b border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'
+        >
+          <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+            {label}
+          </p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function QuickBudgetTableRow({
+  budget,
+  onToggleSelect,
+  onOpenNotes,
+  discountOptions,
+  onChangeDiscount
+}: {
+  budget: QuickBudget
+  onToggleSelect: () => void
+  onOpenNotes: () => void
+  discountOptions: DiscountOption[]
+  onChangeDiscount: (discountName: string) => void
+}) {
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div
+      className={`${QUICK_BUDGET_GRID_CLASSES} ${
+        budget.selected ? 'bg-[var(--color-brand-50)]' : 'hover:bg-[var(--color-neutral-50)]'
+      } transition-colors cursor-pointer`}
+      onClick={onToggleSelect}
+    >
+      {/* Name */}
+      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+        <p className='text-body-md text-[var(--color-neutral-900)] truncate' title={budget.name}>
+          {budget.name}
+        </p>
+      </div>
+      {/* Treatments Count */}
+      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>
+          {budget.treatmentsCount}
+        </p>
+      </div>
+      {/* Total Price */}
+      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>
+          {budget.totalPrice.toLocaleString('es-ES')}€
+        </p>
+      </div>
+      {/* Pack Discount */}
+      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0 relative'>
+        <div
+          ref={dropdownRef}
+          className='flex flex-1 items-center justify-between min-w-0'
+          onClick={(e) => {
+            e.stopPropagation()
+            setDropdownOpen(!dropdownOpen)
+          }}
+        >
+          <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
+            {budget.packDiscount}
+          </p>
+          <KeyboardArrowDownRounded className='size-[1.375rem] text-[var(--color-neutral-600)] flex-shrink-0 ml-1' />
+        </div>
+        {dropdownOpen && (
+          <div className='absolute top-full left-0 mt-1 w-full bg-[var(--color-surface)] border border-[var(--color-neutral-300)] rounded-lg shadow-lg z-20'>
+            {discountOptions.map((option) => (
+              <button
+                key={option.id}
+                type='button'
+                className='w-full text-left px-3 py-2 text-body-md text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-50)] first:rounded-t-lg last:rounded-b-lg'
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onChangeDiscount(option.name)
+                  setDropdownOpen(false)
+                }}
+              >
+                {option.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {/* Notes */}
+      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+        <button
+          type='button'
+          className='px-2 py-0.5 rounded-full'
+          onClick={(e) => {
+            e.stopPropagation()
+            onOpenNotes()
+          }}
+        >
+          <span className='text-title-sm font-medium text-[var(--color-brand-600)]'>
+            Ver nota
+          </span>
+        </button>
+      </div>
+      {/* Status */}
+      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] px-2 py-1.5 h-[2.5rem] min-w-0'>
+        {budget.isActive ? (
+          <span className='bg-[#E0F2FE] text-[#075985] px-2 py-0.5 rounded text-body-md'>
+            Activo
+          </span>
+        ) : (
+          <span className='bg-[var(--color-neutral-300)] text-[var(--color-neutral-900)] px-2 py-0.5 rounded text-body-md'>
+            Inactivo
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Selection action bar component
+function SelectionActionBar({
+  selectedCount,
+  onEdit,
+  onDuplicate,
+  onDelete,
+  onMore
+}: {
+  selectedCount: number
+  onEdit: () => void
+  onDuplicate: () => void
+  onDelete: () => void
+  onMore: () => void
+}) {
+  return (
+    <div className='flex items-center'>
+      {/* Selected count */}
+      <div className='bg-[var(--color-brand-0)] border-[0.5px] border-[var(--color-brand-200)] flex items-center justify-center px-2 py-1 rounded-l'>
+        <span className='text-body-sm text-[var(--color-brand-700)]'>
+          {selectedCount} seleccionado{selectedCount > 1 ? 's' : ''}
+        </span>
+      </div>
+      {/* Edit */}
+      <button
+        type='button'
+        onClick={onEdit}
+        className='bg-[var(--color-neutral-50)] border-y-[0.5px] border-r-[0.5px] border-[var(--color-neutral-300)] flex items-center justify-center px-2 py-1 hover:bg-[var(--color-neutral-100)] transition-colors'
+      >
+        <span className='text-body-sm text-[var(--color-neutral-700)]'>Editar</span>
+      </button>
+      {/* Duplicate */}
+      <button
+        type='button'
+        onClick={onDuplicate}
+        className='bg-[var(--color-neutral-50)] border-y-[0.5px] border-r-[0.5px] border-[var(--color-neutral-300)] flex items-center justify-center px-2 py-1 hover:bg-[var(--color-neutral-100)] transition-colors'
+      >
+        <span className='text-body-sm text-[var(--color-neutral-700)]'>Duplicar</span>
+      </button>
+      {/* Delete */}
+      <button
+        type='button'
+        onClick={onDelete}
+        className='bg-[var(--color-neutral-50)] border-y-[0.5px] border-r-[0.5px] border-[var(--color-neutral-300)] flex items-center justify-center px-2 py-1 hover:bg-[var(--color-neutral-100)] transition-colors'
+      >
+        <DeleteRounded className='size-5 text-[var(--color-neutral-700)]' />
+      </button>
+      {/* More */}
+      <button
+        type='button'
+        onClick={onMore}
+        className='bg-[var(--color-neutral-50)] border-y-[0.5px] border-r-[0.5px] border-[var(--color-neutral-300)] flex items-center justify-center px-2 py-1 rounded-r hover:bg-[var(--color-neutral-100)] transition-colors'
+      >
+        <MoreHorizRounded className='size-5 text-[var(--color-neutral-700)]' />
+      </button>
+    </div>
+  )
+}
+
+// Pagination component
+function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange
+}: {
+  currentPage: number
+  totalPages: number
+  onPageChange: (page: number) => void
+}) {
+  const renderPageNumbers = () => {
+    const pages: (number | string)[] = []
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i)
+    } else {
+      pages.push(1)
+      if (currentPage > 3) pages.push('...')
+      const start = Math.max(2, currentPage - 1)
+      const end = Math.min(totalPages - 1, currentPage + 1)
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i)
+      }
+      if (currentPage < totalPages - 2) pages.push('...')
+      if (!pages.includes(totalPages)) pages.push(totalPages)
+    }
+    return pages
+  }
+
+  return (
+    <div className='flex items-center gap-3'>
+      {/* First & Previous */}
+      <div className='flex items-center'>
+        <button
+          type='button'
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1}
+          className='size-6 flex items-center justify-center text-[var(--color-neutral-600)] disabled:opacity-40 hover:text-[var(--color-neutral-900)] transition-colors'
+          aria-label='Primera página'
+        >
+          <FirstPageRounded className='size-6' />
+        </button>
+        <button
+          type='button'
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className='size-6 flex items-center justify-center text-[var(--color-neutral-600)] disabled:opacity-40 hover:text-[var(--color-neutral-900)] transition-colors'
+          aria-label='Página anterior'
+        >
+          <ChevronLeftRounded className='size-6' />
+        </button>
+      </div>
+      {/* Page Numbers */}
+      <div className='flex items-center gap-2'>
+        {renderPageNumbers().map((page, idx) => (
+          typeof page === 'number' ? (
+            <button
+              key={idx}
+              type='button'
+              onClick={() => onPageChange(page)}
+              className={`text-sm ${
+                page === currentPage
+                  ? 'font-bold underline text-[var(--color-neutral-900)]'
+                  : 'font-normal text-[var(--color-neutral-900)] hover:underline'
+              }`}
+            >
+              {page}
+            </button>
+          ) : (
+            <span key={idx} className='text-sm text-[var(--color-neutral-900)]'>
+              {page}
+            </span>
+          )
+        ))}
+      </div>
+      {/* Next & Last */}
+      <div className='flex items-center'>
+        <button
+          type='button'
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className='size-6 flex items-center justify-center text-[var(--color-neutral-600)] disabled:opacity-40 hover:text-[var(--color-neutral-900)] transition-colors'
+          aria-label='Página siguiente'
+        >
+          <ChevronRightRounded className='size-6' />
+        </button>
+        <button
+          type='button'
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          className='size-6 flex items-center justify-center text-[var(--color-neutral-600)] disabled:opacity-40 hover:text-[var(--color-neutral-900)] transition-colors'
+          aria-label='Última página'
+        >
+          <LastPageRounded className='size-6' />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// DISCOUNTS TABLE COMPONENTS
+// ============================================
+
+// Grid template for discounts: name | type | value | notes | status
+const DISCOUNTS_GRID_CLASSES =
+  'grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.5fr)_minmax(0,2fr)_minmax(0,0.6fr)] w-full'
+
+function DiscountsTableHeader() {
+  const headers = [
+    'Nombre de descuento',
+    'Tipo de descuento',
+    'Valor',
+    'Notas',
+    'Estado'
+  ]
+
+  return (
+    <div className={DISCOUNTS_GRID_CLASSES}>
+      {headers.map((label, i) => (
+        <div
+          key={`disc-header-${i}`}
+          className='flex items-center border-b border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'
+        >
+          <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+            {label}
+          </p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function DiscountsTableRow({
+  discount,
+  onOpenNotes
+}: {
+  discount: Discount
+  onOpenNotes: () => void
+}) {
+  return (
+    <div
+      className={`${DISCOUNTS_GRID_CLASSES} hover:bg-[var(--color-neutral-50)] transition-colors`}
+    >
+      {/* Name */}
+      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+        <p className='text-body-md text-[var(--color-neutral-900)] truncate' title={discount.name}>
+          {discount.name}
+        </p>
+      </div>
+      {/* Type */}
+      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>
+          {discount.type === 'percentage' ? '%' : 'Precio fijo'}
+        </p>
+      </div>
+      {/* Value */}
+      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+        <p className='text-body-md text-[var(--color-neutral-900)]'>
+          {discount.type === 'percentage' ? `${discount.value}%` : `${discount.value}€`}
+        </p>
+      </div>
+      {/* Notes */}
+      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+        <button
+          type='button'
+          className='px-2 py-0.5'
+          onClick={onOpenNotes}
+        >
+          <span className='text-body-md text-[var(--color-neutral-900)] truncate' title={discount.notes}>
+            {discount.notes.length > 40 ? `${discount.notes.substring(0, 40)}...` : discount.notes}
+          </span>
+        </button>
+      </div>
+      {/* Status */}
+      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] px-2 py-1.5 h-[2.5rem] min-w-0'>
+        {discount.isActive ? (
+          <span className='bg-[#E0F2FE] text-[#075985] px-2 py-0.5 rounded text-body-md'>
+            Activo
+          </span>
+        ) : (
+          <span className='bg-[var(--color-neutral-300)] text-[var(--color-neutral-900)] px-2 py-0.5 rounded text-body-md'>
+            Inactivo
+          </span>
+        )}
+      </div>
     </div>
   )
 }
@@ -640,6 +1113,20 @@ export default function TreatmentsPage() {
   const [categories, setCategories] = useState<Category[]>(initialCategories)
   const [searchVisible, setSearchVisible] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  
+  // Quick Budgets state
+  const [quickBudgets, setQuickBudgets] = useState<QuickBudget[]>(initialQuickBudgets)
+  const [qbSearchVisible, setQbSearchVisible] = useState(false)
+  const [qbSearchTerm, setQbSearchTerm] = useState('')
+  const [qbCurrentPage, setQbCurrentPage] = useState(1)
+  const qbItemsPerPage = 5
+
+  // Discounts state
+  const [discounts, setDiscounts] = useState<Discount[]>(initialDiscounts)
+  const [discSearchVisible, setDiscSearchVisible] = useState(false)
+  const [discSearchTerm, setDiscSearchTerm] = useState('')
+  const [discCurrentPage, setDiscCurrentPage] = useState(1)
+  const discItemsPerPage = 5
 
   // Get current category
   const currentCategory = useMemo(
@@ -688,20 +1175,152 @@ export default function TreatmentsPage() {
     )
   }, [])
 
+  // ============================================
+  // QUICK BUDGETS FUNCTIONS
+  // ============================================
+
+  // Get selected quick budgets
+  const selectedQuickBudgets = useMemo(() => {
+    return quickBudgets.filter((qb) => qb.selected)
+  }, [quickBudgets])
+
+  // Filter quick budgets by search term
+  const filteredQuickBudgets = useMemo(() => {
+    if (!qbSearchTerm.trim()) return quickBudgets
+    const term = qbSearchTerm.toLowerCase()
+    return quickBudgets.filter((qb) =>
+      qb.name.toLowerCase().includes(term) ||
+      qb.packDiscount.toLowerCase().includes(term)
+    )
+  }, [quickBudgets, qbSearchTerm])
+
+  // Paginated quick budgets
+  const paginatedQuickBudgets = useMemo(() => {
+    const startIndex = (qbCurrentPage - 1) * qbItemsPerPage
+    return filteredQuickBudgets.slice(startIndex, startIndex + qbItemsPerPage)
+  }, [filteredQuickBudgets, qbCurrentPage, qbItemsPerPage])
+
+  // Total pages for quick budgets
+  const qbTotalPages = useMemo(() => {
+    return Math.ceil(filteredQuickBudgets.length / qbItemsPerPage)
+  }, [filteredQuickBudgets.length, qbItemsPerPage])
+
+  // Toggle quick budget selection
+  const toggleQuickBudgetSelect = useCallback((budgetId: string) => {
+    setQuickBudgets((prev) =>
+      prev.map((qb) =>
+        qb.id === budgetId ? { ...qb, selected: !qb.selected } : qb
+      )
+    )
+  }, [])
+
+  // Change quick budget discount
+  const changeQuickBudgetDiscount = useCallback((budgetId: string, discountName: string) => {
+    setQuickBudgets((prev) =>
+      prev.map((qb) =>
+        qb.id === budgetId ? { ...qb, packDiscount: discountName } : qb
+      )
+    )
+  }, [])
+
+  // Quick budget actions
+  const handleQbEdit = useCallback(() => {
+    console.log('Edit selected quick budgets:', selectedQuickBudgets.map(qb => qb.id))
+    // TODO: Implement edit modal
+  }, [selectedQuickBudgets])
+
+  const handleQbDuplicate = useCallback(() => {
+    const newBudgets = selectedQuickBudgets.map((qb) => ({
+      ...qb,
+      id: `qb-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: `${qb.name} (copia)`,
+      selected: false
+    }))
+    setQuickBudgets((prev) => [...prev, ...newBudgets])
+  }, [selectedQuickBudgets])
+
+  const handleQbDelete = useCallback(() => {
+    const selectedIds = selectedQuickBudgets.map((qb) => qb.id)
+    setQuickBudgets((prev) => prev.filter((qb) => !selectedIds.includes(qb.id)))
+  }, [selectedQuickBudgets])
+
+  const handleQbMore = useCallback(() => {
+    console.log('More options for:', selectedQuickBudgets.map(qb => qb.id))
+    // TODO: Implement more options dropdown
+  }, [selectedQuickBudgets])
+
+  const handleOpenNotes = useCallback((budgetId: string) => {
+    const budget = quickBudgets.find((qb) => qb.id === budgetId)
+    if (budget) {
+      alert(`Notas: ${budget.notes}`)
+      // TODO: Implement notes modal
+    }
+  }, [quickBudgets])
+
+  const handleAddTemplate = useCallback(() => {
+    console.log('Add new template')
+    // TODO: Implement add template modal
+  }, [])
+
+  const handleConfigureDiscountLimits = useCallback(() => {
+    console.log('Configure discount limits')
+    // TODO: Implement discount limits configuration modal
+  }, [])
+
+  // ============================================
+  // DISCOUNTS FUNCTIONS
+  // ============================================
+
+  // Filter discounts by search term
+  const filteredDiscounts = useMemo(() => {
+    if (!discSearchTerm.trim()) return discounts
+    const term = discSearchTerm.toLowerCase()
+    return discounts.filter((d) =>
+      d.name.toLowerCase().includes(term) ||
+      d.notes.toLowerCase().includes(term)
+    )
+  }, [discounts, discSearchTerm])
+
+  // Paginated discounts
+  const paginatedDiscounts = useMemo(() => {
+    const startIndex = (discCurrentPage - 1) * discItemsPerPage
+    return filteredDiscounts.slice(startIndex, startIndex + discItemsPerPage)
+  }, [filteredDiscounts, discCurrentPage, discItemsPerPage])
+
+  // Total pages for discounts
+  const discTotalPages = useMemo(() => {
+    return Math.ceil(filteredDiscounts.length / discItemsPerPage)
+  }, [filteredDiscounts.length, discItemsPerPage])
+
+  // Open discount notes
+  const handleOpenDiscountNotes = useCallback((discountId: string) => {
+    const discount = discounts.find((d) => d.id === discountId)
+    if (discount) {
+      alert(`Notas: ${discount.notes}`)
+      // TODO: Implement notes modal
+    }
+  }, [discounts])
+
+  // Add new discount
+  const handleAddDiscount = useCallback(() => {
+    console.log('Add new discount')
+    // TODO: Implement add discount modal
+  }, [])
+
   return (
     <>
       {/* Section Header */}
-      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pl-8 pr-0 h-[2.5rem]'>
+      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] h-[min(2.5rem,4vh)]'>
         <p className='text-title-lg font-normal text-[var(--color-neutral-900)]'>
           Tratamientos, precios, presupuestos y descuentos
         </p>
       </div>
 
       {/* Content Card */}
-      <div className='flex-1 ml-8 mr-0 mt-6 mb-0 min-h-0'>
+      <div className='flex-1 mx-[min(2rem,3vw)] mt-[min(1.5rem,2vh)] mb-0 min-h-0'>
         <div className='bg-[var(--color-surface)] border border-neutral-200 rounded-t-lg h-full overflow-auto'>
           {/* Tabs */}
-          <div className='sticky top-0 z-10 bg-[var(--color-surface)] px-10 pt-6 pb-2 min-h-[4rem]'>
+          <div className='sticky top-0 z-10 bg-[var(--color-surface)] px-[min(2.5rem,3vw)] pt-[min(1.5rem,2vh)] pb-2 min-h-[min(4rem,6vh)]'>
             <div className='flex gap-6 items-center overflow-x-auto'>
               {tabs.map((tab) => (
                 <button
@@ -730,9 +1349,9 @@ export default function TreatmentsPage() {
 
           {/* Tab Content */}
           {activeTab === 'treatments' ? (
-            <div className='flex min-h-0 mt-6 pb-6'>
+            <div className='flex min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)]'>
               {/* Categories Sidebar */}
-              <aside className='w-[min(11.5rem,18vw)] flex-none border border-neutral-200 rounded-lg ml-10 mr-6 overflow-hidden'>
+              <aside className='w-[min(11.5rem,18vw)] flex-none border border-neutral-200 rounded-lg ml-[min(2.5rem,3vw)] mr-[min(1.5rem,2vw)] overflow-hidden'>
                 <nav className='flex flex-col'>
                   {categories.map((category) => (
                     <button
@@ -753,7 +1372,7 @@ export default function TreatmentsPage() {
               </aside>
 
               {/* Treatments Content */}
-              <div className='flex-1 flex flex-col min-w-0 pr-10 overflow-hidden'>
+              <div className='flex-1 flex flex-col min-w-0 pr-[min(2.5rem,3vw)] overflow-hidden'>
                 {/* Category Header */}
                 <div className='flex items-center justify-between mb-4'>
                   <p className='text-title-lg font-medium text-[var(--color-neutral-900)]'>
@@ -841,13 +1460,217 @@ export default function TreatmentsPage() {
                 </div>
               </div>
             </div>
+          ) : activeTab === 'budgetType' ? (
+            <div className='flex flex-col min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)] px-[min(2.5rem,3vw)]'>
+              {/* Action Bar */}
+              <div className='flex items-end justify-between mb-6'>
+                {/* Selection Actions */}
+                {selectedQuickBudgets.length > 0 ? (
+                  <SelectionActionBar
+                    selectedCount={selectedQuickBudgets.length}
+                    onEdit={handleQbEdit}
+                    onDuplicate={handleQbDuplicate}
+                    onDelete={handleQbDelete}
+                    onMore={handleQbMore}
+                  />
+                ) : (
+                  <div />
+                )}
+
+                {/* Right Actions */}
+                <div className='flex items-center gap-2'>
+                  {/* Search */}
+                  {qbSearchVisible ? (
+                    <div className='relative'>
+                      <input
+                        type='text'
+                        value={qbSearchTerm}
+                        onChange={(e) => {
+                          setQbSearchTerm(e.target.value)
+                          setQbCurrentPage(1)
+                        }}
+                        placeholder='Buscar...'
+                        className='h-8 w-40 rounded-full px-3 pr-8 text-body-sm border border-[var(--color-neutral-700)] outline-none bg-[var(--color-page-bg)] focus:border-[var(--color-brand-500)] focus:ring-1 focus:ring-[var(--color-brand-500)] transition-colors'
+                        autoFocus
+                      />
+                      <button
+                        type='button'
+                        onClick={() => {
+                          setQbSearchVisible(false)
+                          setQbSearchTerm('')
+                        }}
+                        className='absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-neutral-600)]'
+                      >
+                        <CloseRounded className='size-4' />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type='button'
+                      onClick={() => setQbSearchVisible(true)}
+                      className='p-1 hover:bg-neutral-100 rounded transition-colors'
+                      aria-label='Buscar'
+                    >
+                      <SearchRounded className='size-6 text-[var(--color-neutral-700)]' />
+                    </button>
+                  )}
+                  {/* Filter */}
+                  <button
+                    type='button'
+                    className='flex items-center gap-[0.125rem] px-2 py-1 rounded-full border border-[var(--color-neutral-700)] hover:bg-neutral-100 transition-colors'
+                  >
+                    <FilterAltRounded className='size-6 text-[var(--color-neutral-700)]' />
+                    <span className='text-body-sm text-[var(--color-neutral-700)]'>
+                      Todos
+                    </span>
+                  </button>
+                  {/* Configure Discount Limits */}
+                  <button
+                    type='button'
+                    onClick={handleConfigureDiscountLimits}
+                    className='flex items-center gap-2 h-8 px-4 rounded-full border border-neutral-300 bg-[var(--color-neutral-50)] hover:bg-neutral-100 transition-colors'
+                  >
+                    <AddRounded className='size-6 text-[var(--color-neutral-900)]' />
+                    <span className='text-body-md font-medium text-[var(--color-neutral-900)] whitespace-nowrap'>
+                      Configurar límites de descuento
+                    </span>
+                  </button>
+                  {/* Add Template */}
+                  <button
+                    type='button'
+                    onClick={handleAddTemplate}
+                    className='flex items-center gap-2 h-8 px-4 rounded-full border border-neutral-300 bg-[var(--color-neutral-50)] hover:bg-neutral-100 transition-colors'
+                  >
+                    <AddRounded className='size-6 text-[var(--color-neutral-900)]' />
+                    <span className='text-body-md font-medium text-[var(--color-neutral-900)] whitespace-nowrap'>
+                      Añadir plantilla
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Budgets Table */}
+              <div className='flex-1 overflow-y-auto overflow-x-hidden'>
+                <QuickBudgetTableHeader />
+                {paginatedQuickBudgets.map((budget) => (
+                  <QuickBudgetTableRow
+                    key={budget.id}
+                    budget={budget}
+                    onToggleSelect={() => toggleQuickBudgetSelect(budget.id)}
+                    onOpenNotes={() => handleOpenNotes(budget.id)}
+                    discountOptions={discountOptions}
+                    onChangeDiscount={(discountName) => changeQuickBudgetDiscount(budget.id, discountName)}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {qbTotalPages > 1 && (
+                <div className='flex justify-end mt-6'>
+                  <Pagination
+                    currentPage={qbCurrentPage}
+                    totalPages={qbTotalPages}
+                    onPageChange={setQbCurrentPage}
+                  />
+                </div>
+              )}
+            </div>
+          ) : activeTab === 'discounts' ? (
+            <div className='flex flex-col min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)] px-[min(2.5rem,3vw)]'>
+              {/* Action Bar */}
+              <div className='flex items-end justify-between mb-6'>
+                {/* Results Counter */}
+                <p className='text-label-sm text-[var(--color-neutral-500)]'>
+                  {filteredDiscounts.length} Resultados totales
+                </p>
+
+                {/* Right Actions */}
+                <div className='flex items-center gap-2'>
+                  {/* Search */}
+                  {discSearchVisible ? (
+                    <div className='relative'>
+                      <input
+                        type='text'
+                        value={discSearchTerm}
+                        onChange={(e) => {
+                          setDiscSearchTerm(e.target.value)
+                          setDiscCurrentPage(1)
+                        }}
+                        placeholder='Buscar...'
+                        className='h-8 w-40 rounded-full px-3 pr-8 text-body-sm border border-[var(--color-neutral-700)] outline-none bg-[var(--color-page-bg)] focus:border-[var(--color-brand-500)] focus:ring-1 focus:ring-[var(--color-brand-500)] transition-colors'
+                        autoFocus
+                      />
+                      <button
+                        type='button'
+                        onClick={() => {
+                          setDiscSearchVisible(false)
+                          setDiscSearchTerm('')
+                        }}
+                        className='absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-neutral-600)]'
+                      >
+                        <CloseRounded className='size-4' />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type='button'
+                      onClick={() => setDiscSearchVisible(true)}
+                      className='p-1 hover:bg-neutral-100 rounded transition-colors'
+                      aria-label='Buscar'
+                    >
+                      <SearchRounded className='size-6 text-[var(--color-neutral-700)]' />
+                    </button>
+                  )}
+                  {/* Filter */}
+                  <button
+                    type='button'
+                    className='flex items-center gap-[0.125rem] px-2 py-1 rounded-full border border-[var(--color-neutral-700)] hover:bg-neutral-100 transition-colors'
+                  >
+                    <FilterAltRounded className='size-6 text-[var(--color-neutral-700)]' />
+                    <span className='text-body-sm text-[var(--color-neutral-700)]'>
+                      Todos
+                    </span>
+                  </button>
+                  {/* Add Discount */}
+                  <button
+                    type='button'
+                    onClick={handleAddDiscount}
+                    className='flex items-center gap-2 h-8 px-4 rounded-full border border-neutral-300 bg-[var(--color-neutral-50)] hover:bg-neutral-100 transition-colors'
+                  >
+                    <AddRounded className='size-6 text-[var(--color-neutral-900)]' />
+                    <span className='text-body-md font-medium text-[var(--color-neutral-900)] whitespace-nowrap'>
+                      Añadir descuento
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Discounts Table */}
+              <div className='flex-1 overflow-y-auto overflow-x-hidden'>
+                <DiscountsTableHeader />
+                {paginatedDiscounts.map((discount) => (
+                  <DiscountsTableRow
+                    key={discount.id}
+                    discount={discount}
+                    onOpenNotes={() => handleOpenDiscountNotes(discount.id)}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {discTotalPages > 1 && (
+                <div className='flex justify-end mt-6'>
+                  <Pagination
+                    currentPage={discCurrentPage}
+                    totalPages={discTotalPages}
+                    onPageChange={setDiscCurrentPage}
+                  />
+                </div>
+              )}
+            </div>
           ) : (
             <div className='flex items-center justify-center py-20'>
               <p className='text-body-md text-[var(--color-neutral-600)]'>
-                {activeTab === 'budgetType' &&
-                  'Contenido de Presupuesto tipo - Por implementar'}
-                {activeTab === 'discounts' &&
-                  'Contenido de Descuentos (convenios) - Por implementar'}
                 {activeTab === 'medications' &&
                   'Contenido de Medicamentos con autoguardado - Por implementar'}
               </p>

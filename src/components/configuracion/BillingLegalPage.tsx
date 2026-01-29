@@ -1,125 +1,188 @@
 'use client'
 
 import React from 'react'
+import { AddRounded } from '@/components/icons/md3'
 
-type FieldProps = {
-  label: string
-  helper?: string
-  value?: string
-  widthClass?: string
+// Types
+type DocumentType = {
+  id: string
+  title: string
+  type: 'factura' | 'receta' | 'justificante' | 'consentimiento'
 }
 
-type TabProps = {
-  label: string
-  active?: boolean
-}
-
-function Tab({ label, active = false }: TabProps) {
+// Document card component with preview
+function DocumentCard({ title, onEdit }: { title: string; onEdit: () => void }) {
   return (
-    <div
-      className={[
-        'pb-2 border-b-2 transition-colors whitespace-nowrap',
-        active ? 'border-[var(--color-brand-500)]' : 'border-transparent'
-      ].join(' ')}
-    >
-      <p
-        className={[
-          'text-title-sm font-medium',
-          active ? 'text-[var(--color-neutral-900)]' : 'text-[var(--color-neutral-600)]'
-        ].join(' ')}
-      >
-        {label}
-      </p>
-    </div>
-  )
-}
+    <div className='w-[min(22rem,100%)] bg-white border border-neutral-200 rounded-lg overflow-hidden flex flex-col'>
+      {/* Header */}
+      <div className='flex items-center justify-between px-4 py-5 h-24'>
+        <p className='text-body-md font-normal text-[var(--color-neutral-900)] max-w-[13rem]'>
+          {title}
+        </p>
+        <button
+          type='button'
+          onClick={onEdit}
+          className='flex items-center justify-center px-3 py-1 rounded-2xl border border-[var(--color-brand-500)] bg-[var(--color-page-bg)] hover:bg-[var(--color-brand-50)] transition-colors cursor-pointer'
+        >
+          <span className='text-body-sm text-[var(--color-brand-900)]'>Editar</span>
+        </button>
+      </div>
 
-function Field({ label, helper, value = 'Value', widthClass }: FieldProps) {
-  return (
-    <div className={['flex flex-col gap-2', widthClass ?? 'w-full'].join(' ')}>
-      <p className='text-body-sm text-[var(--color-neutral-900)]'>{label}</p>
-      <div className='flex flex-col gap-1 w-full'>
-        <div className='flex items-center justify-between h-[min(3rem,5vh)] w-full rounded-lg border border-neutral-300 bg-[var(--color-surface)] px-[min(0.625rem,1vw)] py-2'>
-          <span className='text-body-md text-[var(--color-neutral-900)]'>{value}</span>
-          <span
-            aria-hidden
-            className='inline-flex items-center justify-center text-label-sm font-medium text-neutral-300'
-          >
-            *
-          </span>
+      {/* Document Preview */}
+      <div className='flex-1 bg-[var(--color-neutral-50)] p-4'>
+        <div className='bg-white border border-neutral-200 rounded shadow-sm p-4 h-[min(31rem,50vh)] overflow-hidden'>
+          {/* Logo & Clinic Info */}
+          <div className='flex items-start justify-between mb-4'>
+            <div className='flex items-center gap-2'>
+              <div className='w-20 h-5 bg-neutral-200 rounded' />
+              <span className='text-[8px] text-neutral-500'>Dental</span>
+            </div>
+            <div className='text-right'>
+              <p className='text-[8px] text-neutral-700'>Clínica Tama Dental</p>
+              <p className='text-[8px] text-neutral-500'>Dirección completa</p>
+              <p className='text-[8px] text-neutral-500'>Teléfono de contacto</p>
+            </div>
+          </div>
+
+          {/* Patient Info */}
+          <div className='bg-neutral-50 rounded p-2 mb-3'>
+            <div className='flex justify-between mb-2'>
+              <div>
+                <p className='text-[7px] text-neutral-500'>Paciente:</p>
+                <p className='text-[8px] text-neutral-700'>Nombre y apellidos</p>
+              </div>
+              <div className='text-right'>
+                <p className='text-[7px] text-neutral-500'>Fecha:</p>
+                <p className='text-[8px] text-neutral-700'>24/06/2025</p>
+              </div>
+            </div>
+            <div className='flex gap-4'>
+              <div>
+                <p className='text-[7px] text-neutral-500'>DNI:</p>
+                <p className='text-[8px] text-neutral-700'>44556677 X</p>
+              </div>
+              <div>
+                <p className='text-[7px] text-neutral-500'>Sexo:</p>
+                <p className='text-[8px] text-neutral-700'>Hombre</p>
+              </div>
+              <div>
+                <p className='text-[7px] text-neutral-500'>Edad:</p>
+                <p className='text-[8px] text-neutral-700'>45</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Content rows */}
+          <div className='space-y-2 mb-3'>
+            {[1, 2, 3].map((i) => (
+              <div key={i} className='bg-neutral-50 rounded p-2'>
+                <div className='flex gap-3 text-[7px]'>
+                  <div>
+                    <p className='text-neutral-500'>Medicamento:</p>
+                    <p className='text-neutral-700'>Antibiol</p>
+                  </div>
+                  <div>
+                    <p className='text-neutral-500'>Dosis:</p>
+                    <p className='text-neutral-700'>500mg</p>
+                  </div>
+                  <div>
+                    <p className='text-neutral-500'>Frecuencia:</p>
+                    <p className='text-neutral-700'>3 por día</p>
+                  </div>
+                  <div>
+                    <p className='text-neutral-500'>Duración:</p>
+                    <p className='text-neutral-700'>7 días</p>
+                  </div>
+                  <div>
+                    <p className='text-neutral-500'>Vía administración:</p>
+                    <p className='text-neutral-700'>Oral</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Case & Doctor Info */}
+          <div className='border-t border-neutral-200 pt-2'>
+            <div className='mb-2'>
+              <p className='text-[7px] text-neutral-500'>Caso:</p>
+              <p className='text-[8px] text-neutral-700'>Breve descripción del caso, (no es obligatorio rellenarlo)</p>
+            </div>
+            <div className='border-t border-neutral-200 pt-2'>
+              <div className='flex justify-between'>
+                <div>
+                  <p className='text-[7px] text-neutral-500'>Doctor:</p>
+                  <p className='text-[8px] text-neutral-700'>Nombre y apellidos</p>
+                </div>
+                <div className='text-right'>
+                  <p className='text-[7px] text-neutral-500'>Número colegiado:</p>
+                  <p className='text-[8px] text-neutral-700'>XX 895 895 895</p>
+                </div>
+              </div>
+              <div className='mt-2'>
+                <p className='text-[7px] text-neutral-500'>Firma:</p>
+                <p className='text-[8px] text-neutral-700'>-</p>
+              </div>
+            </div>
+          </div>
         </div>
-        {helper ? (
-          <p className='text-label-sm font-medium text-[var(--color-neutral-600)]'>{helper}</p>
-        ) : null}
       </div>
     </div>
   )
 }
 
+// Sample documents
+const documents: DocumentType[] = [
+  { id: 'd1', title: 'Facturas', type: 'factura' },
+  { id: 'd2', title: 'Recetas', type: 'receta' },
+  { id: 'd3', title: 'Justificantes', type: 'justificante' },
+  { id: 'd4', title: 'Consentimiento Protección de datos (RGPD)', type: 'consentimiento' },
+  { id: 'd5', title: 'Consentimiento Tratamiento con sedación', type: 'consentimiento' }
+]
+
 export default function BillingLegalPage() {
+  const handleEditDocument = (documentId: string) => {
+    // TODO: Open document editor modal
+    console.log('Edit document:', documentId)
+  }
+
+  const handleNewDocument = () => {
+    // TODO: Open new document creation modal
+    console.log('Create new document')
+  }
+
   return (
     <>
       {/* Section Header */}
-      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pl-8 pr-0 h-[2.5rem]'>
-        <p className='text-title-lg font-normal text-[var(--color-neutral-900)]'>
-          Facturación y textos legales
+      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pl-8 pr-0 h-[min(2.5rem,4vh)]'>
+        <p className='text-headline-sm font-normal text-[var(--color-neutral-900)]'>
+          Documentos
         </p>
+        <button
+          type='button'
+          className='flex items-center gap-2 px-4 py-2 rounded-full border border-neutral-300 bg-[var(--color-page-bg)] hover:bg-neutral-100 transition-colors cursor-pointer self-start sm:self-auto'
+          onClick={handleNewDocument}
+        >
+          <AddRounded className='text-[var(--color-neutral-900)] size-6' />
+          <span className='text-body-md font-medium text-[var(--color-neutral-900)] whitespace-nowrap'>
+            Nuevo Documento
+          </span>
+        </button>
       </div>
 
       {/* Content Card */}
       <div className='flex-1 ml-8 mr-0 mt-6 mb-0 min-h-0'>
         <div className='bg-[var(--color-surface)] border border-neutral-200 rounded-t-lg h-full overflow-auto'>
-          {/* Tabs */}
-          <div className='sticky top-0 z-10 bg-[var(--color-surface)] px-10 pt-6 pb-2 min-h-[4rem]'>
-            <div className='flex gap-6 items-center overflow-x-auto'>
-              <Tab label='Datos de facturación' active />
-              <Tab label='Textos legales' />
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className='px-12 py-6'>
-            <div className='max-w-4xl flex flex-col gap-10'>
-              <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
-                <p className='text-title-sm font-medium text-[var(--color-neutral-900)]'>
-                  Datos de facturación
-                </p>
-                <button
-                  type='button'
-                  className='inline-flex items-center justify-center h-[min(2rem,3vh)] rounded-2xl border border-[var(--color-brand-500)] bg-[var(--color-page-bg)] px-[min(0.625rem,1vw)] py-1 self-start sm:self-auto hover:bg-[var(--color-brand-50)] transition-colors'
-                  aria-label='Editar datos de facturación'
-                >
-                  <span className='text-body-sm text-[var(--color-brand-900)]'>Editar</span>
-                </button>
-              </div>
-
-              <div className='flex flex-col gap-6'>
-                <Field label='Nombre fiscal' value='Clínica Morales' />
-                <Field label='CIF/NIF' />
-                <Field label='Email de facturación' />
-              </div>
-
-              <section className='flex flex-col gap-4'>
-                <p className='text-title-sm font-medium text-[var(--color-neutral-900)]'>Dirección</p>
-                <div className='flex flex-col gap-6'>
-                  <Field label='Dirección completa' />
-                  <div className='flex flex-wrap gap-6'>
-                    <Field label='Código Postal' widthClass='w-full md:w-[min(23.75rem,calc(50%-0.75rem))]' />
-                    <Field label='Ciudad' widthClass='w-full md:w-[min(23.75rem,calc(50%-0.75rem))]' />
-                  </div>
-                  <div className='flex flex-wrap gap-6'>
-                    <Field label='Provincia' widthClass='w-full md:w-[min(23.75rem,calc(50%-0.75rem))]' />
-                    <Field label='País' widthClass='w-full md:w-[min(23.75rem,calc(50%-0.75rem))]' />
-                  </div>
-                </div>
-              </section>
-
-              <section className='flex flex-col gap-4 pb-6'>
-                <p className='text-title-sm font-medium text-[var(--color-neutral-900)]'>
-                  Información bancaria
-                </p>
-                <Field label='Cuenta bancaria / IBAN' widthClass='w-full md:w-[min(23.75rem,calc(50%-0.75rem))]' />
-              </section>
+          {/* Document Cards Grid */}
+          <div className='p-8'>
+            <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8'>
+              {documents.map((doc) => (
+                <DocumentCard
+                  key={doc.id}
+                  title={doc.title}
+                  onEdit={() => handleEditDocument(doc.id)}
+                />
+              ))}
             </div>
           </div>
         </div>

@@ -176,53 +176,42 @@ function TableHeader({
   indeterminate: boolean
   onToggleAll: () => void
 }) {
-  const headers = [
-    '',
-    'Profesional',
-    'Especialidad',
-    'Teléfono',
-    'Email',
-    'Color',
-    '% comisión',
-    'Estado'
-  ]
-
-  const widths = ['1.5rem', '16.125rem', '9.875rem', '8.5rem', '16.875rem', '7.625rem', '6.375rem', '7.125rem']
-
   return (
-    <div className='flex w-full'>
-      {headers.map((h, i) => (
-        <div
-          key={`${h}-${i}`}
-          className='flex items-center border-b border-neutral-300 px-2 py-2'
-          style={{ width: widths[i], minWidth: widths[i], height: '3rem' }}
-        >
-          {i === 0 ? (
-            <input
-              type='checkbox'
-              checked={allSelected}
-              ref={(el) => {
-                if (el) el.indeterminate = indeterminate
-              }}
-              onChange={onToggleAll}
-              className='size-4 accent-[#338f88] cursor-pointer'
-              aria-label='Seleccionar todos'
-            />
-          ) : (
-            <>
-              {i === 1 && (
-                <img
-                  src={ICON_HEART}
-                  alt=''
-                  className='mr-1.5 size-4'
-                  aria-hidden
-                />
-              )}
-              <p className='text-body-md text-[var(--color-neutral-600)]'>{h}</p>
-            </>
-          )}
-        </div>
-      ))}
+    <div className='grid grid-cols-[2.5rem_1fr_0.7fr_0.6fr_1fr_0.5fr_0.5fr_0.5fr] w-full'>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
+        <input
+          type='checkbox'
+          checked={allSelected}
+          ref={(el) => {
+            if (el) el.indeterminate = indeterminate
+          }}
+          onChange={onToggleAll}
+          className='size-4 accent-[#338f88] cursor-pointer'
+          aria-label='Seleccionar todos'
+        />
+      </div>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
+        <img src={ICON_HEART} alt='' className='mr-1.5 size-4 flex-shrink-0' aria-hidden />
+        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>Profesional</p>
+      </div>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
+        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>Especialidad</p>
+      </div>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
+        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>Teléfono</p>
+      </div>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
+        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>Email</p>
+      </div>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
+        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>Color</p>
+      </div>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
+        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>% comisión</p>
+      </div>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
+        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>Estado</p>
+      </div>
     </div>
   )
 }
@@ -238,13 +227,10 @@ function TableRow({
 }) {
   return (
     <div
-      className='flex w-full'
-      style={{ background: selected ? 'var(--color-brand-50)' : 'transparent', height: '3rem' }}
+      className='grid grid-cols-[2.5rem_1fr_0.7fr_0.6fr_1fr_0.5fr_0.5fr_0.5fr] w-full h-[3rem]'
+      style={{ background: selected ? 'var(--color-brand-50)' : 'transparent' }}
     >
-      <div
-        className='flex items-center border-b border-neutral-300 px-2 py-2'
-        style={{ width: '1.5rem', minWidth: '1.5rem' }}
-      >
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2'>
         <input
           type='checkbox'
           checked={selected}
@@ -253,35 +239,20 @@ function TableRow({
           aria-label={`Seleccionar ${specialist.name}`}
         />
       </div>
-      <div
-        className='flex items-center gap-2 border-b border-neutral-300 px-2 py-2'
-        style={{ width: '16.125rem', minWidth: '16.125rem' }}
-      >
-        <div className='size-8 rounded-full bg-neutral-200' />
-        <p className='text-body-md text-[var(--color-neutral-900)]'>{specialist.name}</p>
+      <div className='flex items-center gap-2 border-b border-neutral-300 px-2 py-2 min-w-0'>
+        <div className='size-8 rounded-full bg-neutral-200 flex-shrink-0' />
+        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>{specialist.name}</p>
       </div>
-      <div
-        className='flex items-center border-b border-neutral-300 px-2 py-2'
-        style={{ width: '9.875rem', minWidth: '9.875rem' }}
-      >
-        <p className='text-body-md text-[var(--color-neutral-900)]'>{specialist.role}</p>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
+        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>{specialist.role}</p>
       </div>
-      <div
-        className='flex items-center border-b border-neutral-300 px-2 py-2'
-        style={{ width: '8.5rem', minWidth: '8.5rem' }}
-      >
-        <p className='text-body-md text-[var(--color-neutral-900)]'>{specialist.phone}</p>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
+        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>{specialist.phone}</p>
       </div>
-      <div
-        className='flex items-center border-b border-neutral-300 px-2 py-2'
-        style={{ width: '16.875rem', minWidth: '16.875rem' }}
-      >
-        <p className='text-body-md text-[var(--color-neutral-900)]'>{specialist.email}</p>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
+        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>{specialist.email}</p>
       </div>
-      <div
-        className='flex items-center border-b border-neutral-300 px-2 py-2'
-        style={{ width: '7.625rem', minWidth: '7.625rem' }}
-      >
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
         <span
           className={[
             'inline-flex items-center justify-center px-2 py-0.5 rounded',
@@ -290,7 +261,7 @@ function TableRow({
         >
           <p
             className={[
-              'text-body-md',
+              'text-body-md truncate',
               colorToneStyles[specialist.colorTone].text
             ].join(' ')}
           >
@@ -298,16 +269,10 @@ function TableRow({
           </p>
         </span>
       </div>
-      <div
-        className='flex items-center border-b border-neutral-300 px-2 py-2'
-        style={{ width: '6.375rem', minWidth: '6.375rem' }}
-      >
-        <p className='text-body-md text-[var(--color-neutral-900)]'>{specialist.commission}</p>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
+        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>{specialist.commission}</p>
       </div>
-      <div
-        className='flex items-center border-b border-neutral-300 px-2 py-2'
-        style={{ width: '7.125rem', minWidth: '7.125rem' }}
-      >
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
         <span
           className={[
             'inline-flex items-center justify-center px-2 py-0.5 rounded',
@@ -316,7 +281,7 @@ function TableRow({
         >
           <p
             className={[
-              'text-body-md',
+              'text-body-md truncate',
               statusStyles[specialist.status].text
             ].join(' ')}
           >
@@ -445,7 +410,7 @@ export default function SpecialistsListPage() {
   return (
     <>
       {/* Section Header */}
-      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pl-8 pr-0 h-[2.5rem]'>
+      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] h-[min(2.5rem,4vh)]'>
         <p className='text-title-lg font-normal text-[var(--color-neutral-900)]'>
           Lista de especialistas
         </p>
@@ -461,10 +426,10 @@ export default function SpecialistsListPage() {
       </div>
 
       {/* Content Card */}
-      <div className='flex-1 ml-8 mr-0 mt-6 mb-0 min-h-0'>
+      <div className='flex-1 mx-[min(2rem,3vw)] mt-[min(1.5rem,2vh)] mb-0 min-h-0'>
         <div className='bg-[var(--color-surface)] border border-neutral-200 rounded-t-lg h-full overflow-hidden flex flex-col'>
           {/* Toolbar */}
-          <div className='flex-none flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 min-h-[4rem]'>
+          <div className='flex-none flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-[min(1.5rem,2vw)] py-[min(1rem,1.5vh)] min-h-[min(4rem,6vh)]'>
             <div className='flex items-center'>
               <div className='flex items-center bg-[var(--color-brand-0)] text-[var(--color-brand-700)] px-2 py-1 rounded-l border border-[var(--color-brand-200)]'>
                 <span className='text-body-sm'>
@@ -520,8 +485,8 @@ export default function SpecialistsListPage() {
           </div>
 
           {/* Table with scroll */}
-          <div className='flex-1 overflow-auto px-6 pb-6'>
-            <div className='border border-neutral-300 rounded overflow-hidden min-w-[74rem]'>
+          <div className='flex-1 overflow-auto px-[min(1.5rem,2vw)] pb-[min(1.5rem,2vh)]'>
+            <div className='border border-neutral-300 rounded overflow-hidden'>
               <TableHeader allSelected={allSelected} indeterminate={indeterminate} onToggleAll={toggleAll} />
               {data.map((s) => (
                 <TableRow
@@ -535,7 +500,7 @@ export default function SpecialistsListPage() {
           </div>
 
           {/* Pagination */}
-          <div className='flex-none flex items-center justify-end gap-3 px-6 pb-4 text-[var(--color-neutral-700)]'>
+          <div className='flex-none flex items-center justify-end gap-3 px-[min(1.5rem,2vw)] pb-[min(1rem,1.5vh)] text-[var(--color-neutral-700)]'>
             <div className='flex items-center gap-1'>
               <button type='button' className='p-1 hover:bg-neutral-100 rounded transition-colors'>
                 <img src={ICON_FIRST} alt='Primera página' className='size-6' />

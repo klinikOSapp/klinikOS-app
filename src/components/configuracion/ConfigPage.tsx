@@ -124,7 +124,7 @@ export default function ConfigPage() {
   return (
     <>
       {/* Section Header */}
-      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pl-8 pr-0 h-[2.5rem]'>
+      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] h-[min(2.5rem,4vh)]'>
         <p className='text-title-lg font-normal text-[var(--color-neutral-900)]'>
           Datos de la clínica
         </p>
@@ -141,10 +141,10 @@ export default function ConfigPage() {
       </div>
 
       {/* Content Card */}
-      <div className='flex-1 ml-8 mr-0 mt-6 mb-0 min-h-0'>
+      <div className='flex-1 mx-[min(2rem,3vw)] mt-[min(1.5rem,2vh)] mb-0 min-h-0'>
         <div className='bg-[var(--color-surface)] border border-neutral-200 rounded-t-lg h-full overflow-auto'>
           {/* Tabs */}
-          <div className='sticky top-0 z-10 bg-[var(--color-surface)] px-10 pt-6 pb-2 min-h-[4rem]'>
+          <div className='sticky top-0 z-10 bg-[var(--color-surface)] px-[min(2.5rem,3vw)] pt-[min(1.5rem,2vh)] pb-2 min-h-[min(4rem,6vh)]'>
             <div className='flex gap-6 items-center overflow-x-auto'>
               <button
                 type='button'
@@ -180,7 +180,7 @@ export default function ConfigPage() {
           </div>
 
           {activeTab === 'general' ? (
-            <div className='px-12 py-6'>
+            <div className='px-[min(3rem,4vw)] py-[min(1.5rem,2vh)]'>
               {/* Clinic Selector with Chevron */}
               <div className='flex items-center justify-between pb-4 border-b border-neutral-200 mb-10'>
                 <p className='text-title-sm font-medium text-[var(--color-neutral-900)]'>
@@ -251,14 +251,14 @@ export default function ConfigPage() {
               </div>
             </div>
           ) : (
-            <div className='px-10 py-6 flex flex-col h-full min-h-0'>
+            <div className='px-[min(2.5rem,3vw)] py-[min(1.5rem,2vh)] flex flex-col h-full min-h-0'>
               {/* Title */}
-              <p className='text-title-sm font-medium text-[var(--color-neutral-900)] mb-6'>
+              <p className='text-title-sm font-medium text-[var(--color-neutral-900)] mb-[min(1.5rem,2vh)]'>
                 Clínica Morales
               </p>
 
               {/* Toolbar */}
-              <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6'>
+              <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-[min(1.5rem,2vh)]'>
                 {/* Selection Actions */}
                 <div className='flex items-center'>
                   <div className='flex items-center bg-[var(--color-brand-0)] text-[var(--color-brand-700)] px-2 py-1 rounded-l border border-[var(--color-brand-200)]'>
@@ -317,25 +317,25 @@ export default function ConfigPage() {
                 </div>
               </div>
 
-              {/* Table Container with horizontal scroll */}
+              {/* Table Container - Responsive without forced horizontal scroll */}
               <div className='flex-1 overflow-auto min-h-0'>
-                <table className='w-full min-w-[50rem] border-collapse'>
+                <table className='w-full border-collapse table-fixed'>
                   <thead className='sticky top-0 bg-[var(--color-surface)] z-10'>
                     <tr>
-                      <th className='w-10 h-10 text-center text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'></th>
-                      <th className='min-w-[12rem] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                      <th className='w-[3rem] h-10 text-center text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'></th>
+                      <th className='w-[22%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
                         Nombre de la clínica
                       </th>
-                      <th className='min-w-[14rem] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                      <th className='w-[25%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
                         Dirección completa
                       </th>
-                      <th className='min-w-[8rem] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                      <th className='w-[15%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
                         Horario
                       </th>
-                      <th className='min-w-[7rem] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                      <th className='w-[13%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
                         Teléfono
                       </th>
-                      <th className='min-w-[14rem] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                      <th className='w-[22%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
                         Email
                       </th>
                     </tr>
@@ -355,7 +355,7 @@ export default function ConfigPage() {
                           />
                         </td>
                         <td className='px-2 border-b border-neutral-300'>
-                          <div className='flex items-center gap-2'>
+                          <div className='flex items-center gap-2 min-w-0'>
                             <span
                               className='flex-none size-8 rounded-full bg-neutral-100'
                               aria-hidden

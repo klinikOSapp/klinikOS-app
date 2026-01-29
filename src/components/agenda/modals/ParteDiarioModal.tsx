@@ -7,16 +7,16 @@ import { useAppointments } from '@/context/AppointmentsContext'
 import {
   calculateDateRange,
   dateToISO,
-  generateExportDocuments,
-  downloadDocument,
   downloadAllDocuments,
+  downloadDocument,
+  generateExportDocuments,
   revokeDocumentUrls,
   type DateRange,
   type ExportFormat,
-  type TimeRangePreset,
-  type GeneratedDocument
+  type GeneratedDocument,
+  type TimeRangePreset
 } from '@/utils/exportUtils'
-import React, { useEffect, useMemo, useState, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 // ============================================
 // TYPES
@@ -43,7 +43,6 @@ const TIME_RANGE_PRESETS: {
   { id: 'month', label: 'Mes', description: '±15 días del seleccionado' },
   { id: 'custom', label: 'Personalizado', description: 'Seleccionar fechas' }
 ]
-
 
 // ============================================
 // PROFESSIONAL CHECKBOX COMPONENT
@@ -144,7 +143,9 @@ function PdfPreviewSection({
             </span>
             <button
               type='button'
-              onClick={() => onIndexChange(Math.min(documents.length - 1, currentIndex + 1))}
+              onClick={() =>
+                onIndexChange(Math.min(documents.length - 1, currentIndex + 1))
+              }
               disabled={currentIndex === documents.length - 1}
               className='size-8 inline-flex items-center justify-center rounded-full hover:bg-[var(--color-neutral-200)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors'
             >
@@ -219,15 +220,20 @@ export default function ParteDiarioModal({
   const { appointments, getAppointmentsByDateRange } = useAppointments()
 
   // Form state
-  const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>([])
-  const [timeRangePreset, setTimeRangePreset] = useState<TimeRangePreset>('today')
+  const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>(
+    []
+  )
+  const [timeRangePreset, setTimeRangePreset] =
+    useState<TimeRangePreset>('today')
   const [customStartDate, setCustomStartDate] = useState<Date>(new Date())
   const [customEndDate, setCustomEndDate] = useState<Date>(new Date())
   const [exportFormat, setExportFormat] = useState<ExportFormat>('pdf')
 
   // Preview state
   const [isPreviewMode, setIsPreviewMode] = useState(false)
-  const [generatedDocuments, setGeneratedDocuments] = useState<GeneratedDocument[]>([])
+  const [generatedDocuments, setGeneratedDocuments] = useState<
+    GeneratedDocument[]
+  >([])
   const [previewIndex, setPreviewIndex] = useState(0)
   const [isGenerating, setIsGenerating] = useState(false)
 
@@ -268,7 +274,7 @@ export default function ParteDiarioModal({
     if (selectedProfessionals.length === 0) {
       return appointmentsInRange
     }
-    return appointmentsInRange.filter(apt =>
+    return appointmentsInRange.filter((apt) =>
       selectedProfessionals.includes(apt.professional)
     )
   }, [appointmentsInRange, selectedProfessionals])
@@ -312,9 +318,9 @@ export default function ParteDiarioModal({
 
   // Toggle professional selection
   const toggleProfessional = useCallback((professional: string) => {
-    setSelectedProfessionals(prev =>
+    setSelectedProfessionals((prev) =>
       prev.includes(professional)
-        ? prev.filter(p => p !== professional)
+        ? prev.filter((p) => p !== professional)
         : [...prev, professional]
     )
   }, [])
@@ -335,7 +341,7 @@ export default function ParteDiarioModal({
     setIsGenerating(true)
 
     // Small delay to show loading state
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await new Promise((resolve) => setTimeout(resolve, 100))
 
     try {
       const documents = generateExportDocuments(
@@ -475,17 +481,20 @@ export default function ParteDiarioModal({
                       onClick={toggleAllProfessionals}
                       className='text-body-sm text-[var(--color-brand-600)] hover:text-[var(--color-brand-700)] transition-colors'
                     >
-                      {selectedProfessionals.length === uniqueProfessionals.length
+                      {selectedProfessionals.length ===
+                      uniqueProfessionals.length
                         ? 'Deseleccionar todos'
                         : 'Seleccionar todos'}
                     </button>
                   </div>
                   <div className='grid grid-cols-2 gap-2 max-h-[10rem] overflow-y-auto p-1'>
-                    {uniqueProfessionals.map(professional => (
+                    {uniqueProfessionals.map((professional) => (
                       <ProfessionalCheckbox
                         key={professional}
                         professional={professional}
-                        isSelected={selectedProfessionals.includes(professional)}
+                        isSelected={selectedProfessionals.includes(
+                          professional
+                        )}
                         onToggle={() => toggleProfessional(professional)}
                       />
                     ))}
@@ -504,11 +513,16 @@ export default function ParteDiarioModal({
                       Rango temporal
                     </label>
                     <span className='text-body-sm text-[var(--color-neutral-500)]'>
-                      Fecha base: {referenceDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      Fecha base:{' '}
+                      {referenceDate.toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric'
+                      })}
                     </span>
                   </div>
                   <div className='grid grid-cols-4 gap-2 mb-3'>
-                    {TIME_RANGE_PRESETS.map(preset => (
+                    {TIME_RANGE_PRESETS.map((preset) => (
                       <button
                         key={preset.id}
                         type='button'
@@ -520,8 +534,12 @@ export default function ParteDiarioModal({
                             : 'bg-[var(--color-neutral-50)] border-[var(--color-neutral-300)] text-[var(--color-neutral-700)] hover:border-[var(--color-neutral-400)]'
                         ].join(' ')}
                       >
-                        <span className='text-body-md font-medium'>{preset.label}</span>
-                        <span className='text-label-sm mt-0.5 opacity-70'>{preset.description}</span>
+                        <span className='text-body-md font-medium'>
+                          {preset.label}
+                        </span>
+                        <span className='text-label-sm mt-0.5 opacity-70'>
+                          {preset.description}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -529,7 +547,17 @@ export default function ParteDiarioModal({
                   {/* Show calculated date range */}
                   {timeRangePreset !== 'custom' && (
                     <p className='text-body-sm text-[var(--color-brand-600)] mb-3'>
-                      Rango: {dateRange.startDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} - {dateRange.endDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      Rango:{' '}
+                      {dateRange.startDate.toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'short'
+                      })}{' '}
+                      -{' '}
+                      {dateRange.endDate.toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric'
+                      })}
                     </p>
                   )}
 
@@ -538,7 +566,9 @@ export default function ParteDiarioModal({
                     <div className='p-4 rounded-lg bg-[var(--color-neutral-100)] border border-[var(--color-neutral-200)]'>
                       <div className='grid grid-cols-2 gap-4'>
                         <div className='flex flex-col gap-1'>
-                          <label className='text-body-sm text-[var(--color-neutral-600)]'>Fecha inicio</label>
+                          <label className='text-body-sm text-[var(--color-neutral-600)]'>
+                            Fecha inicio
+                          </label>
                           <DatePickerInput
                             value={customStartDate}
                             onChange={(date) => {
@@ -550,7 +580,9 @@ export default function ParteDiarioModal({
                           />
                         </div>
                         <div className='flex flex-col gap-1'>
-                          <label className='text-body-sm text-[var(--color-neutral-600)]'>Fecha fin</label>
+                          <label className='text-body-sm text-[var(--color-neutral-600)]'>
+                            Fecha fin
+                          </label>
                           <DatePickerInput
                             value={customEndDate}
                             onChange={setCustomEndDate}
@@ -580,10 +612,16 @@ export default function ParteDiarioModal({
                       <MD3Icon
                         name='PictureAsPdfRounded'
                         size={1.5}
-                        className={exportFormat === 'pdf' ? 'text-[#E53935]' : 'text-[var(--color-neutral-500)]'}
+                        className={
+                          exportFormat === 'pdf'
+                            ? 'text-[#E53935]'
+                            : 'text-[var(--color-neutral-500)]'
+                        }
                       />
                       <div className='text-left'>
-                        <p className={`text-body-md font-medium ${exportFormat === 'pdf' ? 'text-[var(--color-brand-700)]' : 'text-[var(--color-neutral-700)]'}`}>
+                        <p
+                          className={`text-body-md font-medium ${exportFormat === 'pdf' ? 'text-[var(--color-brand-700)]' : 'text-[var(--color-neutral-700)]'}`}
+                        >
                           PDF
                         </p>
                         <p className='text-label-sm text-[var(--color-neutral-500)]'>
@@ -612,10 +650,16 @@ export default function ParteDiarioModal({
                       <MD3Icon
                         name='BarChartRounded'
                         size={1.5}
-                        className={exportFormat === 'excel' ? 'text-[#1D6F42]' : 'text-[var(--color-neutral-500)]'}
+                        className={
+                          exportFormat === 'excel'
+                            ? 'text-[#1D6F42]'
+                            : 'text-[var(--color-neutral-500)]'
+                        }
                       />
                       <div className='text-left'>
-                        <p className={`text-body-md font-medium ${exportFormat === 'excel' ? 'text-[var(--color-brand-700)]' : 'text-[var(--color-neutral-700)]'}`}>
+                        <p
+                          className={`text-body-md font-medium ${exportFormat === 'excel' ? 'text-[var(--color-brand-700)]' : 'text-[var(--color-neutral-700)]'}`}
+                        >
                           Excel
                         </p>
                         <p className='text-label-sm text-[var(--color-neutral-500)]'>
@@ -636,7 +680,11 @@ export default function ParteDiarioModal({
                 {/* Summary */}
                 <div className='p-4 rounded-lg bg-[var(--color-neutral-100)] border border-[var(--color-neutral-200)]'>
                   <div className='flex items-center gap-2 mb-2'>
-                    <MD3Icon name='InfoRounded' size='sm' className='text-[var(--color-brand-500)]' />
+                    <MD3Icon
+                      name='InfoRounded'
+                      size='sm'
+                      className='text-[var(--color-brand-500)]'
+                    />
                     <span className='text-body-md font-medium text-[var(--color-neutral-900)]'>
                       Resumen de exportación
                     </span>
@@ -644,7 +692,9 @@ export default function ParteDiarioModal({
                   <ul className='text-body-sm text-[var(--color-neutral-700)] space-y-1'>
                     <li>
                       <span className='font-medium'>Citas:</span>{' '}
-                      {filteredAppointments.length} cita{filteredAppointments.length !== 1 ? 's' : ''} encontrada{filteredAppointments.length !== 1 ? 's' : ''}
+                      {filteredAppointments.length} cita
+                      {filteredAppointments.length !== 1 ? 's' : ''} encontrada
+                      {filteredAppointments.length !== 1 ? 's' : ''}
                     </li>
                     <li>
                       <span className='font-medium'>Profesionales:</span>{' '}
@@ -656,7 +706,9 @@ export default function ParteDiarioModal({
                     </li>
                     <li>
                       <span className='font-medium'>Documentos a generar:</span>{' '}
-                      {selectedProfessionals.length === 0 ? 1 : selectedProfessionals.length}
+                      {selectedProfessionals.length === 0
+                        ? 1
+                        : selectedProfessionals.length}
                     </li>
                   </ul>
                 </div>
@@ -680,7 +732,11 @@ export default function ParteDiarioModal({
                       className='flex items-center gap-2 px-4 py-2 rounded-full border border-[var(--color-brand-500)] text-body-md font-medium text-[var(--color-brand-700)] bg-white hover:bg-[var(--color-brand-0)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
                     >
                       {isGenerating ? (
-                        <MD3Icon name='RepeatRounded' size='sm' className='animate-spin' />
+                        <MD3Icon
+                          name='RepeatRounded'
+                          size='sm'
+                          className='animate-spin'
+                        />
                       ) : (
                         <MD3Icon name='VisibilityRounded' size='sm' />
                       )}
@@ -694,7 +750,11 @@ export default function ParteDiarioModal({
                     className='flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--color-brand-500)] text-body-md font-medium text-white hover:bg-[var(--color-brand-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
                   >
                     {isGenerating ? (
-                      <MD3Icon name='RepeatRounded' size='sm' className='animate-spin' />
+                      <MD3Icon
+                        name='RepeatRounded'
+                        size='sm'
+                        className='animate-spin'
+                      />
                     ) : (
                       <MD3Icon name='DownloadRounded' size='sm' />
                     )}

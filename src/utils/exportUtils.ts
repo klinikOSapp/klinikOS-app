@@ -7,8 +7,11 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 
+import {
+  VISIT_STATUS_CONFIG,
+  type VisitStatus
+} from '@/components/agenda/types'
 import type { Appointment } from '@/context/AppointmentsContext'
-import { VISIT_STATUS_CONFIG, type VisitStatus } from '@/components/agenda/types'
 
 // ============================================
 // TYPES
@@ -135,7 +138,8 @@ function formatPaymentInfo(appointment: Appointment): string {
     return appointment.charge === 'Si' ? 'Pendiente' : 'Sin cargo'
   }
 
-  const { totalAmount, paidAmount, pendingAmount, currency } = appointment.paymentInfo
+  const { totalAmount, paidAmount, pendingAmount, currency } =
+    appointment.paymentInfo
 
   if (pendingAmount === 0) {
     return `Pagado (${totalAmount.toFixed(2)} ${currency})`
@@ -185,7 +189,7 @@ function appointmentToExportRow(appointment: Appointment): ExportRow {
  * @param customRange - Optional custom range for 'custom' preset
  */
 export function calculateDateRange(
-  preset: TimeRangePreset, 
+  preset: TimeRangePreset,
   referenceDate?: Date,
   customRange?: DateRange
 ): DateRange {
@@ -265,7 +269,9 @@ export function generateParteDiarioPDF(
   doc.setFontSize(12)
   doc.setFont('helvetica', 'normal')
 
-  const professionalText = professional ? `Profesional: ${professional}` : 'Todos los profesionales'
+  const professionalText = professional
+    ? `Profesional: ${professional}`
+    : 'Todos los profesionales'
   doc.text(professionalText, margin, 30)
 
   const dateRangeText = `Período: ${formatDateRangeForDisplay(dateRange.startDate, dateRange.endDate)}`
@@ -273,11 +279,19 @@ export function generateParteDiarioPDF(
 
   // Summary info
   const totalAppointments = appointments.length
-  const completedCount = appointments.filter(a => a.visitStatus === 'completed').length
-  const pendingPayments = appointments.filter(a => a.paymentInfo && a.paymentInfo.pendingAmount > 0).length
+  const completedCount = appointments.filter(
+    (a) => a.visitStatus === 'completed'
+  ).length
+  const pendingPayments = appointments.filter(
+    (a) => a.paymentInfo && a.paymentInfo.pendingAmount > 0
+  ).length
 
   doc.setFontSize(10)
-  doc.text(`Total citas: ${totalAppointments} | Realizadas: ${completedCount} | Con pagos pendientes: ${pendingPayments}`, margin, 44)
+  doc.text(
+    `Total citas: ${totalAppointments} | Realizadas: ${completedCount} | Con pagos pendientes: ${pendingPayments}`,
+    margin,
+    44
+  )
 
   // Convert appointments to table rows
   const rows = appointments
@@ -287,13 +301,16 @@ export function generateParteDiarioPDF(
       if (dateCompare !== 0) return dateCompare
       return a.startTime.localeCompare(b.startTime)
     })
-    .map(apt => {
+    .map((apt) => {
       const row = appointmentToExportRow(apt)
       // Add date column for multi-day reports
-      const dateStr = new Date(apt.date + 'T00:00:00').toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: '2-digit'
-      })
+      const dateStr = new Date(apt.date + 'T00:00:00').toLocaleDateString(
+        'es-ES',
+        {
+          day: '2-digit',
+          month: '2-digit'
+        }
+      )
       return [
         dateStr,
         row.hora,
@@ -349,7 +366,7 @@ export function generateParteDiarioPDF(
       5: { cellWidth: 25 }, // Estado
       6: { cellWidth: 15 }, // Box
       7: { cellWidth: 28 }, // Teléfono
-      8: { cellWidth: 45 }  // Cobro
+      8: { cellWidth: 45 } // Cobro
     }
   })
 
@@ -360,7 +377,12 @@ export function generateParteDiarioPDF(
     doc.setFontSize(8)
     doc.setTextColor(128, 128, 128)
     const footerText = `Generado el ${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })} | Página ${i} de ${pageCount}`
-    doc.text(footerText, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' })
+    doc.text(
+      footerText,
+      pageWidth / 2,
+      doc.internal.pageSize.getHeight() - 10,
+      { align: 'center' }
+    )
   }
 
   return doc.output('blob')
@@ -403,13 +425,16 @@ export function generateParteDiarioExcel(
       if (dateCompare !== 0) return dateCompare
       return a.startTime.localeCompare(b.startTime)
     })
-    .map(apt => {
+    .map((apt) => {
       const row = appointmentToExportRow(apt)
-      const dateStr = new Date(apt.date + 'T00:00:00').toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      })
+      const dateStr = new Date(apt.date + 'T00:00:00').toLocaleDateString(
+        'es-ES',
+        {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        }
+      )
       return [
         dateStr,
         row.hora,
@@ -430,9 +455,21 @@ export function generateParteDiarioExcel(
     ['PARTE DIARIO'],
     [],
     ['Profesional:', professional ?? 'Todos los profesionales'],
-    ['Período:', formatDateRangeForDisplay(dateRange.startDate, dateRange.endDate)],
+    [
+      'Período:',
+      formatDateRangeForDisplay(dateRange.startDate, dateRange.endDate)
+    ],
     ['Total citas:', appointments.length],
-    ['Generado:', new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })],
+    [
+      'Generado:',
+      new Date().toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    ],
     [],
     headers,
     ...rows
@@ -443,17 +480,17 @@ export function generateParteDiarioExcel(
 
   // Set column widths
   ws['!cols'] = [
-    { wch: 12 },  // Fecha
-    { wch: 8 },   // Hora
-    { wch: 30 },  // Paciente
-    { wch: 6 },   // Edad
-    { wch: 35 },  // Tratamiento
-    { wch: 15 },  // Estado
-    { wch: 10 },  // Box
-    { wch: 15 },  // Teléfono
-    { wch: 30 },  // Observaciones
-    { wch: 25 },  // Cobro
-    { wch: 15 }   // Facturación
+    { wch: 12 }, // Fecha
+    { wch: 8 }, // Hora
+    { wch: 30 }, // Paciente
+    { wch: 6 }, // Edad
+    { wch: 35 }, // Tratamiento
+    { wch: 15 }, // Estado
+    { wch: 10 }, // Box
+    { wch: 15 }, // Teléfono
+    { wch: 30 }, // Observaciones
+    { wch: 25 }, // Cobro
+    { wch: 15 } // Facturación
   ]
 
   // Add worksheet to workbook
@@ -462,7 +499,9 @@ export function generateParteDiarioExcel(
   // Generate binary
   const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
 
-  return new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  return new Blob([wbout], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  })
 }
 
 // ============================================
@@ -482,11 +521,17 @@ export function generateExportDocuments(
 
   if (professionals.length === 0) {
     // Export all appointments in one document
-    const blob = format === 'pdf'
-      ? generateParteDiarioPDF(appointments, null, dateRange)
-      : generateParteDiarioExcel(appointments, null, dateRange)
+    const blob =
+      format === 'pdf'
+        ? generateParteDiarioPDF(appointments, null, dateRange)
+        : generateParteDiarioExcel(appointments, null, dateRange)
 
-    const filename = formatExportFilename(null, dateRange.startDate, dateRange.endDate, format)
+    const filename = formatExportFilename(
+      null,
+      dateRange.startDate,
+      dateRange.endDate,
+      format
+    )
     const url = URL.createObjectURL(blob)
 
     documents.push({
@@ -499,16 +544,30 @@ export function generateExportDocuments(
     // Generate one document per professional
     for (const professional of professionals) {
       const filteredAppointments = appointments.filter(
-        apt => apt.professional === professional
+        (apt) => apt.professional === professional
       )
 
       if (filteredAppointments.length === 0) continue
 
-      const blob = format === 'pdf'
-        ? generateParteDiarioPDF(filteredAppointments, professional, dateRange)
-        : generateParteDiarioExcel(filteredAppointments, professional, dateRange)
+      const blob =
+        format === 'pdf'
+          ? generateParteDiarioPDF(
+              filteredAppointments,
+              professional,
+              dateRange
+            )
+          : generateParteDiarioExcel(
+              filteredAppointments,
+              professional,
+              dateRange
+            )
 
-      const filename = formatExportFilename(professional, dateRange.startDate, dateRange.endDate, format)
+      const filename = formatExportFilename(
+        professional,
+        dateRange.startDate,
+        dateRange.endDate,
+        format
+      )
       const url = URL.createObjectURL(blob)
 
       documents.push({
@@ -551,7 +610,7 @@ export function downloadAllDocuments(documents: GeneratedDocument[]): void {
  * Clean up document URLs (call when done with documents)
  */
 export function revokeDocumentUrls(documents: GeneratedDocument[]): void {
-  documents.forEach(doc => {
+  documents.forEach((doc) => {
     URL.revokeObjectURL(doc.url)
   })
 }
