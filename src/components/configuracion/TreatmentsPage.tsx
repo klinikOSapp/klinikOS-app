@@ -39,7 +39,7 @@ type Category = {
 
 type TabKey = 'treatments' | 'budgetType' | 'discounts' | 'medications'
 
-type QuickBudget = {
+type BudgetType = {
   id: string
   name: string
   treatmentsCount: number
@@ -72,7 +72,7 @@ type Discount = {
 // ============================================
 
 // ============================================
-// MOCK DATA - Quick Budgets (Presupuestos rápidos)
+// MOCK DATA - Budget Types (Presupuestos tipo)
 // Structure: id, name, treatmentsCount, totalPrice, packDiscount, notes, isActive
 // ============================================
 
@@ -100,7 +100,7 @@ const initialDiscounts: Discount[] = [
   { id: 'disc-008', name: 'Referido por paciente', type: 'percentage', value: 10, notes: 'Descuento para pacientes referidos', isActive: true },
 ]
 
-const initialQuickBudgets: QuickBudget[] = [
+const initialBudgetTypes: BudgetType[] = [
   { id: 'qb-001', name: 'Pack revisión completa', treatmentsCount: 3, totalPrice: 300, packDiscount: '5% Pack básico', notes: 'Incluye limpieza, revisión y radiografía panorámica', isActive: true, selected: false },
   { id: 'qb-002', name: 'Pack blanqueamiento', treatmentsCount: 2, totalPrice: 1200, packDiscount: '10% Pack premium', notes: 'Blanqueamiento en clínica + kit domiciliario', isActive: false, selected: false },
   { id: 'qb-003', name: 'Pack ortodoncia básico', treatmentsCount: 5, totalPrice: 60, packDiscount: '15% Pack familiar', notes: 'Estudio + fotografías + modelos + cefalometría + escáner', isActive: true, selected: false },
@@ -570,7 +570,7 @@ const initialCategories: Category[] = [
 
 const tabs: { key: TabKey; label: string }[] = [
   { key: 'treatments', label: 'Lista de tratamientos' },
-  { key: 'budgetType', label: 'Presupuestos rápidos' },
+  { key: 'budgetType', label: 'Presupuestos tipo' },
   { key: 'discounts', label: 'Descuentos (convenios)' },
   { key: 'medications', label: 'Medicamentos con autoguardado' }
 ]
@@ -604,14 +604,14 @@ function FilterTag({
 }
 
 // ============================================
-// QUICK BUDGET TABLE COMPONENTS
+// BUDGET TYPE TABLE COMPONENTS
 // ============================================
 
-// Grid template for quick budgets: name | count | price | discount | notes | status
-const QUICK_BUDGET_GRID_CLASSES =
+// Grid template for budget types: name | count | price | discount | notes | status
+const BUDGET_TYPE_GRID_CLASSES =
   'grid grid-cols-[minmax(0,1.5fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.2fr)_minmax(0,0.6fr)_minmax(0,0.6fr)] w-full'
 
-function QuickBudgetTableHeader() {
+function BudgetTypeTableHeader() {
   const headers = [
     'Nombre de plantilla',
     'Nº tratamientos',
@@ -622,10 +622,10 @@ function QuickBudgetTableHeader() {
   ]
 
   return (
-    <div className={QUICK_BUDGET_GRID_CLASSES}>
+    <div className={BUDGET_TYPE_GRID_CLASSES}>
       {headers.map((label, i) => (
         <div
-          key={`qb-header-${i}`}
+          key={`bt-header-${i}`}
           className='flex items-center border-b border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'
         >
           <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
@@ -637,14 +637,14 @@ function QuickBudgetTableHeader() {
   )
 }
 
-function QuickBudgetTableRow({
+function BudgetTypeTableRow({
   budget,
   onToggleSelect,
   onOpenNotes,
   discountOptions,
   onChangeDiscount
 }: {
-  budget: QuickBudget
+  budget: BudgetType
   onToggleSelect: () => void
   onOpenNotes: () => void
   discountOptions: DiscountOption[]
@@ -666,7 +666,7 @@ function QuickBudgetTableRow({
 
   return (
     <div
-      className={`${QUICK_BUDGET_GRID_CLASSES} ${
+      className={`${BUDGET_TYPE_GRID_CLASSES} ${
         budget.selected ? 'bg-[var(--color-brand-50)]' : 'hover:bg-[var(--color-neutral-50)]'
       } transition-colors cursor-pointer`}
       onClick={onToggleSelect}
@@ -1114,8 +1114,8 @@ export default function TreatmentsPage() {
   const [searchVisible, setSearchVisible] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   
-  // Quick Budgets state
-  const [quickBudgets, setQuickBudgets] = useState<QuickBudget[]>(initialQuickBudgets)
+  // Budget Types state
+  const [budgetTypes, setBudgetTypes] = useState<BudgetType[]>(initialBudgetTypes)
   const [qbSearchVisible, setQbSearchVisible] = useState(false)
   const [qbSearchTerm, setQbSearchTerm] = useState('')
   const [qbCurrentPage, setQbCurrentPage] = useState(1)
@@ -1176,86 +1176,86 @@ export default function TreatmentsPage() {
   }, [])
 
   // ============================================
-  // QUICK BUDGETS FUNCTIONS
+  // BUDGET TYPES FUNCTIONS
   // ============================================
 
-  // Get selected quick budgets
-  const selectedQuickBudgets = useMemo(() => {
-    return quickBudgets.filter((qb) => qb.selected)
-  }, [quickBudgets])
+  // Get selected budget types
+  const selectedBudgetTypes = useMemo(() => {
+    return budgetTypes.filter((bt) => bt.selected)
+  }, [budgetTypes])
 
-  // Filter quick budgets by search term
-  const filteredQuickBudgets = useMemo(() => {
-    if (!qbSearchTerm.trim()) return quickBudgets
+  // Filter budget types by search term
+  const filteredBudgetTypes = useMemo(() => {
+    if (!qbSearchTerm.trim()) return budgetTypes
     const term = qbSearchTerm.toLowerCase()
-    return quickBudgets.filter((qb) =>
-      qb.name.toLowerCase().includes(term) ||
-      qb.packDiscount.toLowerCase().includes(term)
+    return budgetTypes.filter((bt) =>
+      bt.name.toLowerCase().includes(term) ||
+      bt.packDiscount.toLowerCase().includes(term)
     )
-  }, [quickBudgets, qbSearchTerm])
+  }, [budgetTypes, qbSearchTerm])
 
-  // Paginated quick budgets
-  const paginatedQuickBudgets = useMemo(() => {
+  // Paginated budget types
+  const paginatedBudgetTypes = useMemo(() => {
     const startIndex = (qbCurrentPage - 1) * qbItemsPerPage
-    return filteredQuickBudgets.slice(startIndex, startIndex + qbItemsPerPage)
-  }, [filteredQuickBudgets, qbCurrentPage, qbItemsPerPage])
+    return filteredBudgetTypes.slice(startIndex, startIndex + qbItemsPerPage)
+  }, [filteredBudgetTypes, qbCurrentPage, qbItemsPerPage])
 
-  // Total pages for quick budgets
+  // Total pages for budget types
   const qbTotalPages = useMemo(() => {
-    return Math.ceil(filteredQuickBudgets.length / qbItemsPerPage)
-  }, [filteredQuickBudgets.length, qbItemsPerPage])
+    return Math.ceil(filteredBudgetTypes.length / qbItemsPerPage)
+  }, [filteredBudgetTypes.length, qbItemsPerPage])
 
-  // Toggle quick budget selection
-  const toggleQuickBudgetSelect = useCallback((budgetId: string) => {
-    setQuickBudgets((prev) =>
-      prev.map((qb) =>
-        qb.id === budgetId ? { ...qb, selected: !qb.selected } : qb
+  // Toggle budget type selection
+  const toggleBudgetTypeSelect = useCallback((budgetId: string) => {
+    setBudgetTypes((prev) =>
+      prev.map((bt) =>
+        bt.id === budgetId ? { ...bt, selected: !bt.selected } : bt
       )
     )
   }, [])
 
-  // Change quick budget discount
-  const changeQuickBudgetDiscount = useCallback((budgetId: string, discountName: string) => {
-    setQuickBudgets((prev) =>
-      prev.map((qb) =>
-        qb.id === budgetId ? { ...qb, packDiscount: discountName } : qb
+  // Change budget type discount
+  const changeBudgetTypeDiscount = useCallback((budgetId: string, discountName: string) => {
+    setBudgetTypes((prev) =>
+      prev.map((bt) =>
+        bt.id === budgetId ? { ...bt, packDiscount: discountName } : bt
       )
     )
   }, [])
 
-  // Quick budget actions
-  const handleQbEdit = useCallback(() => {
-    console.log('Edit selected quick budgets:', selectedQuickBudgets.map(qb => qb.id))
+  // Budget type actions
+  const handleBtEdit = useCallback(() => {
+    console.log('Edit selected budget types:', selectedBudgetTypes.map(bt => bt.id))
     // TODO: Implement edit modal
-  }, [selectedQuickBudgets])
+  }, [selectedBudgetTypes])
 
-  const handleQbDuplicate = useCallback(() => {
-    const newBudgets = selectedQuickBudgets.map((qb) => ({
-      ...qb,
-      id: `qb-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      name: `${qb.name} (copia)`,
+  const handleBtDuplicate = useCallback(() => {
+    const newBudgets = selectedBudgetTypes.map((bt) => ({
+      ...bt,
+      id: `bt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: `${bt.name} (copia)`,
       selected: false
     }))
-    setQuickBudgets((prev) => [...prev, ...newBudgets])
-  }, [selectedQuickBudgets])
+    setBudgetTypes((prev) => [...prev, ...newBudgets])
+  }, [selectedBudgetTypes])
 
-  const handleQbDelete = useCallback(() => {
-    const selectedIds = selectedQuickBudgets.map((qb) => qb.id)
-    setQuickBudgets((prev) => prev.filter((qb) => !selectedIds.includes(qb.id)))
-  }, [selectedQuickBudgets])
+  const handleBtDelete = useCallback(() => {
+    const selectedIds = selectedBudgetTypes.map((bt) => bt.id)
+    setBudgetTypes((prev) => prev.filter((bt) => !selectedIds.includes(bt.id)))
+  }, [selectedBudgetTypes])
 
-  const handleQbMore = useCallback(() => {
-    console.log('More options for:', selectedQuickBudgets.map(qb => qb.id))
+  const handleBtMore = useCallback(() => {
+    console.log('More options for:', selectedBudgetTypes.map(bt => bt.id))
     // TODO: Implement more options dropdown
-  }, [selectedQuickBudgets])
+  }, [selectedBudgetTypes])
 
   const handleOpenNotes = useCallback((budgetId: string) => {
-    const budget = quickBudgets.find((qb) => qb.id === budgetId)
+    const budget = budgetTypes.find((bt) => bt.id === budgetId)
     if (budget) {
       alert(`Notas: ${budget.notes}`)
       // TODO: Implement notes modal
     }
-  }, [quickBudgets])
+  }, [budgetTypes])
 
   const handleAddTemplate = useCallback(() => {
     console.log('Add new template')
@@ -1465,13 +1465,13 @@ export default function TreatmentsPage() {
               {/* Action Bar */}
               <div className='flex items-end justify-between mb-6'>
                 {/* Selection Actions */}
-                {selectedQuickBudgets.length > 0 ? (
+                {selectedBudgetTypes.length > 0 ? (
                   <SelectionActionBar
-                    selectedCount={selectedQuickBudgets.length}
-                    onEdit={handleQbEdit}
-                    onDuplicate={handleQbDuplicate}
-                    onDelete={handleQbDelete}
-                    onMore={handleQbMore}
+                    selectedCount={selectedBudgetTypes.length}
+                    onEdit={handleBtEdit}
+                    onDuplicate={handleBtDuplicate}
+                    onDelete={handleBtDelete}
+                    onMore={handleBtMore}
                   />
                 ) : (
                   <div />
@@ -1549,17 +1549,17 @@ export default function TreatmentsPage() {
                 </div>
               </div>
 
-              {/* Quick Budgets Table */}
+              {/* Budget Types Table */}
               <div className='flex-1 overflow-y-auto overflow-x-hidden'>
-                <QuickBudgetTableHeader />
-                {paginatedQuickBudgets.map((budget) => (
-                  <QuickBudgetTableRow
+                <BudgetTypeTableHeader />
+                {paginatedBudgetTypes.map((budget) => (
+                  <BudgetTypeTableRow
                     key={budget.id}
                     budget={budget}
-                    onToggleSelect={() => toggleQuickBudgetSelect(budget.id)}
+                    onToggleSelect={() => toggleBudgetTypeSelect(budget.id)}
                     onOpenNotes={() => handleOpenNotes(budget.id)}
                     discountOptions={discountOptions}
-                    onChangeDiscount={(discountName) => changeQuickBudgetDiscount(budget.id, discountName)}
+                    onChangeDiscount={(discountName) => changeBudgetTypeDiscount(budget.id, discountName)}
                   />
                 ))}
               </div>

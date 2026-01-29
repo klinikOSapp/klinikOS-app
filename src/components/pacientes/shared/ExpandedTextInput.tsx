@@ -10,6 +10,8 @@ interface ExpandedTextInputProps {
   className?: string
   /** Milisegundos de hover antes de mostrar el popover (default: 500ms) */
   hoverDelay?: number
+  /** Modo compacto con fuentes más pequeñas */
+  compact?: boolean
 }
 
 /**
@@ -26,8 +28,11 @@ export default function ExpandedTextInput({
   onChange,
   placeholder,
   className = '',
-  hoverDelay = 500
+  hoverDelay = 500,
+  compact = false
 }: ExpandedTextInputProps) {
+  // Clases de texto según modo
+  const textSizeClass = compact ? 'text-[0.6875rem] leading-[1rem]' : 'text-body-md'
   const [isExpanded, setIsExpanded] = useState(false)
   const [isHoverMode, setIsHoverMode] = useState(false) // Si se abrió por hover (solo lectura)
   const [localValue, setLocalValue] = useState(value)
@@ -223,7 +228,7 @@ export default function ExpandedTextInput({
         onClick={handleClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className={`w-full text-body-md text-neutral-900 bg-transparent px-1 py-0.5 rounded truncate cursor-text hover:bg-[var(--color-neutral-50)] ${className}`}
+        className={`w-full ${textSizeClass} text-neutral-900 bg-transparent px-1 py-0.5 rounded truncate cursor-text hover:bg-[var(--color-neutral-50)] ${className}`}
         title={value}
       >
         {value || <span className='text-neutral-400'>{placeholder}</span>}

@@ -16,7 +16,6 @@ import {
   EditRounded,
   ElectricBoltRounded,
   EuroRounded,
-  FilterListRounded,
   FirstPageRounded,
   KeyboardArrowDownRounded,
   LastPageRounded,
@@ -29,10 +28,11 @@ import {
 import React from 'react'
 import { createPortal } from 'react-dom'
 import AddProductionModal from './AddProductionModal'
+import AddTreatmentsToBudgetModal from './AddTreatmentsToBudgetModal'
+import { BudgetTypeModal, type BudgetTypeOption } from './BudgetTypeModal'
 import InvoiceProductionModal from './InvoiceProductionModal'
 import MarkAsProducedModal from './MarkAsProducedModal'
 import ProposalCreationModal from './ProposalCreationModal'
-import { QuickBudgetModal, type QuickBudgetOption } from './QuickBudgetModal'
 import RegisterPaymentModal from './RegisterPaymentModal'
 import TraceabilityModal from './TraceabilityModal'
 
@@ -1238,7 +1238,9 @@ export default function BudgetsPayments({
   type TabKey = 'Presupuestos' | 'Producción' | 'Facturas'
   const [activeTab, setActiveTab] = React.useState<TabKey>('Presupuestos')
   const [showProposalModal, setShowProposalModal] = React.useState(false)
-  const [showQuickBudgetModal, setShowQuickBudgetModal] = React.useState(false)
+  const [showBudgetTypeModal, setShowBudgetTypeModal] = React.useState(false)
+  const [showAddTreatmentsModal, setShowAddTreatmentsModal] =
+    React.useState(false)
   const [showAddProductionModal, setShowAddProductionModal] =
     React.useState(false)
   const [showMarkAsProducedModal, setShowMarkAsProducedModal] =
@@ -1303,7 +1305,8 @@ export default function BudgetsPayments({
   const [showInsurerDropdown, setShowInsurerDropdown] = React.useState(false)
   const [showPaymentMethodDropdown, setShowPaymentMethodDropdown] =
     React.useState(false)
-  const [showDateRangeDropdown, setShowDateRangeDropdown] = React.useState(false)
+  const [showDateRangeDropdown, setShowDateRangeDropdown] =
+    React.useState(false)
 
   // Extract unique professionals and insurers from data
   const professionals = React.useMemo(() => {
@@ -1550,8 +1553,8 @@ export default function BudgetsPayments({
     }
   }, [openBudgetCreation, showProposalModal, onBudgetCreationOpened])
 
-  const [quickBudgetSelection, setQuickBudgetSelection] =
-    React.useState<QuickBudgetOption | null>(null)
+  const [budgetTypeSelection, setBudgetTypeSelection] =
+    React.useState<BudgetTypeOption | null>(null)
 
   // Handler to update production row status
   const handleProductionStatusChange = (
@@ -1708,13 +1711,8 @@ export default function BudgetsPayments({
       data-node-id='3092:10807'
     >
       {/* Header */}
-      <div
-        className='flex flex-col gap-2 mb-6'
-        data-node-id='3092:10815'
-      >
-        <p className='text-headline-sm text-neutral-900'>
-          Finanzas
-        </p>
+      <div className='flex flex-col gap-2 mb-6' data-node-id='3092:10815'>
+        <p className='text-headline-sm text-neutral-900'>Finanzas</p>
         <p className='text-body-sm text-neutral-900'>
           Cobros, financiación embebida, facturas/recibos y conciliación.
         </p>
@@ -1727,7 +1725,9 @@ export default function BudgetsPayments({
           .filter((row) => row.status === 'Pendiente')
           .reduce((sum, row) => {
             // Parse amount like "150 €" or "1.200 €" to number
-            const amountStr = row.amount.replace(/[€\s.]/g, '').replace(',', '.')
+            const amountStr = row.amount
+              .replace(/[€\s.]/g, '')
+              .replace(',', '.')
             return sum + (parseFloat(amountStr) || 0)
           }, 0)
 
@@ -1744,9 +1744,7 @@ export default function BudgetsPayments({
 
         return (
           <div className='flex gap-16 mb-6'>
-            <div
-              data-node-id='3092:10811'
-            >
+            <div data-node-id='3092:10811'>
               <p className='text-title-md text-neutral-900'>Saldo pendiente</p>
               <p
                 className='mt-[0.4375rem] text-neutral-900'
@@ -1756,10 +1754,10 @@ export default function BudgetsPayments({
                 {formattedBalance} €
               </p>
             </div>
-            <div
-              data-node-id='3092:10812'
-            >
-              <p className='text-title-md text-neutral-900'>Facturas vencidas</p>
+            <div data-node-id='3092:10812'>
+              <p className='text-title-md text-neutral-900'>
+                Facturas vencidas
+              </p>
               <p
                 className='mt-[0.4375rem] text-warning-600'
                 style={{ fontSize: '2rem', lineHeight: '2.5rem' }}
@@ -1804,20 +1802,20 @@ export default function BudgetsPayments({
         {/* Action buttons - change based on active tab */}
         {activeTab === 'Presupuestos' ? (
           <>
-            {/* Presupuesto rápido button */}
+            {/* Presupuesto tipo button */}
             <button
               className='absolute top-4 right-[15rem] flex items-center gap-2 rounded-[8.5rem] px-4 py-2 text-body-md text-neutral-900 hover:bg-neutral-100 transition-colors cursor-pointer'
               type='button'
-              onClick={() => setShowQuickBudgetModal(true)}
+              onClick={() => setShowBudgetTypeModal(true)}
             >
               <ElectricBoltRounded className='size-6 text-brand-500' />
-              <span className='font-medium'>Presupuesto rapido</span>
+              <span className='font-medium'>Presupuesto tipo</span>
             </button>
             {/* Crear presupuesto button */}
             <button
               className='absolute top-4 right-8 flex items-center gap-2 rounded-[8.5rem] px-4 py-2 bg-neutral-50 border border-neutral-300 text-body-md text-neutral-900 hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-neutral-50 active:border-[#1E4947] transition-colors cursor-pointer'
               type='button'
-              onClick={() => setShowProposalModal(true)}
+              onClick={() => setShowAddTreatmentsModal(true)}
             >
               <AddRounded className='size-6' />
               <span className='font-medium'>Crear presupuesto</span>
@@ -2062,9 +2060,7 @@ export default function BudgetsPayments({
                       : 'border border-neutral-300 text-neutral-700 hover:bg-neutral-100'
                   ].join(' ')}
                 >
-                  <span>
-                    {selectedProfessional || 'Profesional'}
-                  </span>
+                  <span>{selectedProfessional || 'Profesional'}</span>
                   <KeyboardArrowDownRounded className='size-4' />
                 </button>
                 {showProfessionalDropdown && (
@@ -2252,9 +2248,7 @@ export default function BudgetsPayments({
                       <input
                         type='date'
                         value={
-                          dateFrom
-                            ? dateFrom.toISOString().split('T')[0]
-                            : ''
+                          dateFrom ? dateFrom.toISOString().split('T')[0] : ''
                         }
                         onChange={(e) =>
                           setDateFrom(
@@ -2270,9 +2264,7 @@ export default function BudgetsPayments({
                       </label>
                       <input
                         type='date'
-                        value={
-                          dateTo ? dateTo.toISOString().split('T')[0] : ''
-                        }
+                        value={dateTo ? dateTo.toISOString().split('T')[0] : ''}
                         onChange={(e) =>
                           setDateTo(
                             e.target.value ? new Date(e.target.value) : null
@@ -2394,57 +2386,57 @@ export default function BudgetsPayments({
                 </div>
               ) : (
                 filteredBudgetRows.map((row) => (
-                <div
-                  key={row.id}
-                  className='flex items-center border-b border-neutral-300 h-10 group'
-                >
                   <div
-                    className={`${BUDGET_COL_ID} px-2 text-body-md font-semibold text-brand-700`}
+                    key={row.id}
+                    className='flex items-center border-b border-neutral-300 h-10 group'
                   >
-                    {row.id}
+                    <div
+                      className={`${BUDGET_COL_ID} px-2 text-body-md font-semibold text-brand-700`}
+                    >
+                      {row.id}
+                    </div>
+                    <div
+                      className={`${BUDGET_COL_DESC} px-2 text-body-md text-neutral-900`}
+                    >
+                      {row.description}
+                    </div>
+                    <div
+                      className={`${BUDGET_COL_MONTO} px-2 text-body-md text-neutral-900`}
+                    >
+                      {row.amount}
+                    </div>
+                    <div
+                      className={`${BUDGET_COL_FECHA} px-2 text-body-md text-neutral-900`}
+                    >
+                      {row.date}
+                    </div>
+                    <div className={`${BUDGET_COL_ESTADO} px-2`}>
+                      <BudgetStatusBadge
+                        status={row.status}
+                        rowId={row.id}
+                        onStatusChange={handleBudgetStatusChange}
+                      />
+                    </div>
+                    <div
+                      className={`${BUDGET_COL_PROFESIONAL} px-2 text-body-md text-neutral-900`}
+                    >
+                      {row.professional}
+                    </div>
+                    <div
+                      className={`${BUDGET_COL_INSURER} px-2 text-body-md text-neutral-900`}
+                    >
+                      {row.insurer}
+                    </div>
+                    {/* More actions menu */}
+                    <div className='ml-auto'>
+                      <BudgetActionsMenu
+                        rowId={row.id}
+                        status={row.status}
+                        onAction={handleBudgetAction}
+                      />
+                    </div>
                   </div>
-                  <div
-                    className={`${BUDGET_COL_DESC} px-2 text-body-md text-neutral-900`}
-                  >
-                    {row.description}
-                  </div>
-                  <div
-                    className={`${BUDGET_COL_MONTO} px-2 text-body-md text-neutral-900`}
-                  >
-                    {row.amount}
-                  </div>
-                  <div
-                    className={`${BUDGET_COL_FECHA} px-2 text-body-md text-neutral-900`}
-                  >
-                    {row.date}
-                  </div>
-                  <div className={`${BUDGET_COL_ESTADO} px-2`}>
-                    <BudgetStatusBadge
-                      status={row.status}
-                      rowId={row.id}
-                      onStatusChange={handleBudgetStatusChange}
-                    />
-                  </div>
-                  <div
-                    className={`${BUDGET_COL_PROFESIONAL} px-2 text-body-md text-neutral-900`}
-                  >
-                    {row.professional}
-                  </div>
-                  <div
-                    className={`${BUDGET_COL_INSURER} px-2 text-body-md text-neutral-900`}
-                  >
-                    {row.insurer}
-                  </div>
-                  {/* More actions menu */}
-                  <div className='ml-auto'>
-                    <BudgetActionsMenu
-                      rowId={row.id}
-                      status={row.status}
-                      onAction={handleBudgetAction}
-                    />
-                  </div>
-                </div>
-              ))
+                ))
               )}
             </div>
           </div>
@@ -2508,52 +2500,52 @@ export default function BudgetsPayments({
                 </div>
               ) : (
                 filteredProductionRows.map((row) => (
-                <div
-                  key={row.id}
-                  className='flex items-center border-b border-neutral-300 h-10 group'
-                >
                   <div
-                    className={`${PROD_COL_FECHA} px-2 text-body-md text-neutral-900`}
+                    key={row.id}
+                    className='flex items-center border-b border-neutral-300 h-10 group'
                   >
-                    {row.date}
+                    <div
+                      className={`${PROD_COL_FECHA} px-2 text-body-md text-neutral-900`}
+                    >
+                      {row.date}
+                    </div>
+                    <div
+                      className={`${PROD_COL_DESC} px-2 text-body-md text-neutral-900`}
+                    >
+                      {row.description}
+                    </div>
+                    <div
+                      className={`${PROD_COL_MONTO} px-2 text-body-md text-neutral-900`}
+                    >
+                      {row.amount}
+                    </div>
+                    <div className={`${PROD_COL_ESTADO} px-2`}>
+                      <StatusBadge
+                        status={row.status}
+                        rowId={row.id}
+                        onStatusChange={handleProductionStatusChange}
+                      />
+                    </div>
+                    <div
+                      className={`${PROD_COL_PROFESIONAL} px-2 text-body-md text-neutral-900`}
+                    >
+                      {row.professional}
+                    </div>
+                    <div
+                      className={`${PROD_COL_ID} px-2 text-body-md font-semibold text-brand-700`}
+                    >
+                      {row.id}
+                    </div>
+                    {/* More actions menu */}
+                    <div className='ml-auto'>
+                      <ActionsMenu
+                        rowId={row.id}
+                        status={row.status}
+                        onAction={handleProductionAction}
+                      />
+                    </div>
                   </div>
-                  <div
-                    className={`${PROD_COL_DESC} px-2 text-body-md text-neutral-900`}
-                  >
-                    {row.description}
-                  </div>
-                  <div
-                    className={`${PROD_COL_MONTO} px-2 text-body-md text-neutral-900`}
-                  >
-                    {row.amount}
-                  </div>
-                  <div className={`${PROD_COL_ESTADO} px-2`}>
-                    <StatusBadge
-                      status={row.status}
-                      rowId={row.id}
-                      onStatusChange={handleProductionStatusChange}
-                    />
-                  </div>
-                  <div
-                    className={`${PROD_COL_PROFESIONAL} px-2 text-body-md text-neutral-900`}
-                  >
-                    {row.professional}
-                  </div>
-                  <div
-                    className={`${PROD_COL_ID} px-2 text-body-md font-semibold text-brand-700`}
-                  >
-                    {row.id}
-                  </div>
-                  {/* More actions menu */}
-                  <div className='ml-auto'>
-                    <ActionsMenu
-                      rowId={row.id}
-                      status={row.status}
-                      onAction={handleProductionAction}
-                    />
-                  </div>
-                </div>
-              ))
+                ))
               )}
             </div>
           </div>
@@ -2613,45 +2605,45 @@ export default function BudgetsPayments({
                 </div>
               ) : (
                 filteredInvoiceRows.map((row) => (
-                <div
-                  key={row.id}
-                  className='flex items-center border-b border-neutral-300 h-10 group'
-                >
-                  <div className='w-20 shrink-0 px-2 text-body-md text-neutral-900'>
-                    {row.id}
+                  <div
+                    key={row.id}
+                    className='flex items-center border-b border-neutral-300 h-10 group'
+                  >
+                    <div className='w-20 shrink-0 px-2 text-body-md text-neutral-900'>
+                      {row.id}
+                    </div>
+                    <div className='flex-1 min-w-0 px-2 text-body-md text-neutral-900 truncate'>
+                      {row.description}
+                    </div>
+                    <div className='w-24 shrink-0 px-2 text-body-md text-neutral-900'>
+                      {row.amount}
+                    </div>
+                    <div className='w-24 shrink-0 px-2 text-body-md text-neutral-900'>
+                      {row.date}
+                    </div>
+                    <div className='w-28 shrink-0 px-2'>
+                      <InvoiceStatusBadge
+                        status={row.status}
+                        rowId={row.id}
+                        onStatusChange={handleInvoiceStatusChange}
+                      />
+                    </div>
+                    <div className='w-28 shrink-0 px-2 text-body-md text-neutral-900'>
+                      {row.paymentMethod}
+                    </div>
+                    <div className='w-28 shrink-0 px-2 text-body-md text-neutral-900'>
+                      {row.insurer}
+                    </div>
+                    {/* More actions menu */}
+                    <div className='ml-auto'>
+                      <InvoiceActionsMenu
+                        rowId={row.id}
+                        status={row.status}
+                        onAction={handleInvoiceAction}
+                      />
+                    </div>
                   </div>
-                  <div className='flex-1 min-w-0 px-2 text-body-md text-neutral-900 truncate'>
-                    {row.description}
-                  </div>
-                  <div className='w-24 shrink-0 px-2 text-body-md text-neutral-900'>
-                    {row.amount}
-                  </div>
-                  <div className='w-24 shrink-0 px-2 text-body-md text-neutral-900'>
-                    {row.date}
-                  </div>
-                  <div className='w-28 shrink-0 px-2'>
-                    <InvoiceStatusBadge
-                      status={row.status}
-                      rowId={row.id}
-                      onStatusChange={handleInvoiceStatusChange}
-                    />
-                  </div>
-                  <div className='w-28 shrink-0 px-2 text-body-md text-neutral-900'>
-                    {row.paymentMethod}
-                  </div>
-                  <div className='w-28 shrink-0 px-2 text-body-md text-neutral-900'>
-                    {row.insurer}
-                  </div>
-                  {/* More actions menu */}
-                  <div className='ml-auto'>
-                    <InvoiceActionsMenu
-                      rowId={row.id}
-                      status={row.status}
-                      onAction={handleInvoiceAction}
-                    />
-                  </div>
-                </div>
-              ))
+                ))
               )}
             </div>
           </div>
@@ -2706,16 +2698,26 @@ export default function BudgetsPayments({
         </div>
       </div>
 
+      <AddTreatmentsToBudgetModal
+        open={showAddTreatmentsModal}
+        onClose={() => setShowAddTreatmentsModal(false)}
+        onCreateBudget={(selectedTreatments) => {
+          console.log('Selected treatments:', selectedTreatments)
+          setShowAddTreatmentsModal(false)
+          // Open the proposal creation modal with selected treatments
+          setShowProposalModal(true)
+        }}
+      />
       <ProposalCreationModal
         open={showProposalModal}
         onClose={() => setShowProposalModal(false)}
       />
-      <QuickBudgetModal
-        open={showQuickBudgetModal}
-        onClose={() => setShowQuickBudgetModal(false)}
+      <BudgetTypeModal
+        open={showBudgetTypeModal}
+        onClose={() => setShowBudgetTypeModal(false)}
         onContinue={(selection) => {
-          setQuickBudgetSelection(selection)
-          setShowQuickBudgetModal(false)
+          setBudgetTypeSelection(selection)
+          setShowBudgetTypeModal(false)
           setShowProposalModal(true)
         }}
         patientName={displayPatientName}
@@ -2763,8 +2765,8 @@ export default function BudgetsPayments({
                         data.professional === 'dr-guillermo'
                           ? 'Dr. Guillermo'
                           : data.professional === 'dra-andrea'
-                          ? 'Dra. Andrea'
-                          : row.professional
+                            ? 'Dra. Andrea'
+                            : row.professional
                     }
                   : row
               )
@@ -2841,10 +2843,10 @@ export default function BudgetsPayments({
                         data.paymentMethod === 'efectivo'
                           ? 'Efectivo'
                           : data.paymentMethod === 'tarjeta'
-                          ? 'Tarjeta'
-                          : data.paymentMethod === 'transferencia'
-                          ? 'Transferencia'
-                          : row.paymentMethod
+                            ? 'Tarjeta'
+                            : data.paymentMethod === 'transferencia'
+                              ? 'Transferencia'
+                              : row.paymentMethod
                     }
                   : row
               )

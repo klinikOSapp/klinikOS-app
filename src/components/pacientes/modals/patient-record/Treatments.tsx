@@ -4,47 +4,164 @@ import {
   AddRounded,
   CheckBoxOutlineBlankRounded,
   CheckBoxRounded,
+  ElectricBoltRounded,
   FilterListRounded,
   KeyboardArrowDownRounded,
   MoreVertRounded,
   SearchRounded
 } from '@/components/icons/md3'
-import { MD3Icon } from '@/components/icons/MD3Icon'
-import { SelectInput } from '@/components/pacientes/modals/add-patient/AddPatientInputs'
+import CatalogoTratamientos from '@/components/pacientes/shared/CatalogoTratamientos'
 import ExpandedTextInput from '@/components/pacientes/shared/ExpandedTextInput'
+import OdontogramaCompacto from '@/components/pacientes/shared/OdontogramaCompacto'
 import { RowActionsMenu } from '@/components/pacientes/shared/RowActionsMenu'
-import { StatusBadge } from '@/components/pacientes/shared/StatusBadge'
 import type {
-  Treatment,
-  TreatmentStatus
+  OdontogramaState,
+  TreatmentCatalogEntry,
+  TreatmentV2
 } from '@/components/pacientes/shared/treatmentTypes'
-import {
-  PROFESSIONALS,
-  TREATMENT_CATALOG
-} from '@/components/pacientes/shared/treatmentTypes'
-import { useTreatmentFilter } from '@/hooks/useTreatmentFilter'
+import { PROFESSIONALS, TREATMENT_CATALOG } from '@/components/pacientes/shared/treatmentTypes'
 import { setPendingAppointmentData } from '@/utils/appointmentPrefill'
 import { useRouter } from 'next/navigation'
 import React from 'react'
+import AddTreatmentsToBudgetModal from './AddTreatmentsToBudgetModal'
 
-// Table cell components (same as parte-diario)
+// ============================================
+// Mock Data - Nuevo formato V2
+// ============================================
+const MOCK_ODONTOGRAMA_STATE: OdontogramaState = {
+  22: 'pendiente',
+  23: 'finalizado',
+  26: 'finalizado',
+  35: 'finalizado',
+  37: 'pendiente',
+  38: 'pendiente',
+  46: 'finalizado'
+}
+
+const PENDING_TREATMENTS_V2: TreatmentV2[] = [
+  {
+    _internalId: 'pending-0',
+    pieza: 23,
+    cara: 'Vestibular',
+    codigo: 'CZ',
+    tratamiento: 'Carilla de Zirconio',
+    precio: '500€',
+    porcentajeDescuento: 14,
+    descuento: '72 €',
+    importe: '400 €',
+    importeSeguro: '72 €',
+    descripcionAnotaciones: 'Exodoncia simple, muy bien',
+    doctor: 'Dr. Guillermo',
+    selected: false
+  },
+  {
+    _internalId: 'pending-1',
+    pieza: 23,
+    cara: 'Vestibular',
+    codigo: 'CPDC',
+    tratamiento: 'Corona Preformada Dentición Perm...',
+    precio: '500€',
+    porcentajeDescuento: 14,
+    descuento: '72 €',
+    importe: '400 €',
+    importeSeguro: '72 €',
+    descripcionAnotaciones: 'Exodoncia simple, muy bien',
+    doctor: 'Dr. Guillermo',
+    selected: false
+  }
+]
+
+const HISTORY_TREATMENTS_V2: TreatmentV2[] = [
+  {
+    _internalId: 'history-0',
+    pieza: 23,
+    cara: 'Vestibular',
+    codigo: 'CZ',
+    tratamiento: 'Carilla de Zirconio',
+    precio: '500€',
+    porcentajeDescuento: 14,
+    descuento: '72 €',
+    importe: '400 €',
+    importeSeguro: '72 €',
+    descripcionAnotaciones: 'Exodoncia simple, muy bien',
+    doctor: 'Dr. Guillermo',
+    selected: false
+  },
+  {
+    _internalId: 'history-1',
+    pieza: 23,
+    cara: 'Vestibular',
+    codigo: 'CZ',
+    tratamiento: 'Carilla de Zirconio',
+    precio: '500€',
+    porcentajeDescuento: 14,
+    descuento: '72 €',
+    importe: '400 €',
+    importeSeguro: '72 €',
+    descripcionAnotaciones: 'Exodoncia simple, muy bien',
+    doctor: 'Dr. Guillermo',
+    selected: false
+  },
+  {
+    _internalId: 'history-2',
+    pieza: 23,
+    cara: 'Vestibular',
+    codigo: 'CZ',
+    tratamiento: 'Carilla de Zirconio',
+    precio: '500€',
+    porcentajeDescuento: 14,
+    descuento: '72 €',
+    importe: '400 €',
+    importeSeguro: '72 €',
+    descripcionAnotaciones: 'Exodoncia simple, muy bien',
+    doctor: 'Dr. Guillermo',
+    selected: false
+  },
+  {
+    _internalId: 'history-3',
+    pieza: 23,
+    cara: 'Vestibular',
+    codigo: 'CZ',
+    tratamiento: 'Carilla de Zirconio',
+    precio: '500€',
+    porcentajeDescuento: 14,
+    descuento: '72 €',
+    importe: '400 €',
+    importeSeguro: '72 €',
+    descripcionAnotaciones: 'Exodoncia simple, muy bien',
+    doctor: 'Dr. Guillermo',
+    selected: false
+  }
+]
+
+// ============================================
+// Table Components
+// ============================================
 function TableHeaderCell({
   children,
   className,
-  align = 'left'
+  width,
+  sticky,
+  stickyPosition = 'left'
 }: {
-  children: React.ReactNode
+  children?: React.ReactNode
   className?: string
-  align?: 'left' | 'right'
+  width?: string
+  sticky?: boolean
+  stickyPosition?: 'left' | 'right'
 }) {
+  const stickyClasses = sticky
+    ? `sticky ${stickyPosition === 'left' ? 'left-0' : 'right-0'} z-10 bg-[#F8FAFB]`
+    : ''
   return (
     <th
       scope='col'
       className={[
-        'border-hairline-b border-hairline-r last:border-hairline-b last:border-r-0 py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-body-md font-normal text-[var(--color-neutral-600)]',
-        align === 'right' ? 'text-right' : 'text-left',
+        'border-b-[0.5px] border-[#CBD3D9] px-[0.5rem] py-[0.25rem] text-left text-[1rem] leading-[1.5rem] font-normal text-[#535C66]',
+        stickyClasses,
         className
       ].join(' ')}
+      style={{ width }}
     >
       {children}
     </th>
@@ -54,125 +171,330 @@ function TableHeaderCell({
 function TableBodyCell({
   children,
   className,
-  align = 'left'
+  width,
+  sticky,
+  stickyPosition = 'left',
+  rowSelected
 }: {
   children: React.ReactNode
   className?: string
-  align?: 'left' | 'right'
+  width?: string
+  sticky?: boolean
+  stickyPosition?: 'left' | 'right'
+  rowSelected?: boolean
 }) {
+  const stickyClasses = sticky
+    ? `sticky ${stickyPosition === 'left' ? 'left-0' : 'right-0'} z-10 ${rowSelected ? 'bg-[#E9FBF9]' : 'bg-white'}`
+    : ''
   return (
     <td
       className={[
-        'border-hairline-b border-hairline-r last:border-hairline-b last:border-r-0 py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] align-middle text-body-md text-[var(--color-neutral-900)]',
-        align === 'right' ? 'text-right' : 'text-left',
+        'border-b-[0.5px] border-[#CBD3D9] px-[0.5rem] py-[0.5rem] text-[1rem] leading-[1.5rem] text-[#24282C]',
+        stickyClasses,
         className
       ].join(' ')}
+      style={{ width }}
     >
       {children}
     </td>
   )
 }
 
-// Mock data basado en Figma
-const PENDING_TREATMENTS: Treatment[] = [
-  {
-    id: 'LDE',
-    description: 'Limpieza dental',
-    date: '22/12/25',
-    amount: '72 €',
-    discount: 10,
-    status: 'Aceptado',
-    professional: 'Dr. Guillermo',
-    selected: false,
-    _internalId: 'pending-0'
-  },
-  {
-    id: 'LDE',
-    description: 'Blanqueamiento dental',
-    date: 'Sin fecha',
-    amount: '200 €',
-    discount: 0,
-    status: 'Recall',
-    professional: 'Dra. Andrea',
-    selected: false,
-    _internalId: 'pending-1'
+// ============================================
+// Editable Cell Component
+// ============================================
+type EditableCellProps = {
+  value: string
+  onChange: (value: string) => void
+  type?: 'text' | 'number'
+  placeholder?: string
+  className?: string
+  disabled?: boolean
+  inputRef?: React.RefObject<HTMLInputElement | null>
+}
+
+function EditableCell({
+  value,
+  onChange,
+  type = 'text',
+  placeholder = '',
+  className = '',
+  disabled = false,
+  inputRef
+}: EditableCellProps) {
+  return (
+    <input
+      ref={inputRef}
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      disabled={disabled}
+      className={`w-full bg-transparent border-none outline-none text-[0.875rem] leading-[1.25rem] text-[#24282C] 
+        focus:bg-[var(--color-neutral-50)] rounded px-1 py-0.5 transition-colors
+        disabled:text-[#AEB8C2] disabled:cursor-not-allowed
+        ${className}`}
+    />
+  )
+}
+
+// ============================================
+// Treatment Row Component
+// ============================================
+type TreatmentRowProps = {
+  treatment: TreatmentV2
+  onToggleSelection: () => void
+  onOpenMenu: (event: React.MouseEvent<HTMLButtonElement>) => void
+  onUpdateField: (
+    field: keyof TreatmentV2,
+    value: string | number | undefined
+  ) => void
+  onUpdateMultipleFields?: (updates: Partial<TreatmentV2>) => void
+  isNewRow?: boolean
+  onNewRowMounted?: () => void
+}
+
+function TreatmentRow({
+  treatment,
+  onToggleSelection,
+  onOpenMenu,
+  onUpdateField,
+  onUpdateMultipleFields,
+  isNewRow,
+  onNewRowMounted
+}: TreatmentRowProps) {
+  const rowRef = React.useRef<HTMLTableRowElement>(null)
+  const firstInputRef = React.useRef<HTMLInputElement>(null)
+
+  // Focus first input when it's a new row (scroll only if needed)
+  React.useEffect(() => {
+    if (isNewRow && rowRef.current) {
+      // Solo hacer scroll si la fila no está visible, usando 'nearest' para minimizar el movimiento
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      // Focus the first input after a brief delay
+      setTimeout(() => {
+        firstInputRef.current?.focus()
+        firstInputRef.current?.select()
+        onNewRowMounted?.()
+      }, 100)
+    }
+  }, [isNewRow, onNewRowMounted])
+
+  const rowBg = treatment.selected
+    ? 'bg-[#E9FBF9]'
+    : isNewRow
+      ? 'bg-[#FEF9C3] animate-pulse'
+      : 'bg-white hover:bg-[var(--color-neutral-50)]'
+
+  // Parsear precio para cálculos (remove € y espacios)
+  const parsePrice = (price: string): number => {
+    const cleaned = price.replace(/[€\s]/g, '').replace(',', '.')
+    return parseFloat(cleaned) || 0
   }
-]
 
-const HISTORY_TREATMENTS: Treatment[] = [
-  {
-    id: 'LDE',
-    description: 'Operación mandíbula',
-    date: '22/12/25',
-    amount: '2.300 €',
-    discount: 5,
-    status: 'Pagado',
-    professional: 'Dr. Guillermo',
-    selected: false,
-    _internalId: 'history-0'
-  },
-  {
-    id: 'LDE',
-    description: 'Consulta inicial',
-    date: '18/12/25',
-    amount: '150 €',
-    discount: 0,
-    status: 'Pagado',
-    professional: 'Dr. Guillermo',
-    selected: false,
-    _internalId: 'history-1'
-  },
-  {
-    id: 'LDE',
-    description: 'Radiografía',
-    date: '01/12/25',
-    amount: '100 €',
-    discount: 15,
-    status: 'Sin pagar',
-    professional: 'Dra. Andrea',
-    selected: false,
-    _internalId: 'history-2'
-  },
-  {
-    id: 'LDE',
-    description: 'Extracción de muela',
-    date: '01/12/25',
-    amount: '500 €',
-    discount: 0,
-    status: 'Pagado',
-    professional: 'Dr. Guillermo',
-    selected: false,
-    _internalId: 'history-3'
-  },
-  {
-    id: 'LDE',
-    description: 'Implante dental',
-    date: '01/12/25',
-    amount: '1.200 €',
-    discount: 10,
-    status: 'Pagado',
-    professional: 'Dr. Guillermo',
-    selected: false,
-    _internalId: 'history-4'
-  },
-  {
-    id: 'LDE',
-    description: 'Férula de descarga',
-    date: '01/12/25',
-    amount: '300 €',
-    discount: 0,
-    status: 'Sin pagar',
-    professional: 'Dr. Guillermo',
-    selected: false,
-    _internalId: 'history-5'
+  // Formatear precio con €
+  const formatPrice = (num: number): string => {
+    return `${num.toFixed(2).replace('.', ',')} €`
   }
-]
 
-// StatusBadge, RowActionsMenu and calculateFinalAmount imported from shared components
+  // Handler para cambio de precio - recalcula importe
+  const handlePrecioChange = (value: string) => {
+    onUpdateField('precio', value)
+    // Recalcular descuento e importe
+    const precioNum = parsePrice(value)
+    const porcentaje = treatment.porcentajeDescuento || 0
+    const descuentoNum = precioNum * (porcentaje / 100)
+    const importeNum = precioNum - descuentoNum
+    onUpdateField('descuento', formatPrice(descuentoNum))
+    onUpdateField('importe', formatPrice(importeNum))
+  }
 
+  // Handler para cambio de porcentaje - recalcula descuento e importe
+  const handlePorcentajeChange = (value: string) => {
+    const porcentaje = parseFloat(value) || 0
+    onUpdateField('porcentajeDescuento', porcentaje)
+    // Recalcular descuento e importe
+    const precioNum = parsePrice(treatment.precio)
+    const descuentoNum = precioNum * (porcentaje / 100)
+    const importeNum = precioNum - descuentoNum
+    onUpdateField('descuento', formatPrice(descuentoNum))
+    onUpdateField('importe', formatPrice(importeNum))
+  }
+
+  // Handler para cambio de código - busca en catálogo y autocompleta
+  const handleCodigoChange = (value: string) => {
+    // Buscar en el catálogo (case insensitive)
+    const upperCode = value.toUpperCase().trim()
+    const catalogEntry = TREATMENT_CATALOG[upperCode]
+
+    if (catalogEntry && onUpdateMultipleFields) {
+      // Encontrado: autocompletar todos los campos de una sola vez
+      onUpdateMultipleFields({
+        codigo: value,
+        tratamiento: catalogEntry.description,
+        precio: catalogEntry.amount,
+        importe: catalogEntry.amount,
+        descuento: '0 €',
+        porcentajeDescuento: 0
+      })
+    } else {
+      // No encontrado: solo actualizar el código
+      onUpdateField('codigo', value)
+    }
+  }
+
+  return (
+    <tr ref={rowRef} className={`${rowBg} transition-colors`}>
+      {/* Checkbox - Sticky left */}
+      <TableBodyCell
+        width='2.5rem'
+        sticky
+        stickyPosition='left'
+        rowSelected={treatment.selected}
+      >
+        <button
+          type='button'
+          onClick={onToggleSelection}
+          className='cursor-pointer'
+        >
+          {treatment.selected ? (
+            <CheckBoxRounded className='w-[1rem] h-[1rem] text-[var(--color-brand-500)]' />
+          ) : (
+            <CheckBoxOutlineBlankRounded className='w-[1rem] h-[1rem] text-[var(--color-neutral-400)]' />
+          )}
+        </button>
+      </TableBodyCell>
+      {/* Pieza - Editable */}
+      <TableBodyCell width='4.625rem'>
+        <EditableCell
+          value={treatment.pieza?.toString() || ''}
+          onChange={(v) => onUpdateField('pieza', v ? parseInt(v) : undefined)}
+          type='number'
+          placeholder='-'
+        />
+      </TableBodyCell>
+      {/* Cara - Select */}
+      <TableBodyCell width='6.625rem'>
+        <select
+          value={treatment.cara || ''}
+          onChange={(e) => onUpdateField('cara', e.target.value || undefined)}
+          className='w-full bg-transparent border-none outline-none text-[0.875rem] leading-[1.25rem] text-[#24282C] 
+            focus:bg-[var(--color-neutral-50)] rounded px-1 py-0.5 cursor-pointer'
+        >
+          <option value=''>-</option>
+          <option value='Vestibular'>Vestibular</option>
+          <option value='Oclusal'>Oclusal</option>
+          <option value='Mesial'>Mesial</option>
+          <option value='Distal'>Distal</option>
+          <option value='Lingual'>Lingual</option>
+          <option value='Palatino'>Palatino</option>
+          <option value='Incisal'>Incisal</option>
+        </select>
+      </TableBodyCell>
+      {/* Código - Editable con autocompletado del catálogo */}
+      <TableBodyCell width='5.875rem'>
+        <EditableCell
+          value={treatment.codigo}
+          onChange={handleCodigoChange}
+          placeholder='Código'
+          inputRef={isNewRow ? firstInputRef : undefined}
+        />
+      </TableBodyCell>
+      {/* Tratamiento - Editable */}
+      <TableBodyCell width='19.5rem'>
+        <EditableCell
+          value={treatment.tratamiento}
+          onChange={(v) => onUpdateField('tratamiento', v)}
+          placeholder='Tratamiento'
+          className='truncate'
+        />
+      </TableBodyCell>
+      {/* Precio - Editable, recalcula */}
+      <TableBodyCell width='7.25rem'>
+        <EditableCell
+          value={treatment.precio}
+          onChange={handlePrecioChange}
+          placeholder='0,00 €'
+        />
+      </TableBodyCell>
+      {/* % - Editable, recalcula */}
+      <TableBodyCell width='5.5rem'>
+        <EditableCell
+          value={treatment.porcentajeDescuento?.toString() || ''}
+          onChange={handlePorcentajeChange}
+          type='number'
+          placeholder='0'
+        />
+      </TableBodyCell>
+      {/* Dto - Autocalculado (read-only) */}
+      <TableBodyCell width='5.5rem'>
+        <span className='text-[0.875rem] leading-[1.25rem] text-[#24282C] px-1'>
+          {treatment.descuento || '-'}
+        </span>
+      </TableBodyCell>
+      {/* Importe - Autocalculado (read-only) */}
+      <TableBodyCell width='6.25rem'>
+        <span className='text-[0.875rem] leading-[1.25rem] text-[#24282C] px-1'>
+          {treatment.importe}
+        </span>
+      </TableBodyCell>
+      {/* Imp. seguro - Editable */}
+      <TableBodyCell width='6.875rem'>
+        <EditableCell
+          value={treatment.importeSeguro || ''}
+          onChange={(v) => onUpdateField('importeSeguro', v)}
+          placeholder='-'
+        />
+      </TableBodyCell>
+      {/* Descripción/Anotaciones - con ExpandedTextInput */}
+      <TableBodyCell className='max-w-[21.375rem]'>
+        <ExpandedTextInput
+          value={treatment.descripcionAnotaciones || ''}
+          onChange={(v) => onUpdateField('descripcionAnotaciones', v)}
+          placeholder='Añadir anotaciones...'
+        />
+      </TableBodyCell>
+      {/* Doctor - Select */}
+      <TableBodyCell width='14.1875rem'>
+        <select
+          value={treatment.doctor}
+          onChange={(e) => onUpdateField('doctor', e.target.value)}
+          className='w-full bg-transparent border-none outline-none text-[0.875rem] leading-[1.25rem] text-[#24282C] 
+            focus:bg-[var(--color-neutral-50)] rounded px-1 py-0.5 cursor-pointer'
+        >
+          {PROFESSIONALS.map((prof) => (
+            <option key={prof.value} value={prof.value}>
+              {prof.label}
+            </option>
+          ))}
+        </select>
+      </TableBodyCell>
+      {/* Acciones - Sticky right */}
+      <TableBodyCell
+        width='2.25rem'
+        sticky
+        stickyPosition='right'
+        rowSelected={treatment.selected}
+      >
+        <button
+          type='button'
+          onClick={onOpenMenu}
+          className='p-[0.25rem] hover:bg-[var(--color-neutral-100)] rounded-lg transition-colors cursor-pointer'
+          aria-label='Acciones rápidas'
+        >
+          <MoreVertRounded className='w-[1.25rem] h-[1.25rem] text-[var(--color-neutral-600)]' />
+        </button>
+      </TableBodyCell>
+    </tr>
+  )
+}
+
+// ============================================
+// Main Component
+// ============================================
 type TreatmentsProps = {
-  onCreateBudget?: (selectedTreatments: Treatment[]) => void
-  onCreateAppointment?: (treatment: Treatment) => void
+  onCreateBudget?: (selectedTreatments: TreatmentV2[]) => void
+  onCreateAppointment?: (treatment: TreatmentV2) => void
   onCancel?: () => void
   onClose?: () => void
   patientId?: string
@@ -181,7 +503,6 @@ type TreatmentsProps = {
 
 export default function Treatments({
   onCreateBudget,
-  onCreateAppointment,
   onCancel,
   onClose,
   patientId,
@@ -189,151 +510,267 @@ export default function Treatments({
 }: TreatmentsProps) {
   const router = useRouter()
 
-  const [pendingTreatments, setPendingTreatments] =
-    React.useState<Treatment[]>(PENDING_TREATMENTS)
-  const [historyTreatments, setHistoryTreatments] =
-    React.useState<Treatment[]>(HISTORY_TREATMENTS)
+  // State
+  const [odontogramaState, setOdontogramaState] =
+    React.useState<OdontogramaState>(MOCK_ODONTOGRAMA_STATE)
+  const [pendingTreatments, setPendingTreatments] = React.useState<
+    TreatmentV2[]
+  >(PENDING_TREATMENTS_V2)
+  const [historyTreatments, setHistoryTreatments] = React.useState<
+    TreatmentV2[]
+  >(HISTORY_TREATMENTS_V2)
   const [searchPending, setSearchPending] = React.useState('')
   const [searchHistory, setSearchHistory] = React.useState('')
   const [dateFilter, setDateFilter] = React.useState('Últimos 6 meses')
 
-  // Estado para el menú de acciones rápidas
+  // Estado para el tratamiento seleccionado del catálogo (esperando asignar pieza dental)
+  const [selectedCatalogTreatment, setSelectedCatalogTreatment] =
+    React.useState<{
+      codigo: string
+      entry: TreatmentCatalogEntry
+    } | null>(null)
+
+  // Estado para las piezas seleccionadas temporalmente (antes de confirmar - para añadir tratamientos)
+  const [selectedTeeth, setSelectedTeeth] = React.useState<number[]>([])
+
+  // Estado para mostrar el modal de confirmación
+  const [showConfirmModal, setShowConfirmModal] = React.useState(false)
+
+  // Estado para filtrar tratamientos por piezas (cuando NO hay tratamiento del catálogo seleccionado)
+  const [filterByTeeth, setFilterByTeeth] = React.useState<number[]>([])
+
+  // Menú de acciones
   const [activeMenu, setActiveMenu] = React.useState<{
-    treatment: Treatment
+    treatment: TreatmentV2
     section: 'pending' | 'history'
-    index: number
     triggerRect?: DOMRect
   } | null>(null)
 
-  // Handler para abrir el menú de acciones
+  // Estado para trackear la nueva fila añadida manualmente
+  const [newRowId, setNewRowId] = React.useState<string | null>(null)
+
+  // Estado para mostrar el modal de crear presupuesto
+  const [showBudgetModal, setShowBudgetModal] = React.useState(false)
+
+  // Handlers
+  const handleToothClick = (toothId: number) => {
+    // Si hay un tratamiento seleccionado del catálogo, añadir/quitar pieza de la selección temporal (para añadir tratamientos)
+    if (selectedCatalogTreatment) {
+      setSelectedTeeth((prev) => {
+        if (prev.includes(toothId)) {
+          return prev.filter((id) => id !== toothId)
+        }
+        return [...prev, toothId]
+      })
+      return
+    }
+
+    // Si NO hay tratamiento del catálogo, usar el clic para filtrar tratamientos por pieza
+    setFilterByTeeth((prev) => {
+      if (prev.includes(toothId)) {
+        // Si ya está en el filtro, quitarla
+        return prev.filter((id) => id !== toothId)
+      }
+      // Si no está, añadirla al filtro
+      return [...prev, toothId]
+    })
+  }
+
+  // Confirmar y añadir los tratamientos
+  const handleConfirmTreatments = () => {
+    if (!selectedCatalogTreatment || selectedTeeth.length === 0) return
+
+    const { codigo, entry } = selectedCatalogTreatment
+
+    // Crear un tratamiento por cada pieza seleccionada
+    const newTreatments: TreatmentV2[] = selectedTeeth.map((toothId) => ({
+      _internalId: `new-${Date.now()}-${Math.random()}-${toothId}`,
+      pieza: toothId,
+      codigo,
+      tratamiento: entry.description,
+      precio: entry.amount,
+      importe: entry.amount,
+      doctor: PROFESSIONALS[0].value,
+      selected: false
+    }))
+
+    // Añadir a tratamientos pendientes
+    setPendingTreatments((prev) => [...prev, ...newTreatments])
+
+    // Actualizar el odontograma
+    setOdontogramaState((prev) => {
+      const newState = { ...prev }
+      selectedTeeth.forEach((toothId) => {
+        newState[toothId] = 'pendiente'
+      })
+      return newState
+    })
+
+    // Limpiar estados
+    setSelectedTeeth([])
+    setSelectedCatalogTreatment(null)
+    setShowConfirmModal(false)
+  }
+
+  // Cancelar la selección
+  const handleCancelSelection = () => {
+    setSelectedTeeth([])
+    setSelectedCatalogTreatment(null)
+    setShowConfirmModal(false)
+  }
+
+  const handleSelectTreatmentFromCatalog = (
+    codigo: string,
+    entry: TreatmentCatalogEntry
+  ) => {
+    // Si se hace clic en el mismo tratamiento ya seleccionado, deseleccionarlo
+    if (selectedCatalogTreatment?.codigo === codigo) {
+      setSelectedCatalogTreatment(null)
+      setSelectedTeeth([])
+      return
+    }
+    // Seleccionar el tratamiento (queda esperando que el usuario seleccione piezas)
+    setSelectedCatalogTreatment({ codigo, entry })
+    setSelectedTeeth([]) // Limpiar piezas anteriores al cambiar de tratamiento
+  }
+
+  const toggleSelection = (
+    internalId: string,
+    section: 'pending' | 'history'
+  ) => {
+    if (section === 'pending') {
+      setPendingTreatments((prev) =>
+        prev.map((t) =>
+          t._internalId === internalId ? { ...t, selected: !t.selected } : t
+        )
+      )
+    } else {
+      setHistoryTreatments((prev) =>
+        prev.map((t) =>
+          t._internalId === internalId ? { ...t, selected: !t.selected } : t
+        )
+      )
+    }
+  }
+
+  const updateField = (
+    internalId: string,
+    field: keyof TreatmentV2,
+    value: string | number | undefined,
+    section: 'pending' | 'history'
+  ) => {
+    if (section === 'pending') {
+      setPendingTreatments((prev) =>
+        prev.map((t) =>
+          t._internalId === internalId ? { ...t, [field]: value } : t
+        )
+      )
+    } else {
+      setHistoryTreatments((prev) =>
+        prev.map((t) =>
+          t._internalId === internalId ? { ...t, [field]: value } : t
+        )
+      )
+    }
+  }
+
+  // Actualizar múltiples campos a la vez (para autocompletado del catálogo)
+  const updateMultipleFields = (
+    internalId: string,
+    updates: Partial<TreatmentV2>,
+    section: 'pending' | 'history'
+  ) => {
+    if (section === 'pending') {
+      setPendingTreatments((prev) =>
+        prev.map((t) =>
+          t._internalId === internalId ? { ...t, ...updates } : t
+        )
+      )
+    } else {
+      setHistoryTreatments((prev) =>
+        prev.map((t) =>
+          t._internalId === internalId ? { ...t, ...updates } : t
+        )
+      )
+    }
+  }
+
+  // Handler para añadir fila vacía
+  const handleAddEmptyRow = () => {
+    const newId = `TR-EMPTY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const newTreatment: TreatmentV2 = {
+      _internalId: newId,
+      codigo: '',
+      tratamiento: '',
+      precio: '0 €',
+      importe: '0 €',
+      descuento: '0 €',
+      porcentajeDescuento: 0,
+      doctor: PROFESSIONALS[0].value,
+      selected: false
+    }
+    setPendingTreatments((prev) => [...prev, newTreatment])
+    setNewRowId(newId)
+  }
+
   const handleOpenMenu = (
-    treatment: Treatment,
+    treatment: TreatmentV2,
     section: 'pending' | 'history',
-    index: number,
     event: React.MouseEvent<HTMLButtonElement>
   ) => {
     const rect = event.currentTarget.getBoundingClientRect()
-    setActiveMenu({ treatment, section, index, triggerRect: rect })
+    setActiveMenu({ treatment, section, triggerRect: rect })
   }
 
-  // Handler para crear presupuesto desde el menú
   const handleMenuCreateBudget = () => {
     if (activeMenu) {
+      // Convert TreatmentV2 to legacy Treatment format for compatibility
+      const legacyTreatment = {
+        id: activeMenu.treatment.codigo,
+        description: activeMenu.treatment.tratamiento,
+        date: 'Sin fecha' as const,
+        amount: activeMenu.treatment.precio,
+        status: 'Aceptado' as const,
+        professional: activeMenu.treatment.doctor,
+        selected: false
+      }
       onCreateBudget?.([activeMenu.treatment])
     }
   }
 
-  // Handler para crear cita desde el menú (con campos pre-rellenados)
   const handleMenuCreateAppointment = () => {
     if (activeMenu) {
       const treatment = activeMenu.treatment
-      // Guardar datos del tratamiento y paciente para pre-rellenar la cita
       setPendingAppointmentData({
         paciente: patientName,
         pacienteId: patientId,
-        observaciones: `Tratamiento: ${treatment.id} - ${treatment.description}\nProfesional sugerido: ${treatment.professional}`,
+        observaciones: `Tratamiento: ${treatment.codigo} - ${treatment.tratamiento}\nProfesional sugerido: ${treatment.doctor}`,
         linkedTreatments: [
           {
-            id: treatment.id,
-            description: treatment.description,
-            amount: treatment.amount
+            id: treatment.codigo,
+            description: treatment.tratamiento,
+            amount: treatment.precio
           }
         ]
       })
-      // Navegar a la agenda
       router.push('/agenda')
     }
   }
 
-  // Handler para cambiar estado (aceptado/no aceptado)
-  const handleToggleStatus = () => {
-    if (!activeMenu) return
-    const { treatment, section } = activeMenu
-
-    if (section === 'pending') {
-      setPendingTreatments((prev) =>
-        prev.map((t) => {
-          if (t === treatment) {
-            const newStatus: TreatmentStatus =
-              t.status === 'Aceptado' ? 'No aceptado' : 'Aceptado'
-            return { ...t, status: newStatus }
-          }
-          return t
-        })
-      )
-    } else {
-      setHistoryTreatments((prev) =>
-        prev.map((t) => {
-          if (t === treatment) {
-            const newStatus: TreatmentStatus =
-              t.status === 'Aceptado' ? 'No aceptado' : 'Aceptado'
-            return { ...t, status: newStatus }
-          }
-          return t
-        })
-      )
-    }
-  }
-
-  // Handler para eliminar tratamiento
   const handleDeleteTreatment = () => {
     if (!activeMenu) return
     const { treatment, section } = activeMenu
 
     if (section === 'pending') {
-      setPendingTreatments((prev) => prev.filter((t) => t !== treatment))
-    } else {
-      setHistoryTreatments((prev) => prev.filter((t) => t !== treatment))
-    }
-  }
-
-  const toggleSelection = (
-    treatment: Treatment,
-    section: 'pending' | 'history'
-  ) => {
-    if (section === 'pending') {
       setPendingTreatments((prev) =>
-        prev.map((t) => (t === treatment ? { ...t, selected: !t.selected } : t))
+        prev.filter((t) => t._internalId !== treatment._internalId)
       )
     } else {
       setHistoryTreatments((prev) =>
-        prev.map((t) => (t === treatment ? { ...t, selected: !t.selected } : t))
+        prev.filter((t) => t._internalId !== treatment._internalId)
       )
     }
-  }
-
-  const updateTreatmentField = (
-    treatment: Treatment,
-    field: keyof Treatment,
-    value: string | number | undefined,
-    section: 'pending' | 'history'
-  ) => {
-    const updateTreatment = (t: Treatment) => {
-      if (t === treatment) {
-        const updated = { ...t, [field]: value }
-
-        // Si se cambió el ID y coincide con un tratamiento del catálogo, autocompletar
-        if (field === 'id' && typeof value === 'string') {
-          const catalogEntry = TREATMENT_CATALOG[value.toUpperCase()]
-          if (catalogEntry) {
-            return {
-              ...updated,
-              description: catalogEntry.description,
-              amount: catalogEntry.amount
-            }
-          }
-        }
-
-        return updated
-      }
-      return t
-    }
-
-    if (section === 'pending') {
-      setPendingTreatments((prev) => prev.map(updateTreatment))
-    } else {
-      setHistoryTreatments((prev) => prev.map(updateTreatment))
-    }
+    setActiveMenu(null)
   }
 
   const selectedCount = React.useMemo(() => {
@@ -343,298 +780,260 @@ export default function Treatments({
     )
   }, [pendingTreatments, historyTreatments])
 
-  // Use shared hook for filtering
-  const filteredPending = useTreatmentFilter(pendingTreatments, searchPending)
-  const filteredHistory = useTreatmentFilter(historyTreatments, searchHistory)
+  // Filtrado
+  const filteredPending = React.useMemo(() => {
+    let result = pendingTreatments
 
-  // Obtener el índice original en el array sin filtrar para usar como key estable
-  const getStableKey = (
-    treatment: Treatment,
-    index: number,
-    section: 'pending' | 'history'
-  ) => {
-    // Si el tratamiento tiene un ID interno, usarlo (más estable)
-    if (treatment._internalId) {
-      return `${section}-${treatment._internalId}`
+    // Filtro por piezas seleccionadas en el odontograma
+    if (filterByTeeth.length > 0) {
+      result = result.filter((t) => t.pieza && filterByTeeth.includes(t.pieza))
     }
-    // Si no, usar el índice del array original
-    const sourceArray =
-      section === 'pending' ? pendingTreatments : historyTreatments
-    const originalIndex = sourceArray.findIndex((t) => t === treatment)
-    return originalIndex >= 0
-      ? `${section}-${originalIndex}`
-      : `${section}-new-${index}`
-  }
 
-  const handleCreateBudget = () => {
-    const selected = [
-      ...pendingTreatments.filter((t) => t.selected),
-      ...historyTreatments.filter((t) => t.selected)
-    ]
-    onCreateBudget?.(selected)
-  }
-
-  const handleAddTreatment = () => {
-    const newTreatment: Treatment = {
-      id: '', // Campo vacío para que el usuario escriba el acrónimo
-      description: '',
-      date: '',
-      amount: '',
-      discount: undefined,
-      status: 'Aceptado',
-      professional: '',
-      selected: false,
-      _internalId: `new-${Date.now()}-${Math.random()}` // ID interno único que no cambia
+    // Filtro por búsqueda de texto
+    if (searchPending) {
+      const term = searchPending.toLowerCase()
+      result = result.filter(
+        (t) =>
+          t.codigo.toLowerCase().includes(term) ||
+          t.tratamiento.toLowerCase().includes(term) ||
+          t.doctor.toLowerCase().includes(term)
+      )
     }
-    setPendingTreatments((prev) => [...prev, newTreatment])
+
+    return result
+  }, [pendingTreatments, searchPending, filterByTeeth])
+
+  const filteredHistory = React.useMemo(() => {
+    let result = historyTreatments
+
+    // Filtro por piezas seleccionadas en el odontograma
+    if (filterByTeeth.length > 0) {
+      result = result.filter((t) => t.pieza && filterByTeeth.includes(t.pieza))
+    }
+
+    // Filtro por búsqueda de texto
+    if (searchHistory) {
+      const term = searchHistory.toLowerCase()
+      result = result.filter(
+        (t) =>
+          t.codigo.toLowerCase().includes(term) ||
+          t.tratamiento.toLowerCase().includes(term) ||
+          t.doctor.toLowerCase().includes(term)
+      )
+    }
+
+    return result
+  }, [historyTreatments, searchHistory, filterByTeeth])
+
+  // Abrir el modal de crear presupuesto con los tratamientos pendientes
+  const handleOpenBudgetModal = () => {
+    setShowBudgetModal(true)
   }
 
   return (
-    <div className='w-full h-full flex flex-col bg-[var(--color-neutral-50)] relative'>
+    <div className='w-full h-full flex flex-col bg-[#F8FAFB] relative'>
+      {/* Sección superior fija: Odontograma + Catálogo */}
+      <section className='p-[min(1rem,2vw)] bg-[#F8FAFB] z-10 shrink-0'>
+        {/* Banner de tratamiento seleccionado */}
+        {selectedCatalogTreatment && (
+          <div className='mb-[0.75rem] p-[0.75rem] bg-[#E9FBF9] border border-[var(--color-brand-500)] rounded-[0.5rem] flex flex-wrap items-center justify-between gap-[0.5rem]'>
+            <div className='flex flex-wrap items-center gap-[0.75rem]'>
+              <span className='w-[0.5rem] h-[0.5rem] rounded-full bg-[var(--color-brand-500)] animate-pulse shrink-0' />
+              <span className='text-[0.9375rem] leading-[1.375rem] text-[var(--color-brand-700)]'>
+                <strong>{selectedCatalogTreatment.codigo}</strong> -{' '}
+                {selectedCatalogTreatment.entry.description}
+              </span>
+              {selectedTeeth.length === 0 ? (
+                <span className='text-[0.875rem] leading-[1.25rem] text-[#535C66]'>
+                  → Selecciona las piezas en el odontograma
+                </span>
+              ) : (
+                <span className='text-[0.875rem] leading-[1.25rem] text-[var(--color-brand-600)]'>
+                  Piezas:{' '}
+                  <strong>
+                    {selectedTeeth.sort((a, b) => a - b).join(', ')}
+                  </strong>
+                </span>
+              )}
+            </div>
+            <div className='flex items-center gap-[0.5rem]'>
+              {selectedTeeth.length > 0 && (
+                <button
+                  type='button'
+                  onClick={() => setShowConfirmModal(true)}
+                  className='px-[1rem] py-[0.375rem] text-[0.875rem] font-medium text-white bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] rounded-full transition-colors cursor-pointer'
+                >
+                  Confirmar ({selectedTeeth.length})
+                </button>
+              )}
+              <button
+                type='button'
+                onClick={handleCancelSelection}
+                className='px-[0.75rem] py-[0.375rem] text-[0.875rem] text-[#535C66] hover:text-[#24282C] hover:bg-[rgba(0,0,0,0.05)] rounded-full transition-colors cursor-pointer'
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className='bg-white border border-[#E2E7EA] rounded-[0.5rem] p-[min(2rem,3vw)] flex gap-[min(2.25rem,3vw)] flex-wrap lg:flex-nowrap'>
+          {/* Odontograma */}
+          <div className='shrink-0'>
+            <OdontogramaCompacto
+              state={odontogramaState}
+              onToothClick={handleToothClick}
+              isSelectionMode={!!selectedCatalogTreatment}
+              selectedTeeth={
+                selectedCatalogTreatment ? selectedTeeth : filterByTeeth
+              }
+            />
+          </div>
+
+          {/* Separador vertical */}
+          <div className='w-0 border-l border-[#CBD3D9] self-stretch' />
+
+          {/* Catálogo de tratamientos */}
+          <div className='flex-1 min-w-0'>
+            <CatalogoTratamientos
+              onSelectTreatment={handleSelectTreatmentFromCatalog}
+              selectedTreatmentCode={selectedCatalogTreatment?.codigo}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Banner de filtro por piezas activo */}
+      {filterByTeeth.length > 0 && !selectedCatalogTreatment && (
+        <div className='mx-[min(2rem,4vw)] mb-[0.75rem] p-[0.75rem] bg-[#FFF8E6] border border-[#D97706] rounded-[0.5rem] flex items-center justify-between'>
+          <div className='flex items-center gap-[0.75rem]'>
+            <span className='text-[0.9375rem] leading-[1.375rem] text-[#92400E]'>
+              Filtrando por pieza{filterByTeeth.length > 1 ? 's' : ''}:{' '}
+              <strong>{filterByTeeth.sort((a, b) => a - b).join(', ')}</strong>
+            </span>
+            <span className='text-[0.875rem] leading-[1.25rem] text-[#B45309]'>
+              ({filteredPending.length + filteredHistory.length} tratamiento
+              {filteredPending.length + filteredHistory.length !== 1 ? 's' : ''}
+              )
+            </span>
+          </div>
+          <button
+            type='button'
+            onClick={() => setFilterByTeeth([])}
+            className='px-[0.75rem] py-[0.25rem] text-[0.875rem] text-[#92400E] hover:text-[#78350F] hover:bg-[rgba(0,0,0,0.05)] rounded-full transition-colors cursor-pointer'
+          >
+            Limpiar filtro
+          </button>
+        </div>
+      )}
+
+      {/* Contenido scrolleable: Tablas */}
       <div className='flex-1 overflow-auto'>
         {/* Sección: Tratamientos pendientes */}
-        <section className='p-8'>
-          <div className='flex items-center justify-between mb-6'>
-            <h2 className='text-title-md font-medium text-[var(--color-neutral-900)]'>
+        <section className='px-[min(2rem,4vw)] pb-[min(1.5rem,3vw)]'>
+          <div className='flex items-center justify-between mb-[1rem]'>
+            <h2 className='text-[1.75rem] leading-[2.25rem] text-[#24282C]'>
               Tratamientos pendientes
             </h2>
-            <div className='flex items-center gap-4'>
-              {/* Search bar */}
-              <div className='relative'>
-                <SearchRounded
-                  className='absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-neutral-500)]'
-                  style={{ pointerEvents: 'none' }}
-                />
-                <input
-                  type='text'
-                  placeholder='Buscar...'
-                  value={searchPending}
-                  onChange={(e) => setSearchPending(e.target.value)}
-                  className='w-[20rem] pl-10 pr-4 py-2 border border-[var(--color-neutral-300)] rounded-lg text-body-sm bg-[var(--color-neutral-0)] text-[var(--color-neutral-900)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-500)] focus:border-transparent'
-                />
-              </div>
-              {/* Filtro "Todos" */}
+            <div className='flex items-center gap-[0.5rem]'>
+              {/* Search */}
               <button
                 type='button'
-                className='flex items-center gap-2 px-4 py-2 border border-[var(--color-neutral-300)] rounded-lg bg-[var(--color-neutral-0)] hover:bg-[var(--color-neutral-50)] transition-colors'
+                className='p-[0.25rem] hover:bg-[var(--color-neutral-100)] rounded transition-colors cursor-pointer'
+                onClick={() => {
+                  const term = prompt('Buscar:', searchPending)
+                  if (term !== null) setSearchPending(term)
+                }}
               >
-                <FilterListRounded className='w-5 h-5 text-[var(--color-neutral-700)]' />
-                <span className='text-body-sm text-[var(--color-neutral-900)]'>
-                  Todos
+                <SearchRounded className='w-[1.5rem] h-[1.5rem] text-[#535C66]' />
+              </button>
+              {/* Filtro Presupuestos */}
+              <button
+                type='button'
+                className='flex items-center gap-[0.5rem] px-[1rem] py-[0.375rem] border border-[#CBD3D9] rounded-[8.5rem] bg-white hover:bg-[var(--color-neutral-50)] transition-colors cursor-pointer'
+              >
+                <FilterListRounded className='w-[1.25rem] h-[1.25rem] text-[#535C66]' />
+                <span className='text-[0.875rem] leading-[1.25rem] text-[#535C66]'>
+                  Presupuestos
                 </span>
               </button>
-              {/* Botón Añadir tratamiento */}
+              {/* Añadir tratamiento */}
               <button
                 type='button'
-                className='flex items-center gap-2 rounded-[8.5rem] px-4 py-2 bg-neutral-50 border border-neutral-300 text-body-md text-neutral-900 hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-neutral-50 active:border-[#1E4947] transition-colors cursor-pointer'
-                onClick={handleAddTreatment}
+                onClick={handleAddEmptyRow}
+                className='flex items-center gap-[0.5rem] px-[1rem] py-[0.375rem] border border-[var(--color-brand-400)] bg-[#E9FBF9] rounded-[8.5rem] hover:bg-[var(--color-brand-100)] transition-colors cursor-pointer'
               >
-                <AddRounded className='size-6' />
-                <span className='font-medium'>Añadir tratamiento</span>
+                <AddRounded className='w-[1.25rem] h-[1.25rem] text-[var(--color-brand-700)]' />
+                <span className='text-[0.875rem] leading-[1.25rem] font-medium text-[var(--color-brand-700)]'>
+                  Añadir tratamiento
+                </span>
               </button>
             </div>
           </div>
 
-          {/* Tabla */}
-          <div className='bg-[var(--color-neutral-0)] rounded-lg overflow-hidden'>
-            <div className='overflow-x-auto overflow-y-auto'>
-              <table className='w-full table-fixed border-collapse text-left'>
-                <thead className='sticky top-0 z-10 bg-[var(--color-neutral-50)]'>
-                  <tr>
-                    <TableHeaderCell className='w-10 sticky left-0 z-20 bg-[var(--color-neutral-50)]'>
-                      <span className='sr-only'>Seleccionar</span>
+          {/* Tabla Tratamientos Pendientes */}
+          <div className='bg-white rounded-[0.5rem] overflow-hidden'>
+            <div className='overflow-x-auto'>
+              <table className='w-full border-collapse min-w-[106rem]'>
+                <thead>
+                  <tr className='bg-[#F8FAFB]'>
+                    <TableHeaderCell
+                      width='2.5rem'
+                      sticky
+                      stickyPosition='left'
+                    />
+                    <TableHeaderCell width='4.625rem'>Pieza</TableHeaderCell>
+                    <TableHeaderCell width='6.625rem'>Cara</TableHeaderCell>
+                    <TableHeaderCell width='5.875rem'>Código</TableHeaderCell>
+                    <TableHeaderCell width='19.5rem'>
+                      Tratamiento
                     </TableHeaderCell>
-                    <TableHeaderCell className='w-[106px]'>
-                      <div className='flex items-center gap-1'>
-                        <MD3Icon
-                          name='SellRounded'
-                          size='xs'
-                          className='text-[var(--color-neutral-600)]'
-                        />
-                        <span>ID</span>
-                      </div>
+                    <TableHeaderCell width='7.25rem'>Precio</TableHeaderCell>
+                    <TableHeaderCell width='5.5rem'>%</TableHeaderCell>
+                    <TableHeaderCell width='5.5rem'>Dto</TableHeaderCell>
+                    <TableHeaderCell width='6.25rem'>Importe</TableHeaderCell>
+                    <TableHeaderCell width='6.875rem'>
+                      Imp. seguro
                     </TableHeaderCell>
-                    <TableHeaderCell className='w-[342px]'>
-                      <div className='flex items-center gap-1'>
-                        <MD3Icon
-                          name='DescriptionRounded'
-                          size='xs'
-                          className='text-[var(--color-neutral-600)]'
-                        />
-                        <span>Descripción</span>
-                      </div>
-                    </TableHeaderCell>
-                    <TableHeaderCell className='w-[116px]'>
-                      <div className='flex items-center gap-1'>
-                        <MD3Icon
-                          name='CalendarMonthRounded'
-                          size='xs'
-                          className='text-[var(--color-neutral-600)]'
-                        />
-                        <span>Fecha</span>
-                      </div>
-                    </TableHeaderCell>
-                    <TableHeaderCell className='w-[88px]'>
-                      <div className='flex items-center gap-1'>
-                        <MD3Icon
-                          name='PaymentsRounded'
-                          size='xs'
-                          className='text-[var(--color-neutral-600)]'
-                        />
-                        <span>Monto</span>
-                      </div>
-                    </TableHeaderCell>
-                    <TableHeaderCell className='w-[117px]'>
-                      <div className='flex items-center gap-1'>
-                        <MD3Icon
-                          name='CheckCircleRounded'
-                          size='xs'
-                          className='text-[var(--color-neutral-600)]'
-                        />
-                        <span>Estado</span>
-                      </div>
-                    </TableHeaderCell>
-                    <TableHeaderCell className='w-[211px]'>
-                      <div className='flex items-center gap-1'>
-                        <MD3Icon
-                          name='AccountCircleRounded'
-                          size='xs'
-                          className='text-[var(--color-neutral-600)]'
-                        />
-                        <span>Profesional</span>
-                      </div>
-                    </TableHeaderCell>
-                    <TableHeaderCell className='w-10 sticky right-0 z-20 bg-[var(--color-neutral-50)]'>
-                      <span className='sr-only'>Acciones</span>
-                    </TableHeaderCell>
+                    <TableHeaderCell>Descripción/ Anotaciones</TableHeaderCell>
+                    <TableHeaderCell width='14.1875rem'>Doctor</TableHeaderCell>
+                    <TableHeaderCell
+                      width='2.25rem'
+                      sticky
+                      stickyPosition='right'
+                    />
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPending.map((treatment, index) => {
-                    const stableKey = getStableKey(treatment, index, 'pending')
-                    const rowBg = treatment.selected
-                      ? 'bg-[var(--color-brand-50)]'
-                      : 'bg-[var(--color-neutral-0)]'
-                    return (
-                      <tr
-                        key={stableKey}
-                        className={[
-                          'group transition-colors',
-                          treatment.selected
-                            ? 'bg-[var(--color-brand-50)]'
-                            : 'hover:bg-[var(--color-neutral-50)]'
-                        ].join(' ')}
-                      >
-                        <TableBodyCell className={`w-10 sticky left-0 z-10 ${rowBg} group-hover:bg-[var(--color-neutral-50)]`}>
-                          <button
-                            type='button'
-                            onClick={() =>
-                              toggleSelection(treatment, 'pending')
-                            }
-                            className='cursor-pointer'
-                          >
-                            {treatment.selected ? (
-                              <CheckBoxRounded className='w-6 h-6 text-[var(--color-brand-500)]' />
-                            ) : (
-                              <CheckBoxOutlineBlankRounded className='w-6 h-6 text-[var(--color-neutral-400)]' />
-                            )}
-                          </button>
-                        </TableBodyCell>
-                        <TableBodyCell className='w-[106px]'>
-                          <input
-                            type='text'
-                            value={treatment.id}
-                            onChange={(e) =>
-                              updateTreatmentField(
-                                treatment,
-                                'id',
-                                e.target.value,
-                                'pending'
-                              )
-                            }
-                            className='w-full text-body-md font-semibold text-[var(--color-brand-700)] bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                            placeholder='ID'
-                          />
-                        </TableBodyCell>
-                        <TableBodyCell className='w-[342px]'>
-                          <ExpandedTextInput
-                            value={treatment.description}
-                            onChange={(value) =>
-                              updateTreatmentField(
-                                treatment,
-                                'description',
-                                value,
-                                'pending'
-                              )
-                            }
-                            placeholder='Descripción del tratamiento'
-                          />
-                        </TableBodyCell>
-                        <TableBodyCell className='w-[116px]'>
-                          <input
-                            type='text'
-                            value={treatment.date}
-                            onChange={(e) =>
-                              updateTreatmentField(
-                                treatment,
-                                'date',
-                                e.target.value,
-                                'pending'
-                              )
-                            }
-                            className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                            placeholder='DD/MM/AA'
-                          />
-                        </TableBodyCell>
-                        <TableBodyCell className='w-[88px]'>
-                          <input
-                            type='text'
-                            value={treatment.amount}
-                            onChange={(e) =>
-                              updateTreatmentField(
-                                treatment,
-                                'amount',
-                                e.target.value,
-                                'pending'
-                              )
-                            }
-                            className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                            placeholder='0 €'
-                          />
-                        </TableBodyCell>
-                        <TableBodyCell className='w-[117px]'>
-                          <StatusBadge status={treatment.status} />
-                        </TableBodyCell>
-                        <TableBodyCell className='w-[211px]'>
-                          <SelectInput
-                            placeholder='Seleccionar profesional'
-                            value={treatment.professional || undefined}
-                            onChange={(v) =>
-                              updateTreatmentField(
-                                treatment,
-                                'professional',
-                                v || '',
-                                'pending'
-                              )
-                            }
-                            options={PROFESSIONALS}
-                          />
-                        </TableBodyCell>
-                        <TableBodyCell className={`w-10 sticky right-0 z-10 ${rowBg} group-hover:bg-[var(--color-neutral-50)]`} align='right'>
-                          <button
-                            type='button'
-                            onClick={(e) =>
-                              handleOpenMenu(treatment, 'pending', index, e)
-                            }
-                            className='p-2 hover:bg-[var(--color-neutral-100)] rounded-lg transition-colors cursor-pointer'
-                            aria-label='Acciones rápidas'
-                          >
-                            <MoreVertRounded className='w-5 h-5 text-[var(--color-neutral-600)]' />
-                          </button>
-                        </TableBodyCell>
-                      </tr>
-                    )
-                  })}
+                  {filteredPending.map((treatment) => (
+                    <TreatmentRow
+                      key={treatment._internalId}
+                      treatment={treatment}
+                      onToggleSelection={() =>
+                        toggleSelection(treatment._internalId, 'pending')
+                      }
+                      onOpenMenu={(e) =>
+                        handleOpenMenu(treatment, 'pending', e)
+                      }
+                      onUpdateField={(field, value) =>
+                        updateField(
+                          treatment._internalId,
+                          field,
+                          value,
+                          'pending'
+                        )
+                      }
+                      onUpdateMultipleFields={(updates) =>
+                        updateMultipleFields(
+                          treatment._internalId,
+                          updates,
+                          'pending'
+                        )
+                      }
+                      isNewRow={treatment._internalId === newRowId}
+                      onNewRowMounted={() => setNewRowId(null)}
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -642,253 +1041,111 @@ export default function Treatments({
         </section>
 
         {/* Sección: Historial */}
-        <section className='p-8 pb-8'>
-          <div className='flex items-center justify-between mb-6'>
-            <h2 className='text-title-md font-medium text-[var(--color-neutral-900)]'>
+        <section className='px-[min(2rem,4vw)] pb-[min(2rem,4vw)]'>
+          <div className='flex items-center justify-between mb-[1rem]'>
+            <h2 className='text-[1.75rem] leading-[2.25rem] text-[#24282C]'>
               Historial
             </h2>
-            <div className='flex items-center gap-4'>
-              {/* Search bar */}
-              <div className='relative'>
-                <SearchRounded
-                  className='absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-neutral-500)]'
-                  style={{ pointerEvents: 'none' }}
-                />
-                <input
-                  type='text'
-                  placeholder='Buscar...'
-                  value={searchHistory}
-                  onChange={(e) => setSearchHistory(e.target.value)}
-                  className='w-[20rem] pl-10 pr-4 py-2 border border-[var(--color-neutral-300)] rounded-lg text-body-sm bg-[var(--color-neutral-0)] text-[var(--color-neutral-900)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-500)] focus:border-transparent'
-                />
-              </div>
-              {/* Filtro "Todos" */}
+            <div className='flex items-center gap-[0.5rem]'>
+              {/* Search */}
               <button
                 type='button'
-                className='flex items-center gap-2 px-4 py-2 border border-[var(--color-neutral-300)] rounded-lg bg-[var(--color-neutral-0)] hover:bg-[var(--color-neutral-50)] transition-colors'
+                className='p-[0.25rem] hover:bg-[var(--color-neutral-100)] rounded transition-colors cursor-pointer'
+                onClick={() => {
+                  const term = prompt('Buscar:', searchHistory)
+                  if (term !== null) setSearchHistory(term)
+                }}
               >
-                <FilterListRounded className='w-5 h-5 text-[var(--color-neutral-700)]' />
-                <span className='text-body-sm text-[var(--color-neutral-900)]'>
+                <SearchRounded className='w-[1.5rem] h-[1.5rem] text-[#535C66]' />
+              </button>
+              {/* Filtro Todos */}
+              <button
+                type='button'
+                className='flex items-center gap-[0.5rem] px-[1rem] py-[0.375rem] border border-[#CBD3D9] rounded-[8.5rem] bg-white hover:bg-[var(--color-neutral-50)] transition-colors cursor-pointer'
+              >
+                <FilterListRounded className='w-[1.25rem] h-[1.25rem] text-[#535C66]' />
+                <span className='text-[0.875rem] leading-[1.25rem] text-[#535C66]'>
                   Todos
                 </span>
               </button>
-              {/* Dropdown "Últimos 6 meses" */}
+              {/* Filtro temporal */}
               <div className='relative'>
                 <select
                   value={dateFilter}
                   onChange={(e) => setDateFilter(e.target.value)}
-                  className='appearance-none pl-4 pr-8 py-2 border border-[var(--color-neutral-300)] rounded-lg bg-[var(--color-neutral-0)] text-body-sm text-[var(--color-neutral-900)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-500)] focus:border-transparent cursor-pointer'
+                  className='appearance-none pl-[1rem] pr-[2rem] py-[0.375rem] border border-[#CBD3D9] rounded-[8.5rem] bg-white text-[0.875rem] leading-[1.25rem] text-[#535C66] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-500)]'
                 >
                   <option>Últimos 6 meses</option>
                   <option>Últimos 3 meses</option>
                   <option>Último año</option>
                   <option>Todos</option>
                 </select>
-                <KeyboardArrowDownRounded className='absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-neutral-500)] pointer-events-none' />
+                <KeyboardArrowDownRounded className='absolute right-[0.5rem] top-1/2 -translate-y-1/2 w-[1.25rem] h-[1.25rem] text-[#535C66] pointer-events-none' />
               </div>
             </div>
           </div>
 
-          {/* Tabla */}
-          <div className='bg-[var(--color-neutral-0)] rounded-lg overflow-hidden'>
-            <div className='overflow-x-auto overflow-y-auto'>
-              <table className='w-full table-fixed border-collapse text-left'>
-                <thead className='sticky top-0 z-10 bg-[var(--color-neutral-50)]'>
-                  <tr>
-                    <TableHeaderCell className='w-10 sticky left-0 z-20 bg-[var(--color-neutral-50)]'>
-                      <span className='sr-only'>Seleccionar</span>
+          {/* Tabla Historial */}
+          <div className='bg-white rounded-[0.5rem] overflow-hidden'>
+            <div className='overflow-x-auto'>
+              <table className='w-full border-collapse min-w-[106rem]'>
+                <thead>
+                  <tr className='bg-[#F8FAFB]'>
+                    <TableHeaderCell
+                      width='2.5rem'
+                      sticky
+                      stickyPosition='left'
+                    />
+                    <TableHeaderCell width='4.625rem'>Pieza</TableHeaderCell>
+                    <TableHeaderCell width='6.625rem'>Cara</TableHeaderCell>
+                    <TableHeaderCell width='5.875rem'>Código</TableHeaderCell>
+                    <TableHeaderCell width='19.5rem'>
+                      Tratamiento
                     </TableHeaderCell>
-                    <TableHeaderCell className='w-[106px]'>
-                      <div className='flex items-center gap-1'>
-                        <MD3Icon
-                          name='SellRounded'
-                          size='xs'
-                          className='text-[var(--color-neutral-600)]'
-                        />
-                        <span>ID</span>
-                      </div>
+                    <TableHeaderCell width='7.25rem'>Precio</TableHeaderCell>
+                    <TableHeaderCell width='5.5rem'>%</TableHeaderCell>
+                    <TableHeaderCell width='5.5rem'>Dto</TableHeaderCell>
+                    <TableHeaderCell width='6.25rem'>Importe</TableHeaderCell>
+                    <TableHeaderCell width='6.875rem'>
+                      Imp. seguro
                     </TableHeaderCell>
-                    <TableHeaderCell className='w-[342px]'>
-                      <div className='flex items-center gap-1'>
-                        <MD3Icon
-                          name='DescriptionRounded'
-                          size='xs'
-                          className='text-[var(--color-neutral-600)]'
-                        />
-                        <span>Descripción</span>
-                      </div>
-                    </TableHeaderCell>
-                    <TableHeaderCell className='w-[116px]'>
-                      <div className='flex items-center gap-1'>
-                        <MD3Icon
-                          name='CalendarMonthRounded'
-                          size='xs'
-                          className='text-[var(--color-neutral-600)]'
-                        />
-                        <span>Fecha</span>
-                      </div>
-                    </TableHeaderCell>
-                    <TableHeaderCell className='w-[105px]'>
-                      <div className='flex items-center gap-1'>
-                        <MD3Icon
-                          name='PaymentsRounded'
-                          size='xs'
-                          className='text-[var(--color-neutral-600)]'
-                        />
-                        <span>Monto</span>
-                      </div>
-                    </TableHeaderCell>
-                    <TableHeaderCell className='w-[110px]'>
-                      <div className='flex items-center gap-1'>
-                        <MD3Icon
-                          name='CheckCircleRounded'
-                          size='xs'
-                          className='text-[var(--color-neutral-600)]'
-                        />
-                        <span>Estado</span>
-                      </div>
-                    </TableHeaderCell>
-                    <TableHeaderCell className='w-[203px]'>
-                      <div className='flex items-center gap-1'>
-                        <MD3Icon
-                          name='AccountCircleRounded'
-                          size='xs'
-                          className='text-[var(--color-neutral-600)]'
-                        />
-                        <span>Profesional</span>
-                      </div>
-                    </TableHeaderCell>
-                    <TableHeaderCell className='w-10 sticky right-0 z-20 bg-[var(--color-neutral-50)]'>
-                      <span className='sr-only'>Acciones</span>
-                    </TableHeaderCell>
+                    <TableHeaderCell>Descripción/ Anotaciones</TableHeaderCell>
+                    <TableHeaderCell width='14.1875rem'>Doctor</TableHeaderCell>
+                    <TableHeaderCell
+                      width='2.25rem'
+                      sticky
+                      stickyPosition='right'
+                    />
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredHistory.map((treatment, index) => {
-                    const stableKey = getStableKey(treatment, index, 'history')
-                    const rowBg = treatment.selected
-                      ? 'bg-[var(--color-brand-50)]'
-                      : 'bg-[var(--color-neutral-0)]'
-                    return (
-                      <tr
-                        key={stableKey}
-                        className={[
-                          'group transition-colors',
-                          treatment.selected
-                            ? 'bg-[var(--color-brand-50)]'
-                            : 'hover:bg-[var(--color-neutral-50)]'
-                        ].join(' ')}
-                      >
-                        <TableBodyCell className={`w-10 sticky left-0 z-10 ${rowBg} group-hover:bg-[var(--color-neutral-50)]`}>
-                          <button
-                            type='button'
-                            onClick={() =>
-                              toggleSelection(treatment, 'history')
-                            }
-                            className='cursor-pointer'
-                          >
-                            {treatment.selected ? (
-                              <CheckBoxRounded className='w-6 h-6 text-[var(--color-brand-500)]' />
-                            ) : (
-                              <CheckBoxOutlineBlankRounded className='w-6 h-6 text-[var(--color-neutral-400)]' />
-                            )}
-                          </button>
-                        </TableBodyCell>
-                        <TableBodyCell className='w-[106px]'>
-                          <input
-                            type='text'
-                            value={treatment.id}
-                            onChange={(e) =>
-                              updateTreatmentField(
-                                treatment,
-                                'id',
-                                e.target.value,
-                                'history'
-                              )
-                            }
-                            className='w-full text-body-md font-semibold text-[var(--color-brand-700)] bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                            placeholder='ID'
-                          />
-                        </TableBodyCell>
-                        <TableBodyCell className='w-[342px]'>
-                          <ExpandedTextInput
-                            value={treatment.description}
-                            onChange={(value) =>
-                              updateTreatmentField(
-                                treatment,
-                                'description',
-                                value,
-                                'history'
-                              )
-                            }
-                            placeholder='Descripción del tratamiento'
-                          />
-                        </TableBodyCell>
-                        <TableBodyCell className='w-[116px]'>
-                          <input
-                            type='text'
-                            value={treatment.date}
-                            onChange={(e) =>
-                              updateTreatmentField(
-                                treatment,
-                                'date',
-                                e.target.value,
-                                'history'
-                              )
-                            }
-                            className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                            placeholder='DD/MM/AA'
-                          />
-                        </TableBodyCell>
-                        <TableBodyCell className='w-[105px]'>
-                          <input
-                            type='text'
-                            value={treatment.amount}
-                            onChange={(e) =>
-                              updateTreatmentField(
-                                treatment,
-                                'amount',
-                                e.target.value,
-                                'history'
-                              )
-                            }
-                            className='w-full text-body-md text-neutral-900 bg-transparent border-none outline-none focus:bg-[var(--color-neutral-50)] px-1 py-0.5 rounded'
-                            placeholder='0 €'
-                          />
-                        </TableBodyCell>
-                        <TableBodyCell className='w-[110px]'>
-                          <StatusBadge status={treatment.status} />
-                        </TableBodyCell>
-                        <TableBodyCell className='w-[203px]'>
-                          <SelectInput
-                            placeholder='Seleccionar profesional'
-                            value={treatment.professional || undefined}
-                            onChange={(v) =>
-                              updateTreatmentField(
-                                treatment,
-                                'professional',
-                                v || '',
-                                'history'
-                              )
-                            }
-                            options={PROFESSIONALS}
-                          />
-                        </TableBodyCell>
-                        <TableBodyCell className={`w-10 sticky right-0 z-10 ${rowBg} group-hover:bg-[var(--color-neutral-50)]`} align='right'>
-                          <button
-                            type='button'
-                            onClick={(e) =>
-                              handleOpenMenu(treatment, 'history', index, e)
-                            }
-                            className='p-2 hover:bg-[var(--color-neutral-100)] rounded-lg transition-colors cursor-pointer'
-                            aria-label='Acciones rápidas'
-                          >
-                            <MoreVertRounded className='w-5 h-5 text-[var(--color-neutral-600)]' />
-                          </button>
-                        </TableBodyCell>
-                      </tr>
-                    )
-                  })}
+                  {filteredHistory.map((treatment) => (
+                    <TreatmentRow
+                      key={treatment._internalId}
+                      treatment={treatment}
+                      onToggleSelection={() =>
+                        toggleSelection(treatment._internalId, 'history')
+                      }
+                      onOpenMenu={(e) =>
+                        handleOpenMenu(treatment, 'history', e)
+                      }
+                      onUpdateField={(field, value) =>
+                        updateField(
+                          treatment._internalId,
+                          field,
+                          value,
+                          'history'
+                        )
+                      }
+                      onUpdateMultipleFields={(updates) =>
+                        updateMultipleFields(
+                          treatment._internalId,
+                          updates,
+                          'history'
+                        )
+                      }
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -899,44 +1156,168 @@ export default function Treatments({
       {/* Menú de acciones rápidas */}
       {activeMenu && (
         <RowActionsMenu
-          treatment={activeMenu.treatment}
+          treatment={{
+            id: activeMenu.treatment.codigo,
+            description: activeMenu.treatment.tratamiento,
+            date: 'Sin fecha',
+            amount: activeMenu.treatment.precio,
+            status: 'Aceptado',
+            professional: activeMenu.treatment.doctor,
+            selected: false
+          }}
           onClose={() => setActiveMenu(null)}
           triggerRect={activeMenu.triggerRect}
           onCreateBudget={handleMenuCreateBudget}
           onCreateAppointment={handleMenuCreateAppointment}
-          onToggleStatus={handleToggleStatus}
+          onToggleStatus={() => {}}
           onDelete={handleDeleteTreatment}
         />
       )}
 
-      {/* Footer sticky */}
-      <footer className='sticky bottom-0 h-20 bg-[var(--color-neutral-0)] border-t border-[var(--color-neutral-300)] flex items-center justify-between px-8 shrink-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
-          Has seleccionado {selectedCount} tratamientos
+      {/* Modal de confirmación de tratamientos */}
+      {showConfirmModal && selectedCatalogTreatment && (
+        <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50'>
+          <div className='bg-white rounded-[1rem] w-[min(28rem,90vw)] max-h-[80vh] overflow-hidden shadow-xl'>
+            {/* Header */}
+            <div className='p-[1.5rem] border-b border-[#E2E7EA]'>
+              <h3 className='text-[1.25rem] leading-[1.75rem] font-medium text-[#24282C]'>
+                Confirmar tratamiento
+              </h3>
+            </div>
+
+            {/* Content */}
+            <div className='p-[1.5rem]'>
+              {/* Tratamiento */}
+              <div className='mb-[1.5rem]'>
+                <p className='text-[0.875rem] text-[#535C66] mb-[0.25rem]'>
+                  Tratamiento
+                </p>
+                <p className='text-[1rem] font-medium text-[#24282C]'>
+                  <span className='text-[var(--color-brand-600)]'>
+                    {selectedCatalogTreatment.codigo}
+                  </span>{' '}
+                  - {selectedCatalogTreatment.entry.description}
+                </p>
+                <p className='text-[0.9375rem] text-[#535C66] mt-[0.25rem]'>
+                  Precio unitario:{' '}
+                  <strong>{selectedCatalogTreatment.entry.amount}</strong>
+                </p>
+              </div>
+
+              {/* Piezas */}
+              <div className='mb-[1.5rem]'>
+                <p className='text-[0.875rem] text-[#535C66] mb-[0.5rem]'>
+                  Piezas seleccionadas ({selectedTeeth.length})
+                </p>
+                <div className='flex flex-wrap gap-[0.5rem]'>
+                  {selectedTeeth
+                    .sort((a, b) => a - b)
+                    .map((tooth) => (
+                      <span
+                        key={tooth}
+                        className='inline-flex items-center justify-center w-[2.5rem] h-[2rem] bg-[#E9FBF9] border border-[var(--color-brand-400)] rounded-[0.5rem] text-[0.875rem] font-medium text-[var(--color-brand-700)]'
+                      >
+                        {tooth}
+                      </span>
+                    ))}
+                </div>
+              </div>
+
+              {/* Resumen */}
+              <div className='p-[1rem] bg-[#F8FAFB] rounded-[0.5rem]'>
+                <div className='flex justify-between items-center'>
+                  <span className='text-[0.9375rem] text-[#535C66]'>
+                    Total ({selectedTeeth.length} tratamiento
+                    {selectedTeeth.length !== 1 ? 's' : ''})
+                  </span>
+                  <span className='text-[1.125rem] font-semibold text-[#24282C]'>
+                    {(() => {
+                      const priceStr = selectedCatalogTreatment.entry.amount
+                      const priceNum =
+                        parseFloat(
+                          priceStr
+                            .replace(/[^\d,.-]/g, '')
+                            .replace('.', '')
+                            .replace(',', '.')
+                        ) || 0
+                      const total = priceNum * selectedTeeth.length
+                      return (
+                        total.toLocaleString('es-ES', {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 2
+                        }) + ' €'
+                      )
+                    })()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className='p-[1.5rem] border-t border-[#E2E7EA] flex justify-end gap-[0.75rem]'>
+              <button
+                type='button'
+                onClick={() => setShowConfirmModal(false)}
+                className='px-[1.25rem] py-[0.625rem] text-[0.9375rem] font-medium text-[#535C66] hover:bg-[#F4F8FA] rounded-full transition-colors cursor-pointer'
+              >
+                Volver
+              </button>
+              <button
+                type='button'
+                onClick={handleConfirmTreatments}
+                className='px-[1.5rem] py-[0.625rem] text-[0.9375rem] font-medium text-white bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] rounded-full transition-colors cursor-pointer'
+              >
+                Añadir tratamientos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Footer con blur - Figma design */}
+      <footer className='sticky bottom-0 backdrop-blur-[8px] bg-[rgba(255,255,255,0.7)] flex items-center justify-between p-[1rem] shrink-0'>
+        <p className='text-[1rem] leading-[1.5rem] text-[#3D434A]'>
+          {selectedCount > 0
+            ? `${selectedCount} tratamiento${selectedCount !== 1 ? 's' : ''} marcado${selectedCount !== 1 ? 's' : ''} para próxima cita`
+            : 'Selecciona tratamientos para la próxima cita'}
         </p>
-        <div className='flex gap-4'>
+        <div className='flex gap-[0.75rem] items-center'>
+          {/* Botón Imprimir */}
           <button
             type='button'
-            onClick={onCancel || onClose}
-            className='px-6 py-3 bg-[var(--color-neutral-100)] text-[var(--color-neutral-900)] rounded-lg text-body-md font-medium hover:bg-[var(--color-neutral-200)] transition-colors'
+            className='px-[1rem] py-[0.5rem] border border-[#CBD3D9] rounded-full text-[1rem] leading-[1.5rem] font-medium text-[#24282C] hover:bg-[rgba(0,0,0,0.05)] transition-colors cursor-pointer'
           >
-            Cancelar
+            Imprimir
           </button>
+          {/* Botón Presupuesto tipo */}
           <button
             type='button'
-            onClick={handleCreateBudget}
-            disabled={selectedCount === 0}
-            className={[
-              'px-6 py-3 rounded-lg text-body-md font-medium transition-colors',
-              selectedCount === 0
-                ? 'bg-[var(--color-neutral-200)] text-[var(--color-neutral-400)] cursor-not-allowed'
-                : 'bg-[var(--color-brand-500)] text-[var(--color-neutral-0)] hover:bg-[var(--color-brand-600)] cursor-pointer'
-            ].join(' ')}
+            className='flex items-center gap-[0.5rem] px-[1rem] py-[0.5rem] rounded-full text-[1rem] leading-[1.5rem] font-medium text-[#24282C] hover:bg-[rgba(0,0,0,0.05)] transition-colors cursor-pointer'
+          >
+            <ElectricBoltRounded className='w-[1.5rem] h-[1.5rem]' />
+            Presupuesto tipo
+          </button>
+          {/* Botón Crear presupuesto - Siempre activo */}
+          <button
+            type='button'
+            onClick={handleOpenBudgetModal}
+            className='w-[12.1875rem] px-[1rem] py-[0.5rem] rounded-full text-[1rem] leading-[1.5rem] font-medium transition-colors bg-[#51D6C7] text-[#1E4947] hover:bg-[#3ECBBB] cursor-pointer'
           >
             Crear presupuesto
           </button>
         </div>
       </footer>
+
+      {/* Modal para crear presupuesto con tratamientos pendientes */}
+      <AddTreatmentsToBudgetModal
+        open={showBudgetModal}
+        onClose={() => setShowBudgetModal(false)}
+        onCreateBudget={(treatments) => {
+          // Presupuesto creado - cerrar el modal
+          setShowBudgetModal(false)
+        }}
+        treatments={pendingTreatments}
+      />
     </div>
   )
 }
