@@ -1628,7 +1628,7 @@ export default function BudgetsPayments({
   const insurers = React.useMemo(() => {
     const budgets = budgetRows.map((r) => r.insurer)
     const invoices = invoiceRows.map((r) => r.insurer)
-    return [...new Set([...budgets, ...invoices])].filter(Boolean)
+    return [...new Set([...budgets, ...invoices])].filter((x): x is string => Boolean(x))
   }, [budgetRows, invoiceRows])
 
   const paymentMethods = React.useMemo(() => {

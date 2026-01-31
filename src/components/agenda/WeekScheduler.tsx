@@ -5445,7 +5445,10 @@ export default function WeekScheduler() {
       charge: 'No',
       bgColor: 'var(--color-brand-100)',
       notes: data.observaciones || '',
-      linkedTreatments: data.linkedTreatments
+      linkedTreatments: data.linkedTreatments?.map(t => ({
+        ...t,
+        status: 'pending' as const
+      }))
     })
 
     handleCreateModalClose()
