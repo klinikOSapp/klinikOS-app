@@ -7,6 +7,7 @@ import {
   CheckBoxRounded,
   CloseRounded,
   DownloadRounded,
+  EditRounded,
   FilterListRounded,
   MoreVertRounded,
   PictureAsPdfRounded,
@@ -21,14 +22,18 @@ import type {
   TreatmentCatalogEntry,
   TreatmentV2
 } from '@/components/pacientes/shared/treatmentTypes'
-import { PROFESSIONALS, TREATMENT_CATALOG } from '@/components/pacientes/shared/treatmentTypes'
+import {
+  PROFESSIONALS,
+  TREATMENT_CATALOG
+} from '@/components/pacientes/shared/treatmentTypes'
 import {
   downloadDocument,
   formatBudgetFilename,
   generateBudgetPDF,
+  type BudgetOptions,
   type GeneratedDocument
 } from '@/utils/exportUtils'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 // ============================================
@@ -509,9 +514,7 @@ function BudgetPdfPreview({
             <p className='text-[0.875rem] font-medium text-[#24282C]'>
               {document.professional}
             </p>
-            <p className='text-[0.75rem] text-[#535C66]'>
-              {document.filename}
-            </p>
+            <p className='text-[0.75rem] text-[#535C66]'>{document.filename}</p>
           </div>
         </div>
         <div className='flex items-center gap-2'>
@@ -546,20 +549,32 @@ function BudgetPdfPreview({
 }
 
 // ============================================
+// Budget Info Type (exported for parent components)
+// ============================================
+export type BudgetInfo = {
+  name: string
+  subtotal: number
+  generalDiscountAmount: number
+  total: number
+}
+
+// ============================================
 // Main Component
 // ============================================
 type AddTreatmentsToBudgetModalProps = {
   open: boolean
   onClose: () => void
-  onCreateBudget: (selectedTreatments: TreatmentV2[]) => void
+  onCreateBudget: (selectedTreatments: TreatmentV2[], budgetInfo: BudgetInfo) => void
   treatments?: TreatmentV2[]
+  initialBudgetName?: string
 }
 
 export default function AddTreatmentsToBudgetModal({
   open,
   onClose,
   onCreateBudget,
-  treatments: initialTreatments = PENDING_TREATMENTS_V2
+  treatments: initialTreatments = PENDING_TREATMENTS_V2,
+  initialBudgetName = ''
 }: AddTreatmentsToBudgetModalProps) {
   const [mounted, setMounted] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState('')
@@ -572,7 +587,6 @@ export default function AddTreatmentsToBudgetModal({
     React.useState<TreatmentV2[]>(initialTreatments)
 
   // === Estados para Odontograma y Catálogo ===
-  // En el modal de presupuestos, empezamos con odontograma limpio (sin dientes marcados)
   const [odontogramaState, setOdontogramaState] =
     React.useState<OdontogramaState>({})
   const [filterByTeeth, setFilterByTeeth] = React.useState<number[]>([])
@@ -595,8 +609,18 @@ export default function AddTreatmentsToBudgetModal({
 
   // === Estados para preview del PDF ===
   const [isPreviewMode, setIsPreviewMode] = useState(false)
-  const [generatedDocument, setGeneratedDocument] = useState<GeneratedDocument | null>(null)
+  const [generatedDocument, setGeneratedDocument] =
+    useState<GeneratedDocument | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+
+  // === Estados para nombre y descuento general del presupuesto ===
+  const [budgetName, setBudgetName] = useState('')
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [generalDiscount, setGeneralDiscount] = useState<{
+    type: 'percentage' | 'fixed'
+    value: number
+  }>({ type: 'percentage', value: 0 })
+  const budgetNameInputRef = React.useRef<HTMLInputElement>(null)
 
   // Mount state
   React.useEffect(() => {
@@ -609,6 +633,7 @@ export default function AddTreatmentsToBudgetModal({
       setSearchQuery('')
       setShowSearch(false)
       setTreatments(initialTreatments)
+      setOdontogramaState({})
       setFilterByTeeth([])
       setSelectedCatalogTreatment(null)
       setSelectedTeeth([])
@@ -622,6 +647,10 @@ export default function AddTreatmentsToBudgetModal({
       setGeneratedDocument(null)
       setIsPreviewMode(false)
       setIsGenerating(false)
+      // Reset budget name and general discount
+      setBudgetName('')
+      setIsEditingName(false)
+      setGeneralDiscount({ type: 'percentage', value: 0 })
     }
   }, [open, initialTreatments, generatedDocument])
 
@@ -638,6 +667,28 @@ export default function AddTreatmentsToBudgetModal({
       scrollContainerRef.current.scrollTop = 0
     }
   }, [open])
+
+  // Initialize treatments, odontograma and budget name when modal opens
+  React.useEffect(() => {
+    if (open) {
+      // Set treatments from props
+      setTreatments(initialTreatments)
+
+      // Initialize odontograma with teeth from treatments
+      const initialOdontogramaState: OdontogramaState = {}
+      initialTreatments.forEach((t) => {
+        if (t.pieza) {
+          initialOdontogramaState[t.pieza] = 'pendiente'
+        }
+      })
+      setOdontogramaState(initialOdontogramaState)
+
+      // Set budget name from prop (for budget type templates)
+      if (initialBudgetName) {
+        setBudgetName(initialBudgetName)
+      }
+    }
+  }, [open, initialTreatments, initialBudgetName])
 
   // Escape key handler
   React.useEffect(() => {
@@ -846,19 +897,58 @@ export default function AddTreatmentsToBudgetModal({
   const selectedTreatments = treatments.filter((t) => t.selected)
   const selectedCount = selectedTreatments.length
 
+  // === Cálculos financieros del presupuesto ===
+  // Helper para parsear precios (remove € y espacios, convertir comas a puntos)
+  const parsePriceToNumber = (price: string): number => {
+    const cleaned = price.replace(/[€\s]/g, '').replace('.', '').replace(',', '.')
+    return parseFloat(cleaned) || 0
+  }
+
+  // Subtotal: suma de todos los importes de tratamientos seleccionados
+  const subtotal = React.useMemo(() => {
+    return selectedTreatments.reduce((sum, t) => {
+      return sum + parsePriceToNumber(t.importe)
+    }, 0)
+  }, [selectedTreatments])
+
+  // Descuento general calculado
+  const generalDiscountAmount = React.useMemo(() => {
+    if (generalDiscount.value <= 0) return 0
+    if (generalDiscount.type === 'percentage') {
+      // Limitar al 100%
+      const percentage = Math.min(generalDiscount.value, 100)
+      return subtotal * (percentage / 100)
+    }
+    // Limitar al subtotal para evitar negativos
+    return Math.min(generalDiscount.value, subtotal)
+  }, [generalDiscount, subtotal])
+
+  // Total final
+  const totalFinal = React.useMemo(() => {
+    return Math.max(0, subtotal - generalDiscountAmount)
+  }, [subtotal, generalDiscountAmount])
+
+  // Formatear número a precio español
+  const formatPriceDisplay = (num: number): string => {
+    return num.toLocaleString('es-ES', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }) + ' €'
+  }
+
   // Handle create budget - generate PDF and show preview
   const handleCreateBudget = useCallback(async () => {
     if (selectedCount === 0) return
 
     setIsGenerating(true)
-    
+
     // Small delay for UI feedback
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     try {
       // Use "Paciente" as placeholder - ideally this would be passed as prop
       const patientName = 'Paciente'
-      
+
       // Convert TreatmentV2 to BudgetTreatment format
       const budgetTreatments = selectedTreatments.map((t) => ({
         pieza: t.pieza,
@@ -874,12 +964,21 @@ export default function AddTreatmentsToBudgetModal({
         doctor: t.doctor
       }))
 
-      const blob = generateBudgetPDF(budgetTreatments, patientName)
+      // Prepare budget options with name and general discount
+      const budgetOptions: BudgetOptions = {
+        budgetName: budgetName || undefined,
+        generalDiscount: generalDiscount.value > 0 ? generalDiscount : undefined,
+        subtotal,
+        generalDiscountAmount,
+        totalFinal
+      }
+
+      const blob = generateBudgetPDF(budgetTreatments, patientName, budgetOptions)
       const url = URL.createObjectURL(blob)
-      const filename = formatBudgetFilename(patientName)
+      const filename = formatBudgetFilename(patientName, budgetName || undefined)
 
       setGeneratedDocument({
-        professional: patientName,
+        professional: budgetName || patientName,
         filename,
         blob,
         url
@@ -890,7 +989,7 @@ export default function AddTreatmentsToBudgetModal({
     } finally {
       setIsGenerating(false)
     }
-  }, [selectedCount, selectedTreatments])
+  }, [selectedCount, selectedTreatments, budgetName, generalDiscount, subtotal, generalDiscountAmount, totalFinal])
 
   // Handle download PDF
   const handleDownloadPdf = useCallback(() => {
@@ -901,14 +1000,21 @@ export default function AddTreatmentsToBudgetModal({
 
   // Handle confirm budget (after preview)
   const handleConfirmBudget = useCallback(() => {
-    onCreateBudget(selectedTreatments)
+    // Create budget info object
+    const budgetInfo: BudgetInfo = {
+      name: budgetName || `Presupuesto ${new Date().toLocaleDateString('es-ES')}`,
+      subtotal,
+      generalDiscountAmount,
+      total: totalFinal
+    }
+    onCreateBudget(selectedTreatments, budgetInfo)
     // Cleanup
     if (generatedDocument?.url) {
       URL.revokeObjectURL(generatedDocument.url)
     }
     setGeneratedDocument(null)
     setIsPreviewMode(false)
-  }, [generatedDocument, onCreateBudget, selectedTreatments])
+  }, [generatedDocument, onCreateBudget, selectedTreatments, budgetName, subtotal, generalDiscountAmount, totalFinal])
 
   // Handle close preview (go back to form)
   const handleClosePreview = useCallback(() => {
@@ -983,407 +1089,557 @@ export default function AddTreatmentsToBudgetModal({
                 </button>
               </header>
 
-          {/* Content - Estructura proporcional (escala ~75%) */}
-          <div className='flex-1 flex flex-col bg-[#F8FAFB] relative overflow-hidden'>
-            {/* Sección superior fija: Odontograma + Catálogo */}
-            <section className='p-[min(0.75rem,1.5vw)] bg-[#F8FAFB] z-10 shrink-0'>
-              {/* Banner cuando hay tratamiento seleccionado */}
-              {selectedCatalogTreatment && (
-                <div className='mb-[0.5rem] p-[0.5rem] bg-[#E9FBF9] border border-[var(--color-brand-500)] rounded-[0.375rem] flex flex-wrap items-center justify-between gap-[0.375rem]'>
-                  <div className='flex flex-wrap items-center gap-[0.5rem]'>
-                    <span className='w-[0.375rem] h-[0.375rem] rounded-full bg-[var(--color-brand-500)] animate-pulse shrink-0' />
-                    <span className='text-[0.8125rem] leading-[1.125rem] text-[var(--color-brand-700)]'>
-                      <strong>{selectedCatalogTreatment.codigo}</strong> -{' '}
-                      {selectedCatalogTreatment.entry.description}
-                    </span>
-                    {selectedTeeth.length === 0 ? (
-                      <span className='text-[0.75rem] leading-[1rem] text-[#535C66]'>
-                        → Selecciona las piezas en el odontograma
+              {/* Budget Info Section - Nombre del presupuesto */}
+              <div className='flex items-center justify-between px-6 py-2 bg-white border-b border-[#E2E7EA] shrink-0'>
+                <div className='flex items-center gap-2 flex-1'>
+                  {isEditingName ? (
+                    <input
+                      ref={budgetNameInputRef}
+                      type='text'
+                      value={budgetName}
+                      onChange={(e) => setBudgetName(e.target.value)}
+                      onBlur={() => setIsEditingName(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === 'Escape') {
+                          setIsEditingName(false)
+                        }
+                      }}
+                      placeholder='Nombre del presupuesto...'
+                      className='flex-1 max-w-[24rem] px-3 py-1.5 text-[0.9375rem] font-medium text-[#24282C] bg-[#F4F8FA] border border-[var(--color-brand-400)] rounded-lg outline-none focus:ring-2 focus:ring-[var(--color-brand-200)]'
+                      autoFocus
+                    />
+                  ) : (
+                    <button
+                      type='button'
+                      onClick={() => {
+                        setIsEditingName(true)
+                        setTimeout(() => budgetNameInputRef.current?.focus(), 0)
+                      }}
+                      className='flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[#F4F8FA] transition-colors cursor-pointer group'
+                    >
+                      <EditRounded className='w-[1rem] h-[1rem] text-[#AEB8C2] group-hover:text-[var(--color-brand-500)] transition-colors' />
+                      <span className='text-[0.9375rem] font-medium text-[#24282C]'>
+                        {budgetName || 'Nuevo presupuesto'}
                       </span>
-                    ) : (
-                      <span className='text-[0.75rem] leading-[1rem] text-[var(--color-brand-600)]'>
-                        Piezas:{' '}
+                    </button>
+                  )}
+                </div>
+                <div className='flex items-center gap-2 text-[0.75rem] text-[#535C66]'>
+                  <span>Creado:</span>
+                  <span className='font-medium text-[#24282C]'>
+                    {new Date().toLocaleDateString('es-ES', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: '2-digit'
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Content - Estructura proporcional (escala ~75%) */}
+              <div className='flex-1 flex flex-col bg-[#F8FAFB] relative overflow-hidden'>
+                {/* Sección superior fija: Odontograma + Catálogo */}
+                <section className='p-[min(0.75rem,1.5vw)] bg-[#F8FAFB] z-10 shrink-0'>
+                  {/* Banner cuando hay tratamiento seleccionado */}
+                  {selectedCatalogTreatment && (
+                    <div className='mb-[0.5rem] p-[0.5rem] bg-[#E9FBF9] border border-[var(--color-brand-500)] rounded-[0.375rem] flex flex-wrap items-center justify-between gap-[0.375rem]'>
+                      <div className='flex flex-wrap items-center gap-[0.5rem]'>
+                        <span className='w-[0.375rem] h-[0.375rem] rounded-full bg-[var(--color-brand-500)] animate-pulse shrink-0' />
+                        <span className='text-[0.8125rem] leading-[1.125rem] text-[var(--color-brand-700)]'>
+                          <strong>{selectedCatalogTreatment.codigo}</strong> -{' '}
+                          {selectedCatalogTreatment.entry.description}
+                        </span>
+                        {selectedTeeth.length === 0 ? (
+                          <span className='text-[0.75rem] leading-[1rem] text-[#535C66]'>
+                            → Selecciona las piezas en el odontograma
+                          </span>
+                        ) : (
+                          <span className='text-[0.75rem] leading-[1rem] text-[var(--color-brand-600)]'>
+                            Piezas:{' '}
+                            <strong>
+                              {selectedTeeth.sort((a, b) => a - b).join(', ')}
+                            </strong>
+                          </span>
+                        )}
+                      </div>
+                      <div className='flex items-center gap-[0.375rem]'>
+                        {selectedTeeth.length > 0 && (
+                          <button
+                            type='button'
+                            onClick={() => setShowConfirmModal(true)}
+                            className='px-[0.75rem] py-[0.25rem] text-[0.75rem] font-medium text-white bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] rounded-full transition-colors cursor-pointer'
+                          >
+                            Confirmar ({selectedTeeth.length})
+                          </button>
+                        )}
+                        <button
+                          type='button'
+                          onClick={handleCancelSelection}
+                          className='px-[0.5rem] py-[0.25rem] text-[0.75rem] text-[#535C66] hover:text-[#24282C] hover:bg-[rgba(0,0,0,0.05)] rounded-full transition-colors cursor-pointer'
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Card con Odontograma + Catálogo */}
+                  <div className='bg-white border border-[#E2E7EA] rounded-[0.375rem] p-[min(0.75rem,1.5vw)] flex gap-[min(1rem,1.5vw)] items-start'>
+                    {/* OdontogramaCompacto - Sin escalar, overflow hidden */}
+                    <div
+                      className='shrink-0 overflow-hidden'
+                      style={{ maxWidth: '28rem' }}
+                    >
+                      <OdontogramaCompacto
+                        state={odontogramaState}
+                        onToothClick={handleToothClick}
+                        isSelectionMode={!!selectedCatalogTreatment}
+                        selectedTeeth={
+                          selectedCatalogTreatment
+                            ? selectedTeeth
+                            : filterByTeeth
+                        }
+                        showLegend={false}
+                      />
+                    </div>
+
+                    {/* Separador vertical */}
+                    <div className='w-px bg-[#CBD3D9] self-stretch shrink-0' />
+
+                    {/* CatalogoTratamientos */}
+                    <div className='flex-1 min-w-[15rem]'>
+                      <CatalogoTratamientos
+                        onSelectTreatment={handleSelectTreatmentFromCatalog}
+                        selectedTreatmentCode={selectedCatalogTreatment?.codigo}
+                        compact
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                {/* Banner de filtro por piezas activo */}
+                {filterByTeeth.length > 0 && !selectedCatalogTreatment && (
+                  <div className='mx-[min(1.5rem,3vw)] mb-[0.5rem] p-[0.5rem] bg-[#FFF8E6] border border-[#D97706] rounded-[0.375rem] flex items-center justify-between'>
+                    <div className='flex items-center gap-[0.5rem]'>
+                      <span className='text-[0.8125rem] leading-[1.125rem] text-[#92400E]'>
+                        Filtrando por pieza{filterByTeeth.length > 1 ? 's' : ''}
+                        :{' '}
                         <strong>
-                          {selectedTeeth.sort((a, b) => a - b).join(', ')}
+                          {filterByTeeth.sort((a, b) => a - b).join(', ')}
                         </strong>
                       </span>
-                    )}
-                  </div>
-                  <div className='flex items-center gap-[0.375rem]'>
-                    {selectedTeeth.length > 0 && (
-                      <button
-                        type='button'
-                        onClick={() => setShowConfirmModal(true)}
-                        className='px-[0.75rem] py-[0.25rem] text-[0.75rem] font-medium text-white bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] rounded-full transition-colors cursor-pointer'
-                      >
-                        Confirmar ({selectedTeeth.length})
-                      </button>
-                    )}
+                      <span className='text-[0.75rem] leading-[1rem] text-[#B45309]'>
+                        ({filteredTreatments.length} tratamiento
+                        {filteredTreatments.length !== 1 ? 's' : ''})
+                      </span>
+                    </div>
                     <button
                       type='button'
-                      onClick={handleCancelSelection}
-                      className='px-[0.5rem] py-[0.25rem] text-[0.75rem] text-[#535C66] hover:text-[#24282C] hover:bg-[rgba(0,0,0,0.05)] rounded-full transition-colors cursor-pointer'
+                      onClick={() => setFilterByTeeth([])}
+                      className='px-[0.5rem] py-[0.125rem] text-[0.75rem] text-[#92400E] hover:text-[#78350F] hover:bg-[rgba(0,0,0,0.05)] rounded-full transition-colors cursor-pointer'
                     >
-                      Cancelar
+                      Limpiar filtro
                     </button>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Card con Odontograma + Catálogo */}
-              <div className='bg-white border border-[#E2E7EA] rounded-[0.375rem] p-[min(0.75rem,1.5vw)] flex gap-[min(1rem,1.5vw)] items-start'>
-                {/* OdontogramaCompacto - Sin escalar, overflow hidden */}
-                <div className='shrink-0 overflow-hidden' style={{ maxWidth: '28rem' }}>
-                  <OdontogramaCompacto
-                    state={odontogramaState}
-                    onToothClick={handleToothClick}
-                    isSelectionMode={!!selectedCatalogTreatment}
-                    selectedTeeth={
-                      selectedCatalogTreatment ? selectedTeeth : filterByTeeth
-                    }
-                    showLegend={false}
-                  />
-                </div>
-
-                {/* Separador vertical */}
-                <div className='w-px bg-[#CBD3D9] self-stretch shrink-0' />
-
-                {/* CatalogoTratamientos */}
-                <div className='flex-1 min-w-[15rem]'>
-                  <CatalogoTratamientos
-                    onSelectTreatment={handleSelectTreatmentFromCatalog}
-                    selectedTreatmentCode={selectedCatalogTreatment?.codigo}
-                    compact
-                  />
-                </div>
-              </div>
-            </section>
-
-            {/* Banner de filtro por piezas activo */}
-            {filterByTeeth.length > 0 && !selectedCatalogTreatment && (
-              <div className='mx-[min(1.5rem,3vw)] mb-[0.5rem] p-[0.5rem] bg-[#FFF8E6] border border-[#D97706] rounded-[0.375rem] flex items-center justify-between'>
-                <div className='flex items-center gap-[0.5rem]'>
-                  <span className='text-[0.8125rem] leading-[1.125rem] text-[#92400E]'>
-                    Filtrando por pieza{filterByTeeth.length > 1 ? 's' : ''}:{' '}
-                    <strong>
-                      {filterByTeeth.sort((a, b) => a - b).join(', ')}
-                    </strong>
-                  </span>
-                  <span className='text-[0.75rem] leading-[1rem] text-[#B45309]'>
-                    ({filteredTreatments.length} tratamiento
-                    {filteredTreatments.length !== 1 ? 's' : ''})
-                  </span>
-                </div>
-                <button
-                  type='button'
-                  onClick={() => setFilterByTeeth([])}
-                  className='px-[0.5rem] py-[0.125rem] text-[0.75rem] text-[#92400E] hover:text-[#78350F] hover:bg-[rgba(0,0,0,0.05)] rounded-full transition-colors cursor-pointer'
-                >
-                  Limpiar filtro
-                </button>
-              </div>
-            )}
-
-            {/* Contenido scrolleable: Tablas */}
-            <div ref={scrollContainerRef} className='flex-1 overflow-auto'>
-              {/* Sección: Tratamientos del presupuesto */}
-              <section className='px-[min(1.5rem,3vw)] pb-[min(1rem,2vw)]'>
-                {/* Header sticky - proporciones reducidas */}
-                <div className='sticky top-0 z-20 pt-[min(0.75rem,1.5vw)] pb-[0.375rem] bg-[#F8FAFB]'>
-                  <div className='flex items-center justify-between'>
-                    <h2 className='text-[1.25rem] leading-[1.75rem] text-[#24282C]'>
-                      Tratamientos del presupuesto
-                    </h2>
-                    <div className='flex items-center gap-[0.375rem]'>
-                      {/* Search */}
-                      <button
-                        type='button'
-                        className='p-[0.125rem] hover:bg-[var(--color-neutral-100)] rounded transition-colors cursor-pointer'
-                        onClick={() => {
-                          const term = prompt('Buscar:', searchQuery)
-                          if (term !== null) setSearchQuery(term)
-                        }}
-                      >
-                        <SearchRounded className='w-[1.25rem] h-[1.25rem] text-[#535C66]' />
-                      </button>
-                      {/* Filtro Presupuestos */}
-                      <button
-                        type='button'
-                        className='flex items-center gap-[0.375rem] px-[0.75rem] py-[0.25rem] border border-[#CBD3D9] rounded-[8.5rem] bg-white hover:bg-[var(--color-neutral-50)] transition-colors cursor-pointer'
-                      >
-                        <FilterListRounded className='w-[1rem] h-[1rem] text-[#535C66]' />
-                        <span className='text-[0.75rem] leading-[1rem] text-[#535C66]'>
-                          Presupuestos
-                        </span>
-                      </button>
-                      {/* Añadir tratamiento */}
-                      <button
-                        type='button'
-                        onClick={handleAddEmptyRow}
-                        className='flex items-center gap-[0.375rem] px-[0.75rem] py-[0.25rem] border border-[var(--color-brand-400)] bg-[#E9FBF9] rounded-[8.5rem] hover:bg-[var(--color-brand-100)] transition-colors cursor-pointer'
-                      >
-                        <AddRounded className='w-[1rem] h-[1rem] text-[var(--color-brand-700)]' />
-                        <span className='text-[0.75rem] leading-[1rem] font-medium text-[var(--color-brand-700)]'>
-                          Añadir tratamiento
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tabla Tratamientos - Proporciones reducidas (~75%) */}
-                <div className='bg-white rounded-[0.375rem] overflow-hidden'>
-                  <div className='overflow-x-auto'>
-                    <table className='w-full border-collapse min-w-[80rem]'>
-                      <thead>
-                        <tr className='bg-[#F8FAFB]'>
-                          <TableHeaderCell
-                            width='2rem'
-                            sticky
-                            stickyPosition='left'
-                          />
-                          <TableHeaderCell width='3.5rem'>Pieza</TableHeaderCell>
-                          <TableHeaderCell width='5rem'>Cara</TableHeaderCell>
-                          <TableHeaderCell width='4.5rem'>Código</TableHeaderCell>
-                          <TableHeaderCell width='15rem'>
-                            Tratamiento
-                          </TableHeaderCell>
-                          <TableHeaderCell width='5.5rem'>Precio</TableHeaderCell>
-                          <TableHeaderCell width='4rem'>%</TableHeaderCell>
-                          <TableHeaderCell width='4rem'>Dto</TableHeaderCell>
-                          <TableHeaderCell width='5rem'>Importe</TableHeaderCell>
-                          <TableHeaderCell width='5rem'>
-                            Imp. seguro
-                          </TableHeaderCell>
-                          <TableHeaderCell>Descripción/ Anotaciones</TableHeaderCell>
-                          <TableHeaderCell width='10.5rem'>Doctor</TableHeaderCell>
-                          <TableHeaderCell
-                            width='1.75rem'
-                            sticky
-                            stickyPosition='right'
-                          />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredTreatments.length === 0 ? (
-                          <tr>
-                            <td colSpan={13} className='py-12 text-center'>
-                              <div className='flex flex-col items-center justify-center text-neutral-500'>
-                                <SearchRounded className='size-12 mb-3 opacity-30' />
-                                <p className='text-body-md'>
-                                  No se encontraron tratamientos
-                                </p>
-                                {filterByTeeth.length > 0 && (
-                                  <button
-                                    type='button'
-                                    onClick={() => setFilterByTeeth([])}
-                                    className='mt-2 text-body-sm text-brand-600 hover:underline cursor-pointer'
-                                  >
-                                    Limpiar filtro de piezas
-                                  </button>
-                                )}
-                                <button
-                                  type='button'
-                                  onClick={handleAddEmptyRow}
-                                  className='mt-4 flex items-center gap-2 px-4 py-2 rounded-full bg-brand-500 text-brand-900 hover:bg-brand-400 transition-colors cursor-pointer'
-                                >
-                                  <AddRounded className='size-5' />
-                                  <span className='text-body-md font-medium'>
-                                    Añadir tratamiento
-                                  </span>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ) : (
-                          filteredTreatments.map((treatment) => (
-                            <TreatmentRow
-                              key={treatment._internalId}
-                              treatment={treatment}
-                              onToggleSelection={() =>
-                                toggleSelection(treatment._internalId)
-                              }
-                              onOpenMenu={(e) => handleOpenMenu(treatment, e)}
-                              onUpdateField={(field, value) =>
-                                updateField(treatment._internalId, field, value)
-                              }
-                              onUpdateMultipleFields={(updates) =>
-                                updateMultipleFields(
-                                  treatment._internalId,
-                                  updates
-                                )
-                              }
-                              isNewRow={treatment._internalId === newRowId}
-                              onNewRowMounted={() => setNewRowId(null)}
-                            />
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </section>
-            </div>
-
-            {/* Modal de confirmación de tratamientos */}
-            {showConfirmModal && selectedCatalogTreatment && (
-              <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50'>
-                <div className='bg-white rounded-[1rem] w-[min(28rem,90vw)] max-h-[80vh] overflow-hidden shadow-xl'>
-                  {/* Header */}
-                  <div className='p-[1.5rem] border-b border-[#E2E7EA]'>
-                    <h3 className='text-[1.25rem] leading-[1.75rem] font-medium text-[#24282C]'>
-                      Confirmar tratamiento
-                    </h3>
-                  </div>
-
-                  {/* Content */}
-                  <div className='p-[1.5rem]'>
-                    {/* Tratamiento */}
-                    <div className='mb-[1.5rem]'>
-                      <p className='text-[0.875rem] text-[#535C66] mb-[0.25rem]'>
-                        Tratamiento
-                      </p>
-                      <p className='text-[1rem] font-medium text-[#24282C]'>
-                        <span className='text-[var(--color-brand-600)]'>
-                          {selectedCatalogTreatment.codigo}
-                        </span>{' '}
-                        - {selectedCatalogTreatment.entry.description}
-                      </p>
-                      <p className='text-[0.9375rem] text-[#535C66] mt-[0.25rem]'>
-                        Precio unitario:{' '}
-                        <strong>{selectedCatalogTreatment.entry.amount}</strong>
-                      </p>
-                    </div>
-
-                    {/* Piezas */}
-                    <div className='mb-[1.5rem]'>
-                      <p className='text-[0.875rem] text-[#535C66] mb-[0.5rem]'>
-                        Piezas seleccionadas ({selectedTeeth.length})
-                      </p>
-                      <div className='flex flex-wrap gap-[0.5rem]'>
-                        {selectedTeeth
-                          .sort((a, b) => a - b)
-                          .map((tooth) => (
-                            <span
-                              key={tooth}
-                              className='inline-flex items-center justify-center w-[2.5rem] h-[2rem] bg-[#E9FBF9] border border-[var(--color-brand-400)] rounded-[0.5rem] text-[0.875rem] font-medium text-[var(--color-brand-700)]'
-                            >
-                              {tooth}
+                {/* Contenido scrolleable: Tablas */}
+                <div ref={scrollContainerRef} className='flex-1 overflow-auto'>
+                  {/* Sección: Tratamientos del presupuesto */}
+                  <section className='px-[min(1.5rem,3vw)] pb-[min(1rem,2vw)]'>
+                    {/* Header sticky - proporciones reducidas */}
+                    <div className='sticky top-0 z-20 pt-[min(0.75rem,1.5vw)] pb-[0.375rem] bg-[#F8FAFB]'>
+                      <div className='flex items-center justify-between'>
+                        <h2 className='text-[1.25rem] leading-[1.75rem] text-[#24282C]'>
+                          Tratamientos del presupuesto
+                        </h2>
+                        <div className='flex items-center gap-[0.375rem]'>
+                          {/* Search */}
+                          <button
+                            type='button'
+                            className='p-[0.125rem] hover:bg-[var(--color-neutral-100)] rounded transition-colors cursor-pointer'
+                            onClick={() => {
+                              const term = prompt('Buscar:', searchQuery)
+                              if (term !== null) setSearchQuery(term)
+                            }}
+                          >
+                            <SearchRounded className='w-[1.25rem] h-[1.25rem] text-[#535C66]' />
+                          </button>
+                          {/* Filtro Presupuestos */}
+                          <button
+                            type='button'
+                            className='flex items-center gap-[0.375rem] px-[0.75rem] py-[0.25rem] border border-[#CBD3D9] rounded-[8.5rem] bg-white hover:bg-[var(--color-neutral-50)] transition-colors cursor-pointer'
+                          >
+                            <FilterListRounded className='w-[1rem] h-[1rem] text-[#535C66]' />
+                            <span className='text-[0.75rem] leading-[1rem] text-[#535C66]'>
+                              Presupuestos
                             </span>
-                          ))}
+                          </button>
+                          {/* Añadir tratamiento */}
+                          <button
+                            type='button'
+                            onClick={handleAddEmptyRow}
+                            className='flex items-center gap-[0.375rem] px-[0.75rem] py-[0.25rem] border border-[var(--color-brand-400)] bg-[#E9FBF9] rounded-[8.5rem] hover:bg-[var(--color-brand-100)] transition-colors cursor-pointer'
+                          >
+                            <AddRounded className='w-[1rem] h-[1rem] text-[var(--color-brand-700)]' />
+                            <span className='text-[0.75rem] leading-[1rem] font-medium text-[var(--color-brand-700)]'>
+                              Añadir tratamiento
+                            </span>
+                          </button>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Resumen */}
-                    <div className='p-[1rem] bg-[#F8FAFB] rounded-[0.5rem]'>
-                      <div className='flex justify-between items-center'>
-                        <span className='text-[0.9375rem] text-[#535C66]'>
-                          Total ({selectedTeeth.length} tratamiento
-                          {selectedTeeth.length !== 1 ? 's' : ''})
-                        </span>
-                        <span className='text-[1.125rem] font-semibold text-[#24282C]'>
-                          {(() => {
-                            const priceStr = selectedCatalogTreatment.entry.amount
-                            const priceNum =
-                              parseFloat(
-                                priceStr
-                                  .replace(/[^\d,.-]/g, '')
-                                  .replace('.', '')
-                                  .replace(',', '.')
-                              ) || 0
-                            const total = priceNum * selectedTeeth.length
-                            return (
-                              total.toLocaleString('es-ES', {
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 2
-                              }) + ' €'
-                            )
-                          })()}
-                        </span>
+                    {/* Tabla Tratamientos - Proporciones reducidas (~75%) */}
+                    <div className='bg-white rounded-[0.375rem] overflow-hidden'>
+                      <div className='overflow-x-auto'>
+                        <table className='w-full border-collapse min-w-[80rem]'>
+                          <thead>
+                            <tr className='bg-[#F8FAFB]'>
+                              <TableHeaderCell
+                                width='2rem'
+                                sticky
+                                stickyPosition='left'
+                              />
+                              <TableHeaderCell width='3.5rem'>
+                                Pieza
+                              </TableHeaderCell>
+                              <TableHeaderCell width='5rem'>
+                                Cara
+                              </TableHeaderCell>
+                              <TableHeaderCell width='4.5rem'>
+                                Código
+                              </TableHeaderCell>
+                              <TableHeaderCell width='15rem'>
+                                Tratamiento
+                              </TableHeaderCell>
+                              <TableHeaderCell width='5.5rem'>
+                                Precio
+                              </TableHeaderCell>
+                              <TableHeaderCell width='4rem'>%</TableHeaderCell>
+                              <TableHeaderCell width='4rem'>
+                                Dto
+                              </TableHeaderCell>
+                              <TableHeaderCell width='5rem'>
+                                Importe
+                              </TableHeaderCell>
+                              <TableHeaderCell width='5rem'>
+                                Imp. seguro
+                              </TableHeaderCell>
+                              <TableHeaderCell>
+                                Descripción/ Anotaciones
+                              </TableHeaderCell>
+                              <TableHeaderCell width='10.5rem'>
+                                Doctor
+                              </TableHeaderCell>
+                              <TableHeaderCell
+                                width='1.75rem'
+                                sticky
+                                stickyPosition='right'
+                              />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredTreatments.length === 0 ? (
+                              <tr>
+                                <td colSpan={13} className='py-12 text-center'>
+                                  <div className='flex flex-col items-center justify-center text-neutral-500'>
+                                    <SearchRounded className='size-12 mb-3 opacity-30' />
+                                    <p className='text-body-md'>
+                                      No se encontraron tratamientos
+                                    </p>
+                                    {filterByTeeth.length > 0 && (
+                                      <button
+                                        type='button'
+                                        onClick={() => setFilterByTeeth([])}
+                                        className='mt-2 text-body-sm text-brand-600 hover:underline cursor-pointer'
+                                      >
+                                        Limpiar filtro de piezas
+                                      </button>
+                                    )}
+                                    <button
+                                      type='button'
+                                      onClick={handleAddEmptyRow}
+                                      className='mt-4 flex items-center gap-2 px-4 py-2 rounded-full bg-brand-500 text-brand-900 hover:bg-brand-400 transition-colors cursor-pointer'
+                                    >
+                                      <AddRounded className='size-5' />
+                                      <span className='text-body-md font-medium'>
+                                        Añadir tratamiento
+                                      </span>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : (
+                              filteredTreatments.map((treatment) => (
+                                <TreatmentRow
+                                  key={treatment._internalId}
+                                  treatment={treatment}
+                                  onToggleSelection={() =>
+                                    toggleSelection(treatment._internalId)
+                                  }
+                                  onOpenMenu={(e) =>
+                                    handleOpenMenu(treatment, e)
+                                  }
+                                  onUpdateField={(field, value) =>
+                                    updateField(
+                                      treatment._internalId,
+                                      field,
+                                      value
+                                    )
+                                  }
+                                  onUpdateMultipleFields={(updates) =>
+                                    updateMultipleFields(
+                                      treatment._internalId,
+                                      updates
+                                    )
+                                  }
+                                  isNewRow={treatment._internalId === newRowId}
+                                  onNewRowMounted={() => setNewRowId(null)}
+                                />
+                              ))
+                            )}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Footer */}
-                  <div className='p-[1.5rem] border-t border-[#E2E7EA] flex justify-end gap-[0.75rem]'>
-                    <button
-                      type='button'
-                      onClick={() => setShowConfirmModal(false)}
-                      className='px-[1.25rem] py-[0.625rem] text-[0.9375rem] font-medium text-[#535C66] hover:bg-[#F4F8FA] rounded-full transition-colors cursor-pointer'
-                    >
-                      Volver
-                    </button>
-                    <button
-                      type='button'
-                      onClick={handleConfirmTreatments}
-                      className='px-[1.5rem] py-[0.625rem] text-[0.9375rem] font-medium text-white bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] rounded-full transition-colors cursor-pointer'
-                    >
-                      Añadir tratamientos
-                    </button>
-                  </div>
+                  </section>
                 </div>
-              </div>
-            )}
 
-            {/* Menú de acciones rápidas */}
-            {activeMenu && (
-              <RowActionsMenu
-                treatment={{
-                  id: activeMenu.treatment.codigo,
-                  description: activeMenu.treatment.tratamiento,
-                  date: 'Sin fecha',
-                  amount: activeMenu.treatment.precio,
-                  status: 'Aceptado',
-                  professional: activeMenu.treatment.doctor,
-                  selected: false
-                }}
-                onClose={() => setActiveMenu(null)}
-                triggerRect={activeMenu.triggerRect}
-                onCreateBudget={() => {
-                  // Already in budget creation, no action needed
-                  setActiveMenu(null)
-                }}
-                onCreateAppointment={() => {
-                  // Not applicable in budget modal
-                  setActiveMenu(null)
-                }}
-                onToggleStatus={() => {}}
-                onDelete={handleDeleteTreatment}
-              />
-            )}
+                {/* Modal de confirmación de tratamientos */}
+                {showConfirmModal && selectedCatalogTreatment && (
+                  <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50'>
+                    <div className='bg-white rounded-[1rem] w-[min(28rem,90vw)] max-h-[80vh] overflow-hidden shadow-xl'>
+                      {/* Header */}
+                      <div className='p-[1.5rem] border-b border-[#E2E7EA]'>
+                        <h3 className='text-[1.25rem] leading-[1.75rem] font-medium text-[#24282C]'>
+                          Confirmar tratamiento
+                        </h3>
+                      </div>
 
-            {/* Footer con blur - Proporciones reducidas */}
-            <footer className='sticky bottom-0 backdrop-blur-[8px] bg-[rgba(255,255,255,0.7)] flex items-center justify-between p-[0.75rem] shrink-0'>
-              <p className='text-[0.875rem] leading-[1.25rem] text-[#3D434A]'>
-                Has seleccionado {selectedCount} tratamiento
-                {selectedCount !== 1 ? 's' : ''}
-              </p>
-              <div className='flex gap-[0.5rem] items-center'>
-                {/* Botón Cancelar */}
-                <button
-                  type='button'
-                  onClick={onClose}
-                  className='px-[0.75rem] py-[0.375rem] border border-[#CBD3D9] rounded-full text-[0.875rem] leading-[1.25rem] font-medium text-[#24282C] hover:bg-[rgba(0,0,0,0.05)] transition-colors cursor-pointer'
-                >
-                  Cancelar
-                </button>
-                {/* Botón Crear presupuesto */}
-                <button
-                  type='button'
-                  onClick={handleCreateBudget}
-                  disabled={selectedCount === 0 || isGenerating}
-                  className={[
-                    'px-[0.75rem] py-[0.375rem] rounded-full text-[0.875rem] leading-[1.25rem] font-medium transition-colors',
-                    selectedCount === 0 || isGenerating
-                      ? 'bg-[#E2E7EA] text-[#AEB8C2] cursor-not-allowed'
-                      : 'bg-[#51D6C7] text-[#1E4947] hover:bg-[#3ECBBB] cursor-pointer'
-                  ].join(' ')}
-                >
-                  {isGenerating ? 'Generando...' : 'Crear presupuesto'}
-                </button>
+                      {/* Content */}
+                      <div className='p-[1.5rem]'>
+                        {/* Tratamiento */}
+                        <div className='mb-[1.5rem]'>
+                          <p className='text-[0.875rem] text-[#535C66] mb-[0.25rem]'>
+                            Tratamiento
+                          </p>
+                          <p className='text-[1rem] font-medium text-[#24282C]'>
+                            <span className='text-[var(--color-brand-600)]'>
+                              {selectedCatalogTreatment.codigo}
+                            </span>{' '}
+                            - {selectedCatalogTreatment.entry.description}
+                          </p>
+                          <p className='text-[0.9375rem] text-[#535C66] mt-[0.25rem]'>
+                            Precio unitario:{' '}
+                            <strong>
+                              {selectedCatalogTreatment.entry.amount}
+                            </strong>
+                          </p>
+                        </div>
+
+                        {/* Piezas */}
+                        <div className='mb-[1.5rem]'>
+                          <p className='text-[0.875rem] text-[#535C66] mb-[0.5rem]'>
+                            Piezas seleccionadas ({selectedTeeth.length})
+                          </p>
+                          <div className='flex flex-wrap gap-[0.5rem]'>
+                            {selectedTeeth
+                              .sort((a, b) => a - b)
+                              .map((tooth) => (
+                                <span
+                                  key={tooth}
+                                  className='inline-flex items-center justify-center w-[2.5rem] h-[2rem] bg-[#E9FBF9] border border-[var(--color-brand-400)] rounded-[0.5rem] text-[0.875rem] font-medium text-[var(--color-brand-700)]'
+                                >
+                                  {tooth}
+                                </span>
+                              ))}
+                          </div>
+                        </div>
+
+                        {/* Resumen */}
+                        <div className='p-[1rem] bg-[#F8FAFB] rounded-[0.5rem]'>
+                          <div className='flex justify-between items-center'>
+                            <span className='text-[0.9375rem] text-[#535C66]'>
+                              Total ({selectedTeeth.length} tratamiento
+                              {selectedTeeth.length !== 1 ? 's' : ''})
+                            </span>
+                            <span className='text-[1.125rem] font-semibold text-[#24282C]'>
+                              {(() => {
+                                const priceStr =
+                                  selectedCatalogTreatment.entry.amount
+                                const priceNum =
+                                  parseFloat(
+                                    priceStr
+                                      .replace(/[^\d,.-]/g, '')
+                                      .replace('.', '')
+                                      .replace(',', '.')
+                                  ) || 0
+                                const total = priceNum * selectedTeeth.length
+                                return (
+                                  total.toLocaleString('es-ES', {
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 2
+                                  }) + ' €'
+                                )
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Footer */}
+                      <div className='p-[1.5rem] border-t border-[#E2E7EA] flex justify-end gap-[0.75rem]'>
+                        <button
+                          type='button'
+                          onClick={() => setShowConfirmModal(false)}
+                          className='px-[1.25rem] py-[0.625rem] text-[0.9375rem] font-medium text-[#535C66] hover:bg-[#F4F8FA] rounded-full transition-colors cursor-pointer'
+                        >
+                          Volver
+                        </button>
+                        <button
+                          type='button'
+                          onClick={handleConfirmTreatments}
+                          className='px-[1.5rem] py-[0.625rem] text-[0.9375rem] font-medium text-white bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] rounded-full transition-colors cursor-pointer'
+                        >
+                          Añadir tratamientos
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Menú de acciones rápidas */}
+                {activeMenu && (
+                  <RowActionsMenu
+                    treatment={{
+                      id: activeMenu.treatment.codigo,
+                      description: activeMenu.treatment.tratamiento,
+                      date: 'Sin fecha',
+                      amount: activeMenu.treatment.precio,
+                      status: 'Aceptado',
+                      professional: activeMenu.treatment.doctor,
+                      selected: false
+                    }}
+                    onClose={() => setActiveMenu(null)}
+                    triggerRect={activeMenu.triggerRect}
+                    onCreateBudget={() => {
+                      // Already in budget creation, no action needed
+                      setActiveMenu(null)
+                    }}
+                    onCreateAppointment={() => {
+                      // Not applicable in budget modal
+                      setActiveMenu(null)
+                    }}
+                    onToggleStatus={() => {}}
+                    onDelete={handleDeleteTreatment}
+                  />
+                )}
+
+                {/* Footer compacto con resumen financiero en una línea */}
+                <footer className='sticky bottom-0 bg-white border-t border-[#E2E7EA] px-4 py-2 shrink-0'>
+                  <div className='flex items-center justify-between gap-4'>
+                    {/* Izquierda: Info de selección */}
+                    <p className='text-[0.75rem] text-[#535C66] shrink-0'>
+                      {selectedCount} tratamiento{selectedCount !== 1 ? 's' : ''}
+                    </p>
+
+                    {/* Centro-derecha: Resumen financiero compacto */}
+                    <div className='flex items-center gap-3 flex-wrap justify-end'>
+                      {/* Subtotal */}
+                      <div className='flex items-center gap-1.5'>
+                        <span className='text-[0.6875rem] text-[#AEB8C2]'>Subtotal</span>
+                        <span className='text-[0.75rem] font-medium text-[#535C66]'>
+                          {formatPriceDisplay(subtotal)}
+                        </span>
+                      </div>
+
+                      {/* Separador visual */}
+                      <div className='w-px h-4 bg-[#E2E7EA]' />
+
+                      {/* Descuento general */}
+                      <div className='flex items-center gap-1.5'>
+                        <span className='text-[0.6875rem] text-[#AEB8C2]'>Dto.</span>
+                        {/* Toggle % / € */}
+                        <div className='flex items-center bg-[#F4F8FA] rounded-full p-0.5'>
+                          <button
+                            type='button'
+                            onClick={() => setGeneralDiscount(prev => ({ ...prev, type: 'percentage' }))}
+                            className={`px-1.5 py-0.5 text-[0.625rem] font-medium rounded-full transition-colors cursor-pointer ${
+                              generalDiscount.type === 'percentage'
+                                ? 'bg-[var(--color-brand-500)] text-white'
+                                : 'text-[#535C66] hover:text-[#24282C]'
+                            }`}
+                          >
+                            %
+                          </button>
+                          <button
+                            type='button'
+                            onClick={() => setGeneralDiscount(prev => ({ ...prev, type: 'fixed' }))}
+                            className={`px-1.5 py-0.5 text-[0.625rem] font-medium rounded-full transition-colors cursor-pointer ${
+                              generalDiscount.type === 'fixed'
+                                ? 'bg-[var(--color-brand-500)] text-white'
+                                : 'text-[#535C66] hover:text-[#24282C]'
+                            }`}
+                          >
+                            €
+                          </button>
+                        </div>
+                        <input
+                          type='number'
+                          min='0'
+                          max={generalDiscount.type === 'percentage' ? 100 : subtotal}
+                          value={generalDiscount.value || ''}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0
+                            setGeneralDiscount(prev => ({ ...prev, value: val }))
+                          }}
+                          placeholder='0'
+                          className='w-[3rem] px-1.5 py-0.5 text-[0.6875rem] text-right text-[#24282C] bg-[#F4F8FA] border border-[#CBD3D9] rounded outline-none focus:border-[var(--color-brand-400)]'
+                        />
+                        {generalDiscountAmount > 0 && (
+                          <span className='text-[0.6875rem] font-medium text-[#22C55E]'>
+                            -{formatPriceDisplay(generalDiscountAmount)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Separador visual */}
+                      <div className='w-px h-4 bg-[#E2E7EA]' />
+
+                      {/* Total */}
+                      <div className='flex items-center gap-1.5 bg-[#F4F8FA] px-3 py-1 rounded-lg'>
+                        <span className='text-[0.75rem] font-semibold text-[#24282C]'>TOTAL</span>
+                        <span className='text-[0.9375rem] font-bold text-[var(--color-brand-700)]'>
+                          {formatPriceDisplay(totalFinal)}
+                        </span>
+                      </div>
+
+                      {/* Botones */}
+                      <button
+                        type='button'
+                        onClick={onClose}
+                        className='px-3 py-1.5 border border-[#CBD3D9] rounded-full text-[0.75rem] font-medium text-[#24282C] hover:bg-[#F4F8FA] transition-colors cursor-pointer'
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type='button'
+                        onClick={handleCreateBudget}
+                        disabled={selectedCount === 0 || isGenerating}
+                        className={[
+                          'px-4 py-1.5 rounded-full text-[0.75rem] font-medium transition-colors',
+                          selectedCount === 0 || isGenerating
+                            ? 'bg-[#E2E7EA] text-[#AEB8C2] cursor-not-allowed'
+                            : 'bg-[#51D6C7] text-[#1E4947] hover:bg-[#3ECBBB] cursor-pointer'
+                        ].join(' ')}
+                      >
+                        {isGenerating ? 'Generando...' : 'Crear presupuesto'}
+                      </button>
+                    </div>
+                  </div>
+                </footer>
               </div>
-            </footer>
-          </div>
             </>
           )}
         </div>

@@ -23,7 +23,8 @@ import { PROFESSIONALS, TREATMENT_CATALOG } from '@/components/pacientes/shared/
 import { setPendingAppointmentData } from '@/utils/appointmentPrefill'
 import { useRouter } from 'next/navigation'
 import React from 'react'
-import AddTreatmentsToBudgetModal from './AddTreatmentsToBudgetModal'
+import AddTreatmentsToBudgetModal, { type BudgetInfo } from './AddTreatmentsToBudgetModal'
+import type { BudgetRow } from './BudgetsPayments'
 
 // ============================================
 // Mock Data - Nuevo formato V2
@@ -495,6 +496,7 @@ function TreatmentRow({
 type TreatmentsProps = {
   onCreateBudget?: (selectedTreatments: TreatmentV2[]) => void
   onCreateAppointment?: (treatment: TreatmentV2) => void
+  onAddBudget?: (budget: BudgetRow) => void
   onCancel?: () => void
   onClose?: () => void
   patientId?: string
@@ -503,6 +505,7 @@ type TreatmentsProps = {
 
 export default function Treatments({
   onCreateBudget,
+  onAddBudget,
   onCancel,
   onClose,
   patientId,
@@ -1312,8 +1315,51 @@ export default function Treatments({
       <AddTreatmentsToBudgetModal
         open={showBudgetModal}
         onClose={() => setShowBudgetModal(false)}
-        onCreateBudget={(treatments) => {
-          // Presupuesto creado - cerrar el modal
+        onCreateBudget={(treatments, budgetInfo) => {
+          // Create budget row and add to the budgets table
+          if (onAddBudget) {
+            // Calculate validity date (30 days from now)
+            const validUntilDate = new Date()
+            validUntilDate.setDate(validUntilDate.getDate() + 30)
+            
+            const newBudget: BudgetRow = {
+              id: `PRE-${Date.now().toString().slice(-6)}`,
+              description: budgetInfo.name,
+              amount: `${budgetInfo.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+              date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+              status: 'Pendiente',
+              professional: treatments[0]?.doctor || '',
+              insurer: '',
+              // Extended fields
+              subtotal: budgetInfo.subtotal,
+              generalDiscount: budgetInfo.generalDiscountAmount > 0 
+                ? { type: 'fixed', value: budgetInfo.generalDiscountAmount }
+                : undefined,
+              validUntil: validUntilDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+              treatments: treatments.map(t => ({
+                pieza: t.pieza,
+                cara: t.cara,
+                codigo: t.codigo,
+                tratamiento: t.tratamiento,
+                precio: t.precio,
+                porcentajeDescuento: t.porcentajeDescuento,
+                descuento: t.descuento || '0 €',
+                importe: t.importe,
+                doctor: t.doctor
+              })),
+              history: [
+                { 
+                  date: new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }), 
+                  action: 'Presupuesto creado', 
+                  user: treatments[0]?.doctor || 'Sistema' 
+                }
+              ]
+            }
+            onAddBudget(newBudget)
+          }
+          // Also call the legacy callback if provided
+          onCreateBudget?.(treatments)
+          // Close the modal
           setShowBudgetModal(false)
         }}
         treatments={pendingTreatments}

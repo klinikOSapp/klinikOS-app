@@ -27,9 +27,15 @@ import {
 } from '@/components/icons/md3'
 import React from 'react'
 import { createPortal } from 'react-dom'
+import {
+  convertBudgetTypeToTreatmentsV2,
+  type BudgetTypeData
+} from '@/components/pacientes/shared/budgetTypeData'
+import type { TreatmentV2 } from '@/components/pacientes/shared/treatmentTypes'
 import AddProductionModal from './AddProductionModal'
 import AddTreatmentsToBudgetModal from './AddTreatmentsToBudgetModal'
-import { BudgetTypeModal, type BudgetTypeOption } from './BudgetTypeModal'
+import BudgetDetailsModal from './BudgetDetailsModal'
+import BudgetTypeListModal from './BudgetTypeListModal'
 import InvoiceProductionModal from './InvoiceProductionModal'
 import MarkAsProducedModal from './MarkAsProducedModal'
 import ProposalCreationModal from './ProposalCreationModal'
@@ -41,6 +47,10 @@ type BudgetsPaymentsProps = {
   openBudgetCreation?: boolean
   onBudgetCreationOpened?: () => void
   patientName?: string
+  // Shared state props (optional - uses local state if not provided)
+  budgetRows?: BudgetRow[]
+  onAddBudget?: (budget: BudgetRow) => void
+  onUpdateBudgetRows?: (rows: BudgetRow[]) => void
 }
 
 type ActionMenuItem = {
@@ -339,16 +349,22 @@ function BudgetActionsMenu({
           onClick: () => onAction(rowId, 'editar')
         },
         {
-          id: 'enviar-mail',
-          label: 'Enviar Mail',
-          icon: <AttachEmailRounded className='size-6' />,
-          onClick: () => onAction(rowId, 'enviar-mail')
+          id: 'duplicar',
+          label: 'Duplicar',
+          icon: <DescriptionRounded className='size-6' />,
+          onClick: () => onAction(rowId, 'duplicar')
         },
         {
           id: 'descargar-pdf',
           label: 'Descargar PDF',
           icon: <DownloadRounded className='size-6' />,
           onClick: () => onAction(rowId, 'descargar-pdf')
+        },
+        {
+          id: 'enviar-mail',
+          label: 'Enviar email',
+          icon: <AttachEmailRounded className='size-6' />,
+          onClick: () => onAction(rowId, 'enviar-mail')
         },
         {
           id: 'eliminar',
@@ -364,28 +380,46 @@ function BudgetActionsMenu({
     if (status === 'Aceptado') {
       return [
         {
-          id: 'ver-produccion',
-          label: 'Ver producción',
-          icon: <BarChartRounded className='size-6' />,
-          onClick: () => onAction(rowId, 'ver-produccion')
-        },
-        {
           id: 'ver-detalles',
           label: 'Ver detalles',
           icon: <VisibilityRounded className='size-6' />,
           onClick: () => onAction(rowId, 'ver-detalles')
         },
         {
-          id: 'enviar-mail',
-          label: 'Enviar Mail',
-          icon: <AttachEmailRounded className='size-6' />,
-          onClick: () => onAction(rowId, 'enviar-mail')
+          id: 'ver-produccion',
+          label: 'Ver producción',
+          icon: <BarChartRounded className='size-6' />,
+          onClick: () => onAction(rowId, 'ver-produccion')
+        },
+        {
+          id: 'crear-citas',
+          label: 'Crear citas',
+          icon: <CalendarMonthRounded className='size-6' />,
+          onClick: () => onAction(rowId, 'crear-citas')
+        },
+        {
+          id: 'convertir-factura',
+          label: 'Convertir a factura',
+          icon: <ReceiptLongRounded className='size-6' />,
+          onClick: () => onAction(rowId, 'convertir-factura')
+        },
+        {
+          id: 'duplicar',
+          label: 'Duplicar',
+          icon: <DescriptionRounded className='size-6' />,
+          onClick: () => onAction(rowId, 'duplicar')
         },
         {
           id: 'descargar-pdf',
           label: 'Descargar PDF',
           icon: <DownloadRounded className='size-6' />,
           onClick: () => onAction(rowId, 'descargar-pdf')
+        },
+        {
+          id: 'enviar-mail',
+          label: 'Enviar email',
+          icon: <AttachEmailRounded className='size-6' />,
+          onClick: () => onAction(rowId, 'enviar-mail')
         },
         {
           id: 'eliminar',
@@ -401,10 +435,28 @@ function BudgetActionsMenu({
     if (status === 'Rechazado') {
       return [
         {
+          id: 'reabrir',
+          label: 'Reabrir presupuesto',
+          icon: <CheckCircleRounded className='size-6' />,
+          onClick: () => onAction(rowId, 'reabrir')
+        },
+        {
           id: 'ver-detalles',
           label: 'Ver detalles',
           icon: <VisibilityRounded className='size-6' />,
           onClick: () => onAction(rowId, 'ver-detalles')
+        },
+        {
+          id: 'duplicar',
+          label: 'Duplicar',
+          icon: <DescriptionRounded className='size-6' />,
+          onClick: () => onAction(rowId, 'duplicar')
+        },
+        {
+          id: 'descargar-pdf',
+          label: 'Descargar PDF',
+          icon: <DownloadRounded className='size-6' />,
+          onClick: () => onAction(rowId, 'descargar-pdf')
         },
         {
           id: 'eliminar',
@@ -486,16 +538,42 @@ type ProductionRow = {
   professional: string
 }
 
-// === PRESUPUESTOS TYPES ===
-type BudgetStatusType = 'Aceptado' | 'Pendiente' | 'Rechazado'
+// === PRESUPUESTOS TYPES (exported for shared state) ===
+export type BudgetStatusType = 'Aceptado' | 'Pendiente' | 'Rechazado'
 
-const BUDGET_STATUS_OPTIONS: BudgetStatusType[] = [
+export const BUDGET_STATUS_OPTIONS: BudgetStatusType[] = [
   'Aceptado',
   'Pendiente',
   'Rechazado'
 ]
 
-type BudgetRow = {
+// Tipo para tratamientos incluidos en un presupuesto
+export type BudgetTreatment = {
+  pieza?: number
+  cara?: string
+  codigo?: string
+  tratamiento: string
+  precio: string
+  porcentajeDescuento?: number
+  descuento: string
+  importe: string
+  doctor?: string
+}
+
+// Tipo para historial de cambios del presupuesto
+export type BudgetHistoryEntry = {
+  date: string
+  action: string
+  user?: string
+}
+
+// Tipo para descuento general
+export type BudgetGeneralDiscount = {
+  type: 'percentage' | 'fixed'
+  value: number
+}
+
+export type BudgetRow = {
   id: string
   description: string
   amount: string
@@ -503,6 +581,12 @@ type BudgetRow = {
   status: BudgetStatusType
   professional: string
   insurer: string
+  // Campos extendidos para detalles
+  treatments?: BudgetTreatment[]
+  generalDiscount?: BudgetGeneralDiscount
+  subtotal?: number
+  validUntil?: string
+  history?: BudgetHistoryEntry[]
 }
 
 // === FACTURAS TYPES ===
@@ -604,7 +688,7 @@ const INITIAL_INVOICE_ROWS: InvoiceRow[] = [
   }
 ]
 
-const INITIAL_BUDGET_ROWS: BudgetRow[] = [
+export const INITIAL_BUDGET_ROWS: BudgetRow[] = [
   {
     id: 'PR-001',
     description: 'Operación mandíbula',
@@ -612,7 +696,19 @@ const INITIAL_BUDGET_ROWS: BudgetRow[] = [
     date: '22/12/25',
     status: 'Aceptado',
     professional: 'Dr. Guillermo',
-    insurer: 'Adeslas'
+    insurer: 'Adeslas',
+    subtotal: 2500,
+    generalDiscount: { type: 'percentage', value: 8 },
+    validUntil: '22/01/26',
+    treatments: [
+      { pieza: 36, tratamiento: 'Cirugía maxilofacial', precio: '1.800 €', descuento: '0 €', importe: '1.800 €', doctor: 'Dr. Guillermo' },
+      { pieza: 37, tratamiento: 'Reconstrucción ósea', precio: '700 €', descuento: '0 €', importe: '700 €', doctor: 'Dr. Guillermo' }
+    ],
+    history: [
+      { date: '22/12/25 10:30', action: 'Presupuesto creado', user: 'Dr. Guillermo' },
+      { date: '22/12/25 11:00', action: 'PDF descargado', user: 'Dr. Guillermo' },
+      { date: '23/12/25 09:15', action: 'Aceptado por el paciente', user: 'Sistema' }
+    ]
   },
   {
     id: 'PR-002',
@@ -621,16 +717,33 @@ const INITIAL_BUDGET_ROWS: BudgetRow[] = [
     date: '18/12/25',
     status: 'Aceptado',
     professional: 'Dr. Guillermo',
-    insurer: 'Sanitas'
+    insurer: 'Sanitas',
+    subtotal: 150,
+    validUntil: '18/01/26',
+    treatments: [
+      { tratamiento: 'Primera consulta', precio: '150 €', descuento: '0 €', importe: '150 €', doctor: 'Dr. Guillermo' }
+    ],
+    history: [
+      { date: '18/12/25 14:00', action: 'Presupuesto creado', user: 'Dr. Guillermo' },
+      { date: '18/12/25 14:30', action: 'Aceptado por el paciente', user: 'Sistema' }
+    ]
   },
   {
     id: 'PR-003',
-    description: 'Radiografía',
+    description: 'Radiografía panorámica',
     amount: '100 €',
     date: '01/12/25',
     status: 'Pendiente',
     professional: 'Dra. Andrea',
-    insurer: 'Sanitas'
+    insurer: 'Sanitas',
+    subtotal: 100,
+    validUntil: '01/01/26',
+    treatments: [
+      { tratamiento: 'Radiografía panorámica', precio: '100 €', descuento: '0 €', importe: '100 €', doctor: 'Dra. Andrea' }
+    ],
+    history: [
+      { date: '01/12/25 09:00', action: 'Presupuesto creado', user: 'Dra. Andrea' }
+    ]
   },
   {
     id: 'PR-004',
@@ -1231,7 +1344,10 @@ export default function BudgetsPayments({
   onClose,
   openBudgetCreation = false,
   onBudgetCreationOpened,
-  patientName
+  patientName,
+  budgetRows: externalBudgetRows,
+  onAddBudget,
+  onUpdateBudgetRows
 }: BudgetsPaymentsProps) {
   // Nombre del paciente para mostrar (usa prop o mock)
   const displayPatientName = patientName || 'María García López'
@@ -1250,17 +1366,39 @@ export default function BudgetsPayments({
     React.useState(false)
   const [showTraceabilityModal, setShowTraceabilityModal] =
     React.useState(false)
+  const [showBudgetDetailsModal, setShowBudgetDetailsModal] =
+    React.useState(false)
   const [selectedProductionRow, setSelectedProductionRow] =
     React.useState<ProductionRow | null>(null)
   const [selectedInvoiceRow, setSelectedInvoiceRow] =
     React.useState<InvoiceRow | null>(null)
+  const [selectedBudgetRow, setSelectedBudgetRow] =
+    React.useState<BudgetRow | null>(null)
 
   // Separate state for each tab
   const [productionRows, setProductionRows] = React.useState<ProductionRow[]>(
     INITIAL_PRODUCTION_ROWS
   )
-  const [budgetRows, setBudgetRows] =
+  // Use external budgetRows if provided, otherwise use local state
+  const [localBudgetRows, setLocalBudgetRows] =
     React.useState<BudgetRow[]>(INITIAL_BUDGET_ROWS)
+  const budgetRows = externalBudgetRows ?? localBudgetRows
+  const setBudgetRows = React.useCallback((newRows: BudgetRow[] | ((prev: BudgetRow[]) => BudgetRow[])) => {
+    if (typeof newRows === 'function') {
+      const updatedRows = newRows(budgetRows)
+      if (onUpdateBudgetRows) {
+        onUpdateBudgetRows(updatedRows)
+      } else {
+        setLocalBudgetRows(updatedRows)
+      }
+    } else {
+      if (onUpdateBudgetRows) {
+        onUpdateBudgetRows(newRows)
+      } else {
+        setLocalBudgetRows(newRows)
+      }
+    }
+  }, [budgetRows, onUpdateBudgetRows])
   const [invoiceRows, setInvoiceRows] =
     React.useState<InvoiceRow[]>(INITIAL_INVOICE_ROWS)
 
@@ -1553,8 +1691,24 @@ export default function BudgetsPayments({
     }
   }, [openBudgetCreation, showProposalModal, onBudgetCreationOpened])
 
-  const [budgetTypeSelection, setBudgetTypeSelection] =
-    React.useState<BudgetTypeOption | null>(null)
+  // State for budget type treatments and name (when selecting from preset templates)
+  const [budgetTypeTreatments, setBudgetTypeTreatments] = React.useState<
+    TreatmentV2[] | undefined
+  >(undefined)
+  const [budgetTypeName, setBudgetTypeName] = React.useState<string>('')
+
+  // Handler for selecting a budget type from the list modal
+  const handleBudgetTypeSelect = React.useCallback(
+    (budgetType: BudgetTypeData) => {
+      // Convert budget type treatments to TreatmentV2 format
+      const treatments = convertBudgetTypeToTreatmentsV2(budgetType)
+      setBudgetTypeTreatments(treatments)
+      setBudgetTypeName(budgetType.name)
+      setShowBudgetTypeModal(false)
+      setShowAddTreatmentsModal(true)
+    },
+    []
+  )
 
   // Handler to update production row status
   const handleProductionStatusChange = (
@@ -1662,9 +1816,59 @@ export default function BudgetsPayments({
     }
   }
 
+  // Handler functions for budget actions
+  const handleDuplicateBudget = (budget: BudgetRow) => {
+    const newId = `PRE-${Date.now().toString().slice(-6)}`
+    const duplicatedBudget: BudgetRow = {
+      ...budget,
+      id: newId,
+      description: `${budget.description} (copia)`,
+      status: 'Pendiente',
+      date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+      validUntil: undefined,
+      history: [
+        { date: new Date().toLocaleString('es-ES'), action: 'Presupuesto duplicado', user: 'Sistema' }
+      ]
+    }
+    if (onAddBudget) {
+      onAddBudget(duplicatedBudget)
+    } else {
+      setBudgetRows(prev => [duplicatedBudget, ...prev])
+    }
+  }
+
+  const handleDownloadBudgetPdf = (budget: BudgetRow) => {
+    console.log('Descargando PDF del presupuesto:', budget.id)
+    // TODO: Implement PDF generation using existing exportUtils
+    alert(`PDF del presupuesto ${budget.id} descargado`)
+  }
+
+  const handleSendBudgetEmail = (budget: BudgetRow) => {
+    console.log('Enviando email del presupuesto:', budget.id)
+    // TODO: Implement email sending
+    alert(`Email del presupuesto ${budget.id} enviado al paciente`)
+  }
+
+  const handleCreateAppointments = (budget: BudgetRow) => {
+    console.log('Creando citas para presupuesto:', budget.id)
+    // TODO: Navigate to appointments or open modal
+    alert(`Crear citas para los tratamientos del presupuesto ${budget.id}`)
+  }
+
+  const handleConvertToInvoice = (budget: BudgetRow) => {
+    console.log('Convirtiendo presupuesto a factura:', budget.id)
+    // TODO: Create invoice from budget
+    alert(`Presupuesto ${budget.id} convertido a factura`)
+  }
+
+  const handleDeleteBudget = (budgetId: string) => {
+    setBudgetRows((prevRows) => prevRows.filter((row) => row.id !== budgetId))
+  }
+
   // Handler for budget action menu items
   const handleBudgetAction = (rowId: string, action: string) => {
     console.log(`Budget Action: ${action} on row: ${rowId}`)
+    const budget = budgetRows.find(r => r.id === rowId)
 
     switch (action) {
       case 'marcar-aceptado':
@@ -1673,15 +1877,37 @@ export default function BudgetsPayments({
       case 'marcar-rechazado':
         handleBudgetStatusChange(rowId, 'Rechazado')
         break
+      case 'reabrir':
+        handleBudgetStatusChange(rowId, 'Pendiente')
+        break
       case 'eliminar':
-        setBudgetRows((prevRows) => prevRows.filter((row) => row.id !== rowId))
+        handleDeleteBudget(rowId)
         break
       case 'ver-detalles':
+        if (budget) {
+          setSelectedBudgetRow(budget)
+          setShowBudgetDetailsModal(true)
+        }
+        break
+      case 'duplicar':
+        if (budget) handleDuplicateBudget(budget)
+        break
+      case 'descargar-pdf':
+        if (budget) handleDownloadBudgetPdf(budget)
+        break
+      case 'enviar-mail':
+        if (budget) handleSendBudgetEmail(budget)
+        break
+      case 'crear-citas':
+        if (budget) handleCreateAppointments(budget)
+        break
+      case 'convertir-factura':
+        if (budget) handleConvertToInvoice(budget)
+        break
       case 'ver-produccion':
       case 'editar':
-      case 'enviar-mail':
-      case 'descargar-pdf':
         // Placeholder for future implementation
+        console.log(`Action ${action} not yet implemented`)
         break
       default:
         break
@@ -2700,27 +2926,75 @@ export default function BudgetsPayments({
 
       <AddTreatmentsToBudgetModal
         open={showAddTreatmentsModal}
-        onClose={() => setShowAddTreatmentsModal(false)}
-        onCreateBudget={(selectedTreatments) => {
-          console.log('Selected treatments:', selectedTreatments)
+        onClose={() => {
           setShowAddTreatmentsModal(false)
-          // Open the proposal creation modal with selected treatments
-          setShowProposalModal(true)
+          // Clear budget type data when modal closes
+          setBudgetTypeTreatments(undefined)
+          setBudgetTypeName('')
+        }}
+        treatments={budgetTypeTreatments}
+        initialBudgetName={budgetTypeName}
+        onCreateBudget={(selectedTreatments, budgetInfo) => {
+          console.log('Selected treatments:', selectedTreatments)
+          console.log('Budget info:', budgetInfo)
+          
+          // Calculate validity date (30 days from now)
+          const validUntilDate = new Date()
+          validUntilDate.setDate(validUntilDate.getDate() + 30)
+          
+          // Create new budget row with extended fields
+          const newBudget: BudgetRow = {
+            id: `PRE-${Date.now().toString().slice(-6)}`,
+            description: budgetInfo.name,
+            amount: `${budgetInfo.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+            date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+            status: 'Pendiente',
+            professional: selectedTreatments[0]?.doctor || '',
+            insurer: '',
+            // Extended fields
+            subtotal: budgetInfo.subtotal,
+            generalDiscount: budgetInfo.generalDiscountAmount > 0 
+              ? { type: 'fixed', value: budgetInfo.generalDiscountAmount }
+              : undefined,
+            validUntil: validUntilDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+            treatments: selectedTreatments.map(t => ({
+              pieza: t.pieza,
+              cara: t.cara,
+              codigo: t.codigo,
+              tratamiento: t.tratamiento,
+              precio: t.precio,
+              porcentajeDescuento: t.porcentajeDescuento,
+              descuento: t.descuento || '0 €',
+              importe: t.importe,
+              doctor: t.doctor
+            })),
+            history: [
+              { 
+                date: new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }), 
+                action: 'Presupuesto creado', 
+                user: selectedTreatments[0]?.doctor || 'Sistema' 
+              }
+            ]
+          }
+          
+          // Add to budget rows (uses shared state via onAddBudget if available)
+          if (onAddBudget) {
+            onAddBudget(newBudget)
+          } else {
+            setBudgetRows(prev => [newBudget, ...prev])
+          }
+          
+          setShowAddTreatmentsModal(false)
         }}
       />
       <ProposalCreationModal
         open={showProposalModal}
         onClose={() => setShowProposalModal(false)}
       />
-      <BudgetTypeModal
+      <BudgetTypeListModal
         open={showBudgetTypeModal}
         onClose={() => setShowBudgetTypeModal(false)}
-        onContinue={(selection) => {
-          setBudgetTypeSelection(selection)
-          setShowBudgetTypeModal(false)
-          setShowProposalModal(true)
-        }}
-        patientName={displayPatientName}
+        onSelect={handleBudgetTypeSelect}
       />
       <AddProductionModal
         open={showAddProductionModal}
@@ -2872,6 +3146,42 @@ export default function BudgetsPayments({
         invoiceStatus={selectedInvoiceRow?.status ?? ''}
         paymentMethod={selectedInvoiceRow?.paymentMethod ?? ''}
         insurer={selectedInvoiceRow?.insurer ?? ''}
+      />
+      <BudgetDetailsModal
+        open={showBudgetDetailsModal}
+        onClose={() => {
+          setShowBudgetDetailsModal(false)
+          setSelectedBudgetRow(null)
+        }}
+        budget={selectedBudgetRow}
+        patientName={displayPatientName}
+        onStatusChange={(budgetId, newStatus) => {
+          handleBudgetStatusChange(budgetId, newStatus)
+          // Add history entry
+          setBudgetRows(prev => prev.map(b => 
+            b.id === budgetId 
+              ? { 
+                  ...b, 
+                  history: [
+                    ...(b.history || []),
+                    { 
+                      date: new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }),
+                      action: newStatus === 'Aceptado' ? 'Presupuesto aceptado' : newStatus === 'Rechazado' ? 'Presupuesto rechazado' : 'Presupuesto reabierto',
+                      user: 'Sistema'
+                    }
+                  ]
+                }
+              : b
+          ))
+        }}
+        onDuplicate={handleDuplicateBudget}
+        onDelete={(budgetId) => {
+          handleDeleteBudget(budgetId)
+        }}
+        onDownloadPdf={handleDownloadBudgetPdf}
+        onSendEmail={handleSendBudgetEmail}
+        onCreateAppointments={handleCreateAppointments}
+        onConvertToInvoice={handleConvertToInvoice}
       />
     </div>
   )

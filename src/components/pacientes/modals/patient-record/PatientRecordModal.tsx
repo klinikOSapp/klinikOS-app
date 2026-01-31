@@ -3,7 +3,7 @@
 import { CloseRounded, FilePresentRounded } from '@/components/icons/md3'
 import Portal from '@/components/ui/Portal'
 import React from 'react'
-import BudgetsPayments from './BudgetsPayments'
+import BudgetsPayments, { type BudgetRow, INITIAL_BUDGET_ROWS } from './BudgetsPayments'
 import ClientSummary from './ClientSummary'
 import ClinicalHistory from './ClinicalHistory'
 import Consents from './Consents'
@@ -57,6 +57,19 @@ export default function PatientRecordModal({
   const [shouldOpenClinicalEdit, setShouldOpenClinicalEdit] = React.useState(
     openClinicalHistoryEdit
   )
+
+  // === Shared budget state (elevated from BudgetsPayments) ===
+  const [budgetRows, setBudgetRows] = React.useState<BudgetRow[]>(INITIAL_BUDGET_ROWS)
+
+  // Handler to add a new budget (shared between Treatments and BudgetsPayments)
+  const handleAddBudget = React.useCallback((budget: BudgetRow) => {
+    setBudgetRows(prev => [budget, ...prev])
+  }, [])
+
+  // Handler to update all budget rows
+  const handleUpdateBudgetRows = React.useCallback((rows: BudgetRow[]) => {
+    setBudgetRows(rows)
+  }, [])
 
   React.useEffect(() => {
     if (open && openBudgetCreation) {
@@ -325,6 +338,7 @@ export default function PatientRecordModal({
                       onClose={onClose} 
                       patientId={patientId}
                       patientName={patientName}
+                      onAddBudget={handleAddBudget}
                     />
                   )}
                   {active === 'Imágenes RX' && <RxImages onClose={onClose} />}
@@ -334,6 +348,9 @@ export default function PatientRecordModal({
                       openBudgetCreation={shouldOpenBudget}
                       onBudgetCreationOpened={() => setShouldOpenBudget(false)}
                       patientName={patientName}
+                      budgetRows={budgetRows}
+                      onAddBudget={handleAddBudget}
+                      onUpdateBudgetRows={handleUpdateBudgetRows}
                     />
                   )}
                   {active === 'Consentimientos' && (

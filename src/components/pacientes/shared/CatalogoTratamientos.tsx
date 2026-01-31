@@ -139,9 +139,13 @@ export default function CatalogoTratamientos({
     TREATMENT_AREAS.find((a) => a.value === areaFilter)?.label || 'Área'
 
   return (
-    <div className={`flex flex-col w-full ${compact ? 'gap-[0.5rem]' : 'gap-[0.75rem]'}`}>
+    <div
+      className={`flex flex-col w-full ${compact ? 'gap-[0.5rem]' : 'gap-[0.75rem]'}`}
+    >
       {/* Filtros y buscador */}
-      <div className={`flex flex-wrap items-center ${compact ? 'gap-[0.375rem]' : 'gap-[0.5rem]'}`}>
+      <div
+        className={`flex flex-wrap items-center ${compact ? 'gap-[0.375rem]' : 'gap-[0.5rem]'}`}
+      >
         {/* Filtros pill */}
         <div className='flex gap-[0.375rem] items-center relative'>
           {/* Familia dropdown */}
@@ -293,7 +297,13 @@ export default function CatalogoTratamientos({
         </div>
 
         {/* Rows */}
-        <div className={compact ? 'max-h-[6rem] overflow-y-auto' : 'max-h-[10rem] overflow-y-auto'}>
+        <div
+          className={
+            compact
+              ? 'max-h-[6rem] overflow-y-auto'
+              : 'max-h-[10rem] overflow-y-auto'
+          }
+        >
           {filteredCatalog.map(([codigo, entry]) => (
             <CatalogRow
               key={codigo}

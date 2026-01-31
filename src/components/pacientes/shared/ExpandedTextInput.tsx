@@ -16,7 +16,7 @@ interface ExpandedTextInputProps {
 
 /**
  * ExpandedTextInput - Input de texto que muestra un popover expandido al hacer click o hover
- * 
+ *
  * Basado en el diseño de Figma:
  * - Fondo: #F4F8FA (Neutral/100)
  * - Border radius: 8px (0.5rem)
@@ -32,7 +32,9 @@ export default function ExpandedTextInput({
   compact = false
 }: ExpandedTextInputProps) {
   // Clases de texto según modo
-  const textSizeClass = compact ? 'text-[0.6875rem] leading-[1rem]' : 'text-body-md'
+  const textSizeClass = compact
+    ? 'text-[0.6875rem] leading-[1rem]'
+    : 'text-body-md'
   const [isExpanded, setIsExpanded] = useState(false)
   const [isHoverMode, setIsHoverMode] = useState(false) // Si se abrió por hover (solo lectura)
   const [localValue, setLocalValue] = useState(value)
@@ -40,7 +42,7 @@ export default function ExpandedTextInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0 })
-  
+
   // Ref para el timeout del hover
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -58,10 +60,10 @@ export default function ExpandedTextInput({
       const viewportHeight = window.innerHeight
       const spaceBelow = viewportHeight - rect.bottom
       const popoverHeight = 120 // Altura aproximada del popover
-      
+
       // Si no hay espacio debajo, mostrar arriba
       const showAbove = spaceBelow < popoverHeight && rect.top > popoverHeight
-      
+
       setPosition({
         top: showAbove ? rect.top - popoverHeight - 4 : rect.bottom + 4,
         left: rect.left,
@@ -192,18 +194,24 @@ export default function ExpandedTextInput({
   }, [clearHoverTimeout])
 
   // Manejar cambio en el textarea
-  const handleTextareaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setLocalValue(e.target.value)
-  }, [])
+  const handleTextareaChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setLocalValue(e.target.value)
+    },
+    []
+  )
 
   // Manejar blur del textarea - cerrar y guardar
-  const handleTextareaBlur = useCallback((e: React.FocusEvent<HTMLTextAreaElement>) => {
-    // Solo cerrar si el foco no va al contenedor original
-    const relatedTarget = e.relatedTarget as HTMLElement
-    if (!containerRef.current?.contains(relatedTarget)) {
-      handleClose()
-    }
-  }, [handleClose])
+  const handleTextareaBlur = useCallback(
+    (e: React.FocusEvent<HTMLTextAreaElement>) => {
+      // Solo cerrar si el foco no va al contenedor original
+      const relatedTarget = e.relatedTarget as HTMLElement
+      if (!containerRef.current?.contains(relatedTarget)) {
+        handleClose()
+      }
+    },
+    [handleClose]
+  )
 
   // Click en el popover en modo hover -> cambiar a modo edición
   const handlePopoverClick = useCallback(() => {

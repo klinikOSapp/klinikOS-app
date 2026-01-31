@@ -111,7 +111,7 @@ function PatientActionsMenu({
   return (
     <div
       ref={menuRef}
-      className='fixed z-[9999] min-w-[12rem] overflow-hidden rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] py-1 shadow-lg'
+      className='fixed z-[9999] min-w-[14rem] overflow-hidden rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] py-1 shadow-lg'
       style={{
         top: position.top,
         bottom: position.bottom,

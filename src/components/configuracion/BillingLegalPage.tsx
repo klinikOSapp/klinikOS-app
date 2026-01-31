@@ -1,6 +1,5 @@
 'use client'
 
-import React from 'react'
 import { AddRounded } from '@/components/icons/md3'
 
 // Types
@@ -11,7 +10,13 @@ type DocumentType = {
 }
 
 // Document card component with preview
-function DocumentCard({ title, onEdit }: { title: string; onEdit: () => void }) {
+function DocumentCard({
+  title,
+  onEdit
+}: {
+  title: string
+  onEdit: () => void
+}) {
   return (
     <div className='w-[min(22rem,100%)] bg-white border border-neutral-200 rounded-lg overflow-hidden flex flex-col'>
       {/* Header */}
@@ -24,13 +29,18 @@ function DocumentCard({ title, onEdit }: { title: string; onEdit: () => void }) 
           onClick={onEdit}
           className='flex items-center justify-center px-3 py-1 rounded-2xl border border-[var(--color-brand-500)] bg-[var(--color-page-bg)] hover:bg-[var(--color-brand-50)] transition-colors cursor-pointer'
         >
-          <span className='text-body-sm text-[var(--color-brand-900)]'>Editar</span>
+          <span className='text-body-sm text-[var(--color-brand-900)]'>
+            Editar
+          </span>
         </button>
       </div>
 
       {/* Document Preview - scaled down container for miniature effect */}
       <div className='flex-1 bg-[var(--color-neutral-50)] p-4 overflow-hidden'>
-        <div className='bg-white border border-neutral-200 rounded shadow-sm p-6 h-[min(31rem,50vh)] overflow-hidden origin-top-left scale-[0.55]' style={{ width: '180%' }}>
+        <div
+          className='bg-white border border-neutral-200 rounded shadow-sm p-6 h-[min(31rem,50vh)] overflow-hidden origin-top-left scale-[0.55]'
+          style={{ width: '180%' }}
+        >
           {/* Logo & Clinic Info */}
           <div className='flex items-start justify-between mb-6'>
             <div className='flex items-center gap-3'>
@@ -38,9 +48,15 @@ function DocumentCard({ title, onEdit }: { title: string; onEdit: () => void }) 
               <span className='text-label-sm text-neutral-500'>Dental</span>
             </div>
             <div className='text-right'>
-              <p className='text-label-sm text-neutral-700'>Clínica Tama Dental</p>
-              <p className='text-label-sm text-neutral-500'>Dirección completa</p>
-              <p className='text-label-sm text-neutral-500'>Teléfono de contacto</p>
+              <p className='text-label-sm text-neutral-700'>
+                Clínica Tama Dental
+              </p>
+              <p className='text-label-sm text-neutral-500'>
+                Dirección completa
+              </p>
+              <p className='text-label-sm text-neutral-500'>
+                Teléfono de contacto
+              </p>
             </div>
           </div>
 
@@ -49,7 +65,9 @@ function DocumentCard({ title, onEdit }: { title: string; onEdit: () => void }) 
             <div className='flex justify-between mb-3'>
               <div>
                 <p className='text-label-sm text-neutral-500'>Paciente:</p>
-                <p className='text-label-sm text-neutral-700'>Nombre y apellidos</p>
+                <p className='text-label-sm text-neutral-700'>
+                  Nombre y apellidos
+                </p>
               </div>
               <div className='text-right'>
                 <p className='text-label-sm text-neutral-500'>Fecha:</p>
@@ -106,17 +124,25 @@ function DocumentCard({ title, onEdit }: { title: string; onEdit: () => void }) 
           <div className='border-t border-neutral-200 pt-3'>
             <div className='mb-3'>
               <p className='text-label-sm text-neutral-500'>Caso:</p>
-              <p className='text-label-sm text-neutral-700'>Breve descripción del caso, (no es obligatorio rellenarlo)</p>
+              <p className='text-label-sm text-neutral-700'>
+                Breve descripción del caso, (no es obligatorio rellenarlo)
+              </p>
             </div>
             <div className='border-t border-neutral-200 pt-3'>
               <div className='flex justify-between'>
                 <div>
                   <p className='text-label-sm text-neutral-500'>Doctor:</p>
-                  <p className='text-label-sm text-neutral-700'>Nombre y apellidos</p>
+                  <p className='text-label-sm text-neutral-700'>
+                    Nombre y apellidos
+                  </p>
                 </div>
                 <div className='text-right'>
-                  <p className='text-label-sm text-neutral-500'>Número colegiado:</p>
-                  <p className='text-label-sm text-neutral-700'>XX 895 895 895</p>
+                  <p className='text-label-sm text-neutral-500'>
+                    Número colegiado:
+                  </p>
+                  <p className='text-label-sm text-neutral-700'>
+                    XX 895 895 895
+                  </p>
                 </div>
               </div>
               <div className='mt-3'>
@@ -136,8 +162,16 @@ const documents: DocumentType[] = [
   { id: 'd1', title: 'Facturas', type: 'factura' },
   { id: 'd2', title: 'Recetas', type: 'receta' },
   { id: 'd3', title: 'Justificantes', type: 'justificante' },
-  { id: 'd4', title: 'Consentimiento Protección de datos (RGPD)', type: 'consentimiento' },
-  { id: 'd5', title: 'Consentimiento Tratamiento con sedación', type: 'consentimiento' }
+  {
+    id: 'd4',
+    title: 'Consentimiento Protección de datos (RGPD)',
+    type: 'consentimiento'
+  },
+  {
+    id: 'd5',
+    title: 'Consentimiento Tratamiento con sedación',
+    type: 'consentimiento'
+  }
 ]
 
 export default function BillingLegalPage() {

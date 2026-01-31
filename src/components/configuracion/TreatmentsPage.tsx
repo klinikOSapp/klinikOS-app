@@ -15,6 +15,14 @@ import {
     MoreHorizRounded,
     SearchRounded
 } from '@/components/icons/md3'
+import {
+    BUDGET_TYPES_DATA,
+    type BudgetTypeData,
+    addBudgetType,
+    updateBudgetType,
+    deleteBudgetType
+} from '@/components/pacientes/shared/budgetTypeData'
+import BudgetTypeEditorModal from './BudgetTypeEditorModal'
 import { useCallback, useMemo, useState, useRef, useEffect } from 'react'
 
 // ============================================
@@ -39,22 +47,8 @@ type Category = {
 
 type TabKey = 'treatments' | 'budgetType' | 'discounts' | 'medications'
 
-type BudgetType = {
-  id: string
-  name: string
-  treatmentsCount: number
-  totalPrice: number
-  packDiscount: string
-  notes: string
-  isActive: boolean
-  selected: boolean
-}
-
-type DiscountOption = {
-  id: string
-  name: string
-  percentage: number
-}
+// Budget type row extends the shared BudgetTypeData with selected state
+type BudgetTypeRow = BudgetTypeData & { selected: boolean }
 
 type DiscountType = 'percentage' | 'fixed'
 
@@ -72,19 +66,6 @@ type Discount = {
 // ============================================
 
 // ============================================
-// MOCK DATA - Budget Types (Presupuestos tipo)
-// Structure: id, name, treatmentsCount, totalPrice, packDiscount, notes, isActive
-// ============================================
-
-const discountOptions: DiscountOption[] = [
-  { id: 'disc-001', name: 'Sin descuento', percentage: 0 },
-  { id: 'disc-002', name: '5% Pack básico', percentage: 5 },
-  { id: 'disc-003', name: '10% Pack premium', percentage: 10 },
-  { id: 'disc-004', name: '15% Pack familiar', percentage: 15 },
-  { id: 'disc-005', name: '20% Pack VIP', percentage: 20 },
-]
-
-// ============================================
 // MOCK DATA - Discounts (Descuentos/Convenios)
 // Structure: id, name, type (percentage/fixed), value, notes, isActive
 // ============================================
@@ -100,16 +81,11 @@ const initialDiscounts: Discount[] = [
   { id: 'disc-008', name: 'Referido por paciente', type: 'percentage', value: 10, notes: 'Descuento para pacientes referidos', isActive: true },
 ]
 
-const initialBudgetTypes: BudgetType[] = [
-  { id: 'qb-001', name: 'Pack revisión completa', treatmentsCount: 3, totalPrice: 300, packDiscount: '5% Pack básico', notes: 'Incluye limpieza, revisión y radiografía panorámica', isActive: true, selected: false },
-  { id: 'qb-002', name: 'Pack blanqueamiento', treatmentsCount: 2, totalPrice: 1200, packDiscount: '10% Pack premium', notes: 'Blanqueamiento en clínica + kit domiciliario', isActive: false, selected: false },
-  { id: 'qb-003', name: 'Pack ortodoncia básico', treatmentsCount: 5, totalPrice: 60, packDiscount: '15% Pack familiar', notes: 'Estudio + fotografías + modelos + cefalometría + escáner', isActive: true, selected: false },
-  { id: 'qb-004', name: 'Pack periodoncia', treatmentsCount: 4, totalPrice: 450, packDiscount: '10% Pack premium', notes: 'Estudio periodontal + raspado completo + mantenimiento', isActive: true, selected: false },
-  { id: 'qb-005', name: 'Pack implante unitario', treatmentsCount: 3, totalPrice: 2100, packDiscount: '20% Pack VIP', notes: 'Implante + pilar + corona zirconio', isActive: true, selected: false },
-  { id: 'qb-006', name: 'Pack endodoncia + corona', treatmentsCount: 2, totalPrice: 650, packDiscount: '5% Pack básico', notes: 'Endodoncia multirradicular + corona cerámica', isActive: false, selected: false },
-  { id: 'qb-007', name: 'Pack estética dental', treatmentsCount: 6, totalPrice: 3500, packDiscount: '15% Pack familiar', notes: '4 carillas + blanqueamiento + diseño de sonrisa', isActive: true, selected: false },
-  { id: 'qb-008', name: 'Pack infantil', treatmentsCount: 4, totalPrice: 120, packDiscount: 'Sin descuento', notes: 'Revisión + sellados + flúor + educación higiene', isActive: true, selected: false },
-]
+// Convert BUDGET_TYPES_DATA to BudgetTypeRow format (add selected state)
+const initialBudgetTypes: BudgetTypeRow[] = BUDGET_TYPES_DATA.map((bt) => ({
+  ...bt,
+  selected: false
+}))
 
 // ============================================
 // MOCK DATA - Ready for database connection
@@ -607,17 +583,16 @@ function FilterTag({
 // BUDGET TYPE TABLE COMPONENTS
 // ============================================
 
-// Grid template for budget types: name | count | price | discount | notes | status
+// Grid template for budget types: name | description | count | price | status
 const BUDGET_TYPE_GRID_CLASSES =
-  'grid grid-cols-[minmax(0,1.5fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.2fr)_minmax(0,0.6fr)_minmax(0,0.6fr)] w-full'
+  'grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.5fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,0.6fr)] w-full'
 
 function BudgetTypeTableHeader() {
   const headers = [
-    'Nombre de plantilla',
+    'Nombre',
+    'Descripción',
     'Nº tratamientos',
     'Precio total',
-    'Descuento de pack',
-    'Notas',
     'Estado'
   ]
 
@@ -639,31 +614,11 @@ function BudgetTypeTableHeader() {
 
 function BudgetTypeTableRow({
   budget,
-  onToggleSelect,
-  onOpenNotes,
-  discountOptions,
-  onChangeDiscount
+  onToggleSelect
 }: {
-  budget: BudgetType
+  budget: BudgetTypeRow
   onToggleSelect: () => void
-  onOpenNotes: () => void
-  discountOptions: DiscountOption[]
-  onChangeDiscount: (discountName: string) => void
 }) {
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
   return (
     <div
       className={`${BUDGET_TYPE_GRID_CLASSES} ${
@@ -677,75 +632,32 @@ function BudgetTypeTableRow({
           {budget.name}
         </p>
       </div>
+      {/* Description */}
+      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+        <p className='text-body-md text-[var(--color-neutral-600)] truncate' title={budget.description}>
+          {budget.description}
+        </p>
+      </div>
       {/* Treatments Count */}
       <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
         <p className='text-body-md text-[var(--color-neutral-900)]'>
-          {budget.treatmentsCount}
+          {budget.treatments.length}
         </p>
       </div>
       {/* Total Price */}
       <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
         <p className='text-body-md text-[var(--color-neutral-900)]'>
-          {budget.totalPrice.toLocaleString('es-ES')}€
+          {budget.totalPrice.toLocaleString('es-ES')} €
         </p>
-      </div>
-      {/* Pack Discount */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0 relative'>
-        <div
-          ref={dropdownRef}
-          className='flex flex-1 items-center justify-between min-w-0'
-          onClick={(e) => {
-            e.stopPropagation()
-            setDropdownOpen(!dropdownOpen)
-          }}
-        >
-          <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
-            {budget.packDiscount}
-          </p>
-          <KeyboardArrowDownRounded className='size-[1.375rem] text-[var(--color-neutral-600)] flex-shrink-0 ml-1' />
-        </div>
-        {dropdownOpen && (
-          <div className='absolute top-full left-0 mt-1 w-full bg-[var(--color-surface)] border border-[var(--color-neutral-300)] rounded-lg shadow-lg z-20'>
-            {discountOptions.map((option) => (
-              <button
-                key={option.id}
-                type='button'
-                className='w-full text-left px-3 py-2 text-body-md text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-50)] first:rounded-t-lg last:rounded-b-lg'
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onChangeDiscount(option.name)
-                  setDropdownOpen(false)
-                }}
-              >
-                {option.name}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      {/* Notes */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
-        <button
-          type='button'
-          className='px-2 py-0.5 rounded-full'
-          onClick={(e) => {
-            e.stopPropagation()
-            onOpenNotes()
-          }}
-        >
-          <span className='text-title-sm font-medium text-[var(--color-brand-600)]'>
-            Ver nota
-          </span>
-        </button>
       </div>
       {/* Status */}
       <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] px-2 py-1.5 h-[2.5rem] min-w-0'>
         {budget.isActive ? (
-          <span className='bg-[#E0F2FE] text-[#075985] px-2 py-0.5 rounded text-body-md'>
+          <span className='bg-[#D3F7F3] text-[#1E4947] px-2 py-0.5 rounded text-body-md'>
             Activo
           </span>
         ) : (
-          <span className='bg-[var(--color-neutral-300)] text-[var(--color-neutral-900)] px-2 py-0.5 rounded text-body-md'>
+          <span className='bg-[var(--color-neutral-200)] text-[var(--color-neutral-600)] px-2 py-0.5 rounded text-body-md'>
             Inactivo
           </span>
         )}
@@ -1115,11 +1027,15 @@ export default function TreatmentsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   
   // Budget Types state
-  const [budgetTypes, setBudgetTypes] = useState<BudgetType[]>(initialBudgetTypes)
+  const [budgetTypes, setBudgetTypes] = useState<BudgetTypeRow[]>(initialBudgetTypes)
   const [qbSearchVisible, setQbSearchVisible] = useState(false)
   const [qbSearchTerm, setQbSearchTerm] = useState('')
   const [qbCurrentPage, setQbCurrentPage] = useState(1)
   const qbItemsPerPage = 5
+  
+  // Budget Type Editor Modal state
+  const [showBudgetTypeEditor, setShowBudgetTypeEditor] = useState(false)
+  const [editingBudgetType, setEditingBudgetType] = useState<BudgetTypeData | null>(null)
 
   // Discounts state
   const [discounts, setDiscounts] = useState<Discount[]>(initialDiscounts)
@@ -1190,7 +1106,7 @@ export default function TreatmentsPage() {
     const term = qbSearchTerm.toLowerCase()
     return budgetTypes.filter((bt) =>
       bt.name.toLowerCase().includes(term) ||
-      bt.packDiscount.toLowerCase().includes(term)
+      bt.description.toLowerCase().includes(term)
     )
   }, [budgetTypes, qbSearchTerm])
 
@@ -1214,32 +1130,33 @@ export default function TreatmentsPage() {
     )
   }, [])
 
-  // Change budget type discount
-  const changeBudgetTypeDiscount = useCallback((budgetId: string, discountName: string) => {
-    setBudgetTypes((prev) =>
-      prev.map((bt) =>
-        bt.id === budgetId ? { ...bt, packDiscount: discountName } : bt
-      )
-    )
-  }, [])
 
   // Budget type actions
   const handleBtEdit = useCallback(() => {
-    console.log('Edit selected budget types:', selectedBudgetTypes.map(bt => bt.id))
-    // TODO: Implement edit modal
+    if (selectedBudgetTypes.length === 1) {
+      const budgetToEdit = selectedBudgetTypes[0]
+      // Remove the selected property for editing
+      const { selected, ...budgetData } = budgetToEdit
+      setEditingBudgetType(budgetData)
+      setShowBudgetTypeEditor(true)
+    }
   }, [selectedBudgetTypes])
 
   const handleBtDuplicate = useCallback(() => {
-    const newBudgets = selectedBudgetTypes.map((bt) => ({
-      ...bt,
-      id: `bt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      name: `${bt.name} (copia)`,
-      selected: false
-    }))
-    setBudgetTypes((prev) => [...prev, ...newBudgets])
+    selectedBudgetTypes.forEach((bt) => {
+      const { id, selected, ...rest } = bt
+      const newBudget = addBudgetType({
+        ...rest,
+        name: `${bt.name} (copia)`
+      })
+      setBudgetTypes((prev) => [...prev, { ...newBudget, selected: false }])
+    })
   }, [selectedBudgetTypes])
 
   const handleBtDelete = useCallback(() => {
+    selectedBudgetTypes.forEach((bt) => {
+      deleteBudgetType(bt.id)
+    })
     const selectedIds = selectedBudgetTypes.map((bt) => bt.id)
     setBudgetTypes((prev) => prev.filter((bt) => !selectedIds.includes(bt.id)))
   }, [selectedBudgetTypes])
@@ -1249,23 +1166,34 @@ export default function TreatmentsPage() {
     // TODO: Implement more options dropdown
   }, [selectedBudgetTypes])
 
-  const handleOpenNotes = useCallback((budgetId: string) => {
-    const budget = budgetTypes.find((bt) => bt.id === budgetId)
-    if (budget) {
-      alert(`Notas: ${budget.notes}`)
-      // TODO: Implement notes modal
-    }
-  }, [budgetTypes])
-
   const handleAddTemplate = useCallback(() => {
-    console.log('Add new template')
-    // TODO: Implement add template modal
+    setEditingBudgetType(null)
+    setShowBudgetTypeEditor(true)
   }, [])
 
-  const handleConfigureDiscountLimits = useCallback(() => {
-    console.log('Configure discount limits')
-    // TODO: Implement discount limits configuration modal
-  }, [])
+  // Handle save from editor modal
+  const handleSaveBudgetType = useCallback(
+    (budgetTypeData: Omit<BudgetTypeData, 'id'> | BudgetTypeData) => {
+      if ('id' in budgetTypeData && budgetTypeData.id) {
+        // Update existing
+        updateBudgetType(budgetTypeData.id, budgetTypeData)
+        setBudgetTypes((prev) =>
+          prev.map((bt) =>
+            bt.id === budgetTypeData.id
+              ? { ...budgetTypeData as BudgetTypeData, selected: bt.selected }
+              : bt
+          )
+        )
+      } else {
+        // Create new
+        const newBudget = addBudgetType(budgetTypeData as Omit<BudgetTypeData, 'id'>)
+        setBudgetTypes((prev) => [...prev, { ...newBudget, selected: false }])
+      }
+      setShowBudgetTypeEditor(false)
+      setEditingBudgetType(null)
+    },
+    []
+  )
 
   // ============================================
   // DISCOUNTS FUNCTIONS
@@ -1557,9 +1485,6 @@ export default function TreatmentsPage() {
                     key={budget.id}
                     budget={budget}
                     onToggleSelect={() => toggleBudgetTypeSelect(budget.id)}
-                    onOpenNotes={() => handleOpenNotes(budget.id)}
-                    discountOptions={discountOptions}
-                    onChangeDiscount={(discountName) => changeBudgetTypeDiscount(budget.id, discountName)}
                   />
                 ))}
               </div>
@@ -1678,6 +1603,17 @@ export default function TreatmentsPage() {
           )}
         </div>
       </div>
+
+      {/* Budget Type Editor Modal */}
+      <BudgetTypeEditorModal
+        open={showBudgetTypeEditor}
+        onClose={() => {
+          setShowBudgetTypeEditor(false)
+          setEditingBudgetType(null)
+        }}
+        onSave={handleSaveBudgetType}
+        editingBudgetType={editingBudgetType}
+      />
     </>
   )
 }

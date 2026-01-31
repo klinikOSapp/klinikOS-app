@@ -633,12 +633,26 @@ export type BudgetTreatment = {
   doctor: string
 }
 
+export type BudgetGeneralDiscount = {
+  type: 'percentage' | 'fixed'
+  value: number
+}
+
+export type BudgetOptions = {
+  budgetName?: string
+  generalDiscount?: BudgetGeneralDiscount
+  subtotal?: number
+  generalDiscountAmount?: number
+  totalFinal?: number
+}
+
 /**
  * Generate a PDF document for a patient budget
  */
 export function generateBudgetPDF(
   treatments: BudgetTreatment[],
-  patientName: string
+  patientName: string,
+  options?: BudgetOptions
 ): Blob {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -652,17 +666,18 @@ export function generateBudgetPDF(
   // ============================================
   // HEADER
   // ============================================
-  
+
   // Clinic name
   doc.setFontSize(24)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(30, 73, 71) // Brand color #1E4947
   doc.text('klinikOS', margin, 25)
 
-  // Budget title
+  // Budget title (use custom name if provided)
   doc.setFontSize(18)
   doc.setTextColor(36, 40, 44) // #24282C
-  doc.text('Presupuesto', pageWidth - margin, 25, { align: 'right' })
+  const budgetTitle = options?.budgetName || 'Presupuesto'
+  doc.text(budgetTitle, pageWidth - margin, 25, { align: 'right' })
 
   // Horizontal line
   doc.setDrawColor(203, 211, 217) // #CBD3D9
@@ -672,7 +687,7 @@ export function generateBudgetPDF(
   // ============================================
   // PATIENT INFO
   // ============================================
-  
+
   doc.setFontSize(11)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(83, 92, 102) // #535C66
@@ -694,7 +709,7 @@ export function generateBudgetPDF(
   // ============================================
   // TREATMENTS TABLE
   // ============================================
-  
+
   const tableHeaders = [
     'Pieza',
     'Tratamiento',
@@ -746,53 +761,119 @@ export function generateBudgetPDF(
   // ============================================
   // TOTALS
   // ============================================
-  
+
   // Calculate totals
   const parseAmount = (str: string): number => {
     const num = parseFloat(str.replace(/[^\d.,]/g, '').replace(',', '.'))
     return isNaN(num) ? 0 : num
   }
 
-  const totalPrecio = treatments.reduce((sum, t) => sum + parseAmount(t.precio), 0)
-  const totalDescuento = treatments.reduce((sum, t) => sum + parseAmount(t.descuento || '0'), 0)
-  const totalImporte = treatments.reduce((sum, t) => sum + parseAmount(t.importe), 0)
+  const totalPrecio = treatments.reduce(
+    (sum, t) => sum + parseAmount(t.precio),
+    0
+  )
+  const totalDescuentoTratamientos = treatments.reduce(
+    (sum, t) => sum + parseAmount(t.descuento || '0'),
+    0
+  )
+  const subtotalTratamientos = treatments.reduce(
+    (sum, t) => sum + parseAmount(t.importe),
+    0
+  )
+
+  // Use provided values or calculate from treatments
+  const subtotal = options?.subtotal ?? subtotalTratamientos
+  const generalDiscountAmount = options?.generalDiscountAmount ?? 0
+  const totalFinal = options?.totalFinal ?? (subtotal - generalDiscountAmount)
+  const hasGeneralDiscount = generalDiscountAmount > 0
 
   // Get final Y position after table
-  const finalY = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || 150
+  const finalY =
+    (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable
+      ?.finalY || 150
 
-  // Totals box
+  // Totals box - adjust height if there's general discount
   const totalsStartY = finalY + 10
-  const totalsWidth = 80
+  const totalsWidth = 85
   const totalsX = pageWidth - margin - totalsWidth
+  const totalsBoxHeight = hasGeneralDiscount ? 50 : 35
 
   doc.setFillColor(248, 250, 251) // #F8FAFB
   doc.setDrawColor(203, 211, 217) // #CBD3D9
-  doc.roundedRect(totalsX, totalsStartY, totalsWidth, 35, 2, 2, 'FD')
+  doc.roundedRect(totalsX, totalsStartY, totalsWidth, totalsBoxHeight, 2, 2, 'FD')
 
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(83, 92, 102) // #535C66
 
-  doc.text('Subtotal:', totalsX + 5, totalsStartY + 10)
-  doc.text(`${totalPrecio.toFixed(2)} €`, totalsX + totalsWidth - 5, totalsStartY + 10, { align: 'right' })
+  let currentY = totalsStartY + 10
 
-  doc.text('Descuento:', totalsX + 5, totalsStartY + 18)
-  doc.text(`-${totalDescuento.toFixed(2)} €`, totalsX + totalsWidth - 5, totalsStartY + 18, { align: 'right' })
+  // Subtotal (suma de importes de tratamientos)
+  doc.text('Subtotal tratamientos:', totalsX + 5, currentY)
+  doc.text(
+    `${subtotal.toFixed(2)} €`,
+    totalsX + totalsWidth - 5,
+    currentY,
+    { align: 'right' }
+  )
+  currentY += 8
 
+  // Descuento por tratamientos (si existe)
+  if (totalDescuentoTratamientos > 0) {
+    doc.text('Dto. tratamientos:', totalsX + 5, currentY)
+    doc.text(
+      `-${totalDescuentoTratamientos.toFixed(2)} €`,
+      totalsX + totalsWidth - 5,
+      currentY,
+      { align: 'right' }
+    )
+    currentY += 8
+  }
+
+  // General discount (if any)
+  if (hasGeneralDiscount) {
+    doc.setTextColor(34, 197, 94) // Green #22C55E
+    const discountLabel = options?.generalDiscount?.type === 'percentage'
+      ? `Dto. general (${options.generalDiscount.value}%):`
+      : 'Dto. general:'
+    doc.text(discountLabel, totalsX + 5, currentY)
+    doc.text(
+      `-${generalDiscountAmount.toFixed(2)} €`,
+      totalsX + totalsWidth - 5,
+      currentY,
+      { align: 'right' }
+    )
+    currentY += 8
+    doc.setTextColor(83, 92, 102) // Reset color
+  }
+
+  // Separator line
   doc.setDrawColor(203, 211, 217)
-  doc.line(totalsX + 5, totalsStartY + 22, totalsX + totalsWidth - 5, totalsStartY + 22)
+  doc.line(
+    totalsX + 5,
+    currentY,
+    totalsX + totalsWidth - 5,
+    currentY
+  )
+  currentY += 8
 
+  // Total final
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
   doc.setTextColor(30, 73, 71) // Brand color
-  doc.text('TOTAL:', totalsX + 5, totalsStartY + 30)
-  doc.text(`${totalImporte.toFixed(2)} €`, totalsX + totalsWidth - 5, totalsStartY + 30, { align: 'right' })
+  doc.text('TOTAL:', totalsX + 5, currentY)
+  doc.text(
+    `${totalFinal.toFixed(2)} €`,
+    totalsX + totalsWidth - 5,
+    currentY,
+    { align: 'right' }
+  )
 
   // ============================================
   // FOOTER - NOTES & VALIDITY
   // ============================================
-  
-  const footerY = totalsStartY + 50
+
+  const footerY = totalsStartY + totalsBoxHeight + 15
 
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
@@ -800,9 +881,17 @@ export function generateBudgetPDF(
 
   doc.text('Notas:', margin, footerY)
   doc.setFontSize(8)
-  doc.text('• Este presupuesto tiene una validez de 30 días desde la fecha de emisión.', margin, footerY + 6)
+  doc.text(
+    '• Este presupuesto tiene una validez de 30 días desde la fecha de emisión.',
+    margin,
+    footerY + 6
+  )
   doc.text('• Los precios incluyen IVA.', margin, footerY + 11)
-  doc.text('• El presupuesto puede variar si durante el tratamiento se detectan necesidades adicionales.', margin, footerY + 16)
+  doc.text(
+    '• El presupuesto puede variar si durante el tratamiento se detectan necesidades adicionales.',
+    margin,
+    footerY + 16
+  )
 
   // Generation timestamp
   doc.setFontSize(7)
@@ -827,14 +916,23 @@ export function generateBudgetPDF(
 /**
  * Generate budget filename
  */
-export function formatBudgetFilename(patientName: string): string {
-  const sanitizedName = patientName
+export function formatBudgetFilename(patientName: string, budgetName?: string): string {
+  const sanitizedPatientName = patientName
     .replace(/\s+/g, '_')
     .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ_]/g, '')
     .slice(0, 30)
-  
+
   const today = new Date()
   const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
-  
-  return `Presupuesto_${sanitizedName}_${dateStr}.pdf`
+
+  // Use budget name if provided, otherwise use "Presupuesto"
+  if (budgetName) {
+    const sanitizedBudgetName = budgetName
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ_0-9]/g, '')
+      .slice(0, 40)
+    return `${sanitizedBudgetName}_${sanitizedPatientName}_${dateStr}.pdf`
+  }
+
+  return `Presupuesto_${sanitizedPatientName}_${dateStr}.pdf`
 }
