@@ -1,169 +1,113 @@
 'use client'
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import React from 'react'
 import { createPortal } from 'react-dom'
 
-const pxToRem = (value: number) => value / 16
+import {
+  useCashClosing,
+  type CashTransaction,
+  type DaySummary
+} from '@/context/CashClosingContext'
+import {
+  downloadCashClosingExcel,
+  type CashClosingTransaction,
+  type CashClosingSummary
+} from '@/utils/exportUtils'
 
-const MODAL_WIDTH_REM = pxToRem(1200) // 75rem
-const MODAL_HEIGHT_REM = pxToRem(892) // 55.75rem
-const MODAL_SCALE_FORMULA = `min(1, calc(95vw / ${MODAL_WIDTH_REM}rem), calc(90vh / ${MODAL_HEIGHT_REM}rem))`
-const RECOUNT_MODAL_WIDTH_REM = pxToRem(602) // 37.625rem
-const RECOUNT_MODAL_SCALE_FORMULA = `min(1, calc(95vw / ${RECOUNT_MODAL_WIDTH_REM}rem), calc(90vh / ${MODAL_HEIGHT_REM}rem))`
+// ─────────────────────────────────────────────────────────────
+// Types & Constants
+// ─────────────────────────────────────────────────────────────
 
-const SECTION_LEFT_REM = pxToRem(32) // 2rem
-const HEADER_TOP_REM = pxToRem(88) // 5.5rem
-const HEADER_WIDTH_REM = pxToRem(568) // 35.5rem
-const FORM_TOP_REM = pxToRem(232) // 14.5rem
-const FORM_WIDTH_REM = pxToRem(1136) // 71rem
-const FORM_GAP_REM = pxToRem(64) // 4rem
-const TABLE_TOP_REM = pxToRem(372) // 23.25rem
-const TABLE_HEIGHT_REM = pxToRem(392) // 24.5rem
-const ROW_HEIGHT_REM = pxToRem(40) // 2.5rem
-const CTA_TOP_REM = pxToRem(820) // 51.25rem
-const CTA_LEFT_REM = pxToRem(1049) // 65.5625rem
-const CTA_WIDTH_REM = pxToRem(119) // 7.4375rem
-const CTA_HEIGHT_REM = pxToRem(40) // 2.5rem
-const RECOUNT_HEADER_TOP_REM = pxToRem(104) // 6.5rem
-const RECOUNT_LABEL_LEFT_REM = pxToRem(32) // 2rem
-const RECOUNT_LABEL_TOP_START_REM = pxToRem(176) // 11rem
-const RECOUNT_LABEL_ROW_GAP_REM = pxToRem(100) // 6.25rem
-const RECOUNT_INPUT_LEFT_REM = pxToRem(266) // 16.625rem
-const RECOUNT_INPUT_WIDTH_REM = pxToRem(304) // 19rem
-const RECOUNT_INPUT_HEIGHT_REM = pxToRem(48) // 3rem
-const RECOUNT_CTA_LEFT_REM = pxToRem(451) // 28.1875rem
+type PaymentMethodFilter = 'all' | 'efectivo' | 'tpv' | 'transferencia' | 'financiacion'
 
-const TABLE_COLUMN_WIDTHS_REM = [
-  pxToRem(110),
-  pxToRem(300),
-  pxToRem(348),
-  pxToRem(166),
-  pxToRem(200)
-]
-
-const TABLE_GRID_TEMPLATE = TABLE_COLUMN_WIDTHS_REM.map(
-  (width) => `${width}rem`
-).join(' ')
-
-const CASH_TOTAL_FIELDS = [
-  { id: 'initial', label: 'Caja inicial', placeholder: '0,00 €' },
-  { id: 'day', label: 'Caja del día', placeholder: '0,00 €' },
-  {
-    id: 'outflow',
-    label: 'Salida de caja',
-    placeholder: '0,00 €',
-    required: true
+const PAYMENT_METHOD_CONFIG: Record<
+  string,
+  { label: string; color: string; bgColor: string; icon: string }
+> = {
+  efectivo: {
+    label: 'Efectivo',
+    color: 'text-success-700',
+    bgColor: 'bg-success-50',
+    icon: 'payments'
   },
-  { id: 'rest', label: 'Resto de caja', placeholder: '0,00 €' }
-] as const
-
-type CashTotalFieldId = (typeof CASH_TOTAL_FIELDS)[number]['id']
-
-const INITIAL_TOTAL_VALUES: Record<CashTotalFieldId, string> = {
-  initial: '100.00 €',
-  day: '200.00 €',
-  rest: '200.00 €',
-  outflow: '50.00 €'
-}
-
-const RECOUNT_FIELDS = [
-  { id: 'cash', label: 'Efectivo', should: '300€' },
-  { id: 'tpv', label: 'TPV', should: '600€' },
-  { id: 'transfer', label: 'Transferencia', should: '1.000€' },
-  { id: 'financiación', label: 'Financiación', should: '1.500€' }
-] as const
-
-type RecountFieldId = (typeof RECOUNT_FIELDS)[number]['id']
-
-const INITIAL_RECOUNT_VALUES: Record<RecountFieldId, string> = {
-  cash: '',
-  tpv: '',
-  transfer: '',
-  financiación: ''
-}
-
-const CASH_CLOSING_ROWS = [
-  {
-    time: '15 Dic. 2024',
-    patient: 'Carlos Martínez Pérez',
-    concept: 'Operación mandíbula',
-    amount: '2.300 €',
-    method: 'Financiado'
+  tpv: {
+    label: 'TPV',
+    color: 'text-brand-700',
+    bgColor: 'bg-brand-50',
+    icon: 'credit_card'
   },
-  {
-    time: '15 Dic. 2024',
-    patient: 'Nacho Nieto Iniesta',
-    concept: 'Consulta inicial',
-    amount: '150 €',
-    method: 'TPV'
+  transferencia: {
+    label: 'Transferencia',
+    color: 'text-info-700',
+    bgColor: 'bg-info-50',
+    icon: 'account_balance'
   },
-  {
-    time: '16 Dic. 2024',
-    patient: 'Sofía Rodríguez López',
-    concept: 'Radiografía',
-    amount: '100 €',
-    method: 'Efectivo'
+  financiacion: {
+    label: 'Financiación',
+    color: 'text-warning-700',
+    bgColor: 'bg-warning-50',
+    icon: 'schedule'
   },
-  {
-    time: '16 Dic. 2024',
-    patient: 'Elena García Santos',
-    concept: 'Extracción de muela',
-    amount: '500 €',
-    method: 'Tarjeta de crédito'
-  },
-  {
-    time: '17 Dic. 2024',
-    patient: 'Javier Fernández Torres',
-    concept: 'Implante dental',
-    amount: '1.200 €',
-    method: 'Transferencia bancaria'
-  },
-  {
-    time: '17 Dic. 2024',
-    patient: 'Lucía Pérez Gómez',
-    concept: 'Férula de descarga',
-    amount: '300 €',
-    method: 'Billetera digital'
-  },
-  {
-    time: '18 Dic. 2024',
-    patient: 'Andrés Jiménez Ortega',
-    concept: 'Tratamiento de ortodoncia',
-    amount: '1.800 €',
-    method: 'Criptomonedas'
-  },
-  {
-    time: '18 Dic. 2024',
-    patient: 'María del Mar Ruiz',
-    concept: 'Consulta de seguimiento',
-    amount: '100 €',
-    method: 'financiación'
-  },
-  {
-    time: '19 Dic. 2024',
-    patient: 'Pablo Sánchez Delgado',
-    concept: 'Blanqueamiento dental',
-    amount: '400 €',
-    method: 'Pago a plazos'
+  otros: {
+    label: 'Otros',
+    color: 'text-neutral-700',
+    bgColor: 'bg-neutral-100',
+    icon: 'more_horiz'
   }
-] as const
+}
+
+const FILTER_OPTIONS: { id: PaymentMethodFilter; label: string }[] = [
+  { id: 'all', label: 'Todos' },
+  { id: 'efectivo', label: 'Efectivo' },
+  { id: 'tpv', label: 'TPV' },
+  { id: 'transferencia', label: 'Transferencia' },
+  { id: 'financiacion', label: 'Financiación' }
+]
 
 type CashClosingModalProps = {
   open: boolean
   onClose: () => void
+  initialDate?: string // ISO date string YYYY-MM-DD
 }
 
-type ModalStep = 'summary' | 'recount'
+// ─────────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────────
 
-export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
+export function CashClosingModal({
+  open,
+  onClose,
+  initialDate
+}: CashClosingModalProps) {
   const [mounted, setMounted] = React.useState(false)
-  const [totalValues, setTotalValues] = React.useState(INITIAL_TOTAL_VALUES)
-  const [recountValues, setRecountValues] = React.useState(
-    INITIAL_RECOUNT_VALUES
-  )
-  const [step, setStep] = React.useState<ModalStep>('recount')
+  const [selectedDate, setSelectedDate] = React.useState<string>('')
+  const [cashOutflow, setCashOutflow] = React.useState('')
+  const [isConfirming, setIsConfirming] = React.useState(false)
+  const [searchQuery, setSearchQuery] = React.useState('')
+  const [methodFilter, setMethodFilter] = React.useState<PaymentMethodFilter>('all')
+  const [showDatePicker, setShowDatePicker] = React.useState(false)
+
+  const {
+    getAvailableDates,
+    getDaySummary,
+    isDayClosed,
+    closeDay,
+    reopenDay
+  } = useCashClosing()
+
+  const availableDates = getAvailableDates()
+
+  // Initialize selected date
+  React.useEffect(() => {
+    if (open) {
+      const dateToSelect = initialDate ?? availableDates[0] ?? ''
+      setSelectedDate(dateToSelect)
+      setCashOutflow('')
+      setIsConfirming(false)
+      setSearchQuery('')
+      setMethodFilter('all')
+    }
+  }, [open, initialDate, availableDates])
 
   React.useEffect(() => {
     setMounted(true)
@@ -173,130 +117,586 @@ export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
     if (!open) return undefined
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') {
+        if (showDatePicker) {
+          setShowDatePicker(false)
+        } else if (!isConfirming) {
+          onClose()
+        }
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose, open])
+  }, [onClose, open, isConfirming, showDatePicker])
 
+  // Close date picker when clicking outside
+  const datePickerRef = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
-    if (open) {
-      setTotalValues(INITIAL_TOTAL_VALUES)
-      setRecountValues(INITIAL_RECOUNT_VALUES)
-      setStep('recount')
+    if (!showDatePicker) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
+        setShowDatePicker(false)
+      }
     }
-  }, [open])
 
-  const handleInputChange = (fieldId: CashTotalFieldId, value: string) => {
-    setTotalValues((prev) => ({ ...prev, [fieldId]: value }))
-  }
+    // Use mousedown instead of click to fire before other handlers
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showDatePicker])
 
-  const handleRecountInputChange = (fieldId: RecountFieldId, value: string) => {
-    setRecountValues((prev) => ({ ...prev, [fieldId]: value }))
-  }
+  // Get summary for selected date
+  const daySummary = React.useMemo(() => {
+    if (!selectedDate) return null
+    return getDaySummary(selectedDate)
+  }, [selectedDate, getDaySummary])
 
-  const handleClose = () => {
-    setStep('recount')
+  const dayIsClosed = selectedDate ? isDayClosed(selectedDate) : false
+
+  // Filter transactions
+  const filteredTransactions = React.useMemo(() => {
+    if (!daySummary) return []
+
+    return daySummary.transactions.filter((t) => {
+      // Method filter
+      if (methodFilter !== 'all' && t.payment_method !== methodFilter) {
+        return false
+      }
+
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase()
+        const matchesPatient = t.patient_name.toLowerCase().includes(query)
+        const matchesConcept = t.concept.toLowerCase().includes(query)
+        if (!matchesPatient && !matchesConcept) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }, [daySummary, methodFilter, searchQuery])
+
+  // Calculate filtered totals
+  const filteredTotals = React.useMemo(() => {
+    let total = 0
+    const byMethod = {
+      efectivo: 0,
+      tpv: 0,
+      transferencia: 0,
+      financiacion: 0,
+      otros: 0
+    }
+
+    filteredTransactions.forEach((t) => {
+      if (t.payment_status === 'cobrado') {
+        total += t.amount
+        byMethod[t.payment_method] += t.amount
+      }
+    })
+
+    return { total, byMethod }
+  }, [filteredTransactions])
+
+  const handleConfirm = () => {
+    if (!selectedDate || !daySummary) return
+
+    if (dayIsClosed && !isConfirming) {
+      // Show warning for reopening
+      setIsConfirming(true)
+      return
+    }
+
+    if (!isConfirming) {
+      setIsConfirming(true)
+      return
+    }
+
+    // Actually close or reopen
+    if (dayIsClosed) {
+      reopenDay(selectedDate)
+    } else {
+      const outflowValue = parseFloat(cashOutflow.replace(',', '.')) || 0
+      closeDay(selectedDate, outflowValue)
+    }
+
     onClose()
   }
 
-  const handleContinue = () => {
-    if (step === 'recount') {
-      setStep('summary')
+  const handleCancel = () => {
+    if (isConfirming) {
+      setIsConfirming(false)
       return
     }
-    handleClose()
+    onClose()
+  }
+
+  const handleExport = () => {
+    if (!daySummary) return
+
+    const transactions: CashClosingTransaction[] = filteredTransactions.map((t) => ({
+      date: t.transaction_date,
+      patientName: t.patient_name,
+      concept: t.concept,
+      amount: t.amount,
+      paymentMethod: t.payment_method,
+      paymentStatus: t.payment_status,
+      productionStatus: t.production_status
+    }))
+
+    const summary: CashClosingSummary = {
+      closingDate: selectedDate,
+      initialCash: daySummary.initialCash,
+      totalIncome: daySummary.totalIncome,
+      totalExpenses: daySummary.totalExpenses,
+      cashOutflow: parseFloat(cashOutflow.replace(',', '.')) || 0,
+      finalBalance: daySummary.finalBalance,
+      incomeByMethod: daySummary.incomeByMethod,
+      transactionCount: filteredTransactions.length
+    }
+
+    downloadCashClosingExcel(transactions, summary)
+  }
+
+  const formatDateLabel = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00')
+    return date.toLocaleDateString('es-ES', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    })
+  }
+
+  const formatShortDate = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00')
+    return date.toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    })
   }
 
   if (!open || !mounted) return null
 
-  const modalWidthRem =
-    step === 'summary' ? MODAL_WIDTH_REM : RECOUNT_MODAL_WIDTH_REM
-  const modalScaleFormula =
-    step === 'summary' ? MODAL_SCALE_FORMULA : RECOUNT_MODAL_SCALE_FORMULA
-
-  const modalFrameStyle = {
-    '--modal-scale': modalScaleFormula,
-    width: `min(95vw, calc(${modalWidthRem}rem * var(--modal-scale)))`,
-    height: `min(90vh, calc(${MODAL_HEIGHT_REM}rem * var(--modal-scale)))`
-  } as React.CSSProperties
-
-  const modalContentStyle = {
-    width: `${modalWidthRem}rem`,
-    height: `${MODAL_HEIGHT_REM}rem`,
-    transform: 'scale(var(--modal-scale))',
-    transformOrigin: 'top left'
-  } as React.CSSProperties
-
-  const tableGridStyles = {
-    gridTemplateColumns: TABLE_GRID_TEMPLATE,
-    minHeight: `${ROW_HEIGHT_REM}rem`
-  } as React.CSSProperties
-
-  const descriptionId =
-    step === 'summary'
-      ? 'cash-close-dialog-description'
-      : 'cash-close-recount-description'
-
   const content = (
     <div
-      className='fixed inset-0 z-[80] bg-black/30 backdrop-blur-[1px]'
-      onClick={handleClose}
+      className='fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-[2px]'
+      onClick={handleCancel}
       aria-hidden='true'
     >
-      <div className='absolute inset-0 flex items-center justify-center px-[2rem] py-[2rem]'>
-        <div
-          className='relative flex shrink-0 items-start justify-center rounded-xl bg-neutral-0 shadow-elevation-popover'
-          style={modalFrameStyle}
-        >
-          <div
-            className='relative h-full w-full overflow-hidden rounded-xl bg-neutral-50'
-            onClick={(event) => event.stopPropagation()}
-            role='dialog'
-            aria-modal='true'
-            aria-labelledby='cash-close-dialog-title'
-            aria-describedby={descriptionId}
-          >
-            <div className='relative' style={modalContentStyle}>
-              <header className='absolute left-0 top-0 flex h-[3.5rem] w-full items-center justify-between border-b border-border px-[2rem]'>
-                <p
-                  id='cash-close-dialog-title'
-                  className='text-title-md font-medium text-fg'
-                >
-                  Cierre de caja
+      <div
+        className='relative flex h-[min(55rem,90vh)] w-[min(75rem,95vw)] flex-col overflow-hidden rounded-2xl bg-neutral-0 shadow-elevation-popover'
+        onClick={(e) => e.stopPropagation()}
+        role='dialog'
+        aria-modal='true'
+        aria-labelledby='cash-close-title'
+      >
+        {/* Header */}
+        <header className='flex h-[4rem] shrink-0 items-center justify-between border-b border-border bg-neutral-0 px-8'>
+          <div className='flex items-center gap-3'>
+            <div className='flex size-10 items-center justify-center rounded-xl bg-brand-100'>
+              <span className='material-symbols-rounded text-[1.25rem] text-brand-600'>
+                point_of_sale
+              </span>
+            </div>
+            <div>
+              <h2
+                id='cash-close-title'
+                className='text-title-md font-semibold text-fg'
+              >
+                Cierre de caja
+              </h2>
+              {selectedDate && (
+                <p className='text-label-sm text-neutral-500'>
+                  {formatDateLabel(selectedDate)}
                 </p>
-                <button
-                  type='button'
-                  className='flex size-[0.875rem] items-center justify-center text-neutral-600 transition-colors hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50'
-                  onClick={handleClose}
-                  aria-label='Cerrar cierre de caja'
-                >
-                  <span className='material-symbols-rounded text-[1rem] leading-none'>
-                    close
-                  </span>
-                </button>
-              </header>
-
-              {step === 'summary' ? (
-                <SummaryStep
-                  descriptionId={descriptionId}
-                  totalValues={totalValues}
-                  onChange={handleInputChange}
-                  tableGridStyles={tableGridStyles}
-                  onContinue={handleContinue}
-                />
-              ) : (
-                <RecountStep
-                  descriptionId={descriptionId}
-                  values={recountValues}
-                  onChange={handleRecountInputChange}
-                  onContinue={handleContinue}
-                />
               )}
             </div>
           </div>
+
+          <div className='flex items-center gap-3'>
+            {/* Date Selector */}
+            <div className='relative' ref={datePickerRef}>
+              <button
+                type='button'
+                onClick={() => setShowDatePicker(!showDatePicker)}
+                className='flex items-center gap-2 rounded-lg border border-border bg-neutral-0 px-3 py-2 text-label-md text-fg transition-colors hover:bg-neutral-50'
+              >
+                <span className='material-symbols-rounded text-[1rem]'>
+                  calendar_today
+                </span>
+                {selectedDate ? formatShortDate(selectedDate) : 'Seleccionar día'}
+                <span className='material-symbols-rounded text-[1rem]'>
+                  expand_more
+                </span>
+              </button>
+
+              {showDatePicker && (
+                <div className='absolute right-0 top-[calc(100%+0.5rem)] z-[100] max-h-[20rem] min-w-[14rem] overflow-y-auto rounded-xl border border-border bg-neutral-0 py-2 shadow-elevation-popover'>
+                  {availableDates.map((date) => {
+                    const isClosed = isDayClosed(date)
+                    const isSelected = date === selectedDate
+                    return (
+                      <button
+                        key={date}
+                        type='button'
+                        onClick={() => {
+                          setSelectedDate(date)
+                          setShowDatePicker(false)
+                          setIsConfirming(false)
+                        }}
+                        className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-body-sm transition-colors hover:bg-neutral-50 ${
+                          isSelected ? 'bg-brand-50' : ''
+                        }`}
+                      >
+                        <span className={isSelected ? 'font-medium text-brand-700' : 'text-fg'}>
+                          {formatShortDate(date)}
+                        </span>
+                        {isClosed && (
+                          <span className='rounded-full bg-success-100 px-2 py-0.5 text-label-xs font-medium text-success-700'>
+                            Cerrado
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {dayIsClosed && (
+              <span className='flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1.5 text-label-sm font-medium text-success-700'>
+                <span className='material-symbols-rounded text-[1rem]'>
+                  check_circle
+                </span>
+                Cerrado
+              </span>
+            )}
+
+            <button
+              type='button'
+              className='flex size-9 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700'
+              onClick={handleCancel}
+              aria-label='Cerrar'
+            >
+              <span className='material-symbols-rounded text-[1.25rem]'>
+                close
+              </span>
+            </button>
+          </div>
+        </header>
+
+        {/* Content */}
+        <div className='flex flex-1 overflow-hidden'>
+          {/* Left Panel - Summary */}
+          <div className='flex w-[22rem] shrink-0 flex-col gap-6 overflow-y-auto border-r border-border bg-neutral-50/50 p-6'>
+            {daySummary ? (
+              <>
+                {/* Summary Cards */}
+                <section>
+                  <h3 className='mb-4 text-title-sm font-medium text-fg'>
+                    Resumen del día
+                  </h3>
+                  <div className='flex flex-col gap-3'>
+                    <SummaryCard
+                      icon='account_balance_wallet'
+                      iconColor='text-neutral-600'
+                      iconBg='bg-neutral-100'
+                      label='Caja inicial'
+                      value={`${daySummary.initialCash.toFixed(2)} €`}
+                    />
+                    <SummaryCard
+                      icon='trending_up'
+                      iconColor='text-success-600'
+                      iconBg='bg-success-50'
+                      label='Ingresos del día'
+                      value={`+${daySummary.totalIncome.toFixed(2)} €`}
+                      valueColor='text-success-600'
+                    />
+                    <SummaryCard
+                      icon='trending_down'
+                      iconColor='text-error-600'
+                      iconBg='bg-error-50'
+                      label='Gastos del día'
+                      value={`-${daySummary.totalExpenses.toFixed(2)} €`}
+                      valueColor='text-error-600'
+                    />
+                    <div className='my-1 border-t border-dashed border-neutral-300' />
+                    <SummaryCard
+                      icon='savings'
+                      iconColor='text-brand-600'
+                      iconBg='bg-brand-100'
+                      label='Balance final'
+                      value={`${daySummary.finalBalance.toFixed(2)} €`}
+                      valueColor='text-brand-600'
+                      highlight
+                    />
+                  </div>
+                </section>
+
+                {/* By Payment Method */}
+                <section>
+                  <h3 className='mb-4 text-title-sm font-medium text-fg'>
+                    Desglose por método
+                  </h3>
+                  <div className='flex flex-col gap-2'>
+                    {Object.entries(daySummary.incomeByMethod).map(
+                      ([method, amount]) => (
+                        <div
+                          key={method}
+                          className='flex items-center justify-between rounded-lg bg-neutral-0 px-3 py-2.5 shadow-sm'
+                        >
+                          <div className='flex items-center gap-2'>
+                            <span
+                              className={`material-symbols-rounded text-[1rem] ${
+                                PAYMENT_METHOD_CONFIG[method]?.color ||
+                                'text-neutral-600'
+                              }`}
+                            >
+                              {PAYMENT_METHOD_CONFIG[method]?.icon || 'payments'}
+                            </span>
+                            <span className='text-body-sm text-fg'>
+                              {PAYMENT_METHOD_CONFIG[method]?.label || method}
+                            </span>
+                          </div>
+                          <span className='text-body-sm font-medium text-fg'>
+                            {amount.toFixed(2)} €
+                          </span>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </section>
+
+                {/* Cash Outflow Input */}
+                {!dayIsClosed && (
+                  <section>
+                    <h3 className='mb-3 text-title-sm font-medium text-fg'>
+                      Salida de caja
+                    </h3>
+                    <p className='mb-3 text-label-sm text-neutral-500'>
+                      Indica el efectivo que retiras de caja al finalizar el día.
+                    </p>
+                    <div className='relative'>
+                      <input
+                        type='text'
+                        value={cashOutflow}
+                        onChange={(e) => setCashOutflow(e.target.value)}
+                        placeholder='0,00'
+                        className='h-12 w-full rounded-xl border border-border bg-neutral-0 pl-4 pr-10 text-body-md text-fg placeholder:text-neutral-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20'
+                      />
+                      <span className='absolute right-4 top-1/2 -translate-y-1/2 text-body-md text-neutral-500'>
+                        €
+                      </span>
+                    </div>
+                  </section>
+                )}
+
+                {/* Closed info */}
+                {dayIsClosed && daySummary.closing && (
+                  <section className='rounded-xl bg-success-50 p-4'>
+                    <div className='flex items-center gap-2 text-success-700'>
+                      <span className='material-symbols-rounded text-[1.25rem]'>
+                        verified
+                      </span>
+                      <span className='text-title-sm font-medium'>
+                        Día cerrado
+                      </span>
+                    </div>
+                    <p className='mt-2 text-label-sm text-success-600'>
+                      Salida de caja: {daySummary.closing.cash_outflow.toFixed(2)} €
+                    </p>
+                    <p className='text-label-sm text-success-600'>
+                      Cerrado el{' '}
+                      {new Date(daySummary.closing.created_at).toLocaleDateString(
+                        'es-ES',
+                        {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }
+                      )}
+                    </p>
+                  </section>
+                )}
+              </>
+            ) : (
+              <div className='flex flex-1 items-center justify-center text-neutral-500'>
+                Selecciona un día para ver el resumen
+              </div>
+            )}
+          </div>
+
+          {/* Right Panel - Transactions Table */}
+          <div className='flex flex-1 flex-col overflow-hidden'>
+            <div className='flex flex-wrap items-center justify-between gap-3 border-b border-border bg-neutral-0 px-6 py-4'>
+              <div>
+                <h3 className='text-title-sm font-medium text-fg'>
+                  Movimientos del día
+                </h3>
+                <p className='text-label-sm text-neutral-500'>
+                  {filteredTransactions.length} transacciones
+                  {methodFilter !== 'all' && ` (filtrado)`}
+                </p>
+              </div>
+
+              <div className='flex flex-wrap items-center gap-2'>
+                {/* Search */}
+                <div className='flex items-center gap-2 rounded-lg border border-border bg-neutral-0 px-3 py-2'>
+                  <span className='material-symbols-rounded text-[1rem] text-neutral-500'>
+                    search
+                  </span>
+                  <input
+                    type='text'
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder='Buscar paciente...'
+                    className='w-[10rem] bg-transparent text-body-sm text-fg placeholder:text-neutral-400 focus:outline-none'
+                  />
+                </div>
+
+                {/* Filter Chips */}
+                <FilterChips
+                  activeFilter={methodFilter}
+                  onFilterChange={setMethodFilter}
+                />
+
+                {/* Export Button */}
+                <button
+                  type='button'
+                  onClick={handleExport}
+                  disabled={!daySummary || filteredTransactions.length === 0}
+                  className='flex items-center gap-1.5 rounded-lg border border-border bg-neutral-0 px-3 py-2 text-label-md text-fg transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50'
+                >
+                  <span className='material-symbols-rounded text-[1rem]'>
+                    download
+                  </span>
+                  Exportar
+                </button>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className='flex-1 overflow-auto'>
+              <table className='w-full'>
+                <thead className='sticky top-0 z-10 bg-neutral-50'>
+                  <tr className='border-b border-border'>
+                    <th className='px-6 py-3 text-left text-label-sm font-medium text-neutral-500'>
+                      Paciente
+                    </th>
+                    <th className='px-4 py-3 text-left text-label-sm font-medium text-neutral-500'>
+                      Concepto
+                    </th>
+                    <th className='px-4 py-3 text-right text-label-sm font-medium text-neutral-500'>
+                      Importe
+                    </th>
+                    <th className='px-4 py-3 text-left text-label-sm font-medium text-neutral-500'>
+                      Método
+                    </th>
+                    <th className='px-6 py-3 text-left text-label-sm font-medium text-neutral-500'>
+                      Estado
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className='divide-y divide-border bg-neutral-0'>
+                  {filteredTransactions.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className='px-6 py-12 text-center text-body-sm text-neutral-500'
+                      >
+                        {searchQuery || methodFilter !== 'all'
+                          ? 'No hay transacciones que coincidan con los filtros'
+                          : 'No hay transacciones para este día'}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredTransactions.map((transaction) => (
+                      <TransactionRow
+                        key={transaction.id}
+                        transaction={transaction}
+                      />
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Table Footer with Total */}
+            <div className='flex items-center justify-between border-t border-border bg-neutral-50 px-6 py-3'>
+              <span className='text-body-sm text-neutral-500'>
+                Total de {filteredTransactions.length} movimientos
+              </span>
+              <div className='flex items-center gap-2'>
+                <span className='text-body-sm text-neutral-500'>
+                  Total cobrado:
+                </span>
+                <span className='text-title-sm font-semibold text-brand-600'>
+                  {filteredTotals.total.toFixed(2)} €
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Footer */}
+        <footer className='flex h-[4.5rem] shrink-0 items-center justify-between border-t border-border bg-neutral-0 px-8'>
+          <div className='flex items-center gap-2 text-label-sm text-neutral-500'>
+            <span className='material-symbols-rounded text-[1rem]'>info</span>
+            {isConfirming
+              ? dayIsClosed
+                ? 'Vas a reabrir el cierre de caja. Podrás volver a cerrarlo después.'
+                : 'Confirma el cierre de caja. Esta acción se puede deshacer.'
+              : 'Revisa los datos antes de confirmar el cierre.'}
+          </div>
+          <div className='flex items-center gap-3'>
+            <button
+              type='button'
+              onClick={handleCancel}
+              className='h-10 rounded-xl border border-border bg-neutral-0 px-5 text-title-sm font-medium text-fg transition-colors hover:bg-neutral-50'
+            >
+              {isConfirming ? 'Volver' : 'Cancelar'}
+            </button>
+            <button
+              type='button'
+              onClick={handleConfirm}
+              disabled={!selectedDate}
+              className={`flex h-10 items-center gap-2 rounded-xl px-5 text-title-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                dayIsClosed
+                  ? 'bg-warning-500 text-neutral-0 hover:bg-warning-600'
+                  : isConfirming
+                    ? 'bg-success-500 text-neutral-0 hover:bg-success-600'
+                    : 'bg-brand-500 text-brand-900 hover:bg-brand-400'
+              }`}
+            >
+              {dayIsClosed ? (
+                <>
+                  <span className='material-symbols-rounded text-[1.125rem]'>
+                    lock_open
+                  </span>
+                  {isConfirming ? 'Confirmar reapertura' : 'Reabrir cierre'}
+                </>
+              ) : isConfirming ? (
+                <>
+                  <span className='material-symbols-rounded text-[1.125rem]'>
+                    check_circle
+                  </span>
+                  Confirmar cierre
+                </>
+              ) : (
+                <>
+                  <span className='material-symbols-rounded text-[1.125rem]'>
+                    lock
+                  </span>
+                  Cerrar caja
+                </>
+              )}
+            </button>
+          </div>
+        </footer>
       </div>
     </div>
   )
@@ -304,233 +704,129 @@ export function CashClosingModal({ open, onClose }: CashClosingModalProps) {
   return createPortal(content, document.body)
 }
 
-function Cell({
-  children,
-  border = true
-}: {
-  children: React.ReactNode
-  border?: boolean
-}) {
+// ─────────────────────────────────────────────────────────────
+// Sub-components
+// ─────────────────────────────────────────────────────────────
+
+type SummaryCardProps = {
+  icon: string
+  iconColor: string
+  iconBg: string
+  label: string
+  value: string
+  valueColor?: string
+  highlight?: boolean
+}
+
+function SummaryCard({
+  icon,
+  iconColor,
+  iconBg,
+  label,
+  value,
+  valueColor = 'text-fg',
+  highlight = false
+}: SummaryCardProps) {
   return (
     <div
-      className={`flex items-center px-[0.5rem] py-[0.5rem] ${
-        border ? 'border-r border-border' : ''
+      className={`flex items-center gap-3 rounded-xl p-3 ${
+        highlight
+          ? 'bg-brand-50 ring-1 ring-brand-200'
+          : 'bg-neutral-0 shadow-sm'
       }`}
     >
-      {children}
+      <div
+        className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${iconBg}`}
+      >
+        <span className={`material-symbols-rounded text-[1.25rem] ${iconColor}`}>
+          {icon}
+        </span>
+      </div>
+      <div className='flex flex-1 flex-col'>
+        <span className='text-label-sm text-neutral-500'>{label}</span>
+        <span className={`text-title-sm font-semibold ${valueColor}`}>
+          {value}
+        </span>
+      </div>
     </div>
   )
 }
 
-type SummaryStepProps = {
-  descriptionId: string
-  totalValues: Record<CashTotalFieldId, string>
-  onChange: (fieldId: CashTotalFieldId, value: string) => void
-  tableGridStyles: React.CSSProperties
-  onContinue: () => void
-}
-
-function SummaryStep({
-  descriptionId,
-  totalValues,
-  onChange,
-  tableGridStyles,
-  onContinue
-}: SummaryStepProps) {
+function FilterChips({
+  activeFilter,
+  onFilterChange
+}: {
+  activeFilter: PaymentMethodFilter
+  onFilterChange: (filter: PaymentMethodFilter) => void
+}) {
   return (
-    <>
-      <section
-        className='absolute flex flex-col gap-[0.5rem]'
-        style={{
-          left: `${SECTION_LEFT_REM}rem`,
-          top: `${HEADER_TOP_REM}rem`,
-          width: `${HEADER_WIDTH_REM}rem`
-        }}
-      >
-        <p className='text-headline-sm text-fg'>Totales de caja</p>
-        <p id={descriptionId} className='text-body-sm text-fg'>
-          Comprueba que todos los datos del resumen son correctos y anota la
-          salida de caja.
-        </p>
-      </section>
-
-      <section
-        className='absolute flex w-full items-start'
-        style={{
-          left: `${SECTION_LEFT_REM}rem`,
-          top: `${FORM_TOP_REM}rem`,
-          width: `${FORM_WIDTH_REM}rem`,
-          gap: `${FORM_GAP_REM}rem`
-        }}
-      >
-        {CASH_TOTAL_FIELDS.map((field) => (
-          <div key={field.id} className='flex flex-1 flex-col gap-[0.5rem]'>
-            <p className='text-body-sm text-fg'>{field.label}</p>
-            <label className='flex h-[3rem] items-center justify-between rounded-lg border border-border bg-neutral-50 px-[0.625rem] focus-within:ring-2 focus-within:ring-brandSemantic'>
-              <input
-                type='text'
-                value={totalValues[field.id]}
-                onChange={(event) => onChange(field.id, event.target.value)}
-                placeholder={field.placeholder}
-                className='w-full bg-transparent text-body-md text-fg placeholder:text-neutral-400 focus:outline-none'
-                aria-required={'required' in field ? field.required : undefined}
-              />
-              {'required' in field && field.required && (
-                <span className='text-body-lg font-medium leading-none text-error-600'>
-                  *
-                </span>
-              )}
-            </label>
-          </div>
-        ))}
-      </section>
-
-      <section
-        className='absolute rounded-lg bg-neutral-50'
-        style={{
-          left: `${SECTION_LEFT_REM}rem`,
-          top: `${TABLE_TOP_REM}rem`,
-          width: `${FORM_WIDTH_REM}rem`,
-          height: `${TABLE_HEIGHT_REM}rem`
-        }}
-      >
-        <div className='h-full w-full'>
-          <div
-            className='grid border-b border-border text-body-md font-medium text-neutral-600'
-            style={tableGridStyles}
+    <div className='flex items-center gap-1'>
+      {FILTER_OPTIONS.map((option) => {
+        const isActive = activeFilter === option.id
+        return (
+          <button
+            key={option.id}
+            type='button'
+            onMouseDown={(e) => {
+              e.preventDefault()
+              onFilterChange(option.id)
+            }}
+            className={`cursor-pointer rounded-full px-3 py-1.5 text-label-sm font-medium transition-colors ${
+              isActive
+                ? 'bg-brand-500 text-brand-900'
+                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+            }`}
           >
-            {['Día', 'Paciente', 'Concepto', 'Cantidad', 'Método'].map(
-              (header, index) => (
-                <div
-                  key={`${header}-${index}`}
-                  className={`flex items-center px-[0.5rem] py-[0.25rem] ${
-                    index < 4 ? 'border-r border-border' : ''
-                  }`}
-                >
-                  {header}
-                </div>
-              )
-            )}
-          </div>
-
-          <div>
-            {CASH_CLOSING_ROWS.map((row) => (
-              <div
-                key={`${row.time}-${row.patient}`}
-                className='grid border-b border-border text-body-md text-neutral-900'
-                style={tableGridStyles}
-              >
-                <Cell>{row.time}</Cell>
-                <Cell>{row.patient}</Cell>
-                <Cell>{row.concept}</Cell>
-                <Cell>{row.amount}</Cell>
-                <Cell border={false}>{row.method}</Cell>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <button
-        type='button'
-        onClick={onContinue}
-        className='absolute flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-brand-900 shadow-cta transition-colors hover:bg-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50'
-        style={{
-          left: `${CTA_LEFT_REM}rem`,
-          top: `${CTA_TOP_REM}rem`,
-          width: `${CTA_WIDTH_REM}rem`,
-          minHeight: `${CTA_HEIGHT_REM}rem`
-        }}
-      >
-        Continuar
-      </button>
-    </>
+            {option.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
-type RecountStepProps = {
-  descriptionId: string
-  values: Record<RecountFieldId, string>
-  onChange: (fieldId: RecountFieldId, value: string) => void
-  onContinue: () => void
-}
+function TransactionRow({ transaction }: { transaction: CashTransaction }) {
+  const config = PAYMENT_METHOD_CONFIG[transaction.payment_method] || {
+    label: transaction.payment_method,
+    color: 'text-neutral-700',
+    bgColor: 'bg-neutral-100',
+    icon: 'payments'
+  }
 
-function RecountStep({
-  descriptionId,
-  values,
-  onChange,
-  onContinue
-}: RecountStepProps) {
   return (
-    <>
-      <section
-        className='absolute'
-        style={{
-          left: `${RECOUNT_LABEL_LEFT_REM}rem`,
-          top: `${RECOUNT_HEADER_TOP_REM}rem`,
-          width: `${
-            RECOUNT_INPUT_LEFT_REM +
-            RECOUNT_INPUT_WIDTH_REM -
-            RECOUNT_LABEL_LEFT_REM
-          }rem`
-        }}
-      >
-        <p id={descriptionId} className='text-title-sm font-medium text-fg'>
-          Recuento de ingresos y gastos
-        </p>
-      </section>
-
-      {RECOUNT_FIELDS.map((field, index) => {
-        const top =
-          RECOUNT_LABEL_TOP_START_REM + index * RECOUNT_LABEL_ROW_GAP_REM
-        return (
-          <React.Fragment key={field.id}>
-            <p
-              className='absolute text-body-md text-fg'
-              style={{ left: `${RECOUNT_LABEL_LEFT_REM}rem`, top: `${top}rem` }}
-            >
-              {field.label}
-            </p>
-
-            <div
-              className='absolute flex flex-col gap-[0.25rem]'
-              style={{
-                left: `${RECOUNT_INPUT_LEFT_REM}rem`,
-                top: `${top}rem`,
-                width: `${RECOUNT_INPUT_WIDTH_REM}rem`
-              }}
-            >
-              <label className='flex h-[3rem] items-center rounded-lg border border-border bg-neutral-50 px-[0.625rem] focus-within:ring-2 focus-within:ring-brandSemantic'>
-                <input
-                  type='text'
-                  value={values[field.id]}
-                  onChange={(event) => onChange(field.id, event.target.value)}
-                  placeholder='Value'
-                  className='w-full bg-transparent text-body-md text-fg placeholder:text-neutral-400 focus:outline-none'
-                />
-              </label>
-              <p className='text-label-sm font-medium text-neutral-600'>
-                Debería haber{' '}
-                <span className='font-bold text-fg'>{field.should}</span>
-              </p>
-            </div>
-          </React.Fragment>
-        )
-      })}
-
-      <button
-        type='button'
-        onClick={onContinue}
-        className='absolute flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-brand-900 shadow-cta transition-colors hover:bg-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50'
-        style={{
-          left: `${RECOUNT_CTA_LEFT_REM}rem`,
-          top: `${CTA_TOP_REM}rem`,
-          width: `${CTA_WIDTH_REM}rem`,
-          minHeight: `${CTA_HEIGHT_REM}rem`
-        }}
-      >
-        Continuar
-      </button>
-    </>
+    <tr className='transition-colors hover:bg-neutral-50/50'>
+      <td className='px-6 py-3.5'>
+        <span className='text-body-sm font-medium text-fg'>
+          {transaction.patient_name}
+        </span>
+      </td>
+      <td className='px-4 py-3.5 text-body-sm text-neutral-600'>
+        {transaction.concept}
+      </td>
+      <td className='whitespace-nowrap px-4 py-3.5 text-right text-body-sm font-medium text-fg'>
+        {transaction.amount.toFixed(2)} €
+      </td>
+      <td className='px-4 py-3.5'>
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-label-sm font-medium ${config.bgColor} ${config.color}`}
+        >
+          <span className='material-symbols-rounded text-[0.875rem]'>
+            {config.icon}
+          </span>
+          {config.label}
+        </span>
+      </td>
+      <td className='px-6 py-3.5'>
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-label-sm font-medium ${
+            transaction.payment_status === 'cobrado'
+              ? 'bg-success-100 text-success-700'
+              : 'bg-warning-100 text-warning-700'
+          }`}
+        >
+          {transaction.payment_status === 'cobrado' ? 'Cobrado' : 'Pendiente'}
+        </span>
+      </td>
+    </tr>
   )
 }

@@ -9,6 +9,7 @@ import type { CashTimeScale } from '@/components/caja/cajaTypes'
 import PatientRecordModal, {
   type PatientRecordTab
 } from '@/components/pacientes/modals/patient-record/PatientRecordModal'
+import { CashClosingProvider } from '@/context/CashClosingContext'
 import { useCallback, useMemo, useState } from 'react'
 
 // Proporción entre las tarjetas (Summary : Trend)
@@ -51,49 +52,52 @@ export default function CajaPage() {
   }, [])
 
   return (
-    <ClientLayout>
-      <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-surface-app rounded-tl-[var(--radius-xl)] flex flex-col overflow-hidden'>
-        <div className='flex-1 overflow-y-auto overflow-x-hidden'>
-          <div className='container-page py-fluid-md pb-plnav flex h-full flex-col gap-gapmd overflow-hidden'>
-            <CashToolbar
-              dateLabel={dateLabel}
-              onNavigateNext={() => handleNavigate(1)}
-              onNavigatePrevious={() => handleNavigate(-1)}
-              timeScale={timeScale}
-              onTimeScaleChange={handleTimeScaleChange}
-            />
+    <CashClosingProvider>
+      <ClientLayout>
+        <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-surface-app rounded-tl-[var(--radius-xl)] flex flex-col overflow-hidden'>
+          <div className='flex-1 overflow-y-auto overflow-x-hidden'>
+            <div className='container-page py-fluid-md pb-plnav flex h-full flex-col gap-gapmd overflow-hidden'>
+              <CashToolbar
+                dateLabel={dateLabel}
+                onNavigateNext={() => handleNavigate(1)}
+                onNavigatePrevious={() => handleNavigate(-1)}
+                timeScale={timeScale}
+                onTimeScaleChange={handleTimeScaleChange}
+                currentDate={anchorDate}
+              />
 
-            <div className='flex flex-col flex-1 overflow-hidden gap-gapmd min-w-0'>
-              <div
-                className='flex flex-col gap-gapmd xl:grid xl:items-stretch min-w-0 w-full'
-                style={{
-                  gridTemplateColumns: `minmax(0, ${SUMMARY_TO_TREND_RATIO}fr) minmax(0, 1fr)`
-                }}
-              >
-                <div className='w-full min-w-0'>
-                  <CashSummaryCard timeScale={timeScale} onHeightChange={handleSummaryHeight} />
+              <div className='flex flex-col flex-1 overflow-hidden gap-gapmd min-w-0'>
+                <div
+                  className='flex flex-col gap-gapmd xl:grid xl:items-stretch min-w-0 w-full'
+                  style={{
+                    gridTemplateColumns: `minmax(0, ${SUMMARY_TO_TREND_RATIO}fr) minmax(0, 1fr)`
+                  }}
+                >
+                  <div className='w-full min-w-0'>
+                    <CashSummaryCard timeScale={timeScale} onHeightChange={handleSummaryHeight} />
+                  </div>
+                  <div className='w-full min-w-0'>
+                    <CashTrendCard
+                      timeScale={timeScale}
+                      anchorDate={anchorDate}
+                      targetHeightRem={summaryHeightRem ?? undefined}
+                    />
+                  </div>
                 </div>
-                <div className='w-full min-w-0'>
-                  <CashTrendCard
-                    timeScale={timeScale}
-                    anchorDate={anchorDate}
-                    targetHeightRem={summaryHeightRem ?? undefined}
-                  />
-                </div>
+
+                <CashMovementsTable onViewPatient={handleViewPatient} />
               </div>
-
-              <CashMovementsTable onViewPatient={handleViewPatient} />
             </div>
           </div>
         </div>
-      </div>
 
-      <PatientRecordModal
-        open={patientRecordOpen}
-        onClose={() => setPatientRecordOpen(false)}
-        initialTab={patientRecordTab}
-      />
-    </ClientLayout>
+        <PatientRecordModal
+          open={patientRecordOpen}
+          onClose={() => setPatientRecordOpen(false)}
+          initialTab={patientRecordTab}
+        />
+      </ClientLayout>
+    </CashClosingProvider>
   )
 }
 

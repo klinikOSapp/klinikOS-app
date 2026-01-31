@@ -3,7 +3,10 @@
 import { CloseRounded, FilePresentRounded } from '@/components/icons/md3'
 import Portal from '@/components/ui/Portal'
 import React from 'react'
-import BudgetsPayments, { type BudgetRow, INITIAL_BUDGET_ROWS } from './BudgetsPayments'
+import BudgetsPayments, {
+  INITIAL_BUDGET_ROWS,
+  type BudgetRow
+} from './BudgetsPayments'
 import ClientSummary from './ClientSummary'
 import ClinicalHistory from './ClinicalHistory'
 import Consents from './Consents'
@@ -57,13 +60,15 @@ export default function PatientRecordModal({
   const [shouldOpenClinicalEdit, setShouldOpenClinicalEdit] = React.useState(
     openClinicalHistoryEdit
   )
+  const [shouldOpenAddTreatment, setShouldOpenAddTreatment] = React.useState(false)
 
   // === Shared budget state (elevated from BudgetsPayments) ===
-  const [budgetRows, setBudgetRows] = React.useState<BudgetRow[]>(INITIAL_BUDGET_ROWS)
+  const [budgetRows, setBudgetRows] =
+    React.useState<BudgetRow[]>(INITIAL_BUDGET_ROWS)
 
   // Handler to add a new budget (shared between Treatments and BudgetsPayments)
   const handleAddBudget = React.useCallback((budget: BudgetRow) => {
-    setBudgetRows(prev => [budget, ...prev])
+    setBudgetRows((prev) => [budget, ...prev])
   }, [])
 
   // Handler to update all budget rows
@@ -318,7 +323,32 @@ export default function PatientRecordModal({
                       )}
                     </div>
                   )}
-                  {active === 'Resumen' && <Resumen onClose={onClose} />}
+                  {active === 'Resumen' && (
+                    <Resumen
+                      onClose={onClose}
+                      onNavigateToTreatments={(withAddAction) => {
+                        setActive('Tratamientos')
+                        if (withAddAction) setShouldOpenAddTreatment(true)
+                      }}
+                      onNavigateToFinances={(withBudgetCreation) => {
+                        setActive('Finanzas')
+                        if (withBudgetCreation) setShouldOpenBudget(true)
+                      }}
+                      onNavigateToInfo={(withEditMode) => {
+                        setActive('Información General')
+                        if (withEditMode) setShouldOpenEdit(true)
+                      }}
+                      onNavigateToClinicalHistory={() => {
+                        setActive('Historial clínico')
+                      }}
+                      onNavigateToConsents={() => {
+                        setActive('Consentimientos')
+                      }}
+                      onNavigateToPrescriptions={() => {
+                        setActive('Recetas')
+                      }}
+                    />
+                  )}
                   {active === 'Información General' && (
                     <ClientSummary
                       onClose={onClose}
@@ -331,14 +361,18 @@ export default function PatientRecordModal({
                       onClose={onClose}
                       initialEditMode={shouldOpenClinicalEdit}
                       onEditModeOpened={() => setShouldOpenClinicalEdit(false)}
+                      patientId={patientId}
+                      patientName={patientName}
                     />
                   )}
                   {active === 'Tratamientos' && (
-                    <Treatments 
-                      onClose={onClose} 
+                    <Treatments
+                      onClose={onClose}
                       patientId={patientId}
                       patientName={patientName}
                       onAddBudget={handleAddBudget}
+                      openAddTreatment={shouldOpenAddTreatment}
+                      onAddTreatmentOpened={() => setShouldOpenAddTreatment(false)}
                     />
                   )}
                   {active === 'Imágenes RX' && <RxImages onClose={onClose} />}

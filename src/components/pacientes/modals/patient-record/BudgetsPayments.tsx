@@ -25,13 +25,13 @@ import {
   TimelineRounded,
   VisibilityRounded
 } from '@/components/icons/md3'
-import React from 'react'
-import { createPortal } from 'react-dom'
 import {
   convertBudgetTypeToTreatmentsV2,
   type BudgetTypeData
 } from '@/components/pacientes/shared/budgetTypeData'
 import type { TreatmentV2 } from '@/components/pacientes/shared/treatmentTypes'
+import React from 'react'
+import { createPortal } from 'react-dom'
 import AddProductionModal from './AddProductionModal'
 import AddTreatmentsToBudgetModal from './AddTreatmentsToBudgetModal'
 import BudgetDetailsModal from './BudgetDetailsModal'
@@ -536,6 +536,9 @@ type ProductionRow = {
   amount: string
   status: StatusType
   professional: string
+  // Referencias para conexión a DB
+  budgetId?: string
+  patientId?: string
 }
 
 // === PRESUPUESTOS TYPES (exported for shared state) ===
@@ -580,7 +583,10 @@ export type BudgetRow = {
   date: string
   status: BudgetStatusType
   professional: string
-  insurer: string
+  insurer?: string
+  // Referencias para conexión a DB
+  patientId?: string
+  patientName?: string
   // Campos extendidos para detalles
   treatments?: BudgetTreatment[]
   generalDiscount?: BudgetGeneralDiscount
@@ -688,191 +694,354 @@ const INITIAL_INVOICE_ROWS: InvoiceRow[] = [
   }
 ]
 
+// ─────────────────────────────────────────────────────────────
+// PRESUPUESTOS VINCULADOS A PACIENTES REALES
+// IDs: budget-{patId}-{seq} para trazabilidad
+// ─────────────────────────────────────────────────────────────
 export const INITIAL_BUDGET_ROWS: BudgetRow[] = [
+  // Carlos Rodríguez (pat-002) - Endodoncia + Corona
   {
-    id: 'PR-001',
-    description: 'Operación mandíbula',
-    amount: '2.300 €',
-    date: '22/12/25',
+    id: 'budget-002-01',
+    patientId: 'pat-002',
+    patientName: 'Carlos Rodríguez Fernández',
+    description: 'Endodoncia y corona molar 36',
+    amount: '770 €',
+    date: '10/01/26',
     status: 'Aceptado',
-    professional: 'Dr. Guillermo',
-    insurer: 'Adeslas',
-    subtotal: 2500,
-    generalDiscount: { type: 'percentage', value: 8 },
-    validUntil: '22/01/26',
+    professional: 'Dr. Francisco Moreno',
+    subtotal: 770,
+    validUntil: '10/02/26',
     treatments: [
-      { pieza: 36, tratamiento: 'Cirugía maxilofacial', precio: '1.800 €', descuento: '0 €', importe: '1.800 €', doctor: 'Dr. Guillermo' },
-      { pieza: 37, tratamiento: 'Reconstrucción ósea', precio: '700 €', descuento: '0 €', importe: '700 €', doctor: 'Dr. Guillermo' }
+      { pieza: 36, tratamiento: 'Endodoncia molar', precio: '320 €', descuento: '0 €', importe: '320 €', doctor: 'Dr. Francisco Moreno' },
+      { pieza: 36, tratamiento: 'Corona zirconio', precio: '450 €', descuento: '0 €', importe: '450 €', doctor: 'Dr. Antonio Ruiz' }
     ],
     history: [
-      { date: '22/12/25 10:30', action: 'Presupuesto creado', user: 'Dr. Guillermo' },
-      { date: '22/12/25 11:00', action: 'PDF descargado', user: 'Dr. Guillermo' },
-      { date: '23/12/25 09:15', action: 'Aceptado por el paciente', user: 'Sistema' }
+      { date: '10/01/26 10:30', action: 'Presupuesto creado', user: 'Dr. Antonio Ruiz' },
+      { date: '10/01/26 11:00', action: 'Aceptado - Financiación 3 cuotas', user: 'Sistema' }
     ]
   },
+  // Ana Martínez VIP (pat-003) - Invisalign
   {
-    id: 'PR-002',
-    description: 'Consulta inicial',
-    amount: '150 €',
-    date: '18/12/25',
+    id: 'budget-003-01',
+    patientId: 'pat-003',
+    patientName: 'Ana Martínez Sánchez',
+    description: 'Tratamiento Invisalign completo',
+    amount: '3.500 €',
+    date: '01/09/25',
     status: 'Aceptado',
-    professional: 'Dr. Guillermo',
-    insurer: 'Sanitas',
-    subtotal: 150,
-    validUntil: '18/01/26',
+    professional: 'Dra. Elena Navarro',
+    subtotal: 3500,
+    generalDiscount: { type: 'percentage', value: 0 },
+    validUntil: '01/10/25',
     treatments: [
-      { tratamiento: 'Primera consulta', precio: '150 €', descuento: '0 €', importe: '150 €', doctor: 'Dr. Guillermo' }
+      { tratamiento: 'Invisalign Full - 20 alineadores', precio: '3.500 €', descuento: '0 €', importe: '3.500 €', doctor: 'Dra. Elena Navarro' }
     ],
     history: [
-      { date: '18/12/25 14:00', action: 'Presupuesto creado', user: 'Dr. Guillermo' },
-      { date: '18/12/25 14:30', action: 'Aceptado por el paciente', user: 'Sistema' }
+      { date: '01/09/25 09:00', action: 'Presupuesto creado', user: 'Dra. Elena Navarro' },
+      { date: '01/09/25 10:00', action: 'Aceptado - Financiación 10 cuotas', user: 'Sistema' }
     ]
   },
+  // Laura Fernández (pat-005) - Invisalign
   {
-    id: 'PR-003',
-    description: 'Radiografía panorámica',
-    amount: '100 €',
-    date: '01/12/25',
-    status: 'Pendiente',
-    professional: 'Dra. Andrea',
-    insurer: 'Sanitas',
-    subtotal: 100,
-    validUntil: '01/01/26',
+    id: 'budget-005-01',
+    patientId: 'pat-005',
+    patientName: 'Laura Fernández Ruiz',
+    description: 'Tratamiento Invisalign Lite',
+    amount: '2.800 €',
+    date: '01/06/25',
+    status: 'Aceptado',
+    professional: 'Dra. Elena Navarro',
+    subtotal: 2800,
+    validUntil: '01/07/25',
     treatments: [
-      { tratamiento: 'Radiografía panorámica', precio: '100 €', descuento: '0 €', importe: '100 €', doctor: 'Dra. Andrea' }
+      { tratamiento: 'Invisalign Lite - 14 alineadores', precio: '2.800 €', descuento: '0 €', importe: '2.800 €', doctor: 'Dra. Elena Navarro' }
     ],
     history: [
-      { date: '01/12/25 09:00', action: 'Presupuesto creado', user: 'Dra. Andrea' }
+      { date: '01/06/25 11:00', action: 'Presupuesto creado', user: 'Dra. Elena Navarro' },
+      { date: '01/06/25 12:00', action: 'Aceptado - Financiación', user: 'Sistema' }
     ]
   },
+  // Javier Moreno (pat-006) - Periodontal
   {
-    id: 'PR-004',
-    description: 'Extracción de muela',
-    amount: '500 €',
-    date: '01/12/25',
+    id: 'budget-006-01',
+    patientId: 'pat-006',
+    patientName: 'Javier Moreno Torres',
+    description: 'Tratamiento periodontal 4 cuadrantes',
+    amount: '480 €',
+    date: '14/01/26',
     status: 'Aceptado',
-    professional: 'Dr. Guillermo',
-    insurer: 'DKV'
+    professional: 'Dra. Carmen Díaz',
+    subtotal: 480,
+    validUntil: '14/02/26',
+    treatments: [
+      { tratamiento: 'Raspado y alisado Q1', precio: '120 €', descuento: '0 €', importe: '120 €', doctor: 'Dra. Carmen Díaz' },
+      { tratamiento: 'Raspado y alisado Q2', precio: '120 €', descuento: '0 €', importe: '120 €', doctor: 'Dra. Carmen Díaz' },
+      { tratamiento: 'Raspado y alisado Q3', precio: '120 €', descuento: '0 €', importe: '120 €', doctor: 'Dra. Carmen Díaz' },
+      { tratamiento: 'Raspado y alisado Q4', precio: '120 €', descuento: '0 €', importe: '120 €', doctor: 'Dra. Carmen Díaz' }
+    ],
+    history: [
+      { date: '14/01/26 12:30', action: 'Presupuesto creado', user: 'Dra. Carmen Díaz' },
+      { date: '14/01/26 13:00', action: 'Aceptado por el paciente', user: 'Sistema' }
+    ]
   },
+  // Sofía Navarro (pat-007) - Implante
   {
-    id: 'PR-005',
-    description: 'Implante dental',
+    id: 'budget-007-01',
+    patientId: 'pat-007',
+    patientName: 'Sofía Navarro Díaz',
+    description: 'Implante unitario pieza 36',
     amount: '1.200 €',
-    date: '01/12/25',
+    date: '08/01/26',
     status: 'Aceptado',
-    professional: 'Dr. Guillermo',
-    insurer: 'Adelas'
+    professional: 'Dr. Miguel Á. Torres',
+    subtotal: 1200,
+    validUntil: '08/02/26',
+    treatments: [
+      { pieza: 36, tratamiento: 'Implante Straumann 4.1x10mm', precio: '800 €', descuento: '0 €', importe: '800 €', doctor: 'Dr. Miguel Á. Torres' },
+      { pieza: 36, tratamiento: 'Corona sobre implante', precio: '400 €', descuento: '0 €', importe: '400 €', doctor: 'Dr. Miguel Á. Torres' }
+    ],
+    history: [
+      { date: '08/01/26 12:30', action: 'Presupuesto creado', user: 'Dr. Miguel Á. Torres' },
+      { date: '15/01/26 10:00', action: 'Aceptado por el paciente', user: 'Sistema' }
+    ]
   },
+  // Miguel Gómez (pat-008) - Implante + Corona
   {
-    id: 'PR-006',
-    description: 'Férula de descarga',
-    amount: '300 €',
-    date: '01/12/25',
-    status: 'Pendiente',
-    professional: 'Dra. Andrea',
-    insurer: 'Sanitas'
-  },
-  {
-    id: 'PR-007',
-    description: 'Tratamiento de ortodoncia',
-    amount: '1.800 €',
-    date: '01/12/25',
+    id: 'budget-008-01',
+    patientId: 'pat-008',
+    patientName: 'Miguel Gómez Hernández',
+    description: 'Implante y rehabilitación pieza 46',
+    amount: '1.450 €',
+    date: '01/06/25',
     status: 'Aceptado',
-    professional: 'Dra. Andrea',
-    insurer: 'DKV'
+    professional: 'Dr. Miguel Á. Torres',
+    subtotal: 1450,
+    generalDiscount: { type: 'percentage', value: 5 },
+    validUntil: '01/07/25',
+    treatments: [
+      { pieza: 46, tratamiento: 'Implante Straumann', precio: '800 €', descuento: '0 €', importe: '800 €', doctor: 'Dr. Miguel Á. Torres' },
+      { pieza: 46, tratamiento: 'Corona sobre implante', precio: '650 €', descuento: '0 €', importe: '650 €', doctor: 'Dr. Miguel Á. Torres' }
+    ],
+    history: [
+      { date: '01/06/25 10:00', action: 'Presupuesto creado', user: 'Dr. Miguel Á. Torres' },
+      { date: '01/06/25 11:00', action: 'Aceptado - Financiación 12 cuotas', user: 'Sistema' }
+    ]
   },
+  // Elena Vega (pat-009) - Blanqueamiento
   {
-    id: 'PR-008',
-    description: 'Consulta de seguimiento',
-    amount: '100 €',
-    date: '30/08/25',
-    status: 'Rechazado',
-    professional: 'Dr. Guillermo',
-    insurer: 'Sanitas'
+    id: 'budget-009-01',
+    patientId: 'pat-009',
+    patientName: 'Elena Vega Castillo',
+    description: 'Blanqueamiento LED profesional',
+    amount: '250 €',
+    date: '20/01/26',
+    status: 'Aceptado',
+    professional: 'Laura Sánchez (Higienista)',
+    subtotal: 250,
+    validUntil: '20/02/26',
+    treatments: [
+      { tratamiento: 'Blanqueamiento LED - 2 sesiones', precio: '250 €', descuento: '0 €', importe: '250 €', doctor: 'Laura Sánchez' }
+    ],
+    history: [
+      { date: '20/01/26 09:30', action: 'Presupuesto creado', user: 'Dr. Antonio Ruiz' },
+      { date: '20/01/26 10:00', action: 'Aceptado por el paciente', user: 'Sistema' }
+    ]
   },
+  // David Sánchez (pat-011) - Periodontal
   {
-    id: 'PR-009',
-    description: 'Blanqueamiento dental',
-    amount: '400 €',
-    date: '11/03/25',
+    id: 'budget-011-01',
+    patientId: 'pat-011',
+    patientName: 'David Sánchez Martín',
+    description: 'Tratamiento periodontal fase 1',
+    amount: '180 €',
+    date: '01/10/25',
+    status: 'Aceptado',
+    professional: 'Dra. Carmen Díaz',
+    subtotal: 180,
+    validUntil: '01/11/25',
+    treatments: [
+      { tratamiento: 'Periodontal fase 1', precio: '180 €', descuento: '0 €', importe: '180 €', doctor: 'Dra. Carmen Díaz' }
+    ],
+    history: [
+      { date: '01/10/25 12:00', action: 'Presupuesto creado', user: 'Dra. Carmen Díaz' },
+      { date: '01/10/25 12:30', action: 'Aceptado - Pago parcial', user: 'Sistema' }
+    ]
+  },
+  // Fernando Díaz (pat-014) - Férula
+  {
+    id: 'budget-014-01',
+    patientId: 'pat-014',
+    patientName: 'Fernando Díaz Ortega',
+    description: 'Férula de descarga Michigan',
+    amount: '350 €',
+    date: '13/01/26',
+    status: 'Aceptado',
+    professional: 'Dr. Antonio Ruiz',
+    subtotal: 350,
+    validUntil: '13/02/26',
+    treatments: [
+      { tratamiento: 'Férula Michigan + impresiones', precio: '350 €', descuento: '0 €', importe: '350 €', doctor: 'Dr. Antonio Ruiz' }
+    ],
+    history: [
+      { date: '13/01/26 18:30', action: 'Presupuesto creado', user: 'Dr. Antonio Ruiz' },
+      { date: '13/01/26 19:00', action: 'Aceptado por el paciente', user: 'Sistema' }
+    ]
+  },
+  // Presupuesto pendiente - Antonio Pérez (pat-010)
+  {
+    id: 'budget-010-01',
+    patientId: 'pat-010',
+    patientName: 'Antonio Pérez Molina',
+    description: 'Extracción + Prótesis parcial',
+    amount: '450 €',
+    date: '15/01/26',
     status: 'Pendiente',
-    professional: 'Dr. Guillermo',
-    insurer: 'Sanitas'
+    professional: 'Dr. Antonio Ruiz',
+    subtotal: 450,
+    validUntil: '15/02/26',
+    treatments: [
+      { pieza: 47, tratamiento: 'Extracción molar', precio: '90 €', descuento: '0 €', importe: '90 €', doctor: 'Dr. Antonio Ruiz' },
+      { tratamiento: 'Prótesis parcial removible', precio: '360 €', descuento: '0 €', importe: '360 €', doctor: 'Dr. Antonio Ruiz' }
+    ],
+    history: [
+      { date: '15/01/26 17:00', action: 'Presupuesto creado', user: 'Dr. Antonio Ruiz' }
+    ]
   }
 ]
 
+// ─────────────────────────────────────────────────────────────
+// PRODUCCIÓN VINCULADA A PRESUPUESTOS Y PACIENTES REALES
+// ─────────────────────────────────────────────────────────────
 const INITIAL_PRODUCTION_ROWS: ProductionRow[] = [
+  // Carlos Rodríguez - Endodoncia completada
   {
-    id: 'PR-001',
-    date: '22/12/25',
-    description: 'Operación mandíbula',
-    amount: '2.300 €',
+    id: 'prod-002-01',
+    budgetId: 'budget-002-01',
+    patientId: 'pat-002',
+    date: '24/01/26',
+    description: 'Endodoncia molar 36 - Completada',
+    amount: '320 €',
     status: 'Producido',
-    professional: 'Dr. Guillermo'
+    professional: 'Dr. Francisco Moreno'
   },
+  // Carlos Rodríguez - Corona pendiente
   {
-    id: 'PR-002',
-    date: '18/12/25',
-    description: 'Consulta inicial',
-    amount: '150 €',
-    status: 'Producido',
-    professional: 'Dr. Guillermo'
-  },
-  {
-    id: 'PR-003',
+    id: 'prod-002-02',
+    budgetId: 'budget-002-01',
+    patientId: 'pat-002',
     date: '',
-    description: 'Radiografía',
-    amount: '100 €',
+    description: 'Corona zirconio 36',
+    amount: '450 €',
     status: 'Pendiente',
-    professional: 'Dra. Andrea'
+    professional: 'Dr. Antonio Ruiz'
   },
+  // Sofía Navarro - Implante completado
   {
-    id: 'PR-004',
-    date: '01/12/25',
-    description: 'Extracción de muela',
-    amount: '500 €',
+    id: 'prod-007-01',
+    budgetId: 'budget-007-01',
+    patientId: 'pat-007',
+    date: '22/01/26',
+    description: 'Implante Straumann 36',
+    amount: '800 €',
     status: 'Producido',
-    professional: 'Dr. Guillermo'
+    professional: 'Dr. Miguel Á. Torres'
   },
+  // Sofía Navarro - Corona pendiente
   {
-    id: 'PR-005',
-    date: '01/12/25',
-    description: 'Implante dental',
-    amount: '1.200 €',
-    status: 'Producido',
-    professional: 'Dr. Guillermo'
-  },
-  {
-    id: 'PR-006',
+    id: 'prod-007-02',
+    budgetId: 'budget-007-01',
+    patientId: 'pat-007',
     date: '',
-    description: 'Férula de descarga',
-    amount: '300 €',
-    status: 'Pendiente',
-    professional: 'Dra. Andrea'
-  },
-  {
-    id: 'PR-007',
-    date: '01/12/25',
-    description: 'Tratamiento de ortodoncia',
-    amount: '1.800 €',
-    status: 'Producido',
-    professional: 'Dra. Andrea'
-  },
-  {
-    id: 'PR-008',
-    date: '30/08/25',
-    description: 'Consulta de seguimiento',
-    amount: '100 €',
-    status: 'Facturado',
-    professional: 'Dr. Guillermo'
-  },
-  {
-    id: 'PR-009',
-    date: '',
-    description: 'Blanqueamiento dental',
+    description: 'Corona sobre implante 36',
     amount: '400 €',
     status: 'Pendiente',
-    professional: 'Dr. Guillermo'
+    professional: 'Dr. Miguel Á. Torres'
+  },
+  // Miguel Gómez - Implante completado
+  {
+    id: 'prod-008-01',
+    budgetId: 'budget-008-01',
+    patientId: 'pat-008',
+    date: '03/01/26',
+    description: 'Implante 46 - Fase 1',
+    amount: '800 €',
+    status: 'Producido',
+    professional: 'Dr. Miguel Á. Torres'
+  },
+  // Miguel Gómez - Corona pendiente
+  {
+    id: 'prod-008-02',
+    budgetId: 'budget-008-01',
+    patientId: 'pat-008',
+    date: '',
+    description: 'Corona sobre implante 46',
+    amount: '650 €',
+    status: 'Pendiente',
+    professional: 'Dr. Miguel Á. Torres'
+  },
+  // Fernando Díaz - Férula completada
+  {
+    id: 'prod-014-01',
+    budgetId: 'budget-014-01',
+    patientId: 'pat-014',
+    date: '31/01/26',
+    description: 'Férula Michigan - Entrega',
+    amount: '350 €',
+    status: 'Pendiente',
+    professional: 'Dr. Antonio Ruiz'
+  },
+  // Javier Moreno - Q1 completado, Q2-Q4 pendientes
+  {
+    id: 'prod-006-01',
+    budgetId: 'budget-006-01',
+    patientId: 'pat-006',
+    date: '28/01/26',
+    description: 'Raspado cuadrante 1',
+    amount: '120 €',
+    status: 'Producido',
+    professional: 'Dra. Carmen Díaz'
+  },
+  {
+    id: 'prod-006-02',
+    budgetId: 'budget-006-01',
+    patientId: 'pat-006',
+    date: '',
+    description: 'Raspado cuadrante 2',
+    amount: '120 €',
+    status: 'Pendiente',
+    professional: 'Dra. Carmen Díaz'
+  },
+  // David Sánchez - Periodontal fase 1 completada
+  {
+    id: 'prod-011-01',
+    budgetId: 'budget-011-01',
+    patientId: 'pat-011',
+    date: '20/01/26',
+    description: 'Periodontal fase 1',
+    amount: '180 €',
+    status: 'Producido',
+    professional: 'Dra. Carmen Díaz'
+  },
+  // Elena - Blanqueamiento pendiente
+  {
+    id: 'prod-009-01',
+    budgetId: 'budget-009-01',
+    patientId: 'pat-009',
+    date: '',
+    description: 'Blanqueamiento LED sesión 1',
+    amount: '125 €',
+    status: 'Pendiente',
+    professional: 'Laura Sánchez'
+  },
+  {
+    id: 'prod-009-02',
+    budgetId: 'budget-009-01',
+    patientId: 'pat-009',
+    date: '',
+    description: 'Blanqueamiento LED sesión 2',
+    amount: '125 €',
+    status: 'Pendiente',
+    professional: 'Laura Sánchez'
   }
 ]
 
@@ -1383,22 +1552,25 @@ export default function BudgetsPayments({
   const [localBudgetRows, setLocalBudgetRows] =
     React.useState<BudgetRow[]>(INITIAL_BUDGET_ROWS)
   const budgetRows = externalBudgetRows ?? localBudgetRows
-  const setBudgetRows = React.useCallback((newRows: BudgetRow[] | ((prev: BudgetRow[]) => BudgetRow[])) => {
-    if (typeof newRows === 'function') {
-      const updatedRows = newRows(budgetRows)
-      if (onUpdateBudgetRows) {
-        onUpdateBudgetRows(updatedRows)
+  const setBudgetRows = React.useCallback(
+    (newRows: BudgetRow[] | ((prev: BudgetRow[]) => BudgetRow[])) => {
+      if (typeof newRows === 'function') {
+        const updatedRows = newRows(budgetRows)
+        if (onUpdateBudgetRows) {
+          onUpdateBudgetRows(updatedRows)
+        } else {
+          setLocalBudgetRows(updatedRows)
+        }
       } else {
-        setLocalBudgetRows(updatedRows)
+        if (onUpdateBudgetRows) {
+          onUpdateBudgetRows(newRows)
+        } else {
+          setLocalBudgetRows(newRows)
+        }
       }
-    } else {
-      if (onUpdateBudgetRows) {
-        onUpdateBudgetRows(newRows)
-      } else {
-        setLocalBudgetRows(newRows)
-      }
-    }
-  }, [budgetRows, onUpdateBudgetRows])
+    },
+    [budgetRows, onUpdateBudgetRows]
+  )
   const [invoiceRows, setInvoiceRows] =
     React.useState<InvoiceRow[]>(INITIAL_INVOICE_ROWS)
 
@@ -1824,16 +1996,24 @@ export default function BudgetsPayments({
       id: newId,
       description: `${budget.description} (copia)`,
       status: 'Pendiente',
-      date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+      date: new Date().toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit'
+      }),
       validUntil: undefined,
       history: [
-        { date: new Date().toLocaleString('es-ES'), action: 'Presupuesto duplicado', user: 'Sistema' }
+        {
+          date: new Date().toLocaleString('es-ES'),
+          action: 'Presupuesto duplicado',
+          user: 'Sistema'
+        }
       ]
     }
     if (onAddBudget) {
       onAddBudget(duplicatedBudget)
     } else {
-      setBudgetRows(prev => [duplicatedBudget, ...prev])
+      setBudgetRows((prev) => [duplicatedBudget, ...prev])
     }
   }
 
@@ -1868,7 +2048,7 @@ export default function BudgetsPayments({
   // Handler for budget action menu items
   const handleBudgetAction = (rowId: string, action: string) => {
     console.log(`Budget Action: ${action} on row: ${rowId}`)
-    const budget = budgetRows.find(r => r.id === rowId)
+    const budget = budgetRows.find((r) => r.id === rowId)
 
     switch (action) {
       case 'marcar-aceptado':
@@ -2614,7 +2794,11 @@ export default function BudgetsPayments({
                 filteredBudgetRows.map((row) => (
                   <div
                     key={row.id}
-                    className='flex items-center border-b border-neutral-300 h-10 group'
+                    className='flex items-center border-b border-neutral-300 h-10 group hover:bg-neutral-100 cursor-pointer transition-colors'
+                    onClick={() => {
+                      setSelectedBudgetRow(row)
+                      setShowBudgetDetailsModal(true)
+                    }}
                   >
                     <div
                       className={`${BUDGET_COL_ID} px-2 text-body-md font-semibold text-brand-700`}
@@ -2636,7 +2820,10 @@ export default function BudgetsPayments({
                     >
                       {row.date}
                     </div>
-                    <div className={`${BUDGET_COL_ESTADO} px-2`}>
+                    <div
+                      className={`${BUDGET_COL_ESTADO} px-2`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <BudgetStatusBadge
                         status={row.status}
                         rowId={row.id}
@@ -2654,7 +2841,10 @@ export default function BudgetsPayments({
                       {row.insurer}
                     </div>
                     {/* More actions menu */}
-                    <div className='ml-auto'>
+                    <div
+                      className='ml-auto'
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <BudgetActionsMenu
                         rowId={row.id}
                         status={row.status}
@@ -2937,27 +3127,36 @@ export default function BudgetsPayments({
         onCreateBudget={(selectedTreatments, budgetInfo) => {
           console.log('Selected treatments:', selectedTreatments)
           console.log('Budget info:', budgetInfo)
-          
+
           // Calculate validity date (30 days from now)
           const validUntilDate = new Date()
           validUntilDate.setDate(validUntilDate.getDate() + 30)
-          
+
           // Create new budget row with extended fields
           const newBudget: BudgetRow = {
             id: `PRE-${Date.now().toString().slice(-6)}`,
             description: budgetInfo.name,
             amount: `${budgetInfo.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
-            date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+            date: new Date().toLocaleDateString('es-ES', {
+              day: '2-digit',
+              month: '2-digit',
+              year: '2-digit'
+            }),
             status: 'Pendiente',
             professional: selectedTreatments[0]?.doctor || '',
             insurer: '',
             // Extended fields
             subtotal: budgetInfo.subtotal,
-            generalDiscount: budgetInfo.generalDiscountAmount > 0 
-              ? { type: 'fixed', value: budgetInfo.generalDiscountAmount }
-              : undefined,
-            validUntil: validUntilDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
-            treatments: selectedTreatments.map(t => ({
+            generalDiscount:
+              budgetInfo.generalDiscountAmount > 0
+                ? { type: 'fixed', value: budgetInfo.generalDiscountAmount }
+                : undefined,
+            validUntil: validUntilDate.toLocaleDateString('es-ES', {
+              day: '2-digit',
+              month: '2-digit',
+              year: '2-digit'
+            }),
+            treatments: selectedTreatments.map((t) => ({
               pieza: t.pieza,
               cara: t.cara,
               codigo: t.codigo,
@@ -2969,21 +3168,27 @@ export default function BudgetsPayments({
               doctor: t.doctor
             })),
             history: [
-              { 
-                date: new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }), 
-                action: 'Presupuesto creado', 
-                user: selectedTreatments[0]?.doctor || 'Sistema' 
+              {
+                date: new Date().toLocaleString('es-ES', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }),
+                action: 'Presupuesto creado',
+                user: selectedTreatments[0]?.doctor || 'Sistema'
               }
             ]
           }
-          
+
           // Add to budget rows (uses shared state via onAddBudget if available)
           if (onAddBudget) {
             onAddBudget(newBudget)
           } else {
-            setBudgetRows(prev => [newBudget, ...prev])
+            setBudgetRows((prev) => [newBudget, ...prev])
           }
-          
+
           setShowAddTreatmentsModal(false)
         }}
       />
@@ -3156,23 +3361,36 @@ export default function BudgetsPayments({
         budget={selectedBudgetRow}
         patientName={displayPatientName}
         onStatusChange={(budgetId, newStatus) => {
-          handleBudgetStatusChange(budgetId, newStatus)
-          // Add history entry
-          setBudgetRows(prev => prev.map(b => 
-            b.id === budgetId 
-              ? { 
-                  ...b, 
-                  history: [
-                    ...(b.history || []),
-                    { 
-                      date: new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }),
-                      action: newStatus === 'Aceptado' ? 'Presupuesto aceptado' : newStatus === 'Rechazado' ? 'Presupuesto rechazado' : 'Presupuesto reabierto',
-                      user: 'Sistema'
-                    }
-                  ]
-                }
-              : b
-          ))
+          // Combine status change and history update in a single state update
+          setBudgetRows((prev) =>
+            prev.map((b) =>
+              b.id === budgetId
+                ? {
+                    ...b,
+                    status: newStatus,
+                    history: [
+                      ...(b.history || []),
+                      {
+                        date: new Date().toLocaleString('es-ES', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }),
+                        action:
+                          newStatus === 'Aceptado'
+                            ? 'Presupuesto aceptado'
+                            : newStatus === 'Rechazado'
+                              ? 'Presupuesto rechazado'
+                              : 'Presupuesto reabierto',
+                        user: 'Sistema'
+                      }
+                    ]
+                  }
+                : b
+            )
+          )
         }}
         onDuplicate={handleDuplicateBudget}
         onDelete={(budgetId) => {

@@ -136,10 +136,7 @@ export default function BudgetTypeListModal({
             style={modalFrameStyle}
           >
             <div className='relative h-full w-full overflow-hidden rounded-[0.5rem] bg-neutral-50 shadow-xl'>
-              <div
-                className='relative flex flex-col'
-                style={modalContentStyle}
-              >
+              <div className='relative flex flex-col' style={modalContentStyle}>
                 {/* Header */}
                 <header className='flex h-[3.5rem] shrink-0 items-center justify-between border-b border-neutral-300 px-6'>
                   <h2 className='text-title-md text-neutral-900'>

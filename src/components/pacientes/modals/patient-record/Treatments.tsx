@@ -19,11 +19,14 @@ import type {
   TreatmentCatalogEntry,
   TreatmentV2
 } from '@/components/pacientes/shared/treatmentTypes'
-import { PROFESSIONALS, TREATMENT_CATALOG } from '@/components/pacientes/shared/treatmentTypes'
+import {
+  PROFESSIONALS,
+  TREATMENT_CATALOG
+} from '@/components/pacientes/shared/treatmentTypes'
 import { setPendingAppointmentData } from '@/utils/appointmentPrefill'
 import { useRouter } from 'next/navigation'
 import React from 'react'
-import AddTreatmentsToBudgetModal, { type BudgetInfo } from './AddTreatmentsToBudgetModal'
+import AddTreatmentsToBudgetModal from './AddTreatmentsToBudgetModal'
 import type { BudgetRow } from './BudgetsPayments'
 
 // ============================================
@@ -501,6 +504,8 @@ type TreatmentsProps = {
   onClose?: () => void
   patientId?: string
   patientName?: string
+  openAddTreatment?: boolean
+  onAddTreatmentOpened?: () => void
 }
 
 export default function Treatments({
@@ -509,7 +514,9 @@ export default function Treatments({
   onCancel,
   onClose,
   patientId,
-  patientName
+  patientName,
+  openAddTreatment,
+  onAddTreatmentOpened
 }: TreatmentsProps) {
   const router = useRouter()
 
@@ -699,7 +706,7 @@ export default function Treatments({
   }
 
   // Handler para añadir fila vacía
-  const handleAddEmptyRow = () => {
+  const handleAddEmptyRow = React.useCallback(() => {
     const newId = `TR-EMPTY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     const newTreatment: TreatmentV2 = {
       _internalId: newId,
@@ -714,7 +721,15 @@ export default function Treatments({
     }
     setPendingTreatments((prev) => [...prev, newTreatment])
     setNewRowId(newId)
-  }
+  }, [])
+
+  // Effect to auto-add empty row when navigating from Resumen with "add treatment" action
+  React.useEffect(() => {
+    if (openAddTreatment) {
+      handleAddEmptyRow()
+      onAddTreatmentOpened?.()
+    }
+  }, [openAddTreatment, handleAddEmptyRow, onAddTreatmentOpened])
 
   const handleOpenMenu = (
     treatment: TreatmentV2,
@@ -1321,22 +1336,31 @@ export default function Treatments({
             // Calculate validity date (30 days from now)
             const validUntilDate = new Date()
             validUntilDate.setDate(validUntilDate.getDate() + 30)
-            
+
             const newBudget: BudgetRow = {
               id: `PRE-${Date.now().toString().slice(-6)}`,
               description: budgetInfo.name,
               amount: `${budgetInfo.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
-              date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+              date: new Date().toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: '2-digit'
+              }),
               status: 'Pendiente',
               professional: treatments[0]?.doctor || '',
               insurer: '',
               // Extended fields
               subtotal: budgetInfo.subtotal,
-              generalDiscount: budgetInfo.generalDiscountAmount > 0 
-                ? { type: 'fixed', value: budgetInfo.generalDiscountAmount }
-                : undefined,
-              validUntil: validUntilDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }),
-              treatments: treatments.map(t => ({
+              generalDiscount:
+                budgetInfo.generalDiscountAmount > 0
+                  ? { type: 'fixed', value: budgetInfo.generalDiscountAmount }
+                  : undefined,
+              validUntil: validUntilDate.toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: '2-digit'
+              }),
+              treatments: treatments.map((t) => ({
                 pieza: t.pieza,
                 cara: t.cara,
                 codigo: t.codigo,
@@ -1348,10 +1372,16 @@ export default function Treatments({
                 doctor: t.doctor
               })),
               history: [
-                { 
-                  date: new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }), 
-                  action: 'Presupuesto creado', 
-                  user: treatments[0]?.doctor || 'Sistema' 
+                {
+                  date: new Date().toLocaleString('es-ES', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  }),
+                  action: 'Presupuesto creado',
+                  user: treatments[0]?.doctor || 'Sistema'
                 }
               ]
             }

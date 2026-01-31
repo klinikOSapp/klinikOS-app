@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  AddRounded,
   CallRounded,
   EditRounded,
   MailRounded,
@@ -14,6 +15,12 @@ import React from 'react'
 
 type ResumenProps = {
   onClose?: () => void
+  onNavigateToTreatments?: (withAddAction?: boolean) => void
+  onNavigateToFinances?: (withBudgetCreation?: boolean) => void
+  onNavigateToInfo?: (withEditMode?: boolean) => void
+  onNavigateToClinicalHistory?: () => void
+  onNavigateToConsents?: () => void
+  onNavigateToPrescriptions?: () => void
 }
 
 // Datos mock del paciente (en producción vendrían de props o API)
@@ -61,7 +68,15 @@ const mockPatientData = {
   ]
 }
 
-export default function Resumen({ onClose }: ResumenProps) {
+export default function Resumen({
+  onClose,
+  onNavigateToTreatments,
+  onNavigateToFinances,
+  onNavigateToInfo,
+  onNavigateToClinicalHistory,
+  onNavigateToConsents,
+  onNavigateToPrescriptions
+}: ResumenProps) {
   const [avatarPreviewUrl, setAvatarPreviewUrl] = React.useState<string | null>(
     null
   )
@@ -82,12 +97,12 @@ export default function Resumen({ onClose }: ResumenProps) {
 
   return (
     <div
-      className='bg-[#f8fafb] w-full h-full overflow-y-auto p-8'
+      className='bg-[#f8fafb] w-full h-full flex flex-col'
       data-node-id='resumen-container'
     >
-      {/* Header con información del paciente */}
+      {/* Header con información del paciente - FIJO, no hace scroll */}
       <div
-        className='flex gap-6 items-center mb-8'
+        className='flex gap-6 items-center px-8 pt-8 pb-6 shrink-0 bg-[#f8fafb]'
         data-node-id='resumen-header'
       >
         {/* Avatar */}
@@ -159,11 +174,15 @@ export default function Resumen({ onClose }: ResumenProps) {
         </div>
       </div>
 
-      {/* Contenido principal - Grid de dos columnas que se adaptan */}
+      {/* Contenido principal - Grid de dos columnas que se adaptan - CON SCROLL */}
       <div
-        className='grid grid-cols-2 gap-6'
-        data-node-id='resumen-content-columns'
+        className='flex-1 overflow-y-auto px-8 pb-8'
+        data-node-id='resumen-content-wrapper'
       >
+        <div
+          className='grid grid-cols-2 gap-6'
+          data-node-id='resumen-content-columns'
+        >
         {/* Columna izquierda */}
         <div className='flex flex-col gap-6'>
           {/* Próxima cita */}
@@ -228,6 +247,7 @@ export default function Resumen({ onClose }: ResumenProps) {
             type='button'
             className='w-6 h-6 cursor-pointer hover:opacity-70 transition-opacity'
             aria-label='Editar información crítica'
+            onClick={() => onNavigateToInfo?.(true)}
           >
             <EditRounded className='w-6 h-6 text-[#24282c]' />
           </button>
@@ -319,21 +339,18 @@ export default function Resumen({ onClose }: ResumenProps) {
           <div className='flex items-center gap-[0.5rem]'>
             <button
               type='button'
-              className='w-6 h-6 cursor-pointer hover:opacity-70 transition-opacity border border-[var(--color-neutral-300)] rounded'
-              aria-label='Vista de lista'
+              className='flex items-center gap-[0.25rem] px-[0.75rem] py-[0.25rem] bg-[#E9FBF9] border border-[var(--color-brand-400)] rounded-full hover:bg-[var(--color-brand-100)] transition-colors cursor-pointer'
+              onClick={() => onNavigateToTreatments?.(true)}
             >
-              <div className='w-full h-full border border-[var(--color-neutral-300)] rounded' />
-            </button>
-            <button
-              type='button'
-              className='w-6 h-6 cursor-pointer hover:opacity-70 transition-opacity border border-[var(--color-neutral-300)] rounded bg-[var(--color-brand-50)]'
-              aria-label='Vista de cuadrícula'
-            >
-              <AppsRounded className='w-6 h-6 text-[#24282c]' />
+              <AddRounded className='w-4 h-4 text-[var(--color-brand-700)]' />
+              <span className="font-['Inter:Medium',_sans-serif] font-medium text-[0.75rem] text-[var(--color-brand-700)]">
+                Añadir
+              </span>
             </button>
             <button
               type='button'
               className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[var(--color-brand-600)] text-[0.875rem] hover:underline ml-[0.5rem]"
+              onClick={() => onNavigateToTreatments?.()}
             >
               Ver todo
             </button>
@@ -403,25 +420,31 @@ export default function Resumen({ onClose }: ResumenProps) {
           <div className='flex items-center gap-[0.5rem]'>
             <button
               type='button'
-              className='w-6 h-6 cursor-pointer hover:opacity-70 transition-opacity'
-              aria-label='Buscar'
+              className='flex items-center gap-[0.25rem] px-[0.75rem] py-[0.25rem] bg-[#E9FBF9] border border-[var(--color-brand-400)] rounded-full hover:bg-[var(--color-brand-100)] transition-colors cursor-pointer'
+              onClick={() => onNavigateToFinances?.(true)}
             >
-              <SearchRounded className='w-6 h-6 text-[#24282c]' />
+              <AddRounded className='w-4 h-4 text-[var(--color-brand-700)]' />
+              <span className="font-['Inter:Medium',_sans-serif] font-medium text-[0.75rem] text-[var(--color-brand-700)]">
+                Presupuesto
+              </span>
             </button>
             <button
               type='button'
-              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[0.875rem] px-[0.75rem] py-[0.375rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded flex items-center gap-[0.5rem]"
-              aria-label='Filtrar'
+              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[var(--color-brand-600)] text-[0.875rem] hover:underline"
+              onClick={() => onNavigateToFinances?.()}
             >
-              <FilterListRounded className='w-4 h-4' />
-              Todos
+              Ver todo
             </button>
           </div>
         </div>
         <div className='mt-[1rem] flex justify-end'>
-          <span className='inline-block px-[1rem] py-[0.5rem] bg-[#f7b7ba] text-[1.125rem] text-red-700 rounded-full font-medium'>
+          <button
+            type='button'
+            onClick={() => onNavigateToFinances?.()}
+            className='inline-block px-[1rem] py-[0.5rem] bg-[#f7b7ba] text-[1.125rem] text-red-700 rounded-full font-medium cursor-pointer hover:opacity-80 transition-opacity'
+          >
             {mockPatientData.saldoPendiente}
-          </span>
+          </button>
         </div>
       </div>
 
@@ -444,9 +467,17 @@ export default function Resumen({ onClose }: ResumenProps) {
         </div>
         <div className='space-y-[0.75rem]'>
           {mockPatientData.documentosPendientes.map((doc, idx) => (
-            <div
+            <button
               key={idx}
-              className='flex items-center justify-between p-[0.75rem] hover:bg-[var(--color-neutral-50)] rounded-lg'
+              type='button'
+              className='flex items-center justify-between p-[0.75rem] hover:bg-[var(--color-neutral-50)] rounded-lg w-full text-left cursor-pointer'
+              onClick={() => {
+                if (doc.tipo === 'Consentimiento') {
+                  onNavigateToConsents?.()
+                } else if (doc.tipo === 'Receta') {
+                  onNavigateToPrescriptions?.()
+                }
+              }}
             >
               <div className='flex-1'>
                 <p
@@ -460,14 +491,13 @@ export default function Resumen({ onClose }: ResumenProps) {
                   {doc.descripcion}
                 </p>
               </div>
-              <button
-                type='button'
-                className='w-6 h-6 cursor-pointer hover:opacity-70 transition-opacity'
+              <div
+                className='w-6 h-6 hover:opacity-70 transition-opacity'
                 aria-label='Más opciones'
               >
                 <MoreVertRounded className='w-6 h-6 text-[#24282c]' />
-              </button>
-            </div>
+              </div>
+            </button>
           ))}
         </div>
       </div>
@@ -491,9 +521,11 @@ export default function Resumen({ onClose }: ResumenProps) {
         </div>
         <div className='space-y-[0.75rem]'>
           {mockPatientData.facturasVencidas.map((factura, idx) => (
-            <div
+            <button
               key={idx}
-              className='flex items-center justify-between p-[0.75rem] hover:bg-[var(--color-neutral-50)] rounded-lg'
+              type='button'
+              className='flex items-center justify-between p-[0.75rem] hover:bg-[var(--color-neutral-50)] rounded-lg w-full text-left cursor-pointer'
+              onClick={() => onNavigateToFinances?.()}
             >
               <div className='flex-1'>
                 <div className='flex items-center gap-[0.75rem]'>
@@ -515,15 +547,14 @@ export default function Resumen({ onClose }: ResumenProps) {
                 >
                   {factura.importe}
                 </span>
-                <button
-                  type='button'
-                  className='w-6 h-6 cursor-pointer hover:opacity-70 transition-opacity'
+                <div
+                  className='w-6 h-6 hover:opacity-70 transition-opacity'
                   aria-label='Más opciones'
                 >
                   <MoreVertRounded className='w-6 h-6 text-[#24282c]' />
-                </button>
+                </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -562,6 +593,7 @@ export default function Resumen({ onClose }: ResumenProps) {
             <button
               type='button'
               className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[var(--color-brand-600)] text-[0.875rem] hover:underline ml-[0.5rem]"
+              onClick={() => onNavigateToClinicalHistory?.()}
             >
               Ver todo
             </button>
@@ -590,6 +622,7 @@ export default function Resumen({ onClose }: ResumenProps) {
         </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   )

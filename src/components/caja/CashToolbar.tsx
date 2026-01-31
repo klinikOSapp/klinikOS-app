@@ -3,8 +3,10 @@
 import { CashClosingModal } from '@/components/caja/CashClosingModal'
 import { type CashTimeScale } from '@/components/caja/cajaTypes'
 import DateNavigator from '@/components/gestion/DateNavigator'
+import { useCashClosing } from '@/context/CashClosingContext'
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -23,6 +25,7 @@ type CashToolbarProps = {
   timeScale: CashTimeScale
   onTimeScaleChange: (scale: CashTimeScale) => void
   showClosingButton?: boolean
+  currentDate?: Date // The date being viewed
 }
 
 const SCALE_OPTIONS: { id: CashTimeScale; label: string }[] = [
@@ -30,17 +33,61 @@ const SCALE_OPTIONS: { id: CashTimeScale; label: string }[] = [
   { id: 'month', label: 'Mes' }
 ]
 
+/**
+ * Get the ISO date string for today
+ */
+function getTodayISO(): string {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/**
+ * Get ISO date string from Date object
+ */
+function dateToISO(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export default function CashToolbar({
   dateLabel,
   onNavigateNext,
   onNavigatePrevious,
   timeScale,
   onTimeScaleChange,
-  showClosingButton = true
+  showClosingButton = true,
+  currentDate
 }: CashToolbarProps) {
   const [isClosingModalOpen, setIsClosingModalOpen] = useState(false)
   const [isScaleDropdownOpen, setIsScaleDropdownOpen] = useState(false)
+  const [selectedClosingDate, setSelectedClosingDate] = useState<string | undefined>()
   const scaleDropdownRef = useRef<HTMLDivElement | null>(null)
+
+  // Get closing context
+  const { isDayClosed, getAvailableDates } = useCashClosing()
+
+  // Determine which date to check for closure status
+  const dateToCheck = useMemo(() => {
+    if (currentDate) return dateToISO(currentDate)
+    return getTodayISO()
+  }, [currentDate])
+
+  // Check if today is closed
+  const todayIsClosed = isDayClosed(getTodayISO())
+
+  // Check if current view date is closed
+  const currentDateIsClosed = isDayClosed(dateToCheck)
+
+  // Get list of unclosed dates (for the quick action menu)
+  const unclosedDates = useMemo(() => {
+    const availableDates = getAvailableDates()
+    return availableDates.filter((date) => !isDayClosed(date))
+  }, [getAvailableDates, isDayClosed])
 
   const currentScaleLabel =
     SCALE_OPTIONS.find(({ id }) => id === timeScale)?.label ?? ''
@@ -83,6 +130,16 @@ export default function CashToolbar({
   const handleScaleSelect = (scale: CashTimeScale) => {
     onTimeScaleChange(scale)
     setIsScaleDropdownOpen(false)
+  }
+
+  const handleOpenClosingModal = (dateOverride?: string) => {
+    setSelectedClosingDate(dateOverride)
+    setIsClosingModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsClosingModalOpen(false)
+    setSelectedClosingDate(undefined)
   }
 
   return (
@@ -144,27 +201,55 @@ export default function CashToolbar({
               ) : null}
             </div>
           </div>
+
+          {/* Closed indicator badge */}
+          {todayIsClosed && (
+            <div className='flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1.5 text-label-sm font-medium text-success-700'>
+              <span className='material-symbols-rounded text-[1rem]'>
+                check_circle
+              </span>
+              <span>Hoy cerrado</span>
+            </div>
+          )}
+
+          {/* Pending closings indicator */}
+          {unclosedDates.length > 0 && !todayIsClosed && (
+            <div className='flex items-center gap-1.5 rounded-full bg-warning-100 px-3 py-1.5 text-label-sm font-medium text-warning-700'>
+              <span className='material-symbols-rounded text-[1rem]'>
+                schedule
+              </span>
+              <span>
+                {unclosedDates.length === 1
+                  ? '1 día pendiente'
+                  : `${unclosedDates.length} días pendientes`}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
       {showClosingButton ? (
-        <>
+        <div className='flex items-center gap-3'>
           <button
             type='button'
             className='inline-flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-neutral-900 shadow-cta transition-colors hover:bg-brand-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-surface-app'
             style={ctaStyles}
-            onClick={() => setIsClosingModalOpen(true)}
+            onClick={() => handleOpenClosingModal()}
             aria-haspopup='dialog'
             aria-expanded={isClosingModalOpen}
           >
+            <span className='material-symbols-rounded mr-1.5 text-[1rem]'>
+              point_of_sale
+            </span>
             Cerrar caja
           </button>
 
           <CashClosingModal
             open={isClosingModalOpen}
-            onClose={() => setIsClosingModalOpen(false)}
+            onClose={handleCloseModal}
+            initialDate={selectedClosingDate}
           />
-        </>
+        </div>
       ) : null}
     </div>
   )

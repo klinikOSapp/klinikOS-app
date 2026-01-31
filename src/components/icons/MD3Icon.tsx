@@ -1,6 +1,7 @@
 import type { ComponentProps, CSSProperties } from 'react'
 
 const ICON_GLYPHS = {
+  AccessTimeFilledRounded: 'schedule',
   AccountCircleRounded: 'account_circle',
   AddAPhotoRounded: 'add_a_photo',
   AddPhotoAlternateRounded: 'add_photo_alternate',
@@ -56,6 +57,7 @@ const ICON_GLYPHS = {
   MoreVertRounded: 'more_vert',
   PaymentsRounded: 'payments',
   PeopleRounded: 'group',
+  PersonRounded: 'person',
   PhoneRounded: 'phone',
   PhotoCameraRounded: 'photo_camera',
   PictureAsPdfRounded: 'picture_as_pdf',

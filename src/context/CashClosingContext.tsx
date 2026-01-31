@@ -1,0 +1,1175 @@
+'use client'
+
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState
+} from 'react'
+
+// ─────────────────────────────────────────────────────────────
+// Types - Estructura compatible con Supabase (PostgreSQL)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Tabla: cash_closings
+ * Representa un cierre de caja para un día específico
+ */
+export type CashClosing = {
+  // Primary key
+  id: string // uuid
+
+  // Clinic reference (for multi-clinic support)
+  clinic_id: string // uuid, FK to clinics
+
+  // The specific day being closed (DATE in PostgreSQL)
+  closing_date: string // ISO date string YYYY-MM-DD
+
+  // Timestamps
+  created_at: string // timestamptz
+  updated_at: string // timestamptz
+  closed_by: string // uuid, FK to users
+
+  // Cash flow data
+  initial_cash: number // decimal(10,2) - Caja inicial
+  total_income: number // decimal(10,2) - Total ingresos del día
+  total_expenses: number // decimal(10,2) - Total gastos del día
+  cash_outflow: number // decimal(10,2) - Salida de caja (retirado)
+  final_balance: number // decimal(10,2) - Balance final
+
+  // Breakdown by payment method (JSONB in PostgreSQL)
+  income_by_method: {
+    efectivo: number
+    tpv: number
+    transferencia: number
+    financiacion: number
+    otros: number
+  }
+
+  // Transaction counts
+  transaction_count: number // integer
+
+  // Status
+  status: 'open' | 'closed' | 'reopened' // enum
+
+  // Notes (optional)
+  notes: string | null
+}
+
+/**
+ * Tabla: cash_transactions
+ * Representa una transacción individual del día
+ */
+export type CashTransaction = {
+  id: string // uuid
+  clinic_id: string // uuid
+  closing_id: string | null // uuid, FK to cash_closings (null if day not closed)
+  transaction_date: string // DATE
+  created_at: string // timestamptz
+
+  // Transaction details
+  patient_id: string | null // uuid, FK to patients
+  patient_name: string
+  concept: string
+  amount: number // decimal(10,2)
+  payment_method: 'efectivo' | 'tpv' | 'transferencia' | 'financiacion' | 'otros'
+  payment_status: 'cobrado' | 'pendiente'
+  production_status: 'hecho' | 'pendiente'
+
+  // Optional references
+  invoice_id: string | null // uuid, FK to invoices
+  appointment_id: string | null // uuid, FK to appointments
+}
+
+// ─────────────────────────────────────────────────────────────
+// Mock Data - Simula datos que vendrían de Supabase
+// ─────────────────────────────────────────────────────────────
+
+const MOCK_CLINIC_ID = 'clinic-001'
+const MOCK_USER_ID = 'user-001'
+
+// ─────────────────────────────────────────────────────────────
+// Transacciones mock (simulan tabla cash_transactions)
+// VINCULADAS a pacientes y citas reales de PatientsContext y AppointmentsContext
+// IDs: tx-{YYYYMMDD}-{seq}
+// ─────────────────────────────────────────────────────────────
+export const MOCK_TRANSACTIONS: CashTransaction[] = [
+  // ─────────────────────────────────────────────────────────────
+  // Enero 2026 - Citas completadas con pagos
+  // ─────────────────────────────────────────────────────────────
+  
+  // 3 Ene - Miguel Gómez (implante)
+  {
+    id: 'tx-20260103-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260103',
+    transaction_date: '2026-01-03',
+    created_at: '2026-01-03T11:30:00Z',
+    patient_id: 'pat-008',
+    patient_name: 'Miguel Gómez Hernández',
+    concept: 'Implante 46 - Fase 1 (cuota 4)',
+    amount: 100,
+    payment_method: 'financiacion',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260103-01',
+    appointment_id: 'apt-008-01'
+  },
+
+  // 6 Ene - Ana Martínez (Invisalign) + Beatriz (limpieza)
+  {
+    id: 'tx-20260106-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260106',
+    transaction_date: '2026-01-06',
+    created_at: '2026-01-06T09:30:00Z',
+    patient_id: 'pat-003',
+    patient_name: 'Ana Martínez Sánchez',
+    concept: 'Cuota Invisalign mensual',
+    amount: 175,
+    payment_method: 'financiacion',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260106-01',
+    appointment_id: 'apt-003-01'
+  },
+  {
+    id: 'tx-20260106-02',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260106',
+    transaction_date: '2026-01-06',
+    created_at: '2026-01-06T19:30:00Z',
+    patient_id: 'pat-015',
+    patient_name: 'Beatriz Muñoz Serrano',
+    concept: 'Limpieza semestral',
+    amount: 72,
+    payment_method: 'tpv',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260106-02',
+    appointment_id: 'apt-015-01'
+  },
+
+  // 7 Ene - Laura Fernández (Invisalign)
+  {
+    id: 'tx-20260107-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260107',
+    transaction_date: '2026-01-07',
+    created_at: '2026-01-07T11:30:00Z',
+    patient_id: 'pat-005',
+    patient_name: 'Laura Fernández Ruiz',
+    concept: 'Cuota Invisalign mensual',
+    amount: 210,
+    payment_method: 'financiacion',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260107-01',
+    appointment_id: 'apt-005-01'
+  },
+
+  // 8 Ene - María García (revisión) + Sofía Navarro (consulta)
+  {
+    id: 'tx-20260108-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260108',
+    transaction_date: '2026-01-08',
+    created_at: '2026-01-08T10:15:00Z',
+    patient_id: 'pat-001',
+    patient_name: 'María García López',
+    concept: 'Revisión general',
+    amount: 45,
+    payment_method: 'efectivo',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260108-01',
+    appointment_id: 'apt-001-01'
+  },
+  {
+    id: 'tx-20260108-02',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260108',
+    transaction_date: '2026-01-08',
+    created_at: '2026-01-08T12:30:00Z',
+    patient_id: 'pat-007',
+    patient_name: 'Sofía Navarro Díaz',
+    concept: 'Consulta implantes',
+    amount: 45,
+    payment_method: 'tpv',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260108-02',
+    appointment_id: 'apt-007-01'
+  },
+
+  // 9 Ene - Pablo López (pediátrico)
+  {
+    id: 'tx-20260109-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260109',
+    transaction_date: '2026-01-09',
+    created_at: '2026-01-09T17:30:00Z',
+    patient_id: 'pat-004',
+    patient_name: 'Pablo López García',
+    concept: 'Revisión pediátrica',
+    amount: 35,
+    payment_method: 'efectivo',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260109-01',
+    appointment_id: 'apt-004-01'
+  },
+
+  // 10 Ene - Carlos Rodríguez + Miguel Gómez (control)
+  {
+    id: 'tx-20260110-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260110',
+    transaction_date: '2026-01-10',
+    created_at: '2026-01-10T10:30:00Z',
+    patient_id: 'pat-002',
+    patient_name: 'Carlos Rodríguez Fernández',
+    concept: 'Revisión y diagnóstico',
+    amount: 45,
+    payment_method: 'tpv',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260110-01',
+    appointment_id: 'apt-002-01'
+  },
+
+  // 13 Ene - Ana (limpieza) + Fernando (impresiones)
+  {
+    id: 'tx-20260113-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260113',
+    transaction_date: '2026-01-13',
+    created_at: '2026-01-13T09:30:00Z',
+    patient_id: 'pat-003',
+    patient_name: 'Ana Martínez Sánchez',
+    concept: 'Limpieza dental',
+    amount: 72,
+    payment_method: 'tpv',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260113-01',
+    appointment_id: 'apt-003-02'
+  },
+  {
+    id: 'tx-20260113-02',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260113',
+    transaction_date: '2026-01-13',
+    created_at: '2026-01-13T19:00:00Z',
+    patient_id: 'pat-014',
+    patient_name: 'Fernando Díaz Ortega',
+    concept: 'Impresiones férula',
+    amount: 50,
+    payment_method: 'efectivo',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260113-02',
+    appointment_id: 'apt-014-01'
+  },
+
+  // 14 Ene - Javier Moreno (valoración periodontal)
+  {
+    id: 'tx-20260114-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260114',
+    transaction_date: '2026-01-14',
+    created_at: '2026-01-14T12:30:00Z',
+    patient_id: 'pat-006',
+    patient_name: 'Javier Moreno Torres',
+    concept: 'Valoración periodontal',
+    amount: 50,
+    payment_method: 'tpv',
+    payment_status: 'pendiente',
+    production_status: 'hecho',
+    invoice_id: null,
+    appointment_id: 'apt-006-01'
+  },
+
+  // 15 Ene - María García (obturación) + Antonio Pérez (limpieza)
+  {
+    id: 'tx-20260115-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260115',
+    transaction_date: '2026-01-15',
+    created_at: '2026-01-15T12:00:00Z',
+    patient_id: 'pat-001',
+    patient_name: 'María García López',
+    concept: 'Obturación composite pieza 16',
+    amount: 85,
+    payment_method: 'efectivo',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260115-01',
+    appointment_id: 'apt-001-02'
+  },
+  {
+    id: 'tx-20260115-02',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260115',
+    transaction_date: '2026-01-15',
+    created_at: '2026-01-15T17:30:00Z',
+    patient_id: 'pat-010',
+    patient_name: 'Antonio Pérez Molina',
+    concept: 'Limpieza dental',
+    amount: 72,
+    payment_method: 'tpv',
+    payment_status: 'pendiente',
+    production_status: 'hecho',
+    invoice_id: null,
+    appointment_id: 'apt-010-01'
+  },
+
+  // 16 Ene - Carmen Ruiz (control)
+  {
+    id: 'tx-20260116-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260116',
+    transaction_date: '2026-01-16',
+    created_at: '2026-01-16T10:30:00Z',
+    patient_id: 'pat-012',
+    patient_name: 'Carmen Ruiz Jiménez',
+    concept: 'Control endodoncia',
+    amount: 0,
+    payment_method: 'efectivo',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: null,
+    appointment_id: 'apt-012-01'
+  },
+
+  // 17 Ene - Carlos (endodoncia fase 1)
+  {
+    id: 'tx-20260117-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260117',
+    transaction_date: '2026-01-17',
+    created_at: '2026-01-17T17:30:00Z',
+    patient_id: 'pat-002',
+    patient_name: 'Carlos Rodríguez Fernández',
+    concept: 'Endodoncia 36 - Fase 1 (cuota 1/3)',
+    amount: 106.67,
+    payment_method: 'financiacion',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260117-01',
+    appointment_id: 'apt-002-02'
+  },
+
+  // 20 Ene - Elena (consulta) + David (periodontal)
+  {
+    id: 'tx-20260120-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260120',
+    transaction_date: '2026-01-20',
+    created_at: '2026-01-20T09:30:00Z',
+    patient_id: 'pat-009',
+    patient_name: 'Elena Vega Castillo',
+    concept: 'Primera consulta blanqueamiento',
+    amount: 0,
+    payment_method: 'efectivo',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: null,
+    appointment_id: 'apt-009-01'
+  },
+  {
+    id: 'tx-20260120-02',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260120',
+    transaction_date: '2026-01-20',
+    created_at: '2026-01-20T13:00:00Z',
+    patient_id: 'pat-011',
+    patient_name: 'David Sánchez Martín',
+    concept: 'Tratamiento periodontal fase 1',
+    amount: 50,
+    payment_method: 'tpv',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260120-02',
+    appointment_id: 'apt-011-01'
+  },
+
+  // 21 Ene - Laura (Invisalign)
+  {
+    id: 'tx-20260121-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260121',
+    transaction_date: '2026-01-21',
+    created_at: '2026-01-21T11:30:00Z',
+    patient_id: 'pat-005',
+    patient_name: 'Laura Fernández Ruiz',
+    concept: 'Revisión Invisalign',
+    amount: 0,
+    payment_method: 'efectivo',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: null,
+    appointment_id: 'apt-005-02'
+  },
+
+  // 22 Ene - María (limpieza) + Sofía (implante)
+  {
+    id: 'tx-20260122-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260122',
+    transaction_date: '2026-01-22',
+    created_at: '2026-01-22T09:30:00Z',
+    patient_id: 'pat-001',
+    patient_name: 'María García López',
+    concept: 'Limpieza dental',
+    amount: 72,
+    payment_method: 'efectivo',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260122-01',
+    appointment_id: 'apt-001-03'
+  },
+  {
+    id: 'tx-20260122-02',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260122',
+    transaction_date: '2026-01-22',
+    created_at: '2026-01-22T17:30:00Z',
+    patient_id: 'pat-007',
+    patient_name: 'Sofía Navarro Díaz',
+    concept: 'Implante dental pieza 36',
+    amount: 800,
+    payment_method: 'transferencia',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260122-02',
+    appointment_id: 'apt-007-02'
+  },
+
+  // 23 Ene - Pablo (selladores)
+  {
+    id: 'tx-20260123-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260123',
+    transaction_date: '2026-01-23',
+    created_at: '2026-01-23T17:45:00Z',
+    patient_id: 'pat-004',
+    patient_name: 'Pablo López García',
+    concept: 'Selladores molares x4',
+    amount: 60,
+    payment_method: 'efectivo',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260123-01',
+    appointment_id: 'apt-004-02'
+  },
+
+  // 24 Ene - Carlos (endodoncia fase 2) + Miguel (control)
+  {
+    id: 'tx-20260124-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260124',
+    transaction_date: '2026-01-24',
+    created_at: '2026-01-24T17:00:00Z',
+    patient_id: 'pat-002',
+    patient_name: 'Carlos Rodríguez Fernández',
+    concept: 'Endodoncia 36 - Fase 2 (cuota 2/3)',
+    amount: 106.67,
+    payment_method: 'financiacion',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260124-01',
+    appointment_id: 'apt-002-03'
+  },
+  {
+    id: 'tx-20260124-02',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260124',
+    transaction_date: '2026-01-24',
+    created_at: '2026-01-24T10:30:00Z',
+    patient_id: 'pat-008',
+    patient_name: 'Miguel Gómez Hernández',
+    concept: 'Control implante + cuota 5',
+    amount: 100,
+    payment_method: 'financiacion',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260124-02',
+    appointment_id: 'apt-008-03'
+  },
+
+  // 27 Ene - Ana (Invisalign) + Marta (revisión)
+  {
+    id: 'tx-20260127-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260127',
+    transaction_date: '2026-01-27',
+    created_at: '2026-01-27T09:30:00Z',
+    patient_id: 'pat-003',
+    patient_name: 'Ana Martínez Sánchez',
+    concept: 'Revisión Invisalign + cuota',
+    amount: 175,
+    payment_method: 'financiacion',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260127-01',
+    appointment_id: 'apt-003-03'
+  },
+  {
+    id: 'tx-20260127-02',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260127',
+    transaction_date: '2026-01-27',
+    created_at: '2026-01-27T18:30:00Z',
+    patient_id: 'pat-013',
+    patient_name: 'Marta Alonso Blanco',
+    concept: 'Revisión pre-empaste',
+    amount: 40,
+    payment_method: 'efectivo',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260127-02',
+    appointment_id: 'apt-013-01'
+  },
+
+  // 28 Ene - María (control) + Javier (raspado)
+  {
+    id: 'tx-20260128-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260128',
+    transaction_date: '2026-01-28',
+    created_at: '2026-01-28T10:30:00Z',
+    patient_id: 'pat-001',
+    patient_name: 'María García López',
+    concept: 'Control post-obturación',
+    amount: 0,
+    payment_method: 'efectivo',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: null,
+    appointment_id: 'apt-001-04'
+  },
+  {
+    id: 'tx-20260128-02',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260128',
+    transaction_date: '2026-01-28',
+    created_at: '2026-01-28T12:30:00Z',
+    patient_id: 'pat-006',
+    patient_name: 'Javier Moreno Torres',
+    concept: 'Raspado cuadrante 1',
+    amount: 120,
+    payment_method: 'tpv',
+    payment_status: 'pendiente',
+    production_status: 'hecho',
+    invoice_id: null,
+    appointment_id: 'apt-006-02'
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // HOY - 31 de Enero 2026 - Transacciones del día
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: 'tx-20260131-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: null,
+    transaction_date: '2026-01-31',
+    created_at: '2026-01-31T09:30:00Z',
+    patient_id: 'pat-001',
+    patient_name: 'María García López',
+    concept: 'Limpieza semestral',
+    amount: 72,
+    payment_method: 'efectivo',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260131-01',
+    appointment_id: 'apt-today-01'
+  },
+  {
+    id: 'tx-20260131-02',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: null,
+    transaction_date: '2026-01-31',
+    created_at: '2026-01-31T09:45:00Z',
+    patient_id: 'pat-002',
+    patient_name: 'Carlos Rodríguez Fernández',
+    concept: 'Reconstrucción post-endodoncia (cuota 3/3)',
+    amount: 106.66,
+    payment_method: 'financiacion',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260131-02',
+    appointment_id: 'apt-today-02'
+  },
+  {
+    id: 'tx-20260131-03',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: null,
+    transaction_date: '2026-01-31',
+    created_at: '2026-01-31T10:00:00Z',
+    patient_id: 'pat-004',
+    patient_name: 'Pablo López García',
+    concept: 'Aplicación de flúor',
+    amount: 35,
+    payment_method: 'efectivo',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260131-03',
+    appointment_id: 'apt-today-03'
+  },
+  {
+    id: 'tx-20260131-04',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: null,
+    transaction_date: '2026-01-31',
+    created_at: '2026-01-31T10:30:00Z',
+    patient_id: 'pat-003',
+    patient_name: 'Ana Martínez Sánchez',
+    concept: 'Revisión Invisalign (incluida)',
+    amount: 0,
+    payment_method: 'efectivo',
+    payment_status: 'cobrado',
+    production_status: 'pendiente',
+    invoice_id: null,
+    appointment_id: 'apt-today-04'
+  },
+  {
+    id: 'tx-20260131-05',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: null,
+    transaction_date: '2026-01-31',
+    created_at: '2026-01-31T11:00:00Z',
+    patient_id: 'pat-005',
+    patient_name: 'Laura Fernández Ruiz',
+    concept: 'Ajuste Invisalign (incluido)',
+    amount: 0,
+    payment_method: 'efectivo',
+    payment_status: 'cobrado',
+    production_status: 'pendiente',
+    invoice_id: null,
+    appointment_id: 'apt-today-05'
+  },
+  {
+    id: 'tx-20260131-06',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: null,
+    transaction_date: '2026-01-31',
+    created_at: '2026-01-31T11:30:00Z',
+    patient_id: 'pat-006',
+    patient_name: 'Javier Moreno Torres',
+    concept: 'Raspado cuadrante 2',
+    amount: 120,
+    payment_method: 'tpv',
+    payment_status: 'pendiente',
+    production_status: 'pendiente',
+    invoice_id: null,
+    appointment_id: 'apt-today-08'
+  },
+  {
+    id: 'tx-20260131-07',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: null,
+    transaction_date: '2026-01-31',
+    created_at: '2026-01-31T12:00:00Z',
+    patient_id: 'pat-012',
+    patient_name: 'Carmen Ruiz Jiménez',
+    concept: 'Revisión semestral',
+    amount: 40,
+    payment_method: 'efectivo',
+    payment_status: 'pendiente',
+    production_status: 'pendiente',
+    invoice_id: null,
+    appointment_id: 'apt-today-09'
+  },
+  {
+    id: 'tx-20260131-08',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: null,
+    transaction_date: '2026-01-31',
+    created_at: '2026-01-31T12:30:00Z',
+    patient_id: 'pat-008',
+    patient_name: 'Miguel Gómez Hernández',
+    concept: 'Control implante + cuota 6',
+    amount: 100,
+    payment_method: 'financiacion',
+    payment_status: 'pendiente',
+    production_status: 'pendiente',
+    invoice_id: null,
+    appointment_id: 'apt-today-11'
+  },
+  {
+    id: 'tx-20260131-09',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: null,
+    transaction_date: '2026-01-31',
+    created_at: '2026-01-31T16:00:00Z',
+    patient_id: 'pat-013',
+    patient_name: 'Marta Alonso Blanco',
+    concept: 'Empaste molar 16',
+    amount: 85,
+    payment_method: 'tpv',
+    payment_status: 'pendiente',
+    production_status: 'pendiente',
+    invoice_id: null,
+    appointment_id: 'apt-today-12'
+  },
+  {
+    id: 'tx-20260131-10',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: null,
+    transaction_date: '2026-01-31',
+    created_at: '2026-01-31T17:00:00Z',
+    patient_id: 'pat-014',
+    patient_name: 'Fernando Díaz Ortega',
+    concept: 'Entrega férula de descarga',
+    amount: 300,
+    payment_method: 'transferencia',
+    payment_status: 'pendiente',
+    production_status: 'pendiente',
+    invoice_id: null,
+    appointment_id: 'apt-today-13'
+  },
+  {
+    id: 'tx-20260131-11',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: null,
+    transaction_date: '2026-01-31',
+    created_at: '2026-01-31T17:30:00Z',
+    patient_id: 'pat-015',
+    patient_name: 'Beatriz Muñoz Serrano',
+    concept: 'Revisión anual',
+    amount: 40,
+    payment_method: 'efectivo',
+    payment_status: 'pendiente',
+    production_status: 'pendiente',
+    invoice_id: null,
+    appointment_id: 'apt-today-14'
+  },
+  {
+    id: 'tx-20260131-12',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: null,
+    transaction_date: '2026-01-31',
+    created_at: '2026-01-31T18:00:00Z',
+    patient_id: 'pat-010',
+    patient_name: 'Antonio Pérez Molina',
+    concept: 'Extracción molar 47',
+    amount: 90,
+    payment_method: 'tpv',
+    payment_status: 'pendiente',
+    production_status: 'pendiente',
+    invoice_id: null,
+    appointment_id: 'apt-today-15'
+  }
+]
+
+// Cierres mock (simulan tabla cash_closings) - Días cerrados de Enero 2026
+const INITIAL_MOCK_CLOSINGS: CashClosing[] = [
+  {
+    id: 'closing-20260103',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_date: '2026-01-03',
+    created_at: '2026-01-03T20:00:00Z',
+    updated_at: '2026-01-03T20:00:00Z',
+    closed_by: MOCK_USER_ID,
+    initial_cash: 100,
+    total_income: 100,
+    total_expenses: 0,
+    cash_outflow: 0,
+    final_balance: 200,
+    income_by_method: { efectivo: 0, tpv: 0, transferencia: 0, financiacion: 100, otros: 0 },
+    transaction_count: 1,
+    status: 'closed',
+    notes: null
+  },
+  {
+    id: 'closing-20260106',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_date: '2026-01-06',
+    created_at: '2026-01-06T20:00:00Z',
+    updated_at: '2026-01-06T20:00:00Z',
+    closed_by: MOCK_USER_ID,
+    initial_cash: 100,
+    total_income: 247,
+    total_expenses: 0,
+    cash_outflow: 100,
+    final_balance: 247,
+    income_by_method: { efectivo: 0, tpv: 72, transferencia: 0, financiacion: 175, otros: 0 },
+    transaction_count: 2,
+    status: 'closed',
+    notes: null
+  },
+  {
+    id: 'closing-20260108',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_date: '2026-01-08',
+    created_at: '2026-01-08T20:00:00Z',
+    updated_at: '2026-01-08T20:00:00Z',
+    closed_by: MOCK_USER_ID,
+    initial_cash: 100,
+    total_income: 90,
+    total_expenses: 0,
+    cash_outflow: 50,
+    final_balance: 140,
+    income_by_method: { efectivo: 45, tpv: 45, transferencia: 0, financiacion: 0, otros: 0 },
+    transaction_count: 2,
+    status: 'closed',
+    notes: null
+  },
+  {
+    id: 'closing-20260115',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_date: '2026-01-15',
+    created_at: '2026-01-15T20:00:00Z',
+    updated_at: '2026-01-15T20:00:00Z',
+    closed_by: MOCK_USER_ID,
+    initial_cash: 100,
+    total_income: 85,
+    total_expenses: 0,
+    cash_outflow: 0,
+    final_balance: 185,
+    income_by_method: { efectivo: 85, tpv: 0, transferencia: 0, financiacion: 0, otros: 0 },
+    transaction_count: 2,
+    status: 'closed',
+    notes: 'Antonio Pérez pendiente de pago'
+  },
+  {
+    id: 'closing-20260122',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_date: '2026-01-22',
+    created_at: '2026-01-22T20:00:00Z',
+    updated_at: '2026-01-22T20:00:00Z',
+    closed_by: MOCK_USER_ID,
+    initial_cash: 100,
+    total_income: 872,
+    total_expenses: 0,
+    cash_outflow: 300,
+    final_balance: 672,
+    income_by_method: { efectivo: 72, tpv: 0, transferencia: 800, financiacion: 0, otros: 0 },
+    transaction_count: 2,
+    status: 'closed',
+    notes: 'Implante Sofía Navarro - transferencia recibida'
+  },
+  {
+    id: 'closing-20260127',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_date: '2026-01-27',
+    created_at: '2026-01-27T20:00:00Z',
+    updated_at: '2026-01-27T20:00:00Z',
+    closed_by: MOCK_USER_ID,
+    initial_cash: 100,
+    total_income: 215,
+    total_expenses: 0,
+    cash_outflow: 100,
+    final_balance: 215,
+    income_by_method: { efectivo: 40, tpv: 0, transferencia: 0, financiacion: 175, otros: 0 },
+    transaction_count: 2,
+    status: 'closed',
+    notes: null
+  },
+  {
+    id: 'closing-20260128',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_date: '2026-01-28',
+    created_at: '2026-01-28T20:00:00Z',
+    updated_at: '2026-01-28T20:00:00Z',
+    closed_by: MOCK_USER_ID,
+    initial_cash: 100,
+    total_income: 0,
+    total_expenses: 0,
+    cash_outflow: 0,
+    final_balance: 100,
+    income_by_method: { efectivo: 0, tpv: 0, transferencia: 0, financiacion: 0, otros: 0 },
+    transaction_count: 2,
+    status: 'closed',
+    notes: 'Javier Moreno pendiente 120€ (raspado Q1)'
+  }
+]
+
+// ─────────────────────────────────────────────────────────────
+// Context Types
+// ─────────────────────────────────────────────────────────────
+
+type CashClosingContextValue = {
+  // State
+  closings: CashClosing[]
+  transactions: CashTransaction[]
+
+  // Queries
+  getClosingByDate: (date: string) => CashClosing | undefined
+  isDayClosed: (date: string) => boolean
+  getTransactionsByDate: (date: string) => CashTransaction[]
+  getDaySummary: (date: string) => DaySummary
+
+  // Mutations
+  closeDay: (date: string, cashOutflow: number, notes?: string) => CashClosing
+  reopenDay: (date: string) => void
+
+  // Available dates (days with transactions)
+  getAvailableDates: () => string[]
+}
+
+export type DaySummary = {
+  date: string
+  initialCash: number
+  totalIncome: number
+  totalExpenses: number
+  finalBalance: number
+  incomeByMethod: {
+    efectivo: number
+    tpv: number
+    transferencia: number
+    financiacion: number
+    otros: number
+  }
+  transactionCount: number
+  transactions: CashTransaction[]
+  isClosed: boolean
+  closing?: CashClosing
+}
+
+// ─────────────────────────────────────────────────────────────
+// Context
+// ─────────────────────────────────────────────────────────────
+
+const CashClosingContext = createContext<CashClosingContextValue | null>(null)
+
+export function CashClosingProvider({
+  children
+}: {
+  children: React.ReactNode
+}) {
+  const [closings, setClosings] = useState<CashClosing[]>(INITIAL_MOCK_CLOSINGS)
+  const [transactions] = useState<CashTransaction[]>(MOCK_TRANSACTIONS)
+
+  const getClosingByDate = useCallback(
+    (date: string) => {
+      return closings.find((c) => c.closing_date === date)
+    },
+    [closings]
+  )
+
+  const isDayClosed = useCallback(
+    (date: string) => {
+      const closing = getClosingByDate(date)
+      return closing?.status === 'closed'
+    },
+    [getClosingByDate]
+  )
+
+  const getTransactionsByDate = useCallback(
+    (date: string) => {
+      return transactions.filter((t) => t.transaction_date === date)
+    },
+    [transactions]
+  )
+
+  const getDaySummary = useCallback(
+    (date: string): DaySummary => {
+      const dayTransactions = getTransactionsByDate(date)
+      const closing = getClosingByDate(date)
+
+      // Calculate totals from transactions
+      const incomeByMethod = {
+        efectivo: 0,
+        tpv: 0,
+        transferencia: 0,
+        financiacion: 0,
+        otros: 0
+      }
+
+      let totalIncome = 0
+      dayTransactions.forEach((t) => {
+        if (t.payment_status === 'cobrado') {
+          totalIncome += t.amount
+          incomeByMethod[t.payment_method] += t.amount
+        }
+      })
+
+      // Use closing data if available, otherwise calculate
+      const initialCash = closing?.initial_cash ?? 100 // Default initial cash
+      const totalExpenses = closing?.total_expenses ?? 0
+      const finalBalance = initialCash + totalIncome - totalExpenses
+
+      return {
+        date,
+        initialCash,
+        totalIncome,
+        totalExpenses,
+        finalBalance,
+        incomeByMethod,
+        transactionCount: dayTransactions.length,
+        transactions: dayTransactions,
+        isClosed: closing?.status === 'closed',
+        closing
+      }
+    },
+    [getTransactionsByDate, getClosingByDate]
+  )
+
+  const closeDay = useCallback(
+    (date: string, cashOutflow: number, notes?: string): CashClosing => {
+      const summary = getDaySummary(date)
+      const existingClosing = getClosingByDate(date)
+
+      const newClosing: CashClosing = {
+        id: existingClosing?.id ?? `closing-${Date.now()}`,
+        clinic_id: MOCK_CLINIC_ID,
+        closing_date: date,
+        created_at: existingClosing?.created_at ?? new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        closed_by: MOCK_USER_ID,
+        initial_cash: summary.initialCash,
+        total_income: summary.totalIncome,
+        total_expenses: summary.totalExpenses,
+        cash_outflow: cashOutflow,
+        final_balance: summary.finalBalance - cashOutflow,
+        income_by_method: summary.incomeByMethod,
+        transaction_count: summary.transactionCount,
+        status: 'closed',
+        notes: notes ?? null
+      }
+
+      setClosings((prev) => {
+        const filtered = prev.filter((c) => c.closing_date !== date)
+        return [...filtered, newClosing]
+      })
+
+      return newClosing
+    },
+    [getDaySummary, getClosingByDate]
+  )
+
+  const reopenDay = useCallback((date: string) => {
+    setClosings((prev) =>
+      prev.map((c) =>
+        c.closing_date === date
+          ? { ...c, status: 'reopened' as const, updated_at: new Date().toISOString() }
+          : c
+      )
+    )
+  }, [])
+
+  const getAvailableDates = useCallback(() => {
+    const dates = new Set(transactions.map((t) => t.transaction_date))
+    return Array.from(dates).sort((a, b) => b.localeCompare(a)) // Most recent first
+  }, [transactions])
+
+  const value = useMemo(
+    () => ({
+      closings,
+      transactions,
+      getClosingByDate,
+      isDayClosed,
+      getTransactionsByDate,
+      getDaySummary,
+      closeDay,
+      reopenDay,
+      getAvailableDates
+    }),
+    [
+      closings,
+      transactions,
+      getClosingByDate,
+      isDayClosed,
+      getTransactionsByDate,
+      getDaySummary,
+      closeDay,
+      reopenDay,
+      getAvailableDates
+    ]
+  )
+
+  return (
+    <CashClosingContext.Provider value={value}>
+      {children}
+    </CashClosingContext.Provider>
+  )
+}
+
+export function useCashClosing() {
+  const context = useContext(CashClosingContext)
+  if (!context) {
+    throw new Error('useCashClosing must be used within a CashClosingProvider')
+  }
+  return context
+}
+
+// ─────────────────────────────────────────────────────────────
+// SQL Schema Reference (for Supabase migration)
+// ─────────────────────────────────────────────────────────────
+
+/*
+-- Enum for payment methods
+CREATE TYPE payment_method AS ENUM ('efectivo', 'tpv', 'transferencia', 'financiacion', 'otros');
+
+-- Enum for closing status
+CREATE TYPE closing_status AS ENUM ('open', 'closed', 'reopened');
+
+-- Enum for payment status
+CREATE TYPE payment_status AS ENUM ('cobrado', 'pendiente');
+
+-- Enum for production status
+CREATE TYPE production_status AS ENUM ('hecho', 'pendiente');
+
+-- Cash closings table
+CREATE TABLE cash_closings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id UUID NOT NULL REFERENCES clinics(id),
+  closing_date DATE NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  closed_by UUID NOT NULL REFERENCES users(id),
+  
+  initial_cash DECIMAL(10,2) NOT NULL DEFAULT 0,
+  total_income DECIMAL(10,2) NOT NULL DEFAULT 0,
+  total_expenses DECIMAL(10,2) NOT NULL DEFAULT 0,
+  cash_outflow DECIMAL(10,2) NOT NULL DEFAULT 0,
+  final_balance DECIMAL(10,2) NOT NULL DEFAULT 0,
+  
+  income_by_method JSONB NOT NULL DEFAULT '{"efectivo": 0, "tpv": 0, "transferencia": 0, "financiacion": 0, "otros": 0}',
+  transaction_count INTEGER NOT NULL DEFAULT 0,
+  status closing_status NOT NULL DEFAULT 'closed',
+  notes TEXT,
+  
+  UNIQUE(clinic_id, closing_date)
+);
+
+-- Cash transactions table
+CREATE TABLE cash_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id UUID NOT NULL REFERENCES clinics(id),
+  closing_id UUID REFERENCES cash_closings(id),
+  transaction_date DATE NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  
+  patient_id UUID REFERENCES patients(id),
+  patient_name TEXT NOT NULL,
+  concept TEXT NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  payment_method payment_method NOT NULL,
+  payment_status payment_status NOT NULL DEFAULT 'pendiente',
+  production_status production_status NOT NULL DEFAULT 'pendiente',
+  
+  invoice_id UUID REFERENCES invoices(id),
+  appointment_id UUID REFERENCES appointments(id)
+);
+
+-- Indexes
+CREATE INDEX idx_cash_closings_clinic_date ON cash_closings(clinic_id, closing_date);
+CREATE INDEX idx_cash_transactions_date ON cash_transactions(transaction_date);
+CREATE INDEX idx_cash_transactions_clinic ON cash_transactions(clinic_id);
+
+-- RLS Policies (example)
+ALTER TABLE cash_closings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cash_transactions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their clinic's closings"
+  ON cash_closings FOR SELECT
+  USING (clinic_id IN (SELECT clinic_id FROM user_clinics WHERE user_id = auth.uid()));
+
+CREATE POLICY "Users can insert closings for their clinic"
+  ON cash_closings FOR INSERT
+  WITH CHECK (clinic_id IN (SELECT clinic_id FROM user_clinics WHERE user_id = auth.uid()));
+*/

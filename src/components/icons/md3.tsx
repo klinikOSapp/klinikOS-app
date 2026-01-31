@@ -44,6 +44,7 @@ function createLegacyIcon(name: MD3IconName) {
   return Icon
 }
 
+export const AccessTimeFilledRounded = createLegacyIcon('AccessTimeFilledRounded')
 export const AccountCircleRounded = createLegacyIcon('AccountCircleRounded')
 export const AddAPhotoRounded = createLegacyIcon('AddAPhotoRounded')
 export const AddPhotoAlternateRounded = createLegacyIcon(
@@ -100,6 +101,7 @@ export const MoreHorizRounded = createLegacyIcon('MoreHorizRounded')
 export const MoreVertRounded = createLegacyIcon('MoreVertRounded')
 export const PaymentsRounded = createLegacyIcon('PaymentsRounded')
 export const PeopleRounded = createLegacyIcon('PeopleRounded')
+export const PersonRounded = createLegacyIcon('PersonRounded')
 export const PhoneRounded = createLegacyIcon('PhoneRounded')
 export const PhotoCameraRounded = createLegacyIcon('PhotoCameraRounded')
 export const PictureAsPdfRounded = createLegacyIcon('PictureAsPdfRounded')

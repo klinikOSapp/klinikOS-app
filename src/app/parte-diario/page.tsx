@@ -1431,7 +1431,7 @@ export default function ParteDiarioPage() {
             <table className='w-full table-fixed border-collapse'>
               <thead>
                 <tr>
-                  <TableHeaderCell className='w-[40px] pr-2'>
+                  <TableHeaderCell className='w-[40px] pr-2 sticky left-0 z-20 bg-[var(--color-neutral-50)]'>
                     <span className='sr-only'>Seleccionar fila</span>
                   </TableHeaderCell>
                   <TableHeaderCell className='w-[70px] pr-2'>
@@ -1544,7 +1544,7 @@ export default function ParteDiarioPage() {
                       <span>Pendiente</span>
                     </div>
                   </TableHeaderCell>
-                  <TableHeaderCell className='w-[50px] pr-2'>
+                  <TableHeaderCell className='w-[50px] pr-2 sticky right-0 z-20 bg-[var(--color-neutral-50)]'>
                     <span className='sr-only'>Acciones</span>
                   </TableHeaderCell>
                 </tr>
@@ -1590,7 +1590,7 @@ export default function ParteDiarioPage() {
                       key={row.id}
                       className='group hover:bg-[var(--color-neutral-50)]'
                     >
-                      <TableBodyCell className='w-[40px] pr-2'>
+                      <TableBodyCell className='w-[40px] pr-2 sticky left-0 z-10 bg-white group-hover:bg-[var(--color-neutral-50)]'>
                         <button
                           type='button'
                           onClick={(e) => {
@@ -1678,7 +1678,7 @@ export default function ParteDiarioPage() {
                       <TableBodyCell className='w-[120px] pr-2'>
                         <PaymentStatusCell row={row} />
                       </TableBodyCell>
-                      <TableBodyCell className='w-[50px] pr-2'>
+                      <TableBodyCell className='w-[50px] pr-2 sticky right-0 z-10 bg-white group-hover:bg-[var(--color-neutral-50)]'>
                         <button
                           type='button'
                           onClick={(e) => {

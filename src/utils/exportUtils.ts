@@ -784,7 +784,7 @@ export function generateBudgetPDF(
   // Use provided values or calculate from treatments
   const subtotal = options?.subtotal ?? subtotalTratamientos
   const generalDiscountAmount = options?.generalDiscountAmount ?? 0
-  const totalFinal = options?.totalFinal ?? (subtotal - generalDiscountAmount)
+  const totalFinal = options?.totalFinal ?? subtotal - generalDiscountAmount
   const hasGeneralDiscount = generalDiscountAmount > 0
 
   // Get final Y position after table
@@ -800,7 +800,15 @@ export function generateBudgetPDF(
 
   doc.setFillColor(248, 250, 251) // #F8FAFB
   doc.setDrawColor(203, 211, 217) // #CBD3D9
-  doc.roundedRect(totalsX, totalsStartY, totalsWidth, totalsBoxHeight, 2, 2, 'FD')
+  doc.roundedRect(
+    totalsX,
+    totalsStartY,
+    totalsWidth,
+    totalsBoxHeight,
+    2,
+    2,
+    'FD'
+  )
 
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
@@ -810,12 +818,9 @@ export function generateBudgetPDF(
 
   // Subtotal (suma de importes de tratamientos)
   doc.text('Subtotal tratamientos:', totalsX + 5, currentY)
-  doc.text(
-    `${subtotal.toFixed(2)} €`,
-    totalsX + totalsWidth - 5,
-    currentY,
-    { align: 'right' }
-  )
+  doc.text(`${subtotal.toFixed(2)} €`, totalsX + totalsWidth - 5, currentY, {
+    align: 'right'
+  })
   currentY += 8
 
   // Descuento por tratamientos (si existe)
@@ -833,9 +838,10 @@ export function generateBudgetPDF(
   // General discount (if any)
   if (hasGeneralDiscount) {
     doc.setTextColor(34, 197, 94) // Green #22C55E
-    const discountLabel = options?.generalDiscount?.type === 'percentage'
-      ? `Dto. general (${options.generalDiscount.value}%):`
-      : 'Dto. general:'
+    const discountLabel =
+      options?.generalDiscount?.type === 'percentage'
+        ? `Dto. general (${options.generalDiscount.value}%):`
+        : 'Dto. general:'
     doc.text(discountLabel, totalsX + 5, currentY)
     doc.text(
       `-${generalDiscountAmount.toFixed(2)} €`,
@@ -849,12 +855,7 @@ export function generateBudgetPDF(
 
   // Separator line
   doc.setDrawColor(203, 211, 217)
-  doc.line(
-    totalsX + 5,
-    currentY,
-    totalsX + totalsWidth - 5,
-    currentY
-  )
+  doc.line(totalsX + 5, currentY, totalsX + totalsWidth - 5, currentY)
   currentY += 8
 
   // Total final
@@ -862,12 +863,9 @@ export function generateBudgetPDF(
   doc.setFontSize(12)
   doc.setTextColor(30, 73, 71) // Brand color
   doc.text('TOTAL:', totalsX + 5, currentY)
-  doc.text(
-    `${totalFinal.toFixed(2)} €`,
-    totalsX + totalsWidth - 5,
-    currentY,
-    { align: 'right' }
-  )
+  doc.text(`${totalFinal.toFixed(2)} €`, totalsX + totalsWidth - 5, currentY, {
+    align: 'right'
+  })
 
   // ============================================
   // FOOTER - NOTES & VALIDITY
@@ -916,7 +914,10 @@ export function generateBudgetPDF(
 /**
  * Generate budget filename
  */
-export function formatBudgetFilename(patientName: string, budgetName?: string): string {
+export function formatBudgetFilename(
+  patientName: string,
+  budgetName?: string
+): string {
   const sanitizedPatientName = patientName
     .replace(/\s+/g, '_')
     .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ_]/g, '')
@@ -935,4 +936,203 @@ export function formatBudgetFilename(patientName: string, budgetName?: string): 
   }
 
   return `Presupuesto_${sanitizedPatientName}_${dateStr}.pdf`
+}
+
+// ============================================
+// CASH CLOSING EXCEL GENERATION
+// ============================================
+
+export type CashClosingTransaction = {
+  date: string
+  patientName: string
+  concept: string
+  amount: number
+  paymentMethod: string
+  paymentStatus: string
+  productionStatus: string
+}
+
+export type CashClosingSummary = {
+  closingDate: string
+  initialCash: number
+  totalIncome: number
+  totalExpenses: number
+  cashOutflow: number
+  finalBalance: number
+  incomeByMethod: {
+    efectivo: number
+    tpv: number
+    transferencia: number
+    financiacion: number
+    otros: number
+  }
+  transactionCount: number
+}
+
+/**
+ * Format date for cash closing filename
+ */
+function formatCashClosingDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T00:00:00')
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}-${month}-${year}`
+}
+
+/**
+ * Generate filename for cash closing export
+ */
+export function formatCashClosingFilename(closingDate: string): string {
+  const formattedDate = formatCashClosingDate(closingDate)
+  return `CierreCaja_${formattedDate}.xlsx`
+}
+
+/**
+ * Capitalize payment method for display
+ */
+function capitalizePaymentMethod(method: string): string {
+  const methodMap: Record<string, string> = {
+    efectivo: 'Efectivo',
+    tpv: 'TPV',
+    transferencia: 'Transferencia',
+    financiacion: 'Financiación',
+    otros: 'Otros'
+  }
+  return methodMap[method.toLowerCase()] ?? method
+}
+
+/**
+ * Generate an Excel document for cash closing
+ */
+export function generateCashClosingExcel(
+  transactions: CashClosingTransaction[],
+  summary: CashClosingSummary
+): Blob {
+  const wb = XLSX.utils.book_new()
+
+  // Format closing date for display
+  const closingDateDisplay = new Date(
+    summary.closingDate + 'T00:00:00'
+  ).toLocaleDateString('es-ES', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  })
+
+  // ========================================
+  // Sheet 1: Resumen
+  // ========================================
+  const summaryData = [
+    ['CIERRE DE CAJA'],
+    [],
+    ['Fecha:', closingDateDisplay],
+    [
+      'Generado:',
+      new Date().toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    ],
+    [],
+    ['RESUMEN FINANCIERO'],
+    [],
+    ['Caja inicial:', `${summary.initialCash.toFixed(2)} €`],
+    ['Total ingresos:', `${summary.totalIncome.toFixed(2)} €`],
+    ['Total gastos:', `${summary.totalExpenses.toFixed(2)} €`],
+    ['Salida de caja:', `${summary.cashOutflow.toFixed(2)} €`],
+    ['Balance final:', `${summary.finalBalance.toFixed(2)} €`],
+    [],
+    ['DESGLOSE POR MÉTODO DE PAGO'],
+    [],
+    ['Efectivo:', `${summary.incomeByMethod.efectivo.toFixed(2)} €`],
+    ['TPV:', `${summary.incomeByMethod.tpv.toFixed(2)} €`],
+    ['Transferencia:', `${summary.incomeByMethod.transferencia.toFixed(2)} €`],
+    ['Financiación:', `${summary.incomeByMethod.financiacion.toFixed(2)} €`],
+    ['Otros:', `${summary.incomeByMethod.otros.toFixed(2)} €`],
+    [],
+    ['Total transacciones:', summary.transactionCount]
+  ]
+
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData)
+  wsSummary['!cols'] = [{ wch: 25 }, { wch: 35 }]
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen')
+
+  // ========================================
+  // Sheet 2: Transacciones
+  // ========================================
+  const transactionHeaders = [
+    'Fecha',
+    'Paciente',
+    'Concepto',
+    'Importe',
+    'Método de Pago',
+    'Estado Cobro',
+    'Estado Producción'
+  ]
+
+  const transactionRows = transactions.map((t) => [
+    new Date(t.date + 'T00:00:00').toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }),
+    t.patientName,
+    t.concept,
+    `${t.amount.toFixed(2)} €`,
+    capitalizePaymentMethod(t.paymentMethod),
+    t.paymentStatus === 'cobrado' ? 'Cobrado' : 'Pendiente',
+    t.productionStatus === 'hecho' ? 'Hecho' : 'Pendiente'
+  ])
+
+  const transactionData = [
+    [`MOVIMIENTOS DEL DÍA - ${closingDateDisplay}`],
+    [],
+    transactionHeaders,
+    ...transactionRows
+  ]
+
+  const wsTransactions = XLSX.utils.aoa_to_sheet(transactionData)
+  wsTransactions['!cols'] = [
+    { wch: 12 }, // Fecha
+    { wch: 30 }, // Paciente
+    { wch: 35 }, // Concepto
+    { wch: 12 }, // Importe
+    { wch: 18 }, // Método
+    { wch: 15 }, // Estado Cobro
+    { wch: 18 } // Estado Producción
+  ]
+  XLSX.utils.book_append_sheet(wb, wsTransactions, 'Transacciones')
+
+  // Generate binary
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+
+  return new Blob([wbout], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  })
+}
+
+/**
+ * Download cash closing Excel file
+ */
+export function downloadCashClosingExcel(
+  transactions: CashClosingTransaction[],
+  summary: CashClosingSummary
+): void {
+  const blob = generateCashClosingExcel(transactions, summary)
+  const filename = formatCashClosingFilename(summary.closingDate)
+  const url = URL.createObjectURL(blob)
+
+  const link = window.document.createElement('a')
+  link.href = url
+  link.download = filename
+  window.document.body.appendChild(link)
+  link.click()
+  window.document.body.removeChild(link)
+
+  URL.revokeObjectURL(url)
 }
