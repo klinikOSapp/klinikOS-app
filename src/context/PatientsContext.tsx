@@ -34,12 +34,56 @@ export type DocumentType = 'DNI' | 'NIE' | 'Pasaporte' | 'Otro'
 // INFORMACIÓN MÉDICA
 // ============================================
 
+// Severidad de alergias
+export type AllergySeverity = 'leve' | 'moderada' | 'grave' | 'extrema'
+
+// Tipo de alergia con severidad
+export type Allergy = {
+  id: string
+  name: string
+  severity: AllergySeverity
+  notes?: string
+  createdAt?: string
+}
+
 export type MedicalHistory = {
-  allergies: string[] // Alergias conocidas
+  allergies: Allergy[] // Alergias con severidad
   medications: string[] // Medicamentos actuales
   conditions: string[] // Condiciones médicas (diabetes, hipertensión, etc.)
   notes?: string // Notas adicionales
   lastUpdated?: string // Fecha última actualización (ISO)
+}
+
+// Helper para convertir severidad a color
+export function getAllergySeverityColor(severity: AllergySeverity): string {
+  switch (severity) {
+    case 'leve':
+      return 'var(--color-warning-200)'
+    case 'moderada':
+      return 'var(--color-warning-400)'
+    case 'grave':
+      return 'var(--color-error-400)'
+    case 'extrema':
+      return 'var(--color-error-600)'
+    default:
+      return 'var(--color-neutral-400)'
+  }
+}
+
+// Helper para obtener texto de severidad
+export function getAllergySeverityLabel(severity: AllergySeverity): string {
+  switch (severity) {
+    case 'leve':
+      return 'Leve'
+    case 'moderada':
+      return 'Moderada'
+    case 'grave':
+      return 'Grave'
+    case 'extrema':
+      return 'Extrema'
+    default:
+      return severity
+  }
 }
 
 // ============================================
@@ -97,6 +141,103 @@ export type PatientConsent = {
   signedDate?: string // Fecha firma (ISO)
   expiryDate?: string // Fecha caducidad (ISO)
   documentUrl?: string // URL del documento firmado
+}
+
+// ============================================
+// HU-024: ALERTAS PERSONALIZADAS DEL PACIENTE
+// ============================================
+
+export type PatientAlertType = 
+  | 'medical'      // Alertas médicas (alergias severas, condiciones)
+  | 'financial'    // Alertas financieras (deuda, pagos pendientes)
+  | 'administrative' // Alertas administrativas (documentos pendientes)
+  | 'recall'       // Alertas de recall/seguimiento
+  | 'custom'       // Alertas personalizadas
+
+export type PatientAlertPriority = 'low' | 'medium' | 'high' | 'critical'
+
+export type PatientAlert = {
+  id: string
+  type: PatientAlertType
+  priority: PatientAlertPriority
+  title: string
+  message: string
+  isActive: boolean
+  showOnOpen: boolean          // Mostrar al abrir ficha del paciente
+  showInAppointment: boolean   // Mostrar al crear/gestionar cita
+  createdAt: string            // ISO date
+  createdBy?: string           // Usuario que creó la alerta
+  expiresAt?: string           // Fecha expiración (opcional)
+  dismissedAt?: string         // Si fue descartada temporalmente
+  dismissedBy?: string         // Usuario que descartó
+}
+
+// Helper para obtener color de prioridad de alerta
+export function getAlertPriorityColor(priority: PatientAlertPriority): string {
+  switch (priority) {
+    case 'low':
+      return 'var(--color-info-400)'
+    case 'medium':
+      return 'var(--color-warning-400)'
+    case 'high':
+      return 'var(--color-error-400)'
+    case 'critical':
+      return 'var(--color-error-600)'
+    default:
+      return 'var(--color-neutral-400)'
+  }
+}
+
+// Helper para obtener icono de tipo de alerta
+export function getAlertTypeIcon(type: PatientAlertType): string {
+  switch (type) {
+    case 'medical':
+      return 'LocalHospitalRounded'
+    case 'financial':
+      return 'PaymentsRounded'
+    case 'administrative':
+      return 'DescriptionRounded'
+    case 'recall':
+      return 'NotificationsRounded'
+    case 'custom':
+      return 'InfoRounded'
+    default:
+      return 'WarningRounded'
+  }
+}
+
+// Helper para obtener label de tipo de alerta
+export function getAlertTypeLabel(type: PatientAlertType): string {
+  switch (type) {
+    case 'medical':
+      return 'Médica'
+    case 'financial':
+      return 'Financiera'
+    case 'administrative':
+      return 'Administrativa'
+    case 'recall':
+      return 'Seguimiento'
+    case 'custom':
+      return 'Personalizada'
+    default:
+      return type
+  }
+}
+
+// Helper para obtener label de prioridad
+export function getAlertPriorityLabel(priority: PatientAlertPriority): string {
+  switch (priority) {
+    case 'low':
+      return 'Baja'
+    case 'medium':
+      return 'Media'
+    case 'high':
+      return 'Alta'
+    case 'critical':
+      return 'Crítica'
+    default:
+      return priority
+  }
 }
 
 // ============================================
@@ -167,6 +308,9 @@ export type Patient = {
   // Notas y observaciones
   notes?: string
   internalNotes?: string // Notas internas (no visibles para el paciente)
+  
+  // HU-024: Alertas personalizadas
+  alerts?: PatientAlert[]
 
   // Auditoría
   createdAt: string // Fecha registro (ISO)
@@ -239,7 +383,9 @@ const INITIAL_PATIENTS: Patient[] = [
     status: 'Activo',
     tags: ['activo'],
     medicalHistory: {
-      allergies: ['Penicilina'],
+      allergies: [
+        { id: 'alg-001-1', name: 'Penicilina', severity: 'grave', createdAt: '2024-06-15' }
+      ],
       medications: [],
       conditions: [],
       lastUpdated: '2025-12-01'
@@ -290,6 +436,32 @@ const INITIAL_PATIENTS: Patient[] = [
     totalAppointments: 8,
     preRegistrationComplete: true,
     preRegistrationDate: '2024-06-10',
+    // HU-024: Sample patient alerts
+    alerts: [
+      {
+        id: 'alert-001-1',
+        type: 'medical',
+        priority: 'high',
+        title: 'Alergia grave a Penicilina',
+        message: 'No prescribir antibióticos del grupo de las penicilinas. Alternativas recomendadas: azitromicina, clindamicina.',
+        isActive: true,
+        showOnOpen: true,
+        showInAppointment: true,
+        createdAt: '2024-06-15'
+      },
+      {
+        id: 'alert-001-2',
+        type: 'recall',
+        priority: 'medium',
+        title: 'Revisión periódica pendiente',
+        message: 'Paciente debe realizar revisión semestral. Última limpieza: diciembre 2025.',
+        isActive: true,
+        showOnOpen: false,
+        showInAppointment: true,
+        createdAt: '2025-12-22',
+        expiresAt: '2026-06-22'
+      }
+    ],
     createdAt: '2024-06-10',
     updatedAt: '2025-12-22'
   },
@@ -631,7 +803,9 @@ const INITIAL_PATIENTS: Patient[] = [
     status: 'Activo',
     tags: ['activo', 'deuda'],
     medicalHistory: {
-      allergies: ['Ibuprofeno'],
+      allergies: [
+        { id: 'alg-006-1', name: 'Ibuprofeno', severity: 'moderada', createdAt: '2022-05-10' }
+      ],
       medications: ['Atorvastatina', 'Enalapril'],
       conditions: ['Hipertensión', 'Colesterol alto'],
       notes: 'Profilaxis antibiótica antes de procedimientos invasivos',
@@ -1008,7 +1182,9 @@ const INITIAL_PATIENTS: Patient[] = [
     status: 'Activo',
     tags: ['activo', 'deuda'],
     medicalHistory: {
-      allergies: ['Látex'],
+      allergies: [
+        { id: 'alg-011-1', name: 'Látex', severity: 'grave', notes: 'Usar guantes sin látex', createdAt: '2025-09-25' }
+      ],
       medications: [],
       conditions: [],
       notes: 'Usar guantes sin látex',
@@ -1076,7 +1252,9 @@ const INITIAL_PATIENTS: Patient[] = [
     status: 'Activo',
     tags: ['activo'],
     medicalHistory: {
-      allergies: ['Aspirina'],
+      allergies: [
+        { id: 'alg-012-1', name: 'Aspirina', severity: 'extrema', notes: 'Reacción anafiláctica documentada', createdAt: '2020-02-15' }
+      ],
       medications: ['Sintrom', 'Atorvastatina', 'Omeprazol'],
       conditions: ['Fibrilación auricular', 'Colesterol'],
       notes: 'Paciente anticoagulada - Requiere control INR antes de extracciones. Suspender Sintrom 3 días antes con supervisión médica.',

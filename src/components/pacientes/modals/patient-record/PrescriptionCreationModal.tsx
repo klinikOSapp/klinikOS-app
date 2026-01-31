@@ -3,9 +3,11 @@
 import React from 'react'
 import { createPortal } from 'react-dom'
 import {
+  AddRounded,
   ArrowBackRounded,
   ArrowForwardRounded,
   CloseRounded,
+  DeleteRounded,
   KeyboardArrowDownRounded
 } from '@/components/icons/md3'
 import {
@@ -14,16 +16,29 @@ import {
   MODAL_WIDTH_REM
 } from './modalDimensions'
 
+// HU-021: Type for a single medication entry
+export type MedicationEntry = {
+  id: string
+  medicamento: string
+  frecuencia: string
+  duracion: string
+  administracion: string
+}
+
+// HU-021: Updated props to support multiple medications
 type PrescriptionCreationModalProps = {
   open: boolean
   onClose: () => void
   onBack?: () => void
+  // Legacy single medication support
   onContinue?: (data: {
     medicamento: string
     especialista: string
     frecuencia: string
     duracion: string
     administracion: string
+    // HU-021: New field for multiple medications
+    medicamentos?: MedicationEntry[]
   }) => void
   patientName?: string
 }
@@ -220,6 +235,22 @@ function TextInput({
   )
 }
 
+// HU-021: Generate unique ID for medications
+function generateMedicationId(): string {
+  return `med-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+}
+
+// HU-021: Create an empty medication entry
+function createEmptyMedication(): MedicationEntry {
+  return {
+    id: generateMedicationId(),
+    medicamento: '',
+    frecuencia: '',
+    duracion: '',
+    administracion: 'Oral'
+  }
+}
+
 export default function PrescriptionCreationModal({
   open,
   onClose,
@@ -230,11 +261,32 @@ export default function PrescriptionCreationModal({
   // Nombre del paciente para mostrar (usa prop o mock)
   const displayPatientName = patientName || 'María García López'
   const [mounted, setMounted] = React.useState(false)
-  const [medicamento, setMedicamento] = React.useState('')
   const [especialista, setEspecialista] = React.useState('')
-  const [frecuencia, setFrecuencia] = React.useState('')
-  const [duracion, setDuracion] = React.useState('')
-  const [administracion, setAdministracion] = React.useState('')
+  
+  // HU-021: State for multiple medications
+  const [medicamentos, setMedicamentos] = React.useState<MedicationEntry[]>([createEmptyMedication()])
+  
+  // Helper to update a specific medication field
+  const updateMedication = (id: string, field: keyof MedicationEntry, value: string) => {
+    setMedicamentos(prev => prev.map(med => 
+      med.id === id ? { ...med, [field]: value } : med
+    ))
+  }
+  
+  // Add a new medication
+  const addMedication = () => {
+    setMedicamentos(prev => [...prev, createEmptyMedication()])
+  }
+  
+  // Remove a medication
+  const removeMedication = (id: string) => {
+    if (medicamentos.length > 1) {
+      setMedicamentos(prev => prev.filter(med => med.id !== id))
+    }
+  }
+  
+  // Legacy compatibility: get first medication for single-medication callback
+  const firstMed = medicamentos[0] || createEmptyMedication()
 
   React.useEffect(() => {
     setMounted(true)
@@ -322,81 +374,132 @@ export default function PrescriptionCreationModal({
                   </p>
                 </div>
 
-                {/* Form frame */}
+                {/* Form frame - HU-021: Updated to support multiple medications */}
                 <div
-                  className='absolute'
+                  className='absolute overflow-y-auto'
                   style={{
                     left: `${FORM_LEFT_REM}rem`,
                     top: `${FORM_TOP_REM}rem`,
-                    width: `${FORM_WIDTH_REM}rem`,
-                    height: '43.25rem'
+                    width: `${FORM_WIDTH_REM + 4}rem`,
+                    height: '43.25rem',
+                    paddingRight: '1rem'
                   }}
                 >
-                  <FieldLabel label='Medicamento' top={ROW0_TOP_REM} />
-                  <TextInput
-                    placeholder='Buscar medicamento'
-                    top={ROW0_TOP_REM}
-                    value={medicamento}
-                    onChange={setMedicamento}
-                  />
-
-                  <FieldLabel label='Especialista' top={ROW1_TOP_REM} />
-                  <ComboBox
-                    placeholder='Value'
-                    top={ROW1_TOP_REM}
-                    value={especialista}
-                    onChange={setEspecialista}
-                  />
-
-                  <FieldLabel label='Dosis' top={ROW2_TOP_REM} />
-                  <div
-                    className='absolute'
-                    style={{
-                      left: `${INPUT_LEFT_REM}rem`,
-                      top: `${ROW2_TOP_REM}rem`
-                    }}
-                  >
-                    <p className='text-body-sm text-neutral-900'>Frecuencia</p>
-                    <div className='mt-2'>
-                      <TextInput
-                        placeholder='x al día'
+                  {/* Specialist (applies to all medications) */}
+                  <div className='mb-6'>
+                    <p className='text-body-md text-neutral-900 mb-2'>Especialista</p>
+                    <div className='relative' style={{ width: `${INPUT_WIDTH_REM}rem` }}>
+                      <ComboBox
+                        placeholder='Value'
                         top={0}
-                        width={8.5}
                         left={0}
-                        absolute={false}
-                        value={frecuencia}
-                        onChange={setFrecuencia}
+                        value={especialista}
+                        onChange={setEspecialista}
                       />
                     </div>
                   </div>
-                  <div
-                    className='absolute'
-                    style={{
-                      left: `${INPUT_LEFT_REM + 10.6875}rem`,
-                      top: `${ROW2_TOP_REM}rem`
-                    }}
-                  >
-                    <p className='text-body-sm text-neutral-900'>Duración</p>
-                    <div className='mt-2'>
-                      <TextInput
-                        placeholder='x días'
-                        top={0}
-                        width={8.5}
-                        left={0}
-                        absolute={false}
-                        value={duracion}
-                        onChange={setDuracion}
-                      />
+                  
+                  {/* HU-021: Medications list */}
+                  <div className='mt-8'>
+                    <div className='flex items-center justify-between mb-4'>
+                      <p className='text-body-md font-medium text-neutral-900'>
+                        Medicamentos ({medicamentos.length})
+                      </p>
+                      <button
+                        type='button'
+                        onClick={addMedication}
+                        className='flex items-center gap-1 px-3 py-1.5 rounded-full bg-brand-100 text-brand-700 text-label-sm font-medium hover:bg-brand-200 transition-colors'
+                      >
+                        <AddRounded className='size-4' />
+                        Añadir medicamento
+                      </button>
+                    </div>
+                    
+                    <div className='space-y-4'>
+                      {medicamentos.map((med, index) => (
+                        <div
+                          key={med.id}
+                          className='relative p-4 border border-neutral-200 rounded-lg bg-white'
+                        >
+                          {/* Medication number and delete button */}
+                          <div className='flex items-center justify-between mb-3'>
+                            <span className='text-label-sm font-medium text-neutral-500'>
+                              Medicamento {index + 1}
+                            </span>
+                            {medicamentos.length > 1 && (
+                              <button
+                                type='button'
+                                onClick={() => removeMedication(med.id)}
+                                className='p-1 rounded-full text-neutral-400 hover:text-error-500 hover:bg-error-50 transition-colors'
+                                aria-label='Eliminar medicamento'
+                              >
+                                <DeleteRounded className='size-5' />
+                              </button>
+                            )}
+                          </div>
+                          
+                          {/* Medication name */}
+                          <div className='mb-3'>
+                            <p className='text-body-sm text-neutral-700 mb-1'>Nombre del medicamento</p>
+                            <TextInput
+                              placeholder='Buscar medicamento'
+                              top={0}
+                              width={INPUT_WIDTH_REM}
+                              left={0}
+                              absolute={false}
+                              value={med.medicamento}
+                              onChange={(val) => updateMedication(med.id, 'medicamento', val)}
+                            />
+                          </div>
+                          
+                          {/* Dosage row */}
+                          <div className='flex gap-3 mb-3'>
+                            <div className='flex-1'>
+                              <p className='text-body-sm text-neutral-700 mb-1'>Frecuencia</p>
+                              <TextInput
+                                placeholder='x al día'
+                                top={0}
+                                width={8.5}
+                                left={0}
+                                absolute={false}
+                                value={med.frecuencia}
+                                onChange={(val) => updateMedication(med.id, 'frecuencia', val)}
+                              />
+                            </div>
+                            <div className='flex-1'>
+                              <p className='text-body-sm text-neutral-700 mb-1'>Duración</p>
+                              <TextInput
+                                placeholder='x días'
+                                top={0}
+                                width={8.5}
+                                left={0}
+                                absolute={false}
+                                value={med.duracion}
+                                onChange={(val) => updateMedication(med.id, 'duracion', val)}
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* Administration */}
+                          <div>
+                            <p className='text-body-sm text-neutral-700 mb-1'>Administración</p>
+                            <div className='relative' style={{ width: `${INPUT_WIDTH_REM}rem` }}>
+                              <select
+                                value={med.administracion}
+                                onChange={(e) => updateMedication(med.id, 'administracion', e.target.value)}
+                                className='w-full h-[3rem] px-[0.625rem] rounded-[0.5rem] border border-neutral-300 bg-neutral-50 text-body-md text-neutral-900 outline-none appearance-none cursor-pointer'
+                              >
+                                {ADMINISTRATION_OPTIONS.map(opt => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                              <KeyboardArrowDownRounded className='absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none' />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-
-                  <FieldLabel label='Administración' top={ROW3_TOP_REM} />
-                  <ComboBox
-                    placeholder='Oral'
-                    top={ROW3_TOP_REM}
-                    value={administracion}
-                    onChange={setAdministracion}
-                  />
                 </div>
 
                 {/* Divider */}
@@ -427,14 +530,18 @@ export default function PrescriptionCreationModal({
                     type='button'
                     onClick={() =>
                       onContinue?.({
-                        medicamento,
+                        // Legacy compatibility: pass first medication fields
+                        medicamento: firstMed.medicamento,
                         especialista,
-                        frecuencia,
-                        duracion,
-                        administracion
+                        frecuencia: firstMed.frecuencia,
+                        duracion: firstMed.duracion,
+                        administracion: firstMed.administracion,
+                        // HU-021: Pass all medications
+                        medicamentos
                       })
                     }
-                    className='flex items-center justify-center gap-2 rounded-[8.5rem] border border-brand-500 bg-brand-500 px-4 py-2 text-body-md font-medium text-brand-900 transition-colors hover:bg-brand-400'
+                    disabled={medicamentos.every(m => !m.medicamento.trim())}
+                    className='flex items-center justify-center gap-2 rounded-[8.5rem] border border-brand-500 bg-brand-500 px-4 py-2 text-body-md font-medium text-brand-900 transition-colors hover:bg-brand-400 disabled:opacity-50 disabled:cursor-not-allowed'
                     style={{ width: `${BUTTON_WIDTH_REM}rem`, borderRadius: `${BUTTON_RADIUS_REM}rem` }}
                   >
                     Continuar

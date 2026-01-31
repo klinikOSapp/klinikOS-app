@@ -26,7 +26,16 @@ export type Treatment = {
 // ============================================
 
 // Estado del diente en el odontograma
-export type ToothStatus = 'normal' | 'pendiente' | 'finalizado'
+export type ToothStatus = 'normal' | 'pendiente' | 'finalizado' | 'ausente' | 'protesis'
+
+// Colores para cada estado del diente
+export const TOOTH_STATUS_COLORS: Record<ToothStatus, { fill: string; label: string }> = {
+  normal: { fill: '#CBD3D9', label: 'Normal' },
+  pendiente: { fill: '#D97706', label: 'Pendiente' },
+  finalizado: { fill: '#338F88', label: 'Finalizado' },
+  ausente: { fill: '#6B7280', label: 'Ausente' }, // Gris oscuro
+  protesis: { fill: '#8B5CF6', label: 'Prótesis' } // Violeta
+}
 
 // Caras del diente
 export type ToothFace =
@@ -37,6 +46,9 @@ export type ToothFace =
   | 'Lingual'
   | 'Palatino'
   | 'Incisal'
+
+// Estado de tratamiento V2 (para historial)
+export type TreatmentV2Status = 'pendiente' | 'en_progreso' | 'completado' | 'cancelado'
 
 // Tratamiento V2 - Nuevo diseño de Figma
 export type TreatmentV2 = {
@@ -53,6 +65,15 @@ export type TreatmentV2 = {
   descripcionAnotaciones?: string // Notas adicionales
   doctor: string // Nombre del profesional
   selected?: boolean // Selección para crear presupuesto
+  
+  // HU-011: Campos para historial de tratamientos
+  estado?: TreatmentV2Status // Estado del tratamiento
+  fechaCreacion?: string // Fecha de creación (ISO)
+  fechaRealizacion?: string // Fecha en que se realizó el tratamiento (ISO)
+  facturado?: boolean // Si el tratamiento ha sido facturado
+  facturaId?: string // ID de la factura asociada
+  facturaNumero?: string // Número de factura
+  presupuestoId?: string // ID del presupuesto asociado
 }
 
 // Estado del odontograma - mapa de pieza a estado

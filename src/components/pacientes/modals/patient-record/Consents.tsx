@@ -16,52 +16,132 @@ type ConsentsProps = {
   onClose?: () => void
 }
 
+// HU-020: Extended consent status to include 'Pendiente'
+type ConsentStatus = 'Firmado' | 'Enviado' | 'Pendiente'
+
 type ConsentRow = {
   id: string
   name: string
   sentAt: string
-  status: 'Firmado' | 'Enviado'
+  status: ConsentStatus
+  // HU-020: Treatment type this consent is linked to
+  linkedTreatmentType?: string
+  mandatory?: boolean
+}
+
+// HU-020: Mapping of treatment types to required consents
+export const TREATMENT_CONSENT_REQUIREMENTS: Record<string, string[]> = {
+  // Dental procedures
+  'corona': ['Consentimiento general', 'Consentimiento prótesis'],
+  'endodoncia': ['Consentimiento general', 'Consentimiento endodoncia'],
+  'ortodoncia': ['Consentimiento general', 'Consentimiento ortodoncia'],
+  'periodoncia': ['Consentimiento general', 'Consentimiento periodontal'],
+  'cirugia': ['Consentimiento general', 'Consentimiento cirugía'],
+  'estetica': ['Consentimiento general', 'Consentimiento estética'],
+  'protesis': ['Consentimiento general', 'Consentimiento prótesis'],
+  'implante': ['Consentimiento general', 'Consentimiento implantología', 'Consentimiento cirugía'],
+  'extraccion': ['Consentimiento general', 'Consentimiento extracción'],
+  'blanqueamiento': ['Consentimiento general', 'Consentimiento blanqueamiento'],
+  // Default - all treatments require general consent
+  'general': ['Consentimiento general']
+}
+
+// HU-020: List of all available consent types
+export const CONSENT_TYPES = [
+  { id: 'general', name: 'Consentimiento general', mandatory: true },
+  { id: 'datos', name: 'Tratamiento de datos personales', mandatory: true },
+  { id: 'cirugia', name: 'Consentimiento cirugía', mandatory: false },
+  { id: 'endodoncia', name: 'Consentimiento endodoncia', mandatory: false },
+  { id: 'ortodoncia', name: 'Consentimiento ortodoncia', mandatory: false },
+  { id: 'periodoncia', name: 'Consentimiento periodontal', mandatory: false },
+  { id: 'implante', name: 'Consentimiento implantología', mandatory: false },
+  { id: 'extraccion', name: 'Consentimiento extracción', mandatory: false },
+  { id: 'blanqueamiento', name: 'Consentimiento blanqueamiento', mandatory: false },
+  { id: 'estetica', name: 'Consentimiento estética', mandatory: false },
+  { id: 'protesis', name: 'Consentimiento prótesis', mandatory: false },
+  { id: 'imagen', name: 'Uso de imagen', mandatory: false },
+  { id: 'menores', name: 'Consentimiento menores', mandatory: false }
+]
+
+// HU-020: Function to check if patient has required consents for a treatment
+export function checkTreatmentConsents(
+  treatmentType: string,
+  patientConsents: ConsentRow[]
+): { hasAll: boolean; missing: string[] } {
+  const requiredConsents = TREATMENT_CONSENT_REQUIREMENTS[treatmentType.toLowerCase()] 
+    || TREATMENT_CONSENT_REQUIREMENTS['general']
+  
+  const signedConsents = patientConsents
+    .filter(c => c.status === 'Firmado')
+    .map(c => c.name.toLowerCase())
+  
+  const missing = requiredConsents.filter(
+    req => !signedConsents.some(signed => signed.includes(req.toLowerCase()))
+  )
+  
+  return {
+    hasAll: missing.length === 0,
+    missing
+  }
 }
 
 const MOCK_ROWS: ConsentRow[] = [
   {
     id: 'c1',
-    name: 'Tratamiento de datos.pdf',
+    name: 'Consentimiento general.pdf',
     sentAt: '19/08/2024',
-    status: 'Firmado'
+    status: 'Firmado',
+    linkedTreatmentType: 'general',
+    mandatory: true
   },
   {
     id: 'c2',
     name: 'Tratamiento de datos.pdf',
     sentAt: '19/08/2024',
-    status: 'Enviado'
+    status: 'Firmado',
+    mandatory: true
   },
   {
     id: 'c3',
-    name: 'Tratamiento de datos.pdf',
+    name: 'Consentimiento ortodoncia.pdf',
     sentAt: '19/08/2024',
-    status: 'Enviado'
+    status: 'Enviado',
+    linkedTreatmentType: 'ortodoncia'
   },
   {
     id: 'c4',
-    name: 'Tratamiento de datos.pdf',
-    sentAt: '19/08/2024',
-    status: 'Enviado'
+    name: 'Consentimiento implantología.pdf',
+    sentAt: '-',
+    status: 'Pendiente',
+    linkedTreatmentType: 'implante'
   }
 ]
 
-function StatusBadge({ status }: { status: ConsentRow['status'] }) {
-  const isSigned = status === 'Firmado'
+function StatusBadge({ status, mandatory }: { status: ConsentStatus; mandatory?: boolean }) {
+  const getStatusStyles = () => {
+    switch (status) {
+      case 'Firmado':
+        return 'border-brand-500 text-brand-500 bg-brand-50'
+      case 'Enviado':
+        return 'border-info-200 text-info-600 bg-info-50'
+      case 'Pendiente':
+        return mandatory 
+          ? 'border-error-400 text-error-600 bg-error-50' 
+          : 'border-warning-400 text-warning-600 bg-warning-50'
+      default:
+        return 'border-neutral-300 text-neutral-600'
+    }
+  }
+  
   return (
     <span
       className={[
-        'inline-flex items-center justify-center rounded-full px-2 py-1 text-label-sm',
-        isSigned
-          ? 'border border-brand-500 text-brand-500'
-          : 'border border-info-200 text-info-200'
+        'inline-flex items-center justify-center rounded-full px-2.5 py-1 text-label-sm border font-medium',
+        getStatusStyles()
       ].join(' ')}
     >
       {status}
+      {mandatory && status === 'Pendiente' && ' ⚠'}
     </span>
   )
 }
@@ -76,6 +156,11 @@ export default function Consents({ onClose }: ConsentsProps) {
     message: string
     variant: ToastVariant
   } | null>(null)
+  
+  // HU-020: Calculate pending mandatory consents
+  const pendingMandatory = rows.filter(r => r.mandatory && r.status === 'Pendiente')
+  const pendingNonMandatory = rows.filter(r => !r.mandatory && r.status === 'Pendiente')
+  const hasPendingMandatory = pendingMandatory.length > 0
 
   React.useEffect(() => {
     function handleGlobalClick(e: MouseEvent) {
@@ -101,6 +186,29 @@ export default function Consents({ onClose }: ConsentsProps) {
           Gestiona todos los consentimientos de los pacientes.
         </p>
       </div>
+      
+      {/* HU-020: Warning banner for pending mandatory consents */}
+      {hasPendingMandatory && (
+        <div className='mb-4 p-4 bg-error-50 border border-error-200 rounded-lg flex items-start gap-3'>
+          <div className='w-6 h-6 rounded-full bg-error-100 flex items-center justify-center flex-shrink-0 mt-0.5'>
+            <span className='text-error-600 text-body-md font-bold'>!</span>
+          </div>
+          <div className='flex-1'>
+            <p className='text-body-md font-medium text-error-800'>
+              Consentimientos obligatorios pendientes
+            </p>
+            <p className='text-body-sm text-error-700 mt-1'>
+              {pendingMandatory.length === 1 
+                ? `Hay 1 consentimiento obligatorio sin firmar: ${pendingMandatory[0].name}`
+                : `Hay ${pendingMandatory.length} consentimientos obligatorios sin firmar`
+              }
+            </p>
+            <p className='text-label-sm text-error-600 mt-2'>
+              Estos consentimientos son necesarios antes de realizar ciertos tratamientos.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Card / List */}
       <div className='flex-1 bg-white rounded-xl border border-neutral-200 flex flex-col overflow-hidden'>
@@ -152,7 +260,7 @@ export default function Consents({ onClose }: ConsentsProps) {
 
               {/* Status */}
               <div className='flex items-center p-2'>
-                <StatusBadge status={row.status} />
+                <StatusBadge status={row.status} mandatory={row.mandatory} />
               </div>
 
               {/* Sent date */}

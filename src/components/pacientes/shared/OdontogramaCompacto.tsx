@@ -1,6 +1,7 @@
 'use client'
 
 import type { OdontogramaState, ToothStatus } from './treatmentTypes'
+import { TOOTH_STATUS_COLORS } from './treatmentTypes'
 
 // Configuración de dientes según diseño Figma
 // Cuadrante superior: 18-11 (izq) | 21-28 (der)
@@ -28,12 +29,8 @@ function Tooth({
   isSelected,
   onClick
 }: ToothProps) {
-  // Colores según diseño Figma
-  const borderColors: Record<ToothStatus, string> = {
-    normal: 'border-[#CBD3D9]', // Neutral/300
-    pendiente: 'border-[#D97706]', // Aviso/600
-    finalizado: 'border-[#338F88]' // Brand/700
-  }
+  // Colores según estado del diente
+  const statusColor = TOOTH_STATUS_COLORS[status]?.fill || TOOTH_STATUS_COLORS.normal.fill
 
   const borderWidth =
     status === 'normal' && !isSelected ? 'border' : 'border-[1.4px]'
@@ -46,7 +43,7 @@ function Tooth({
 
   // Estilo especial cuando está seleccionada temporalmente
   const selectedStyles = isSelected
-    ? 'bg-[#E9FBF9] border-[var(--color-brand-500)] ring-2 ring-[var(--color-brand-300)] ring-offset-1'
+    ? 'bg-[#E9FBF9] ring-2 ring-[var(--color-brand-300)] ring-offset-1'
     : ''
 
   // Estilo especial cuando está en modo selección (pero no seleccionada)
@@ -55,24 +52,44 @@ function Tooth({
       ? 'hover:bg-[#E9FBF9] hover:border-[var(--color-brand-300)]'
       : ''
 
+  // Fondo especial para dientes ausentes (tachado visual)
+  const absentStyles = status === 'ausente' 
+    ? 'bg-[#E5E7EB] bg-stripes' 
+    : ''
+  
+  // Fondo especial para prótesis
+  const prosthesisStyles = status === 'protesis'
+    ? 'bg-[#EDE9FE]'
+    : ''
+
   return (
     <button
       type='button'
       onClick={() => onClick?.(id)}
+      style={{
+        borderColor: isSelected ? 'var(--color-brand-500)' : statusColor
+      }}
       className={[
         'w-[1.875rem] h-[3.625rem] flex items-center justify-center',
-        isSelected ? '' : 'bg-[#F4F8FA]',
+        isSelected ? '' : (absentStyles || prosthesisStyles || 'bg-[#F4F8FA]'),
         'border-solid transition-all',
-        isSelected ? '' : borderColors[status],
         borderWidth,
         borderRadius,
         selectedStyles,
         selectionModeStyles,
+        status === 'ausente' ? 'opacity-60' : '',
         'cursor-pointer hover:opacity-80'
       ].join(' ')}
+      title={TOOTH_STATUS_COLORS[status]?.label}
     >
       <span
-        className={`text-[0.875rem] font-medium leading-[1.25rem] ${isSelected ? 'text-[var(--color-brand-700)]' : 'text-[#5E5E5E]'}`}
+        className={`text-[0.875rem] font-medium leading-[1.25rem] ${
+          isSelected 
+            ? 'text-[var(--color-brand-700)]' 
+            : status === 'ausente' 
+              ? 'text-[#9CA3AF] line-through' 
+              : 'text-[#5E5E5E]'
+        }`}
       >
         {id}
       </span>
@@ -172,17 +189,41 @@ export default function OdontogramaCompacto({
 
       {/* Leyenda (opcional) */}
       {showLegend && (
-        <div className='flex gap-[1rem] items-center'>
+        <div className='flex flex-wrap gap-[1rem] items-center'>
           <div className='flex gap-[0.25rem] items-center'>
-            <span className='w-[0.5625rem] h-[0.5625rem] rounded-full bg-[#D97706]' />
+            <span 
+              className='w-[0.5625rem] h-[0.5625rem] rounded-full' 
+              style={{ backgroundColor: TOOTH_STATUS_COLORS.pendiente.fill }}
+            />
             <span className='text-[0.75rem] leading-[1rem] text-[#535C66]'>
-              Pendiente
+              {TOOTH_STATUS_COLORS.pendiente.label}
             </span>
           </div>
           <div className='flex gap-[0.25rem] items-center'>
-            <span className='w-[0.5625rem] h-[0.5625rem] rounded-full bg-[#338F88]' />
+            <span 
+              className='w-[0.5625rem] h-[0.5625rem] rounded-full' 
+              style={{ backgroundColor: TOOTH_STATUS_COLORS.finalizado.fill }}
+            />
             <span className='text-[0.75rem] leading-[1rem] text-[#535C66]'>
-              Finalizado
+              {TOOTH_STATUS_COLORS.finalizado.label}
+            </span>
+          </div>
+          <div className='flex gap-[0.25rem] items-center'>
+            <span 
+              className='w-[0.5625rem] h-[0.5625rem] rounded-full' 
+              style={{ backgroundColor: TOOTH_STATUS_COLORS.ausente.fill }}
+            />
+            <span className='text-[0.75rem] leading-[1rem] text-[#535C66]'>
+              {TOOTH_STATUS_COLORS.ausente.label}
+            </span>
+          </div>
+          <div className='flex gap-[0.25rem] items-center'>
+            <span 
+              className='w-[0.5625rem] h-[0.5625rem] rounded-full' 
+              style={{ backgroundColor: TOOTH_STATUS_COLORS.protesis.fill }}
+            />
+            <span className='text-[0.75rem] leading-[1rem] text-[#535C66]'>
+              {TOOTH_STATUS_COLORS.protesis.label}
             </span>
           </div>
         </div>

@@ -25,6 +25,7 @@ type VisitDetailPanelProps = {
   editedNotes: VisitSOAPNotes
   onEdit: () => void
   onSave: () => void
+  onSaveAsDraft?: () => void
   onCancel: () => void
   onSOAPChange: (field: 'subjective' | 'objective' | 'assessment' | 'plan', value: string) => void
   onTreatmentStatusChange: (treatmentId: string, status: LinkedTreatmentStatus) => void
@@ -38,12 +39,15 @@ export default function VisitDetailPanel({
   editedNotes,
   onEdit,
   onSave,
+  onSaveAsDraft,
   onCancel,
   onSOAPChange,
   onTreatmentStatusChange,
   onUploadAttachment,
   onRemoveAttachment
 }: VisitDetailPanelProps) {
+  // State for showing immutability warning
+  const [showImmutabilityWarning, setShowImmutabilityWarning] = React.useState(false)
   if (!appointment) {
     return (
       <div className='h-full flex items-center justify-center'>
@@ -65,6 +69,21 @@ export default function VisitDetailPanel({
   const isCompleted = visitStatus === 'completed'
   const treatments = appointment.linkedTreatments || []
   const attachments = appointment.attachments || []
+  
+  // Check if notes are finalized (completed visit with non-draft notes)
+  const notesAreDraft = appointment.soapNotes?.isDraft === true
+  const notesAreFinalized = isCompleted && !notesAreDraft && 
+    !!(appointment.soapNotes?.subjective || appointment.soapNotes?.objective || 
+     appointment.soapNotes?.assessment || appointment.soapNotes?.plan)
+  
+  // Handler for edit button that checks immutability
+  const handleEditClick = () => {
+    if (notesAreFinalized) {
+      setShowImmutabilityWarning(true)
+      return
+    }
+    onEdit()
+  }
 
   return (
     <div className='h-full overflow-y-auto px-6 py-5'>
@@ -105,16 +124,36 @@ export default function VisitDetailPanel({
 
         {/* Edit / Save buttons */}
         {!isEditing ? (
-          <button
-            type='button'
-            onClick={onEdit}
-            className='flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--color-brand-400)] bg-[#E9FBF9] hover:bg-[var(--color-brand-100)] transition-colors cursor-pointer'
-          >
-            <EditRounded className='size-4 text-[var(--color-brand-700)]' />
-            <span className="font-['Inter:Regular',_sans-serif] text-[var(--color-brand-700)] text-body-sm">
-              Editar
-            </span>
-          </button>
+          <div className='flex items-center gap-2'>
+            {/* Draft indicator */}
+            {notesAreDraft && (
+              <span className='px-2 py-1 rounded-full bg-[var(--color-warning-100)] text-[var(--color-warning-700)] text-label-sm font-medium'>
+                Borrador
+              </span>
+            )}
+            {/* Finalized indicator */}
+            {notesAreFinalized && (
+              <span className='px-2 py-1 rounded-full bg-[var(--color-neutral-100)] text-[var(--color-neutral-600)] text-label-sm font-medium'>
+                Finalizado
+              </span>
+            )}
+            <button
+              type='button'
+              onClick={handleEditClick}
+              disabled={notesAreFinalized}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-colors ${
+                notesAreFinalized 
+                  ? 'border-[var(--color-neutral-300)] bg-[var(--color-neutral-100)] cursor-not-allowed opacity-60' 
+                  : 'border-[var(--color-brand-400)] bg-[#E9FBF9] hover:bg-[var(--color-brand-100)] cursor-pointer'
+              }`}
+              title={notesAreFinalized ? 'Las notas finalizadas no se pueden editar' : 'Editar notas'}
+            >
+              <EditRounded className={`size-4 ${notesAreFinalized ? 'text-[var(--color-neutral-500)]' : 'text-[var(--color-brand-700)]'}`} />
+              <span className={`font-['Inter:Regular',_sans-serif] text-body-sm ${notesAreFinalized ? 'text-[var(--color-neutral-500)]' : 'text-[var(--color-brand-700)]'}`}>
+                Editar
+              </span>
+            </button>
+          </div>
         ) : (
           <div className='flex gap-2'>
             <button
@@ -127,6 +166,17 @@ export default function VisitDetailPanel({
                 Cancelar
               </span>
             </button>
+            {onSaveAsDraft && (
+              <button
+                type='button'
+                onClick={onSaveAsDraft}
+                className='flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-warning-100)] border border-[var(--color-warning-300)] hover:bg-[var(--color-warning-200)] transition-colors cursor-pointer'
+              >
+                <span className="font-['Inter:Regular',_sans-serif] text-[var(--color-warning-700)] text-body-sm">
+                  Guardar borrador
+                </span>
+              </button>
+            )}
             <button
               type='button'
               onClick={onSave}
@@ -134,12 +184,37 @@ export default function VisitDetailPanel({
             >
               <CheckRounded className='size-4 text-white' />
               <span className="font-['Inter:Regular',_sans-serif] text-white text-body-sm">
-                Guardar
+                Finalizar
               </span>
             </button>
           </div>
         )}
       </div>
+
+      {/* Immutability warning */}
+      {showImmutabilityWarning && (
+        <div className='mb-4 p-4 bg-[var(--color-warning-50)] border border-[var(--color-warning-300)] rounded-lg'>
+          <div className='flex items-start gap-3'>
+            <div className='flex-1'>
+              <p className="font-['Inter:Medium',_sans-serif] text-[var(--color-warning-800)] text-body-sm mb-1">
+                Notas clínicas finalizadas
+              </p>
+              <p className="font-['Inter:Regular',_sans-serif] text-[var(--color-warning-700)] text-label-sm">
+                Las notas clínicas de visitas completadas no pueden editarse para mantener la integridad del historial médico. 
+                Si necesita agregar información adicional, puede crear un addendum en la próxima visita.
+              </p>
+            </div>
+            <button
+              type='button'
+              onClick={() => setShowImmutabilityWarning(false)}
+              className='p-1 hover:bg-[var(--color-warning-100)] rounded transition-colors'
+              aria-label='Cerrar aviso'
+            >
+              <CloseRounded className='size-4 text-[var(--color-warning-700)]' />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Consultation times (if completed) */}
       {isCompleted && (appointment.waitingDuration || appointment.consultationDuration) && (

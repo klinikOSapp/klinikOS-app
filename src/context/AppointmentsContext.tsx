@@ -23,8 +23,11 @@ export type VisitSOAPNotes = {
   objective?: string // Hallazgos clínicos del doctor
   assessment?: string // Diagnóstico/evaluación
   plan?: string // Plan de tratamiento
+  isDraft?: boolean // True si las notas están en borrador
   updatedAt?: string // Fecha última modificación
   updatedBy?: string // Doctor que actualizó
+  finalizedAt?: string // Fecha de finalización (inmutabilidad)
+  finalizedBy?: string // Doctor que finalizó las notas
 }
 
 // ============================================

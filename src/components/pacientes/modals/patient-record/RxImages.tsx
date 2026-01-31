@@ -4,8 +4,10 @@ import {
   AddPhotoAlternateRounded,
   CloseRounded,
   ImageRounded,
-  DeleteRounded
+  DeleteRounded,
+  FullscreenRounded
 } from '@/components/icons/md3'
+import RxImageViewer from './RxImageViewer'
 
 type RxImagesProps = {
   onClose?: () => void
@@ -34,6 +36,8 @@ export default function RxImages({ onClose }: RxImagesProps) {
   const [images, setImages] = React.useState<RxImage[]>(initialImages)
   const [selectedId, setSelectedId] = React.useState<string>('1')
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  // HU-018: Advanced viewer state
+  const [viewerOpen, setViewerOpen] = React.useState(false)
 
   const selectedImage = images.find(img => img.id === selectedId) || images[0]
 
@@ -207,7 +211,7 @@ export default function RxImages({ onClose }: RxImagesProps) {
 
           {/* Main image viewer */}
           <div
-            className='absolute rounded-[8px] overflow-hidden border border-[#cbd3d9] bg-[#3d434a]'
+            className='absolute rounded-[8px] overflow-hidden border border-[#cbd3d9] bg-[#3d434a] group'
             style={{ left: 240, right: 16, top: 72, height: 448 }}
           >
             {selectedImage?.url ? (
@@ -221,6 +225,17 @@ export default function RxImages({ onClose }: RxImagesProps) {
                 <ImageRounded className='text-white size-[64px]' />
               </div>
             )}
+            
+            {/* HU-018: Open advanced viewer button */}
+            <button
+              type='button'
+              onClick={() => setViewerOpen(true)}
+              className='absolute top-3 right-3 p-2 bg-black/60 hover:bg-black/80 rounded-lg opacity-0 group-hover:opacity-100 transition-all'
+              aria-label='Abrir visor avanzado'
+              title='Visor avanzado (zoom, brillo, contraste, comparación)'
+            >
+              <FullscreenRounded className='size-6 text-white' />
+            </button>
           </div>
 
           {/* Title row */}
@@ -261,6 +276,15 @@ export default function RxImages({ onClose }: RxImagesProps) {
           border-radius: 16px;
         }
       `}</style>
+      
+      {/* HU-018: Advanced RX Image Viewer */}
+      <RxImageViewer
+        open={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+        images={images}
+        selectedImageId={selectedId}
+        onSelectImage={setSelectedId}
+      />
     </div>
   )
 }

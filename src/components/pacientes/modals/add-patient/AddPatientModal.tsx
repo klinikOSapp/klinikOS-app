@@ -313,9 +313,11 @@ export default function AddPatientModal({
   const [saludAlergiasText, setSaludAlergiasText] = React.useState<string>('')
   const [nombre, setNombre] = React.useState<string>('')
   const [apellidos, setApellidos] = React.useState<string>('')
+  const [tipoDocumento, setTipoDocumento] = React.useState<'DNI' | 'NIE' | 'Pasaporte' | 'Otro'>('DNI')
   const [dni, setDni] = React.useState<string>('')
   const [sexo, setSexo] = React.useState<string>('')
   const [idioma, setIdioma] = React.useState<string>('')
+  const [edad, setEdad] = React.useState<number | undefined>(undefined)
 
   // Estados adicionales Administrativo
   const [adminProfesional, setAdminProfesional] = React.useState<string>('')
@@ -334,6 +336,15 @@ export default function AddPatientModal({
   // Estados adicionales Salud
   const [saludAntecedentes, setSaludAntecedentes] = React.useState<string>('')
   const [saludMiedo, setSaludMiedo] = React.useState<string>('')
+  
+  // Estado para alergias con severidad
+  type AllergyEntry = {
+    id: string
+    name: string
+    severity: 'leve' | 'moderada' | 'grave' | 'extrema'
+    notes?: string
+  }
+  const [saludAlergias, setSaludAlergias] = React.useState<AllergyEntry[]>([])
 
   // Type helper for Salud component props (workaround for JSX inference)
   const SaludComp = AddPatientStepSalud as unknown as React.ComponentType<{
@@ -341,6 +352,8 @@ export default function AddPatientModal({
     onChangeEmbarazo: (v: boolean) => void
     tabaquismo: boolean
     onChangeTabaquismo: (v: boolean) => void
+    alergias?: AllergyEntry[]
+    onChangeAlergias?: (v: AllergyEntry[]) => void
     alergiasText?: string
     onChangeAlergiasText?: (v: string) => void
     antecedentes?: string
@@ -504,12 +517,16 @@ export default function AddPatientModal({
                   onChangeApellidos={setApellidos}
                   fechaNacimiento={selectedDate}
                   onChangeFechaNacimiento={(d) => setSelectedDate(d)}
+                  tipoDocumento={tipoDocumento}
+                  onChangeTipoDocumento={setTipoDocumento}
                   dni={dni}
                   onChangeDni={setDni}
                   sexo={sexo}
                   onChangeSexo={setSexo}
                   idioma={idioma}
                   onChangeIdioma={setIdioma}
+                  edad={edad}
+                  onChangeEdad={setEdad}
                 />
               )}
 
@@ -573,6 +590,8 @@ export default function AddPatientModal({
                   onChangeTabaquismo={(v: boolean) =>
                     setSaludToggles((p) => ({ ...p, tabaquismo: v }))
                   }
+                  alergias={saludAlergias}
+                  onChangeAlergias={setSaludAlergias}
                   alergiasText={saludAlergiasText}
                   onChangeAlergiasText={setSaludAlergiasText}
                   antecedentes={saludAntecedentes}
@@ -591,6 +610,7 @@ export default function AddPatientModal({
                   email={contactEmail}
                   telefono={contactPhone}
                   anotaciones={adminNotas}
+                  alergiasConSeveridad={saludAlergias}
                   alergias={saludAlergiasText
                     .split(',')
                     .map((s) => s.trim())

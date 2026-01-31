@@ -1,6 +1,6 @@
 'use client'
 
-import { CloseRounded } from '@/components/icons/md3'
+import { CloseRounded, DownloadRounded, PrintRounded } from '@/components/icons/md3'
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import {
   DatePickerInput,
@@ -11,6 +11,12 @@ import type {
   InstallmentPlan,
   PaymentInfo
 } from '@/context/AppointmentsContext'
+import {
+  generatePaymentReceiptPDF,
+  generateReceiptNumber,
+  formatReceiptFilename,
+  type PaymentReceiptData
+} from '@/utils/exportUtils'
 import React from 'react'
 import { createPortal } from 'react-dom'
 
@@ -25,6 +31,9 @@ type RegisterPaymentModalProps = {
   // Nuevos props para pagos parciales
   paymentInfo?: PaymentInfo
   installmentPlan?: InstallmentPlan
+  // Patient info for receipt
+  patientName?: string
+  patientDni?: string
 }
 
 export type RegisterPaymentFormData = {
@@ -32,6 +41,7 @@ export type RegisterPaymentFormData = {
   paymentDate: Date | null
   reference: string
   amountToPay: number // Monto que se va a pagar (puede ser parcial)
+  generateReceipt?: boolean // HU-015: Flag to generate receipt PDF
 }
 
 // Mock data for dropdowns
@@ -52,7 +62,9 @@ export default function RegisterPaymentModal({
   treatment,
   amount,
   paymentInfo,
-  installmentPlan
+  installmentPlan,
+  patientName = 'Paciente',
+  patientDni
 }: RegisterPaymentModalProps) {
   // Calcular el monto pendiente
   const pendingAmount =
@@ -78,6 +90,12 @@ export default function RegisterPaymentModal({
   // Monto personalizado (solo cuando paymentOption === 'custom')
   const [customAmount, setCustomAmount] = React.useState<string>('')
   const [amountError, setAmountError] = React.useState<string>('')
+  
+  // HU-015: Receipt generation
+  const [generateReceipt, setGenerateReceipt] = React.useState<boolean>(true)
+  const [showReceiptSuccess, setShowReceiptSuccess] = React.useState<boolean>(false)
+  const [lastReceiptBlob, setLastReceiptBlob] = React.useState<Blob | null>(null)
+  const [lastReceiptNumber, setLastReceiptNumber] = React.useState<string>('')
 
   // Calcular el monto a pagar según la opción seleccionada
   const getAmountToPay = (): number => {
@@ -152,10 +170,76 @@ export default function RegisterPaymentModal({
       return
     }
 
+    // HU-015: Generate receipt PDF if requested
+    if (generateReceipt && formData.paymentDate) {
+      const receiptNumber = generateReceiptNumber()
+      const totalAmount = paymentInfo?.totalAmount ?? 
+        (parseFloat(amount.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0)
+      const previousPaid = paymentInfo?.paidAmount ?? 0
+
+      const receiptData: PaymentReceiptData = {
+        receiptNumber,
+        paymentDate: formData.paymentDate,
+        patientName,
+        patientDni,
+        invoiceNumber: invoiceId,
+        treatment,
+        amountPaid: amountToPay,
+        paymentMethod: formData.paymentMethod,
+        reference: formData.reference,
+        totalAmount,
+        previousPaid,
+        remainingBalance: remainingAfterPayment
+      }
+
+      const blob = generatePaymentReceiptPDF(receiptData)
+      setLastReceiptBlob(blob)
+      setLastReceiptNumber(receiptNumber)
+      setShowReceiptSuccess(true)
+    } else {
+      // No receipt requested, just submit and close
+      onSubmit?.({
+        ...formData,
+        amountToPay,
+        generateReceipt
+      })
+      onClose()
+    }
+  }
+
+  const handleDownloadReceipt = () => {
+    if (lastReceiptBlob) {
+      const url = URL.createObjectURL(lastReceiptBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = formatReceiptFilename(patientName, lastReceiptNumber)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    }
+  }
+
+  const handlePrintReceipt = () => {
+    if (lastReceiptBlob) {
+      const url = URL.createObjectURL(lastReceiptBlob)
+      const printWindow = window.open(url, '_blank')
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print()
+        }
+      }
+    }
+  }
+
+  const handleFinishWithReceipt = () => {
     onSubmit?.({
       ...formData,
-      amountToPay
+      amountToPay,
+      generateReceipt: true
     })
+    setShowReceiptSuccess(false)
+    setLastReceiptBlob(null)
     onClose()
   }
 
@@ -168,6 +252,10 @@ export default function RegisterPaymentModal({
     setCustomAmount('')
     setAmountError('')
     setPaymentOption(hasInstallmentPlan ? 'installment' : 'full')
+    setGenerateReceipt(true)
+    setShowReceiptSuccess(false)
+    setLastReceiptBlob(null)
+    setLastReceiptNumber('')
   }
 
   const handleClose = () => {
@@ -473,6 +561,19 @@ export default function RegisterPaymentModal({
             </div>
           </div>
 
+          {/* HU-015: Generate receipt checkbox */}
+          <label className='flex items-center gap-3 cursor-pointer'>
+            <input
+              type='checkbox'
+              checked={generateReceipt}
+              onChange={(e) => setGenerateReceipt(e.target.checked)}
+              className='h-5 w-5 rounded border-neutral-300 text-brand-500 accent-brand-500'
+            />
+            <span className='text-body-md text-neutral-900'>
+              Generar recibo de pago (PDF)
+            </span>
+          </label>
+
           {/* Buttons */}
           <div className='flex items-center justify-end gap-3 pt-4 border-t border-neutral-200'>
             <button
@@ -495,6 +596,65 @@ export default function RegisterPaymentModal({
             </button>
           </div>
         </form>
+
+        {/* HU-015: Receipt success view */}
+        {showReceiptSuccess && (
+          <div className='absolute inset-0 bg-white flex flex-col'>
+            <div className='sticky top-0 z-10 flex items-center justify-between h-14 px-8 border-b border-neutral-300 bg-white'>
+              <h2 className='text-title-md text-neutral-900'>Pago registrado</h2>
+              <button
+                type='button'
+                onClick={handleFinishWithReceipt}
+                className='text-neutral-900 hover:text-neutral-600 transition-colors cursor-pointer'
+                aria-label='Cerrar'
+              >
+                <CloseRounded className='size-[0.875rem]' />
+              </button>
+            </div>
+
+            <div className='flex-1 flex flex-col items-center justify-center gap-6 p-8'>
+              <div className='w-16 h-16 rounded-full bg-green-100 flex items-center justify-center'>
+                <MD3Icon name='CheckCircleRounded' size={2.5} className='text-green-600' />
+              </div>
+              
+              <div className='text-center'>
+                <h3 className='text-title-lg text-neutral-900 mb-2'>
+                  Pago de {amountToPay.toLocaleString('es-ES', { minimumFractionDigits: 2 })} {currency} registrado
+                </h3>
+                <p className='text-body-md text-neutral-600'>
+                  Se ha generado el recibo nº {lastReceiptNumber}
+                </p>
+              </div>
+
+              <div className='flex items-center gap-3'>
+                <button
+                  type='button'
+                  onClick={handleDownloadReceipt}
+                  className='flex items-center gap-2 px-4 py-2 rounded-[8.5rem] border border-brand-500 text-brand-700 hover:bg-brand-50 transition-colors cursor-pointer'
+                >
+                  <DownloadRounded className='size-5' />
+                  <span className='text-body-md font-medium'>Descargar PDF</span>
+                </button>
+                <button
+                  type='button'
+                  onClick={handlePrintReceipt}
+                  className='flex items-center gap-2 px-4 py-2 rounded-[8.5rem] border border-neutral-300 text-neutral-700 hover:bg-neutral-50 transition-colors cursor-pointer'
+                >
+                  <PrintRounded className='size-5' />
+                  <span className='text-body-md font-medium'>Imprimir</span>
+                </button>
+              </div>
+
+              <button
+                type='button'
+                onClick={handleFinishWithReceipt}
+                className='px-6 py-2 rounded-[8.5rem] bg-brand-500 text-title-sm text-brand-900 hover:bg-brand-400 transition-colors cursor-pointer mt-4'
+              >
+                Finalizar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>,
     document.body

@@ -31,28 +31,182 @@ export function FieldLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
+// ============================================
+// FUNCIONES DE VALIDACIÓN
+// ============================================
+
+// Validar DNI español (8 números + 1 letra)
+export function validateDNI(dni: string): { valid: boolean; error?: string } {
+  if (!dni) return { valid: true } // Campo vacío es válido si no es requerido
+  
+  const dniRegex = /^[0-9]{8}[A-Za-z]$/
+  if (!dniRegex.test(dni)) {
+    return { valid: false, error: 'Formato: 8 dígitos + letra (ej: 12345678A)' }
+  }
+  
+  // Validar letra del DNI
+  const letters = 'TRWAGMYFPDXBNJZSQVHLCKE'
+  const number = parseInt(dni.slice(0, 8), 10)
+  const expectedLetter = letters[number % 23]
+  const actualLetter = dni.slice(8).toUpperCase()
+  
+  if (actualLetter !== expectedLetter) {
+    return { valid: false, error: 'La letra del DNI no es correcta' }
+  }
+  
+  return { valid: true }
+}
+
+// Validar NIE español (X/Y/Z + 7 números + 1 letra)
+export function validateNIE(nie: string): { valid: boolean; error?: string } {
+  if (!nie) return { valid: true }
+  
+  const nieRegex = /^[XYZxyz][0-9]{7}[A-Za-z]$/
+  if (!nieRegex.test(nie)) {
+    return { valid: false, error: 'Formato: X/Y/Z + 7 dígitos + letra (ej: X1234567A)' }
+  }
+  
+  // Validar letra del NIE
+  const letters = 'TRWAGMYFPDXBNJZSQVHLCKE'
+  let nieNumber = nie.toUpperCase()
+  nieNumber = nieNumber.replace('X', '0').replace('Y', '1').replace('Z', '2')
+  const number = parseInt(nieNumber.slice(0, 8), 10)
+  const expectedLetter = letters[number % 23]
+  const actualLetter = nie.slice(8).toUpperCase()
+  
+  if (actualLetter !== expectedLetter) {
+    return { valid: false, error: 'La letra del NIE no es correcta' }
+  }
+  
+  return { valid: true }
+}
+
+// Validar Pasaporte (formato genérico)
+export function validatePassport(passport: string): { valid: boolean; error?: string } {
+  if (!passport) return { valid: true }
+  
+  // Mínimo 5 caracteres alfanuméricos
+  const passportRegex = /^[A-Za-z0-9]{5,20}$/
+  if (!passportRegex.test(passport)) {
+    return { valid: false, error: 'Formato inválido (5-20 caracteres alfanuméricos)' }
+  }
+  
+  return { valid: true }
+}
+
+// Validar documento según tipo
+export function validateDocument(
+  value: string, 
+  type: 'DNI' | 'NIE' | 'Pasaporte' | 'Otro'
+): { valid: boolean; error?: string } {
+  switch (type) {
+    case 'DNI':
+      return validateDNI(value)
+    case 'NIE':
+      return validateNIE(value)
+    case 'Pasaporte':
+      return validatePassport(value)
+    default:
+      return { valid: true }
+  }
+}
+
+// Validar email
+export function validateEmail(email: string): { valid: boolean; error?: string } {
+  if (!email) return { valid: true }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email)) {
+    return { valid: false, error: 'Formato de email inválido' }
+  }
+  
+  return { valid: true }
+}
+
+// Validar teléfono español
+export function validatePhone(phone: string): { valid: boolean; error?: string } {
+  if (!phone) return { valid: true }
+  
+  // Eliminar espacios y guiones
+  const cleanPhone = phone.replace(/[\s-]/g, '')
+  
+  // Teléfono español: 9 dígitos empezando por 6, 7, 8 o 9
+  const phoneRegex = /^[6789][0-9]{8}$/
+  if (!phoneRegex.test(cleanPhone)) {
+    return { valid: false, error: 'Formato: 9 dígitos (ej: 612345678)' }
+  }
+  
+  return { valid: true }
+}
+
+// Calcular edad desde fecha de nacimiento
+export function calculateAgeFromDate(birthDate: Date): number {
+  const today = new Date()
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const monthDiff = today.getMonth() - birthDate.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--
+  }
+  return age
+}
+
+// Generar número de historia clínica único
+export function generateMedicalRecordNumber(): string {
+  const date = new Date()
+  const year = date.getFullYear().toString().slice(-2)
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase()
+  return `HC-${year}${month}-${random}`
+}
+
 export function TextInput({
   placeholder = 'Value',
   required,
   value,
-  onChange
+  onChange,
+  error,
+  onBlur,
+  type = 'text'
 }: {
   placeholder?: string
   required?: boolean
   value?: string
   onChange?: (v: string) => void
+  error?: string
+  onBlur?: () => void
+  type?: 'text' | 'email' | 'tel'
 }) {
+  const hasError = !!error
+  
   return (
-    <div className='relative'>
-      <input
-        placeholder={placeholder}
-        className='w-full h-12 rounded-[0.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5 text-body-md text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)] outline-none'
-        value={value}
-        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
-      />
-      {required && (
-        <span className='absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-error-600)] text-body-md leading-none'>
-          *
+    <div className='relative flex flex-col gap-1'>
+      <div className='relative'>
+        <input
+          type={type}
+          placeholder={placeholder}
+          className={`w-full h-12 rounded-[0.5rem] bg-[var(--color-neutral-50)] border px-2.5 text-body-md text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)] outline-none transition-colors ${
+            hasError 
+              ? 'border-[var(--color-error-500)] focus:border-[var(--color-error-600)]' 
+              : 'border-[var(--color-neutral-300)] focus:border-[var(--color-brand-500)]'
+          }`}
+          value={value}
+          onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+          onBlur={onBlur}
+        />
+        {required && !hasError && (
+          <span className='absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-error-600)] text-body-md leading-none'>
+            *
+          </span>
+        )}
+        {hasError && (
+          <span className='absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-error-500)]'>
+            <MD3Icon name='ErrorRounded' size='sm' />
+          </span>
+        )}
+      </div>
+      {hasError && (
+        <span className='text-label-sm text-[var(--color-error-600)]'>
+          {error}
         </span>
       )}
     </div>

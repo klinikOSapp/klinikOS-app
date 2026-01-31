@@ -4,13 +4,39 @@
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
 
+// Tipos para alergias con severidad
+type AllergySeverity = 'leve' | 'moderada' | 'grave' | 'extrema'
+
+type AllergyEntry = {
+  id: string
+  name: string
+  severity: AllergySeverity
+  notes?: string
+}
+
+// Colores por severidad
+const severityColors: Record<AllergySeverity, { bg: string; text: string }> = {
+  leve: { bg: 'bg-[var(--color-warning-100)]', text: 'text-[var(--color-warning-700)]' },
+  moderada: { bg: 'bg-[var(--color-warning-200)]', text: 'text-[var(--color-warning-800)]' },
+  grave: { bg: 'bg-[var(--color-error-100)]', text: 'text-[var(--color-error-700)]' },
+  extrema: { bg: 'bg-[var(--color-error-200)]', text: 'text-[var(--color-error-800)]' }
+}
+
+const severityLabels: Record<AllergySeverity, string> = {
+  leve: 'L',
+  moderada: 'M',
+  grave: 'G',
+  extrema: 'E'
+}
+
 type Props = {
   // Datos básicos
   nombre?: string
   apellidos?: string
   email?: string
   telefono?: string
-  alergias?: string[]
+  alergias?: string[] // Legacy support
+  alergiasConSeveridad?: AllergyEntry[] // New format
   anotaciones?: string
   // Consentimientos / toggles
   recordatorios?: boolean
@@ -23,6 +49,7 @@ export default function AddPatientStepResumen({
   email,
   telefono,
   alergias = [],
+  alergiasConSeveridad = [],
   anotaciones,
   recordatorios,
   marketing
@@ -65,9 +92,23 @@ export default function AddPatientStepResumen({
       <p className='absolute left-[18.375rem] top-[18.25rem] text-[0.75rem] leading-[1rem] font-medium text-[#8A95A1]'>
         Alergias:
       </p>
-      <div className='absolute left-[25.5625rem] top-[18rem] flex items-center gap-2'>
-        {alergias.length > 0 ? (
-          alergias.map((a, index) => (
+      <div className='absolute left-[25.5625rem] top-[18rem] flex flex-wrap items-center gap-2 max-w-[24rem]'>
+        {alergiasConSeveridad.length > 0 ? (
+          alergiasConSeveridad.map((a) => {
+            const colors = severityColors[a.severity]
+            return (
+              <span
+                key={a.id}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${colors.bg} ${colors.text} text-[0.75rem] leading-[1rem] font-medium`}
+                title={`Severidad: ${a.severity}`}
+              >
+                {a.name}
+                <span className='opacity-70'>({severityLabels[a.severity]})</span>
+              </span>
+            )
+          })
+        ) : alergias.length > 0 ? (
+          alergias.map((a) => (
             <span
               key={a}
               className='inline-flex items-center px-2 py-1 rounded-full bg-[var(--color-error-200)] text-[var(--color-error-600)] text-[0.75rem] leading-[1rem] font-medium'

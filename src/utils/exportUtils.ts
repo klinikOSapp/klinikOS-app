@@ -911,6 +911,278 @@ export function generateBudgetPDF(
   return doc.output('blob')
 }
 
+// ============================================
+// PAYMENT RECEIPT PDF GENERATION (HU-015)
+// ============================================
+
+export type PaymentReceiptData = {
+  // Receipt info
+  receiptNumber: string
+  paymentDate: Date
+  
+  // Patient info
+  patientName: string
+  patientDni?: string
+  
+  // Invoice/Treatment info
+  invoiceNumber: string
+  treatment: string
+  
+  // Payment details
+  amountPaid: number
+  paymentMethod: string
+  reference?: string
+  
+  // Balance info
+  totalAmount: number
+  previousPaid: number
+  remainingBalance: number
+  
+  // Clinic info (optional)
+  clinicName?: string
+  clinicAddress?: string
+  clinicCif?: string
+  clinicPhone?: string
+}
+
+/**
+ * Generate a PDF receipt for a payment
+ */
+export function generatePaymentReceiptPDF(data: PaymentReceiptData): Blob {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  })
+
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const margin = 20
+  const clinicName = data.clinicName || 'klinikOS'
+
+  // ============================================
+  // HEADER
+  // ============================================
+
+  // Clinic name
+  doc.setFontSize(24)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(30, 73, 71) // Brand color #1E4947
+  doc.text(clinicName, margin, 25)
+
+  // Receipt title
+  doc.setFontSize(16)
+  doc.setTextColor(36, 40, 44) // #24282C
+  doc.text('RECIBO DE PAGO', pageWidth - margin, 25, { align: 'right' })
+
+  // Horizontal line
+  doc.setDrawColor(203, 211, 217) // #CBD3D9
+  doc.setLineWidth(0.5)
+  doc.line(margin, 32, pageWidth - margin, 32)
+
+  // ============================================
+  // RECEIPT INFO
+  // ============================================
+
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(83, 92, 102) // #535C66
+
+  const dateStr = data.paymentDate.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric'
+  })
+
+  doc.text(`Nº Recibo: ${data.receiptNumber}`, margin, 42)
+  doc.text(`Fecha: ${dateStr}`, pageWidth - margin, 42, { align: 'right' })
+
+  // ============================================
+  // PATIENT INFO
+  // ============================================
+
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(36, 40, 44)
+  doc.text('Datos del paciente', margin, 56)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.setTextColor(83, 92, 102)
+  doc.text(`Nombre: ${data.patientName}`, margin, 64)
+  if (data.patientDni) {
+    doc.text(`DNI/NIE: ${data.patientDni}`, margin, 71)
+  }
+
+  // ============================================
+  // TREATMENT/INVOICE INFO
+  // ============================================
+
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(36, 40, 44)
+  doc.text('Detalle del pago', margin, 86)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.setTextColor(83, 92, 102)
+  doc.text(`Factura: ${data.invoiceNumber}`, margin, 94)
+  doc.text(`Tratamiento: ${data.treatment}`, margin, 101)
+
+  // ============================================
+  // PAYMENT BREAKDOWN TABLE
+  // ============================================
+
+  const formatCurrency = (amount: number) => 
+    `${amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+
+  const paymentMethodLabel = {
+    efectivo: 'Efectivo',
+    tarjeta: 'Tarjeta',
+    transferencia: 'Transferencia',
+    bizum: 'Bizum'
+  }[data.paymentMethod.toLowerCase()] || data.paymentMethod
+
+  autoTable(doc, {
+    startY: 110,
+    margin: { left: margin, right: margin },
+    head: [['Concepto', 'Importe']],
+    body: [
+      ['Importe total del tratamiento', formatCurrency(data.totalAmount)],
+      ['Pagado anteriormente', formatCurrency(data.previousPaid)],
+      ['Pendiente antes de este pago', formatCurrency(data.totalAmount - data.previousPaid)],
+      [`PAGO REALIZADO (${paymentMethodLabel})`, formatCurrency(data.amountPaid)],
+      ['Saldo pendiente', formatCurrency(data.remainingBalance)]
+    ],
+    styles: {
+      fontSize: 10,
+      cellPadding: 4,
+      textColor: [36, 40, 44]
+    },
+    headStyles: {
+      fillColor: [30, 73, 71], // Brand color
+      textColor: [255, 255, 255],
+      fontStyle: 'bold'
+    },
+    columnStyles: {
+      0: { cellWidth: 100 },
+      1: { cellWidth: 50, halign: 'right' }
+    },
+    bodyStyles: {
+      lineColor: [203, 211, 217],
+      lineWidth: 0.1
+    },
+    didParseCell: function(hookData) {
+      // Highlight the payment row
+      if (hookData.section === 'body' && hookData.row.index === 3) {
+        hookData.cell.styles.fontStyle = 'bold'
+        hookData.cell.styles.fillColor = [233, 251, 249] // Brand light #E9FBF9
+        hookData.cell.styles.textColor = [30, 73, 71] // Brand color
+      }
+      // Highlight remaining balance row
+      if (hookData.section === 'body' && hookData.row.index === 4) {
+        hookData.cell.styles.fontStyle = 'bold'
+        if (data.remainingBalance === 0) {
+          hookData.cell.styles.textColor = [22, 163, 74] // Green for zero balance
+        } else {
+          hookData.cell.styles.textColor = [217, 119, 6] // Amber for pending
+        }
+      }
+    }
+  })
+
+  // ============================================
+  // REFERENCE (if provided)
+  // ============================================
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tableEndY = (doc as any).lastAutoTable?.finalY || 180
+
+  if (data.reference) {
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(83, 92, 102)
+    doc.text(`Referencia: ${data.reference}`, margin, tableEndY + 10)
+  }
+
+  // ============================================
+  // CONFIRMATION MESSAGE
+  // ============================================
+
+  const messageY = data.reference ? tableEndY + 25 : tableEndY + 15
+
+  if (data.remainingBalance === 0) {
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(22, 163, 74) // Green
+    doc.text('✓ TRATAMIENTO COMPLETAMENTE PAGADO', pageWidth / 2, messageY, { align: 'center' })
+  } else {
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(217, 119, 6) // Amber
+    doc.text(`Queda un saldo pendiente de ${formatCurrency(data.remainingBalance)}`, pageWidth / 2, messageY, { align: 'center' })
+  }
+
+  // ============================================
+  // CLINIC INFO (Footer)
+  // ============================================
+
+  const footerY = doc.internal.pageSize.getHeight() - 35
+
+  doc.setDrawColor(203, 211, 217)
+  doc.setLineWidth(0.3)
+  doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5)
+
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(142, 149, 161) // #8E95A1
+
+  doc.text(clinicName, margin, footerY)
+  if (data.clinicAddress) {
+    doc.text(data.clinicAddress, margin, footerY + 5)
+  }
+  if (data.clinicCif) {
+    doc.text(`CIF: ${data.clinicCif}`, margin, footerY + 10)
+  }
+  if (data.clinicPhone) {
+    doc.text(`Tel: ${data.clinicPhone}`, margin, footerY + 15)
+  }
+
+  // Generated timestamp
+  const timestamp = new Date().toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+  doc.text(`Documento generado el ${timestamp}`, pageWidth - margin, footerY + 15, { align: 'right' })
+
+  return doc.output('blob')
+}
+
+/**
+ * Generate receipt number for payments
+ */
+export function generateReceiptNumber(): string {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const random = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
+  return `REC-${year}${month}${day}-${random}`
+}
+
+/**
+ * Generate filename for payment receipt
+ */
+export function formatReceiptFilename(patientName: string, receiptNumber: string): string {
+  const sanitizedPatientName = patientName
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ_]/g, '')
+    .slice(0, 30)
+  return `Recibo_${receiptNumber}_${sanitizedPatientName}.pdf`
+}
+
 /**
  * Generate budget filename
  */

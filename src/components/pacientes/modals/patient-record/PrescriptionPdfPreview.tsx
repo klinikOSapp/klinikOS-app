@@ -2,7 +2,9 @@
 
 import Portal from '@/components/ui/Portal'
 import React from 'react'
+import type { MedicationEntry } from './PrescriptionCreationModal'
 
+// HU-021: Updated props to support multiple medications
 type PrescriptionPdfPreviewProps = {
   open: boolean
   onClose: () => void
@@ -12,6 +14,8 @@ type PrescriptionPdfPreviewProps = {
     frecuencia?: string
     duracion?: string
     administracion?: string
+    // HU-021: Array of medications
+    medicamentos?: MedicationEntry[]
   }
 }
 
@@ -76,38 +80,59 @@ export default function PrescriptionPdfPreview({
   onClose,
   data
 }: PrescriptionPdfPreviewProps) {
-  const med = data?.medicamento?.trim() || 'Antibiol'
-  const freq = data?.frecuencia?.trim() || '3 por día'
-  const dur = data?.duracion?.trim() || '7 días'
-  const via = data?.administracion?.trim() || 'Oral'
-  const dose = '500mg'
+  // HU-021: Use medications array if available, otherwise fall back to legacy single medication
+  const medications: Array<{
+    medicamento: string
+    frecuencia: string
+    duracion: string
+    administracion: string
+  }> = React.useMemo(() => {
+    if (data?.medicamentos && data.medicamentos.length > 0) {
+      return data.medicamentos.map(m => ({
+        medicamento: m.medicamento.trim() || 'Medicamento',
+        frecuencia: m.frecuencia.trim() || '-',
+        duracion: m.duracion.trim() || '-',
+        administracion: m.administracion.trim() || 'Oral'
+      }))
+    }
+    // Legacy: single medication
+    return [{
+      medicamento: data?.medicamento?.trim() || 'Antibiol',
+      frecuencia: data?.frecuencia?.trim() || '3 por día',
+      duracion: data?.duracion?.trim() || '7 días',
+      administracion: data?.administracion?.trim() || 'Oral'
+    }]
+  }, [data])
+  
+  const dose = '500mg' // Default dose placeholder
 
   const cards = React.useMemo(
     () =>
-      Array.from({ length: 3 }).map((_, index) => (
+      medications.map((med, index) => (
         <MedCard
           key={index}
-          medicamento={med}
+          medicamento={med.medicamento}
           dosis={dose}
-          frecuencia={freq}
-          duracion={dur}
-          via={via}
+          frecuencia={med.frecuencia}
+          duracion={med.duracion}
+          via={med.administracion}
         />
       )),
-    [med, dose, freq, dur, via]
+    [medications, dose]
   )
 
   const buildHtml = React.useCallback(() => {
-    const cardHtml = Array.from({ length: 3 })
+    // HU-021: Generate HTML for all medications
+    const cardHtml = medications
       .map(
-        () => `
-      <div style="width:${CARD_WIDTH_REM}rem;height:${CARD_HEIGHT_REM}rem;border:1px solid ${borderColor};border-radius:8px;padding:16px;display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;">
+        (med) => `
+      <div style="width:${CARD_WIDTH_REM}rem;min-height:${CARD_HEIGHT_REM}rem;border:1px solid ${borderColor};border-radius:8px;padding:16px;display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;">
         ${[
-          ['Medicamento:', med],
+          ['Medicamento:', med.medicamento],
           ['Dosis:', dose],
-          ['Frecuencia:', freq],
-          ['Duración:', dur],
-          ['Vía administración:', via]
+          ['Frecuencia:', med.frecuencia],
+          ['Duración:', med.duracion],
+          ['Vía administración:', med.administracion]
         ]
           .map(
             ([label, val]) => `
@@ -210,7 +235,7 @@ export default function PrescriptionPdfPreview({
   </script>
 </body>
 </html>`
-  }, [med, dose, freq, dur, via])
+  }, [medications, dose])
 
   React.useEffect(() => {
     if (!open) return
@@ -287,14 +312,9 @@ export default function PrescriptionPdfPreview({
           </div>
         </div>
 
-        <div className='absolute left-8 top-[17.8125rem] flex flex-col gap-2'>
-          {cards[0]}
-        </div>
-        <div className='absolute left-8 top-[23.3125rem] flex flex-col gap-2'>
-          {cards[1]}
-        </div>
-        <div className='absolute left-8 top-[28.8125rem] flex flex-col gap-2'>
-          {cards[2]}
+        {/* HU-021: Render all medication cards */}
+        <div className='absolute left-8 top-[17.8125rem] flex flex-col gap-2 max-h-[18rem] overflow-y-auto'>
+          {cards}
         </div>
 
         <div className='absolute left-8 top-[38.0625rem] w-[33.1875rem] flex flex-col gap-3 text-[0.75rem] leading-[1rem] text-[var(--color-neutral-900)]'>

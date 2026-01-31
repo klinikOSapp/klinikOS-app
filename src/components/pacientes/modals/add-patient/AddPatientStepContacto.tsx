@@ -1,6 +1,7 @@
 'use client'
 
-import { SelectInput, TextInput, ToggleInput } from './AddPatientInputs'
+import React from 'react'
+import { SelectInput, TextInput, ToggleInput, validateEmail, validatePhone } from './AddPatientInputs'
 
 type Props = {
   recordatorios: boolean
@@ -27,6 +28,32 @@ export default function AddPatientStepContacto({
   referidoPor,
   onChangeReferidoPor
 }: Props) {
+  const [emailError, setEmailError] = React.useState<string | undefined>()
+  const [phoneError, setPhoneError] = React.useState<string | undefined>()
+
+  const handleEmailChange = (value: string) => {
+    onChangeEmail?.(value)
+    if (emailError) setEmailError(undefined)
+  }
+
+  const handleEmailBlur = () => {
+    if (email) {
+      const validation = validateEmail(email)
+      setEmailError(validation.error)
+    }
+  }
+
+  const handlePhoneChange = (value: string) => {
+    onChangeTelefono?.(value)
+    if (phoneError) setPhoneError(undefined)
+  }
+
+  const handlePhoneBlur = () => {
+    if (telefono) {
+      const validation = validatePhone(telefono)
+      setPhoneError(validation.error)
+    }
+  }
   return (
     <div className='left-[18.375rem] top-[10rem] absolute inline-flex flex-col justify-start items-start gap-6 w-[31.5rem] h-[43.25rem] overflow-y-auto overflow-x-clip pr-2 pb-2 scrollbar-hide'>
       <div className='inline-flex flex-col gap-2 w-full'>
@@ -48,10 +75,13 @@ export default function AddPatientStepContacto({
           </div>
           <div className='flex-1'>
             <TextInput
-              placeholder='Value'
+              placeholder='612 345 678'
               required
+              type='tel'
               value={telefono}
-              onChange={onChangeTelefono}
+              onChange={handlePhoneChange}
+              onBlur={handlePhoneBlur}
+              error={phoneError}
             />
           </div>
         </div>
@@ -62,10 +92,13 @@ export default function AddPatientStepContacto({
           Email
         </div>
         <TextInput
-          placeholder='Example@example.com'
+          placeholder='ejemplo@correo.com'
           required
+          type='email'
           value={email}
-          onChange={onChangeEmail}
+          onChange={handleEmailChange}
+          onBlur={handleEmailBlur}
+          error={emailError}
         />
       </div>
 

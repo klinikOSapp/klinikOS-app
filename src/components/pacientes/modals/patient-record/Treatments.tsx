@@ -251,11 +251,12 @@ type TreatmentRowProps = {
   onOpenMenu: (event: React.MouseEvent<HTMLButtonElement>) => void
   onUpdateField: (
     field: keyof TreatmentV2,
-    value: string | number | undefined
+    value: string | number | undefined | boolean
   ) => void
   onUpdateMultipleFields?: (updates: Partial<TreatmentV2>) => void
   isNewRow?: boolean
   onNewRowMounted?: () => void
+  isHistoryTable?: boolean // HU-011: Flag to show history-specific columns (fechaRealizacion, facturado)
 }
 
 function TreatmentRow({
@@ -265,7 +266,8 @@ function TreatmentRow({
   onUpdateField,
   onUpdateMultipleFields,
   isNewRow,
-  onNewRowMounted
+  onNewRowMounted,
+  isHistoryTable = false
 }: TreatmentRowProps) {
   const rowRef = React.useRef<HTMLTableRowElement>(null)
   const firstInputRef = React.useRef<HTMLInputElement>(null)
@@ -442,14 +444,53 @@ function TreatmentRow({
           {treatment.importe}
         </span>
       </TableBodyCell>
-      {/* Imp. seguro - Editable */}
-      <TableBodyCell width='6.875rem'>
-        <EditableCell
-          value={treatment.importeSeguro || ''}
-          onChange={(v) => onUpdateField('importeSeguro', v)}
-          placeholder='-'
-        />
-      </TableBodyCell>
+      
+      {/* HU-011: Columnas específicas de historial vs pendientes */}
+      {isHistoryTable ? (
+        <>
+          {/* Fecha realización - Solo historial */}
+          <TableBodyCell width='7rem'>
+            <span className='text-[0.875rem] leading-[1.25rem] text-[#24282C] px-1'>
+              {treatment.fechaRealizacion 
+                ? new Date(treatment.fechaRealizacion).toLocaleDateString('es-ES', { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: '2-digit' 
+                  })
+                : '-'}
+            </span>
+          </TableBodyCell>
+          {/* Facturado - Solo historial */}
+          <TableBodyCell width='5.5rem'>
+            <div className='flex items-center gap-1'>
+              {treatment.facturado ? (
+                <span className='inline-flex items-center px-2 py-0.5 rounded-full bg-[var(--color-brand-100)] text-[var(--color-brand-700)] text-[0.75rem] font-medium'>
+                  Sí
+                </span>
+              ) : (
+                <span className='inline-flex items-center px-2 py-0.5 rounded-full bg-[var(--color-neutral-100)] text-[var(--color-neutral-600)] text-[0.75rem] font-medium'>
+                  No
+                </span>
+              )}
+              {treatment.facturaNumero && (
+                <span className='text-[0.75rem] text-[var(--color-neutral-500)]'>
+                  #{treatment.facturaNumero}
+                </span>
+              )}
+            </div>
+          </TableBodyCell>
+        </>
+      ) : (
+        /* Imp. seguro - Solo pendientes (Editable) */
+        <TableBodyCell width='6.875rem'>
+          <EditableCell
+            value={treatment.importeSeguro || ''}
+            onChange={(v) => onUpdateField('importeSeguro', v)}
+            placeholder='-'
+          />
+        </TableBodyCell>
+      )}
+      
       {/* Descripción/Anotaciones - con ExpandedTextInput */}
       <TableBodyCell className='max-w-[21.375rem]'>
         <ExpandedTextInput
@@ -666,7 +707,7 @@ export default function Treatments({
   const updateField = (
     internalId: string,
     field: keyof TreatmentV2,
-    value: string | number | undefined,
+    value: string | number | boolean | undefined,
     section: 'pending' | 'history'
   ) => {
     if (section === 'pending') {
@@ -1106,7 +1147,7 @@ export default function Treatments({
           {/* Tabla Historial */}
           <div className='bg-white rounded-[0.5rem] overflow-hidden'>
             <div className='overflow-x-auto'>
-              <table className='w-full border-collapse min-w-[106rem]'>
+              <table className='w-full border-collapse min-w-[120rem]'>
                 <thead>
                   <tr className='bg-[#F8FAFB]'>
                     <TableHeaderCell
@@ -1117,18 +1158,21 @@ export default function Treatments({
                     <TableHeaderCell width='4.625rem'>Pieza</TableHeaderCell>
                     <TableHeaderCell width='6.625rem'>Cara</TableHeaderCell>
                     <TableHeaderCell width='5.875rem'>Código</TableHeaderCell>
-                    <TableHeaderCell width='19.5rem'>
+                    <TableHeaderCell width='16rem'>
                       Tratamiento
                     </TableHeaderCell>
                     <TableHeaderCell width='7.25rem'>Precio</TableHeaderCell>
-                    <TableHeaderCell width='5.5rem'>%</TableHeaderCell>
-                    <TableHeaderCell width='5.5rem'>Dto</TableHeaderCell>
+                    <TableHeaderCell width='5rem'>%</TableHeaderCell>
+                    <TableHeaderCell width='5rem'>Dto</TableHeaderCell>
                     <TableHeaderCell width='6.25rem'>Importe</TableHeaderCell>
-                    <TableHeaderCell width='6.875rem'>
-                      Imp. seguro
+                    <TableHeaderCell width='7rem'>
+                      Fecha realización
+                    </TableHeaderCell>
+                    <TableHeaderCell width='5.5rem'>
+                      Facturado
                     </TableHeaderCell>
                     <TableHeaderCell>Descripción/ Anotaciones</TableHeaderCell>
-                    <TableHeaderCell width='14.1875rem'>Doctor</TableHeaderCell>
+                    <TableHeaderCell width='12rem'>Doctor</TableHeaderCell>
                     <TableHeaderCell
                       width='2.25rem'
                       sticky
@@ -1162,6 +1206,7 @@ export default function Treatments({
                           'history'
                         )
                       }
+                      isHistoryTable={true}
                     />
                   ))}
                 </tbody>

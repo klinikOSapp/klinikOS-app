@@ -136,7 +136,28 @@ export default function ClinicalHistory({
 
   const handleSave = () => {
     if (selectedAppointment) {
-      updateSOAPNotes(selectedAppointment.id, editedNotes)
+      // Mark as finalized (not a draft)
+      const finalizedNotes = {
+        ...editedNotes,
+        isDraft: false,
+        finalizedAt: new Date().toISOString(),
+        finalizedBy: 'Dr. Usuario' // TODO: Get from auth context
+      }
+      updateSOAPNotes(selectedAppointment.id, finalizedNotes)
+      setIsEditing(false)
+    }
+  }
+
+  const handleSaveAsDraft = () => {
+    if (selectedAppointment) {
+      // Mark as draft
+      const draftNotes = {
+        ...editedNotes,
+        isDraft: true,
+        updatedAt: new Date().toISOString(),
+        updatedBy: 'Dr. Usuario' // TODO: Get from auth context
+      }
+      updateSOAPNotes(selectedAppointment.id, draftNotes)
       setIsEditing(false)
     }
   }
@@ -321,6 +342,7 @@ export default function ClinicalHistory({
               editedNotes={editedNotes}
               onEdit={handleEdit}
               onSave={handleSave}
+              onSaveAsDraft={handleSaveAsDraft}
               onCancel={handleCancel}
               onSOAPChange={handleSOAPChange}
               onTreatmentStatusChange={handleTreatmentStatusChange}
