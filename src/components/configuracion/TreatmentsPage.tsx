@@ -1235,6 +1235,12 @@ export default function TreatmentsPage() {
     // TODO: Implement add discount modal
   }, [])
 
+  // Configure discount limits
+  const handleConfigureDiscountLimits = useCallback(() => {
+    console.log('Configure discount limits')
+    // TODO: Implement discount limits configuration modal
+  }, [])
+
   return (
     <>
       {/* Section Header */}
