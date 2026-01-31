@@ -26,6 +26,7 @@ import {
   VisibilityRounded
 } from '@/components/icons/md3'
 import {
+  addBudgetType,
   convertBudgetTypeToTreatmentsV2,
   type BudgetTypeData
 } from '@/components/pacientes/shared/budgetTypeData'
@@ -1882,6 +1883,25 @@ export default function BudgetsPayments({
     []
   )
 
+  // State for creating new budget type
+  const [showCreateBudgetTypeModal, setShowCreateBudgetTypeModal] =
+    React.useState(false)
+
+  // Handler for opening the create new budget type modal
+  const handleCreateNewBudgetType = React.useCallback(() => {
+    setShowBudgetTypeModal(false)
+    setShowCreateBudgetTypeModal(true)
+  }, [])
+
+  // Handler for saving the new budget type
+  const handleSaveBudgetType = React.useCallback(
+    (budgetType: Omit<BudgetTypeData, 'id'>) => {
+      addBudgetType(budgetType)
+      setShowCreateBudgetTypeModal(false)
+    },
+    []
+  )
+
   // Handler to update production row status
   const handleProductionStatusChange = (
     rowId: string,
@@ -3200,6 +3220,15 @@ export default function BudgetsPayments({
         open={showBudgetTypeModal}
         onClose={() => setShowBudgetTypeModal(false)}
         onSelect={handleBudgetTypeSelect}
+        onCreateNew={handleCreateNewBudgetType}
+      />
+      {/* Modal para crear nuevo presupuesto tipo */}
+      <AddTreatmentsToBudgetModal
+        open={showCreateBudgetTypeModal}
+        onClose={() => setShowCreateBudgetTypeModal(false)}
+        onCreateBudget={() => {}}
+        onCreateBudgetType={handleSaveBudgetType}
+        mode='budgetType'
       />
       <AddProductionModal
         open={showAddProductionModal}

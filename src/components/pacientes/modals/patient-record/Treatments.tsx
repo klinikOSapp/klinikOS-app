@@ -14,6 +14,11 @@ import CatalogoTratamientos from '@/components/pacientes/shared/CatalogoTratamie
 import ExpandedTextInput from '@/components/pacientes/shared/ExpandedTextInput'
 import OdontogramaCompacto from '@/components/pacientes/shared/OdontogramaCompacto'
 import { RowActionsMenu } from '@/components/pacientes/shared/RowActionsMenu'
+import {
+  addBudgetType,
+  convertBudgetTypeToTreatmentsV2,
+  type BudgetTypeData
+} from '@/components/pacientes/shared/budgetTypeData'
 import type {
   OdontogramaState,
   TreatmentCatalogEntry,
@@ -27,6 +32,7 @@ import { setPendingAppointmentData } from '@/utils/appointmentPrefill'
 import { useRouter } from 'next/navigation'
 import React from 'react'
 import AddTreatmentsToBudgetModal from './AddTreatmentsToBudgetModal'
+import BudgetTypeListModal from './BudgetTypeListModal'
 import type { BudgetRow } from './BudgetsPayments'
 
 // ============================================
@@ -602,6 +608,44 @@ export default function Treatments({
 
   // Estado para mostrar el modal de crear presupuesto
   const [showBudgetModal, setShowBudgetModal] = React.useState(false)
+
+  // Estado para el modal de presupuestos tipo
+  const [showBudgetTypeModal, setShowBudgetTypeModal] = React.useState(false)
+  const [budgetTypeTreatments, setBudgetTypeTreatments] = React.useState<
+    TreatmentV2[] | undefined
+  >(undefined)
+  const [budgetTypeName, setBudgetTypeName] = React.useState<string>('')
+
+  // Estado para crear nuevo presupuesto tipo
+  const [showCreateBudgetTypeModal, setShowCreateBudgetTypeModal] =
+    React.useState(false)
+
+  // Handler para seleccionar un presupuesto tipo
+  const handleBudgetTypeSelect = React.useCallback(
+    (budgetType: BudgetTypeData) => {
+      const treatments = convertBudgetTypeToTreatmentsV2(budgetType)
+      setBudgetTypeTreatments(treatments)
+      setBudgetTypeName(budgetType.name)
+      setShowBudgetTypeModal(false)
+      setShowBudgetModal(true)
+    },
+    []
+  )
+
+  // Handler para abrir el modal de crear nuevo presupuesto tipo
+  const handleCreateNewBudgetType = React.useCallback(() => {
+    setShowBudgetTypeModal(false)
+    setShowCreateBudgetTypeModal(true)
+  }, [])
+
+  // Handler para guardar el nuevo presupuesto tipo
+  const handleSaveBudgetType = React.useCallback(
+    (budgetType: Omit<BudgetTypeData, 'id'>) => {
+      addBudgetType(budgetType)
+      setShowCreateBudgetTypeModal(false)
+    },
+    []
+  )
 
   // Handlers
   const handleToothClick = (toothId: number) => {
@@ -1355,6 +1399,7 @@ export default function Treatments({
           {/* Botón Presupuesto tipo */}
           <button
             type='button'
+            onClick={() => setShowBudgetTypeModal(true)}
             className='flex items-center gap-[0.5rem] px-[1rem] py-[0.5rem] rounded-full text-[1rem] leading-[1.5rem] font-medium text-[#24282C] hover:bg-[rgba(0,0,0,0.05)] transition-colors cursor-pointer'
           >
             <ElectricBoltRounded className='w-[1.5rem] h-[1.5rem]' />
@@ -1374,7 +1419,14 @@ export default function Treatments({
       {/* Modal para crear presupuesto con tratamientos pendientes */}
       <AddTreatmentsToBudgetModal
         open={showBudgetModal}
-        onClose={() => setShowBudgetModal(false)}
+        onClose={() => {
+          setShowBudgetModal(false)
+          // Clear budget type data when modal closes
+          setBudgetTypeTreatments(undefined)
+          setBudgetTypeName('')
+        }}
+        treatments={budgetTypeTreatments || pendingTreatments}
+        initialBudgetName={budgetTypeName}
         onCreateBudget={(treatments, budgetInfo) => {
           // Create budget row and add to the budgets table
           if (onAddBudget) {
@@ -1436,8 +1488,28 @@ export default function Treatments({
           onCreateBudget?.(treatments)
           // Close the modal
           setShowBudgetModal(false)
+          // Clear budget type data
+          setBudgetTypeTreatments(undefined)
+          setBudgetTypeName('')
         }}
+      />
+
+      {/* Modal para seleccionar presupuesto tipo */}
+      <BudgetTypeListModal
+        open={showBudgetTypeModal}
+        onClose={() => setShowBudgetTypeModal(false)}
+        onSelect={handleBudgetTypeSelect}
+        onCreateNew={handleCreateNewBudgetType}
+      />
+
+      {/* Modal para crear nuevo presupuesto tipo */}
+      <AddTreatmentsToBudgetModal
+        open={showCreateBudgetTypeModal}
+        onClose={() => setShowCreateBudgetTypeModal(false)}
+        onCreateBudget={() => {}}
+        onCreateBudgetType={handleSaveBudgetType}
         treatments={pendingTreatments}
+        mode='budgetType'
       />
     </div>
   )

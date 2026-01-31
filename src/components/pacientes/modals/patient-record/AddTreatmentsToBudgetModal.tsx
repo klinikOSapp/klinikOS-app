@@ -13,6 +13,7 @@ import {
   PictureAsPdfRounded,
   SearchRounded
 } from '@/components/icons/md3'
+import type { BudgetTypeData } from '@/components/pacientes/shared/budgetTypeData'
 import CatalogoTratamientos from '@/components/pacientes/shared/CatalogoTratamientos'
 import ExpandedTextInput from '@/components/pacientes/shared/ExpandedTextInput'
 import OdontogramaCompacto from '@/components/pacientes/shared/OdontogramaCompacto'
@@ -531,7 +532,7 @@ function BudgetPdfPreview({
             onClick={onConfirm}
             className='flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#51D6C7] text-[0.875rem] font-medium text-[#1E4947] hover:bg-[#3ECBBB] transition-colors cursor-pointer'
           >
-            <span>Confirmar presupuesto</span>
+            <span>Guardar presupuesto</span>
           </button>
         </div>
       </div>
@@ -565,16 +566,20 @@ type AddTreatmentsToBudgetModalProps = {
   open: boolean
   onClose: () => void
   onCreateBudget: (selectedTreatments: TreatmentV2[], budgetInfo: BudgetInfo) => void
+  onCreateBudgetType?: (budgetType: Omit<BudgetTypeData, 'id'>) => void
   treatments?: TreatmentV2[]
   initialBudgetName?: string
+  mode?: 'budget' | 'budgetType'
 }
 
 export default function AddTreatmentsToBudgetModal({
   open,
   onClose,
   onCreateBudget,
+  onCreateBudgetType,
   treatments: initialTreatments = PENDING_TREATMENTS_V2,
-  initialBudgetName = ''
+  initialBudgetName = '',
+  mode = 'budget'
 }: AddTreatmentsToBudgetModalProps) {
   const [mounted, setMounted] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState('')
@@ -1025,6 +1030,32 @@ export default function AddTreatmentsToBudgetModal({
     setIsPreviewMode(false)
   }, [generatedDocument])
 
+  // Handle create budget type (when in budgetType mode)
+  const handleCreateBudgetType = useCallback(() => {
+    if (selectedCount === 0 || !onCreateBudgetType) return
+
+    // Convert TreatmentV2 to BudgetTypeTreatment format
+    const budgetTypeTreatments = selectedTreatments.map((t) => ({
+      codigo: t.codigo,
+      tratamiento: t.tratamiento,
+      precio: parsePriceToNumber(t.precio),
+      pieza: t.pieza,
+      cara: t.cara
+    }))
+
+    // Create budget type data
+    const budgetType: Omit<BudgetTypeData, 'id'> = {
+      name: budgetName || `Presupuesto tipo ${new Date().toLocaleDateString('es-ES')}`,
+      description: `${selectedCount} tratamiento${selectedCount !== 1 ? 's' : ''}`,
+      treatments: budgetTypeTreatments,
+      totalPrice: totalFinal,
+      isActive: true
+    }
+
+    onCreateBudgetType(budgetType)
+    onClose()
+  }, [selectedCount, selectedTreatments, budgetName, totalFinal, onCreateBudgetType, onClose])
+
   // Calcular total del tratamiento seleccionado
   const calculateTotal = () => {
     if (!selectedCatalogTreatment || selectedTeeth.length === 0) return '0 €'
@@ -1076,7 +1107,7 @@ export default function AddTreatmentsToBudgetModal({
                   className='text-[0.9375rem] leading-[1.375rem] font-medium text-neutral-900'
                   data-node-id='3439:7422'
                 >
-                  Añadir tratamientos a presupuesto
+                  {mode === 'budgetType' ? 'Crear presupuesto tipo' : 'Añadir tratamientos a presupuesto'}
                 </p>
                 <button
                   type='button'
@@ -1104,7 +1135,7 @@ export default function AddTreatmentsToBudgetModal({
                           setIsEditingName(false)
                         }
                       }}
-                      placeholder='Nombre del presupuesto...'
+                      placeholder={mode === 'budgetType' ? 'Nombre del presupuesto tipo...' : 'Nombre del presupuesto...'}
                       className='flex-1 max-w-[24rem] px-3 py-1.5 text-[0.9375rem] font-medium text-[#24282C] bg-[#F4F8FA] border border-[var(--color-brand-400)] rounded-lg outline-none focus:ring-2 focus:ring-[var(--color-brand-200)]'
                       autoFocus
                     />
@@ -1119,7 +1150,7 @@ export default function AddTreatmentsToBudgetModal({
                     >
                       <EditRounded className='w-[1rem] h-[1rem] text-[#AEB8C2] group-hover:text-[var(--color-brand-500)] transition-colors' />
                       <span className='text-[0.9375rem] font-medium text-[#24282C]'>
-                        {budgetName || 'Nuevo presupuesto'}
+                        {budgetName || (mode === 'budgetType' ? 'Nuevo presupuesto tipo' : 'Nuevo presupuesto')}
                       </span>
                     </button>
                   )}
@@ -1625,7 +1656,7 @@ export default function AddTreatmentsToBudgetModal({
                       </button>
                       <button
                         type='button'
-                        onClick={handleCreateBudget}
+                        onClick={mode === 'budgetType' ? handleCreateBudgetType : handleCreateBudget}
                         disabled={selectedCount === 0 || isGenerating}
                         className={[
                           'px-4 py-1.5 rounded-full text-[0.75rem] font-medium transition-colors',
@@ -1634,7 +1665,11 @@ export default function AddTreatmentsToBudgetModal({
                             : 'bg-[#51D6C7] text-[#1E4947] hover:bg-[#3ECBBB] cursor-pointer'
                         ].join(' ')}
                       >
-                        {isGenerating ? 'Generando...' : 'Crear presupuesto'}
+                        {isGenerating 
+                          ? 'Generando...' 
+                          : mode === 'budgetType' 
+                            ? 'Guardar presupuesto tipo' 
+                            : 'Crear presupuesto'}
                       </button>
                     </div>
                   </div>

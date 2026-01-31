@@ -1,6 +1,6 @@
 'use client'
 
-import { CloseRounded, SearchRounded } from '@/components/icons/md3'
+import { AddRounded, CloseRounded, SearchRounded } from '@/components/icons/md3'
 import {
   BUDGET_TYPES_DATA,
   type BudgetTypeData
@@ -22,6 +22,7 @@ type BudgetTypeListModalProps = {
   open: boolean
   onClose: () => void
   onSelect: (budgetType: BudgetTypeData) => void
+  onCreateNew?: () => void
 }
 
 // ============================================
@@ -69,7 +70,8 @@ function BudgetTypeRow({
 export default function BudgetTypeListModal({
   open,
   onClose,
-  onSelect
+  onSelect,
+  onCreateNew
 }: BudgetTypeListModalProps) {
   const [mounted, setMounted] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState('')
@@ -216,13 +218,25 @@ export default function BudgetTypeListModal({
                   <p className='text-[0.8125rem] text-[#535C66]'>
                     Selecciona un presupuesto tipo para añadirlo al paciente
                   </p>
-                  <button
-                    type='button'
-                    onClick={onClose}
-                    className='px-4 py-2 rounded-full border border-[#CBD3D9] bg-white text-[0.875rem] font-medium text-[#24282C] hover:bg-[#F0F2F4] transition-colors cursor-pointer'
-                  >
-                    Cancelar
-                  </button>
+                  <div className='flex items-center gap-3'>
+                    {onCreateNew && (
+                      <button
+                        type='button'
+                        onClick={onCreateNew}
+                        className='flex items-center gap-2 px-4 py-2 rounded-full bg-[#51D6C7] text-[0.875rem] font-medium text-[#1E4947] hover:bg-[#3ECBBB] transition-colors cursor-pointer'
+                      >
+                        <AddRounded className='size-5' />
+                        Crear nuevo
+                      </button>
+                    )}
+                    <button
+                      type='button'
+                      onClick={onClose}
+                      className='px-4 py-2 rounded-full border border-[#CBD3D9] bg-white text-[0.875rem] font-medium text-[#24282C] hover:bg-[#F0F2F4] transition-colors cursor-pointer'
+                    >
+                      Cancelar
+                    </button>
+                  </div>
                 </footer>
               </div>
             </div>

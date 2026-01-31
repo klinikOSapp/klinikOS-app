@@ -74,7 +74,10 @@ export default function CajaPage() {
                   }}
                 >
                   <div className='w-full min-w-0'>
-                    <CashSummaryCard timeScale={timeScale} onHeightChange={handleSummaryHeight} />
+                    <CashSummaryCard
+                      timeScale={timeScale}
+                      onHeightChange={handleSummaryHeight}
+                    />
                   </div>
                   <div className='w-full min-w-0'>
                     <CashTrendCard

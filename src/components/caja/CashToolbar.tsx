@@ -65,7 +65,9 @@ export default function CashToolbar({
 }: CashToolbarProps) {
   const [isClosingModalOpen, setIsClosingModalOpen] = useState(false)
   const [isScaleDropdownOpen, setIsScaleDropdownOpen] = useState(false)
-  const [selectedClosingDate, setSelectedClosingDate] = useState<string | undefined>()
+  const [selectedClosingDate, setSelectedClosingDate] = useState<
+    string | undefined
+  >()
   const scaleDropdownRef = useRef<HTMLDivElement | null>(null)
 
   // Get closing context
