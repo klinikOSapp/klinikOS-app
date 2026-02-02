@@ -101,35 +101,31 @@ export default function RxImages({ onClose }: RxImagesProps) {
 
   return (
     <div
-      className='bg-[#f8fafb] relative w-full h-full'
+      className='bg-[#f8fafb] w-full h-full flex flex-col overflow-hidden'
       data-node-id='457:41'
     >
       {/* Header */}
       <div
-        className='absolute bg-[#f8fafb] content-stretch flex flex-col gap-[8px] items-start left-[32px] top-[40px] w-[568px]'
+        className='shrink-0 bg-[#f8fafb] flex flex-col gap-[8px] items-start px-8 pt-10 pb-6'
         data-name='Header'
       >
-        <div className='content-stretch flex gap-[8px] items-center relative shrink-0'>
-          <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-[#24282c] text-title-lg text-nowrap whitespace-pre">
+        <div className='flex gap-[8px] items-center'>
+          <p className="font-['Inter:Regular',_sans-serif] text-[#24282c] text-title-lg whitespace-pre">
             Imágenes RX
           </p>
         </div>
-        <p className="font-['Inter:Regular',_sans-serif] min-w-full relative shrink-0 text-[#24282c] text-body-sm w-[min-content]">
+        <p className="font-['Inter:Regular',_sans-serif] text-[#24282c] text-body-sm">
           Consulta las imágenes radiológicas de tus pacientes, así como añadir
           anotaciones para el resto del equipo.
         </p>
       </div>
 
-      {/* Card - anchor to left/right to avoid rounding overflow */}
+      {/* Card - grows to fill available space */}
       <div
-        className='absolute bg-white border border-[#e2e7ea] border-solid rounded-[8px]'
-        style={{ left: 32, right: 32, top: 164, height: 683 }}
+        className='flex-1 min-h-0 mx-8 mb-8 bg-white border border-[#e2e7ea] border-solid rounded-[8px] overflow-hidden'
         data-node-id='457:95'
       >
-        <div
-          className='relative rounded-[inherit] px-plnav py-fluid-md'
-          style={{ height: 683 }}
-        >
+        <div className='h-full flex flex-col p-4'>
           {/* Hidden file input */}
           <input
             ref={fileInputRef}
@@ -140,19 +136,22 @@ export default function RxImages({ onClose }: RxImagesProps) {
             className="hidden"
           />
 
-          {/* Add RX button */}
-          <button
-            type='button'
-            onClick={handleAddClick}
-            className='absolute right-4 top-4 bg-[#f8fafb] border border-[#cbd3d9] px-4 py-2 rounded-[136px] inline-flex items-center gap-2 text-body-md text-[#24282c] cursor-pointer hover:bg-[var(--color-brand-50)] hover:border-[var(--color-brand-400)] transition-colors'
-          >
-            <AddPhotoAlternateRounded className='size-[24px]' />
-            <span className='text-body-md text-[#24282c]'>Añadir RX</span>
-          </button>
+          {/* Header row with Add RX button */}
+          <div className='shrink-0 flex justify-end mb-4'>
+            <button
+              type='button'
+              onClick={handleAddClick}
+              className='bg-[#f8fafb] border border-[#cbd3d9] px-4 py-2 rounded-[136px] inline-flex items-center gap-2 text-body-md text-[#24282c] cursor-pointer hover:bg-[var(--color-brand-50)] hover:border-[var(--color-brand-400)] transition-colors'
+            >
+              <AddPhotoAlternateRounded className='size-[24px]' />
+              <span className='text-body-md text-[#24282c]'>Añadir RX</span>
+            </button>
+          </div>
 
-          {/* Left thumbnails rail with vertical scroll */}
-          <div className='absolute left-4 top-[72px] bottom-4 w-[208px]'>
-            <div className='h-full overflow-y-auto pr-2 rxThumbs'>
+          {/* Content row with thumbnails and viewer */}
+          <div className='flex-1 min-h-0 flex gap-4'>
+            {/* Left thumbnails rail with vertical scroll */}
+            <div className='shrink-0 w-[208px] overflow-y-auto pr-2 rxThumbs'>
               {images.map((img) => (
                 <div 
                   key={img.id} 
@@ -207,57 +206,51 @@ export default function RxImages({ onClose }: RxImagesProps) {
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Main image viewer */}
-          <div
-            className='absolute rounded-[8px] overflow-hidden border border-[#cbd3d9] bg-[#3d434a] group'
-            style={{ left: 240, right: 16, top: 72, height: 448 }}
-          >
-            {selectedImage?.url ? (
-              <img 
-                src={selectedImage.url} 
-                alt={selectedImage.name}
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <div className='w-full h-full grid place-items-center'>
-                <ImageRounded className='text-white size-[64px]' />
+            {/* Right column: viewer + info */}
+            <div className='flex-1 min-w-0 flex flex-col gap-4'>
+              {/* Main image viewer */}
+              <div className='flex-1 min-h-0 rounded-[8px] overflow-hidden border border-[#cbd3d9] bg-[#3d434a] group relative'>
+                {selectedImage?.url ? (
+                  <img 
+                    src={selectedImage.url} 
+                    alt={selectedImage.name}
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <div className='w-full h-full grid place-items-center'>
+                    <ImageRounded className='text-white size-[64px]' />
+                  </div>
+                )}
+                
+                {/* HU-018: Open advanced viewer button */}
+                <button
+                  type='button'
+                  onClick={() => setViewerOpen(true)}
+                  className='absolute top-3 right-3 p-2 bg-black/60 hover:bg-black/80 rounded-lg opacity-0 group-hover:opacity-100 transition-all'
+                  aria-label='Abrir visor avanzado'
+                  title='Visor avanzado (zoom, brillo, contraste, comparación)'
+                >
+                  <FullscreenRounded className='size-6 text-white' />
+                </button>
               </div>
-            )}
-            
-            {/* HU-018: Open advanced viewer button */}
-            <button
-              type='button'
-              onClick={() => setViewerOpen(true)}
-              className='absolute top-3 right-3 p-2 bg-black/60 hover:bg-black/80 rounded-lg opacity-0 group-hover:opacity-100 transition-all'
-              aria-label='Abrir visor avanzado'
-              title='Visor avanzado (zoom, brillo, contraste, comparación)'
-            >
-              <FullscreenRounded className='size-6 text-white' />
-            </button>
-          </div>
 
-          {/* Title row */}
-          <div
-            className='absolute flex items-center justify-between'
-            style={{ left: 240, right: 16, top: 536 }}
-          >
-            <p className='text-title-lg text-[#24282c]'>
-              {selectedImage?.name || 'Sin imagen seleccionada'}
-            </p>
-            <p className='text-label-sm text-[#24282c]'>
-              {selectedImage?.date || ''}
-            </p>
-          </div>
+              {/* Title row */}
+              <div className='shrink-0 flex items-center justify-between'>
+                <p className='text-title-lg text-[#24282c]'>
+                  {selectedImage?.name || 'Sin imagen seleccionada'}
+                </p>
+                <p className='text-label-sm text-[#24282c]'>
+                  {selectedImage?.date || ''}
+                </p>
+              </div>
 
-          {/* Description */}
-          <p
-            className='absolute text-body-md text-[#24282c]'
-            style={{ left: 240, right: 16, top: 584 }}
-          >
-            {selectedImage?.description || 'Sin descripción disponible.'}
-          </p>
+              {/* Description */}
+              <p className='shrink-0 text-body-md text-[#24282c]'>
+                {selectedImage?.description || 'Sin descripción disponible.'}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
       <style jsx>{`

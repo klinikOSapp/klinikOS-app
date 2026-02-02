@@ -1,6 +1,5 @@
 'use client'
 
-import React from 'react'
 import type { VisitSOAPNotes } from '@/context/AppointmentsContext'
 
 type SOAPField = 'subjective' | 'objective' | 'assessment' | 'plan'
@@ -51,7 +50,10 @@ export default function SOAPNotesEditor({
   return (
     <div className='flex flex-col gap-5'>
       {SOAP_FIELDS.map((field) => (
-        <div key={field.key} className='flex flex-col gap-[var(--spacing-gapsm)]'>
+        <div
+          key={field.key}
+          className='flex flex-col gap-[var(--spacing-gapsm)]'
+        >
           <div className='flex flex-col'>
             <p className="font-['Inter:Medium',_sans-serif] text-[var(--color-neutral-900)] text-body-md">
               {field.title}
@@ -78,11 +80,12 @@ export default function SOAPNotesEditor({
           )}
         </div>
       ))}
-      
+
       {/* Last updated info */}
       {notes?.updatedAt && (
         <p className="font-['Inter:Regular',_sans-serif] text-[var(--color-neutral-400)] text-label-sm">
-          Última actualización: {new Date(notes.updatedAt).toLocaleString('es-ES')}
+          Última actualización:{' '}
+          {new Date(notes.updatedAt).toLocaleString('es-ES')}
           {notes.updatedBy && ` por ${notes.updatedBy}`}
         </p>
       )}

@@ -447,7 +447,7 @@ export default function CreateAppointmentModal({
   initialData
 }: CreateAppointmentModalProps) {
   const { isTimeSlotBlocked } = useAppointments()
-  const { getPatientsForSelect, getPendingTreatments, getPatientById } = usePatients()
+  const { getPatientsForSelect, getPendingTreatments, getPatientById, resetTreatmentsForNextAppointment, updateTreatment } = usePatients()
   const [formData, setFormData] = useState<AppointmentFormData>(() => getEmptyFormData())
   const [blockFormData, setBlockFormData] = useState<BlockFormData>(() => getEmptyBlockFormData())
   const [blockConflictError, setBlockConflictError] = useState<string | null>(null)
@@ -474,10 +474,10 @@ export default function CreateAppointmentModal({
     if (patientId) {
       // Get pending treatments for this patient
       const treatments = getPendingTreatments(patientId)
-      // Mark treatments with status 'Pendiente' as pre-selected
+      // Pre-select treatments that are marked for next appointment in the Treatments tab
       const selectableTreatments: SelectableTreatment[] = treatments.map(t => ({
         ...t,
-        selected: t.status === 'Pendiente'
+        selected: t.markedForNextAppointment || false
       }))
       setPendingTreatments(selectableTreatments)
     } else {
@@ -560,6 +560,18 @@ export default function CreateAppointmentModal({
         linkedTreatments: selectedTreatments
       }
       onSubmit?.(dataWithTreatments)
+      
+      // Update treatment status to 'En curso' for all selected treatments
+      if (formData.pacienteId && selectedTreatments.length > 0) {
+        selectedTreatments.forEach(t => {
+          updateTreatment(formData.pacienteId, t.id, { status: 'En curso' })
+        })
+      }
+      
+      // Reset treatment selections in context after creating appointment
+      if (formData.pacienteId) {
+        resetTreatmentsForNextAppointment(formData.pacienteId)
+      }
     }
     setFormData(getEmptyFormData())
     setBlockFormData(getEmptyBlockFormData())
@@ -894,15 +906,6 @@ export default function CreateAppointmentModal({
                               <p className='text-sm font-semibold text-gray-900'>
                                 {treatment.amount}
                               </p>
-                              <span className={`inline-flex text-xs px-1.5 py-0.5 rounded ${
-                                treatment.status === 'Pendiente' 
-                                  ? 'bg-blue-100 text-blue-700'
-                                  : treatment.status === 'En curso'
-                                    ? 'bg-amber-100 text-amber-700'
-                                    : 'bg-gray-100 text-gray-600'
-                              }`}>
-                                {treatment.status}
-                              </span>
                             </div>
                           </button>
                         ))}

@@ -8,22 +8,35 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import Portal from '@/components/ui/Portal'
 import { useAppointments, type PaymentRecord } from '@/context/AppointmentsContext'
+import { useCashClosing } from '@/context/CashClosingContext'
+import type { PaymentMethod, Receipt } from '@/types/payments'
+
+// Import modals
+import GenerateInvoicePrompt from './GenerateInvoicePrompt'
+import InvoiceDetailsModal from '@/components/pacientes/modals/patient-record/InvoiceDetailsModal'
+import NewPaymentModal, { type NewPaymentFormData } from './NewPaymentModal'
+import ReceiptPreviewModal from './ReceiptPreviewModal'
 
 type InvoiceStatus = 'Cobrado' | 'Por cobrar'
 type ProductionState = 'Hecho' | 'Pendiente'
 type PaymentCategory = 'Efectivo' | 'TPV' | 'Financiación'
 
 type CashMovement = {
+  id?: string // ID de la transacción
   date: string // ISO date YYYY-MM-DD (para filtros)
   time: string
   patient: string
+  patientId?: string // ID del paciente
   concept: string
   amount: string
+  numericAmount?: number // Importe numérico
   status: InvoiceStatus
   produced: ProductionState
   method: string
   insurer: string
   paymentCategory: PaymentCategory
+  invoiceId?: string | null // ID de factura asociada
+  budgetId?: string | null // ID de presupuesto (para pagos de cuotas)
 }
 
 type ColumnId =
@@ -55,112 +68,157 @@ type CashMovementsTableProps = {
 
 const MOVEMENTS: CashMovement[] = [
   {
+    id: 'mov-001',
     date: '2024-12-15',
     time: '15 Dic. 2024',
     patient: 'Carlos Martínez Pérez',
+    patientId: 'pat-mock-001',
     concept: 'Operación mandíbula',
     amount: '2.300 €',
+    numericAmount: 2300,
     status: 'Cobrado',
     produced: 'Hecho',
     method: 'Financiado',
     insurer: 'Adeslas',
-    paymentCategory: 'Financiación'
+    paymentCategory: 'Financiación',
+    invoiceId: 'inv-mock-001',
+    budgetId: null
   },
   {
+    id: 'mov-002',
     date: '2024-12-15',
     time: '15 Dic. 2024',
     patient: 'Nacho Nieto Iniesta',
+    patientId: 'pat-mock-002',
     concept: 'Consulta inicial',
     amount: '150 €',
+    numericAmount: 150,
     status: 'Cobrado',
     produced: 'Hecho',
     method: 'TPV',
     insurer: 'Sanitas',
-    paymentCategory: 'TPV'
+    paymentCategory: 'TPV',
+    invoiceId: 'inv-mock-002',
+    budgetId: null
   },
   {
+    id: 'mov-003',
     date: '2024-12-16',
     time: '16 Dic. 2024',
     patient: 'Sofía Rodríguez López',
+    patientId: 'pat-mock-003',
     concept: 'Radiografía',
     amount: '100 €',
+    numericAmount: 100,
     status: 'Por cobrar',
     produced: 'Pendiente',
     method: 'Efectivo',
     insurer: 'DKV',
-    paymentCategory: 'Efectivo'
+    paymentCategory: 'Efectivo',
+    invoiceId: null,
+    budgetId: null
   },
   {
+    id: 'mov-004',
     date: '2024-12-16',
     time: '16 Dic. 2024',
     patient: 'Elena García Santos',
+    patientId: 'pat-mock-004',
     concept: 'Extracción de muela',
     amount: '500 €',
+    numericAmount: 500,
     status: 'Cobrado',
     produced: 'Pendiente',
     method: 'Tarjeta de crédito',
     insurer: 'DKV',
-    paymentCategory: 'TPV'
+    paymentCategory: 'TPV',
+    invoiceId: 'inv-mock-004',
+    budgetId: null
   },
   {
+    id: 'mov-005',
     date: '2024-12-17',
     time: '17 Dic. 2024',
     patient: 'Javier Fernández Torres',
+    patientId: 'pat-mock-005',
     concept: 'Implante dental',
     amount: '1.200 €',
+    numericAmount: 1200,
     status: 'Cobrado',
     produced: 'Hecho',
     method: 'Transferencia bancaria',
     insurer: 'Adelas',
-    paymentCategory: 'Financiación'
+    paymentCategory: 'Financiación',
+    invoiceId: 'inv-mock-005',
+    budgetId: null
   },
   {
+    id: 'mov-006',
     date: '2024-12-17',
     time: '17 Dic. 2024',
     patient: 'Lucía Pérez Gómez',
+    patientId: 'pat-mock-006',
     concept: 'Férula de descarga',
     amount: '300 €',
+    numericAmount: 300,
     status: 'Por cobrar',
     produced: 'Pendiente',
     method: 'Billetera digital',
     insurer: 'Sanitas',
-    paymentCategory: 'TPV'
+    paymentCategory: 'TPV',
+    invoiceId: null,
+    budgetId: null
   },
   {
+    id: 'mov-007',
     date: '2024-12-18',
     time: '18 Dic. 2024',
     patient: 'Andrés Jiménez Ortega',
+    patientId: 'pat-mock-007',
     concept: 'Tratamiento de ortodoncia',
     amount: '1.800 €',
+    numericAmount: 1800,
     status: 'Cobrado',
     produced: 'Pendiente',
     method: 'Criptomonedas',
     insurer: 'DKV',
-    paymentCategory: 'TPV'
+    paymentCategory: 'TPV',
+    invoiceId: 'inv-mock-007',
+    budgetId: null
   },
   {
+    id: 'mov-008',
     date: '2024-12-18',
     time: '18 Dic. 2024',
     patient: 'María del Mar Ruiz',
+    patientId: 'pat-mock-008',
     concept: 'Consulta de seguimiento',
     amount: '100 €',
+    numericAmount: 100,
     status: 'Por cobrar',
     produced: 'Pendiente',
     method: 'Cheque',
     insurer: 'Sanitas',
-    paymentCategory: 'Efectivo'
+    paymentCategory: 'Efectivo',
+    invoiceId: null,
+    budgetId: null
   },
   {
+    id: 'mov-009',
     date: '2024-12-19',
     time: '19 Dic. 2024',
     patient: 'Pablo Sánchez Delgado',
+    patientId: 'pat-mock-009',
     concept: 'Blanqueamiento dental',
     amount: '400 €',
+    numericAmount: 400,
     status: 'Por cobrar',
     produced: 'Pendiente',
     method: 'Pago a plazos',
     insurer: 'Sanitas',
-    paymentCategory: 'Financiación'
+    paymentCategory: 'Financiación',
+    invoiceId: null,
+    budgetId: 'budget-mock-001'
   }
 ]
 
@@ -247,16 +305,21 @@ function paymentRecordToMovement(payment: PaymentRecord): CashMovement {
   }
   
   return {
+    id: payment.id,
     date: payment.paymentDate.toISOString().split('T')[0],
     time: dateStr,
     patient: payment.patientName,
+    patientId: payment.patientId,
     concept: payment.treatment,
     amount: `${payment.amount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} ${payment.currency}`,
+    numericAmount: payment.amount,
     status: 'Cobrado',
     produced: 'Hecho',
     method: payment.paymentMethod.charAt(0).toUpperCase() + payment.paymentMethod.slice(1),
     insurer: '—',
-    paymentCategory: methodToCategory[payment.paymentMethod.toLowerCase()] ?? 'Efectivo'
+    paymentCategory: methodToCategory[payment.paymentMethod.toLowerCase()] ?? 'Efectivo',
+    invoiceId: null,
+    budgetId: null
   }
 }
 
@@ -265,6 +328,12 @@ export default function CashMovementsTable({
 }: CashMovementsTableProps) {
   // Obtener pagos del contexto
   const { payments } = useAppointments()
+  const { 
+    registerSimplePayment, 
+    generateReceipt, 
+    generateInvoiceForTransaction,
+    getReceiptByTransaction 
+  } = useCashClosing()
   
   const [query, setQuery] = useState('')
   const [fromDateInput, setFromDateInput] = useState('')
@@ -301,6 +370,14 @@ export default function CashMovementsTable({
     })
     return map
   })
+
+  // Modal states
+  const [selectedMovement, setSelectedMovement] = useState<CashMovement | null>(null)
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  const [showGenerateInvoicePrompt, setShowGenerateInvoicePrompt] = useState(false)
+  const [showNewPaymentModal, setShowNewPaymentModal] = useState(false)
+  const [showReceiptModal, setShowReceiptModal] = useState(false)
+  const [currentReceipt, setCurrentReceipt] = useState<Receipt | null>(null)
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
@@ -457,18 +534,29 @@ export default function CashMovementsTable({
                 setOpenActionsMenu(null)
               }}
               onViewInvoice={() => {
-                // TODO: Implementar ver factura
-                console.log('Ver factura para:', movement.patient)
+                setSelectedMovement(movement)
+                if (movement.invoiceId) {
+                  // Tiene factura - mostrar detalles
+                  setShowInvoiceModal(true)
+                } else {
+                  // No tiene factura - preguntar si generar
+                  setShowGenerateInvoicePrompt(true)
+                }
                 setOpenActionsMenu(null)
               }}
               onNewPayment={() => {
-                // TODO: Implementar nuevo pago
-                console.log('Nuevo pago para:', movement.patient)
+                setSelectedMovement(movement)
+                setShowNewPaymentModal(true)
                 setOpenActionsMenu(null)
               }}
               onPrintReceipt={() => {
-                // TODO: Implementar impresión de recibo
-                console.log('Imprimir recibo para:', movement.patient)
+                setSelectedMovement(movement)
+                // Check if receipt already exists
+                const existingReceipt = movement.id 
+                  ? getReceiptByTransaction(movement.id) 
+                  : null
+                setCurrentReceipt(existingReceipt ?? null)
+                setShowReceiptModal(true)
                 setOpenActionsMenu(null)
               }}
               onStatusChange={(newStatus) => {
@@ -639,6 +727,148 @@ export default function CashMovementsTable({
         <PaginationIcon icon='chevron_right' ariaLabel='Página siguiente' />
         <PaginationIcon icon='last_page' ariaLabel='Última página' />
       </div>
+
+      {/* Modal: Generate Invoice Prompt */}
+      <GenerateInvoicePrompt
+        open={showGenerateInvoicePrompt}
+        onClose={() => {
+          setShowGenerateInvoicePrompt(false)
+          setSelectedMovement(null)
+        }}
+        onConfirm={() => {
+          if (selectedMovement?.id) {
+            // Generate invoice
+            generateInvoiceForTransaction(selectedMovement.id)
+            // Then show invoice details
+            setShowGenerateInvoicePrompt(false)
+            setShowInvoiceModal(true)
+          }
+        }}
+        patientName={selectedMovement?.patient ?? ''}
+        concept={selectedMovement?.concept ?? ''}
+        amount={selectedMovement?.amount ?? ''}
+      />
+
+      {/* Modal: Invoice Details */}
+      <InvoiceDetailsModal
+        open={showInvoiceModal}
+        onClose={() => {
+          setShowInvoiceModal(false)
+          setSelectedMovement(null)
+        }}
+        invoiceId={selectedMovement?.invoiceId ?? `INV-${Date.now()}`}
+        description={selectedMovement?.concept ?? ''}
+        amount={selectedMovement?.amount ?? '0 €'}
+        date={selectedMovement?.time ?? ''}
+        status={selectedMovement?.status === 'Cobrado' ? 'Cobrado' : 'Pendiente'}
+        paymentMethod={selectedMovement?.method ?? ''}
+        insurer={selectedMovement?.insurer ?? ''}
+        patientName={selectedMovement?.patient ?? ''}
+        onDownloadPdf={() => {
+          console.log('Download PDF for invoice')
+        }}
+        onSendEmail={() => {
+          console.log('Send invoice by email')
+        }}
+      />
+
+      {/* Modal: New Payment */}
+      <NewPaymentModal
+        open={showNewPaymentModal}
+        onClose={() => {
+          setShowNewPaymentModal(false)
+          setSelectedMovement(null)
+        }}
+        onSubmit={(data: NewPaymentFormData) => {
+          if (selectedMovement) {
+            // Map payment method from modal to context type
+            const methodMap: Record<PaymentMethod, 'efectivo' | 'tpv' | 'transferencia' | 'financiacion' | 'otros'> = {
+              efectivo: 'efectivo',
+              tarjeta: 'tpv',
+              transferencia: 'transferencia',
+              financiacion: 'financiacion',
+              otros: 'otros'
+            }
+
+            // Register the payment (creates new transaction)
+            const newTransaction = registerSimplePayment({
+              patientId: selectedMovement.patientId ?? 'unknown',
+              patientName: selectedMovement.patient,
+              concept: `Pago: ${selectedMovement.concept}`,
+              amount: data.amount,
+              paymentMethod: methodMap[data.paymentMethod] ?? 'efectivo',
+              originalTransactionId: selectedMovement.id,
+              reference: data.reference,
+              generateReceipt: data.generateReceipt,
+              generateInvoice: data.generateInvoice
+            })
+
+            // Update row status to "Cobrado" if full amount was paid
+            const pendingAmount = selectedMovement.numericAmount ?? 
+              parseFloat(selectedMovement.amount?.replace(/[^\d,.-]/g, '').replace(',', '.') ?? '0') ?? 0
+            if (data.amount >= pendingAmount) {
+              const rowId = `${selectedMovement.time}-${selectedMovement.patient}`
+              setRowStatuses((prev) => ({ ...prev, [rowId]: 'Cobrado' }))
+            }
+
+            // Generate receipt if requested
+            if (data.generateReceipt && newTransaction) {
+              const receipt = generateReceipt({
+                transactionId: newTransaction.id,
+                patientId: selectedMovement.patientId ?? 'unknown',
+                patientName: selectedMovement.patient,
+                concept: `Pago: ${selectedMovement.concept}`,
+                amount: data.amount,
+                paymentMethod: data.paymentMethod,
+                paymentReference: data.reference
+              })
+              setCurrentReceipt(receipt)
+              setShowReceiptModal(true)
+            }
+
+            // Generate invoice if requested
+            if (data.generateInvoice && newTransaction) {
+              generateInvoiceForTransaction(newTransaction.id)
+            }
+          }
+        }}
+        patientId={selectedMovement?.patientId ?? ''}
+        patientName={selectedMovement?.patient ?? ''}
+        concept={selectedMovement?.concept ?? ''}
+        pendingAmount={selectedMovement?.numericAmount ?? parseFloat(selectedMovement?.amount?.replace(/[^\d,.-]/g, '').replace(',', '.') ?? '0') ?? 0}
+        originalTransactionId={selectedMovement?.id ?? ''}
+      />
+
+      {/* Modal: Receipt Preview */}
+      <ReceiptPreviewModal
+        open={showReceiptModal}
+        onClose={() => {
+          setShowReceiptModal(false)
+          setSelectedMovement(null)
+          setCurrentReceipt(null)
+        }}
+        receipt={currentReceipt}
+        transactionData={selectedMovement ? {
+          patientName: selectedMovement.patient,
+          concept: selectedMovement.concept,
+          amount: selectedMovement.numericAmount ?? parseFloat(selectedMovement.amount?.replace(/[^\d,.-]/g, '').replace(',', '.') ?? '0') ?? 0,
+          paymentMethod: (selectedMovement.method?.toLowerCase() as PaymentMethod) ?? 'efectivo',
+          date: selectedMovement.date
+        } : undefined}
+        onGenerateReceipt={() => {
+          if (selectedMovement && !currentReceipt) {
+            const receipt = generateReceipt({
+              transactionId: selectedMovement.id ?? `temp-${Date.now()}`,
+              patientId: selectedMovement.patientId ?? 'unknown',
+              patientName: selectedMovement.patient,
+              concept: selectedMovement.concept,
+              amount: selectedMovement.numericAmount ?? parseFloat(selectedMovement.amount?.replace(/[^\d,.-]/g, '').replace(',', '.') ?? '0') ?? 0,
+              paymentMethod: (selectedMovement.method?.toLowerCase() as PaymentMethod) ?? 'efectivo'
+            })
+            setCurrentReceipt(receipt)
+          }
+        }}
+      />
     </section>
   )
 }

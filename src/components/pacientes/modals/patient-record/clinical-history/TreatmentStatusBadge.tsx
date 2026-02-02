@@ -1,7 +1,7 @@
 'use client'
 
-import React from 'react'
 import type { LinkedTreatmentStatus } from '@/context/AppointmentsContext'
+import React from 'react'
 import { TREATMENT_STATUS_CONFIG } from './types'
 
 type TreatmentStatusBadgeProps = {
@@ -26,7 +26,10 @@ export default function TreatmentStatusBadge({
   // Close dropdown when clicking outside
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false)
       }
     }
@@ -37,9 +40,8 @@ export default function TreatmentStatusBadge({
     }
   }, [isOpen])
 
-  const sizeClasses = size === 'sm' 
-    ? 'px-2 py-0.5 text-label-sm' 
-    : 'px-3 py-1 text-body-sm'
+  const sizeClasses =
+    size === 'sm' ? 'px-2 py-0.5 text-label-sm' : 'px-3 py-1 text-body-sm'
 
   const handleClick = () => {
     if (showDropdown && onStatusChange) {
@@ -62,7 +64,11 @@ export default function TreatmentStatusBadge({
         className={[
           'rounded-full font-medium transition-opacity',
           sizeClasses,
-          showDropdown ? 'cursor-pointer hover:opacity-80' : onClick ? 'cursor-pointer' : 'cursor-default'
+          showDropdown
+            ? 'cursor-pointer hover:opacity-80'
+            : onClick
+              ? 'cursor-pointer'
+              : 'cursor-default'
         ].join(' ')}
         style={{
           backgroundColor: config.bgColor,
@@ -75,10 +81,12 @@ export default function TreatmentStatusBadge({
       {/* Dropdown menu */}
       {showDropdown && isOpen && (
         <div className='absolute top-full left-0 mt-1 z-50 bg-white rounded-lg shadow-lg border border-[var(--color-neutral-200)] py-1 min-w-[140px]'>
-          {(Object.keys(TREATMENT_STATUS_CONFIG) as LinkedTreatmentStatus[]).map((statusOption) => {
+          {(
+            Object.keys(TREATMENT_STATUS_CONFIG) as LinkedTreatmentStatus[]
+          ).map((statusOption) => {
             const optionConfig = TREATMENT_STATUS_CONFIG[statusOption]
             const isSelected = statusOption === status
-            
+
             return (
               <button
                 key={statusOption}
@@ -86,7 +94,9 @@ export default function TreatmentStatusBadge({
                 onClick={() => handleStatusSelect(statusOption)}
                 className={[
                   'w-full text-left px-3 py-2 text-body-sm transition-colors',
-                  isSelected ? 'bg-[var(--color-neutral-50)]' : 'hover:bg-[var(--color-neutral-50)]'
+                  isSelected
+                    ? 'bg-[var(--color-neutral-50)]'
+                    : 'hover:bg-[var(--color-neutral-50)]'
                 ].join(' ')}
               >
                 <div className='flex items-center gap-2'>

@@ -7,6 +7,13 @@ import React, {
   useMemo,
   useState
 } from 'react'
+import type {
+  Receipt,
+  RegisterSimplePaymentData,
+  GenerateReceiptData,
+  PaymentMethod
+} from '@/types/payments'
+import { generateReceiptNumber } from '@/types/payments'
 
 // ─────────────────────────────────────────────────────────────
 // Types - Estructura compatible con Supabase (PostgreSQL)
@@ -73,13 +80,20 @@ export type CashTransaction = {
   patient_name: string
   concept: string
   amount: number // decimal(10,2)
-  payment_method: 'efectivo' | 'tpv' | 'transferencia' | 'financiacion' | 'otros'
+  payment_method:
+    | 'efectivo'
+    | 'tpv'
+    | 'transferencia'
+    | 'financiacion'
+    | 'otros'
   payment_status: 'cobrado' | 'pendiente'
   production_status: 'hecho' | 'pendiente'
 
   // Optional references
   invoice_id: string | null // uuid, FK to invoices
   appointment_id: string | null // uuid, FK to appointments
+  budget_id?: string | null // uuid, FK to budgets (para pagos de cuotas)
+  installment_ids?: string[] | null // IDs de las cuotas pagadas
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -96,10 +110,54 @@ const MOCK_USER_ID = 'user-001'
 // ─────────────────────────────────────────────────────────────
 export const MOCK_TRANSACTIONS: CashTransaction[] = [
   // ─────────────────────────────────────────────────────────────
+  // Enero 2026 - Pagos de cuotas de presupuestos formales
+  // ─────────────────────────────────────────────────────────────
+
+  // 2 Ene - Ana Martínez - Cuota 5/10 Invisalign
+  {
+    id: 'tx-20260102-cuota-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260102',
+    transaction_date: '2026-01-02',
+    created_at: '2026-01-02T09:45:00Z',
+    patient_id: 'pat-003',
+    patient_name: 'Ana Martínez Sánchez',
+    concept: 'Cuota 5/10 - Presupuesto Invisalign completo',
+    amount: 350,
+    payment_method: 'tpv',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260102-01',
+    appointment_id: null,
+    budget_id: 'budget-003-01',
+    installment_ids: ['inst-003-01-5']
+  },
+
+  // 3 Ene - Miguel Gómez - Cuota 8/12 Implante
+  {
+    id: 'tx-20260103-cuota-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260103',
+    transaction_date: '2026-01-03',
+    created_at: '2026-01-03T09:30:00Z',
+    patient_id: 'pat-008',
+    patient_name: 'Miguel Gómez Hernández',
+    concept: 'Cuota 8/12 - Presupuesto Implante pieza 46',
+    amount: 120.83,
+    payment_method: 'tpv',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260103-cuota',
+    appointment_id: null,
+    budget_id: 'budget-008-01',
+    installment_ids: ['inst-008-01-8']
+  },
+
+  // ─────────────────────────────────────────────────────────────
   // Enero 2026 - Citas completadas con pagos
   // ─────────────────────────────────────────────────────────────
-  
-  // 3 Ene - Miguel Gómez (implante)
+
+  // 3 Ene - Miguel Gómez (cita de control)
   {
     id: 'tx-20260103-01',
     clinic_id: MOCK_CLINIC_ID,
@@ -108,13 +166,15 @@ export const MOCK_TRANSACTIONS: CashTransaction[] = [
     created_at: '2026-01-03T11:30:00Z',
     patient_id: 'pat-008',
     patient_name: 'Miguel Gómez Hernández',
-    concept: 'Implante 46 - Fase 1 (cuota 4)',
-    amount: 100,
-    payment_method: 'financiacion',
+    concept: 'Control implante 46',
+    amount: 0,
+    payment_method: 'efectivo',
     payment_status: 'cobrado',
     production_status: 'hecho',
-    invoice_id: 'inv-20260103-01',
-    appointment_id: 'apt-008-01'
+    invoice_id: null,
+    appointment_id: 'apt-008-01',
+    budget_id: null,
+    installment_ids: null
   },
 
   // 6 Ene - Ana Martínez (Invisalign) + Beatriz (limpieza)
@@ -132,7 +192,9 @@ export const MOCK_TRANSACTIONS: CashTransaction[] = [
     payment_status: 'cobrado',
     production_status: 'hecho',
     invoice_id: 'inv-20260106-01',
-    appointment_id: 'apt-003-01'
+    appointment_id: 'apt-003-01',
+    budget_id: null,
+    installment_ids: null
   },
   {
     id: 'tx-20260106-02',
@@ -148,7 +210,9 @@ export const MOCK_TRANSACTIONS: CashTransaction[] = [
     payment_status: 'cobrado',
     production_status: 'hecho',
     invoice_id: 'inv-20260106-02',
-    appointment_id: 'apt-015-01'
+    appointment_id: 'apt-015-01',
+    budget_id: null,
+    installment_ids: null
   },
 
   // 7 Ene - Laura Fernández (Invisalign)
@@ -166,7 +230,9 @@ export const MOCK_TRANSACTIONS: CashTransaction[] = [
     payment_status: 'cobrado',
     production_status: 'hecho',
     invoice_id: 'inv-20260107-01',
-    appointment_id: 'apt-005-01'
+    appointment_id: 'apt-005-01',
+    budget_id: null,
+    installment_ids: null
   },
 
   // 8 Ene - María García (revisión) + Sofía Navarro (consulta)
@@ -184,7 +250,9 @@ export const MOCK_TRANSACTIONS: CashTransaction[] = [
     payment_status: 'cobrado',
     production_status: 'hecho',
     invoice_id: 'inv-20260108-01',
-    appointment_id: 'apt-001-01'
+    appointment_id: 'apt-001-01',
+    budget_id: null,
+    installment_ids: null
   },
   {
     id: 'tx-20260108-02',
@@ -200,7 +268,9 @@ export const MOCK_TRANSACTIONS: CashTransaction[] = [
     payment_status: 'cobrado',
     production_status: 'hecho',
     invoice_id: 'inv-20260108-02',
-    appointment_id: 'apt-007-01'
+    appointment_id: 'apt-007-01',
+    budget_id: null,
+    installment_ids: null
   },
 
   // 9 Ene - Pablo López (pediátrico)
@@ -218,10 +288,12 @@ export const MOCK_TRANSACTIONS: CashTransaction[] = [
     payment_status: 'cobrado',
     production_status: 'hecho',
     invoice_id: 'inv-20260109-01',
-    appointment_id: 'apt-004-01'
+    appointment_id: 'apt-004-01',
+    budget_id: null,
+    installment_ids: null
   },
 
-  // 10 Ene - Carlos Rodríguez + Miguel Gómez (control)
+  // 10 Ene - Carlos Rodríguez (cita + cuota presupuesto)
   {
     id: 'tx-20260110-01',
     clinic_id: MOCK_CLINIC_ID,
@@ -236,7 +308,28 @@ export const MOCK_TRANSACTIONS: CashTransaction[] = [
     payment_status: 'cobrado',
     production_status: 'hecho',
     invoice_id: 'inv-20260110-01',
-    appointment_id: 'apt-002-01'
+    appointment_id: 'apt-002-01',
+    budget_id: null,
+    installment_ids: null
+  },
+  // 10 Ene - Carlos Rodríguez - Cuota 1/3 Endodoncia + Corona
+  {
+    id: 'tx-20260110-cuota-01',
+    clinic_id: MOCK_CLINIC_ID,
+    closing_id: 'closing-20260110',
+    transaction_date: '2026-01-10',
+    created_at: '2026-01-10T11:15:00Z',
+    patient_id: 'pat-002',
+    patient_name: 'Carlos Rodríguez Fernández',
+    concept: 'Cuota 1/3 - Presupuesto Endodoncia y corona molar 36',
+    amount: 256.67,
+    payment_method: 'tpv',
+    payment_status: 'cobrado',
+    production_status: 'hecho',
+    invoice_id: 'inv-20260110-cuota',
+    appointment_id: null,
+    budget_id: 'budget-002-01',
+    installment_ids: ['inst-002-01-1']
   },
 
   // 13 Ene - Ana (limpieza) + Fernando (impresiones)
@@ -778,7 +871,13 @@ const INITIAL_MOCK_CLOSINGS: CashClosing[] = [
     total_expenses: 0,
     cash_outflow: 0,
     final_balance: 200,
-    income_by_method: { efectivo: 0, tpv: 0, transferencia: 0, financiacion: 100, otros: 0 },
+    income_by_method: {
+      efectivo: 0,
+      tpv: 0,
+      transferencia: 0,
+      financiacion: 100,
+      otros: 0
+    },
     transaction_count: 1,
     status: 'closed',
     notes: null
@@ -795,7 +894,13 @@ const INITIAL_MOCK_CLOSINGS: CashClosing[] = [
     total_expenses: 0,
     cash_outflow: 100,
     final_balance: 247,
-    income_by_method: { efectivo: 0, tpv: 72, transferencia: 0, financiacion: 175, otros: 0 },
+    income_by_method: {
+      efectivo: 0,
+      tpv: 72,
+      transferencia: 0,
+      financiacion: 175,
+      otros: 0
+    },
     transaction_count: 2,
     status: 'closed',
     notes: null
@@ -812,7 +917,13 @@ const INITIAL_MOCK_CLOSINGS: CashClosing[] = [
     total_expenses: 0,
     cash_outflow: 50,
     final_balance: 140,
-    income_by_method: { efectivo: 45, tpv: 45, transferencia: 0, financiacion: 0, otros: 0 },
+    income_by_method: {
+      efectivo: 45,
+      tpv: 45,
+      transferencia: 0,
+      financiacion: 0,
+      otros: 0
+    },
     transaction_count: 2,
     status: 'closed',
     notes: null
@@ -829,7 +940,13 @@ const INITIAL_MOCK_CLOSINGS: CashClosing[] = [
     total_expenses: 0,
     cash_outflow: 0,
     final_balance: 185,
-    income_by_method: { efectivo: 85, tpv: 0, transferencia: 0, financiacion: 0, otros: 0 },
+    income_by_method: {
+      efectivo: 85,
+      tpv: 0,
+      transferencia: 0,
+      financiacion: 0,
+      otros: 0
+    },
     transaction_count: 2,
     status: 'closed',
     notes: 'Antonio Pérez pendiente de pago'
@@ -846,7 +963,13 @@ const INITIAL_MOCK_CLOSINGS: CashClosing[] = [
     total_expenses: 0,
     cash_outflow: 300,
     final_balance: 672,
-    income_by_method: { efectivo: 72, tpv: 0, transferencia: 800, financiacion: 0, otros: 0 },
+    income_by_method: {
+      efectivo: 72,
+      tpv: 0,
+      transferencia: 800,
+      financiacion: 0,
+      otros: 0
+    },
     transaction_count: 2,
     status: 'closed',
     notes: 'Implante Sofía Navarro - transferencia recibida'
@@ -863,7 +986,13 @@ const INITIAL_MOCK_CLOSINGS: CashClosing[] = [
     total_expenses: 0,
     cash_outflow: 100,
     final_balance: 215,
-    income_by_method: { efectivo: 40, tpv: 0, transferencia: 0, financiacion: 175, otros: 0 },
+    income_by_method: {
+      efectivo: 40,
+      tpv: 0,
+      transferencia: 0,
+      financiacion: 175,
+      otros: 0
+    },
     transaction_count: 2,
     status: 'closed',
     notes: null
@@ -880,7 +1009,13 @@ const INITIAL_MOCK_CLOSINGS: CashClosing[] = [
     total_expenses: 0,
     cash_outflow: 0,
     final_balance: 100,
-    income_by_method: { efectivo: 0, tpv: 0, transferencia: 0, financiacion: 0, otros: 0 },
+    income_by_method: {
+      efectivo: 0,
+      tpv: 0,
+      transferencia: 0,
+      financiacion: 0,
+      otros: 0
+    },
     transaction_count: 2,
     status: 'closed',
     notes: 'Javier Moreno pendiente 120€ (raspado Q1)'
@@ -891,20 +1026,43 @@ const INITIAL_MOCK_CLOSINGS: CashClosing[] = [
 // Context Types
 // ─────────────────────────────────────────────────────────────
 
+// Datos para registrar pago de cuotas de presupuesto
+export type RegisterBudgetPaymentInput = {
+  patientId: string
+  patientName: string
+  budgetId: string
+  budgetDescription: string
+  amount: number
+  paymentMethod: CashTransaction['payment_method']
+  installmentIds: string[]
+  reference?: string
+}
+
 type CashClosingContextValue = {
   // State
   closings: CashClosing[]
   transactions: CashTransaction[]
+  receipts: Receipt[]
 
   // Queries
   getClosingByDate: (date: string) => CashClosing | undefined
   isDayClosed: (date: string) => boolean
   getTransactionsByDate: (date: string) => CashTransaction[]
   getDaySummary: (date: string) => DaySummary
+  getReceiptsByPatient: (patientId: string) => Receipt[]
+  getReceiptByTransaction: (transactionId: string) => Receipt | undefined
 
   // Mutations
   closeDay: (date: string, cashOutflow: number, notes?: string) => CashClosing
   reopenDay: (date: string) => void
+  registerBudgetPayment: (data: RegisterBudgetPaymentInput) => CashTransaction
+  registerSimplePayment: (data: RegisterSimplePaymentData) => CashTransaction
+  generateReceipt: (data: GenerateReceiptData) => Receipt
+  updateTransactionStatus: (
+    transactionId: string,
+    status: 'cobrado' | 'pendiente'
+  ) => void
+  generateInvoiceForTransaction: (transactionId: string) => string // Returns invoice_id
 
   // Available dates (days with transactions)
   getAvailableDates: () => string[]
@@ -941,7 +1099,8 @@ export function CashClosingProvider({
   children: React.ReactNode
 }) {
   const [closings, setClosings] = useState<CashClosing[]>(INITIAL_MOCK_CLOSINGS)
-  const [transactions] = useState<CashTransaction[]>(MOCK_TRANSACTIONS)
+  const [transactions, setTransactions] = useState<CashTransaction[]>(MOCK_TRANSACTIONS)
+  const [receipts, setReceipts] = useState<Receipt[]>([])
 
   const getClosingByDate = useCallback(
     (date: string) => {
@@ -1045,11 +1204,141 @@ export function CashClosingProvider({
     setClosings((prev) =>
       prev.map((c) =>
         c.closing_date === date
-          ? { ...c, status: 'reopened' as const, updated_at: new Date().toISOString() }
+          ? {
+              ...c,
+              status: 'reopened' as const,
+              updated_at: new Date().toISOString()
+            }
           : c
       )
     )
   }, [])
+
+  // Registrar pago de cuotas de presupuesto
+  const registerBudgetPayment = useCallback(
+    (data: RegisterBudgetPaymentInput): CashTransaction => {
+      const today = new Date().toISOString().split('T')[0]
+      const newTransaction: CashTransaction = {
+        id: `tx-budget-${Date.now()}`,
+        clinic_id: 'clinic-001',
+        closing_id: null,
+        transaction_date: today,
+        created_at: new Date().toISOString(),
+        patient_id: data.patientId,
+        patient_name: data.patientName,
+        concept: `Cuota presupuesto: ${data.budgetDescription}`,
+        amount: data.amount,
+        payment_method: data.paymentMethod,
+        payment_status: 'cobrado',
+        production_status: 'hecho',
+        invoice_id: null,
+        appointment_id: null,
+        budget_id: data.budgetId,
+        installment_ids: data.installmentIds
+      }
+
+      setTransactions((prev) => [newTransaction, ...prev])
+      return newTransaction
+    },
+    []
+  )
+
+  // Registrar pago simple (no de presupuesto)
+  const registerSimplePayment = useCallback(
+    (data: RegisterSimplePaymentData): CashTransaction => {
+      const today = new Date().toISOString().split('T')[0]
+      const newTransaction: CashTransaction = {
+        id: `tx-payment-${Date.now()}`,
+        clinic_id: MOCK_CLINIC_ID,
+        closing_id: null,
+        transaction_date: today,
+        created_at: new Date().toISOString(),
+        patient_id: data.patientId,
+        patient_name: data.patientName,
+        concept: data.concept,
+        amount: data.amount,
+        payment_method: data.paymentMethod as CashTransaction['payment_method'],
+        payment_status: 'cobrado',
+        production_status: 'hecho',
+        invoice_id: null,
+        appointment_id: null,
+        budget_id: null,
+        installment_ids: null
+      }
+
+      setTransactions((prev) => [newTransaction, ...prev])
+      return newTransaction
+    },
+    []
+  )
+
+  // Generar y guardar recibo
+  const generateReceipt = useCallback(
+    (data: GenerateReceiptData): Receipt => {
+      const receipt: Receipt = {
+        id: `receipt-${Date.now()}`,
+        receiptNumber: generateReceiptNumber(),
+        date: new Date().toISOString(),
+        patientId: data.patientId,
+        patientName: data.patientName,
+        concept: data.concept,
+        amount: data.amount,
+        paymentMethod: data.paymentMethod,
+        paymentReference: data.paymentReference,
+        transactionId: data.transactionId,
+        createdAt: new Date().toISOString(),
+        clinicName: 'Clínica Dental KlinikOS',
+        clinicNIF: 'B12345678',
+        clinicAddress: 'Calle Ejemplo 123, Madrid'
+      }
+
+      setReceipts((prev) => [...prev, receipt])
+      return receipt
+    },
+    []
+  )
+
+  // Obtener recibos por paciente
+  const getReceiptsByPatient = useCallback(
+    (patientId: string): Receipt[] => {
+      return receipts.filter((r) => r.patientId === patientId)
+    },
+    [receipts]
+  )
+
+  // Obtener recibo por transacción
+  const getReceiptByTransaction = useCallback(
+    (transactionId: string): Receipt | undefined => {
+      return receipts.find((r) => r.transactionId === transactionId)
+    },
+    [receipts]
+  )
+
+  // Actualizar estado de transacción
+  const updateTransactionStatus = useCallback(
+    (transactionId: string, status: 'cobrado' | 'pendiente') => {
+      setTransactions((prev) =>
+        prev.map((t) =>
+          t.id === transactionId ? { ...t, payment_status: status } : t
+        )
+      )
+    },
+    []
+  )
+
+  // Generar factura para transacción
+  const generateInvoiceForTransaction = useCallback(
+    (transactionId: string): string => {
+      const invoiceId = `inv-${Date.now()}`
+      setTransactions((prev) =>
+        prev.map((t) =>
+          t.id === transactionId ? { ...t, invoice_id: invoiceId } : t
+        )
+      )
+      return invoiceId
+    },
+    []
+  )
 
   const getAvailableDates = useCallback(() => {
     const dates = new Set(transactions.map((t) => t.transaction_date))
@@ -1060,23 +1349,39 @@ export function CashClosingProvider({
     () => ({
       closings,
       transactions,
+      receipts,
       getClosingByDate,
       isDayClosed,
       getTransactionsByDate,
       getDaySummary,
+      getReceiptsByPatient,
+      getReceiptByTransaction,
       closeDay,
       reopenDay,
+      registerBudgetPayment,
+      registerSimplePayment,
+      generateReceipt,
+      updateTransactionStatus,
+      generateInvoiceForTransaction,
       getAvailableDates
     }),
     [
       closings,
       transactions,
+      receipts,
       getClosingByDate,
       isDayClosed,
       getTransactionsByDate,
       getDaySummary,
+      getReceiptsByPatient,
+      getReceiptByTransaction,
       closeDay,
       reopenDay,
+      registerBudgetPayment,
+      registerSimplePayment,
+      generateReceipt,
+      updateTransactionStatus,
+      generateInvoiceForTransaction,
       getAvailableDates
     ]
   )

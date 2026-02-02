@@ -12,17 +12,31 @@ import type {
 } from 'react'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
-import type { AppointmentFormData, BlockFormData } from './modals/CreateAppointmentModal'
+import type {
+  AppointmentFormData,
+  BlockFormData
+} from './modals/CreateAppointmentModal'
 
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import RegisterPaymentModal from '@/components/pacientes/modals/patient-record/RegisterPaymentModal'
+import type { BlockType } from '@/context/AppointmentsContext'
+import { BLOCK_TYPE_CONFIG } from '@/context/AppointmentsContext'
+import AgendaBlockCard from './AgendaBlockCard'
 import AppointmentContextMenu, {
   type ContextMenuAction
 } from './AppointmentContextMenu'
-import AgendaBlockCard from './AgendaBlockCard'
 import AppointmentSummaryCard from './AppointmentSummaryCard'
 import DayCalendar from './DayCalendar'
 import MonthCalendar from './MonthCalendar'
+import SlotDragSelection, {
+  getSelectionBounds,
+  type SlotDragState
+} from './SlotDragSelection'
+import { slotIndexToTime } from './TimeIndicator'
+import {
+  VisitStatusCountersCompact,
+  VisitStatusDropdown
+} from './VisitStatusCounters'
 import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
 import CreateAppointmentModal from './modals/CreateAppointmentModal'
 import type {
@@ -31,16 +45,8 @@ import type {
   EventDetail,
   EventSelection,
   VisitStatus,
-  Weekday,
-  AgendaBlock
+  Weekday
 } from './types'
-import type { BlockType } from '@/context/AppointmentsContext'
-import { BLOCK_TYPE_CONFIG } from '@/context/AppointmentsContext'
-import { VISIT_STATUS_CONFIG, VISIT_STATUS_ORDER } from './types'
-import VisitStatusMenu from './VisitStatusMenu'
-import { VisitStatusCountersCompact, VisitStatusDropdown } from './VisitStatusCounters'
-import TimeIndicator, { slotIndexToTime } from './TimeIndicator'
-import SlotDragSelection, { type SlotDragState, getSelectionBounds } from './SlotDragSelection'
 
 type SpecialistAvailability = {
   id: string
@@ -2458,8 +2464,8 @@ function HeaderLabels({
                   cell.tone === 'neutral'
                     ? 'text-[var(--color-neutral-600)]'
                     : cell.tone === 'brand'
-                    ? 'text-[var(--color-brand-500)]'
-                    : 'text-[var(--color-neutral-900)]'
+                      ? 'text-[var(--color-brand-500)]'
+                      : 'text-[var(--color-neutral-900)]'
                 ].join(' ')}
               >
                 {cell.label}
@@ -2677,7 +2683,10 @@ function DayGrid({
     event: AgendaEvent
   ) => void
   visitStatusMap?: Record<string, VisitStatus>
-  visitStatusHistoryMap?: Record<string, Array<{ status: VisitStatus; timestamp: Date }>>
+  visitStatusHistoryMap?: Record<
+    string,
+    Array<{ status: VisitStatus; timestamp: Date }>
+  >
   onVisitStatusChange?: (eventId: string, newStatus: VisitStatus) => void
   confirmedEvents?: Record<string, boolean>
   showConfirmedOnly?: boolean
@@ -2692,9 +2701,18 @@ function DayGrid({
   // Quick appointment creation props
   hoverSlotIndex?: number | null
   hoverBoxId?: string | null
-  onHoverSlotChange?: (slotIndex: number | null, columnId: string, boxId: string | null) => void
+  onHoverSlotChange?: (
+    slotIndex: number | null,
+    columnId: string,
+    boxId: string | null
+  ) => void
   slotDragState?: SlotDragState | null
-  onSlotDragStart?: (slotIndex: number, columnId: string, boxId: string, clientY: number) => void
+  onSlotDragStart?: (
+    slotIndex: number,
+    columnId: string,
+    boxId: string,
+    clientY: number
+  ) => void
   onSlotDragMove?: (slotIndex: number) => void
   onSlotDragEnd?: () => void
 }) {
@@ -2761,7 +2779,7 @@ function DayGrid({
     for (const boxName of visibleBoxNames) {
       const layout = boxLayout[boxName]
       if (!layout) continue
-      
+
       // Parse percentage values
       const leftPercent = parseFloat(layout.left) / 100
       const widthPercent = parseFloat(layout.width) / 100
@@ -2772,7 +2790,7 @@ function DayGrid({
         return boxName
       }
     }
-    
+
     // Fallback to first box
     return visibleBoxNames[0] || null
   }
@@ -2781,7 +2799,7 @@ function DayGrid({
   const handleGridMouseMove = (event: ReactMouseEvent<HTMLDivElement>) => {
     // Don't update hover if dragging an existing appointment
     if (draggingEventId) return
-    
+
     const target = event.target as HTMLElement | null
     if (target && target.closest('[data-appointment-card="true"]')) {
       onHoverSlotChange?.(null, column.id, null)
@@ -2809,7 +2827,7 @@ function DayGrid({
   const handleGridMouseDown = (event: ReactMouseEvent<HTMLDivElement>) => {
     // Only handle left click
     if (event.button !== 0) return
-    
+
     const target = event.target as HTMLElement | null
     if (target && target.closest('[data-appointment-card="true"]')) {
       return
@@ -2823,7 +2841,7 @@ function DayGrid({
     if (boxId) {
       onSlotDragStart?.(slotIndex, column.id, boxId, event.clientY)
     }
-    
+
     // Clear any existing selection
     onClearSelection()
     event.preventDefault()
@@ -2863,14 +2881,16 @@ function DayGrid({
   const slotHeightRem = 2.5 // var(--scheduler-slot-height-quarter)
 
   // Show time indicator if hovering this column and not dragging
-  const showTimeIndicator = hoverSlotIndex !== null && 
-    hoverSlotIndex !== undefined && 
+  const showTimeIndicator =
+    hoverSlotIndex !== null &&
+    hoverSlotIndex !== undefined &&
     hoverBoxId !== null &&
     !slotDragState?.isDragging &&
     !draggingEventId
 
   // Show drag selection if dragging in this column
-  const showDragSelection = slotDragState?.isDragging && slotDragState.columnId === column.id
+  const showDragSelection =
+    slotDragState?.isDragging && slotDragState.columnId === column.id
 
   // Get layout for the hovered/dragged box
   const getBoxLayoutStyle = (boxId: string | null | undefined) => {
@@ -2902,52 +2922,58 @@ function DayGrid({
       onMouseDown={handleGridMouseDown}
     >
       {/* Time indicator on hover - positioned within the hovered box */}
-      {showTimeIndicator && hoverSlotIndex !== null && hoverBoxId && (() => {
-        const hoverLayout = getBoxLayoutStyle(hoverBoxId)
-        return (
-          <div
-            className='pointer-events-none absolute z-[3]'
-            style={{
-              top: `${hoverSlotIndex * slotHeightRem}rem`,
-              left: hoverLayout.left,
-              width: hoverLayout.width,
-              transform: 'translateY(-50%)'
-            }}
-          >
-            {/* Time badge */}
-            <div className='flex items-center'>
-              <div className='flex items-center justify-center rounded-[0.25rem] bg-[var(--color-brand-500)] px-[0.5rem] py-[0.125rem]'>
-                <span className='text-[0.75rem] font-medium leading-[1rem] text-white'>
-                  {slotIndexToTime(hoverSlotIndex, START_HOUR, MINUTES_STEP)}
-                </span>
+      {showTimeIndicator &&
+        hoverSlotIndex !== null &&
+        hoverBoxId &&
+        (() => {
+          const hoverLayout = getBoxLayoutStyle(hoverBoxId)
+          return (
+            <div
+              className='pointer-events-none absolute z-[3]'
+              style={{
+                top: `${hoverSlotIndex * slotHeightRem}rem`,
+                left: hoverLayout.left,
+                width: hoverLayout.width,
+                transform: 'translateY(-50%)'
+              }}
+            >
+              {/* Time badge */}
+              <div className='flex items-center'>
+                <div className='flex items-center justify-center rounded-[0.25rem] bg-[var(--color-brand-500)] px-[0.5rem] py-[0.125rem]'>
+                  <span className='text-[0.75rem] font-medium leading-[1rem] text-white'>
+                    {slotIndexToTime(hoverSlotIndex, START_HOUR, MINUTES_STEP)}
+                  </span>
+                </div>
+                <div className='h-[2px] flex-1 border-t-2 border-dashed border-[var(--color-brand-400)]' />
               </div>
-              <div className='h-[2px] flex-1 border-t-2 border-dashed border-[var(--color-brand-400)]' />
             </div>
-          </div>
-        )
-      })()}
+          )
+        })()}
 
       {/* Drag selection overlay - positioned within the selected box */}
-      {showDragSelection && slotDragState && slotDragState.boxId && (() => {
-        const { minSlot, maxSlot, slotCount } = getSelectionBounds(
-          slotDragState.startSlot,
-          slotDragState.currentSlot
-        )
-        const durationMinutes = slotCount * MINUTES_STEP
-        const dragLayout = getBoxLayoutStyle(slotDragState.boxId)
-        return (
-          <SlotDragSelection
-            top={`${minSlot * slotHeightRem}rem`}
-            height={`${slotCount * slotHeightRem}rem`}
-            left={dragLayout.left}
-            width={dragLayout.width}
-            startTime={slotIndexToTime(minSlot, START_HOUR, MINUTES_STEP)}
-            endTime={slotIndexToTime(maxSlot + 1, START_HOUR, MINUTES_STEP)}
-            durationMinutes={durationMinutes}
-            visible
-          />
-        )
-      })()}
+      {showDragSelection &&
+        slotDragState &&
+        slotDragState.boxId &&
+        (() => {
+          const { minSlot, maxSlot, slotCount } = getSelectionBounds(
+            slotDragState.startSlot,
+            slotDragState.currentSlot
+          )
+          const durationMinutes = slotCount * MINUTES_STEP
+          const dragLayout = getBoxLayoutStyle(slotDragState.boxId)
+          return (
+            <SlotDragSelection
+              top={`${minSlot * slotHeightRem}rem`}
+              height={`${slotCount * slotHeightRem}rem`}
+              left={dragLayout.left}
+              width={dragLayout.width}
+              startTime={slotIndexToTime(minSlot, START_HOUR, MINUTES_STEP)}
+              endTime={slotIndexToTime(maxSlot + 1, START_HOUR, MINUTES_STEP)}
+              durationMinutes={durationMinutes}
+              visible
+            />
+          )
+        })()}
 
       {/* Líneas horizontales para cada 15 min */}
       <div
@@ -2992,12 +3018,16 @@ function DayGrid({
             left={block.left}
             width={block.width}
             isActive={activeBlockId === block.id}
-            isHovered={hoveredBlockId === block.id && activeBlockId !== block.id}
+            isHovered={
+              hoveredBlockId === block.id && activeBlockId !== block.id
+            }
             onHover={() => onBlockHover?.(block.id)}
             onLeave={() => onBlockHover?.(null)}
             onActivate={() => onBlockActivate?.(block.id)}
             onEdit={() => onEditBlock?.(block.id)}
-            onDelete={(deleteRecurrence) => onDeleteBlock?.(block.id, deleteRecurrence)}
+            onDelete={(deleteRecurrence) =>
+              onDeleteBlock?.(block.id, deleteRecurrence)
+            }
           />
         ))}
       </div>
@@ -3013,7 +3043,8 @@ function DayGrid({
               completed: completedEvents?.[event.id] ?? event.completed,
               confirmed: confirmedEvents?.[event.id] ?? event.confirmed,
               visitStatus: visitStatusMap?.[event.id] ?? event.visitStatus,
-              visitStatusHistory: visitStatusHistoryMap?.[event.id] ?? event.visitStatusHistory
+              visitStatusHistory:
+                visitStatusHistoryMap?.[event.id] ?? event.visitStatusHistory
             }}
             onHover={() => onHover({ event, column })}
             onLeave={() => onHover(null)}
@@ -4008,7 +4039,7 @@ export default function WeekScheduler() {
 
   const [hovered, setHovered] = useState<EventSelection>(null)
   const [active, setActive] = useState<EventSelection>(null)
-  
+
   // Block-related state
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null)
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
@@ -4023,7 +4054,9 @@ export default function WeekScheduler() {
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(false)
 
   // Estado para filtro de estado de visita (null = mostrar todos)
-  const [activeVisitStatusFilter, setActiveVisitStatusFilter] = useState<VisitStatus[] | null>(null)
+  const [activeVisitStatusFilter, setActiveVisitStatusFilter] = useState<
+    VisitStatus[] | null
+  >(null)
 
   const isDraggingRef = useRef(false)
   const [openDropdown, setOpenDropdown] = useState<
@@ -4071,7 +4104,14 @@ export default function WeekScheduler() {
   // Patient record modal state for "Ver ficha" action and context menu actions
   const [patientRecordConfig, setPatientRecordConfig] = useState<{
     open: boolean
-    initialTab: 'Resumen' | 'Información General' | 'Historial clínico' | 'Imágenes RX' | 'Finanzas' | 'Consentimientos' | 'Recetas'
+    initialTab:
+      | 'Resumen'
+      | 'Información General'
+      | 'Historial clínico'
+      | 'Imágenes RX'
+      | 'Finanzas'
+      | 'Consentimientos'
+      | 'Recetas'
     openBudgetCreation?: boolean
     openPrescriptionCreation?: boolean
     openClinicalHistoryEdit?: boolean
@@ -4224,7 +4264,8 @@ export default function WeekScheduler() {
     // Obtener todos los eventos de la vista actual
     const allEvents = dayColumnsState.flatMap((col) => col.events)
     allEvents.forEach((event) => {
-      const status = visitStatusMap[event.id] ?? event.visitStatus ?? 'scheduled'
+      const status =
+        visitStatusMap[event.id] ?? event.visitStatus ?? 'scheduled'
       counts[status]++
     })
 
@@ -4693,8 +4734,8 @@ export default function WeekScheduler() {
       const bgColor = ev.backgroundClass?.includes('coral')
         ? 'var(--color-event-coral)'
         : ev.backgroundClass?.includes('brand')
-        ? 'var(--color-event-purple)'
-        : 'var(--color-event-teal)'
+          ? 'var(--color-event-purple)'
+          : 'var(--color-event-teal)'
 
       return {
         id: ev.id ?? `day-${column.id}-${idx}`,
@@ -4973,10 +5014,10 @@ export default function WeekScheduler() {
     const dateStr = getDateForWeekday(weekdayIndex)
     const startDate = getDateForWeekday(0) // Monday
     const endDate = getDateForWeekday(4) // Friday
-    
+
     const allBlocks = getBlocksByDateRange(startDate, endDate)
-    const blocksForDay = allBlocks.filter(block => block.date === dateStr)
-    
+    const blocksForDay = allBlocks.filter((block) => block.date === dateStr)
+
     // Convert to visual format with position calculation
     return blocksForDay
       .filter((block) => {
@@ -4994,23 +5035,28 @@ export default function WeekScheduler() {
         const startMinutes = startH * 60 + startM
         const endMinutes = endH * 60 + endM
         const durationMinutes = endMinutes - startMinutes
-        
+
         // Calculate slot position (15 min slots, starting at 9:00)
         const START_HOUR = 9
         const MINUTES_STEP = 15
         const SLOT_REM = 2.5
-        
-        const startSlot = Math.floor((startMinutes - START_HOUR * 60) / MINUTES_STEP)
-        const heightSlots = Math.max(1, Math.ceil(durationMinutes / MINUTES_STEP))
-        
+
+        const startSlot = Math.floor(
+          (startMinutes - START_HOUR * 60) / MINUTES_STEP
+        )
+        const heightSlots = Math.max(
+          1,
+          Math.ceil(durationMinutes / MINUTES_STEP)
+        )
+
         const top = `${startSlot * SLOT_REM}rem`
         const height = `${heightSlots * SLOT_REM}rem`
-        
+
         // Calculate left/width based on box layout
         const boxLayout = getBoxLayout(selectedBoxes)
         const boxName = block.box?.toLowerCase() ?? ''
         const layout = boxLayout[boxName]
-        
+
         return {
           id: block.id,
           top,
@@ -5392,9 +5438,11 @@ export default function WeekScheduler() {
     const eventId = `new-${Date.now()}`
 
     // Build event title: if there are linked treatments, show them; otherwise use servicio
-    const eventTreatments = data.linkedTreatments?.map(t => t.description).join(', ')
+    const eventTreatments = data.linkedTreatments
+      ?.map((t) => t.description)
+      .join(', ')
     const eventTitle = eventTreatments || data.servicio || 'Nueva cita'
-    
+
     const newEvent: AgendaEvent = {
       id: eventId,
       top: `${topRem}rem`,
@@ -5428,9 +5476,11 @@ export default function WeekScheduler() {
 
     // Sincronizar con el contexto global para que aparezca en el Parte Diario
     // Build reason: if there are linked treatments, show them; otherwise use servicio
-    const treatmentDescriptions = data.linkedTreatments?.map(t => t.description).join(', ')
+    const treatmentDescriptions = data.linkedTreatments
+      ?.map((t) => t.description)
+      .join(', ')
     const reason = treatmentDescriptions || data.servicio || 'Nueva cita'
-    
+
     addAppointment({
       date: data.fecha, // formato ISO: "2026-01-08"
       startTime: data.hora,
@@ -5445,7 +5495,7 @@ export default function WeekScheduler() {
       charge: 'No',
       bgColor: 'var(--color-brand-100)',
       notes: data.observaciones || '',
-      linkedTreatments: data.linkedTreatments?.map(t => ({
+      linkedTreatments: data.linkedTreatments?.map((t) => ({
         ...t,
         status: 'pending' as const
       }))
@@ -5470,7 +5520,8 @@ export default function WeekScheduler() {
       startTime: data.hora,
       endTime: endTime,
       blockType: data.blockType,
-      description: data.observaciones || BLOCK_TYPE_CONFIG[data.blockType].label,
+      description:
+        data.observaciones || BLOCK_TYPE_CONFIG[data.blockType].label,
       responsibleName: data.responsable || undefined,
       box: data.box,
       recurrence: data.recurrence.type !== 'none' ? data.recurrence : undefined
@@ -5511,7 +5562,7 @@ export default function WeekScheduler() {
   )
 
   // === Quick appointment creation handlers ===
-  
+
   // Handle hover slot change (time indicator)
   const handleHoverSlotChange = useCallback(
     (slotIndex: number | null, columnId: string, boxId: string | null) => {
@@ -5553,7 +5604,7 @@ export default function WeekScheduler() {
 
     const { startSlot, currentSlot, columnId, boxId } = slotDragState
     const { minSlot, slotCount } = getSelectionBounds(startSlot, currentSlot)
-    
+
     // Find the column to get the date
     const column = dayColumnsState.find((col) => col.id === columnId)
     if (!column) {
@@ -5563,7 +5614,7 @@ export default function WeekScheduler() {
 
     // Calculate start time
     const startTime = slotIndexToTime(minSlot, START_HOUR, MINUTES_STEP)
-    
+
     // Calculate duration in minutes
     const durationMinutes = slotCount * MINUTES_STEP
 
@@ -5584,7 +5635,12 @@ export default function WeekScheduler() {
     // Clear drag state
     setSlotDragState(null)
     setHoverSlotInfo(null)
-  }, [slotDragState, dayColumnsState, currentWeekStart, openCreateAppointmentModal])
+  }, [
+    slotDragState,
+    dayColumnsState,
+    currentWeekStart,
+    openCreateAppointmentModal
+  ])
 
   // Window mouseup listener for ending drag
   useEffect(() => {
@@ -5776,7 +5832,9 @@ export default function WeekScheduler() {
             <span
               className={[
                 'flex h-4 w-4 items-center justify-center rounded-full text-xs transition-colors',
-                showConfirmedOnly ? 'bg-[#3B82F6] text-white' : 'bg-[var(--color-neutral-300)]'
+                showConfirmedOnly
+                  ? 'bg-[#3B82F6] text-white'
+                  : 'bg-[var(--color-neutral-300)]'
               ].join(' ')}
             >
               {showConfirmedOnly && <MD3Icon name='CheckRounded' size={0.75} />}
@@ -5850,8 +5908,8 @@ export default function WeekScheduler() {
                 bgColor: ev.backgroundClass?.includes('coral')
                   ? 'var(--color-event-coral)'
                   : ev.backgroundClass?.includes('brand')
-                  ? 'var(--color-event-purple)'
-                  : 'var(--color-event-teal)'
+                    ? 'var(--color-event-purple)'
+                    : 'var(--color-event-teal)'
               }))
             )}
           />
@@ -5862,7 +5920,9 @@ export default function WeekScheduler() {
           <DayCalendar
             period={dayPeriod}
             appointments={selectedDayAppointments}
-            currentDate={(selectedDate ?? currentWeekStart).toISOString().split('T')[0]}
+            currentDate={
+              (selectedDate ?? currentWeekStart).toISOString().split('T')[0]
+            }
             bands={getDayBands(selectedDate ?? currentWeekStart)}
             onAppointmentMove={handleDayAppointmentMove}
             selectedBoxes={selectedBoxes}
@@ -6238,10 +6298,22 @@ export default function WeekScheduler() {
           eventDetail={contextMenu.event.detail}
           onAction={handleContextMenuAction}
           onClose={handleCloseContextMenu}
-          currentVisitStatus={visitStatusMap[contextMenu.event.id] ?? contextMenu.event.visitStatus ?? 'scheduled'}
-          onVisitStatusChange={(newStatus) => handleVisitStatusChange(contextMenu.event.id, newStatus)}
-          isConfirmed={confirmedEvents[contextMenu.event.id] ?? contextMenu.event.confirmed ?? false}
-          onToggleConfirmed={(confirmed) => handleToggleConfirmed(contextMenu.event.id, confirmed)}
+          currentVisitStatus={
+            visitStatusMap[contextMenu.event.id] ??
+            contextMenu.event.visitStatus ??
+            'scheduled'
+          }
+          onVisitStatusChange={(newStatus) =>
+            handleVisitStatusChange(contextMenu.event.id, newStatus)
+          }
+          isConfirmed={
+            confirmedEvents[contextMenu.event.id] ??
+            contextMenu.event.confirmed ??
+            false
+          }
+          onToggleConfirmed={(confirmed) =>
+            handleToggleConfirmed(contextMenu.event.id, confirmed)
+          }
         />
       )}
     </section>

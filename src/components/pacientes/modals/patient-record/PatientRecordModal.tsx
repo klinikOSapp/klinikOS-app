@@ -60,7 +60,8 @@ export default function PatientRecordModal({
   const [shouldOpenClinicalEdit, setShouldOpenClinicalEdit] = React.useState(
     openClinicalHistoryEdit
   )
-  const [shouldOpenAddTreatment, setShouldOpenAddTreatment] = React.useState(false)
+  const [shouldOpenAddTreatment, setShouldOpenAddTreatment] =
+    React.useState(false)
 
   // === Shared budget state (elevated from BudgetsPayments) ===
   const [budgetRows, setBudgetRows] =
@@ -250,8 +251,10 @@ export default function PatientRecordModal({
                     })}
                   </ul>
                 </div>
-                {/* Right content: vertical scroll only; never horizontal */}
-                <div className='flex-1 min-w-0 overflow-y-auto overflow-x-hidden box-border transition-all duration-300 ease-in-out'>
+                {/* Right content: vertical scroll only; never horizontal (except for RxImages which handles its own scroll) */}
+                <div className={`flex-1 min-w-0 box-border transition-all duration-300 ease-in-out ${
+                  active === 'Imágenes RX' ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'
+                }`}>
                   {/* Toggle button when sidebar is hidden - shows sidebar on hover */}
                   {!sidebarVisible && (
                     <div
@@ -372,7 +375,9 @@ export default function PatientRecordModal({
                       patientName={patientName}
                       onAddBudget={handleAddBudget}
                       openAddTreatment={shouldOpenAddTreatment}
-                      onAddTreatmentOpened={() => setShouldOpenAddTreatment(false)}
+                      onAddTreatmentOpened={() =>
+                        setShouldOpenAddTreatment(false)
+                      }
                     />
                   )}
                   {active === 'Imágenes RX' && <RxImages onClose={onClose} />}

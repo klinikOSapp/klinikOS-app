@@ -398,7 +398,10 @@ function PacientesPageContent() {
   const [openBudgetCreation, setOpenBudgetCreation] = React.useState(false)
   const [openEditMode, setOpenEditMode] = React.useState(false)
   // Track selected patient for modal
-  const [selectedPatientForModal, setSelectedPatientForModal] = React.useState<{ id: string; name: string } | null>(null)
+  const [selectedPatientForModal, setSelectedPatientForModal] = React.useState<{
+    id: string
+    name: string
+  } | null>(null)
   const [openMenuId, setOpenMenuId] = React.useState<string | null>(null)
   const [menuTriggerRect, setMenuTriggerRect] = React.useState<DOMRect | null>(
     null
@@ -722,7 +725,10 @@ function PacientesPageContent() {
                         <button
                           type='button'
                           onClick={() => {
-                            setSelectedPatientForModal({ id: row.id, name: row.name })
+                            setSelectedPatientForModal({
+                              id: row.id,
+                              name: row.name
+                            })
                             setIsFichaModalOpen(true)
                           }}
                           className='truncate hover:underline cursor-pointer text-left w-full'
@@ -780,20 +786,29 @@ function PacientesPageContent() {
                               onViewFile={() => {
                                 setOpenMenuId(null)
                                 setMenuTriggerRect(null)
-                                setSelectedPatientForModal({ id: row.id, name: row.name })
+                                setSelectedPatientForModal({
+                                  id: row.id,
+                                  name: row.name
+                                })
                                 setIsFichaModalOpen(true)
                               }}
                               onCreateBudget={() => {
                                 setOpenMenuId(null)
                                 setMenuTriggerRect(null)
-                                setSelectedPatientForModal({ id: row.id, name: row.name })
+                                setSelectedPatientForModal({
+                                  id: row.id,
+                                  name: row.name
+                                })
                                 setOpenBudgetCreation(true)
                                 setIsFichaModalOpen(true)
                               }}
                               onEdit={() => {
                                 setOpenMenuId(null)
                                 setMenuTriggerRect(null)
-                                setSelectedPatientForModal({ id: row.id, name: row.name })
+                                setSelectedPatientForModal({
+                                  id: row.id,
+                                  name: row.name
+                                })
                                 setOpenEditMode(true)
                                 setIsFichaModalOpen(true)
                               }}

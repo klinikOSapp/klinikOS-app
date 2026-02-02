@@ -28,9 +28,36 @@ import {
   PROFESSIONALS,
   TREATMENT_CATALOG
 } from '@/components/pacientes/shared/treatmentTypes'
+import { usePatients, type PatientTreatment } from '@/context/PatientsContext'
 import { setPendingAppointmentData } from '@/utils/appointmentPrefill'
 import { useRouter } from 'next/navigation'
 import React from 'react'
+
+// Helper para convertir PatientTreatment del contexto a TreatmentV2 para la tabla
+function convertPatientTreatmentToV2(treatment: PatientTreatment, index: number): TreatmentV2 {
+  // Parsear el diente a número si existe
+  const toothNumber = treatment.tooth ? parseInt(treatment.tooth.split(',')[0].trim()) : undefined
+  
+  return {
+    _internalId: treatment.id,
+    pieza: toothNumber,
+    codigo: treatment.code,
+    tratamiento: treatment.description,
+    precio: treatment.amountFormatted,
+    importe: treatment.amountFormatted,
+    descuento: '0 €',
+    porcentajeDescuento: 0,
+    descripcionAnotaciones: treatment.notes || '',
+    doctor: treatment.professional,
+    selected: treatment.markedForNextAppointment || false,
+    // Campos para historial
+    estado: treatment.status === 'Completado' ? 'completado' : 
+            treatment.status === 'En curso' ? 'en_progreso' : 
+            treatment.status === 'Cancelado' ? 'cancelado' : 'pendiente',
+    fechaCreacion: treatment.createdAt,
+    fechaRealizacion: treatment.completedDate
+  }
+}
 import AddTreatmentsToBudgetModal from './AddTreatmentsToBudgetModal'
 import BudgetTypeListModal from './BudgetTypeListModal'
 import type { BudgetRow } from './BudgetsPayments'
@@ -566,19 +593,65 @@ export default function Treatments({
   onAddTreatmentOpened
 }: TreatmentsProps) {
   const router = useRouter()
+  
+  // Contexto de pacientes
+  const { 
+    getPendingTreatments, 
+    getTreatmentsByPatient,
+    toggleTreatmentForNextAppointment,
+    updateTreatment
+  } = usePatients()
 
   // State
   const [odontogramaState, setOdontogramaState] =
     React.useState<OdontogramaState>(MOCK_ODONTOGRAMA_STATE)
   const [pendingTreatments, setPendingTreatments] = React.useState<
     TreatmentV2[]
-  >(PENDING_TREATMENTS_V2)
+  >([])
   const [historyTreatments, setHistoryTreatments] = React.useState<
     TreatmentV2[]
-  >(HISTORY_TREATMENTS_V2)
+  >([])
   const [searchPending, setSearchPending] = React.useState('')
   const [searchHistory, setSearchHistory] = React.useState('')
   const [dateFilter, setDateFilter] = React.useState('Últimos 6 meses')
+
+  // Cargar tratamientos del contexto cuando hay patientId
+  React.useEffect(() => {
+    if (patientId) {
+      // Cargar tratamientos pendientes (Pendiente + En curso)
+      const pending = getPendingTreatments(patientId)
+      const pendingV2 = pending.map((t, i) => convertPatientTreatmentToV2(t, i))
+      setPendingTreatments(pendingV2)
+      
+      // Cargar historial (Completados + Cancelados)
+      const allTreatments = getTreatmentsByPatient(patientId)
+      const completed = allTreatments.filter(
+        t => t.status === 'Completado' || t.status === 'Cancelado'
+      )
+      const historyV2 = completed.map((t, i) => convertPatientTreatmentToV2(t, i))
+      setHistoryTreatments(historyV2)
+      
+      // Actualizar odontograma basado en los tratamientos
+      const newOdontogramaState: OdontogramaState = {}
+      allTreatments.forEach(t => {
+        if (t.tooth) {
+          // Puede tener múltiples piezas separadas por coma
+          const teeth = t.tooth.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n))
+          teeth.forEach(toothId => {
+            if (t.status === 'Completado') {
+              newOdontogramaState[toothId] = 'finalizado'
+            } else if (t.status === 'Pendiente' || t.status === 'En curso') {
+              // Solo marcar como pendiente si no está ya finalizado
+              if (newOdontogramaState[toothId] !== 'finalizado') {
+                newOdontogramaState[toothId] = 'pendiente'
+              }
+            }
+          })
+        }
+      })
+      setOdontogramaState(newOdontogramaState)
+    }
+  }, [patientId, getPendingTreatments, getTreatmentsByPatient])
 
   // Estado para el tratamiento seleccionado del catálogo (esperando asignar pieza dental)
   const [selectedCatalogTreatment, setSelectedCatalogTreatment] =
@@ -733,6 +806,7 @@ export default function Treatments({
     internalId: string,
     section: 'pending' | 'history'
   ) => {
+    // Actualizar estado local para UI
     if (section === 'pending') {
       setPendingTreatments((prev) =>
         prev.map((t) =>
@@ -745,6 +819,12 @@ export default function Treatments({
           t._internalId === internalId ? { ...t, selected: !t.selected } : t
         )
       )
+    }
+    
+    // Sincronizar con el contexto de pacientes si hay patientId
+    // El internalId corresponde al treatment.id del contexto
+    if (patientId) {
+      toggleTreatmentForNextAppointment(patientId, internalId)
     }
   }
 
@@ -873,6 +953,31 @@ export default function Treatments({
         prev.filter((t) => t._internalId !== treatment._internalId)
       )
     }
+    setActiveMenu(null)
+  }
+
+  // Handler para marcar tratamiento como completado
+  const handleMarkComplete = () => {
+    if (!activeMenu || !patientId) return
+    const { treatment } = activeMenu
+    
+    // Solo actualizar en el contexto - el useEffect recargará los datos automáticamente
+    updateTreatment(patientId, treatment._internalId, { 
+      status: 'Completado',
+      completedDate: new Date().toISOString().split('T')[0]
+    })
+    
+    setActiveMenu(null)
+  }
+
+  // Handler para cancelar tratamiento
+  const handleMarkCancelled = () => {
+    if (!activeMenu || !patientId) return
+    const { treatment } = activeMenu
+    
+    // Solo actualizar en el contexto - el useEffect recargará los datos automáticamente
+    updateTreatment(patientId, treatment._internalId, { status: 'Cancelado' })
+    
     setActiveMenu(null)
   }
 
@@ -1278,6 +1383,9 @@ export default function Treatments({
           onCreateAppointment={handleMenuCreateAppointment}
           onToggleStatus={() => {}}
           onDelete={handleDeleteTreatment}
+          // Solo mostrar opciones de completar/cancelar para tratamientos pendientes
+          onMarkComplete={activeMenu.section === 'pending' ? handleMarkComplete : undefined}
+          onMarkCancelled={activeMenu.section === 'pending' ? handleMarkCancelled : undefined}
         />
       )}
 

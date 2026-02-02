@@ -4190,9 +4190,10 @@ function DiscountsTableRow({
 // TABLE COMPONENTS
 // ============================================
 
-// Grid template: checkbox(fixed) | code(flex) | name(flex) | price(flex) | time(flex) | iva(flex)
+// Grid template: checkbox(fixed) | code(flex) | name(flex) | price(flex) | time(flex)
+// Note: IVA column hidden but data maintained internally for invoicing (dental=0%, estética=10%)
 const TABLE_GRID_CLASSES =
-  'grid grid-cols-[2.5rem_minmax(0,0.8fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,0.8fr)] w-full'
+  'grid grid-cols-[2.5rem_minmax(0,0.8fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.2fr)] w-full'
 
 function TableHeader() {
   const headers = [
@@ -4200,8 +4201,7 @@ function TableHeader() {
     'Código interno',
     'Nombre del tratamiento',
     'Precio Base',
-    'Tiempo estimado',
-    'IVA'
+    'Tiempo estimado'
   ]
 
   return (
@@ -4272,15 +4272,9 @@ function TableRow({
         </p>
       </div>
       {/* Estimated Time */}
-      <div className='flex items-center border-b border-r border-neutral-300 px-2 py-2 h-10 min-w-0'>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-10 min-w-0'>
         <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
           {treatment.estimatedTime}
-        </p>
-      </div>
-      {/* IVA */}
-      <div className='flex items-center border-b border-r border-neutral-300 px-2 py-2 h-10 min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
-          {treatment.iva}
         </p>
       </div>
     </div>

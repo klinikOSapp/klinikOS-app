@@ -126,6 +126,7 @@ export type PatientTreatment = {
   notes?: string // Notas del tratamiento
   createdAt: string // Fecha creación (ISO)
   updatedAt?: string // Fecha última actualización (ISO)
+  markedForNextAppointment?: boolean // Marcado para incluir en próxima cita
 }
 
 // ============================================
@@ -1497,6 +1498,9 @@ type PatientsContextType = {
   getPendingTreatments: (patientId: string) => PatientTreatment[]
   addTreatment: (patientId: string, treatment: Omit<PatientTreatment, 'id' | 'createdAt'>) => void
   updateTreatment: (patientId: string, treatmentId: string, updates: Partial<PatientTreatment>) => void
+  // Funciones para marcar tratamientos para próxima cita
+  toggleTreatmentForNextAppointment: (patientId: string, treatmentId: string) => void
+  resetTreatmentsForNextAppointment: (patientId: string) => void
   // Funciones para obtener lista formateada para SelectInput
   getPatientsForSelect: () => { value: string; label: string }[]
   // Funciones de búsqueda
@@ -1636,6 +1640,12 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
   const addTreatment = useCallback(
     (patientId: string, treatmentData: Omit<PatientTreatment, 'id' | 'createdAt'>) => {
       const newTreatment: PatientTreatment = {
+        // Valores por defecto
+        status: 'Pendiente',
+        paymentStatus: 'Sin pagar',
+        paidAmount: 0,
+        markedForNextAppointment: false,
+        // Sobreescribir con los datos proporcionados
         ...treatmentData,
         id: `t-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         createdAt: new Date().toISOString().split('T')[0]
@@ -1675,6 +1685,48 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
         )
       )
       console.log(`✅ Tratamiento ${treatmentId} actualizado`)
+    },
+    []
+  )
+
+  // Alternar el estado de "marcado para próxima cita" de un tratamiento
+  const toggleTreatmentForNextAppointment = useCallback(
+    (patientId: string, treatmentId: string) => {
+      setPatients((prev) =>
+        prev.map((p) =>
+          p.id === patientId
+            ? {
+                ...p,
+                treatments: p.treatments.map((t) =>
+                  t.id === treatmentId
+                    ? { ...t, markedForNextAppointment: !t.markedForNextAppointment }
+                    : t
+                )
+              }
+            : p
+        )
+      )
+    },
+    []
+  )
+
+  // Resetear todos los tratamientos marcados para próxima cita (después de crear cita)
+  const resetTreatmentsForNextAppointment = useCallback(
+    (patientId: string) => {
+      setPatients((prev) =>
+        prev.map((p) =>
+          p.id === patientId
+            ? {
+                ...p,
+                treatments: p.treatments.map((t) => ({
+                  ...t,
+                  markedForNextAppointment: false
+                }))
+              }
+            : p
+        )
+      )
+      console.log(`✅ Tratamientos para próxima cita reseteados para paciente ${patientId}`)
     },
     []
   )
@@ -1748,6 +1800,8 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
     getPendingTreatments,
     addTreatment,
     updateTreatment,
+    toggleTreatmentForNextAppointment,
+    resetTreatmentsForNextAppointment,
     // Select y búsqueda
     getPatientsForSelect,
     searchPatients,

@@ -1,15 +1,14 @@
 'use client'
 
-import React from 'react'
+import { VISIT_STATUS_CONFIG } from '@/components/agenda/types'
 import {
+  AccessTimeFilledRounded,
   CalendarMonthRounded,
   CheckCircleRounded,
-  AccessTimeFilledRounded,
   PersonRounded
 } from '@/components/icons/md3'
-import { VISIT_STATUS_CONFIG } from '@/components/agenda/types'
 import type { VisitCardProps } from './types'
-import { formatShortDate, formatTimeRange, VISIT_STATUS_LABELS } from './types'
+import { VISIT_STATUS_LABELS, formatShortDate, formatTimeRange } from './types'
 
 export default function VisitCard({
   appointment,
@@ -83,7 +82,7 @@ export default function VisitCard({
             Sin tratamientos vinculados
           </span>
         )}
-        
+
         {isCompleted && (
           <div className='flex items-center gap-1'>
             <CheckCircleRounded className='size-4 text-[var(--color-brand-600)]' />
@@ -92,7 +91,7 @@ export default function VisitCard({
             </span>
           </div>
         )}
-        
+
         {isUpcoming && !isCompleted && (
           <div className='flex items-center gap-1'>
             <span className="font-['Inter:Medium',_sans-serif] text-[var(--color-brand-500)] text-label-sm">

@@ -20,11 +20,16 @@ import {
   KeyboardArrowDownRounded,
   LastPageRounded,
   MoreVertRounded,
+  PaymentsRounded,
   ReceiptLongRounded,
   SearchRounded,
   TimelineRounded,
   VisibilityRounded
 } from '@/components/icons/md3'
+import type {
+  BudgetInstallmentPlan,
+  BudgetPayment
+} from '@/types/payments'
 import {
   addBudgetType,
   convertBudgetTypeToTreatmentsV2,
@@ -36,10 +41,16 @@ import { createPortal } from 'react-dom'
 import AddProductionModal from './AddProductionModal'
 import AddTreatmentsToBudgetModal from './AddTreatmentsToBudgetModal'
 import BudgetDetailsModal from './BudgetDetailsModal'
+import BudgetQuickPaymentModal, {
+  type QuickPaymentFormData
+} from './BudgetQuickPaymentModal'
 import BudgetTypeListModal from './BudgetTypeListModal'
+import EditProductionModal from './EditProductionModal'
+import InvoiceDetailsModal from './InvoiceDetailsModal'
 import InvoiceProductionModal from './InvoiceProductionModal'
 import MarkAsProducedModal from './MarkAsProducedModal'
-import ProposalCreationModal from './ProposalCreationModal'
+import PaymentDetailsModal from './PaymentDetailsModal'
+import ProductionDetailsModal from './ProductionDetailsModal'
 import RegisterPaymentModal from './RegisterPaymentModal'
 import TraceabilityModal from './TraceabilityModal'
 
@@ -594,6 +605,9 @@ export type BudgetRow = {
   subtotal?: number
   validUntil?: string
   history?: BudgetHistoryEntry[]
+  // Campos para pagos fraccionados
+  installmentPlan?: BudgetInstallmentPlan
+  payments?: BudgetPayment[]
 }
 
 // === FACTURAS TYPES ===
@@ -713,12 +727,80 @@ export const INITIAL_BUDGET_ROWS: BudgetRow[] = [
     subtotal: 770,
     validUntil: '10/02/26',
     treatments: [
-      { pieza: 36, tratamiento: 'Endodoncia molar', precio: '320 €', descuento: '0 €', importe: '320 €', doctor: 'Dr. Francisco Moreno' },
-      { pieza: 36, tratamiento: 'Corona zirconio', precio: '450 €', descuento: '0 €', importe: '450 €', doctor: 'Dr. Antonio Ruiz' }
+      {
+        pieza: 36,
+        tratamiento: 'Endodoncia molar',
+        precio: '320 €',
+        descuento: '0 €',
+        importe: '320 €',
+        doctor: 'Dr. Francisco Moreno'
+      },
+      {
+        pieza: 36,
+        tratamiento: 'Corona zirconio',
+        precio: '450 €',
+        descuento: '0 €',
+        importe: '450 €',
+        doctor: 'Dr. Antonio Ruiz'
+      }
     ],
     history: [
-      { date: '10/01/26 10:30', action: 'Presupuesto creado', user: 'Dr. Antonio Ruiz' },
-      { date: '10/01/26 11:00', action: 'Aceptado - Financiación 3 cuotas', user: 'Sistema' }
+      {
+        date: '10/01/26 10:30',
+        action: 'Presupuesto creado',
+        user: 'Dr. Antonio Ruiz'
+      },
+      {
+        date: '10/01/26 11:00',
+        action: 'Aceptado - Financiación 3 cuotas',
+        user: 'Sistema'
+      }
+    ],
+    // Plan de cuotas: 3 cuotas de 256.67€ - 1 pagada, 2 pendientes
+    installmentPlan: {
+      totalInstallments: 3,
+      amountPerInstallment: 256.67,
+      totalAmount: 770,
+      createdAt: '2026-01-10T11:00:00Z',
+      installments: [
+        {
+          id: 'inst-002-01-1',
+          installmentNumber: 1,
+          amount: 256.67,
+          status: 'paid' as const,
+          paidAmount: 256.67,
+          dueDate: '2026-01-10'
+        },
+        {
+          id: 'inst-002-01-2',
+          installmentNumber: 2,
+          amount: 256.67,
+          status: 'pending' as const,
+          paidAmount: 0,
+          dueDate: '2026-02-10'
+        },
+        {
+          id: 'inst-002-01-3',
+          installmentNumber: 3,
+          amount: 256.66,
+          status: 'pending' as const,
+          paidAmount: 0,
+          dueDate: '2026-03-10'
+        }
+      ]
+    },
+    payments: [
+      {
+        id: 'pay-002-01-1',
+        budgetId: 'budget-002-01',
+        date: '2026-01-10',
+        amount: 256.67,
+        paymentMethod: 'tarjeta' as const,
+        installmentIds: ['inst-002-01-1'],
+        receiptGenerated: true,
+        createdAt: '2026-01-10T11:15:00Z',
+        createdBy: 'Recepción'
+      }
     ]
   },
   // Ana Martínez VIP (pat-003) - Invisalign
@@ -735,11 +817,171 @@ export const INITIAL_BUDGET_ROWS: BudgetRow[] = [
     generalDiscount: { type: 'percentage', value: 0 },
     validUntil: '01/10/25',
     treatments: [
-      { tratamiento: 'Invisalign Full - 20 alineadores', precio: '3.500 €', descuento: '0 €', importe: '3.500 €', doctor: 'Dra. Elena Navarro' }
+      {
+        tratamiento: 'Invisalign Full - 20 alineadores',
+        precio: '3.500 €',
+        descuento: '0 €',
+        importe: '3.500 €',
+        doctor: 'Dra. Elena Navarro'
+      }
     ],
     history: [
-      { date: '01/09/25 09:00', action: 'Presupuesto creado', user: 'Dra. Elena Navarro' },
-      { date: '01/09/25 10:00', action: 'Aceptado - Financiación 10 cuotas', user: 'Sistema' }
+      {
+        date: '01/09/25 09:00',
+        action: 'Presupuesto creado',
+        user: 'Dra. Elena Navarro'
+      },
+      {
+        date: '01/09/25 10:00',
+        action: 'Aceptado - Financiación 10 cuotas',
+        user: 'Sistema'
+      }
+    ],
+    // Plan de cuotas: 10 cuotas de 350€ - 5 pagadas (desde sept 2025 a ene 2026)
+    installmentPlan: {
+      totalInstallments: 10,
+      amountPerInstallment: 350,
+      totalAmount: 3500,
+      createdAt: '2025-09-01T10:00:00Z',
+      installments: [
+        {
+          id: 'inst-003-01-1',
+          installmentNumber: 1,
+          amount: 350,
+          status: 'paid' as const,
+          paidAmount: 350,
+          dueDate: '2025-09-01'
+        },
+        {
+          id: 'inst-003-01-2',
+          installmentNumber: 2,
+          amount: 350,
+          status: 'paid' as const,
+          paidAmount: 350,
+          dueDate: '2025-10-01'
+        },
+        {
+          id: 'inst-003-01-3',
+          installmentNumber: 3,
+          amount: 350,
+          status: 'paid' as const,
+          paidAmount: 350,
+          dueDate: '2025-11-01'
+        },
+        {
+          id: 'inst-003-01-4',
+          installmentNumber: 4,
+          amount: 350,
+          status: 'paid' as const,
+          paidAmount: 350,
+          dueDate: '2025-12-01'
+        },
+        {
+          id: 'inst-003-01-5',
+          installmentNumber: 5,
+          amount: 350,
+          status: 'paid' as const,
+          paidAmount: 350,
+          dueDate: '2026-01-01'
+        },
+        {
+          id: 'inst-003-01-6',
+          installmentNumber: 6,
+          amount: 350,
+          status: 'pending' as const,
+          paidAmount: 0,
+          dueDate: '2026-02-01'
+        },
+        {
+          id: 'inst-003-01-7',
+          installmentNumber: 7,
+          amount: 350,
+          status: 'pending' as const,
+          paidAmount: 0,
+          dueDate: '2026-03-01'
+        },
+        {
+          id: 'inst-003-01-8',
+          installmentNumber: 8,
+          amount: 350,
+          status: 'pending' as const,
+          paidAmount: 0,
+          dueDate: '2026-04-01'
+        },
+        {
+          id: 'inst-003-01-9',
+          installmentNumber: 9,
+          amount: 350,
+          status: 'pending' as const,
+          paidAmount: 0,
+          dueDate: '2026-05-01'
+        },
+        {
+          id: 'inst-003-01-10',
+          installmentNumber: 10,
+          amount: 350,
+          status: 'pending' as const,
+          paidAmount: 0,
+          dueDate: '2026-06-01'
+        }
+      ]
+    },
+    payments: [
+      {
+        id: 'pay-003-01-1',
+        budgetId: 'budget-003-01',
+        date: '2025-09-01',
+        amount: 350,
+        paymentMethod: 'tarjeta' as const,
+        installmentIds: ['inst-003-01-1'],
+        receiptGenerated: true,
+        createdAt: '2025-09-01T10:15:00Z',
+        createdBy: 'Recepción'
+      },
+      {
+        id: 'pay-003-01-2',
+        budgetId: 'budget-003-01',
+        date: '2025-10-01',
+        amount: 350,
+        paymentMethod: 'tarjeta' as const,
+        installmentIds: ['inst-003-01-2'],
+        receiptGenerated: true,
+        createdAt: '2025-10-01T09:30:00Z',
+        createdBy: 'Recepción'
+      },
+      {
+        id: 'pay-003-01-3',
+        budgetId: 'budget-003-01',
+        date: '2025-11-03',
+        amount: 350,
+        paymentMethod: 'transferencia' as const,
+        installmentIds: ['inst-003-01-3'],
+        receiptGenerated: true,
+        createdAt: '2025-11-03T11:00:00Z',
+        createdBy: 'Sistema'
+      },
+      {
+        id: 'pay-003-01-4',
+        budgetId: 'budget-003-01',
+        date: '2025-12-02',
+        amount: 350,
+        paymentMethod: 'tarjeta' as const,
+        installmentIds: ['inst-003-01-4'],
+        receiptGenerated: true,
+        createdAt: '2025-12-02T10:00:00Z',
+        createdBy: 'Recepción'
+      },
+      {
+        id: 'pay-003-01-5',
+        budgetId: 'budget-003-01',
+        date: '2026-01-02',
+        amount: 350,
+        paymentMethod: 'tarjeta' as const,
+        installmentIds: ['inst-003-01-5'],
+        receiptGenerated: true,
+        createdAt: '2026-01-02T09:45:00Z',
+        createdBy: 'Recepción'
+      }
     ]
   },
   // Laura Fernández (pat-005) - Invisalign
@@ -755,11 +997,151 @@ export const INITIAL_BUDGET_ROWS: BudgetRow[] = [
     subtotal: 2800,
     validUntil: '01/07/25',
     treatments: [
-      { tratamiento: 'Invisalign Lite - 14 alineadores', precio: '2.800 €', descuento: '0 €', importe: '2.800 €', doctor: 'Dra. Elena Navarro' }
+      {
+        tratamiento: 'Invisalign Lite - 14 alineadores',
+        precio: '2.800 €',
+        descuento: '0 €',
+        importe: '2.800 €',
+        doctor: 'Dra. Elena Navarro'
+      }
     ],
     history: [
-      { date: '01/06/25 11:00', action: 'Presupuesto creado', user: 'Dra. Elena Navarro' },
-      { date: '01/06/25 12:00', action: 'Aceptado - Financiación', user: 'Sistema' }
+      {
+        date: '01/06/25 11:00',
+        action: 'Presupuesto creado',
+        user: 'Dra. Elena Navarro'
+      },
+      {
+        date: '01/06/25 12:00',
+        action: 'Aceptado - Financiación',
+        user: 'Sistema'
+      }
+    ],
+    // Plan de cuotas: 6 cuotas de 466.67€ - 5 pagadas, 1 parcialmente pagada
+    installmentPlan: {
+      totalInstallments: 6,
+      amountPerInstallment: 466.67,
+      totalAmount: 2800,
+      createdAt: '2025-06-01T12:00:00Z',
+      installments: [
+        {
+          id: 'inst-005-01-1',
+          installmentNumber: 1,
+          amount: 466.67,
+          status: 'paid' as const,
+          paidAmount: 466.67,
+          dueDate: '2025-06-01'
+        },
+        {
+          id: 'inst-005-01-2',
+          installmentNumber: 2,
+          amount: 466.67,
+          status: 'paid' as const,
+          paidAmount: 466.67,
+          dueDate: '2025-07-01'
+        },
+        {
+          id: 'inst-005-01-3',
+          installmentNumber: 3,
+          amount: 466.67,
+          status: 'paid' as const,
+          paidAmount: 466.67,
+          dueDate: '2025-08-01'
+        },
+        {
+          id: 'inst-005-01-4',
+          installmentNumber: 4,
+          amount: 466.67,
+          status: 'paid' as const,
+          paidAmount: 466.67,
+          dueDate: '2025-09-01'
+        },
+        {
+          id: 'inst-005-01-5',
+          installmentNumber: 5,
+          amount: 466.67,
+          status: 'paid' as const,
+          paidAmount: 466.67,
+          dueDate: '2025-10-01'
+        },
+        {
+          id: 'inst-005-01-6',
+          installmentNumber: 6,
+          amount: 466.65,
+          status: 'partial' as const,
+          paidAmount: 200,
+          dueDate: '2025-11-01'
+        }
+      ]
+    },
+    payments: [
+      {
+        id: 'pay-005-01-1',
+        budgetId: 'budget-005-01',
+        date: '2025-06-01',
+        amount: 466.67,
+        paymentMethod: 'tarjeta' as const,
+        installmentIds: ['inst-005-01-1'],
+        receiptGenerated: true,
+        createdAt: '2025-06-01T12:30:00Z',
+        createdBy: 'Recepción'
+      },
+      {
+        id: 'pay-005-01-2',
+        budgetId: 'budget-005-01',
+        date: '2025-07-02',
+        amount: 466.67,
+        paymentMethod: 'tarjeta' as const,
+        installmentIds: ['inst-005-01-2'],
+        receiptGenerated: true,
+        createdAt: '2025-07-02T10:00:00Z',
+        createdBy: 'Recepción'
+      },
+      {
+        id: 'pay-005-01-3',
+        budgetId: 'budget-005-01',
+        date: '2025-08-01',
+        amount: 466.67,
+        paymentMethod: 'transferencia' as const,
+        installmentIds: ['inst-005-01-3'],
+        receiptGenerated: true,
+        createdAt: '2025-08-01T11:00:00Z',
+        createdBy: 'Sistema'
+      },
+      {
+        id: 'pay-005-01-4',
+        budgetId: 'budget-005-01',
+        date: '2025-09-02',
+        amount: 466.67,
+        paymentMethod: 'tarjeta' as const,
+        installmentIds: ['inst-005-01-4'],
+        receiptGenerated: true,
+        createdAt: '2025-09-02T09:30:00Z',
+        createdBy: 'Recepción'
+      },
+      {
+        id: 'pay-005-01-5',
+        budgetId: 'budget-005-01',
+        date: '2025-10-01',
+        amount: 466.67,
+        paymentMethod: 'efectivo' as const,
+        installmentIds: ['inst-005-01-5'],
+        receiptGenerated: true,
+        createdAt: '2025-10-01T10:15:00Z',
+        createdBy: 'Recepción'
+      },
+      {
+        id: 'pay-005-01-6',
+        budgetId: 'budget-005-01',
+        date: '2025-11-05',
+        amount: 200,
+        paymentMethod: 'efectivo' as const,
+        installmentIds: ['inst-005-01-6'],
+        receiptGenerated: true,
+        notes: 'Pago parcial - resto pendiente',
+        createdAt: '2025-11-05T11:00:00Z',
+        createdBy: 'Recepción'
+      }
     ]
   },
   // Javier Moreno (pat-006) - Periodontal
@@ -775,14 +1157,46 @@ export const INITIAL_BUDGET_ROWS: BudgetRow[] = [
     subtotal: 480,
     validUntil: '14/02/26',
     treatments: [
-      { tratamiento: 'Raspado y alisado Q1', precio: '120 €', descuento: '0 €', importe: '120 €', doctor: 'Dra. Carmen Díaz' },
-      { tratamiento: 'Raspado y alisado Q2', precio: '120 €', descuento: '0 €', importe: '120 €', doctor: 'Dra. Carmen Díaz' },
-      { tratamiento: 'Raspado y alisado Q3', precio: '120 €', descuento: '0 €', importe: '120 €', doctor: 'Dra. Carmen Díaz' },
-      { tratamiento: 'Raspado y alisado Q4', precio: '120 €', descuento: '0 €', importe: '120 €', doctor: 'Dra. Carmen Díaz' }
+      {
+        tratamiento: 'Raspado y alisado Q1',
+        precio: '120 €',
+        descuento: '0 €',
+        importe: '120 €',
+        doctor: 'Dra. Carmen Díaz'
+      },
+      {
+        tratamiento: 'Raspado y alisado Q2',
+        precio: '120 €',
+        descuento: '0 €',
+        importe: '120 €',
+        doctor: 'Dra. Carmen Díaz'
+      },
+      {
+        tratamiento: 'Raspado y alisado Q3',
+        precio: '120 €',
+        descuento: '0 €',
+        importe: '120 €',
+        doctor: 'Dra. Carmen Díaz'
+      },
+      {
+        tratamiento: 'Raspado y alisado Q4',
+        precio: '120 €',
+        descuento: '0 €',
+        importe: '120 €',
+        doctor: 'Dra. Carmen Díaz'
+      }
     ],
     history: [
-      { date: '14/01/26 12:30', action: 'Presupuesto creado', user: 'Dra. Carmen Díaz' },
-      { date: '14/01/26 13:00', action: 'Aceptado por el paciente', user: 'Sistema' }
+      {
+        date: '14/01/26 12:30',
+        action: 'Presupuesto creado',
+        user: 'Dra. Carmen Díaz'
+      },
+      {
+        date: '14/01/26 13:00',
+        action: 'Aceptado por el paciente',
+        user: 'Sistema'
+      }
     ]
   },
   // Sofía Navarro (pat-007) - Implante
@@ -798,12 +1212,34 @@ export const INITIAL_BUDGET_ROWS: BudgetRow[] = [
     subtotal: 1200,
     validUntil: '08/02/26',
     treatments: [
-      { pieza: 36, tratamiento: 'Implante Straumann 4.1x10mm', precio: '800 €', descuento: '0 €', importe: '800 €', doctor: 'Dr. Miguel Á. Torres' },
-      { pieza: 36, tratamiento: 'Corona sobre implante', precio: '400 €', descuento: '0 €', importe: '400 €', doctor: 'Dr. Miguel Á. Torres' }
+      {
+        pieza: 36,
+        tratamiento: 'Implante Straumann 4.1x10mm',
+        precio: '800 €',
+        descuento: '0 €',
+        importe: '800 €',
+        doctor: 'Dr. Miguel Á. Torres'
+      },
+      {
+        pieza: 36,
+        tratamiento: 'Corona sobre implante',
+        precio: '400 €',
+        descuento: '0 €',
+        importe: '400 €',
+        doctor: 'Dr. Miguel Á. Torres'
+      }
     ],
     history: [
-      { date: '08/01/26 12:30', action: 'Presupuesto creado', user: 'Dr. Miguel Á. Torres' },
-      { date: '15/01/26 10:00', action: 'Aceptado por el paciente', user: 'Sistema' }
+      {
+        date: '08/01/26 12:30',
+        action: 'Presupuesto creado',
+        user: 'Dr. Miguel Á. Torres'
+      },
+      {
+        date: '15/01/26 10:00',
+        action: 'Aceptado por el paciente',
+        user: 'Sistema'
+      }
     ]
   },
   // Miguel Gómez (pat-008) - Implante + Corona
@@ -820,12 +1256,34 @@ export const INITIAL_BUDGET_ROWS: BudgetRow[] = [
     generalDiscount: { type: 'percentage', value: 5 },
     validUntil: '01/07/25',
     treatments: [
-      { pieza: 46, tratamiento: 'Implante Straumann', precio: '800 €', descuento: '0 €', importe: '800 €', doctor: 'Dr. Miguel Á. Torres' },
-      { pieza: 46, tratamiento: 'Corona sobre implante', precio: '650 €', descuento: '0 €', importe: '650 €', doctor: 'Dr. Miguel Á. Torres' }
+      {
+        pieza: 46,
+        tratamiento: 'Implante Straumann',
+        precio: '800 €',
+        descuento: '0 €',
+        importe: '800 €',
+        doctor: 'Dr. Miguel Á. Torres'
+      },
+      {
+        pieza: 46,
+        tratamiento: 'Corona sobre implante',
+        precio: '650 €',
+        descuento: '0 €',
+        importe: '650 €',
+        doctor: 'Dr. Miguel Á. Torres'
+      }
     ],
     history: [
-      { date: '01/06/25 10:00', action: 'Presupuesto creado', user: 'Dr. Miguel Á. Torres' },
-      { date: '01/06/25 11:00', action: 'Aceptado - Financiación 12 cuotas', user: 'Sistema' }
+      {
+        date: '01/06/25 10:00',
+        action: 'Presupuesto creado',
+        user: 'Dr. Miguel Á. Torres'
+      },
+      {
+        date: '01/06/25 11:00',
+        action: 'Aceptado - Financiación 12 cuotas',
+        user: 'Sistema'
+      }
     ]
   },
   // Elena Vega (pat-009) - Blanqueamiento
@@ -841,11 +1299,25 @@ export const INITIAL_BUDGET_ROWS: BudgetRow[] = [
     subtotal: 250,
     validUntil: '20/02/26',
     treatments: [
-      { tratamiento: 'Blanqueamiento LED - 2 sesiones', precio: '250 €', descuento: '0 €', importe: '250 €', doctor: 'Laura Sánchez' }
+      {
+        tratamiento: 'Blanqueamiento LED - 2 sesiones',
+        precio: '250 €',
+        descuento: '0 €',
+        importe: '250 €',
+        doctor: 'Laura Sánchez'
+      }
     ],
     history: [
-      { date: '20/01/26 09:30', action: 'Presupuesto creado', user: 'Dr. Antonio Ruiz' },
-      { date: '20/01/26 10:00', action: 'Aceptado por el paciente', user: 'Sistema' }
+      {
+        date: '20/01/26 09:30',
+        action: 'Presupuesto creado',
+        user: 'Dr. Antonio Ruiz'
+      },
+      {
+        date: '20/01/26 10:00',
+        action: 'Aceptado por el paciente',
+        user: 'Sistema'
+      }
     ]
   },
   // David Sánchez (pat-011) - Periodontal
@@ -861,11 +1333,25 @@ export const INITIAL_BUDGET_ROWS: BudgetRow[] = [
     subtotal: 180,
     validUntil: '01/11/25',
     treatments: [
-      { tratamiento: 'Periodontal fase 1', precio: '180 €', descuento: '0 €', importe: '180 €', doctor: 'Dra. Carmen Díaz' }
+      {
+        tratamiento: 'Periodontal fase 1',
+        precio: '180 €',
+        descuento: '0 €',
+        importe: '180 €',
+        doctor: 'Dra. Carmen Díaz'
+      }
     ],
     history: [
-      { date: '01/10/25 12:00', action: 'Presupuesto creado', user: 'Dra. Carmen Díaz' },
-      { date: '01/10/25 12:30', action: 'Aceptado - Pago parcial', user: 'Sistema' }
+      {
+        date: '01/10/25 12:00',
+        action: 'Presupuesto creado',
+        user: 'Dra. Carmen Díaz'
+      },
+      {
+        date: '01/10/25 12:30',
+        action: 'Aceptado - Pago parcial',
+        user: 'Sistema'
+      }
     ]
   },
   // Fernando Díaz (pat-014) - Férula
@@ -881,11 +1367,25 @@ export const INITIAL_BUDGET_ROWS: BudgetRow[] = [
     subtotal: 350,
     validUntil: '13/02/26',
     treatments: [
-      { tratamiento: 'Férula Michigan + impresiones', precio: '350 €', descuento: '0 €', importe: '350 €', doctor: 'Dr. Antonio Ruiz' }
+      {
+        tratamiento: 'Férula Michigan + impresiones',
+        precio: '350 €',
+        descuento: '0 €',
+        importe: '350 €',
+        doctor: 'Dr. Antonio Ruiz'
+      }
     ],
     history: [
-      { date: '13/01/26 18:30', action: 'Presupuesto creado', user: 'Dr. Antonio Ruiz' },
-      { date: '13/01/26 19:00', action: 'Aceptado por el paciente', user: 'Sistema' }
+      {
+        date: '13/01/26 18:30',
+        action: 'Presupuesto creado',
+        user: 'Dr. Antonio Ruiz'
+      },
+      {
+        date: '13/01/26 19:00',
+        action: 'Aceptado por el paciente',
+        user: 'Sistema'
+      }
     ]
   },
   // Presupuesto pendiente - Antonio Pérez (pat-010)
@@ -901,11 +1401,28 @@ export const INITIAL_BUDGET_ROWS: BudgetRow[] = [
     subtotal: 450,
     validUntil: '15/02/26',
     treatments: [
-      { pieza: 47, tratamiento: 'Extracción molar', precio: '90 €', descuento: '0 €', importe: '90 €', doctor: 'Dr. Antonio Ruiz' },
-      { tratamiento: 'Prótesis parcial removible', precio: '360 €', descuento: '0 €', importe: '360 €', doctor: 'Dr. Antonio Ruiz' }
+      {
+        pieza: 47,
+        tratamiento: 'Extracción molar',
+        precio: '90 €',
+        descuento: '0 €',
+        importe: '90 €',
+        doctor: 'Dr. Antonio Ruiz'
+      },
+      {
+        tratamiento: 'Prótesis parcial removible',
+        precio: '360 €',
+        descuento: '0 €',
+        importe: '360 €',
+        doctor: 'Dr. Antonio Ruiz'
+      }
     ],
     history: [
-      { date: '15/01/26 17:00', action: 'Presupuesto creado', user: 'Dr. Antonio Ruiz' }
+      {
+        date: '15/01/26 17:00',
+        action: 'Presupuesto creado',
+        user: 'Dr. Antonio Ruiz'
+      }
     ]
   }
 ]
@@ -1521,9 +2038,11 @@ export default function BudgetsPayments({
 }: BudgetsPaymentsProps) {
   // Nombre del paciente para mostrar (usa prop o mock)
   const displayPatientName = patientName || 'María García López'
-  type TabKey = 'Presupuestos' | 'Producción' | 'Facturas'
+  type TabKey = 'Presupuestos' | 'Producción' | 'Facturas' | 'Cuotas'
   const [activeTab, setActiveTab] = React.useState<TabKey>('Presupuestos')
-  const [showProposalModal, setShowProposalModal] = React.useState(false)
+  
+  // Estado para modal de pago rápido de cuotas
+  const [showQuickPaymentModal, setShowQuickPaymentModal] = React.useState(false)
   const [showBudgetTypeModal, setShowBudgetTypeModal] = React.useState(false)
   const [showAddTreatmentsModal, setShowAddTreatmentsModal] =
     React.useState(false)
@@ -1537,6 +2056,15 @@ export default function BudgetsPayments({
   const [showTraceabilityModal, setShowTraceabilityModal] =
     React.useState(false)
   const [showBudgetDetailsModal, setShowBudgetDetailsModal] =
+    React.useState(false)
+  // New modal states for quick actions
+  const [showProductionDetailsModal, setShowProductionDetailsModal] =
+    React.useState(false)
+  const [showEditProductionModal, setShowEditProductionModal] =
+    React.useState(false)
+  const [showInvoiceDetailsModal, setShowInvoiceDetailsModal] =
+    React.useState(false)
+  const [showPaymentDetailsModal, setShowPaymentDetailsModal] =
     React.useState(false)
   const [selectedProductionRow, setSelectedProductionRow] =
     React.useState<ProductionRow | null>(null)
@@ -1629,7 +2157,9 @@ export default function BudgetsPayments({
   const insurers = React.useMemo(() => {
     const budgets = budgetRows.map((r) => r.insurer)
     const invoices = invoiceRows.map((r) => r.insurer)
-    return [...new Set([...budgets, ...invoices])].filter((x): x is string => Boolean(x))
+    return [...new Set([...budgets, ...invoices])].filter((x): x is string =>
+      Boolean(x)
+    )
   }, [budgetRows, invoiceRows])
 
   const paymentMethods = React.useMemo(() => {
@@ -1856,13 +2386,13 @@ export default function BudgetsPayments({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Auto-open proposal modal if openBudgetCreation is true
+  // Auto-open AddTreatmentsToBudgetModal if openBudgetCreation is true
   React.useEffect(() => {
-    if (openBudgetCreation && !showProposalModal) {
-      setShowProposalModal(true)
+    if (openBudgetCreation && !showAddTreatmentsModal) {
+      setShowAddTreatmentsModal(true)
       onBudgetCreationOpened?.()
     }
-  }, [openBudgetCreation, showProposalModal, onBudgetCreationOpened])
+  }, [openBudgetCreation, showAddTreatmentsModal, onBudgetCreationOpened])
 
   // State for budget type treatments and name (when selecting from preset templates)
   const [budgetTypeTreatments, setBudgetTypeTreatments] = React.useState<
@@ -1964,15 +2494,102 @@ export default function BudgetsPayments({
         }
         break
       }
-      case 'ver-detalles':
-      case 'ver-pago-registrado':
-      case 'enviar-mail':
-      case 'descargar-pdf':
-        // Placeholder for future implementation
+      case 'ver-detalles': {
+        // Find the invoice row and open the details modal
+        const row = invoiceRows.find((r) => r.id === rowId)
+        if (row) {
+          setSelectedInvoiceRow(row)
+          setShowInvoiceDetailsModal(true)
+        }
         break
+      }
+      case 'ver-pago-registrado': {
+        // Find the invoice row and open the payment details modal
+        const row = invoiceRows.find((r) => r.id === rowId)
+        if (row) {
+          setSelectedInvoiceRow(row)
+          setShowPaymentDetailsModal(true)
+        }
+        break
+      }
+      case 'enviar-mail': {
+        // Find the invoice row and simulate sending email
+        const row = invoiceRows.find((r) => r.id === rowId)
+        if (row) {
+          // Simulate email sending
+          alert(`Email enviado al paciente con la factura ${row.id}`)
+        }
+        break
+      }
+      case 'descargar-pdf': {
+        // Find the invoice row and simulate PDF download
+        const row = invoiceRows.find((r) => r.id === rowId)
+        if (row) {
+          // Simulate PDF download
+          handleDownloadInvoicePdf(row)
+        }
+        break
+      }
       default:
         break
     }
+  }
+
+  // Helper function to download invoice PDF
+  const handleDownloadInvoicePdf = (invoice: InvoiceRow) => {
+    // Create a simple text representation of the invoice
+    const invoiceContent = `
+FACTURA ${invoice.id}
+====================
+Fecha: ${invoice.date}
+Descripción: ${invoice.description}
+Importe: ${invoice.amount}
+Estado: ${invoice.status}
+Método de pago: ${invoice.paymentMethod || '-'}
+Aseguradora: ${invoice.insurer || '-'}
+    `.trim()
+
+    // Create blob and download
+    const blob = new Blob([invoiceContent], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `factura-${invoice.id}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  // Export invoices to CSV
+  const handleExportInvoicesCSV = () => {
+    // CSV header
+    const headers = ['ID', 'Descripción', 'Importe', 'Fecha', 'Estado', 'Método de pago', 'Aseguradora']
+    
+    // Convert rows to CSV format
+    const csvRows = [
+      headers.join(';'),
+      ...invoiceRows.map(row => [
+        row.id,
+        `"${row.description}"`,
+        row.amount,
+        row.date,
+        row.status,
+        row.paymentMethod || '',
+        row.insurer || ''
+      ].join(';'))
+    ]
+    
+    const csvContent = csvRows.join('\n')
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `facturas-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   // Handler for production action menu items
@@ -1998,6 +2615,57 @@ export default function BudgetsPayments({
         }
         break
       }
+      case 'ver-detalles': {
+        // Find the row and open the details modal
+        const row = productionRows.find((r) => r.id === rowId)
+        if (row) {
+          setSelectedProductionRow(row)
+          setShowProductionDetailsModal(true)
+        }
+        break
+      }
+      case 'ver-presupuesto': {
+        // Find the row and switch to Presupuestos tab, showing the related budget
+        const row = productionRows.find((r) => r.id === rowId)
+        if (row && row.budgetId) {
+          // Find the related budget
+          const budget = budgetRows.find((b) => b.id === row.budgetId)
+          if (budget) {
+            setSelectedBudgetRow(budget)
+            setShowBudgetDetailsModal(true)
+          }
+        } else {
+          alert('No hay presupuesto asociado a esta producción')
+        }
+        break
+      }
+      case 'ver-factura': {
+        // Find the row and show the related invoice
+        const row = productionRows.find((r) => r.id === rowId)
+        if (row) {
+          // Find related invoice by matching description or ID pattern
+          const relatedInvoice = invoiceRows.find(
+            (inv) => inv.description === row.description || 
+                     inv.id === `F-${row.id.replace('PR-', '')}`
+          )
+          if (relatedInvoice) {
+            setSelectedInvoiceRow(relatedInvoice)
+            setShowInvoiceDetailsModal(true)
+          } else {
+            alert('No se encontró la factura asociada')
+          }
+        }
+        break
+      }
+      case 'editar': {
+        // Find the row and open the edit modal
+        const row = productionRows.find((r) => r.id === rowId)
+        if (row) {
+          setSelectedProductionRow(row)
+          setShowEditProductionModal(true)
+        }
+        break
+      }
       case 'eliminar':
         setProductionRows((prevRows) =>
           prevRows.filter((row) => row.id !== rowId)
@@ -2005,6 +2673,19 @@ export default function BudgetsPayments({
         break
       default:
         break
+    }
+  }
+
+  // Handler for editing production
+  const handleSaveProductionEdit = (data: { date: string; notes: string }) => {
+    if (selectedProductionRow) {
+      setProductionRows((prevRows) =>
+        prevRows.map((row) =>
+          row.id === selectedProductionRow.id
+            ? { ...row, date: data.date }
+            : row
+        )
+      )
     }
   }
 
@@ -2206,22 +2887,39 @@ export default function BudgetsPayments({
           className='absolute left-8 top-4 flex items-center gap-6'
           data-node-id='3092:10964'
         >
-          {(['Presupuestos', 'Producción', 'Facturas'] as TabKey[]).map(
-            (tab) => (
-              <button
-                key={tab}
-                type='button'
-                className={[
-                  'h-10 px-2 flex items-center text-title-md cursor-pointer transition-colors',
-                  activeTab === tab
-                    ? 'border-b border-brand-500 text-neutral-900'
-                    : 'text-neutral-600 hover:text-neutral-900'
-                ].join(' ')}
-                onClick={() => setActiveTab(tab)}
-              >
-                {tab}
-              </button>
-            )
+          {(['Presupuestos', 'Producción', 'Facturas', 'Cuotas'] as TabKey[]).map(
+            (tab) => {
+              // Calcular badge para tab de Cuotas
+              const pendingInstallmentsCount = budgetRows
+                .filter((b) => b.installmentPlan)
+                .reduce((count, b) => {
+                  const pending = b.installmentPlan?.installments.filter(
+                    (i) => i.status === 'pending' || i.status === 'partial'
+                  ).length ?? 0
+                  return count + pending
+                }, 0)
+
+              return (
+                <button
+                  key={tab}
+                  type='button'
+                  className={[
+                    'h-10 px-2 flex items-center gap-2 text-title-md cursor-pointer transition-colors',
+                    activeTab === tab
+                      ? 'border-b border-brand-500 text-neutral-900'
+                      : 'text-neutral-600 hover:text-neutral-900'
+                  ].join(' ')}
+                  onClick={() => setActiveTab(tab)}
+                >
+                  {tab}
+                  {tab === 'Cuotas' && pendingInstallmentsCount > 0 && (
+                    <span className='inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full'>
+                      {pendingInstallmentsCount}
+                    </span>
+                  )}
+                </button>
+              )
+            }
           )}
         </div>
 
@@ -2261,13 +2959,19 @@ export default function BudgetsPayments({
           <button
             className='absolute top-4 right-8 flex items-center gap-2 rounded-[8.5rem] px-4 py-2 bg-neutral-50 border border-neutral-300 text-body-md text-neutral-900 hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-neutral-50 active:border-[#1E4947] transition-colors cursor-pointer'
             type='button'
-            onClick={() => {
-              // Export CSV functionality
-              console.log('Exportar CSV')
-            }}
+            onClick={handleExportInvoicesCSV}
           >
             <DownloadRounded className='size-6' />
             <span className='font-medium'>Exportar CSV</span>
+          </button>
+        ) : activeTab === 'Cuotas' ? (
+          <button
+            className='absolute top-4 right-8 flex items-center gap-2 rounded-[8.5rem] px-4 py-2 bg-brand-500 text-white text-body-md hover:bg-brand-600 active:bg-brand-700 transition-colors cursor-pointer shadow-md'
+            type='button'
+            onClick={() => setShowQuickPaymentModal(true)}
+          >
+            <PaymentsRounded className='size-6' />
+            <span className='font-medium'>Cobrar cuota</span>
           </button>
         ) : null}
 
@@ -3085,6 +3789,225 @@ export default function BudgetsPayments({
           </div>
         )}
 
+        {/* Table Container - CUOTAS */}
+        {activeTab === 'Cuotas' && (
+          <div
+            className='absolute left-8 right-8 top-[7.4375rem]'
+            data-node-id='cuotas-table'
+          >
+            {/* Budgets with installment plans */}
+            <div className='max-h-[24.5rem] overflow-y-auto space-y-4'>
+              {budgetRows.filter((b) => b.installmentPlan).length === 0 ? (
+                <div className='flex flex-col items-center justify-center py-12 text-neutral-500'>
+                  <PaymentsRounded className='size-12 mb-3 opacity-30' />
+                  <p className='text-body-md'>No hay presupuestos con cuotas</p>
+                  <p className='text-body-sm text-neutral-400 mt-1'>
+                    Crea un plan de cuotas al aceptar un presupuesto
+                  </p>
+                </div>
+              ) : (
+                budgetRows
+                  .filter((b) => b.installmentPlan)
+                  .map((budget) => {
+                    const plan = budget.installmentPlan!
+                    const paidCount = plan.installments.filter(
+                      (i) => i.status === 'paid'
+                    ).length
+                    const pendingCount = plan.installments.filter(
+                      (i) => i.status === 'pending' || i.status === 'partial'
+                    ).length
+                    const totalPaid =
+                      budget.payments?.reduce((sum, p) => sum + p.amount, 0) ??
+                      0
+                    const totalPending = plan.totalAmount - totalPaid
+
+                    return (
+                      <div
+                        key={budget.id}
+                        className='bg-white border border-neutral-200 rounded-xl overflow-hidden'
+                      >
+                        {/* Budget Header */}
+                        <div className='p-4 bg-neutral-50 border-b border-neutral-200'>
+                          <div className='flex items-start justify-between'>
+                            <div>
+                              <h3 className='text-title-md text-neutral-900'>
+                                {budget.description}
+                              </h3>
+                              <p className='text-body-sm text-neutral-500 mt-0.5'>
+                                {budget.treatments
+                                  ?.map((t) => t.tratamiento)
+                                  .join(', ')}
+                              </p>
+                            </div>
+                            <div className='text-right'>
+                              <p className='text-title-md text-neutral-900'>
+                                {plan.totalAmount.toLocaleString('es-ES', {
+                                  minimumFractionDigits: 2
+                                })}{' '}
+                                €
+                              </p>
+                              <p className='text-body-sm text-amber-600'>
+                                {pendingCount} cuota{pendingCount !== 1 ? 's' : ''}{' '}
+                                pendiente{pendingCount !== 1 ? 's' : ''}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className='mt-3'>
+                            <div className='h-2 bg-neutral-200 rounded-full overflow-hidden'>
+                              <div
+                                className='h-full bg-brand-500 rounded-full transition-all'
+                                style={{
+                                  width: `${(totalPaid / plan.totalAmount) * 100}%`
+                                }}
+                              />
+                            </div>
+                            <div className='flex justify-between mt-1'>
+                              <span className='text-body-xs text-neutral-500'>
+                                Pagado:{' '}
+                                {totalPaid.toLocaleString('es-ES', {
+                                  minimumFractionDigits: 2
+                                })}{' '}
+                                €
+                              </span>
+                              <span className='text-body-xs text-neutral-500'>
+                                Pendiente:{' '}
+                                {totalPending.toLocaleString('es-ES', {
+                                  minimumFractionDigits: 2
+                                })}{' '}
+                                €
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Installments Grid */}
+                        <div className='p-4'>
+                          <div className='grid grid-cols-3 gap-2'>
+                            {plan.installments.map((inst) => {
+                              const isPaid = inst.status === 'paid'
+                              const isPartial = inst.status === 'partial'
+                              const isPending = inst.status === 'pending'
+
+                              return (
+                                <div
+                                  key={inst.id}
+                                  className={[
+                                    'p-3 rounded-lg border text-center',
+                                    isPaid
+                                      ? 'bg-green-50 border-green-200'
+                                      : isPartial
+                                        ? 'bg-blue-50 border-blue-200'
+                                        : 'bg-amber-50 border-amber-200'
+                                  ].join(' ')}
+                                >
+                                  <p className='text-body-xs text-neutral-500'>
+                                    Cuota {inst.installmentNumber}
+                                  </p>
+                                  <p
+                                    className={[
+                                      'text-title-sm font-medium',
+                                      isPaid
+                                        ? 'text-green-700'
+                                        : isPartial
+                                          ? 'text-blue-700'
+                                          : 'text-amber-700'
+                                    ].join(' ')}
+                                  >
+                                    {inst.amount.toLocaleString('es-ES', {
+                                      minimumFractionDigits: 2
+                                    })}{' '}
+                                    €
+                                  </p>
+                                  <p
+                                    className={[
+                                      'text-body-xs mt-0.5',
+                                      isPaid
+                                        ? 'text-green-600'
+                                        : isPartial
+                                          ? 'text-blue-600'
+                                          : 'text-amber-600'
+                                    ].join(' ')}
+                                  >
+                                    {isPaid
+                                      ? 'Pagada'
+                                      : isPartial
+                                        ? `Parcial (${inst.paidAmount.toLocaleString('es-ES')} €)`
+                                        : 'Pendiente'}
+                                  </p>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Payment History */}
+                        {budget.payments && budget.payments.length > 0 && (
+                          <div className='border-t border-neutral-200 p-4'>
+                            <p className='text-title-sm text-neutral-700 mb-2'>
+                              Historial de pagos
+                            </p>
+                            <div className='space-y-2'>
+                              {budget.payments.map((payment) => (
+                                <div
+                                  key={payment.id}
+                                  className='flex items-center justify-between p-2 bg-neutral-50 rounded-lg'
+                                >
+                                  <div className='flex items-center gap-2'>
+                                    <ReceiptLongRounded className='w-4 h-4 text-neutral-400' />
+                                    <div>
+                                      <p className='text-body-sm text-neutral-700'>
+                                        {payment.amount.toLocaleString('es-ES', {
+                                          minimumFractionDigits: 2
+                                        })}{' '}
+                                        €
+                                      </p>
+                                      <p className='text-body-xs text-neutral-500'>
+                                        {payment.paymentMethod
+                                          .charAt(0)
+                                          .toUpperCase() +
+                                          payment.paymentMethod.slice(1)}{' '}
+                                        · Cuotas {payment.installmentIds.length}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span className='text-body-sm text-neutral-500'>
+                                    {new Date(payment.date).toLocaleDateString(
+                                      'es-ES',
+                                      {
+                                        day: '2-digit',
+                                        month: 'short',
+                                        year: '2-digit'
+                                      }
+                                    )}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Quick pay button for this budget */}
+                        {pendingCount > 0 && (
+                          <div className='border-t border-neutral-200 p-4 bg-neutral-50'>
+                            <button
+                              type='button'
+                              onClick={() => setShowQuickPaymentModal(true)}
+                              className='w-full py-2.5 rounded-lg bg-brand-500 text-white text-title-sm hover:bg-brand-600 transition-colors cursor-pointer'
+                            >
+                              Cobrar cuota
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Pagination */}
         <div
           className='absolute bottom-2 right-8 inline-flex items-center gap-3 text-neutral-900'
@@ -3211,10 +4134,6 @@ export default function BudgetsPayments({
 
           setShowAddTreatmentsModal(false)
         }}
-      />
-      <ProposalCreationModal
-        open={showProposalModal}
-        onClose={() => setShowProposalModal(false)}
       />
       <BudgetTypeListModal
         open={showBudgetTypeModal}
@@ -3429,6 +4348,138 @@ export default function BudgetsPayments({
         onSendEmail={handleSendBudgetEmail}
         onCreateAppointments={handleCreateAppointments}
         onConvertToInvoice={handleConvertToInvoice}
+      />
+      <BudgetQuickPaymentModal
+        open={showQuickPaymentModal}
+        onClose={() => setShowQuickPaymentModal(false)}
+        onPaymentSubmit={(data: QuickPaymentFormData) => {
+          console.log('Pago de cuotas registrado:', data)
+          // TODO: Integrar con el contexto para registrar el pago
+          // - Actualizar estado de las cuotas seleccionadas
+          // - Añadir entrada al historial de pagos
+          // - Sincronizar con CashClosingContext
+          setShowQuickPaymentModal(false)
+        }}
+        patientName={displayPatientName}
+        patientId='current-patient'
+        budgets={budgetRows.filter((b) => b.installmentPlan)}
+      />
+      {/* Production Details Modal */}
+      <ProductionDetailsModal
+        open={showProductionDetailsModal}
+        onClose={() => {
+          setShowProductionDetailsModal(false)
+          setSelectedProductionRow(null)
+        }}
+        productionId={selectedProductionRow?.id ?? ''}
+        description={selectedProductionRow?.description ?? ''}
+        amount={selectedProductionRow?.amount ?? ''}
+        date={selectedProductionRow?.date ?? ''}
+        status={selectedProductionRow?.status ?? 'Pendiente'}
+        professional={selectedProductionRow?.professional ?? ''}
+        patientName={displayPatientName}
+        budgetId={selectedProductionRow?.budgetId}
+        onViewBudget={() => {
+          if (selectedProductionRow?.budgetId) {
+            const budget = budgetRows.find(
+              (b) => b.id === selectedProductionRow.budgetId
+            )
+            if (budget) {
+              setShowProductionDetailsModal(false)
+              setSelectedBudgetRow(budget)
+              setShowBudgetDetailsModal(true)
+            }
+          }
+        }}
+        onViewInvoice={() => {
+          const relatedInvoice = invoiceRows.find(
+            (inv) =>
+              inv.description === selectedProductionRow?.description ||
+              inv.id === `F-${selectedProductionRow?.id.replace('PR-', '')}`
+          )
+          if (relatedInvoice) {
+            setShowProductionDetailsModal(false)
+            setSelectedInvoiceRow(relatedInvoice)
+            setShowInvoiceDetailsModal(true)
+          }
+        }}
+      />
+      {/* Edit Production Modal */}
+      <EditProductionModal
+        open={showEditProductionModal}
+        onClose={() => {
+          setShowEditProductionModal(false)
+          setSelectedProductionRow(null)
+        }}
+        productionId={selectedProductionRow?.id ?? ''}
+        description={selectedProductionRow?.description ?? ''}
+        currentDate={selectedProductionRow?.date ?? ''}
+        professional={selectedProductionRow?.professional ?? ''}
+        onSave={handleSaveProductionEdit}
+      />
+      {/* Invoice Details Modal */}
+      <InvoiceDetailsModal
+        open={showInvoiceDetailsModal}
+        onClose={() => {
+          setShowInvoiceDetailsModal(false)
+          setSelectedInvoiceRow(null)
+        }}
+        invoiceId={selectedInvoiceRow?.id ?? ''}
+        description={selectedInvoiceRow?.description ?? ''}
+        amount={selectedInvoiceRow?.amount ?? ''}
+        date={selectedInvoiceRow?.date ?? ''}
+        status={selectedInvoiceRow?.status ?? 'Pendiente'}
+        paymentMethod={selectedInvoiceRow?.paymentMethod ?? ''}
+        insurer={selectedInvoiceRow?.insurer ?? ''}
+        patientName={displayPatientName}
+        onDownloadPdf={() => {
+          if (selectedInvoiceRow) {
+            handleDownloadInvoicePdf(selectedInvoiceRow)
+          }
+        }}
+        onSendEmail={() => {
+          if (selectedInvoiceRow) {
+            alert(`Email enviado al paciente con la factura ${selectedInvoiceRow.id}`)
+          }
+        }}
+      />
+      {/* Payment Details Modal */}
+      <PaymentDetailsModal
+        open={showPaymentDetailsModal}
+        onClose={() => {
+          setShowPaymentDetailsModal(false)
+          setSelectedInvoiceRow(null)
+        }}
+        invoiceId={selectedInvoiceRow?.id ?? ''}
+        description={selectedInvoiceRow?.description ?? ''}
+        amount={selectedInvoiceRow?.amount ?? ''}
+        invoiceDate={selectedInvoiceRow?.date ?? ''}
+        paymentMethod={selectedInvoiceRow?.paymentMethod ?? ''}
+        paymentDate={selectedInvoiceRow?.date ?? ''}
+        patientName={displayPatientName}
+        insurer={selectedInvoiceRow?.insurer}
+        onDownloadReceipt={() => {
+          if (selectedInvoiceRow) {
+            // Simulate receipt download
+            const receiptContent = `
+RECIBO DE PAGO
+====================
+Factura: ${selectedInvoiceRow.id}
+Fecha: ${selectedInvoiceRow.date}
+Importe: ${selectedInvoiceRow.amount}
+Método: ${selectedInvoiceRow.paymentMethod || '-'}
+            `.trim()
+            const blob = new Blob([receiptContent], { type: 'text/plain' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `recibo-${selectedInvoiceRow.id}.txt`
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            URL.revokeObjectURL(url)
+          }
+        }}
       />
     </div>
   )

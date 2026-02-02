@@ -1,7 +1,16 @@
-import type { Appointment, LinkedTreatmentStatus, VisitStatus } from '@/context/AppointmentsContext'
+import type {
+  Appointment,
+  LinkedTreatmentStatus,
+  VisitStatus
+} from '@/context/AppointmentsContext'
 
 // Filter types for the clinical history timeline
-export type ClinicalHistoryFilter = 'todas' | 'proximas' | 'pasadas' | 'confirmadas' | 'inasistencia'
+export type ClinicalHistoryFilter =
+  | 'todas'
+  | 'proximas'
+  | 'pasadas'
+  | 'confirmadas'
+  | 'inasistencia'
 
 // Props for the VisitCard component
 export type VisitCardProps = {
@@ -18,8 +27,14 @@ export type VisitDetailPanelProps = {
   onEdit: () => void
   onSave: () => void
   onCancel: () => void
-  onSOAPChange: (field: 'subjective' | 'objective' | 'assessment' | 'plan', value: string) => void
-  onTreatmentStatusChange: (treatmentId: string, status: LinkedTreatmentStatus) => void
+  onSOAPChange: (
+    field: 'subjective' | 'objective' | 'assessment' | 'plan',
+    value: string
+  ) => void
+  onTreatmentStatusChange: (
+    treatmentId: string,
+    status: LinkedTreatmentStatus
+  ) => void
   onUploadAttachment: () => void
   onRemoveAttachment: (attachmentId: string) => void
 }

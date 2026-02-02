@@ -15,7 +15,12 @@ import {
   type VisitStatusLog
 } from '@/components/agenda/types'
 import { MD3Icon } from '@/components/icons/MD3Icon'
+import BudgetQuickPaymentModal, {
+  type QuickPaymentFormData
+} from '@/components/pacientes/modals/patient-record/BudgetQuickPaymentModal'
+import { type BudgetRow } from '@/components/pacientes/modals/patient-record/BudgetsPayments'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
+import RegisterPaymentModal from '@/components/pacientes/modals/patient-record/RegisterPaymentModal'
 import Portal from '@/components/ui/Portal'
 import {
   formatDateToISO,
@@ -231,7 +236,16 @@ function WaitTimerCell({ row }: { row: DailyRow }) {
 }
 
 // Componente para mostrar el estado de pago
-function PaymentStatusCell({ row }: { row: DailyRow }) {
+function PaymentStatusCell({
+  row,
+  onClick
+}: {
+  row: DailyRow
+  onClick?: () => void
+}) {
+  const hasPendingPayment =
+    row.paymentInfo && row.paymentInfo.pendingAmount > 0
+
   if (!row.paymentInfo) {
     // Sin información de pago - mostrar solo Si/No
     return (
@@ -258,6 +272,42 @@ function PaymentStatusCell({ row }: { row: DailyRow }) {
         <span className='size-2 rounded-full bg-[var(--color-success-500)]' />
         Pagado
       </span>
+    )
+  }
+
+  // Si hay pago pendiente y hay onClick, hacer clickeable
+  if (hasPendingPayment && onClick) {
+    return (
+      <button
+        type='button'
+        onClick={(e) => {
+          e.stopPropagation()
+          onClick()
+        }}
+        className='flex flex-col gap-1 cursor-pointer hover:opacity-80 transition-opacity text-left group'
+      >
+        <div className='flex items-center gap-2'>
+          <span className='text-amber-600 font-medium group-hover:text-amber-700'>
+            {pendingAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}{' '}
+            {currency}
+          </span>
+          <span className='text-xs text-[var(--color-neutral-500)]'>
+            ({percentage}%)
+          </span>
+          <MD3Icon
+            name='PaymentsRounded'
+            size={0.875}
+            className='text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity'
+          />
+        </div>
+        {/* Mini barra de progreso */}
+        <div className='h-1 w-16 overflow-hidden rounded-full bg-[var(--color-neutral-200)]'>
+          <div
+            className='h-full rounded-full bg-[var(--color-brand-500)]'
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+      </button>
     )
   }
 
@@ -407,7 +457,8 @@ function RowActionsMenu({
   onNewBudget,
   onNewPrescription,
   onVisitStatusChange,
-  onToggleConfirmed
+  onToggleConfirmed,
+  onPayment
 }: {
   row: DailyRow
   onClose: () => void
@@ -418,6 +469,7 @@ function RowActionsMenu({
   onNewPrescription: () => void
   onVisitStatusChange: (status: VisitStatus) => void
   onToggleConfirmed: (confirmed: boolean) => void
+  onPayment?: () => void
 }) {
   const menuRef = React.useRef<HTMLDivElement>(null)
   const [position, setPosition] = React.useState<{
@@ -567,6 +619,33 @@ function RowActionsMenu({
           />
           <span>Nueva receta</span>
         </button>
+        {/* Acción de cobrar - solo si hay pago pendiente */}
+        {onPayment &&
+          row.paymentInfo &&
+          row.paymentInfo.pendingAmount > 0 && (
+            <button
+              type='button'
+              role='menuitem'
+              onClick={() => {
+                onPayment()
+                onClose()
+              }}
+              className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-brand-700)] font-medium transition-colors hover:bg-[var(--color-brand-50)] focus:bg-[var(--color-brand-50)] focus:outline-none'
+            >
+              <MD3Icon
+                name='PaymentsRounded'
+                size={1.125}
+                className='text-[var(--color-brand-600)]'
+              />
+              <span>
+                Cobrar{' '}
+                {row.paymentInfo.pendingAmount.toLocaleString('es-ES', {
+                  minimumFractionDigits: 2
+                })}{' '}
+                {row.paymentInfo.currency}
+              </span>
+            </button>
+          )}
       </div>
 
       {/* Separador */}
@@ -765,6 +844,14 @@ export default function ParteDiarioPage() {
   const [rowMenuTriggerRect, setRowMenuTriggerRect] =
     React.useState<DOMRect | null>(null)
 
+  // Estado para modales de pago
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = React.useState(false)
+  const [isBudgetPaymentModalOpen, setIsBudgetPaymentModalOpen] = React.useState(false)
+  const [selectedRowForPayment, setSelectedRowForPayment] = React.useState<DailyRow | null>(null)
+  
+  // Mock data para presupuestos con cuotas (en producción vendría del backend)
+  const [patientBudgets, setPatientBudgets] = React.useState<BudgetRow[]>([])
+
   // Estado para el menú de cambio de estado masivo
   const [isBulkStatusMenuOpen, setIsBulkStatusMenuOpen] = React.useState(false)
   const bulkStatusMenuRef = React.useRef<HTMLDivElement>(null)
@@ -948,6 +1035,37 @@ export default function ParteDiarioPage() {
     }
   }
 
+  // Handlers para pagos
+  const handleOpenPaymentModal = (row: DailyRow) => {
+    setSelectedRowForPayment(row)
+    // TODO: En producción, cargar presupuestos del paciente desde el backend
+    // Por ahora, verificar si tiene presupuestos con cuotas
+    if (patientBudgets.length > 0) {
+      setIsBudgetPaymentModalOpen(true)
+    } else {
+      setIsPaymentModalOpen(true)
+    }
+  }
+
+  const handlePaymentSubmit = (data: {
+    paymentMethod: string
+    paymentDate: Date | null
+    reference: string
+    amountToPay: number
+  }) => {
+    // TODO: Registrar pago en el contexto/backend
+    console.log('Pago registrado:', data)
+    setIsPaymentModalOpen(false)
+    setSelectedRowForPayment(null)
+  }
+
+  const handleBudgetPaymentSubmit = (data: QuickPaymentFormData) => {
+    // TODO: Registrar pago de cuotas en el contexto/backend
+    console.log('Pago de cuotas registrado:', data)
+    setIsBudgetPaymentModalOpen(false)
+    setSelectedRowForPayment(null)
+  }
+
   // Cerrar menú de estado masivo al hacer clic fuera
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -989,6 +1107,42 @@ export default function ParteDiarioPage() {
           initialProfessionals={selectedProfessionals}
           initialDate={selectedDate}
         />
+
+        {/* Modal de pago de cita */}
+        {selectedRowForPayment && (
+          <RegisterPaymentModal
+            open={isPaymentModalOpen}
+            onClose={() => {
+              setIsPaymentModalOpen(false)
+              setSelectedRowForPayment(null)
+            }}
+            onSubmit={handlePaymentSubmit}
+            invoiceId={selectedRowForPayment.id}
+            treatment={selectedRowForPayment.reason}
+            amount={
+              selectedRowForPayment.paymentInfo
+                ? `${selectedRowForPayment.paymentInfo.pendingAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €`
+                : ''
+            }
+            paymentInfo={selectedRowForPayment.paymentInfo}
+            patientName={selectedRowForPayment.name}
+          />
+        )}
+
+        {/* Modal de pago de cuotas de presupuesto */}
+        {selectedRowForPayment && (
+          <BudgetQuickPaymentModal
+            open={isBudgetPaymentModalOpen}
+            onClose={() => {
+              setIsBudgetPaymentModalOpen(false)
+              setSelectedRowForPayment(null)
+            }}
+            onPaymentSubmit={handleBudgetPaymentSubmit}
+            patientName={selectedRowForPayment.name}
+            patientId={selectedRowForPayment.id}
+            budgets={patientBudgets}
+          />
+        )}
 
         {/* Header Section - Fixed size */}
         <div className='flex-shrink-0'>
@@ -1676,7 +1830,10 @@ export default function ParteDiarioPage() {
                         <p className='truncate'>{row.phone}</p>
                       </TableBodyCell>
                       <TableBodyCell className='w-[120px] pr-2'>
-                        <PaymentStatusCell row={row} />
+                        <PaymentStatusCell
+                          row={row}
+                          onClick={() => handleOpenPaymentModal(row)}
+                        />
                       </TableBodyCell>
                       <TableBodyCell className='w-[50px] pr-2 sticky right-0 z-10 bg-white group-hover:bg-[var(--color-neutral-50)]'>
                         <button
@@ -1726,6 +1883,7 @@ export default function ParteDiarioPage() {
                             onToggleConfirmed={(confirmed) => {
                               handleConfirmationToggle(row.id, confirmed)
                             }}
+                            onPayment={() => handleOpenPaymentModal(row)}
                           />
                         )}
                       </TableBodyCell>

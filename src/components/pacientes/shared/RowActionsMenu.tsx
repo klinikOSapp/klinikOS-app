@@ -13,6 +13,10 @@ type RowActionsMenuProps = {
   onDelete: () => void
   /** Optional callback for creating an appointment - only shown if provided */
   onCreateAppointment?: () => void
+  /** Optional callback to mark treatment as completed */
+  onMarkComplete?: () => void
+  /** Optional callback to cancel treatment */
+  onMarkCancelled?: () => void
 }
 
 export function RowActionsMenu({
@@ -22,7 +26,9 @@ export function RowActionsMenu({
   onCreateBudget,
   onToggleStatus,
   onDelete,
-  onCreateAppointment
+  onCreateAppointment,
+  onMarkComplete,
+  onMarkCancelled
 }: RowActionsMenuProps) {
   const menuRef = React.useRef<HTMLDivElement>(null)
 
@@ -106,6 +112,51 @@ export function RowActionsMenu({
           </button>
         )}
       </div>
+
+      {/* Separador - Acciones de estado */}
+      {(onMarkComplete || onMarkCancelled) && (
+        <>
+          <div className='my-1 h-px bg-[var(--color-border-default)]' />
+          <div className='py-1'>
+            {onMarkComplete && (
+              <button
+                type='button'
+                role='menuitem'
+                onClick={() => {
+                  onMarkComplete()
+                  onClose()
+                }}
+                className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+              >
+                <MD3Icon
+                  name='CheckCircleRounded'
+                  size={1.125}
+                  className='text-[#16A34A]'
+                />
+                <span>Marcar como realizado</span>
+              </button>
+            )}
+            {onMarkCancelled && (
+              <button
+                type='button'
+                role='menuitem'
+                onClick={() => {
+                  onMarkCancelled()
+                  onClose()
+                }}
+                className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none'
+              >
+                <MD3Icon
+                  name='CancelRounded'
+                  size={1.125}
+                  className='text-[#9CA3AF]'
+                />
+                <span>Cancelar tratamiento</span>
+              </button>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Separador */}
       <div className='my-1 h-px bg-[var(--color-border-default)]' />
