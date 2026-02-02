@@ -2,9 +2,9 @@
 
 import { CloseRounded } from '@/components/icons/md3'
 import ClinicalHistory from '@/components/pacientes/modals/patient-record/ClinicalHistory'
-import Treatments from './Treatments'
 import Portal from '@/components/ui/Portal'
 import React from 'react'
+import Treatments from './Treatments'
 
 type PatientFileModalProps = {
   open: boolean
@@ -12,7 +12,14 @@ type PatientFileModalProps = {
   patientName?: string
 }
 
-type TabKey = 'resumen' | 'summary' | 'history' | 'treatments' | 'rx' | 'billing' | 'consents'
+type TabKey =
+  | 'resumen'
+  | 'summary'
+  | 'history'
+  | 'treatments'
+  | 'rx'
+  | 'billing'
+  | 'consents'
 
 export default function PatientFileModal({
   open,
@@ -115,10 +122,10 @@ export default function PatientFileModal({
         return (
           <div className='p-8'>
             <h2 className='text-title-lg text-[var(--color-neutral-900)] mb-2'>
-              Consentimientos
+              Documentos
             </h2>
             <p className='text-body-sm text-[var(--color-neutral-700)]'>
-              Accede a todos los consentimientos de los pacientes.
+              Accede a todos los documentos y consentimientos de los pacientes.
             </p>
           </div>
         )
@@ -150,8 +157,12 @@ export default function PatientFileModal({
               {/* Header */}
               <div className='absolute top-0 left-0 right-0 h-14 border-b border-[var(--color-neutral-300)] flex items-center justify-between px-6'>
                 <p className='text-title-lg text-[var(--color-neutral-900)]'>
-                  <span className='text-[var(--color-neutral-600)]'>Ficha de </span>
-                  <span className='text-[var(--color-brand-600)]'>{patientName || 'Paciente'}</span>
+                  <span className='text-[var(--color-neutral-600)]'>
+                    Ficha de{' '}
+                  </span>
+                  <span className='text-[var(--color-brand-600)]'>
+                    {patientName || 'Paciente'}
+                  </span>
                 </p>
                 <button
                   type='button'
@@ -198,8 +209,8 @@ export default function PatientFileModal({
                     tab='billing'
                   />
                   <NavItem
-                    title='Consentimientos'
-                    subtitle='Accede a todos los consentimientos de los pacientes.'
+                    title='Documentos'
+                    subtitle='Accede a todos los documentos y consentimientos de los pacientes.'
                     tab='consents'
                   />
                 </nav>

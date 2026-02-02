@@ -26,16 +26,13 @@ import {
   TimelineRounded,
   VisibilityRounded
 } from '@/components/icons/md3'
-import type {
-  BudgetInstallmentPlan,
-  BudgetPayment
-} from '@/types/payments'
 import {
   addBudgetType,
   convertBudgetTypeToTreatmentsV2,
   type BudgetTypeData
 } from '@/components/pacientes/shared/budgetTypeData'
 import type { TreatmentV2 } from '@/components/pacientes/shared/treatmentTypes'
+import type { BudgetInstallmentPlan, BudgetPayment } from '@/types/payments'
 import React from 'react'
 import { createPortal } from 'react-dom'
 import AddProductionModal from './AddProductionModal'
@@ -45,6 +42,7 @@ import BudgetQuickPaymentModal, {
   type QuickPaymentFormData
 } from './BudgetQuickPaymentModal'
 import BudgetTypeListModal from './BudgetTypeListModal'
+import EditBudgetModal from './EditBudgetModal'
 import EditProductionModal from './EditProductionModal'
 import InvoiceDetailsModal from './InvoiceDetailsModal'
 import InvoiceProductionModal from './InvoiceProductionModal'
@@ -2040,9 +2038,10 @@ export default function BudgetsPayments({
   const displayPatientName = patientName || 'María García López'
   type TabKey = 'Presupuestos' | 'Producción' | 'Facturas' | 'Cuotas'
   const [activeTab, setActiveTab] = React.useState<TabKey>('Presupuestos')
-  
+
   // Estado para modal de pago rápido de cuotas
-  const [showQuickPaymentModal, setShowQuickPaymentModal] = React.useState(false)
+  const [showQuickPaymentModal, setShowQuickPaymentModal] =
+    React.useState(false)
   const [showBudgetTypeModal, setShowBudgetTypeModal] = React.useState(false)
   const [showAddTreatmentsModal, setShowAddTreatmentsModal] =
     React.useState(false)
@@ -2066,6 +2065,7 @@ export default function BudgetsPayments({
     React.useState(false)
   const [showPaymentDetailsModal, setShowPaymentDetailsModal] =
     React.useState(false)
+  const [showEditBudgetModal, setShowEditBudgetModal] = React.useState(false)
   const [selectedProductionRow, setSelectedProductionRow] =
     React.useState<ProductionRow | null>(null)
   const [selectedInvoiceRow, setSelectedInvoiceRow] =
@@ -2564,24 +2564,36 @@ Aseguradora: ${invoice.insurer || '-'}
   // Export invoices to CSV
   const handleExportInvoicesCSV = () => {
     // CSV header
-    const headers = ['ID', 'Descripción', 'Importe', 'Fecha', 'Estado', 'Método de pago', 'Aseguradora']
-    
+    const headers = [
+      'ID',
+      'Descripción',
+      'Importe',
+      'Fecha',
+      'Estado',
+      'Método de pago',
+      'Aseguradora'
+    ]
+
     // Convert rows to CSV format
     const csvRows = [
       headers.join(';'),
-      ...invoiceRows.map(row => [
-        row.id,
-        `"${row.description}"`,
-        row.amount,
-        row.date,
-        row.status,
-        row.paymentMethod || '',
-        row.insurer || ''
-      ].join(';'))
+      ...invoiceRows.map((row) =>
+        [
+          row.id,
+          `"${row.description}"`,
+          row.amount,
+          row.date,
+          row.status,
+          row.paymentMethod || '',
+          row.insurer || ''
+        ].join(';')
+      )
     ]
-    
+
     const csvContent = csvRows.join('\n')
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob(['\ufeff' + csvContent], {
+      type: 'text/csv;charset=utf-8;'
+    })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -2645,8 +2657,9 @@ Aseguradora: ${invoice.insurer || '-'}
         if (row) {
           // Find related invoice by matching description or ID pattern
           const relatedInvoice = invoiceRows.find(
-            (inv) => inv.description === row.description || 
-                     inv.id === `F-${row.id.replace('PR-', '')}`
+            (inv) =>
+              inv.description === row.description ||
+              inv.id === `F-${row.id.replace('PR-', '')}`
           )
           if (relatedInvoice) {
             setSelectedInvoiceRow(relatedInvoice)
@@ -2711,11 +2724,16 @@ Aseguradora: ${invoice.insurer || '-'}
         }
       ]
     }
+    // Add the duplicated budget to the list
     if (onAddBudget) {
       onAddBudget(duplicatedBudget)
     } else {
       setBudgetRows((prev) => [duplicatedBudget, ...prev])
     }
+    // Close details modal if open and open edit modal with the duplicated budget
+    setShowBudgetDetailsModal(false)
+    setSelectedBudgetRow(duplicatedBudget)
+    setShowEditBudgetModal(true)
   }
 
   const handleDownloadBudgetPdf = (budget: BudgetRow) => {
@@ -2786,9 +2804,14 @@ Aseguradora: ${invoice.insurer || '-'}
         if (budget) handleConvertToInvoice(budget)
         break
       case 'ver-produccion':
-      case 'editar':
         // Placeholder for future implementation
         console.log(`Action ${action} not yet implemented`)
+        break
+      case 'editar':
+        if (budget) {
+          setSelectedBudgetRow(budget)
+          setShowEditBudgetModal(true)
+        }
         break
       default:
         break
@@ -2887,40 +2910,41 @@ Aseguradora: ${invoice.insurer || '-'}
           className='absolute left-8 top-4 flex items-center gap-6'
           data-node-id='3092:10964'
         >
-          {(['Presupuestos', 'Producción', 'Facturas', 'Cuotas'] as TabKey[]).map(
-            (tab) => {
-              // Calcular badge para tab de Cuotas
-              const pendingInstallmentsCount = budgetRows
-                .filter((b) => b.installmentPlan)
-                .reduce((count, b) => {
-                  const pending = b.installmentPlan?.installments.filter(
+          {(
+            ['Presupuestos', 'Producción', 'Facturas', 'Cuotas'] as TabKey[]
+          ).map((tab) => {
+            // Calcular badge para tab de Cuotas
+            const pendingInstallmentsCount = budgetRows
+              .filter((b) => b.installmentPlan)
+              .reduce((count, b) => {
+                const pending =
+                  b.installmentPlan?.installments.filter(
                     (i) => i.status === 'pending' || i.status === 'partial'
                   ).length ?? 0
-                  return count + pending
-                }, 0)
+                return count + pending
+              }, 0)
 
-              return (
-                <button
-                  key={tab}
-                  type='button'
-                  className={[
-                    'h-10 px-2 flex items-center gap-2 text-title-md cursor-pointer transition-colors',
-                    activeTab === tab
-                      ? 'border-b border-brand-500 text-neutral-900'
-                      : 'text-neutral-600 hover:text-neutral-900'
-                  ].join(' ')}
-                  onClick={() => setActiveTab(tab)}
-                >
-                  {tab}
-                  {tab === 'Cuotas' && pendingInstallmentsCount > 0 && (
-                    <span className='inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full'>
-                      {pendingInstallmentsCount}
-                    </span>
-                  )}
-                </button>
-              )
-            }
-          )}
+            return (
+              <button
+                key={tab}
+                type='button'
+                className={[
+                  'h-10 px-2 flex items-center gap-2 text-title-md cursor-pointer transition-colors',
+                  activeTab === tab
+                    ? 'border-b border-brand-500 text-neutral-900'
+                    : 'text-neutral-600 hover:text-neutral-900'
+                ].join(' ')}
+                onClick={() => setActiveTab(tab)}
+              >
+                {tab}
+                {tab === 'Cuotas' && pendingInstallmentsCount > 0 && (
+                  <span className='inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full'>
+                    {pendingInstallmentsCount}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </div>
 
         {/* Action buttons - change based on active tab */}
@@ -3363,7 +3387,21 @@ Aseguradora: ${invoice.insurer || '-'}
                 <CalendarMonthRounded className='size-4' />
                 <span>
                   {dateFrom || dateTo
-                    ? `${dateFrom ? dateFrom.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) : '...'} - ${dateTo ? dateTo.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) : '...'}`
+                    ? `${
+                        dateFrom
+                          ? dateFrom.toLocaleDateString('es-ES', {
+                              day: '2-digit',
+                              month: '2-digit'
+                            })
+                          : '...'
+                      } - ${
+                        dateTo
+                          ? dateTo.toLocaleDateString('es-ES', {
+                              day: '2-digit',
+                              month: '2-digit'
+                            })
+                          : '...'
+                      }`
                     : 'Fechas'}
                 </span>
                 <KeyboardArrowDownRounded className='size-4' />
@@ -3847,8 +3885,9 @@ Aseguradora: ${invoice.insurer || '-'}
                                 €
                               </p>
                               <p className='text-body-sm text-amber-600'>
-                                {pendingCount} cuota{pendingCount !== 1 ? 's' : ''}{' '}
-                                pendiente{pendingCount !== 1 ? 's' : ''}
+                                {pendingCount} cuota
+                                {pendingCount !== 1 ? 's' : ''} pendiente
+                                {pendingCount !== 1 ? 's' : ''}
                               </p>
                             </div>
                           </div>
@@ -3859,7 +3898,9 @@ Aseguradora: ${invoice.insurer || '-'}
                               <div
                                 className='h-full bg-brand-500 rounded-full transition-all'
                                 style={{
-                                  width: `${(totalPaid / plan.totalAmount) * 100}%`
+                                  width: `${
+                                    (totalPaid / plan.totalAmount) * 100
+                                  }%`
                                 }}
                               />
                             </div>
@@ -3898,8 +3939,8 @@ Aseguradora: ${invoice.insurer || '-'}
                                     isPaid
                                       ? 'bg-green-50 border-green-200'
                                       : isPartial
-                                        ? 'bg-blue-50 border-blue-200'
-                                        : 'bg-amber-50 border-amber-200'
+                                      ? 'bg-blue-50 border-blue-200'
+                                      : 'bg-amber-50 border-amber-200'
                                   ].join(' ')}
                                 >
                                   <p className='text-body-xs text-neutral-500'>
@@ -3911,8 +3952,8 @@ Aseguradora: ${invoice.insurer || '-'}
                                       isPaid
                                         ? 'text-green-700'
                                         : isPartial
-                                          ? 'text-blue-700'
-                                          : 'text-amber-700'
+                                        ? 'text-blue-700'
+                                        : 'text-amber-700'
                                     ].join(' ')}
                                   >
                                     {inst.amount.toLocaleString('es-ES', {
@@ -3926,15 +3967,17 @@ Aseguradora: ${invoice.insurer || '-'}
                                       isPaid
                                         ? 'text-green-600'
                                         : isPartial
-                                          ? 'text-blue-600'
-                                          : 'text-amber-600'
+                                        ? 'text-blue-600'
+                                        : 'text-amber-600'
                                     ].join(' ')}
                                   >
                                     {isPaid
                                       ? 'Pagada'
                                       : isPartial
-                                        ? `Parcial (${inst.paidAmount.toLocaleString('es-ES')} €)`
-                                        : 'Pendiente'}
+                                      ? `Parcial (${inst.paidAmount.toLocaleString(
+                                          'es-ES'
+                                        )} €)`
+                                      : 'Pendiente'}
                                   </p>
                                 </div>
                               )
@@ -3958,9 +4001,12 @@ Aseguradora: ${invoice.insurer || '-'}
                                     <ReceiptLongRounded className='w-4 h-4 text-neutral-400' />
                                     <div>
                                       <p className='text-body-sm text-neutral-700'>
-                                        {payment.amount.toLocaleString('es-ES', {
-                                          minimumFractionDigits: 2
-                                        })}{' '}
+                                        {payment.amount.toLocaleString(
+                                          'es-ES',
+                                          {
+                                            minimumFractionDigits: 2
+                                          }
+                                        )}{' '}
                                         €
                                       </p>
                                       <p className='text-body-xs text-neutral-500'>
@@ -4079,7 +4125,10 @@ Aseguradora: ${invoice.insurer || '-'}
           const newBudget: BudgetRow = {
             id: `PRE-${Date.now().toString().slice(-6)}`,
             description: budgetInfo.name,
-            amount: `${budgetInfo.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+            amount: `${budgetInfo.total.toLocaleString('es-ES', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+            })} €`,
             date: new Date().toLocaleDateString('es-ES', {
               day: '2-digit',
               month: '2-digit',
@@ -4192,8 +4241,8 @@ Aseguradora: ${invoice.insurer || '-'}
                         data.professional === 'dr-guillermo'
                           ? 'Dr. Guillermo'
                           : data.professional === 'dra-andrea'
-                            ? 'Dra. Andrea'
-                            : row.professional
+                          ? 'Dra. Andrea'
+                          : row.professional
                     }
                   : row
               )
@@ -4270,10 +4319,10 @@ Aseguradora: ${invoice.insurer || '-'}
                         data.paymentMethod === 'efectivo'
                           ? 'Efectivo'
                           : data.paymentMethod === 'tarjeta'
-                            ? 'Tarjeta'
-                            : data.paymentMethod === 'transferencia'
-                              ? 'Transferencia'
-                              : row.paymentMethod
+                          ? 'Tarjeta'
+                          : data.paymentMethod === 'transferencia'
+                          ? 'Transferencia'
+                          : row.paymentMethod
                     }
                   : row
               )
@@ -4330,8 +4379,8 @@ Aseguradora: ${invoice.insurer || '-'}
                           newStatus === 'Aceptado'
                             ? 'Presupuesto aceptado'
                             : newStatus === 'Rechazado'
-                              ? 'Presupuesto rechazado'
-                              : 'Presupuesto reabierto',
+                            ? 'Presupuesto rechazado'
+                            : 'Presupuesto reabierto',
                         user: 'Sistema'
                       }
                     ]
@@ -4348,6 +4397,25 @@ Aseguradora: ${invoice.insurer || '-'}
         onSendEmail={handleSendBudgetEmail}
         onCreateAppointments={handleCreateAppointments}
         onConvertToInvoice={handleConvertToInvoice}
+        onEdit={(budget) => {
+          setSelectedBudgetRow(budget)
+          setShowBudgetDetailsModal(false)
+          setShowEditBudgetModal(true)
+        }}
+      />
+      {/* Edit Budget Modal */}
+      <EditBudgetModal
+        open={showEditBudgetModal}
+        onClose={() => {
+          setShowEditBudgetModal(false)
+          setSelectedBudgetRow(null)
+        }}
+        budget={selectedBudgetRow}
+        onSave={(updatedBudget) => {
+          setBudgetRows((prev) =>
+            prev.map((b) => (b.id === updatedBudget.id ? updatedBudget : b))
+          )
+        }}
       />
       <BudgetQuickPaymentModal
         open={showQuickPaymentModal}
@@ -4439,7 +4507,9 @@ Aseguradora: ${invoice.insurer || '-'}
         }}
         onSendEmail={() => {
           if (selectedInvoiceRow) {
-            alert(`Email enviado al paciente con la factura ${selectedInvoiceRow.id}`)
+            alert(
+              `Email enviado al paciente con la factura ${selectedInvoiceRow.id}`
+            )
           }
         }}
       />

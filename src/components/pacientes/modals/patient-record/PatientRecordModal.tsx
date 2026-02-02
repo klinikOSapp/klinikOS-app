@@ -22,7 +22,7 @@ export type PatientRecordTab =
   | 'Tratamientos'
   | 'Imágenes RX'
   | 'Finanzas'
-  | 'Consentimientos'
+  | 'Documentos'
   | 'Recetas'
 
 type PatientRecordModalProps = {
@@ -146,8 +146,8 @@ export default function PatientRecordModal({
       body: 'Cobros, financiación embebida, facturas/recibos y conciliación.'
     },
     {
-      title: 'Consentimientos',
-      body: 'Accede a todos los consentimientos de los pacientes.'
+      title: 'Documentos',
+      body: 'Accede a todos los documentos y consentimientos de los pacientes.'
     },
     {
       title: 'Recetas',
@@ -252,9 +252,13 @@ export default function PatientRecordModal({
                   </ul>
                 </div>
                 {/* Right content: vertical scroll only; never horizontal (except for RxImages which handles its own scroll) */}
-                <div className={`flex-1 min-w-0 box-border transition-all duration-300 ease-in-out ${
-                  active === 'Imágenes RX' ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'
-                }`}>
+                <div
+                  className={`flex-1 min-w-0 box-border transition-all duration-300 ease-in-out ${
+                    active === 'Imágenes RX'
+                      ? 'overflow-hidden'
+                      : 'overflow-y-auto overflow-x-hidden'
+                  }`}
+                >
                   {/* Toggle button when sidebar is hidden - shows sidebar on hover */}
                   {!sidebarVisible && (
                     <div
@@ -345,7 +349,7 @@ export default function PatientRecordModal({
                         setActive('Historial clínico')
                       }}
                       onNavigateToConsents={() => {
-                        setActive('Consentimientos')
+                        setActive('Documentos')
                       }}
                       onNavigateToPrescriptions={() => {
                         setActive('Recetas')
@@ -380,7 +384,9 @@ export default function PatientRecordModal({
                       }
                     />
                   )}
-                  {active === 'Imágenes RX' && <RxImages onClose={onClose} />}
+                  {active === 'Imágenes RX' && (
+                    <RxImages onClose={onClose} patientId={patientId} />
+                  )}
                   {active === 'Finanzas' && (
                     <BudgetsPayments
                       onClose={onClose}
@@ -392,8 +398,8 @@ export default function PatientRecordModal({
                       onUpdateBudgetRows={handleUpdateBudgetRows}
                     />
                   )}
-                  {active === 'Consentimientos' && (
-                    <Consents onClose={onClose} />
+                  {active === 'Documentos' && (
+                    <Consents onClose={onClose} patientId={patientId} />
                   )}
                   {active === 'Recetas' && (
                     <Recetas
@@ -410,7 +416,7 @@ export default function PatientRecordModal({
                     active !== 'Historial clínico' &&
                     active !== 'Tratamientos' &&
                     active !== 'Imágenes RX' &&
-                    active !== 'Consentimientos' &&
+                    active !== 'Documentos' &&
                     active !== 'Finanzas' &&
                     active !== 'Recetas' && (
                       <div className='p-6 text-body-md text-[var(--color-neutral-900)]'>

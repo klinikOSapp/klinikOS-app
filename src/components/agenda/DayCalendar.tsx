@@ -8,17 +8,20 @@ import RegisterPaymentModal from '@/components/pacientes/modals/patient-record/R
 import { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
 
 import Portal from '@/components/ui/Portal'
+import { useAppointments } from '@/context/AppointmentsContext'
+import AgendaBlockCard from './AgendaBlockCard'
 import AppointmentContextMenu, {
   type ContextMenuAction
 } from './AppointmentContextMenu'
-import AgendaBlockCard from './AgendaBlockCard'
-import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
-import type { EventDetail, VisitStatus, AgendaBlock } from './types'
-import { VISIT_STATUS_CONFIG } from './types'
-import VisitStatusMenu from './VisitStatusMenu'
-import { useAppointments } from '@/context/AppointmentsContext'
+import SlotDragSelection, {
+  getSelectionBounds,
+  type SlotDragState
+} from './SlotDragSelection'
 import TimeIndicator, { slotIndexToTime } from './TimeIndicator'
-import SlotDragSelection, { type SlotDragState, getSelectionBounds } from './SlotDragSelection'
+import VisitStatusMenu from './VisitStatusMenu'
+import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
+import type { EventDetail, VisitStatus } from './types'
+import { VISIT_STATUS_CONFIG } from './types'
 
 const OVERLAY_GUTTER = '1rem'
 
@@ -119,10 +122,13 @@ const SLOT_REM = 2.5 // Mismo valor que vista semanal: var(--scheduler-slot-heig
 // Configuración de períodos del día
 type DayPeriodType = 'full' | 'morning' | 'afternoon'
 
-const PERIOD_CONFIG: Record<DayPeriodType, { startHour: number; endHour: number }> = {
-  full: { startHour: 9, endHour: 20 },      // 9:00 - 20:00 (11 horas)
-  morning: { startHour: 9, endHour: 14 },    // 9:00 - 14:00 (5 horas)
-  afternoon: { startHour: 14, endHour: 20 }  // 14:00 - 20:00 (6 horas)
+const PERIOD_CONFIG: Record<
+  DayPeriodType,
+  { startHour: number; endHour: number }
+> = {
+  full: { startHour: 9, endHour: 20 }, // 9:00 - 20:00 (11 horas)
+  morning: { startHour: 9, endHour: 14 }, // 9:00 - 14:00 (5 horas)
+  afternoon: { startHour: 14, endHour: 20 } // 14:00 - 20:00 (6 horas)
 }
 
 // Función helper para obtener configuración del período
@@ -785,7 +791,10 @@ function DayEvent({
   onVisitStatusChange?: (eventId: string, newStatus: VisitStatus) => void
 }) {
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false)
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number
+    left: number
+  } | null>(null)
   const indicatorRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -808,7 +817,7 @@ function DayEvent({
       const target = e.target as Node
       const isInsideIndicator = indicatorRef.current?.contains(target)
       const isInsideMenu = menuRef.current?.contains(target)
-      
+
       if (!isInsideIndicator && !isInsideMenu) {
         setIsStatusMenuOpen(false)
       }
@@ -853,194 +862,196 @@ function DayEvent({
 
   return (
     <>
-    <button
-      type='button'
-      data-appointment-card='true'
-      onMouseEnter={onHover}
-      onMouseLeave={onLeave}
-      onFocus={onHover}
-      onBlur={onLeave}
-      onClick={(e) => {
-        e.stopPropagation()
-        onActivate()
-      }}
-      onMouseDown={(e) => {
-        // Solo iniciar drag si no es el handle de resize
-        const target = e.target as HTMLElement
-        if (!target.closest('[data-resize-handle]')) {
-          onDragStart?.(e)
-        }
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onActivate()
-        }
-      }}
-      onContextMenu={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        onContextMenu?.(e, event)
-      }}
-      className={[
-        // Clases idénticas a AppointmentSummaryCard (sin text-body-sm ni font-normal que interfieren)
-        'group/daycard absolute flex flex-col gap-[var(--scheduler-event-gap)] overflow-hidden rounded-[var(--radius-lg)] border p-[var(--scheduler-event-padding)] text-left shadow-[0px_1px_2px_rgba(36,40,44,0.08)] transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-brand-500)] active:brightness-[0.98]',
-        stateClasses,
-        isCompleted ? 'opacity-70' : ''
-      ].join(' ')}
-      style={{
-        top: event.top,
-        left: 'var(--day-event-left)',
-        width: 'var(--day-event-width-percent)',
-        height: event.height ?? 'var(--day-event-height)',
-        backgroundColor: event.bgColor,
-        cursor: isDragging ? 'grabbing' : onDragStart ? 'grab' : 'pointer',
-        zIndex: isDragging ? 50 : undefined,
-        // Efecto de drag idéntico a AppointmentSummaryCard
-        opacity: isDragging ? 0.88 : isCompleted ? 0.7 : 1,
-        transform: isDragging ? 'scale(1.02)' : 'none',
-        ...styleOverride
-      }}
-      aria-pressed={isActive}
-    >
-      {/* Indicador de estado de visita - borde izquierdo */}
-      <div
-        ref={indicatorRef}
-        className='absolute left-0 top-0 bottom-0 z-10'
-        onMouseDown={(e) => {
-          // Prevenir que el mousedown inicie el drag selection del grid
-          e.stopPropagation()
-        }}
+      <button
+        type='button'
+        data-appointment-card='true'
+        onMouseEnter={onHover}
+        onMouseLeave={onLeave}
+        onFocus={onHover}
+        onBlur={onLeave}
         onClick={(e) => {
           e.stopPropagation()
-          if (onVisitStatusChange) {
-            setIsStatusMenuOpen(!isStatusMenuOpen)
+          onActivate()
+        }}
+        onMouseDown={(e) => {
+          // Solo iniciar drag si no es el handle de resize
+          const target = e.target as HTMLElement
+          if (!target.closest('[data-resize-handle]')) {
+            onDragStart?.(e)
           }
         }}
         onKeyDown={(e) => {
-          if (onVisitStatusChange && (e.key === 'Enter' || e.key === ' ')) {
+          if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
-            e.stopPropagation()
-            setIsStatusMenuOpen(!isStatusMenuOpen)
+            onActivate()
           }
         }}
-        role={onVisitStatusChange ? 'button' : 'presentation'}
-        tabIndex={onVisitStatusChange ? 0 : -1}
-        aria-label={`Estado: ${statusConfig.label}${onVisitStatusChange ? '. Clic para cambiar' : ''}`}
-        aria-haspopup={onVisitStatusChange ? 'menu' : undefined}
-        aria-expanded={onVisitStatusChange ? isStatusMenuOpen : undefined}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          onContextMenu?.(e, event)
+        }}
+        className={[
+          // Clases idénticas a AppointmentSummaryCard (sin text-body-sm ni font-normal que interfieren)
+          'group/daycard absolute flex flex-col gap-[var(--scheduler-event-gap)] overflow-hidden rounded-[var(--radius-lg)] border p-[var(--scheduler-event-padding)] text-left shadow-[0px_1px_2px_rgba(36,40,44,0.08)] transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-brand-500)] active:brightness-[0.98]',
+          stateClasses,
+          isCompleted ? 'opacity-70' : ''
+        ].join(' ')}
+        style={{
+          top: event.top,
+          left: 'var(--day-event-left)',
+          width: 'var(--day-event-width-percent)',
+          height: event.height ?? 'var(--day-event-height)',
+          backgroundColor: event.bgColor,
+          cursor: isDragging ? 'grabbing' : onDragStart ? 'grab' : 'pointer',
+          zIndex: isDragging ? 50 : undefined,
+          // Efecto de drag idéntico a AppointmentSummaryCard
+          opacity: isDragging ? 0.88 : isCompleted ? 0.7 : 1,
+          transform: isDragging ? 'scale(1.02)' : 'none',
+          ...styleOverride
+        }}
+        aria-pressed={isActive}
       >
+        {/* Indicador de estado de visita - borde izquierdo */}
         <div
-          className={[
-            'h-full w-[4px] rounded-l-[var(--radius-lg)] transition-all duration-200',
-            onVisitStatusChange && 'cursor-pointer hover:w-[6px]',
-            isPulsing && 'animate-pulse'
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          style={{
-            backgroundColor: statusConfig.color,
-            boxShadow: isPulsing ? `0 0 8px ${statusConfig.color}` : undefined
+          ref={indicatorRef}
+          className='absolute left-0 top-0 bottom-0 z-10'
+          onMouseDown={(e) => {
+            // Prevenir que el mousedown inicie el drag selection del grid
+            e.stopPropagation()
           }}
-        />
-      </div>
-
-      {/* Contenido idéntico a AppointmentSummaryCard */}
-      <div className='flex items-start justify-between gap-2'>
-        <div className='flex min-w-0 flex-1 flex-col gap-[0.375rem]'>
-          {/* Nombre del paciente - Negrita */}
-          {patient && (
-            <p
-              className='font-bold text-[var(--color-neutral-900)]'
-              style={{
-                fontSize: '0.875rem',
-                lineHeight: '1.25rem',
-                ...clampStyle(1)
-              }}
-            >
-              {patient}
-            </p>
-          )}
-          {/* Tratamiento - Cursiva */}
-          <p
-            className='font-normal italic text-[var(--color-neutral-700)]'
+          onClick={(e) => {
+            e.stopPropagation()
+            if (onVisitStatusChange) {
+              setIsStatusMenuOpen(!isStatusMenuOpen)
+            }
+          }}
+          onKeyDown={(e) => {
+            if (onVisitStatusChange && (e.key === 'Enter' || e.key === ' ')) {
+              e.preventDefault()
+              e.stopPropagation()
+              setIsStatusMenuOpen(!isStatusMenuOpen)
+            }
+          }}
+          role={onVisitStatusChange ? 'button' : 'presentation'}
+          tabIndex={onVisitStatusChange ? 0 : -1}
+          aria-label={`Estado: ${statusConfig.label}${
+            onVisitStatusChange ? '. Clic para cambiar' : ''
+          }`}
+          aria-haspopup={onVisitStatusChange ? 'menu' : undefined}
+          aria-expanded={onVisitStatusChange ? isStatusMenuOpen : undefined}
+        >
+          <div
+            className={[
+              'h-full w-[4px] rounded-l-[var(--radius-lg)] transition-all duration-200',
+              onVisitStatusChange && 'cursor-pointer hover:w-[6px]',
+              isPulsing && 'animate-pulse'
+            ]
+              .filter(Boolean)
+              .join(' ')}
             style={{
-              fontSize: '0.75rem',
-              lineHeight: '1rem',
-              ...clampStyle(1)
+              backgroundColor: statusConfig.color,
+              boxShadow: isPulsing ? `0 0 8px ${statusConfig.color}` : undefined
             }}
-          >
-            {title}
-          </p>
-          {/* Notas - Solo se muestran si hay suficiente altura */}
-          {event.detail && canShowNotes && event.detail.notes && (
+          />
+        </div>
+
+        {/* Contenido idéntico a AppointmentSummaryCard */}
+        <div className='flex items-start justify-between gap-2'>
+          <div className='flex min-w-0 flex-1 flex-col gap-[0.375rem]'>
+            {/* Nombre del paciente - Negrita */}
+            {patient && (
+              <p
+                className='font-bold text-[var(--color-neutral-900)]'
+                style={{
+                  fontSize: '0.875rem',
+                  lineHeight: '1.25rem',
+                  ...clampStyle(1)
+                }}
+              >
+                {patient}
+              </p>
+            )}
+            {/* Tratamiento - Cursiva */}
             <p
-              className='font-normal text-[var(--color-neutral-600)]'
+              className='font-normal italic text-[var(--color-neutral-700)]'
               style={{
                 fontSize: '0.75rem',
                 lineHeight: '1rem',
-                ...clampStyle(2)
+                ...clampStyle(1)
               }}
             >
-              {event.detail.notes}
+              {title}
             </p>
-          )}
+            {/* Notas - Solo se muestran si hay suficiente altura */}
+            {event.detail && canShowNotes && event.detail.notes && (
+              <p
+                className='font-normal text-[var(--color-neutral-600)]'
+                style={{
+                  fontSize: '0.75rem',
+                  lineHeight: '1rem',
+                  ...clampStyle(2)
+                }}
+              >
+                {event.detail.notes}
+              </p>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Drag overlay - inicia el drag desde cualquier punto de la tarjeta (excepto indicador de estado) */}
-      {onDragStart && (
-        <div
-          className={`absolute top-0 right-0 bottom-0 ${
-            isDragging ? 'cursor-grabbing' : 'cursor-grab'
-          }`}
-          style={{ left: '6px' }} // No cubrir el indicador de estado de visita
-          onMouseDown={(e) => {
-            e.stopPropagation()
-            onDragStart(e)
-          }}
-          aria-hidden
-        />
-      )}
-
-      {/* Handle de resize en la parte inferior - idéntico a AppointmentSummaryCard */}
-      {onResizeStart && (
-        <div
-          data-resize-handle='true'
-          onMouseDown={(e) => {
-            e.stopPropagation()
-            onResizeStart(e)
-          }}
-          className='absolute bottom-0 left-0 right-0 h-2 cursor-s-resize'
-          aria-hidden
-        />
-      )}
-    </button>
-
-    {/* Menú de selección de estado - renderizado via Portal fuera del button */}
-    {isStatusMenuOpen && onVisitStatusChange && menuPosition && (
-      <Portal>
-        <div
-          ref={menuRef}
-          className='fixed z-[9999]'
-          style={{
-            top: menuPosition.top,
-            left: menuPosition.left
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <VisitStatusMenu
-            currentStatus={visitStatus}
-            onSelect={(newStatus) => {
-              onVisitStatusChange(event.id, newStatus)
-              setIsStatusMenuOpen(false)
+        {/* Drag overlay - inicia el drag desde cualquier punto de la tarjeta (excepto indicador de estado) */}
+        {onDragStart && (
+          <div
+            className={`absolute top-0 right-0 bottom-0 ${
+              isDragging ? 'cursor-grabbing' : 'cursor-grab'
+            }`}
+            style={{ left: '6px' }} // No cubrir el indicador de estado de visita
+            onMouseDown={(e) => {
+              e.stopPropagation()
+              onDragStart(e)
             }}
-            onClose={() => setIsStatusMenuOpen(false)}
+            aria-hidden
           />
-        </div>
-      </Portal>
-    )}
+        )}
+
+        {/* Handle de resize en la parte inferior - idéntico a AppointmentSummaryCard */}
+        {onResizeStart && (
+          <div
+            data-resize-handle='true'
+            onMouseDown={(e) => {
+              e.stopPropagation()
+              onResizeStart(e)
+            }}
+            className='absolute bottom-0 left-0 right-0 h-2 cursor-s-resize'
+            aria-hidden
+          />
+        )}
+      </button>
+
+      {/* Menú de selección de estado - renderizado via Portal fuera del button */}
+      {isStatusMenuOpen && onVisitStatusChange && menuPosition && (
+        <Portal>
+          <div
+            ref={menuRef}
+            className='fixed z-[9999]'
+            style={{
+              top: menuPosition.top,
+              left: menuPosition.left
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <VisitStatusMenu
+              currentStatus={visitStatus}
+              onSelect={(newStatus) => {
+                onVisitStatusChange(event.id, newStatus)
+                setIsStatusMenuOpen(false)
+              }}
+              onClose={() => setIsStatusMenuOpen(false)}
+            />
+          </div>
+        </Portal>
+      )}
     </>
   )
 }
@@ -1271,7 +1282,12 @@ function DayGrid({
 }) {
   // Get period configuration
   const periodConfig = getPeriodConfig(period)
-  const { totalSlots: periodTotalSlots, startHour: periodStartHour, slotOffset, endHour: periodEndHour } = periodConfig
+  const {
+    totalSlots: periodTotalSlots,
+    startHour: periodStartHour,
+    slotOffset,
+    endHour: periodEndHour
+  } = periodConfig
   // Filtrar slots según los horarios visibles
   const sourceSlots = timeSlotsOverride ?? TIME_SLOTS
 
@@ -1290,7 +1306,7 @@ function DayGrid({
     const eventSlot = getSlotFromTop(event.top)
     // Event slot is relative to FULL_START_HOUR (9:00)
     // slotOffset is the offset from 9:00 to period start
-    return eventSlot >= slotOffset && eventSlot < (slotOffset + periodTotalSlots)
+    return eventSlot >= slotOffset && eventSlot < slotOffset + periodTotalSlots
   }
 
   // Helper: adjust event top position for period
@@ -1300,7 +1316,7 @@ function DayGrid({
     if (match) {
       const originalRem = parseFloat(match[1])
       // Subtract the offset to make position relative to period start
-      const adjustedRem = originalRem - (slotOffset * SLOT_REM)
+      const adjustedRem = originalRem - slotOffset * SLOT_REM
       return `${adjustedRem}rem`
     }
     return top
@@ -1318,7 +1334,7 @@ function DayGrid({
         box.events.forEach((event) => {
           // Filter by period (time range)
           if (!isEventInPeriod(event)) return
-          
+
           // Filter by professional if selectedProfessionals is not empty
           const professionalMatch =
             selectedProfessionals.length === 0 ||
@@ -1330,11 +1346,12 @@ function DayGrid({
                   profId.toLowerCase().replace('dr', '').replace('dra', '')
                 )
             )
-          
+
           // Filter by confirmed status (if showConfirmedOnly is true)
-          const isConfirmed = confirmedEvents?.[event.id] ?? event.confirmed ?? false
+          const isConfirmed =
+            confirmedEvents?.[event.id] ?? event.confirmed ?? false
           const confirmedMatch = !showConfirmedOnly || isConfirmed
-          
+
           if (professionalMatch && confirmedMatch) {
             // Adjust event top position for the period
             const adjustedEvent = {
@@ -1383,7 +1400,10 @@ function DayGrid({
     const rect = localGridRef.current.getBoundingClientRect()
     const relativeX = clientX - rect.left
     const boxWidth = rect.width / boxCount
-    const boxIndex = Math.max(0, Math.min(boxCount - 1, Math.floor(relativeX / boxWidth)))
+    const boxIndex = Math.max(
+      0,
+      Math.min(boxCount - 1, Math.floor(relativeX / boxWidth))
+    )
     return (['box1', 'box2', 'box3'] as const)[boxIndex] || 'box1'
   }
 
@@ -1391,7 +1411,7 @@ function DayGrid({
   const handleGridMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
     // Don't update hover if dragging an existing appointment
     if (draggingId) return
-    
+
     const target = event.target as HTMLElement | null
     if (target && target.closest('[data-appointment-card="true"]')) {
       onHoverSlotChange?.(null, '')
@@ -1419,7 +1439,7 @@ function DayGrid({
   const handleGridMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
     // Only handle left click
     if (event.button !== 0) return
-    
+
     const target = event.target as HTMLElement | null
     if (target && target.closest('[data-appointment-card="true"]')) {
       return
@@ -1438,8 +1458,9 @@ function DayGrid({
   const slotHeightRem = 2.5 // var(--scheduler-slot-height-quarter)
 
   // Show time indicator if hovering and not dragging
-  const showTimeIndicator = hoverSlotIndex !== null && 
-    hoverSlotIndex !== undefined && 
+  const showTimeIndicator =
+    hoverSlotIndex !== null &&
+    hoverSlotIndex !== undefined &&
     !slotDragState?.isDragging &&
     !draggingId
 
@@ -1455,7 +1476,8 @@ function DayGrid({
         if (typeof gridRef === 'function') {
           gridRef(el)
         } else if (gridRef) {
-          (gridRef as React.MutableRefObject<HTMLDivElement | null>).current = el
+          ;(gridRef as React.MutableRefObject<HTMLDivElement | null>).current =
+            el
         }
       }}
       style={{
@@ -1472,35 +1494,49 @@ function DayGrid({
       {showTimeIndicator && hoverSlotIndex !== null && (
         <TimeIndicator
           top={`${hoverSlotIndex * slotHeightRem}rem`}
-          timeLabel={slotIndexToTime(hoverSlotIndex + slotOffset, FULL_START_HOUR, MINUTES_STEP)}
+          timeLabel={slotIndexToTime(
+            hoverSlotIndex + slotOffset,
+            FULL_START_HOUR,
+            MINUTES_STEP
+          )}
           timeColumnWidth='4rem'
           visible
         />
       )}
 
       {/* Drag selection overlay */}
-      {showDragSelection && slotDragState && (() => {
-        const { minSlot, maxSlot, slotCount } = getSelectionBounds(
-          slotDragState.startSlot,
-          slotDragState.currentSlot
-        )
-        const durationMinutes = slotCount * MINUTES_STEP
-        // Get the width based on the selected box
-        const boxName = slotDragState.columnId.replace('box', 'box ')
-        const selectionLayout = boxLayout[boxName]
-        return (
-          <SlotDragSelection
-            top={`${minSlot * slotHeightRem}rem`}
-            height={`${slotCount * slotHeightRem}rem`}
-            left={selectionLayout?.left ?? '0'}
-            width={selectionLayout?.width ?? '33.33%'}
-            startTime={slotIndexToTime(minSlot + slotOffset, FULL_START_HOUR, MINUTES_STEP)}
-            endTime={slotIndexToTime(maxSlot + 1 + slotOffset, FULL_START_HOUR, MINUTES_STEP)}
-            durationMinutes={durationMinutes}
-            visible
-          />
-        )
-      })()}
+      {showDragSelection &&
+        slotDragState &&
+        (() => {
+          const { minSlot, maxSlot, slotCount } = getSelectionBounds(
+            slotDragState.startSlot,
+            slotDragState.currentSlot
+          )
+          const durationMinutes = slotCount * MINUTES_STEP
+          // Get the width based on the selected box
+          const boxName = slotDragState.columnId.replace('box', 'box ')
+          const selectionLayout = boxLayout[boxName]
+          return (
+            <SlotDragSelection
+              top={`${minSlot * slotHeightRem}rem`}
+              height={`${slotCount * slotHeightRem}rem`}
+              left={selectionLayout?.left ?? '0'}
+              width={selectionLayout?.width ?? '33.33%'}
+              startTime={slotIndexToTime(
+                minSlot + slotOffset,
+                FULL_START_HOUR,
+                MINUTES_STEP
+              )}
+              endTime={slotIndexToTime(
+                maxSlot + 1 + slotOffset,
+                FULL_START_HOUR,
+                MINUTES_STEP
+              )}
+              durationMinutes={durationMinutes}
+              visible
+            />
+          )
+        })()}
 
       {/* Rejilla de líneas cada 15 min */}
       <div className='pointer-events-none absolute inset-0 z-[1]'>
@@ -1550,7 +1586,7 @@ function DayGrid({
           const boxName = block.box || ''
           const blockLayout = boxLayout[boxName]
           if (!blockLayout && block.box) return null // Skip if box not visible
-          
+
           return (
             <AgendaBlockCard
               key={block.id}
@@ -1564,18 +1600,26 @@ function DayGrid({
               top={block.top}
               height={block.height}
               isActive={activeBlockId === block.id}
-              isHovered={hoveredBlockId === block.id && activeBlockId !== block.id}
+              isHovered={
+                hoveredBlockId === block.id && activeBlockId !== block.id
+              }
               onHover={() => onBlockHover?.(block.id)}
               onLeave={() => onBlockHover?.(null)}
               onActivate={() => onBlockActivate?.(block.id)}
               onEdit={() => onEditBlock?.(block.id)}
-              onDelete={(deleteRecurrence) => onDeleteBlock?.(block.id, deleteRecurrence)}
-              styleOverride={blockLayout ? {
-                left: blockLayout.left,
-                width: `calc(${blockLayout.width} - 0.5rem)`,
-                marginLeft: '0.25rem',
-                marginRight: '0.25rem'
-              } : undefined}
+              onDelete={(deleteRecurrence) =>
+                onDeleteBlock?.(block.id, deleteRecurrence)
+              }
+              styleOverride={
+                blockLayout
+                  ? {
+                      left: blockLayout.left,
+                      width: `calc(${blockLayout.width} - 0.5rem)`,
+                      marginLeft: '0.25rem',
+                      marginRight: '0.25rem'
+                    }
+                  : undefined
+              }
             />
           )
         })}
@@ -1666,7 +1710,13 @@ interface DayCalendarProps {
   }) => void
   selectedBoxes?: string[] // Boxes selected in the filter
   selectedProfessionals?: string[] // Professionals selected in the filter
-  onOpenCreateAppointment?: (prefill?: { paciente?: string; fecha?: string; hora?: string; duracion?: string; box?: string }) => void
+  onOpenCreateAppointment?: (prefill?: {
+    paciente?: string
+    fecha?: string
+    hora?: string
+    duracion?: string
+    box?: string
+  }) => void
   /** Callback para cambiar el estado de visita de una cita */
   onVisitStatusChange?: (appointmentId: string, newStatus: VisitStatus) => void
   /** Filtrar solo citas confirmadas */
@@ -1797,7 +1847,7 @@ export default function DayCalendar({
 }: DayCalendarProps) {
   // Get blocks from context
   const { getBlocksByDate, deleteBlock } = useAppointments()
-  
+
   // Get visible boxes based on filter
   const visibleBoxes = BOX_HEADERS.filter((box) =>
     selectedBoxes.includes(box.id)
@@ -1807,18 +1857,18 @@ export default function DayCalendar({
   const [hovered, setHovered] = useState<DayEventSelection>(null)
   const [active, setActive] = useState<DayEventSelection>(null)
   const [localEvents, setLocalEvents] = useState<TimeSlot[]>([])
-  
+
   // Block-related state
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null)
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
-  
+
   // Quick appointment creation state - hover and drag
   const [hoverSlotInfo, setHoverSlotInfo] = useState<{
     slotIndex: number
     boxId: string
   } | null>(null)
   const [slotDragState, setSlotDragState] = useState<SlotDragState | null>(null)
-  
+
   // Estado para citas completadas (ID del evento -> completado)
   const [completedEvents, setCompletedEvents] = useState<
     Record<string, boolean>
@@ -1857,7 +1907,14 @@ export default function DayCalendar({
   // Patient record modal state for "Ver ficha" action and context menu actions
   const [patientRecordConfig, setPatientRecordConfig] = useState<{
     open: boolean
-    initialTab: 'Resumen' | 'Información General' | 'Historial clínico' | 'Imágenes RX' | 'Finanzas' | 'Consentimientos' | 'Recetas'
+    initialTab:
+      | 'Resumen'
+      | 'Información General'
+      | 'Historial clínico'
+      | 'Imágenes RX'
+      | 'Finanzas'
+      | 'Documentos'
+      | 'Recetas'
     openBudgetCreation?: boolean
     openPrescriptionCreation?: boolean
     openClinicalHistoryEdit?: boolean
@@ -2128,7 +2185,7 @@ export default function DayCalendar({
   )
 
   // === Quick appointment creation handlers ===
-  
+
   // Handle hover slot change (time indicator)
   const handleHoverSlotChange = useCallback(
     (slotIndex: number | null, boxId: string) => {
@@ -2172,10 +2229,10 @@ export default function DayCalendar({
 
     const { startSlot, currentSlot, columnId } = slotDragState
     const { minSlot, slotCount } = getSelectionBounds(startSlot, currentSlot)
-    
+
     // Calculate start time
     const startTime = slotIndexToTime(minSlot, START_HOUR, MINUTES_STEP)
-    
+
     // Calculate duration in minutes
     const durationMinutes = slotCount * MINUTES_STEP
 
@@ -2244,9 +2301,9 @@ export default function DayCalendar({
   // Get blocks for the current date and convert to visual format
   const visualBlocks: DayBlock[] = (() => {
     if (!currentDate) return []
-    
+
     const blocksForDate = getBlocksByDate(currentDate)
-    
+
     return blocksForDate
       .filter((block) => {
         // Filter by selected boxes
@@ -2254,20 +2311,23 @@ export default function DayCalendar({
           const boxFilterId = block.box.replace(' ', '-')
           if (!selectedBoxes.includes(boxFilterId)) return false
         }
-        
+
         // Filter by period - check if block overlaps with period time range
         if (period !== 'full') {
           const blockStartMinutes = timeToMinutes(block.startTime)
           const blockEndMinutes = timeToMinutes(block.endTime)
           const periodStartMinutes = periodConfig.startHour * 60
           const periodEndMinutes = periodConfig.endHour * 60
-          
+
           // Block must overlap with period
-          if (blockEndMinutes <= periodStartMinutes || blockStartMinutes >= periodEndMinutes) {
+          if (
+            blockEndMinutes <= periodStartMinutes ||
+            blockStartMinutes >= periodEndMinutes
+          ) {
             return false
           }
         }
-        
+
         return true
       })
       .map((block) => {
@@ -2275,16 +2335,21 @@ export default function DayCalendar({
         const startMinutes = timeToMinutes(block.startTime)
         const endMinutes = timeToMinutes(block.endTime)
         const durationMinutes = endMinutes - startMinutes
-        
+
         // Calculate slot position relative to full day
-        const startSlot = Math.floor((startMinutes - FULL_START_HOUR * 60) / MINUTES_STEP)
-        const heightSlots = Math.max(1, Math.ceil(durationMinutes / MINUTES_STEP))
-        
+        const startSlot = Math.floor(
+          (startMinutes - FULL_START_HOUR * 60) / MINUTES_STEP
+        )
+        const heightSlots = Math.max(
+          1,
+          Math.ceil(durationMinutes / MINUTES_STEP)
+        )
+
         // Adjust for period offset
         const adjustedStartSlot = startSlot - periodConfig.slotOffset
         const top = `${adjustedStartSlot * SLOT_REM}rem`
         const height = `${heightSlots * SLOT_REM}rem`
-        
+
         return {
           id: block.id,
           top,
@@ -2610,7 +2675,7 @@ export default function DayCalendar({
   // Obtener configuración del período actual
   const periodConfig = getPeriodConfig(period)
   const periodTotalSlots = periodConfig.totalSlots
-  
+
   // Altura basada en slots del período seleccionado
   const bandsTotalHeight = `${bands.length * DAILY_BAND_HEIGHT_REM}rem`
   const dayOffsetTop = `calc(var(--scheduler-day-header-height) + ${bandsTotalHeight})`
@@ -2884,10 +2949,22 @@ export default function DayCalendar({
           eventDetail={contextMenu.event.detail}
           onAction={handleContextMenuAction}
           onClose={handleCloseContextMenu}
-          currentVisitStatus={visitStatusMap[contextMenu.event.id] ?? contextMenu.event.visitStatus ?? 'scheduled'}
-          onVisitStatusChange={(newStatus) => handleVisitStatusChange(contextMenu.event.id, newStatus)}
-          isConfirmed={confirmedEvents[contextMenu.event.id] ?? contextMenu.event.confirmed ?? false}
-          onToggleConfirmed={(confirmed) => handleToggleConfirmed(contextMenu.event.id, confirmed)}
+          currentVisitStatus={
+            visitStatusMap[contextMenu.event.id] ??
+            contextMenu.event.visitStatus ??
+            'scheduled'
+          }
+          onVisitStatusChange={(newStatus) =>
+            handleVisitStatusChange(contextMenu.event.id, newStatus)
+          }
+          isConfirmed={
+            confirmedEvents[contextMenu.event.id] ??
+            contextMenu.event.confirmed ??
+            false
+          }
+          onToggleConfirmed={(confirmed) =>
+            handleToggleConfirmed(contextMenu.event.id, confirmed)
+          }
         />
       )}
     </div>

@@ -1,23 +1,32 @@
 'use client'
 
-import React from 'react'
-import {
-  EditRounded,
-  CloseRounded,
-  CheckRounded,
-  AddRounded,
-  DownloadRounded,
-  DeleteRounded,
-  AccessTimeFilledRounded,
-  CalendarMonthRounded,
-  PersonRounded,
-  ImageRounded
-} from '@/components/icons/md3'
 import { VISIT_STATUS_CONFIG } from '@/components/agenda/types'
-import type { Appointment, LinkedTreatmentStatus, VisitSOAPNotes } from '@/context/AppointmentsContext'
-import TreatmentStatusBadge from './TreatmentStatusBadge'
+import {
+  AccessTimeFilledRounded,
+  AddRounded,
+  CalendarMonthRounded,
+  CheckRounded,
+  CloseRounded,
+  DeleteRounded,
+  DownloadRounded,
+  EditRounded,
+  ImageRounded,
+  PersonRounded
+} from '@/components/icons/md3'
+import type {
+  Appointment,
+  LinkedTreatmentStatus,
+  VisitSOAPNotes
+} from '@/context/AppointmentsContext'
+import React from 'react'
 import SOAPNotesEditor from './SOAPNotesEditor'
-import { formatShortDate, formatTimeRange, VISIT_STATUS_LABELS, calculateDurationMinutes } from './types'
+import TreatmentStatusBadge from './TreatmentStatusBadge'
+import {
+  VISIT_STATUS_LABELS,
+  calculateDurationMinutes,
+  formatShortDate,
+  formatTimeRange
+} from './types'
 
 type VisitDetailPanelProps = {
   appointment: Appointment | null
@@ -27,10 +36,17 @@ type VisitDetailPanelProps = {
   onSave: () => void
   onSaveAsDraft?: () => void
   onCancel: () => void
-  onSOAPChange: (field: 'subjective' | 'objective' | 'assessment' | 'plan', value: string) => void
-  onTreatmentStatusChange: (treatmentId: string, status: LinkedTreatmentStatus) => void
+  onSOAPChange: (
+    field: 'subjective' | 'objective' | 'assessment' | 'plan',
+    value: string
+  ) => void
+  onTreatmentStatusChange: (
+    treatmentId: string,
+    status: LinkedTreatmentStatus
+  ) => void
   onUploadAttachment: () => void
   onRemoveAttachment: (attachmentId: string) => void
+  onUploadOdontogram: () => void
 }
 
 export default function VisitDetailPanel({
@@ -44,10 +60,12 @@ export default function VisitDetailPanel({
   onSOAPChange,
   onTreatmentStatusChange,
   onUploadAttachment,
-  onRemoveAttachment
+  onRemoveAttachment,
+  onUploadOdontogram
 }: VisitDetailPanelProps) {
   // State for showing immutability warning
-  const [showImmutabilityWarning, setShowImmutabilityWarning] = React.useState(false)
+  const [showImmutabilityWarning, setShowImmutabilityWarning] =
+    React.useState(false)
   if (!appointment) {
     return (
       <div className='h-full flex items-center justify-center'>
@@ -69,13 +87,19 @@ export default function VisitDetailPanel({
   const isCompleted = visitStatus === 'completed'
   const treatments = appointment.linkedTreatments || []
   const attachments = appointment.attachments || []
-  
+
   // Check if notes are finalized (completed visit with non-draft notes)
   const notesAreDraft = appointment.soapNotes?.isDraft === true
-  const notesAreFinalized = isCompleted && !notesAreDraft && 
-    !!(appointment.soapNotes?.subjective || appointment.soapNotes?.objective || 
-     appointment.soapNotes?.assessment || appointment.soapNotes?.plan)
-  
+  const notesAreFinalized =
+    isCompleted &&
+    !notesAreDraft &&
+    !!(
+      appointment.soapNotes?.subjective ||
+      appointment.soapNotes?.objective ||
+      appointment.soapNotes?.assessment ||
+      appointment.soapNotes?.plan
+    )
+
   // Handler for edit button that checks immutability
   const handleEditClick = () => {
     if (notesAreFinalized) {
@@ -104,7 +128,7 @@ export default function VisitDetailPanel({
               {VISIT_STATUS_LABELS[visitStatus]}
             </div>
           </div>
-          
+
           {/* Visit info */}
           <div className='flex items-center gap-4 text-body-sm text-[var(--color-neutral-600)]'>
             <div className='flex items-center gap-1.5'>
@@ -113,7 +137,9 @@ export default function VisitDetailPanel({
             </div>
             <div className='flex items-center gap-1.5'>
               <AccessTimeFilledRounded className='size-4' />
-              <span>{formatTimeRange(appointment.startTime, appointment.endTime)}</span>
+              <span>
+                {formatTimeRange(appointment.startTime, appointment.endTime)}
+              </span>
             </div>
             <div className='flex items-center gap-1.5'>
               <PersonRounded className='size-4' />
@@ -142,14 +168,30 @@ export default function VisitDetailPanel({
               onClick={handleEditClick}
               disabled={notesAreFinalized}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-colors ${
-                notesAreFinalized 
-                  ? 'border-[var(--color-neutral-300)] bg-[var(--color-neutral-100)] cursor-not-allowed opacity-60' 
+                notesAreFinalized
+                  ? 'border-[var(--color-neutral-300)] bg-[var(--color-neutral-100)] cursor-not-allowed opacity-60'
                   : 'border-[var(--color-brand-400)] bg-[#E9FBF9] hover:bg-[var(--color-brand-100)] cursor-pointer'
               }`}
-              title={notesAreFinalized ? 'Las notas finalizadas no se pueden editar' : 'Editar notas'}
+              title={
+                notesAreFinalized
+                  ? 'Las notas finalizadas no se pueden editar'
+                  : 'Editar notas'
+              }
             >
-              <EditRounded className={`size-4 ${notesAreFinalized ? 'text-[var(--color-neutral-500)]' : 'text-[var(--color-brand-700)]'}`} />
-              <span className={`font-['Inter:Regular',_sans-serif] text-body-sm ${notesAreFinalized ? 'text-[var(--color-neutral-500)]' : 'text-[var(--color-brand-700)]'}`}>
+              <EditRounded
+                className={`size-4 ${
+                  notesAreFinalized
+                    ? 'text-[var(--color-neutral-500)]'
+                    : 'text-[var(--color-brand-700)]'
+                }`}
+              />
+              <span
+                className={`font-['Inter:Regular',_sans-serif] text-body-sm ${
+                  notesAreFinalized
+                    ? 'text-[var(--color-neutral-500)]'
+                    : 'text-[var(--color-brand-700)]'
+                }`}
+              >
                 Editar
               </span>
             </button>
@@ -200,8 +242,10 @@ export default function VisitDetailPanel({
                 Notas clínicas finalizadas
               </p>
               <p className="font-['Inter:Regular',_sans-serif] text-[var(--color-warning-700)] text-label-sm">
-                Las notas clínicas de visitas completadas no pueden editarse para mantener la integridad del historial médico. 
-                Si necesita agregar información adicional, puede crear un addendum en la próxima visita.
+                Las notas clínicas de visitas completadas no pueden editarse
+                para mantener la integridad del historial médico. Si necesita
+                agregar información adicional, puede crear un addendum en la
+                próxima visita.
               </p>
             </div>
             <button
@@ -217,26 +261,30 @@ export default function VisitDetailPanel({
       )}
 
       {/* Consultation times (if completed) */}
-      {isCompleted && (appointment.waitingDuration || appointment.consultationDuration) && (
-        <div className='flex gap-4 mb-6 p-3 bg-[var(--color-neutral-50)] rounded-lg'>
-          {appointment.waitingDuration && (
-            <div className='flex items-center gap-2'>
-              <AccessTimeFilledRounded className='size-4 text-[var(--color-neutral-500)]' />
-              <span className='text-body-sm text-[var(--color-neutral-600)]'>
-                Espera: {calculateDurationMinutes(appointment.waitingDuration)} min
-              </span>
-            </div>
-          )}
-          {appointment.consultationDuration && (
-            <div className='flex items-center gap-2'>
-              <AccessTimeFilledRounded className='size-4 text-[var(--color-brand-600)]' />
-              <span className='text-body-sm text-[var(--color-neutral-600)]'>
-                Consulta: {calculateDurationMinutes(appointment.consultationDuration)} min
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+      {isCompleted &&
+        (appointment.waitingDuration || appointment.consultationDuration) && (
+          <div className='flex gap-4 mb-6 p-3 bg-[var(--color-neutral-50)] rounded-lg'>
+            {appointment.waitingDuration && (
+              <div className='flex items-center gap-2'>
+                <AccessTimeFilledRounded className='size-4 text-[var(--color-neutral-500)]' />
+                <span className='text-body-sm text-[var(--color-neutral-600)]'>
+                  Espera:{' '}
+                  {calculateDurationMinutes(appointment.waitingDuration)} min
+                </span>
+              </div>
+            )}
+            {appointment.consultationDuration && (
+              <div className='flex items-center gap-2'>
+                <AccessTimeFilledRounded className='size-4 text-[var(--color-brand-600)]' />
+                <span className='text-body-sm text-[var(--color-neutral-600)]'>
+                  Consulta:{' '}
+                  {calculateDurationMinutes(appointment.consultationDuration)}{' '}
+                  min
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
       {/* Treatments section */}
       <div className='mb-6'>
@@ -269,15 +317,18 @@ export default function VisitDetailPanel({
                   </div>
                   <div className='flex items-center gap-3 text-label-sm text-[var(--color-neutral-500)]'>
                     <span>{treatment.amount}</span>
-                    {treatment.completedBy && treatment.status === 'completed' && (
-                      <span>• Realizado por {treatment.completedBy}</span>
-                    )}
+                    {treatment.completedBy &&
+                      treatment.status === 'completed' && (
+                        <span>• Realizado por {treatment.completedBy}</span>
+                      )}
                   </div>
                 </div>
                 <TreatmentStatusBadge
                   status={treatment.status}
                   showDropdown={isEditing}
-                  onStatusChange={(newStatus) => onTreatmentStatusChange(treatment.id, newStatus)}
+                  onStatusChange={(newStatus) =>
+                    onTreatmentStatusChange(treatment.id, newStatus)
+                  }
                 />
               </div>
             ))}
@@ -341,7 +392,9 @@ export default function VisitDetailPanel({
                       {attachment.name}
                     </p>
                     <p className='text-label-sm text-[var(--color-neutral-400)]'>
-                      {new Date(attachment.uploadedAt).toLocaleDateString('es-ES')}
+                      {new Date(attachment.uploadedAt).toLocaleDateString(
+                        'es-ES'
+                      )}
                       {attachment.uploadedBy && ` • ${attachment.uploadedBy}`}
                     </p>
                   </div>
@@ -385,6 +438,7 @@ export default function VisitDetailPanel({
           </h4>
           <button
             type='button'
+            onClick={onUploadOdontogram}
             className='flex items-center gap-1 cursor-pointer hover:opacity-70 transition-opacity'
           >
             <AddRounded className='size-5 text-[var(--color-brand-500)]' />
@@ -393,7 +447,7 @@ export default function VisitDetailPanel({
             </span>
           </button>
         </div>
-        
+
         {appointment.odontogramSnapshot ? (
           <div className='border border-[var(--color-neutral-200)] rounded-lg overflow-hidden'>
             {/* Placeholder for odontogram image */}

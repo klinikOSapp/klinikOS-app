@@ -1,8 +1,14 @@
 'use client'
 
-import React from 'react'
+import type {
+  Appointment,
+  LinkedTreatmentStatus,
+  VisitSOAPNotes
+} from '@/context/AppointmentsContext'
 import { useAppointments } from '@/context/AppointmentsContext'
-import type { Appointment, LinkedTreatmentStatus, VisitSOAPNotes } from '@/context/AppointmentsContext'
+import { usePatientFiles } from '@/context/PatientFilesContext'
+import React from 'react'
+import UploadFileModal, { type UploadFileType } from './UploadFileModal'
 import VisitCard from './clinical-history/VisitCard'
 import VisitDetailPanel from './clinical-history/VisitDetailPanel'
 import type { ClinicalHistoryFilter } from './clinical-history/types'
@@ -15,30 +21,40 @@ type ClinicalHistoryProps = {
   patientName?: string
 }
 
-export default function ClinicalHistory({ 
+export default function ClinicalHistory({
   onClose,
   initialEditMode = false,
   onEditModeOpened,
   patientId,
   patientName
 }: ClinicalHistoryProps) {
-  const { 
-    getAppointmentsByPatient, 
-    updateSOAPNotes, 
+  const {
+    getAppointmentsByPatient,
+    updateSOAPNotes,
     updateLinkedTreatmentStatus,
     addAttachment,
-    removeAttachment 
+    removeAttachment
   } = useAppointments()
+
+  const { addDocumentFromClinicalHistory, addOdontogramFromClinicalHistory } =
+    usePatientFiles()
 
   // Filter state
   const [filter, setFilter] = React.useState<ClinicalHistoryFilter>('todas')
-  
+
   // Selected appointment state
-  const [selectedAppointmentId, setSelectedAppointmentId] = React.useState<string | null>(null)
-  
+  const [selectedAppointmentId, setSelectedAppointmentId] = React.useState<
+    string | null
+  >(null)
+
   // Edit mode state
   const [isEditing, setIsEditing] = React.useState(initialEditMode)
   const [editedNotes, setEditedNotes] = React.useState<VisitSOAPNotes>({})
+
+  // Upload modal state
+  const [isUploadModalOpen, setIsUploadModalOpen] = React.useState(false)
+  const [uploadType, setUploadType] = React.useState<UploadFileType>('document')
+  const [uploadError, setUploadError] = React.useState<string | null>(null)
 
   // Get patient appointments
   const patientAppointments = React.useMemo(() => {
@@ -49,11 +65,12 @@ export default function ClinicalHistory({
   const { upcomingVisits, pastVisits, allVisits } = React.useMemo(() => {
     const now = new Date()
     const todayStr = now.toISOString().split('T')[0]
-    
+
     const upcoming = patientAppointments
-      .filter(apt => {
+      .filter((apt) => {
         const isCompleted = apt.visitStatus === 'completed'
-        const isFuture = apt.date > todayStr || (apt.date === todayStr && !isCompleted)
+        const isFuture =
+          apt.date > todayStr || (apt.date === todayStr && !isCompleted)
         return isFuture && !isCompleted
       })
       .sort((a, b) => {
@@ -61,9 +78,9 @@ export default function ClinicalHistory({
         if (dateCompare !== 0) return dateCompare
         return a.startTime.localeCompare(b.startTime)
       })
-    
+
     const past = patientAppointments
-      .filter(apt => {
+      .filter((apt) => {
         const isCompleted = apt.visitStatus === 'completed'
         const isPast = apt.date < todayStr || isCompleted
         return isPast
@@ -73,10 +90,10 @@ export default function ClinicalHistory({
         if (dateCompare !== 0) return dateCompare
         return b.startTime.localeCompare(a.startTime)
       })
-    
+
     // All visits sorted by date (most recent first for past, closest first for upcoming)
     const all = [...upcoming, ...past]
-    
+
     return { upcomingVisits: upcoming, pastVisits: past, allVisits: all }
   }, [patientAppointments])
 
@@ -88,9 +105,11 @@ export default function ClinicalHistory({
       case 'pasadas':
         return pastVisits
       case 'confirmadas':
-        return allVisits.filter(apt => apt.status === 'Confirmada' || apt.confirmed)
+        return allVisits.filter(
+          (apt) => apt.status === 'Confirmada' || apt.confirmed
+        )
       case 'inasistencia':
-        return allVisits.filter(apt => apt.status === 'Reagendar')
+        return allVisits.filter((apt) => apt.status === 'Reagendar')
       case 'todas':
       default:
         return allVisits
@@ -100,7 +119,10 @@ export default function ClinicalHistory({
   // Get selected appointment
   const selectedAppointment = React.useMemo(() => {
     if (!selectedAppointmentId) return null
-    return patientAppointments.find(apt => apt.id === selectedAppointmentId) || null
+    return (
+      patientAppointments.find((apt) => apt.id === selectedAppointmentId) ||
+      null
+    )
   }, [selectedAppointmentId, patientAppointments])
 
   // Auto-select first appointment if none selected
@@ -169,20 +191,96 @@ export default function ClinicalHistory({
     setIsEditing(false)
   }
 
-  const handleSOAPChange = (field: 'subjective' | 'objective' | 'assessment' | 'plan', value: string) => {
-    setEditedNotes(prev => ({ ...prev, [field]: value }))
+  const handleSOAPChange = (
+    field: 'subjective' | 'objective' | 'assessment' | 'plan',
+    value: string
+  ) => {
+    setEditedNotes((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleTreatmentStatusChange = (treatmentId: string, status: LinkedTreatmentStatus) => {
+  const handleTreatmentStatusChange = (
+    treatmentId: string,
+    status: LinkedTreatmentStatus
+  ) => {
     if (selectedAppointment) {
-      updateLinkedTreatmentStatus(selectedAppointment.id, treatmentId, status, 'Dr. Usuario')
+      updateLinkedTreatmentStatus(
+        selectedAppointment.id,
+        treatmentId,
+        status,
+        'Dr. Usuario'
+      )
     }
   }
 
   const handleUploadAttachment = () => {
-    // In a real implementation, this would open a file picker
-    // For now, we'll just log
-    console.log('Upload attachment clicked')
+    setUploadType('document')
+    setIsUploadModalOpen(true)
+  }
+
+  const handleUploadOdontogram = () => {
+    setUploadType('odontogram')
+    setIsUploadModalOpen(true)
+  }
+
+  const handleFileSelected = async (file: File, type: UploadFileType) => {
+    if (!selectedAppointment || !patientId) {
+      setUploadError(
+        'No se puede subir el archivo. Selecciona una visita primero.'
+      )
+      return
+    }
+
+    try {
+      const uploadedBy = 'Dr. Usuario' // TODO: Get from auth context
+
+      if (type === 'document') {
+        // Add to patient files (for consents section)
+        await addDocumentFromClinicalHistory(
+          file,
+          patientId,
+          selectedAppointment.id,
+          uploadedBy
+        )
+
+        // Also add as attachment to the appointment
+        addAttachment(selectedAppointment.id, {
+          name: file.name,
+          type: 'document',
+          url: URL.createObjectURL(file),
+          uploadedAt: new Date().toISOString(),
+          uploadedBy
+        })
+      } else {
+        // Add to patient files (for RX images section)
+        await addOdontogramFromClinicalHistory(
+          file,
+          patientId,
+          selectedAppointment.id,
+          uploadedBy
+        )
+
+        // Also add as attachment to the appointment
+        addAttachment(selectedAppointment.id, {
+          name: file.name,
+          type: 'xray',
+          url: URL.createObjectURL(file),
+          uploadedAt: new Date().toISOString(),
+          uploadedBy
+        })
+      }
+
+      setIsUploadModalOpen(false)
+      setUploadError(null)
+    } catch (error) {
+      console.error('Error uploading file:', error)
+      setUploadError('Error al subir el archivo. Inténtalo de nuevo.')
+    }
+  }
+
+  const handleUploadError = (message: string) => {
+    setUploadError(message)
+    // Auto-clear error after 5 seconds
+    setTimeout(() => setUploadError(null), 5000)
   }
 
   const handleRemoveAttachment = (attachmentId: string) => {
@@ -200,26 +298,28 @@ export default function ClinicalHistory({
     { key: 'inasistencia', label: 'Inasistencia' }
   ]
 
-  const handleKeyDown = (currentFilter: ClinicalHistoryFilter) => (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      setFilter(currentFilter)
-      return
+  const handleKeyDown =
+    (currentFilter: ClinicalHistoryFilter) => (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        setFilter(currentFilter)
+        return
+      }
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault()
+        const filterKeys = filters.map((f) => f.key)
+        const idx = filterKeys.indexOf(filter)
+        const nextIdx =
+          e.key === 'ArrowRight'
+            ? (idx + 1) % filterKeys.length
+            : (idx - 1 + filterKeys.length) % filterKeys.length
+        setFilter(filterKeys[nextIdx])
+      }
     }
-    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-      e.preventDefault()
-      const filterKeys = filters.map(f => f.key)
-      const idx = filterKeys.indexOf(filter)
-      const nextIdx = e.key === 'ArrowRight'
-        ? (idx + 1) % filterKeys.length
-        : (idx - 1 + filterKeys.length) % filterKeys.length
-      setFilter(filterKeys[nextIdx])
-    }
-  }
 
   // Check if appointment is upcoming
   const isUpcoming = (apt: Appointment) => {
-    return upcomingVisits.some(u => u.id === apt.id)
+    return upcomingVisits.some((u) => u.id === apt.id)
   }
 
   return (
@@ -230,7 +330,8 @@ export default function ClinicalHistory({
           Historial clínico
         </h2>
         <p className="font-['Inter:Regular',_sans-serif] text-[var(--color-neutral-600)] text-body-sm">
-          Filtra el historial clínico, consulta los detalles de cada visita y gestiona tratamientos.
+          Filtra el historial clínico, consulta los detalles de cada visita y
+          gestiona tratamientos.
         </p>
       </div>
 
@@ -260,7 +361,7 @@ export default function ClinicalHistory({
       </div>
 
       {/* Main content area */}
-      <div 
+      <div
         className='absolute'
         style={{
           left: 'var(--spacing-plnav)',
@@ -275,7 +376,8 @@ export default function ClinicalHistory({
             {/* Timeline header */}
             <div className='flex items-center justify-between mb-4'>
               <span className="font-['Inter:Medium',_sans-serif] text-[var(--color-neutral-700)] text-body-sm">
-                {filteredAppointments.length} visita{filteredAppointments.length !== 1 ? 's' : ''}
+                {filteredAppointments.length} visita
+                {filteredAppointments.length !== 1 ? 's' : ''}
               </span>
             </div>
 
@@ -284,28 +386,28 @@ export default function ClinicalHistory({
               {filteredAppointments.length > 0 ? (
                 <div className='relative'>
                   {/* Vertical timeline line */}
-                  <div 
+                  <div
                     className='absolute left-3 top-6 bottom-6 w-0.5 bg-[var(--color-brand-200)]'
                     aria-hidden='true'
                   />
-                  
+
                   {/* Timeline cards */}
                   <div className='space-y-4 relative'>
                     {filteredAppointments.map((apt, index) => (
                       <div key={apt.id} className='relative pl-8'>
                         {/* Timeline dot */}
-                        <div 
+                        <div
                           className={[
                             'absolute left-0 top-4 w-6 h-6 rounded-full border-2 z-10',
                             selectedAppointmentId === apt.id
                               ? 'bg-[var(--color-brand-500)] border-[var(--color-brand-500)]'
                               : apt.visitStatus === 'completed'
-                                ? 'bg-[var(--color-brand-100)] border-[var(--color-brand-400)]'
-                                : 'bg-white border-[var(--color-brand-400)]'
+                              ? 'bg-[var(--color-brand-100)] border-[var(--color-brand-400)]'
+                              : 'bg-white border-[var(--color-brand-400)]'
                           ].join(' ')}
                           aria-hidden='true'
                         />
-                        
+
                         <VisitCard
                           appointment={apt}
                           selected={selectedAppointmentId === apt.id}
@@ -348,10 +450,42 @@ export default function ClinicalHistory({
               onTreatmentStatusChange={handleTreatmentStatusChange}
               onUploadAttachment={handleUploadAttachment}
               onRemoveAttachment={handleRemoveAttachment}
+              onUploadOdontogram={handleUploadOdontogram}
             />
           </div>
         </div>
       </div>
+
+      {/* Upload File Modal */}
+      <UploadFileModal
+        open={isUploadModalOpen}
+        type={uploadType}
+        onClose={() => {
+          setIsUploadModalOpen(false)
+          setUploadError(null)
+        }}
+        onFileSelected={handleFileSelected}
+        onError={handleUploadError}
+      />
+
+      {/* Error Toast */}
+      {uploadError && (
+        <div className='fixed right-4 bottom-4 z-[200]'>
+          <div className='min-w-[240px] max-w-[360px] rounded-lg border shadow-[var(--shadow-cta)] px-4 py-3 bg-[var(--color-error-50)] border-[var(--color-error-200)] text-[var(--color-error-800)]'>
+            <div className='flex items-start gap-2'>
+              <p className='text-body-md flex-1'>{uploadError}</p>
+              <button
+                type='button'
+                aria-label='Cerrar aviso'
+                className='text-body-md leading-none cursor-pointer hover:opacity-70'
+                onClick={() => setUploadError(null)}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

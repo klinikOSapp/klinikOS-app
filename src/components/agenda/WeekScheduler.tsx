@@ -27,18 +27,14 @@ import AppointmentContextMenu, {
 } from './AppointmentContextMenu'
 import AppointmentSummaryCard from './AppointmentSummaryCard'
 import DayCalendar from './DayCalendar'
+import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
+import CreateAppointmentModal from './modals/CreateAppointmentModal'
 import MonthCalendar from './MonthCalendar'
 import SlotDragSelection, {
   getSelectionBounds,
   type SlotDragState
 } from './SlotDragSelection'
 import { slotIndexToTime } from './TimeIndicator'
-import {
-  VisitStatusCountersCompact,
-  VisitStatusDropdown
-} from './VisitStatusCounters'
-import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
-import CreateAppointmentModal from './modals/CreateAppointmentModal'
 import type {
   AgendaEvent,
   DayColumn,
@@ -47,6 +43,10 @@ import type {
   VisitStatus,
   Weekday
 } from './types'
+import {
+  VisitStatusCountersCompact,
+  VisitStatusDropdown
+} from './VisitStatusCounters'
 
 type SpecialistAvailability = {
   id: string
@@ -2464,8 +2464,8 @@ function HeaderLabels({
                   cell.tone === 'neutral'
                     ? 'text-[var(--color-neutral-600)]'
                     : cell.tone === 'brand'
-                      ? 'text-[var(--color-brand-500)]'
-                      : 'text-[var(--color-neutral-900)]'
+                    ? 'text-[var(--color-brand-500)]'
+                    : 'text-[var(--color-neutral-900)]'
                 ].join(' ')}
               >
                 {cell.label}
@@ -4110,7 +4110,7 @@ export default function WeekScheduler() {
       | 'Historial clínico'
       | 'Imágenes RX'
       | 'Finanzas'
-      | 'Consentimientos'
+      | 'Documentos'
       | 'Recetas'
     openBudgetCreation?: boolean
     openPrescriptionCreation?: boolean
@@ -4530,7 +4530,9 @@ export default function WeekScheduler() {
       updateVisitStatus(eventId, newStatus)
 
       console.log(
-        `✅ Estado de visita actualizado: ${eventId} → ${newStatus} (${now.toLocaleTimeString('es-ES')})`
+        `✅ Estado de visita actualizado: ${eventId} → ${newStatus} (${now.toLocaleTimeString(
+          'es-ES'
+        )})`
       )
     },
     [updateVisitStatus]
@@ -4734,8 +4736,8 @@ export default function WeekScheduler() {
       const bgColor = ev.backgroundClass?.includes('coral')
         ? 'var(--color-event-coral)'
         : ev.backgroundClass?.includes('brand')
-          ? 'var(--color-event-purple)'
-          : 'var(--color-event-teal)'
+        ? 'var(--color-event-purple)'
+        : 'var(--color-event-teal)'
 
       return {
         id: ev.id ?? `day-${column.id}-${idx}`,
@@ -5429,7 +5431,9 @@ export default function WeekScheduler() {
     const endMinutes = startH * 60 + startM + durationMinutes
     const endH = Math.floor(endMinutes / 60)
     const endM = endMinutes % 60
-    const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`
+    const endTime = `${endH.toString().padStart(2, '0')}:${endM
+      .toString()
+      .padStart(2, '0')}`
 
     const slotIndex = getSlotIndexFromTime(data.hora)
     const topRem = slotIndex * 2.5 // matches --scheduler-slot-height-quarter
@@ -5512,7 +5516,9 @@ export default function WeekScheduler() {
     const endMinutes = startH * 60 + startM + durationMinutes
     const endH = Math.floor(endMinutes / 60)
     const endM = endMinutes % 60
-    const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`
+    const endTime = `${endH.toString().padStart(2, '0')}:${endM
+      .toString()
+      .padStart(2, '0')}`
 
     // Add the block via context
     addBlock({
@@ -5908,8 +5914,8 @@ export default function WeekScheduler() {
                 bgColor: ev.backgroundClass?.includes('coral')
                   ? 'var(--color-event-coral)'
                   : ev.backgroundClass?.includes('brand')
-                    ? 'var(--color-event-purple)'
-                    : 'var(--color-event-teal)'
+                  ? 'var(--color-event-purple)'
+                  : 'var(--color-event-teal)'
               }))
             )}
           />

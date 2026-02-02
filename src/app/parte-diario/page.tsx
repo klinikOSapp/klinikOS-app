@@ -91,8 +91,8 @@ function Chip({
     size === 'xs'
       ? 'text-label-sm font-normal'
       : size === 'md'
-        ? 'text-body-md'
-        : 'text-body-sm'
+      ? 'text-body-md'
+      : 'text-body-sm'
 
   return (
     <span className={['px-2 py-0.5', sizeClass, styles, radius].join(' ')}>
@@ -243,8 +243,7 @@ function PaymentStatusCell({
   row: DailyRow
   onClick?: () => void
 }) {
-  const hasPendingPayment =
-    row.paymentInfo && row.paymentInfo.pendingAmount > 0
+  const hasPendingPayment = row.paymentInfo && row.paymentInfo.pendingAmount > 0
 
   if (!row.paymentInfo) {
     // Sin información de pago - mostrar solo Si/No
@@ -288,7 +287,9 @@ function PaymentStatusCell({
       >
         <div className='flex items-center gap-2'>
           <span className='text-amber-600 font-medium group-hover:text-amber-700'>
-            {pendingAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}{' '}
+            {pendingAmount.toLocaleString('es-ES', {
+              minimumFractionDigits: 2
+            })}{' '}
             {currency}
           </span>
           <span className='text-xs text-[var(--color-neutral-500)]'>
@@ -620,32 +621,30 @@ function RowActionsMenu({
           <span>Nueva receta</span>
         </button>
         {/* Acción de cobrar - solo si hay pago pendiente */}
-        {onPayment &&
-          row.paymentInfo &&
-          row.paymentInfo.pendingAmount > 0 && (
-            <button
-              type='button'
-              role='menuitem'
-              onClick={() => {
-                onPayment()
-                onClose()
-              }}
-              className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-brand-700)] font-medium transition-colors hover:bg-[var(--color-brand-50)] focus:bg-[var(--color-brand-50)] focus:outline-none'
-            >
-              <MD3Icon
-                name='PaymentsRounded'
-                size={1.125}
-                className='text-[var(--color-brand-600)]'
-              />
-              <span>
-                Cobrar{' '}
-                {row.paymentInfo.pendingAmount.toLocaleString('es-ES', {
-                  minimumFractionDigits: 2
-                })}{' '}
-                {row.paymentInfo.currency}
-              </span>
-            </button>
-          )}
+        {onPayment && row.paymentInfo && row.paymentInfo.pendingAmount > 0 && (
+          <button
+            type='button'
+            role='menuitem'
+            onClick={() => {
+              onPayment()
+              onClose()
+            }}
+            className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-brand-700)] font-medium transition-colors hover:bg-[var(--color-brand-50)] focus:bg-[var(--color-brand-50)] focus:outline-none'
+          >
+            <MD3Icon
+              name='PaymentsRounded'
+              size={1.125}
+              className='text-[var(--color-brand-600)]'
+            />
+            <span>
+              Cobrar{' '}
+              {row.paymentInfo.pendingAmount.toLocaleString('es-ES', {
+                minimumFractionDigits: 2
+              })}{' '}
+              {row.paymentInfo.currency}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Separador */}
@@ -834,7 +833,7 @@ export default function ParteDiarioPage() {
     | 'Tratamientos'
     | 'Imágenes RX'
     | 'Finanzas'
-    | 'Consentimientos'
+    | 'Documentos'
     | 'Recetas'
   >('Resumen')
   const [openBudgetCreation, setOpenBudgetCreation] = React.useState(false)
@@ -846,9 +845,11 @@ export default function ParteDiarioPage() {
 
   // Estado para modales de pago
   const [isPaymentModalOpen, setIsPaymentModalOpen] = React.useState(false)
-  const [isBudgetPaymentModalOpen, setIsBudgetPaymentModalOpen] = React.useState(false)
-  const [selectedRowForPayment, setSelectedRowForPayment] = React.useState<DailyRow | null>(null)
-  
+  const [isBudgetPaymentModalOpen, setIsBudgetPaymentModalOpen] =
+    React.useState(false)
+  const [selectedRowForPayment, setSelectedRowForPayment] =
+    React.useState<DailyRow | null>(null)
+
   // Mock data para presupuestos con cuotas (en producción vendría del backend)
   const [patientBudgets, setPatientBudgets] = React.useState<BudgetRow[]>([])
 
@@ -1121,7 +1122,10 @@ export default function ParteDiarioPage() {
             treatment={selectedRowForPayment.reason}
             amount={
               selectedRowForPayment.paymentInfo
-                ? `${selectedRowForPayment.paymentInfo.pendingAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €`
+                ? `${selectedRowForPayment.paymentInfo.pendingAmount.toLocaleString(
+                    'es-ES',
+                    { minimumFractionDigits: 2 }
+                  )} €`
                 : ''
             }
             paymentInfo={selectedRowForPayment.paymentInfo}
@@ -1476,8 +1480,8 @@ export default function ParteDiarioPage() {
                     {selectedProfessionals.length === 0
                       ? 'Profesional'
                       : selectedProfessionals.length === 1
-                        ? selectedProfessionals[0]
-                        : `${selectedProfessionals.length} profesionales`}
+                      ? selectedProfessionals[0]
+                      : `${selectedProfessionals.length} profesionales`}
                   </span>
                   <MD3Icon
                     name={
@@ -1509,17 +1513,18 @@ export default function ParteDiarioPage() {
                     {/* Professional list with checkboxes */}
                     <div className='py-1'>
                       {uniqueProfessionals.map((professional) => {
-                        const isSelected = selectedProfessionals.includes(professional)
+                        const isSelected =
+                          selectedProfessionals.includes(professional)
                         return (
                           <button
                             key={professional}
                             type='button'
-                            onClick={() => toggleProfessionalFilter(professional)}
+                            onClick={() =>
+                              toggleProfessionalFilter(professional)
+                            }
                             className={[
                               'w-full flex items-center gap-3 px-3 py-2 text-body-sm hover:bg-[var(--color-neutral-100)] transition-colors',
-                              isSelected
-                                ? 'bg-[var(--color-brand-0)]'
-                                : ''
+                              isSelected ? 'bg-[var(--color-brand-0)]' : ''
                             ].join(' ')}
                           >
                             <div
@@ -1725,18 +1730,19 @@ export default function ParteDiarioPage() {
                       )
                     })()
                     // Filtro por profesional (multi-select)
-                    const matchesProfessional = selectedProfessionals.length > 0
-                      ? selectedProfessionals.includes(p.professional ?? '')
-                      : true
+                    const matchesProfessional =
+                      selectedProfessionals.length > 0
+                        ? selectedProfessionals.includes(p.professional ?? '')
+                        : true
                     // Filtro por estado de visita
                     const matchesVisitStatus = activeVisitStatusFilters
                       ? activeVisitStatusFilters.includes(p.visitStatus)
                       : true
                     return Boolean(
                       matchesQuery &&
-                      matchesFilter &&
-                      matchesProfessional &&
-                      matchesVisitStatus
+                        matchesFilter &&
+                        matchesProfessional &&
+                        matchesVisitStatus
                     )
                   })
                   .map((row, i) => (
@@ -1797,7 +1803,9 @@ export default function ParteDiarioPage() {
                             {row.box.replace('box ', 'Box ')}
                           </span>
                         ) : (
-                          <span className='text-[var(--color-neutral-400)]'>—</span>
+                          <span className='text-[var(--color-neutral-400)]'>
+                            —
+                          </span>
                         )}
                       </TableBodyCell>
                       <TableBodyCell className='w-[140px] pr-2'>
@@ -1817,7 +1825,9 @@ export default function ParteDiarioPage() {
                         {row.age ? (
                           <span>{row.age}</span>
                         ) : (
-                          <span className='text-[var(--color-neutral-400)]'>—</span>
+                          <span className='text-[var(--color-neutral-400)]'>
+                            —
+                          </span>
                         )}
                       </TableBodyCell>
                       <TableBodyCell className='w-[200px] pr-2'>

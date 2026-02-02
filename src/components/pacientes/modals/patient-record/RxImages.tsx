@@ -1,16 +1,17 @@
 /* eslint-disable @next/next/no-img-element */
-import React from 'react'
 import {
   AddPhotoAlternateRounded,
-  CloseRounded,
-  ImageRounded,
   DeleteRounded,
-  FullscreenRounded
+  FullscreenRounded,
+  ImageRounded
 } from '@/components/icons/md3'
+import { usePatientFiles } from '@/context/PatientFilesContext'
+import React from 'react'
 import RxImageViewer from './RxImageViewer'
 
 type RxImagesProps = {
   onClose?: () => void
+  patientId?: string
 }
 
 type RxImage = {
@@ -28,18 +29,54 @@ const initialImages: RxImage[] = [
     name: 'Periapical 2.6',
     date: '24-06-2025',
     url: '',
-    description: 'Caries distal profunda en 2.6, probable pulpitis reversible. No signos radiográficos de patología periapical activa. Periodonto compatible con gingivitis localizada leve.'
+    description:
+      'Caries distal profunda en 2.6, probable pulpitis reversible. No signos radiográficos de patología periapical activa. Periodonto compatible con gingivitis localizada leve.'
   }
 ]
 
-export default function RxImages({ onClose }: RxImagesProps) {
-  const [images, setImages] = React.useState<RxImage[]>(initialImages)
+export default function RxImages({ onClose, patientId }: RxImagesProps) {
+  const { getRxImagesByPatient } = usePatientFiles()
+  const [localImages, setLocalImages] = React.useState<RxImage[]>(initialImages)
   const [selectedId, setSelectedId] = React.useState<string>('1')
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   // HU-018: Advanced viewer state
   const [viewerOpen, setViewerOpen] = React.useState(false)
 
-  const selectedImage = images.find(img => img.id === selectedId) || images[0]
+  // Get images from context (uploaded from clinical history)
+  const contextFiles = patientId ? getRxImagesByPatient(patientId) : []
+
+  // Convert context files to RxImage format
+  const contextImages: RxImage[] = contextFiles.map((file) => ({
+    id: file.id,
+    name: file.name,
+    date: new Date(file.uploadedAt)
+      .toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      })
+      .replace(/\//g, '-'),
+    url: file.url,
+    description: file.description || ''
+  }))
+
+  // Combine local images with context images (avoid duplicates by id)
+  const images = React.useMemo(() => {
+    const localIds = new Set(localImages.map((img) => img.id))
+    const uniqueContextImages = contextImages.filter(
+      (img) => !localIds.has(img.id)
+    )
+    return [...localImages, ...uniqueContextImages]
+  }, [localImages, contextImages])
+
+  const selectedImage = images.find((img) => img.id === selectedId) || images[0]
+
+  // Update selected image when images change
+  React.useEffect(() => {
+    if (!selectedImage && images.length > 0) {
+      setSelectedId(images[0].id)
+    }
+  }, [images, selectedImage])
 
   const handleAddClick = () => {
     fileInputRef.current?.click()
@@ -50,25 +87,29 @@ export default function RxImages({ onClose }: RxImagesProps) {
     if (!files || files.length === 0) return
 
     const newImages: RxImage[] = []
-    const today = new Date().toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }).replace(/\//g, '-')
+    const today = new Date()
+      .toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      })
+      .replace(/\//g, '-')
 
     Array.from(files).forEach((file, index) => {
       const url = URL.createObjectURL(file)
       const id = `new-${Date.now()}-${index}`
       newImages.push({
         id,
-        name: file.name.replace(/\.[^/.]+$/, '') || `Radiografía ${images.length + index + 1}`,
+        name:
+          file.name.replace(/\.[^/.]+$/, '') ||
+          `Radiografía ${images.length + index + 1}`,
         date: today,
         url,
         description: ''
       })
     })
 
-    setImages(prev => [...prev, ...newImages])
+    setLocalImages((prev) => [...prev, ...newImages])
     if (newImages.length > 0) {
       setSelectedId(newImages[0].id)
     }
@@ -78,8 +119,8 @@ export default function RxImages({ onClose }: RxImagesProps) {
   }
 
   const handleDelete = (id: string) => {
-    setImages(prev => {
-      const filtered = prev.filter(img => img.id !== id)
+    setLocalImages((prev) => {
+      const filtered = prev.filter((img) => img.id !== id)
       // If we deleted the selected image, select the first one
       if (selectedId === id && filtered.length > 0) {
         setSelectedId(filtered[0].id)
@@ -91,13 +132,14 @@ export default function RxImages({ onClose }: RxImagesProps) {
   // Cleanup URLs on unmount
   React.useEffect(() => {
     return () => {
-      images.forEach(img => {
+      localImages.forEach((img) => {
         if (img.url && img.url.startsWith('blob:')) {
           URL.revokeObjectURL(img.url)
         }
       })
     }
-  }, [images])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div
@@ -129,11 +171,11 @@ export default function RxImages({ onClose }: RxImagesProps) {
           {/* Hidden file input */}
           <input
             ref={fileInputRef}
-            type="file"
-            accept="image/*"
+            type='file'
+            accept='image/*'
             multiple
             onChange={handleFileChange}
-            className="hidden"
+            className='hidden'
           />
 
           {/* Header row with Add RX button */}
@@ -153,21 +195,25 @@ export default function RxImages({ onClose }: RxImagesProps) {
             {/* Left thumbnails rail with vertical scroll */}
             <div className='shrink-0 w-[208px] overflow-y-auto pr-2 rxThumbs'>
               {images.map((img) => (
-                <div 
-                  key={img.id} 
-                  className={`w-[190px] ${img.id !== images[0]?.id ? 'mt-4' : ''} cursor-pointer group relative`}
+                <div
+                  key={img.id}
+                  className={`w-[190px] ${
+                    img.id !== images[0]?.id ? 'mt-4' : ''
+                  } cursor-pointer group relative`}
                   onClick={() => setSelectedId(img.id)}
                 >
-                  <div className={`bg-[#24282c] h-[190px] rounded-[8px] overflow-hidden grid place-items-center ${
-                    selectedId === img.id 
-                      ? 'border-2 border-[#51d6c7]' 
-                      : 'border border-[#cbd3d9]'
-                  }`}>
+                  <div
+                    className={`bg-[#24282c] h-[190px] rounded-[8px] overflow-hidden grid place-items-center ${
+                      selectedId === img.id
+                        ? 'border-2 border-[#51d6c7]'
+                        : 'border border-[#cbd3d9]'
+                    }`}
+                  >
                     {img.url ? (
-                      <img 
-                        src={img.url} 
+                      <img
+                        src={img.url}
                         alt={img.name}
-                        className="w-full h-full object-cover"
+                        className='w-full h-full object-cover'
                       />
                     ) : (
                       <ImageRounded className='text-white size-[48px]' />
@@ -175,33 +221,31 @@ export default function RxImages({ onClose }: RxImagesProps) {
                   </div>
                   {/* Delete button on hover */}
                   <button
-                    type="button"
+                    type='button'
                     onClick={(e) => {
                       e.stopPropagation()
                       handleDelete(img.id)
                     }}
-                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                    aria-label="Eliminar imagen"
+                    className='absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600'
+                    aria-label='Eliminar imagen'
                   >
-                    <DeleteRounded className="size-4" />
+                    <DeleteRounded className='size-4' />
                   </button>
                   <div className='mt-1'>
                     <p className='text-body-md text-[#24282c] truncate'>
                       {img.name}
                     </p>
-                    <p className='text-label-sm text-[#24282c]'>
-                      {img.date}
-                    </p>
+                    <p className='text-label-sm text-[#24282c]'>{img.date}</p>
                   </div>
                 </div>
               ))}
-              
+
               {/* Empty state if no images */}
               {images.length === 0 && (
-                <div className="w-[190px] h-[190px] border-2 border-dashed border-[#cbd3d9] rounded-[8px] grid place-items-center">
-                  <div className="text-center">
-                    <ImageRounded className="text-[#cbd3d9] size-12 mx-auto mb-2" />
-                    <p className="text-label-sm text-[#8a95a1]">Sin imágenes</p>
+                <div className='w-[190px] h-[190px] border-2 border-dashed border-[#cbd3d9] rounded-[8px] grid place-items-center'>
+                  <div className='text-center'>
+                    <ImageRounded className='text-[#cbd3d9] size-12 mx-auto mb-2' />
+                    <p className='text-label-sm text-[#8a95a1]'>Sin imágenes</p>
                   </div>
                 </div>
               )}
@@ -212,17 +256,17 @@ export default function RxImages({ onClose }: RxImagesProps) {
               {/* Main image viewer */}
               <div className='flex-1 min-h-0 rounded-[8px] overflow-hidden border border-[#cbd3d9] bg-[#3d434a] group relative'>
                 {selectedImage?.url ? (
-                  <img 
-                    src={selectedImage.url} 
+                  <img
+                    src={selectedImage.url}
                     alt={selectedImage.name}
-                    className="w-full h-full object-contain"
+                    className='w-full h-full object-contain'
                   />
                 ) : (
                   <div className='w-full h-full grid place-items-center'>
                     <ImageRounded className='text-white size-[64px]' />
                   </div>
                 )}
-                
+
                 {/* HU-018: Open advanced viewer button */}
                 <button
                   type='button'
@@ -269,7 +313,7 @@ export default function RxImages({ onClose }: RxImagesProps) {
           border-radius: 16px;
         }
       `}</style>
-      
+
       {/* HU-018: Advanced RX Image Viewer */}
       <RxImageViewer
         open={viewerOpen}
@@ -281,5 +325,3 @@ export default function RxImages({ onClose }: RxImagesProps) {
     </div>
   )
 }
-
-

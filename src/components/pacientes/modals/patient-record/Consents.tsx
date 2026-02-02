@@ -5,15 +5,18 @@ import {
   AttachEmailRounded,
   CloseRounded,
   DownloadRounded,
+  ImageRounded,
   MoreVertRounded,
   PictureAsPdfRounded,
   VisibilityRounded
 } from '@/components/icons/md3'
+import { usePatientFiles } from '@/context/PatientFilesContext'
 import React from 'react'
 import UploadConsentModal from './UploadConsentModal'
 
 type ConsentsProps = {
   onClose?: () => void
+  patientId?: string
 }
 
 // HU-020: Extended consent status to include 'Pendiente'
@@ -32,18 +35,22 @@ type ConsentRow = {
 // HU-020: Mapping of treatment types to required consents
 export const TREATMENT_CONSENT_REQUIREMENTS: Record<string, string[]> = {
   // Dental procedures
-  'corona': ['Consentimiento general', 'Consentimiento prótesis'],
-  'endodoncia': ['Consentimiento general', 'Consentimiento endodoncia'],
-  'ortodoncia': ['Consentimiento general', 'Consentimiento ortodoncia'],
-  'periodoncia': ['Consentimiento general', 'Consentimiento periodontal'],
-  'cirugia': ['Consentimiento general', 'Consentimiento cirugía'],
-  'estetica': ['Consentimiento general', 'Consentimiento estética'],
-  'protesis': ['Consentimiento general', 'Consentimiento prótesis'],
-  'implante': ['Consentimiento general', 'Consentimiento implantología', 'Consentimiento cirugía'],
-  'extraccion': ['Consentimiento general', 'Consentimiento extracción'],
-  'blanqueamiento': ['Consentimiento general', 'Consentimiento blanqueamiento'],
+  corona: ['Consentimiento general', 'Consentimiento prótesis'],
+  endodoncia: ['Consentimiento general', 'Consentimiento endodoncia'],
+  ortodoncia: ['Consentimiento general', 'Consentimiento ortodoncia'],
+  periodoncia: ['Consentimiento general', 'Consentimiento periodontal'],
+  cirugia: ['Consentimiento general', 'Consentimiento cirugía'],
+  estetica: ['Consentimiento general', 'Consentimiento estética'],
+  protesis: ['Consentimiento general', 'Consentimiento prótesis'],
+  implante: [
+    'Consentimiento general',
+    'Consentimiento implantología',
+    'Consentimiento cirugía'
+  ],
+  extraccion: ['Consentimiento general', 'Consentimiento extracción'],
+  blanqueamiento: ['Consentimiento general', 'Consentimiento blanqueamiento'],
   // Default - all treatments require general consent
-  'general': ['Consentimiento general']
+  general: ['Consentimiento general']
 }
 
 // HU-020: List of all available consent types
@@ -56,7 +63,11 @@ export const CONSENT_TYPES = [
   { id: 'periodoncia', name: 'Consentimiento periodontal', mandatory: false },
   { id: 'implante', name: 'Consentimiento implantología', mandatory: false },
   { id: 'extraccion', name: 'Consentimiento extracción', mandatory: false },
-  { id: 'blanqueamiento', name: 'Consentimiento blanqueamiento', mandatory: false },
+  {
+    id: 'blanqueamiento',
+    name: 'Consentimiento blanqueamiento',
+    mandatory: false
+  },
   { id: 'estetica', name: 'Consentimiento estética', mandatory: false },
   { id: 'protesis', name: 'Consentimiento prótesis', mandatory: false },
   { id: 'imagen', name: 'Uso de imagen', mandatory: false },
@@ -68,17 +79,19 @@ export function checkTreatmentConsents(
   treatmentType: string,
   patientConsents: ConsentRow[]
 ): { hasAll: boolean; missing: string[] } {
-  const requiredConsents = TREATMENT_CONSENT_REQUIREMENTS[treatmentType.toLowerCase()] 
-    || TREATMENT_CONSENT_REQUIREMENTS['general']
-  
+  const requiredConsents =
+    TREATMENT_CONSENT_REQUIREMENTS[treatmentType.toLowerCase()] ||
+    TREATMENT_CONSENT_REQUIREMENTS['general']
+
   const signedConsents = patientConsents
-    .filter(c => c.status === 'Firmado')
-    .map(c => c.name.toLowerCase())
-  
+    .filter((c) => c.status === 'Firmado')
+    .map((c) => c.name.toLowerCase())
+
   const missing = requiredConsents.filter(
-    req => !signedConsents.some(signed => signed.includes(req.toLowerCase()))
+    (req) =>
+      !signedConsents.some((signed) => signed.includes(req.toLowerCase()))
   )
-  
+
   return {
     hasAll: missing.length === 0,
     missing
@@ -117,7 +130,13 @@ const MOCK_ROWS: ConsentRow[] = [
   }
 ]
 
-function StatusBadge({ status, mandatory }: { status: ConsentStatus; mandatory?: boolean }) {
+function StatusBadge({
+  status,
+  mandatory
+}: {
+  status: ConsentStatus
+  mandatory?: boolean
+}) {
   const getStatusStyles = () => {
     switch (status) {
       case 'Firmado':
@@ -125,14 +144,14 @@ function StatusBadge({ status, mandatory }: { status: ConsentStatus; mandatory?:
       case 'Enviado':
         return 'border-info-200 text-info-600 bg-info-50'
       case 'Pendiente':
-        return mandatory 
-          ? 'border-error-400 text-error-600 bg-error-50' 
+        return mandatory
+          ? 'border-error-400 text-error-600 bg-error-50'
           : 'border-warning-400 text-warning-600 bg-warning-50'
       default:
         return 'border-neutral-300 text-neutral-600'
     }
   }
-  
+
   return (
     <span
       className={[
@@ -148,18 +167,111 @@ function StatusBadge({ status, mandatory }: { status: ConsentStatus; mandatory?:
 
 type ToastVariant = 'success' | 'error'
 
-export default function Consents({ onClose }: ConsentsProps) {
+// Extended row with URL for actions
+type ConsentRowExtended = ConsentRow & {
+  url?: string
+}
+
+export default function Consents({ onClose, patientId }: ConsentsProps) {
+  const { getConsentsByPatient } = usePatientFiles()
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null)
   const [isUploadOpen, setIsUploadOpen] = React.useState(false)
-  const [rows, setRows] = React.useState<ConsentRow[]>(MOCK_ROWS)
+  const [localRows, setLocalRows] =
+    React.useState<ConsentRowExtended[]>(MOCK_ROWS)
   const [toast, setToast] = React.useState<{
     message: string
     variant: ToastVariant
   } | null>(null)
-  
+  // State for document preview
+  const [previewDocument, setPreviewDocument] =
+    React.useState<ConsentRowExtended | null>(null)
+
+  // Get documents from context (uploaded from clinical history)
+  const contextFiles = patientId ? getConsentsByPatient(patientId) : []
+
+  // Convert context files to ConsentRow format
+  const contextRows: ConsentRowExtended[] = contextFiles.map((file) => ({
+    id: file.id,
+    name: file.name,
+    sentAt:
+      file.consentSentAt ||
+      new Date(file.uploadedAt).toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }),
+    status: file.consentStatus || 'Enviado',
+    mandatory: false,
+    url: file.url
+  }))
+
+  // Action handlers
+  const handleViewDocument = (row: ConsentRowExtended) => {
+    setPreviewDocument(row)
+  }
+
+  const handleDownloadDocument = (row: ConsentRowExtended) => {
+    if (row.url) {
+      // Create a link and trigger download
+      const link = document.createElement('a')
+      link.href = row.url
+      link.download = row.name
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      setToast({ message: `Descargando ${row.name}...`, variant: 'success' })
+    } else {
+      setToast({
+        message: 'Archivo no disponible para descargar',
+        variant: 'error'
+      })
+    }
+    setOpenMenuRowId(null)
+    window.setTimeout(() => setToast(null), 3000)
+  }
+
+  const handleSendDocument = (row: ConsentRowExtended) => {
+    // Simulate sending document via email
+    setToast({
+      message: `Documento "${row.name}" enviado al paciente`,
+      variant: 'success'
+    })
+    setOpenMenuRowId(null)
+    // Update status to 'Enviado' if it was 'Pendiente'
+    if (row.status === 'Pendiente') {
+      setLocalRows((prev) =>
+        prev.map((r) =>
+          r.id === row.id
+            ? {
+                ...r,
+                status: 'Enviado' as const,
+                sentAt: new Date().toLocaleDateString('es-ES', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric'
+                })
+              }
+            : r
+        )
+      )
+    }
+    window.setTimeout(() => setToast(null), 3000)
+  }
+
+  // Combine local rows with context rows (avoid duplicates by id)
+  const rows = React.useMemo(() => {
+    const localIds = new Set(localRows.map((r) => r.id))
+    const uniqueContextRows = contextRows.filter((r) => !localIds.has(r.id))
+    return [...localRows, ...uniqueContextRows]
+  }, [localRows, contextRows])
+
   // HU-020: Calculate pending mandatory consents
-  const pendingMandatory = rows.filter(r => r.mandatory && r.status === 'Pendiente')
-  const pendingNonMandatory = rows.filter(r => !r.mandatory && r.status === 'Pendiente')
+  const pendingMandatory = rows.filter(
+    (r) => r.mandatory && r.status === 'Pendiente'
+  )
+  const pendingNonMandatory = rows.filter(
+    (r) => !r.mandatory && r.status === 'Pendiente'
+  )
   const hasPendingMandatory = pendingMandatory.length > 0
 
   React.useEffect(() => {
@@ -180,13 +292,13 @@ export default function Consents({ onClose }: ConsentsProps) {
       {/* Header */}
       <div className='mb-6'>
         <p className='font-inter text-headline-sm text-neutral-900'>
-          Consentimientos
+          Documentos
         </p>
         <p className='text-body-sm text-neutral-900 mt-2'>
-          Gestiona todos los consentimientos de los pacientes.
+          Gestiona todos los documentos y consentimientos de los pacientes.
         </p>
       </div>
-      
+
       {/* HU-020: Warning banner for pending mandatory consents */}
       {hasPendingMandatory && (
         <div className='mb-4 p-4 bg-error-50 border border-error-200 rounded-lg flex items-start gap-3'>
@@ -198,13 +310,13 @@ export default function Consents({ onClose }: ConsentsProps) {
               Consentimientos obligatorios pendientes
             </p>
             <p className='text-body-sm text-error-700 mt-1'>
-              {pendingMandatory.length === 1 
+              {pendingMandatory.length === 1
                 ? `Hay 1 consentimiento obligatorio sin firmar: ${pendingMandatory[0].name}`
-                : `Hay ${pendingMandatory.length} consentimientos obligatorios sin firmar`
-              }
+                : `Hay ${pendingMandatory.length} consentimientos obligatorios sin firmar`}
             </p>
             <p className='text-label-sm text-error-600 mt-2'>
-              Estos consentimientos son necesarios antes de realizar ciertos tratamientos.
+              Estos consentimientos son necesarios antes de realizar ciertos
+              tratamientos.
             </p>
           </div>
         </div>
@@ -250,11 +362,15 @@ export default function Consents({ onClose }: ConsentsProps) {
               {/* File + name + date small */}
               <div className='flex items-center gap-4 p-2 h-[72px]'>
                 <div className='flex items-center justify-center w-[42px] h-[49px]'>
-                  <PictureAsPdfRounded className='text-neutral-900' />
+                  {row.name.toLowerCase().endsWith('.pdf') ? (
+                    <PictureAsPdfRounded className='text-neutral-900' />
+                  ) : (
+                    <ImageRounded className='text-neutral-900' />
+                  )}
                 </div>
                 <div className='flex flex-col justify-center text-neutral-900'>
                   <p className='text-body-md'>{row.name}</p>
-                  <p className='text-label-sm'>{'12/05/2024'}</p>
+                  <p className='text-label-sm'>{row.sentAt}</p>
                 </div>
               </div>
 
@@ -265,14 +381,20 @@ export default function Consents({ onClose }: ConsentsProps) {
 
               {/* Sent date */}
               <div className='flex items-center p-2'>
-                <p className='text-body-md text-neutral-900'>
-                  {row.sentAt}
-                </p>
+                <p className='text-body-md text-neutral-900'>{row.sentAt}</p>
               </div>
 
               {/* Actions */}
               <div className='flex items-center gap-2 p-2'>
-                <VisibilityRounded className='size-6 text-neutral-900 cursor-pointer' />
+                <button
+                  type='button'
+                  onClick={() => handleViewDocument(row)}
+                  className='cursor-pointer hover:opacity-70 transition-opacity'
+                  aria-label='Ver documento'
+                  title='Ver documento'
+                >
+                  <VisibilityRounded className='size-6 text-neutral-900' />
+                </button>
                 <div className='relative'>
                   <button
                     type='button'
@@ -283,7 +405,7 @@ export default function Consents({ onClose }: ConsentsProps) {
                         prev === row.id ? null : row.id
                       )
                     }
-                    className='cursor-pointer'
+                    className='cursor-pointer hover:opacity-70 transition-opacity'
                     data-consents-trigger='true'
                     aria-label='Más opciones'
                   >
@@ -299,22 +421,26 @@ export default function Consents({ onClose }: ConsentsProps) {
                       <button
                         type='button'
                         role='menuitem'
-                        onClick={() => {
-                          // Acción: Enviar consentimiento
-                          setOpenMenuRowId(null)
-                        }}
-                        className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
+                        onClick={() => handleSendDocument(row)}
+                        className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)] cursor-pointer'
                       >
                         <AttachEmailRounded className='size-5' />
-                        <span className='text-body-md'>
-                          Enviar Consentimiento
-                        </span>
+                        <span className='text-body-md'>Enviar Documento</span>
                       </button>
                       <button
                         type='button'
                         role='menuitem'
-                        disabled
-                        className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left text-[var(--color-neutral-600)] cursor-not-allowed'
+                        disabled={row.status !== 'Firmado'}
+                        onClick={() => {
+                          if (row.status === 'Firmado') {
+                            handleSendDocument(row)
+                          }
+                        }}
+                        className={`w-full flex items-center gap-2 rounded-md px-3 py-2 text-left ${
+                          row.status === 'Firmado'
+                            ? 'hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)] cursor-pointer'
+                            : 'text-[var(--color-neutral-400)] cursor-not-allowed'
+                        }`}
                       >
                         <AttachEmailRounded className='size-5' />
                         <span className='text-body-md'>
@@ -324,11 +450,8 @@ export default function Consents({ onClose }: ConsentsProps) {
                       <button
                         type='button'
                         role='menuitem'
-                        onClick={() => {
-                          // Acción: Descargar
-                          setOpenMenuRowId(null)
-                        }}
-                        className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
+                        onClick={() => handleDownloadDocument(row)}
+                        className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)] cursor-pointer'
                       >
                         <DownloadRounded className='size-5' />
                         <span className='text-body-md'>Descargar</span>
@@ -353,18 +476,86 @@ export default function Consents({ onClose }: ConsentsProps) {
           const dd = String(d.getDate()).padStart(2, '0')
           const mm = String(d.getMonth() + 1).padStart(2, '0')
           const yyyy = d.getFullYear()
-          const newRow: ConsentRow = {
+          const url = URL.createObjectURL(f)
+          const newRow: ConsentRowExtended = {
             id: `new-${Date.now()}`,
-            name: f.name || 'consentimiento.pdf',
+            name: f.name || 'documento.pdf',
             sentAt: `${dd}/${mm}/${yyyy}`,
-            status: 'Enviado'
+            status: 'Enviado',
+            url
           }
-          setRows((prev) => [newRow, ...prev])
-          setToast({ message: 'Consentimiento añadido', variant: 'success' })
+          setLocalRows((prev) => [newRow, ...prev])
+          setToast({ message: 'Documento añadido', variant: 'success' })
           window.setTimeout(() => setToast(null), 3000)
           setIsUploadOpen(false)
         }}
       />
+
+      {/* Document Preview Modal */}
+      {previewDocument && (
+        <div className='fixed inset-0 z-[150] bg-black/60 grid place-items-center'>
+          <div className='bg-white rounded-xl shadow-xl w-[min(90vw,800px)] h-[min(85vh,600px)] flex flex-col overflow-hidden'>
+            {/* Header */}
+            <div className='flex items-center justify-between px-6 py-4 border-b border-neutral-200'>
+              <div>
+                <p className='text-title-lg text-neutral-900'>
+                  {previewDocument.name}
+                </p>
+                <p className='text-body-sm text-neutral-600'>
+                  Estado: {previewDocument.status} • Fecha:{' '}
+                  {previewDocument.sentAt}
+                </p>
+              </div>
+              <div className='flex items-center gap-2'>
+                <button
+                  type='button'
+                  onClick={() => handleDownloadDocument(previewDocument)}
+                  className='p-2 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer'
+                  title='Descargar'
+                >
+                  <DownloadRounded className='size-5 text-neutral-700' />
+                </button>
+                <button
+                  type='button'
+                  onClick={() => setPreviewDocument(null)}
+                  className='p-2 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer'
+                  aria-label='Cerrar'
+                >
+                  <CloseRounded className='size-5 text-neutral-700' />
+                </button>
+              </div>
+            </div>
+            {/* Content */}
+            <div className='flex-1 bg-neutral-100 p-4 overflow-auto'>
+              {previewDocument.url ? (
+                previewDocument.name.toLowerCase().endsWith('.pdf') ? (
+                  <iframe
+                    src={previewDocument.url}
+                    className='w-full h-full rounded-lg bg-white'
+                    title={previewDocument.name}
+                  />
+                ) : (
+                  <div className='w-full h-full flex items-center justify-center'>
+                    <img
+                      src={previewDocument.url}
+                      alt={previewDocument.name}
+                      className='max-w-full max-h-full object-contain rounded-lg'
+                    />
+                  </div>
+                )
+              ) : (
+                <div className='w-full h-full flex flex-col items-center justify-center text-neutral-500'>
+                  <PictureAsPdfRounded className='size-16 mb-4' />
+                  <p className='text-body-md'>Vista previa no disponible</p>
+                  <p className='text-body-sm mt-1'>
+                    El archivo no tiene una URL asociada
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {toast && (
         <div className='fixed right-4 bottom-4 z-[200]'>
           <div
