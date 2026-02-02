@@ -1640,12 +1640,6 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
   const addTreatment = useCallback(
     (patientId: string, treatmentData: Omit<PatientTreatment, 'id' | 'createdAt'>) => {
       const newTreatment: PatientTreatment = {
-        // Valores por defecto
-        status: 'Pendiente',
-        paymentStatus: 'Sin pagar',
-        paidAmount: 0,
-        markedForNextAppointment: false,
-        // Sobreescribir con los datos proporcionados
         ...treatmentData,
         id: `t-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         createdAt: new Date().toISOString().split('T')[0]

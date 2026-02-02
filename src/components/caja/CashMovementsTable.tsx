@@ -782,9 +782,9 @@ export default function CashMovementsTable({
         onSubmit={(data: NewPaymentFormData) => {
           if (selectedMovement) {
             // Map payment method from modal to context type
-            const methodMap: Record<PaymentMethod, 'efectivo' | 'tpv' | 'transferencia' | 'financiacion' | 'otros'> = {
+            const methodMap: Record<PaymentMethod, PaymentMethod> = {
               efectivo: 'efectivo',
-              tarjeta: 'tpv',
+              tarjeta: 'tarjeta',
               transferencia: 'transferencia',
               financiacion: 'financiacion',
               otros: 'otros'

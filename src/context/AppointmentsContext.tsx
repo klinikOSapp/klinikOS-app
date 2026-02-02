@@ -89,6 +89,7 @@ export type InstallmentPlan = {
 export type PaymentRecord = {
   id: string
   appointmentId: string
+  patientId: string
   patientName: string
   treatment: string
   amount: number
@@ -1849,6 +1850,7 @@ const INITIAL_BLOCKS: AgendaBlock[] = [
 
 type RegisterPaymentData = {
   appointmentId: string
+  patientId: string
   patientName: string
   treatment: string
   amount: number
@@ -1989,6 +1991,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     const paymentRecord: PaymentRecord = {
       id: `pay-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       appointmentId: data.appointmentId,
+      patientId: data.patientId,
       patientName: data.patientName,
       treatment: data.treatment,
       amount: data.amount,
