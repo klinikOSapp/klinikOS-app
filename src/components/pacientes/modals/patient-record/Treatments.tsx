@@ -32,12 +32,20 @@ import { usePatients, type PatientTreatment } from '@/context/PatientsContext'
 import { setPendingAppointmentData } from '@/utils/appointmentPrefill'
 import { useRouter } from 'next/navigation'
 import React from 'react'
+import AddTreatmentsToBudgetModal from './AddTreatmentsToBudgetModal'
+import BudgetTypeListModal from './BudgetTypeListModal'
+import type { BudgetRow } from './BudgetsPayments'
 
 // Helper para convertir PatientTreatment del contexto a TreatmentV2 para la tabla
-function convertPatientTreatmentToV2(treatment: PatientTreatment, index: number): TreatmentV2 {
+function convertPatientTreatmentToV2(
+  treatment: PatientTreatment,
+  index: number
+): TreatmentV2 {
   // Parsear el diente a número si existe
-  const toothNumber = treatment.tooth ? parseInt(treatment.tooth.split(',')[0].trim()) : undefined
-  
+  const toothNumber = treatment.tooth
+    ? parseInt(treatment.tooth.split(',')[0].trim())
+    : undefined
+
   return {
     _internalId: treatment.id,
     pieza: toothNumber,
@@ -51,16 +59,18 @@ function convertPatientTreatmentToV2(treatment: PatientTreatment, index: number)
     doctor: treatment.professional,
     selected: treatment.markedForNextAppointment || false,
     // Campos para historial
-    estado: treatment.status === 'Completado' ? 'completado' : 
-            treatment.status === 'En curso' ? 'en_progreso' : 
-            treatment.status === 'Cancelado' ? 'cancelado' : 'pendiente',
+    estado:
+      treatment.status === 'Completado'
+        ? 'completado'
+        : treatment.status === 'En curso'
+        ? 'en_progreso'
+        : treatment.status === 'Cancelado'
+        ? 'cancelado'
+        : 'pendiente',
     fechaCreacion: treatment.createdAt,
     fechaRealizacion: treatment.completedDate
   }
 }
-import AddTreatmentsToBudgetModal from './AddTreatmentsToBudgetModal'
-import BudgetTypeListModal from './BudgetTypeListModal'
-import type { BudgetRow } from './BudgetsPayments'
 
 // ============================================
 // Mock Data - Nuevo formato V2
@@ -188,7 +198,9 @@ function TableHeaderCell({
   stickyPosition?: 'left' | 'right'
 }) {
   const stickyClasses = sticky
-    ? `sticky ${stickyPosition === 'left' ? 'left-0' : 'right-0'} z-10 bg-[#F8FAFB]`
+    ? `sticky ${
+        stickyPosition === 'left' ? 'left-0' : 'right-0'
+      } z-10 bg-[#F8FAFB]`
     : ''
   return (
     <th
@@ -221,7 +233,9 @@ function TableBodyCell({
   rowSelected?: boolean
 }) {
   const stickyClasses = sticky
-    ? `sticky ${stickyPosition === 'left' ? 'left-0' : 'right-0'} z-10 ${rowSelected ? 'bg-[#E9FBF9]' : 'bg-white'}`
+    ? `sticky ${stickyPosition === 'left' ? 'left-0' : 'right-0'} z-10 ${
+        rowSelected ? 'bg-[#E9FBF9]' : 'bg-white'
+      }`
     : ''
   return (
     <td
@@ -322,8 +336,8 @@ function TreatmentRow({
   const rowBg = treatment.selected
     ? 'bg-[#E9FBF9]'
     : isNewRow
-      ? 'bg-[#FEF9C3] animate-pulse'
-      : 'bg-white hover:bg-[var(--color-neutral-50)]'
+    ? 'bg-[#FEF9C3] animate-pulse'
+    : 'bg-white hover:bg-[var(--color-neutral-50)]'
 
   // Parsear precio para cálculos (remove € y espacios)
   const parsePrice = (price: string): number => {
@@ -477,19 +491,22 @@ function TreatmentRow({
           {treatment.importe}
         </span>
       </TableBodyCell>
-      
+
       {/* HU-011: Columnas específicas de historial vs pendientes */}
       {isHistoryTable ? (
         <>
           {/* Fecha realización - Solo historial */}
           <TableBodyCell width='7rem'>
             <span className='text-[0.875rem] leading-[1.25rem] text-[#24282C] px-1'>
-              {treatment.fechaRealizacion 
-                ? new Date(treatment.fechaRealizacion).toLocaleDateString('es-ES', { 
-                    day: '2-digit', 
-                    month: '2-digit', 
-                    year: '2-digit' 
-                  })
+              {treatment.fechaRealizacion
+                ? new Date(treatment.fechaRealizacion).toLocaleDateString(
+                    'es-ES',
+                    {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: '2-digit'
+                    }
+                  )
                 : '-'}
             </span>
           </TableBodyCell>
@@ -523,7 +540,7 @@ function TreatmentRow({
           />
         </TableBodyCell>
       )}
-      
+
       {/* Descripción/Anotaciones - con ExpandedTextInput */}
       <TableBodyCell className='max-w-[21.375rem]'>
         <ExpandedTextInput
@@ -593,10 +610,10 @@ export default function Treatments({
   onAddTreatmentOpened
 }: TreatmentsProps) {
   const router = useRouter()
-  
+
   // Contexto de pacientes
-  const { 
-    getPendingTreatments, 
+  const {
+    getPendingTreatments,
     getTreatmentsByPatient,
     toggleTreatmentForNextAppointment,
     updateTreatment
@@ -622,22 +639,27 @@ export default function Treatments({
       const pending = getPendingTreatments(patientId)
       const pendingV2 = pending.map((t, i) => convertPatientTreatmentToV2(t, i))
       setPendingTreatments(pendingV2)
-      
+
       // Cargar historial (Completados + Cancelados)
       const allTreatments = getTreatmentsByPatient(patientId)
       const completed = allTreatments.filter(
-        t => t.status === 'Completado' || t.status === 'Cancelado'
+        (t) => t.status === 'Completado' || t.status === 'Cancelado'
       )
-      const historyV2 = completed.map((t, i) => convertPatientTreatmentToV2(t, i))
+      const historyV2 = completed.map((t, i) =>
+        convertPatientTreatmentToV2(t, i)
+      )
       setHistoryTreatments(historyV2)
-      
+
       // Actualizar odontograma basado en los tratamientos
       const newOdontogramaState: OdontogramaState = {}
-      allTreatments.forEach(t => {
+      allTreatments.forEach((t) => {
         if (t.tooth) {
           // Puede tener múltiples piezas separadas por coma
-          const teeth = t.tooth.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n))
-          teeth.forEach(toothId => {
+          const teeth = t.tooth
+            .split(',')
+            .map((s) => parseInt(s.trim()))
+            .filter((n) => !isNaN(n))
+          teeth.forEach((toothId) => {
             if (t.status === 'Completado') {
               newOdontogramaState[toothId] = 'finalizado'
             } else if (t.status === 'Pendiente' || t.status === 'En curso') {
@@ -802,6 +824,35 @@ export default function Treatments({
     setSelectedTeeth([]) // Limpiar piezas anteriores al cambiar de tratamiento
   }
 
+  // Handler para doble clic: añadir tratamiento directamente sin seleccionar pieza
+  const handleDoubleClickTreatmentFromCatalog = (
+    codigo: string,
+    entry: TreatmentCatalogEntry
+  ) => {
+    const newTreatment: TreatmentV2 = {
+      _internalId: `new-${Date.now()}-${Math.random()}`,
+      pieza: undefined, // Sin pieza asignada
+      codigo,
+      tratamiento: entry.description,
+      precio: entry.amount,
+      importe: entry.amount,
+      descuento: '0 €',
+      porcentajeDescuento: 0,
+      doctor: PROFESSIONALS[0].value,
+      selected: false
+    }
+
+    // Añadir a tratamientos pendientes
+    setPendingTreatments((prev) => [...prev, newTreatment])
+
+    // Marcar como nueva fila para hacer scroll y focus
+    setNewRowId(newTreatment._internalId)
+
+    // Limpiar cualquier selección previa del catálogo
+    setSelectedCatalogTreatment(null)
+    setSelectedTeeth([])
+  }
+
   const toggleSelection = (
     internalId: string,
     section: 'pending' | 'history'
@@ -820,7 +871,7 @@ export default function Treatments({
         )
       )
     }
-    
+
     // Sincronizar con el contexto de pacientes si hay patientId
     // El internalId corresponde al treatment.id del contexto
     if (patientId) {
@@ -872,7 +923,9 @@ export default function Treatments({
 
   // Handler para añadir fila vacía
   const handleAddEmptyRow = React.useCallback(() => {
-    const newId = `TR-EMPTY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const newId = `TR-EMPTY-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 9)}`
     const newTreatment: TreatmentV2 = {
       _internalId: newId,
       codigo: '',
@@ -960,13 +1013,13 @@ export default function Treatments({
   const handleMarkComplete = () => {
     if (!activeMenu || !patientId) return
     const { treatment } = activeMenu
-    
+
     // Solo actualizar en el contexto - el useEffect recargará los datos automáticamente
-    updateTreatment(patientId, treatment._internalId, { 
+    updateTreatment(patientId, treatment._internalId, {
       status: 'Completado',
       completedDate: new Date().toISOString().split('T')[0]
     })
-    
+
     setActiveMenu(null)
   }
 
@@ -974,10 +1027,10 @@ export default function Treatments({
   const handleMarkCancelled = () => {
     if (!activeMenu || !patientId) return
     const { treatment } = activeMenu
-    
+
     // Solo actualizar en el contexto - el useEffect recargará los datos automáticamente
     updateTreatment(patientId, treatment._internalId, { status: 'Cancelado' })
-    
+
     setActiveMenu(null)
   }
 
@@ -1042,52 +1095,9 @@ export default function Treatments({
     <div className='w-full h-full flex flex-col bg-[#F8FAFB] relative'>
       {/* Sección superior fija: Odontograma + Catálogo */}
       <section className='p-[min(1rem,2vw)] bg-[#F8FAFB] z-10 shrink-0'>
-        {/* Banner de tratamiento seleccionado */}
-        {selectedCatalogTreatment && (
-          <div className='mb-[0.75rem] p-[0.75rem] bg-[#E9FBF9] border border-[var(--color-brand-500)] rounded-[0.5rem] flex flex-wrap items-center justify-between gap-[0.5rem]'>
-            <div className='flex flex-wrap items-center gap-[0.75rem]'>
-              <span className='w-[0.5rem] h-[0.5rem] rounded-full bg-[var(--color-brand-500)] animate-pulse shrink-0' />
-              <span className='text-[0.9375rem] leading-[1.375rem] text-[var(--color-brand-700)]'>
-                <strong>{selectedCatalogTreatment.codigo}</strong> -{' '}
-                {selectedCatalogTreatment.entry.description}
-              </span>
-              {selectedTeeth.length === 0 ? (
-                <span className='text-[0.875rem] leading-[1.25rem] text-[#535C66]'>
-                  → Selecciona las piezas en el odontograma
-                </span>
-              ) : (
-                <span className='text-[0.875rem] leading-[1.25rem] text-[var(--color-brand-600)]'>
-                  Piezas:{' '}
-                  <strong>
-                    {selectedTeeth.sort((a, b) => a - b).join(', ')}
-                  </strong>
-                </span>
-              )}
-            </div>
-            <div className='flex items-center gap-[0.5rem]'>
-              {selectedTeeth.length > 0 && (
-                <button
-                  type='button'
-                  onClick={() => setShowConfirmModal(true)}
-                  className='px-[1rem] py-[0.375rem] text-[0.875rem] font-medium text-white bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] rounded-full transition-colors cursor-pointer'
-                >
-                  Confirmar ({selectedTeeth.length})
-                </button>
-              )}
-              <button
-                type='button'
-                onClick={handleCancelSelection}
-                className='px-[0.75rem] py-[0.375rem] text-[0.875rem] text-[#535C66] hover:text-[#24282C] hover:bg-[rgba(0,0,0,0.05)] rounded-full transition-colors cursor-pointer'
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        )}
-
         <div className='bg-white border border-[#E2E7EA] rounded-[0.5rem] p-[min(2rem,3vw)] flex gap-[min(2.25rem,3vw)] flex-wrap lg:flex-nowrap'>
-          {/* Odontograma */}
-          <div className='shrink-0'>
+          {/* Columna izquierda: Odontograma + Banner */}
+          <div className='shrink-0 flex flex-col gap-[0.75rem]'>
             <OdontogramaCompacto
               state={odontogramaState}
               onToothClick={handleToothClick}
@@ -1096,6 +1106,51 @@ export default function Treatments({
                 selectedCatalogTreatment ? selectedTeeth : filterByTeeth
               }
             />
+
+            {/* Banner de tratamiento seleccionado - debajo del odontograma */}
+            {selectedCatalogTreatment && (
+              <div className='p-[0.75rem] bg-[#E9FBF9] border border-[var(--color-brand-500)] rounded-[0.5rem] flex flex-col gap-[0.5rem]'>
+                <div className='flex items-center gap-[0.5rem]'>
+                  <span className='w-[0.5rem] h-[0.5rem] rounded-full bg-[var(--color-brand-500)] animate-pulse shrink-0' />
+                  <span className='text-[0.875rem] leading-[1.25rem] text-[var(--color-brand-700)]'>
+                    <strong>{selectedCatalogTreatment.codigo}</strong> -{' '}
+                    {selectedCatalogTreatment.entry.description}
+                  </span>
+                </div>
+                <div className='flex items-center justify-between gap-[0.5rem]'>
+                  {selectedTeeth.length === 0 ? (
+                    <span className='text-[0.8125rem] leading-[1.125rem] text-[#535C66]'>
+                      → Selecciona las piezas
+                    </span>
+                  ) : (
+                    <span className='text-[0.8125rem] leading-[1.125rem] text-[var(--color-brand-600)]'>
+                      Piezas:{' '}
+                      <strong>
+                        {selectedTeeth.sort((a, b) => a - b).join(', ')}
+                      </strong>
+                    </span>
+                  )}
+                  <div className='flex items-center gap-[0.375rem]'>
+                    {selectedTeeth.length > 0 && (
+                      <button
+                        type='button'
+                        onClick={handleConfirmTreatments}
+                        className='px-[0.75rem] py-[0.25rem] text-[0.8125rem] font-medium text-white bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] rounded-full transition-colors cursor-pointer'
+                      >
+                        Confirmar ({selectedTeeth.length})
+                      </button>
+                    )}
+                    <button
+                      type='button'
+                      onClick={handleCancelSelection}
+                      className='px-[0.5rem] py-[0.25rem] text-[0.8125rem] text-[#535C66] hover:text-[#24282C] hover:bg-[rgba(0,0,0,0.05)] rounded-full transition-colors cursor-pointer'
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Separador vertical */}
@@ -1105,6 +1160,7 @@ export default function Treatments({
           <div className='flex-1 min-w-0'>
             <CatalogoTratamientos
               onSelectTreatment={handleSelectTreatmentFromCatalog}
+              onDoubleClickTreatment={handleDoubleClickTreatmentFromCatalog}
               selectedTreatmentCode={selectedCatalogTreatment?.codigo}
             />
           </div>
@@ -1307,9 +1363,7 @@ export default function Treatments({
                     <TableHeaderCell width='4.625rem'>Pieza</TableHeaderCell>
                     <TableHeaderCell width='6.625rem'>Cara</TableHeaderCell>
                     <TableHeaderCell width='5.875rem'>Código</TableHeaderCell>
-                    <TableHeaderCell width='16rem'>
-                      Tratamiento
-                    </TableHeaderCell>
+                    <TableHeaderCell width='16rem'>Tratamiento</TableHeaderCell>
                     <TableHeaderCell width='7.25rem'>Precio</TableHeaderCell>
                     <TableHeaderCell width='5rem'>%</TableHeaderCell>
                     <TableHeaderCell width='5rem'>Dto</TableHeaderCell>
@@ -1317,9 +1371,7 @@ export default function Treatments({
                     <TableHeaderCell width='7rem'>
                       Fecha realización
                     </TableHeaderCell>
-                    <TableHeaderCell width='5.5rem'>
-                      Facturado
-                    </TableHeaderCell>
+                    <TableHeaderCell width='5.5rem'>Facturado</TableHeaderCell>
                     <TableHeaderCell>Descripción/ Anotaciones</TableHeaderCell>
                     <TableHeaderCell width='12rem'>Doctor</TableHeaderCell>
                     <TableHeaderCell
@@ -1384,8 +1436,12 @@ export default function Treatments({
           onToggleStatus={() => {}}
           onDelete={handleDeleteTreatment}
           // Solo mostrar opciones de completar/cancelar para tratamientos pendientes
-          onMarkComplete={activeMenu.section === 'pending' ? handleMarkComplete : undefined}
-          onMarkCancelled={activeMenu.section === 'pending' ? handleMarkCancelled : undefined}
+          onMarkComplete={
+            activeMenu.section === 'pending' ? handleMarkComplete : undefined
+          }
+          onMarkCancelled={
+            activeMenu.section === 'pending' ? handleMarkCancelled : undefined
+          }
         />
       )}
 
@@ -1493,7 +1549,9 @@ export default function Treatments({
       <footer className='sticky bottom-0 backdrop-blur-[8px] bg-[rgba(255,255,255,0.7)] flex items-center justify-between p-[1rem] shrink-0'>
         <p className='text-[1rem] leading-[1.5rem] text-[#3D434A]'>
           {selectedCount > 0
-            ? `${selectedCount} tratamiento${selectedCount !== 1 ? 's' : ''} marcado${selectedCount !== 1 ? 's' : ''} para próxima cita`
+            ? `${selectedCount} tratamiento${
+                selectedCount !== 1 ? 's' : ''
+              } marcado${selectedCount !== 1 ? 's' : ''} para próxima cita`
             : 'Selecciona tratamientos para la próxima cita'}
         </p>
         <div className='flex gap-[0.75rem] items-center'>
@@ -1545,7 +1603,10 @@ export default function Treatments({
             const newBudget: BudgetRow = {
               id: `PRE-${Date.now().toString().slice(-6)}`,
               description: budgetInfo.name,
-              amount: `${budgetInfo.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+              amount: `${budgetInfo.total.toLocaleString('es-ES', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+              })} €`,
               date: new Date().toLocaleDateString('es-ES', {
                 day: '2-digit',
                 month: '2-digit',

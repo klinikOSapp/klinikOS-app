@@ -1,11 +1,32 @@
 'use client'
 
+import {
+  AddRounded,
+  ChevronLeftRounded,
+  ChevronRightRounded,
+  CloseRounded,
+  DeleteRounded,
+  EditRounded,
+  FilterAltRounded,
+  FirstPageRounded,
+  LastPageRounded,
+  MoreVertRounded,
+  SearchRounded,
+  VisibilityOffOutlined,
+  VisibilityOutlined
+} from '@/components/icons/md3'
 import React, { useCallback, useMemo, useState } from 'react'
-import { AddRounded, SearchRounded, FilterAltRounded, FirstPageRounded, ChevronLeftRounded, ChevronRightRounded, LastPageRounded } from '@/components/icons/md3'
+import { createPortal } from 'react-dom'
 
 // Types
 type ExpenseStatus = 'activo' | 'inactivo'
-type ExpenseCategory = 'Servicios' | 'Material' | 'Nóminas' | 'Alquiler' | 'Suministros' | 'Otros'
+type ExpenseCategory =
+  | 'Servicios'
+  | 'Material'
+  | 'Nóminas'
+  | 'Alquiler'
+  | 'Suministros'
+  | 'Otros'
 
 type Expense = {
   id: string
@@ -131,6 +152,372 @@ function formatCurrency(amount: number): string {
     style: 'currency',
     currency: 'EUR'
   }).format(amount)
+}
+
+// Row Actions Menu component
+function ExpenseActionsMenu({
+  expense,
+  onClose,
+  triggerRect,
+  onEdit,
+  onToggleArchive,
+  onDelete
+}: {
+  expense: Expense
+  onClose: () => void
+  triggerRect?: DOMRect
+  onEdit: () => void
+  onToggleArchive: () => void
+  onDelete: () => void
+}) {
+  const menuRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose()
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('keydown', handleEscape)
+    }, 0)
+
+    return () => {
+      clearTimeout(timeoutId)
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [onClose])
+
+  const isArchived = expense.estado === 'inactivo'
+
+  // Calculate position from triggerRect
+  const menuStyle: React.CSSProperties = triggerRect
+    ? {
+        top: triggerRect.bottom + 4,
+        right: window.innerWidth - triggerRect.right
+      }
+    : {}
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      className='fixed z-[9999] min-w-[12rem] overflow-hidden rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] py-1 shadow-lg'
+      style={menuStyle}
+      role='menu'
+      aria-label='Acciones rápidas'
+    >
+      {/* Edit action */}
+      <div className='py-1'>
+        <button
+          type='button'
+          role='menuitem'
+          onClick={() => {
+            onEdit()
+            onClose()
+          }}
+          className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none cursor-pointer'
+        >
+          <EditRounded className='size-[1.125rem] text-[var(--color-neutral-600)]' />
+          <span>Editar gasto</span>
+        </button>
+      </div>
+
+      {/* Separator */}
+      <div className='my-1 h-px bg-[var(--color-border-default)]' />
+
+      {/* Archive/Unarchive action */}
+      <div className='py-1'>
+        <button
+          type='button'
+          role='menuitem'
+          onClick={() => {
+            onToggleArchive()
+            onClose()
+          }}
+          className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-neutral-800)] transition-colors hover:bg-[var(--color-neutral-100)] focus:bg-[var(--color-neutral-100)] focus:outline-none cursor-pointer'
+        >
+          {isArchived ? (
+            <>
+              <VisibilityOutlined className='size-[1.125rem] text-[var(--color-neutral-600)]' />
+              <span>Activar gasto</span>
+            </>
+          ) : (
+            <>
+              <VisibilityOffOutlined className='size-[1.125rem] text-[var(--color-neutral-600)]' />
+              <span>Archivar gasto</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Separator */}
+      <div className='my-1 h-px bg-[var(--color-border-default)]' />
+
+      {/* Delete action */}
+      <div className='py-1'>
+        <button
+          type='button'
+          role='menuitem'
+          onClick={() => {
+            onDelete()
+            onClose()
+          }}
+          className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[#DC2626] transition-colors hover:bg-[#FEE2E2] focus:bg-[#FEE2E2] focus:outline-none cursor-pointer'
+        >
+          <DeleteRounded className='size-[1.125rem] text-[#DC2626]' />
+          <span>Eliminar gasto</span>
+        </button>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+// Edit Expense Modal
+function EditExpenseModal({
+  open,
+  onClose,
+  expense,
+  onSave
+}: {
+  open: boolean
+  onClose: () => void
+  expense: Expense | null
+  onSave: (updatedExpense: Expense) => void
+}) {
+  const [formData, setFormData] = useState<Expense | null>(null)
+
+  // Reset form when modal opens with new data
+  React.useEffect(() => {
+    if (open && expense) {
+      setFormData({ ...expense })
+    }
+  }, [open, expense])
+
+  if (!open || !formData) return null
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (formData) {
+      onSave(formData)
+      onClose()
+    }
+  }
+
+  const categories: ExpenseCategory[] = [
+    'Servicios',
+    'Material',
+    'Nóminas',
+    'Alquiler',
+    'Suministros',
+    'Otros'
+  ]
+
+  return createPortal(
+    <div className='fixed inset-0 z-[9999] flex items-center justify-center'>
+      {/* Backdrop */}
+      <div className='absolute inset-0 bg-neutral-900/90' onClick={onClose} />
+
+      {/* Modal */}
+      <div className='relative bg-white rounded-lg w-[min(36rem,92vw)] overflow-hidden'>
+        {/* Header */}
+        <div className='flex items-center justify-between h-14 px-8 border-b border-neutral-300'>
+          <h2 className='text-title-md text-neutral-900'>Editar gasto</h2>
+          <button
+            type='button'
+            onClick={onClose}
+            className='text-neutral-900 hover:text-neutral-600 transition-colors cursor-pointer'
+            aria-label='Cerrar'
+          >
+            <CloseRounded className='size-[0.875rem]' />
+          </button>
+        </div>
+
+        {/* Content */}
+        <form onSubmit={handleSubmit} className='flex flex-col gap-6 px-8 py-6'>
+          {/* Expense name */}
+          <div className='flex flex-col gap-1'>
+            <label
+              htmlFor='expense-name'
+              className='text-title-sm text-neutral-900'
+            >
+              Nombre del gasto
+            </label>
+            <input
+              id='expense-name'
+              type='text'
+              value={formData.nombre}
+              onChange={(e) =>
+                setFormData({ ...formData, nombre: e.target.value })
+              }
+              className='h-10 px-3 rounded-lg border border-neutral-300 text-body-md text-neutral-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent'
+              required
+            />
+          </div>
+
+          {/* Amount and Frequency row */}
+          <div className='flex gap-4'>
+            <div className='flex-1 flex flex-col gap-1'>
+              <label
+                htmlFor='expense-amount'
+                className='text-title-sm text-neutral-900'
+              >
+                Importe (€)
+              </label>
+              <input
+                id='expense-amount'
+                type='number'
+                step='0.01'
+                min='0'
+                value={formData.importe}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    importe: parseFloat(e.target.value) || 0
+                  })
+                }
+                className='h-10 px-3 rounded-lg border border-neutral-300 text-body-md text-neutral-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent'
+                required
+              />
+            </div>
+            <div className='flex-1 flex flex-col gap-1'>
+              <label
+                htmlFor='expense-frequency'
+                className='text-title-sm text-neutral-900'
+              >
+                Frecuencia
+              </label>
+              <input
+                id='expense-frequency'
+                type='text'
+                value={formData.frecuencia}
+                onChange={(e) =>
+                  setFormData({ ...formData, frecuencia: e.target.value })
+                }
+                placeholder='Ej: Mensual, 3 días...'
+                className='h-10 px-3 rounded-lg border border-neutral-300 text-body-md text-neutral-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent'
+                required
+              />
+            </div>
+          </div>
+
+          {/* Category */}
+          <div className='flex flex-col gap-1'>
+            <label
+              htmlFor='expense-category'
+              className='text-title-sm text-neutral-900'
+            >
+              Categoría
+            </label>
+            <select
+              id='expense-category'
+              value={formData.categoria}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  categoria: e.target.value as ExpenseCategory
+                })
+              }
+              className='h-10 px-3 rounded-lg border border-neutral-300 text-body-md text-neutral-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white cursor-pointer'
+            >
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Dates row */}
+          <div className='flex gap-4'>
+            <div className='flex-1 flex flex-col gap-1'>
+              <label
+                htmlFor='expense-start-date'
+                className='text-title-sm text-neutral-900'
+              >
+                Fecha inicio
+              </label>
+              <input
+                id='expense-start-date'
+                type='text'
+                value={formData.fechaInicio}
+                onChange={(e) =>
+                  setFormData({ ...formData, fechaInicio: e.target.value })
+                }
+                placeholder='DD/MM/AA'
+                className='h-10 px-3 rounded-lg border border-neutral-300 text-body-md text-neutral-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent'
+              />
+            </div>
+            <div className='flex-1 flex flex-col gap-1'>
+              <label
+                htmlFor='expense-end-date'
+                className='text-title-sm text-neutral-900'
+              >
+                Fecha fin
+              </label>
+              <input
+                id='expense-end-date'
+                type='text'
+                value={formData.fechaFin}
+                onChange={(e) =>
+                  setFormData({ ...formData, fechaFin: e.target.value })
+                }
+                placeholder='DD/MM/AA'
+                className='h-10 px-3 rounded-lg border border-neutral-300 text-body-md text-neutral-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent'
+              />
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className='flex flex-col gap-1'>
+            <label
+              htmlFor='expense-notes'
+              className='text-title-sm text-neutral-900'
+            >
+              Notas
+            </label>
+            <textarea
+              id='expense-notes'
+              value={formData.notas}
+              onChange={(e) =>
+                setFormData({ ...formData, notas: e.target.value })
+              }
+              placeholder='Añade notas sobre el gasto...'
+              rows={3}
+              className='px-3 py-2 rounded-lg border border-neutral-300 text-body-md text-neutral-900 resize-none focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent'
+            />
+          </div>
+
+          {/* Footer buttons */}
+          <div className='flex justify-end gap-3 mt-2'>
+            <button
+              type='button'
+              onClick={onClose}
+              className='px-4 py-2 rounded-[8.5rem] border border-neutral-300 text-title-sm text-neutral-900 hover:bg-neutral-50 transition-colors cursor-pointer'
+            >
+              Cancelar
+            </button>
+            <button
+              type='submit'
+              className='px-4 py-2 rounded-[8.5rem] bg-brand-500 text-white text-title-sm hover:bg-brand-600 transition-colors cursor-pointer'
+            >
+              Guardar cambios
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body
+  )
 }
 
 // Sample data
@@ -305,10 +692,20 @@ const initialExpenses: Expense[] = [
 const ITEMS_PER_PAGE = 15
 
 export default function FinancesExpensesPage() {
-  const [expenses] = useState<Expense[]>(initialExpenses)
+  const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)
   const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [showArchived, setShowArchived] = useState(false)
+
+  // Actions menu state
+  const [activeMenu, setActiveMenu] = useState<{
+    expense: Expense
+    triggerRect: DOMRect
+  } | null>(null)
+
+  // Edit modal state
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
 
   // Filter expenses
   const filteredExpenses = useMemo(() => {
@@ -347,6 +744,56 @@ export default function FinancesExpensesPage() {
   const handleAddExpense = useCallback(() => {
     // TODO: Open modal to add new expense
     console.log('Add new expense')
+  }, [])
+
+  // Handler to open actions menu
+  const handleOpenMenu = useCallback(
+    (expense: Expense, event: React.MouseEvent<HTMLButtonElement>) => {
+      const rect = event.currentTarget.getBoundingClientRect()
+      setActiveMenu({ expense, triggerRect: rect })
+    },
+    []
+  )
+
+  // Handler to close actions menu
+  const handleCloseMenu = useCallback(() => {
+    setActiveMenu(null)
+  }, [])
+
+  // Handler to edit expense
+  const handleEditExpense = useCallback((expense: Expense) => {
+    setEditingExpense(expense)
+    setEditModalOpen(true)
+  }, [])
+
+  // Handler to save edited expense
+  const handleSaveExpense = useCallback((updatedExpense: Expense) => {
+    setExpenses((prev) =>
+      prev.map((e) => (e.id === updatedExpense.id ? updatedExpense : e))
+    )
+  }, [])
+
+  // Handler to toggle archive status
+  const handleToggleArchive = useCallback((expense: Expense) => {
+    setExpenses((prev) =>
+      prev.map((e) =>
+        e.id === expense.id
+          ? { ...e, estado: e.estado === 'activo' ? 'inactivo' : 'activo' }
+          : e
+      )
+    )
+  }, [])
+
+  // Handler to delete expense
+  const handleDeleteExpense = useCallback((expense: Expense) => {
+    // Show confirmation dialog
+    if (
+      window.confirm(
+        `¿Estás seguro de que quieres eliminar el gasto "${expense.nombre}"?`
+      )
+    ) {
+      setExpenses((prev) => prev.filter((e) => e.id !== expense.id))
+    }
   }, [])
 
   return (
@@ -395,7 +842,9 @@ export default function FinancesExpensesPage() {
                   className='flex items-center gap-0.5 px-2 py-1 rounded-full border border-[var(--color-neutral-700)] hover:bg-neutral-100 transition-colors cursor-pointer'
                 >
                   <FilterAltRounded className='size-6 text-[var(--color-neutral-700)]' />
-                  <span className='text-body-sm text-[var(--color-neutral-700)]'>Todos</span>
+                  <span className='text-body-sm text-[var(--color-neutral-700)]'>
+                    Todos
+                  </span>
                 </button>
 
                 {/* Toggle archived */}
@@ -406,7 +855,9 @@ export default function FinancesExpensesPage() {
                 >
                   <AddRounded className='text-[var(--color-neutral-900)] size-6' />
                   <span className='text-body-md text-[var(--color-neutral-900)] whitespace-nowrap'>
-                    {showArchived ? 'Ocultar archivados' : 'Ver gastos archivados'}
+                    {showArchived
+                      ? 'Ocultar archivados'
+                      : 'Ver gastos archivados'}
                   </span>
                 </button>
               </div>
@@ -418,26 +869,29 @@ export default function FinancesExpensesPage() {
             <table className='w-full border-collapse table-fixed'>
               <thead className='sticky top-0 bg-[var(--color-surface)] z-10'>
                 <tr>
-                  <th className='w-[22%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                  <th className='w-[20%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
                     Nombre del gasto
                   </th>
-                  <th className='w-[12%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                  <th className='w-[10%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
                     Importe
                   </th>
-                  <th className='w-[12%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                  <th className='w-[10%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
                     Frecuencia
                   </th>
                   <th className='w-[12%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
                     Categoría
                   </th>
-                  <th className='w-[18%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                  <th className='w-[16%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
                     Fecha inicio/fin
                   </th>
-                  <th className='w-[12%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                  <th className='w-[10%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
                     Notas
                   </th>
-                  <th className='w-[12%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                  <th className='w-[10%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
                     Estado
+                  </th>
+                  <th className='w-[4%] h-10 text-center px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                    <span className='sr-only'>Acciones</span>
                   </th>
                 </tr>
               </thead>
@@ -445,7 +899,7 @@ export default function FinancesExpensesPage() {
                 {paginatedExpenses.map((expense) => (
                   <tr
                     key={expense.id}
-                    className='h-10 bg-white hover:bg-[var(--color-neutral-50)] transition-colors cursor-pointer'
+                    className='h-10 bg-white hover:bg-[var(--color-neutral-50)] transition-colors'
                   >
                     <td className='px-2 border-b border-r border-neutral-300'>
                       <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
@@ -483,6 +937,16 @@ export default function FinancesExpensesPage() {
                     <td className='px-2 border-b border-r border-neutral-300'>
                       <StatusBadge status={expense.estado} />
                     </td>
+                    <td className='px-2 border-b border-neutral-300 text-center'>
+                      <button
+                        type='button'
+                        onClick={(e) => handleOpenMenu(expense, e)}
+                        className='p-1 hover:bg-[var(--color-neutral-100)] rounded-lg transition-colors cursor-pointer'
+                        aria-label='Acciones rápidas'
+                      >
+                        <MoreVertRounded className='size-5 text-[var(--color-neutral-600)]' />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -499,6 +963,29 @@ export default function FinancesExpensesPage() {
           </div>
         </div>
       </div>
+
+      {/* Actions Menu */}
+      {activeMenu && (
+        <ExpenseActionsMenu
+          expense={activeMenu.expense}
+          onClose={handleCloseMenu}
+          triggerRect={activeMenu.triggerRect}
+          onEdit={() => handleEditExpense(activeMenu.expense)}
+          onToggleArchive={() => handleToggleArchive(activeMenu.expense)}
+          onDelete={() => handleDeleteExpense(activeMenu.expense)}
+        />
+      )}
+
+      {/* Edit Modal */}
+      <EditExpenseModal
+        open={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false)
+          setEditingExpense(null)
+        }}
+        expense={editingExpense}
+        onSave={handleSaveExpense}
+      />
     </>
   )
 }

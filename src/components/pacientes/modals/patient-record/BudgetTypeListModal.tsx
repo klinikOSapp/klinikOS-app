@@ -2,7 +2,7 @@
 
 import { AddRounded, CloseRounded, SearchRounded } from '@/components/icons/md3'
 import {
-  BUDGET_TYPES_DATA,
+  getBudgetTypes,
   type BudgetTypeData
 } from '@/components/pacientes/shared/budgetTypeData'
 import React from 'react'
@@ -98,8 +98,11 @@ export default function BudgetTypeListModal({
 
   if (!open || !mounted) return null
 
+  // Get current budget types (including newly created ones)
+  const budgetTypes = getBudgetTypes()
+
   // Filter budget types by search term and only show active ones
-  const filteredBudgetTypes = BUDGET_TYPES_DATA.filter((bt) => {
+  const filteredBudgetTypes = budgetTypes.filter((bt) => {
     const matchesSearch =
       searchTerm === '' ||
       bt.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

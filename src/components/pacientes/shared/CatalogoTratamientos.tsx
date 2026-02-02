@@ -36,6 +36,7 @@ type CatalogRowProps = {
   precio: string
   isSelected?: boolean
   onClick?: () => void
+  onDoubleClick?: () => void
 }
 
 function CatalogRow({
@@ -43,7 +44,8 @@ function CatalogRow({
   descripcion,
   precio,
   isSelected,
-  onClick
+  onClick,
+  onDoubleClick
 }: CatalogRowProps) {
   return (
     <div
@@ -54,24 +56,33 @@ function CatalogRow({
           : 'border-[#CBD3D9] hover:bg-[var(--color-neutral-50)]'
       ].join(' ')}
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
     >
       <div className='w-[4rem] px-[0.375rem] py-[0.25rem]'>
         <span
-          className={`text-[0.8125rem] leading-[1.125rem] ${isSelected ? 'text-[var(--color-brand-700)] font-medium' : 'text-[#24282C]'}`}
+          className={`text-[0.8125rem] leading-[1.125rem] ${
+            isSelected
+              ? 'text-[var(--color-brand-700)] font-medium'
+              : 'text-[#24282C]'
+          }`}
         >
           {codigo}
         </span>
       </div>
       <div className='flex-1 px-[0.375rem] py-[0.25rem] overflow-hidden'>
         <span
-          className={`text-[0.8125rem] leading-[1.125rem] truncate block ${isSelected ? 'text-[var(--color-brand-700)]' : 'text-[#24282C]'}`}
+          className={`text-[0.8125rem] leading-[1.125rem] truncate block ${
+            isSelected ? 'text-[var(--color-brand-700)]' : 'text-[#24282C]'
+          }`}
         >
           {descripcion}
         </span>
       </div>
       <div className='w-[4rem] px-[0.375rem] py-[0.25rem]'>
         <span
-          className={`text-[0.8125rem] leading-[1.125rem] ${isSelected ? 'text-[var(--color-brand-700)]' : 'text-[#24282C]'}`}
+          className={`text-[0.8125rem] leading-[1.125rem] ${
+            isSelected ? 'text-[var(--color-brand-700)]' : 'text-[#24282C]'
+          }`}
         >
           {precio}
         </span>
@@ -82,6 +93,10 @@ function CatalogRow({
 
 type CatalogoTratamientosProps = {
   onSelectTreatment?: (codigo: string, entry: TreatmentCatalogEntry) => void
+  onDoubleClickTreatment?: (
+    codigo: string,
+    entry: TreatmentCatalogEntry
+  ) => void // Doble clic para añadir directamente
   selectedTreatmentCode?: string // Código del tratamiento actualmente seleccionado
   selectedFamily?: string
   selectedDoctor?: string
@@ -91,6 +106,7 @@ type CatalogoTratamientosProps = {
 
 export default function CatalogoTratamientos({
   onSelectTreatment,
+  onDoubleClickTreatment,
   selectedTreatmentCode,
   selectedFamily,
   selectedDoctor,
@@ -131,6 +147,13 @@ export default function CatalogoTratamientos({
     onSelectTreatment?.(codigo, entry)
   }
 
+  const handleTreatmentDoubleClick = (
+    codigo: string,
+    entry: TreatmentCatalogEntry
+  ) => {
+    onDoubleClickTreatment?.(codigo, entry)
+  }
+
   const familyLabel =
     TREATMENT_FAMILIES.find((f) => f.value === familyFilter)?.label || 'Familia'
   const doctorLabel =
@@ -140,11 +163,15 @@ export default function CatalogoTratamientos({
 
   return (
     <div
-      className={`flex flex-col w-full ${compact ? 'gap-[0.5rem]' : 'gap-[0.75rem]'}`}
+      className={`flex flex-col w-full ${
+        compact ? 'gap-[0.5rem]' : 'gap-[0.75rem]'
+      }`}
     >
       {/* Filtros y buscador */}
       <div
-        className={`flex flex-wrap items-center ${compact ? 'gap-[0.375rem]' : 'gap-[0.5rem]'}`}
+        className={`flex flex-wrap items-center ${
+          compact ? 'gap-[0.375rem]' : 'gap-[0.5rem]'
+        }`}
       >
         {/* Filtros pill */}
         <div className='flex gap-[0.375rem] items-center relative'>
@@ -271,25 +298,33 @@ export default function CatalogoTratamientos({
       <div className='flex flex-col'>
         {/* Header */}
         <div
-          className={`flex items-center border-b-[0.5px] border-[#CBD3D9] ${compact ? 'h-[1.5rem]' : 'h-[1.75rem]'}`}
+          className={`flex items-center border-b-[0.5px] border-[#CBD3D9] ${
+            compact ? 'h-[1.5rem]' : 'h-[1.75rem]'
+          }`}
         >
           <div className='w-[4rem] px-[0.375rem] py-[0.125rem]'>
             <span
-              className={`leading-[1.125rem] text-[#535C66] ${compact ? 'text-[0.75rem]' : 'text-[0.8125rem]'}`}
+              className={`leading-[1.125rem] text-[#535C66] ${
+                compact ? 'text-[0.75rem]' : 'text-[0.8125rem]'
+              }`}
             >
               Código
             </span>
           </div>
           <div className='flex-1 px-[0.375rem] py-[0.125rem]'>
             <span
-              className={`leading-[1.125rem] text-[#535C66] ${compact ? 'text-[0.75rem]' : 'text-[0.8125rem]'}`}
+              className={`leading-[1.125rem] text-[#535C66] ${
+                compact ? 'text-[0.75rem]' : 'text-[0.8125rem]'
+              }`}
             >
               Descripción
             </span>
           </div>
           <div className='w-[4rem] px-[0.375rem] py-[0.125rem]'>
             <span
-              className={`leading-[1.125rem] text-[#535C66] ${compact ? 'text-[0.75rem]' : 'text-[0.8125rem]'}`}
+              className={`leading-[1.125rem] text-[#535C66] ${
+                compact ? 'text-[0.75rem]' : 'text-[0.8125rem]'
+              }`}
             >
               Precio
             </span>
@@ -312,6 +347,7 @@ export default function CatalogoTratamientos({
               precio={entry.amount}
               isSelected={selectedTreatmentCode === codigo}
               onClick={() => handleTreatmentClick(codigo, entry)}
+              onDoubleClick={() => handleTreatmentDoubleClick(codigo, entry)}
             />
           ))}
         </div>

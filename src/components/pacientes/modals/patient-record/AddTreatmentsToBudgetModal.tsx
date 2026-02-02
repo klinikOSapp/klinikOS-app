@@ -135,7 +135,9 @@ function TableHeaderCell({
   stickyPosition?: 'left' | 'right'
 }) {
   const stickyClasses = sticky
-    ? `sticky ${stickyPosition === 'left' ? 'left-0' : 'right-0'} z-10 bg-[#F8FAFB]`
+    ? `sticky ${
+        stickyPosition === 'left' ? 'left-0' : 'right-0'
+      } z-10 bg-[#F8FAFB]`
     : ''
   return (
     <th
@@ -168,7 +170,9 @@ function TableBodyCell({
   rowSelected?: boolean
 }) {
   const stickyClasses = sticky
-    ? `sticky ${stickyPosition === 'left' ? 'left-0' : 'right-0'} z-10 ${rowSelected ? 'bg-[#E9FBF9]' : 'bg-white'}`
+    ? `sticky ${stickyPosition === 'left' ? 'left-0' : 'right-0'} z-10 ${
+        rowSelected ? 'bg-[#E9FBF9]' : 'bg-white'
+      }`
     : ''
   return (
     <td
@@ -266,8 +270,8 @@ function TreatmentRow({
   const rowBg = treatment.selected
     ? 'bg-[#E9FBF9]'
     : isNewRow
-      ? 'bg-[#FEF9C3] animate-pulse'
-      : 'bg-white hover:bg-[var(--color-neutral-50)]'
+    ? 'bg-[#FEF9C3] animate-pulse'
+    : 'bg-white hover:bg-[var(--color-neutral-50)]'
 
   // Parsear precio para cálculos (remove € y espacios)
   const parsePrice = (price: string): number => {
@@ -565,7 +569,10 @@ export type BudgetInfo = {
 type AddTreatmentsToBudgetModalProps = {
   open: boolean
   onClose: () => void
-  onCreateBudget: (selectedTreatments: TreatmentV2[], budgetInfo: BudgetInfo) => void
+  onCreateBudget: (
+    selectedTreatments: TreatmentV2[],
+    budgetInfo: BudgetInfo
+  ) => void
   onCreateBudgetType?: (budgetType: Omit<BudgetTypeData, 'id'>) => void
   treatments?: TreatmentV2[]
   initialBudgetName?: string
@@ -763,6 +770,38 @@ export default function AddTreatmentsToBudgetModal({
     setSelectedTeeth([])
   }
 
+  // Handler para doble clic: añadir tratamiento directamente sin seleccionar pieza
+  const handleDoubleClickTreatmentFromCatalog = (
+    codigo: string,
+    entry: TreatmentCatalogEntry
+  ) => {
+    const newId = `TR-NEW-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 9)}`
+    const newTreatment: TreatmentV2 = {
+      _internalId: newId,
+      pieza: undefined, // Sin pieza asignada
+      codigo,
+      tratamiento: entry.description,
+      precio: entry.amount,
+      importe: entry.amount,
+      descuento: '0 €',
+      porcentajeDescuento: 0,
+      doctor: PROFESSIONALS[0].value,
+      selected: true // Seleccionar automáticamente para el presupuesto
+    }
+
+    // Añadir a la lista de tratamientos
+    setTreatments((prev) => [...prev, newTreatment])
+
+    // Marcar como nueva fila para hacer scroll y focus
+    setNewRowId(newId)
+
+    // Limpiar cualquier selección previa del catálogo
+    setSelectedCatalogTreatment(null)
+    setSelectedTeeth([])
+  }
+
   const handleConfirmTreatments = () => {
     if (!selectedCatalogTreatment || selectedTeeth.length === 0) return
 
@@ -770,7 +809,9 @@ export default function AddTreatmentsToBudgetModal({
 
     // Crear un tratamiento por cada pieza seleccionada
     const newTreatments: TreatmentV2[] = selectedTeeth.map((toothId) => ({
-      _internalId: `TR-NEW-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${toothId}`,
+      _internalId: `TR-NEW-${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 9)}-${toothId}`,
       pieza: toothId,
       codigo,
       tratamiento: entry.description,
@@ -827,7 +868,9 @@ export default function AddTreatmentsToBudgetModal({
 
   // === Handler para añadir fila vacía ===
   const handleAddEmptyRow = () => {
-    const newId = `TR-EMPTY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const newId = `TR-EMPTY-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 9)}`
     const newTreatment: TreatmentV2 = {
       _internalId: newId,
       codigo: '',
@@ -905,7 +948,10 @@ export default function AddTreatmentsToBudgetModal({
   // === Cálculos financieros del presupuesto ===
   // Helper para parsear precios (remove € y espacios, convertir comas a puntos)
   const parsePriceToNumber = (price: string): number => {
-    const cleaned = price.replace(/[€\s]/g, '').replace('.', '').replace(',', '.')
+    const cleaned = price
+      .replace(/[€\s]/g, '')
+      .replace('.', '')
+      .replace(',', '.')
     return parseFloat(cleaned) || 0
   }
 
@@ -935,10 +981,12 @@ export default function AddTreatmentsToBudgetModal({
 
   // Formatear número a precio español
   const formatPriceDisplay = (num: number): string => {
-    return num.toLocaleString('es-ES', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }) + ' €'
+    return (
+      num.toLocaleString('es-ES', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }) + ' €'
+    )
   }
 
   // Handle create budget - generate PDF and show preview
@@ -972,15 +1020,23 @@ export default function AddTreatmentsToBudgetModal({
       // Prepare budget options with name and general discount
       const budgetOptions: BudgetOptions = {
         budgetName: budgetName || undefined,
-        generalDiscount: generalDiscount.value > 0 ? generalDiscount : undefined,
+        generalDiscount:
+          generalDiscount.value > 0 ? generalDiscount : undefined,
         subtotal,
         generalDiscountAmount,
         totalFinal
       }
 
-      const blob = generateBudgetPDF(budgetTreatments, patientName, budgetOptions)
+      const blob = generateBudgetPDF(
+        budgetTreatments,
+        patientName,
+        budgetOptions
+      )
       const url = URL.createObjectURL(blob)
-      const filename = formatBudgetFilename(patientName, budgetName || undefined)
+      const filename = formatBudgetFilename(
+        patientName,
+        budgetName || undefined
+      )
 
       setGeneratedDocument({
         professional: budgetName || patientName,
@@ -994,7 +1050,15 @@ export default function AddTreatmentsToBudgetModal({
     } finally {
       setIsGenerating(false)
     }
-  }, [selectedCount, selectedTreatments, budgetName, generalDiscount, subtotal, generalDiscountAmount, totalFinal])
+  }, [
+    selectedCount,
+    selectedTreatments,
+    budgetName,
+    generalDiscount,
+    subtotal,
+    generalDiscountAmount,
+    totalFinal
+  ])
 
   // Handle download PDF
   const handleDownloadPdf = useCallback(() => {
@@ -1007,7 +1071,8 @@ export default function AddTreatmentsToBudgetModal({
   const handleConfirmBudget = useCallback(() => {
     // Create budget info object
     const budgetInfo: BudgetInfo = {
-      name: budgetName || `Presupuesto ${new Date().toLocaleDateString('es-ES')}`,
+      name:
+        budgetName || `Presupuesto ${new Date().toLocaleDateString('es-ES')}`,
       subtotal,
       generalDiscountAmount,
       total: totalFinal
@@ -1019,7 +1084,15 @@ export default function AddTreatmentsToBudgetModal({
     }
     setGeneratedDocument(null)
     setIsPreviewMode(false)
-  }, [generatedDocument, onCreateBudget, selectedTreatments, budgetName, subtotal, generalDiscountAmount, totalFinal])
+  }, [
+    generatedDocument,
+    onCreateBudget,
+    selectedTreatments,
+    budgetName,
+    subtotal,
+    generalDiscountAmount,
+    totalFinal
+  ])
 
   // Handle close preview (go back to form)
   const handleClosePreview = useCallback(() => {
@@ -1045,8 +1118,12 @@ export default function AddTreatmentsToBudgetModal({
 
     // Create budget type data
     const budgetType: Omit<BudgetTypeData, 'id'> = {
-      name: budgetName || `Presupuesto tipo ${new Date().toLocaleDateString('es-ES')}`,
-      description: `${selectedCount} tratamiento${selectedCount !== 1 ? 's' : ''}`,
+      name:
+        budgetName ||
+        `Presupuesto tipo ${new Date().toLocaleDateString('es-ES')}`,
+      description: `${selectedCount} tratamiento${
+        selectedCount !== 1 ? 's' : ''
+      }`,
       treatments: budgetTypeTreatments,
       totalPrice: totalFinal,
       isActive: true
@@ -1054,7 +1131,14 @@ export default function AddTreatmentsToBudgetModal({
 
     onCreateBudgetType(budgetType)
     onClose()
-  }, [selectedCount, selectedTreatments, budgetName, totalFinal, onCreateBudgetType, onClose])
+  }, [
+    selectedCount,
+    selectedTreatments,
+    budgetName,
+    totalFinal,
+    onCreateBudgetType,
+    onClose
+  ])
 
   // Calcular total del tratamiento seleccionado
   const calculateTotal = () => {
@@ -1107,7 +1191,9 @@ export default function AddTreatmentsToBudgetModal({
                   className='text-[0.9375rem] leading-[1.375rem] font-medium text-neutral-900'
                   data-node-id='3439:7422'
                 >
-                  {mode === 'budgetType' ? 'Crear presupuesto tipo' : 'Añadir tratamientos a presupuesto'}
+                  {mode === 'budgetType'
+                    ? 'Crear presupuesto tipo'
+                    : 'Añadir tratamientos a presupuesto'}
                 </p>
                 <button
                   type='button'
@@ -1135,7 +1221,11 @@ export default function AddTreatmentsToBudgetModal({
                           setIsEditingName(false)
                         }
                       }}
-                      placeholder={mode === 'budgetType' ? 'Nombre del presupuesto tipo...' : 'Nombre del presupuesto...'}
+                      placeholder={
+                        mode === 'budgetType'
+                          ? 'Nombre del presupuesto tipo...'
+                          : 'Nombre del presupuesto...'
+                      }
                       className='flex-1 max-w-[24rem] px-3 py-1.5 text-[0.9375rem] font-medium text-[#24282C] bg-[#F4F8FA] border border-[var(--color-brand-400)] rounded-lg outline-none focus:ring-2 focus:ring-[var(--color-brand-200)]'
                       autoFocus
                     />
@@ -1150,7 +1240,10 @@ export default function AddTreatmentsToBudgetModal({
                     >
                       <EditRounded className='w-[1rem] h-[1rem] text-[#AEB8C2] group-hover:text-[var(--color-brand-500)] transition-colors' />
                       <span className='text-[0.9375rem] font-medium text-[#24282C]'>
-                        {budgetName || (mode === 'budgetType' ? 'Nuevo presupuesto tipo' : 'Nuevo presupuesto')}
+                        {budgetName ||
+                          (mode === 'budgetType'
+                            ? 'Nuevo presupuesto tipo'
+                            : 'Nuevo presupuesto')}
                       </span>
                     </button>
                   )}
@@ -1171,54 +1264,11 @@ export default function AddTreatmentsToBudgetModal({
               <div className='flex-1 flex flex-col bg-[#F8FAFB] relative overflow-hidden'>
                 {/* Sección superior fija: Odontograma + Catálogo */}
                 <section className='p-[min(0.75rem,1.5vw)] bg-[#F8FAFB] z-10 shrink-0'>
-                  {/* Banner cuando hay tratamiento seleccionado */}
-                  {selectedCatalogTreatment && (
-                    <div className='mb-[0.5rem] p-[0.5rem] bg-[#E9FBF9] border border-[var(--color-brand-500)] rounded-[0.375rem] flex flex-wrap items-center justify-between gap-[0.375rem]'>
-                      <div className='flex flex-wrap items-center gap-[0.5rem]'>
-                        <span className='w-[0.375rem] h-[0.375rem] rounded-full bg-[var(--color-brand-500)] animate-pulse shrink-0' />
-                        <span className='text-[0.8125rem] leading-[1.125rem] text-[var(--color-brand-700)]'>
-                          <strong>{selectedCatalogTreatment.codigo}</strong> -{' '}
-                          {selectedCatalogTreatment.entry.description}
-                        </span>
-                        {selectedTeeth.length === 0 ? (
-                          <span className='text-[0.75rem] leading-[1rem] text-[#535C66]'>
-                            → Selecciona las piezas en el odontograma
-                          </span>
-                        ) : (
-                          <span className='text-[0.75rem] leading-[1rem] text-[var(--color-brand-600)]'>
-                            Piezas:{' '}
-                            <strong>
-                              {selectedTeeth.sort((a, b) => a - b).join(', ')}
-                            </strong>
-                          </span>
-                        )}
-                      </div>
-                      <div className='flex items-center gap-[0.375rem]'>
-                        {selectedTeeth.length > 0 && (
-                          <button
-                            type='button'
-                            onClick={() => setShowConfirmModal(true)}
-                            className='px-[0.75rem] py-[0.25rem] text-[0.75rem] font-medium text-white bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] rounded-full transition-colors cursor-pointer'
-                          >
-                            Confirmar ({selectedTeeth.length})
-                          </button>
-                        )}
-                        <button
-                          type='button'
-                          onClick={handleCancelSelection}
-                          className='px-[0.5rem] py-[0.25rem] text-[0.75rem] text-[#535C66] hover:text-[#24282C] hover:bg-[rgba(0,0,0,0.05)] rounded-full transition-colors cursor-pointer'
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Card con Odontograma + Catálogo */}
                   <div className='bg-white border border-[#E2E7EA] rounded-[0.375rem] p-[min(0.75rem,1.5vw)] flex gap-[min(1rem,1.5vw)] items-start'>
-                    {/* OdontogramaCompacto - Sin escalar, overflow hidden */}
+                    {/* Columna izquierda: Odontograma + Banner */}
                     <div
-                      className='shrink-0 overflow-hidden'
+                      className='shrink-0 overflow-hidden flex flex-col gap-[0.5rem]'
                       style={{ maxWidth: '28rem' }}
                     >
                       <OdontogramaCompacto
@@ -1232,6 +1282,53 @@ export default function AddTreatmentsToBudgetModal({
                         }
                         showLegend={false}
                       />
+
+                      {/* Banner cuando hay tratamiento seleccionado - debajo del odontograma */}
+                      {selectedCatalogTreatment && (
+                        <div className='p-[0.5rem] bg-[#E9FBF9] border border-[var(--color-brand-500)] rounded-[0.375rem] flex flex-col gap-[0.375rem]'>
+                          <div className='flex items-center gap-[0.375rem]'>
+                            <span className='w-[0.375rem] h-[0.375rem] rounded-full bg-[var(--color-brand-500)] animate-pulse shrink-0' />
+                            <span className='text-[0.75rem] leading-[1rem] text-[var(--color-brand-700)]'>
+                              <strong>{selectedCatalogTreatment.codigo}</strong>{' '}
+                              - {selectedCatalogTreatment.entry.description}
+                            </span>
+                          </div>
+                          <div className='flex items-center justify-between gap-[0.375rem]'>
+                            {selectedTeeth.length === 0 ? (
+                              <span className='text-[0.6875rem] leading-[0.875rem] text-[#535C66]'>
+                                → Selecciona las piezas
+                              </span>
+                            ) : (
+                              <span className='text-[0.6875rem] leading-[0.875rem] text-[var(--color-brand-600)]'>
+                                Piezas:{' '}
+                                <strong>
+                                  {selectedTeeth
+                                    .sort((a, b) => a - b)
+                                    .join(', ')}
+                                </strong>
+                              </span>
+                            )}
+                            <div className='flex items-center gap-[0.25rem]'>
+                              {selectedTeeth.length > 0 && (
+                                <button
+                                  type='button'
+                                  onClick={handleConfirmTreatments}
+                                  className='px-[0.5rem] py-[0.125rem] text-[0.6875rem] font-medium text-white bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] rounded-full transition-colors cursor-pointer'
+                                >
+                                  Confirmar ({selectedTeeth.length})
+                                </button>
+                              )}
+                              <button
+                                type='button'
+                                onClick={handleCancelSelection}
+                                className='px-[0.375rem] py-[0.125rem] text-[0.6875rem] text-[#535C66] hover:text-[#24282C] hover:bg-[rgba(0,0,0,0.05)] rounded-full transition-colors cursor-pointer'
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Separador vertical */}
@@ -1241,6 +1338,9 @@ export default function AddTreatmentsToBudgetModal({
                     <div className='flex-1 min-w-[15rem]'>
                       <CatalogoTratamientos
                         onSelectTreatment={handleSelectTreatmentFromCatalog}
+                        onDoubleClickTreatment={
+                          handleDoubleClickTreatmentFromCatalog
+                        }
                         selectedTreatmentCode={selectedCatalogTreatment?.codigo}
                         compact
                       />
@@ -1572,14 +1672,17 @@ export default function AddTreatmentsToBudgetModal({
                   <div className='flex items-center justify-between gap-4'>
                     {/* Izquierda: Info de selección */}
                     <p className='text-[0.75rem] text-[#535C66] shrink-0'>
-                      {selectedCount} tratamiento{selectedCount !== 1 ? 's' : ''}
+                      {selectedCount} tratamiento
+                      {selectedCount !== 1 ? 's' : ''}
                     </p>
 
                     {/* Centro-derecha: Resumen financiero compacto */}
                     <div className='flex items-center gap-3 flex-wrap justify-end'>
                       {/* Subtotal */}
                       <div className='flex items-center gap-1.5'>
-                        <span className='text-[0.6875rem] text-[#AEB8C2]'>Subtotal</span>
+                        <span className='text-[0.6875rem] text-[#AEB8C2]'>
+                          Subtotal
+                        </span>
                         <span className='text-[0.75rem] font-medium text-[#535C66]'>
                           {formatPriceDisplay(subtotal)}
                         </span>
@@ -1590,12 +1693,19 @@ export default function AddTreatmentsToBudgetModal({
 
                       {/* Descuento general */}
                       <div className='flex items-center gap-1.5'>
-                        <span className='text-[0.6875rem] text-[#AEB8C2]'>Dto.</span>
+                        <span className='text-[0.6875rem] text-[#AEB8C2]'>
+                          Dto.
+                        </span>
                         {/* Toggle % / € */}
                         <div className='flex items-center bg-[#F4F8FA] rounded-full p-0.5'>
                           <button
                             type='button'
-                            onClick={() => setGeneralDiscount(prev => ({ ...prev, type: 'percentage' }))}
+                            onClick={() =>
+                              setGeneralDiscount((prev) => ({
+                                ...prev,
+                                type: 'percentage'
+                              }))
+                            }
                             className={`px-1.5 py-0.5 text-[0.625rem] font-medium rounded-full transition-colors cursor-pointer ${
                               generalDiscount.type === 'percentage'
                                 ? 'bg-[var(--color-brand-500)] text-white'
@@ -1606,7 +1716,12 @@ export default function AddTreatmentsToBudgetModal({
                           </button>
                           <button
                             type='button'
-                            onClick={() => setGeneralDiscount(prev => ({ ...prev, type: 'fixed' }))}
+                            onClick={() =>
+                              setGeneralDiscount((prev) => ({
+                                ...prev,
+                                type: 'fixed'
+                              }))
+                            }
                             className={`px-1.5 py-0.5 text-[0.625rem] font-medium rounded-full transition-colors cursor-pointer ${
                               generalDiscount.type === 'fixed'
                                 ? 'bg-[var(--color-brand-500)] text-white'
@@ -1619,11 +1734,18 @@ export default function AddTreatmentsToBudgetModal({
                         <input
                           type='number'
                           min='0'
-                          max={generalDiscount.type === 'percentage' ? 100 : subtotal}
+                          max={
+                            generalDiscount.type === 'percentage'
+                              ? 100
+                              : subtotal
+                          }
                           value={generalDiscount.value || ''}
                           onChange={(e) => {
                             const val = parseFloat(e.target.value) || 0
-                            setGeneralDiscount(prev => ({ ...prev, value: val }))
+                            setGeneralDiscount((prev) => ({
+                              ...prev,
+                              value: val
+                            }))
                           }}
                           placeholder='0'
                           className='w-[3rem] px-1.5 py-0.5 text-[0.6875rem] text-right text-[#24282C] bg-[#F4F8FA] border border-[#CBD3D9] rounded outline-none focus:border-[var(--color-brand-400)]'
@@ -1640,7 +1762,9 @@ export default function AddTreatmentsToBudgetModal({
 
                       {/* Total */}
                       <div className='flex items-center gap-1.5 bg-[#F4F8FA] px-3 py-1 rounded-lg'>
-                        <span className='text-[0.75rem] font-semibold text-[#24282C]'>TOTAL</span>
+                        <span className='text-[0.75rem] font-semibold text-[#24282C]'>
+                          TOTAL
+                        </span>
                         <span className='text-[0.9375rem] font-bold text-[var(--color-brand-700)]'>
                           {formatPriceDisplay(totalFinal)}
                         </span>
@@ -1656,7 +1780,11 @@ export default function AddTreatmentsToBudgetModal({
                       </button>
                       <button
                         type='button'
-                        onClick={mode === 'budgetType' ? handleCreateBudgetType : handleCreateBudget}
+                        onClick={
+                          mode === 'budgetType'
+                            ? handleCreateBudgetType
+                            : handleCreateBudget
+                        }
                         disabled={selectedCount === 0 || isGenerating}
                         className={[
                           'px-4 py-1.5 rounded-full text-[0.75rem] font-medium transition-colors',
@@ -1665,11 +1793,11 @@ export default function AddTreatmentsToBudgetModal({
                             : 'bg-[#51D6C7] text-[#1E4947] hover:bg-[#3ECBBB] cursor-pointer'
                         ].join(' ')}
                       >
-                        {isGenerating 
-                          ? 'Generando...' 
-                          : mode === 'budgetType' 
-                            ? 'Guardar presupuesto tipo' 
-                            : 'Crear presupuesto'}
+                        {isGenerating
+                          ? 'Generando...'
+                          : mode === 'budgetType'
+                          ? 'Guardar presupuesto tipo'
+                          : 'Crear presupuesto'}
                       </button>
                     </div>
                   </div>
