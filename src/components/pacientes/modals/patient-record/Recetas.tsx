@@ -9,6 +9,10 @@ import {
   PictureAsPdfRounded,
   VisibilityRounded
 } from '@/components/icons/md3'
+import {
+  downloadPrescriptionPDF,
+  type PrescriptionData
+} from '@/utils/exportUtils'
 import React from 'react'
 import PrescriptionCreationModal from './PrescriptionCreationModal'
 import PrescriptionPdfPreview from './PrescriptionPdfPreview'
@@ -155,7 +159,42 @@ export default function Recetas({
   }
 
   const handleDownloadPrescription = (row: PrescriptionRow) => {
-    // Simulate download
+    // Build prescription data for PDF generation
+    const prescriptionData: PrescriptionData = {
+      patientName: displayPatientName,
+      patientDni: '44556677X',
+      patientSex: 'Hombre',
+      patientAge: 45,
+      doctorName: row.especialista || 'Dr. García López',
+      doctorLicense: 'XX 895 895 895',
+      clinicName: 'Clínica Tama Dental',
+      clinicAddress: 'C/ Principal, 123',
+      clinicPhone: '91 123 45 67',
+      prescriptionDate: new Date(),
+      caseNotes: '',
+      medications: row.medicamento
+        ? [
+            {
+              medicamento: row.medicamento,
+              frecuencia: row.frecuencia || '3 por día',
+              duracion: row.duracion || '7 días',
+              administracion: row.administracion || 'Oral',
+              dosis: '500mg'
+            }
+          ]
+        : [
+            {
+              medicamento: 'Medicamento',
+              frecuencia: '3 por día',
+              duracion: '7 días',
+              administracion: 'Oral',
+              dosis: '500mg'
+            }
+          ]
+    }
+
+    // Generate and download PDF
+    downloadPrescriptionPDF(prescriptionData, row.medicamento)
     setToast({ message: `Descargando ${row.name}...`, variant: 'success' })
     setOpenMenuRowId(null)
     window.setTimeout(() => setToast(null), 3000)
@@ -335,6 +374,14 @@ export default function Recetas({
         open={isPdfOpen}
         onClose={() => setIsPdfOpen(false)}
         data={pdfData || undefined}
+        patientName={displayPatientName}
+        onSave={() => {
+          setToast({
+            message: 'Receta guardada correctamente',
+            variant: 'success'
+          })
+          window.setTimeout(() => setToast(null), 3000)
+        }}
       />
 
       {/* Simple Preview Modal for rows without data */}

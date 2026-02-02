@@ -82,11 +82,18 @@ function formatDateRangeForDisplay(startDate: Date, endDate: Date): string {
   }
 
   if (sameMonth && sameYear) {
-    return `${startDate.getDate()} - ${endDate.getDate()} de ${startDate.toLocaleDateString('es-ES', { month: 'long' })} de ${startDate.getFullYear()}`
+    return `${startDate.getDate()} - ${endDate.getDate()} de ${startDate.toLocaleDateString(
+      'es-ES',
+      { month: 'long' }
+    )} de ${startDate.getFullYear()}`
   }
 
   if (sameYear) {
-    return `${startDate.getDate()} de ${startDate.toLocaleDateString('es-ES', { month: 'long' })} - ${endDate.getDate()} de ${endDate.toLocaleDateString('es-ES', { month: 'long' })} de ${startDate.getFullYear()}`
+    return `${startDate.getDate()} de ${startDate.toLocaleDateString('es-ES', {
+      month: 'long'
+    })} - ${endDate.getDate()} de ${endDate.toLocaleDateString('es-ES', {
+      month: 'long'
+    })} de ${startDate.getFullYear()}`
   }
 
   return `${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}`
@@ -145,7 +152,9 @@ function formatPaymentInfo(appointment: Appointment): string {
     return `Pagado (${totalAmount.toFixed(2)} ${currency})`
   }
 
-  return `${paidAmount.toFixed(2)} / ${totalAmount.toFixed(2)} ${currency} (Pend: ${pendingAmount.toFixed(2)} ${currency})`
+  return `${paidAmount.toFixed(2)} / ${totalAmount.toFixed(
+    2
+  )} ${currency} (Pend: ${pendingAmount.toFixed(2)} ${currency})`
 }
 
 /**
@@ -274,7 +283,10 @@ export function generateParteDiarioPDF(
     : 'Todos los profesionales'
   doc.text(professionalText, margin, 30)
 
-  const dateRangeText = `Período: ${formatDateRangeForDisplay(dateRange.startDate, dateRange.endDate)}`
+  const dateRangeText = `Período: ${formatDateRangeForDisplay(
+    dateRange.startDate,
+    dateRange.endDate
+  )}`
   doc.text(dateRangeText, margin, 37)
 
   // Summary info
@@ -376,7 +388,13 @@ export function generateParteDiarioPDF(
     doc.setPage(i)
     doc.setFontSize(8)
     doc.setTextColor(128, 128, 128)
-    const footerText = `Generado el ${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })} | Página ${i} de ${pageCount}`
+    const footerText = `Generado el ${new Date().toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })} | Página ${i} de ${pageCount}`
     doc.text(
       footerText,
       pageWidth / 2,
@@ -595,6 +613,20 @@ export function downloadDocument(document: GeneratedDocument): void {
 }
 
 /**
+ * Download a blob as a file with the specified filename
+ */
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const link = window.document.createElement('a')
+  link.href = url
+  link.download = filename
+  window.document.body.appendChild(link)
+  link.click()
+  window.document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+/**
  * Download all documents
  */
 export function downloadAllDocuments(documents: GeneratedDocument[]): void {
@@ -703,7 +735,11 @@ export function generateBudgetPDF(
   doc.text(`Fecha: ${dateStr}`, pageWidth - margin, 42, { align: 'right' })
 
   // Budget number
-  const budgetNumber = `PRE-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`
+  const budgetNumber = `PRE-${today.getFullYear()}${String(
+    today.getMonth() + 1
+  ).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}-${String(
+    Math.floor(Math.random() * 1000)
+  ).padStart(3, '0')}`
   doc.text(`Nº Presupuesto: ${budgetNumber}`, margin, 50)
 
   // ============================================
@@ -919,25 +955,25 @@ export type PaymentReceiptData = {
   // Receipt info
   receiptNumber: string
   paymentDate: Date
-  
+
   // Patient info
   patientName: string
   patientDni?: string
-  
+
   // Invoice/Treatment info
   invoiceNumber: string
   treatment: string
-  
+
   // Payment details
   amountPaid: number
   paymentMethod: string
   reference?: string
-  
+
   // Balance info
   totalAmount: number
   previousPaid: number
   remainingBalance: number
-  
+
   // Clinic info (optional)
   clinicName?: string
   clinicAddress?: string
@@ -1032,15 +1068,19 @@ export function generatePaymentReceiptPDF(data: PaymentReceiptData): Blob {
   // PAYMENT BREAKDOWN TABLE
   // ============================================
 
-  const formatCurrency = (amount: number) => 
-    `${amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+  const formatCurrency = (amount: number) =>
+    `${amount.toLocaleString('es-ES', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })} €`
 
-  const paymentMethodLabel = {
-    efectivo: 'Efectivo',
-    tarjeta: 'Tarjeta',
-    transferencia: 'Transferencia',
-    bizum: 'Bizum'
-  }[data.paymentMethod.toLowerCase()] || data.paymentMethod
+  const paymentMethodLabel =
+    {
+      efectivo: 'Efectivo',
+      tarjeta: 'Tarjeta',
+      transferencia: 'Transferencia',
+      bizum: 'Bizum'
+    }[data.paymentMethod.toLowerCase()] || data.paymentMethod
 
   autoTable(doc, {
     startY: 110,
@@ -1049,8 +1089,14 @@ export function generatePaymentReceiptPDF(data: PaymentReceiptData): Blob {
     body: [
       ['Importe total del tratamiento', formatCurrency(data.totalAmount)],
       ['Pagado anteriormente', formatCurrency(data.previousPaid)],
-      ['Pendiente antes de este pago', formatCurrency(data.totalAmount - data.previousPaid)],
-      [`PAGO REALIZADO (${paymentMethodLabel})`, formatCurrency(data.amountPaid)],
+      [
+        'Pendiente antes de este pago',
+        formatCurrency(data.totalAmount - data.previousPaid)
+      ],
+      [
+        `PAGO REALIZADO (${paymentMethodLabel})`,
+        formatCurrency(data.amountPaid)
+      ],
       ['Saldo pendiente', formatCurrency(data.remainingBalance)]
     ],
     styles: {
@@ -1071,7 +1117,7 @@ export function generatePaymentReceiptPDF(data: PaymentReceiptData): Blob {
       lineColor: [203, 211, 217],
       lineWidth: 0.1
     },
-    didParseCell: function(hookData) {
+    didParseCell: function (hookData) {
       // Highlight the payment row
       if (hookData.section === 'body' && hookData.row.index === 3) {
         hookData.cell.styles.fontStyle = 'bold'
@@ -1114,12 +1160,19 @@ export function generatePaymentReceiptPDF(data: PaymentReceiptData): Blob {
     doc.setFontSize(12)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(22, 163, 74) // Green
-    doc.text('✓ TRATAMIENTO COMPLETAMENTE PAGADO', pageWidth / 2, messageY, { align: 'center' })
+    doc.text('✓ TRATAMIENTO COMPLETAMENTE PAGADO', pageWidth / 2, messageY, {
+      align: 'center'
+    })
   } else {
     doc.setFontSize(10)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(217, 119, 6) // Amber
-    doc.text(`Queda un saldo pendiente de ${formatCurrency(data.remainingBalance)}`, pageWidth / 2, messageY, { align: 'center' })
+    doc.text(
+      `Queda un saldo pendiente de ${formatCurrency(data.remainingBalance)}`,
+      pageWidth / 2,
+      messageY,
+      { align: 'center' }
+    )
   }
 
   // ============================================
@@ -1155,7 +1208,12 @@ export function generatePaymentReceiptPDF(data: PaymentReceiptData): Blob {
     hour: '2-digit',
     minute: '2-digit'
   })
-  doc.text(`Documento generado el ${timestamp}`, pageWidth - margin, footerY + 15, { align: 'right' })
+  doc.text(
+    `Documento generado el ${timestamp}`,
+    pageWidth - margin,
+    footerY + 15,
+    { align: 'right' }
+  )
 
   return doc.output('blob')
 }
@@ -1175,7 +1233,10 @@ export function generateReceiptNumber(): string {
 /**
  * Generate filename for payment receipt
  */
-export function formatReceiptFilename(patientName: string, receiptNumber: string): string {
+export function formatReceiptFilename(
+  patientName: string,
+  receiptNumber: string
+): string {
   const sanitizedPatientName = patientName
     .replace(/\s+/g, '_')
     .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ_]/g, '')
@@ -1196,7 +1257,9 @@ export function formatBudgetFilename(
     .slice(0, 30)
 
   const today = new Date()
-  const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
+  const dateStr = `${today.getFullYear()}${String(
+    today.getMonth() + 1
+  ).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
 
   // Use budget name if provided, otherwise use "Presupuesto"
   if (budgetName) {
@@ -1407,4 +1470,299 @@ export function downloadCashClosingExcel(
   window.document.body.removeChild(link)
 
   URL.revokeObjectURL(url)
+}
+
+// ============================================
+// PRESCRIPTION PDF GENERATION
+// ============================================
+
+export type PrescriptionMedication = {
+  medicamento: string
+  frecuencia: string
+  duracion: string
+  administracion: string
+  dosis?: string
+}
+
+export type PrescriptionData = {
+  patientName: string
+  patientDni?: string
+  patientSex?: string
+  patientAge?: number
+  doctorName?: string
+  doctorLicense?: string
+  clinicName?: string
+  clinicAddress?: string
+  clinicPhone?: string
+  prescriptionDate?: Date
+  caseNotes?: string
+  medications: PrescriptionMedication[]
+}
+
+/**
+ * Generate a PDF document for a medical prescription
+ */
+export function generatePrescriptionPDF(data: PrescriptionData): Blob {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  })
+
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 20
+
+  // ============================================
+  // HEADER
+  // ============================================
+
+  // Clinic name (logo placeholder)
+  doc.setFontSize(24)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(30, 73, 71) // Brand color #1E4947
+  doc.text('klinikOS', margin, 25)
+
+  // Clinic info (right side)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(36, 40, 44) // #24282C
+  const clinicName = data.clinicName || 'Clínica Dental'
+  const clinicAddress = data.clinicAddress || 'Dirección de la clínica'
+  const clinicPhone = data.clinicPhone || 'Teléfono de contacto'
+
+  doc.text(clinicName, pageWidth - margin, 20, { align: 'right' })
+  doc.text(clinicAddress, pageWidth - margin, 26, { align: 'right' })
+  doc.text(clinicPhone, pageWidth - margin, 32, { align: 'right' })
+
+  // Horizontal line
+  doc.setDrawColor(203, 211, 217) // #CBD3D9
+  doc.setLineWidth(0.5)
+  doc.line(margin, 38, pageWidth - margin, 38)
+
+  // ============================================
+  // PATIENT INFO
+  // ============================================
+
+  const prescriptionDate = data.prescriptionDate || new Date()
+  const dateStr = prescriptionDate.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(36, 40, 44)
+  doc.text('Paciente:', margin, 48)
+  doc.setFont('helvetica', 'normal')
+  doc.text(data.patientName, margin + 20, 48)
+
+  doc.setFont('helvetica', 'bold')
+  doc.text('Fecha:', pageWidth - margin - 40, 48)
+  doc.setFont('helvetica', 'normal')
+  doc.text(dateStr, pageWidth - margin, 48, { align: 'right' })
+
+  // Second row: DNI, Sex, Age
+  let currentX = margin
+  if (data.patientDni) {
+    doc.setFont('helvetica', 'bold')
+    doc.text('DNI:', currentX, 56)
+    doc.setFont('helvetica', 'normal')
+    doc.text(data.patientDni, currentX + 12, 56)
+    currentX += 45
+  }
+  if (data.patientSex) {
+    doc.setFont('helvetica', 'bold')
+    doc.text('Sexo:', currentX, 56)
+    doc.setFont('helvetica', 'normal')
+    doc.text(data.patientSex, currentX + 14, 56)
+    currentX += 35
+  }
+  if (data.patientAge) {
+    doc.setFont('helvetica', 'bold')
+    doc.text('Edad:', currentX, 56)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`${data.patientAge} años`, currentX + 14, 56)
+  }
+
+  // ============================================
+  // PRESCRIPTION TITLE
+  // ============================================
+
+  doc.setFontSize(14)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(30, 73, 71)
+  doc.text('RECETA MÉDICA', pageWidth / 2, 70, { align: 'center' })
+
+  // ============================================
+  // MEDICATIONS TABLE
+  // ============================================
+
+  const tableHeaders = [
+    'Medicamento',
+    'Dosis',
+    'Frecuencia',
+    'Duración',
+    'Vía administración'
+  ]
+
+  const tableRows = data.medications.map((med) => [
+    med.medicamento,
+    med.dosis || '-',
+    med.frecuencia,
+    med.duracion,
+    med.administracion
+  ])
+
+  autoTable(doc, {
+    head: [tableHeaders],
+    body: tableRows,
+    startY: 78,
+    margin: { left: margin, right: margin },
+    styles: {
+      fontSize: 9,
+      cellPadding: 4,
+      overflow: 'linebreak',
+      textColor: [36, 40, 44], // #24282C
+      lineColor: [203, 211, 217], // #CBD3D9
+      lineWidth: 0.2
+    },
+    headStyles: {
+      fillColor: [30, 73, 71], // Brand color #1E4947
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      halign: 'left'
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 251] // #F8FAFB
+    },
+    columnStyles: {
+      0: { cellWidth: 50 }, // Medicamento
+      1: { cellWidth: 25, halign: 'center' }, // Dosis
+      2: { cellWidth: 30, halign: 'center' }, // Frecuencia
+      3: { cellWidth: 25, halign: 'center' }, // Duración
+      4: { cellWidth: 40, halign: 'center' } // Vía
+    }
+  })
+
+  // Get final Y position after table
+  const finalY =
+    (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable
+      ?.finalY || 120
+
+  // ============================================
+  // CASE NOTES (optional)
+  // ============================================
+
+  let notesEndY = finalY + 15
+
+  if (data.caseNotes) {
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(36, 40, 44)
+    doc.text('Observaciones:', margin, finalY + 15)
+
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(83, 92, 102)
+    const splitNotes = doc.splitTextToSize(
+      data.caseNotes,
+      pageWidth - margin * 2
+    )
+    doc.text(splitNotes, margin, finalY + 22)
+    notesEndY = finalY + 22 + splitNotes.length * 5
+  }
+
+  // ============================================
+  // DOCTOR INFO & SIGNATURE
+  // ============================================
+
+  // Separator line
+  doc.setDrawColor(203, 211, 217)
+  doc.line(margin, notesEndY + 5, pageWidth - margin, notesEndY + 5)
+
+  const doctorY = notesEndY + 15
+
+  // Doctor info (left)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(36, 40, 44)
+  doc.text('Doctor:', margin, doctorY)
+  doc.setFont('helvetica', 'normal')
+  doc.text(data.doctorName || 'Dr. [Nombre del médico]', margin + 18, doctorY)
+
+  // License number (right)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Nº Colegiado:', pageWidth - margin - 55, doctorY)
+  doc.setFont('helvetica', 'normal')
+  doc.text(data.doctorLicense || '-', pageWidth - margin, doctorY, {
+    align: 'right'
+  })
+
+  // Signature area
+  doc.setFont('helvetica', 'bold')
+  doc.text('Firma:', margin, doctorY + 12)
+
+  // Signature line
+  doc.setDrawColor(203, 211, 217)
+  doc.line(margin + 15, doctorY + 12, margin + 70, doctorY + 12)
+
+  // ============================================
+  // FOOTER
+  // ============================================
+
+  doc.setFontSize(7)
+  doc.setTextColor(174, 184, 194) // #AEB8C2
+  const timestamp = new Date().toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+  doc.text(`Generado el ${timestamp}`, pageWidth / 2, pageHeight - 10, {
+    align: 'center'
+  })
+
+  return doc.output('blob')
+}
+
+/**
+ * Generate prescription filename
+ */
+export function formatPrescriptionFilename(
+  patientName: string,
+  medicationName?: string
+): string {
+  const sanitizedPatientName = patientName
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ_]/g, '')
+    .slice(0, 30)
+
+  const today = new Date()
+  const dateStr = `${today.getFullYear()}${String(
+    today.getMonth() + 1
+  ).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
+
+  if (medicationName) {
+    const sanitizedMedName = medicationName
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ_0-9]/g, '')
+      .slice(0, 30)
+    return `Receta_${sanitizedMedName}_${sanitizedPatientName}_${dateStr}.pdf`
+  }
+
+  return `Receta_${sanitizedPatientName}_${dateStr}.pdf`
+}
+
+/**
+ * Download prescription PDF file
+ */
+export function downloadPrescriptionPDF(
+  data: PrescriptionData,
+  medicationName?: string
+): void {
+  const blob = generatePrescriptionPDF(data)
+  const filename = formatPrescriptionFilename(data.patientName, medicationName)
+  downloadBlob(blob, filename)
 }

@@ -13,15 +13,15 @@ import AgendaBlockCard from './AgendaBlockCard'
 import AppointmentContextMenu, {
   type ContextMenuAction
 } from './AppointmentContextMenu'
+import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
 import SlotDragSelection, {
   getSelectionBounds,
   type SlotDragState
 } from './SlotDragSelection'
 import TimeIndicator, { slotIndexToTime } from './TimeIndicator'
-import VisitStatusMenu from './VisitStatusMenu'
-import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
 import type { EventDetail, VisitStatus } from './types'
 import { VISIT_STATUS_CONFIG } from './types'
+import VisitStatusMenu from './VisitStatusMenu'
 
 const OVERLAY_GUTTER = '1rem'
 

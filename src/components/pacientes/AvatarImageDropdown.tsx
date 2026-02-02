@@ -147,7 +147,7 @@ export default function AvatarImageDropdown({
       {menuOpen && (
         <div
           role='menu'
-          className='absolute right-0 mt-2 w-60 rounded-lg bg-[var(--color-neutral-50)] shadow-[var(--shadow-cta)] border border-[var(--color-neutral-200)] p-2 z-10'
+          className='absolute right-0 mt-2 w-60 rounded-lg bg-[var(--color-neutral-50)] shadow-[var(--shadow-cta)] border border-[var(--color-neutral-200)] p-2 z-[100]'
         >
           <button
             type='button'
