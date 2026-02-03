@@ -1,19 +1,20 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
-import TopBar from './TopBar'
-import Sidebar from './Sidebar'
 import {
+  ArticleRounded,
   BadgeRounded,
   BarChartRounded,
-  ArticleRounded,
   CalendarMonthRounded,
   SellRounded,
-  SettingsRounded
+  SettingsRounded,
+  SupportAgentRounded
 } from '@/components/icons/md3'
-import { LayoutProps } from '@/types/layout'
 import AddPatientModal from '@/components/pacientes/modals/add-patient/AddPatientModal'
+import { LayoutProps } from '@/types/layout'
+import { usePathname, useRouter } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import Sidebar from './Sidebar'
+import TopBar from './TopBar'
 
 const SIDEBAR_COLLAPSED_KEY = 'klinikos-sidebar-collapsed'
 
@@ -76,6 +77,12 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
       icon: <BarChartRounded />
     },
     {
+      id: 'agente-voz',
+      label: 'Agente de Voz',
+      href: '/agente-voz',
+      icon: <SupportAgentRounded />
+    },
+    {
       id: 'configuracion',
       label: 'Configuración',
       href: '/configuracion',
@@ -112,9 +119,17 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
   const menuItems = useMemo(
     () =>
       ctaMenuItems ?? [
-        { id: 'nueva-cita', label: 'Nueva cita', onClick: handleOpenCreateAppointment },
+        {
+          id: 'nueva-cita',
+          label: 'Nueva cita',
+          onClick: handleOpenCreateAppointment
+        },
         { id: 'nuevo-presupuesto', label: 'Nuevo presupuesto' },
-        { id: 'nuevo-paciente', label: 'Nuevo paciente', onClick: () => handleOpenCreatePatient() }
+        {
+          id: 'nuevo-paciente',
+          label: 'Nuevo paciente',
+          onClick: () => handleOpenCreatePatient()
+        }
       ],
     [ctaMenuItems, handleOpenCreateAppointment, handleOpenCreatePatient]
   )

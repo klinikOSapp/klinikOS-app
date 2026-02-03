@@ -1,16 +1,12 @@
 'use client'
 
-import {
-  AddRounded,
-  CloseRounded,
-  DeleteRounded
-} from '@/components/icons/md3'
+import { AddRounded, CloseRounded, DeleteRounded } from '@/components/icons/md3'
 import type {
   BudgetTypeData,
   BudgetTypeTreatment
 } from '@/components/pacientes/shared/budgetTypeData'
 import { TREATMENT_CATALOG } from '@/components/pacientes/shared/treatmentTypes'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 // ============================================
@@ -28,7 +24,13 @@ const treatmentOptions = Object.entries(TREATMENT_CATALOG).map(
   ([code, entry]) => ({
     code,
     description: entry.description,
-    price: parseFloat(entry.amount.replace(/[^\d,.-]/g, '').replace('.', '').replace(',', '.')) || 0,
+    price:
+      parseFloat(
+        entry.amount
+          .replace(/[^\d,.-]/g, '')
+          .replace('.', '')
+          .replace(',', '.')
+      ) || 0,
     familia: entry.familia
   })
 )
@@ -54,6 +56,11 @@ export default function BudgetTypeEditorModal({
   const [showTreatmentSelector, setShowTreatmentSelector] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 
+  // Validation error state
+  const [errors, setErrors] = useState<{ name?: string; treatments?: string }>(
+    {}
+  )
+
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -74,6 +81,7 @@ export default function BudgetTypeEditorModal({
       }
       setShowTreatmentSelector(false)
       setSearchTerm('')
+      setErrors({})
     }
   }, [open, editingBudgetType])
 
@@ -115,15 +123,21 @@ export default function BudgetTypeEditorModal({
 
   // Save
   const handleSave = useCallback(() => {
+    const newErrors: { name?: string; treatments?: string } = {}
+
     if (!name.trim()) {
-      alert('El nombre es obligatorio')
-      return
+      newErrors.name = 'El nombre del paquete es obligatorio'
     }
     if (treatments.length === 0) {
-      alert('Debe añadir al menos un tratamiento')
+      newErrors.treatments = 'Debe añadir al menos un tratamiento'
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
       return
     }
 
+    setErrors({})
     const budgetTypeData = {
       ...(editingBudgetType?.id ? { id: editingBudgetType.id } : {}),
       name: name.trim(),
@@ -207,10 +221,28 @@ export default function BudgetTypeEditorModal({
                 id='budget-name'
                 type='text'
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  if (errors.name)
+                    setErrors((prev) => ({ ...prev, name: undefined }))
+                }}
                 placeholder='Ej: Pack Revisión Completa'
-                className='w-full h-[2.75rem] px-4 rounded-lg border border-[var(--color-neutral-300)] bg-[var(--color-surface)] text-body-md text-[var(--color-neutral-900)] placeholder:text-[var(--color-neutral-400)] outline-none focus:border-[var(--color-brand-500)] transition-colors'
+                aria-invalid={!!errors.name}
+                aria-describedby={errors.name ? 'budget-name-error' : undefined}
+                className={`w-full h-[2.75rem] px-4 rounded-lg border bg-[var(--color-surface)] text-body-md text-[var(--color-neutral-900)] placeholder:text-[var(--color-neutral-400)] outline-none transition-colors ${
+                  errors.name
+                    ? 'border-[var(--color-error-500)] focus:border-[var(--color-error-500)]'
+                    : 'border-[var(--color-neutral-300)] focus:border-[var(--color-brand-500)]'
+                }`}
               />
+              {errors.name && (
+                <p
+                  id='budget-name-error'
+                  className='text-body-sm text-[var(--color-error-600)] mt-1'
+                >
+                  {errors.name}
+                </p>
+              )}
             </div>
 
             {/* Description */}
@@ -235,17 +267,26 @@ export default function BudgetTypeEditorModal({
             <div className='space-y-3'>
               <div className='flex items-center justify-between'>
                 <label className='block text-body-md font-medium text-[var(--color-neutral-900)]'>
-                  Tratamientos ({treatments.length})
+                  Tratamientos ({treatments.length}) *
                 </label>
                 <button
                   type='button'
-                  onClick={() => setShowTreatmentSelector(true)}
+                  onClick={() => {
+                    setShowTreatmentSelector(true)
+                    if (errors.treatments)
+                      setErrors((prev) => ({ ...prev, treatments: undefined }))
+                  }}
                   className='flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-brand-50)] text-body-sm font-medium text-[var(--color-brand-700)] hover:bg-[var(--color-brand-100)] transition-colors cursor-pointer'
                 >
                   <AddRounded className='size-4' />
                   Añadir
                 </button>
               </div>
+              {errors.treatments && (
+                <p className='text-body-sm text-[var(--color-error-600)]'>
+                  {errors.treatments}
+                </p>
+              )}
 
               {/* Treatment selector dropdown */}
               {showTreatmentSelector && (
@@ -363,7 +404,9 @@ export default function BudgetTypeEditorModal({
               >
                 <span
                   className={`absolute top-[0.125rem] w-[1.25rem] h-[1.25rem] rounded-full bg-white shadow transition-transform ${
-                    isActive ? 'translate-x-[1.625rem]' : 'translate-x-[0.125rem]'
+                    isActive
+                      ? 'translate-x-[1.625rem]'
+                      : 'translate-x-[0.125rem]'
                   }`}
                 />
               </button>
@@ -391,7 +434,9 @@ export default function BudgetTypeEditorModal({
                 onClick={handleSave}
                 className='px-4 py-2 rounded-full bg-[var(--color-brand-500)] text-body-md font-medium text-[var(--color-brand-900)] hover:bg-[var(--color-brand-400)] transition-colors cursor-pointer'
               >
-                {editingBudgetType ? 'Guardar cambios' : 'Crear presupuesto tipo'}
+                {editingBudgetType
+                  ? 'Guardar cambios'
+                  : 'Crear presupuesto tipo'}
               </button>
             </div>
           </footer>

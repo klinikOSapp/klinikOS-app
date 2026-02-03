@@ -1,22 +1,34 @@
 'use client'
 
-/* eslint-disable @next/next/no-img-element */
+import {
+  AddRounded,
+  CheckCircleRounded,
+  ChevronLeftRounded,
+  ChevronRightRounded,
+  CloseRounded,
+  ContrastRounded,
+  DeleteRounded,
+  EmailRounded,
+  FilterListRounded,
+  FirstPageRounded,
+  KeyboardArrowDownRounded,
+  LastPageRounded,
+  LocalHospitalRounded,
+  MoreHorizRounded,
+  PaymentsRounded,
+  PersonRounded,
+  PhoneRounded,
+  SearchRounded
+} from '@/components/icons/md3'
+import React, { useCallback, useEffect, useMemo, useRef } from 'react'
+import AddProfessionalModal, {
+  ProfessionalFormData
+} from './AddProfessionalModal'
 
-import React from 'react'
-import AddProfessionalModal, { ProfessionalFormData } from './AddProfessionalModal'
+type StatusFilter = 'all' | 'active' | 'inactive'
+type SpecialtyFilter = string | null
 
-const ICON_HEART = 'http://localhost:3845/assets/cdb93707ac12a23a8385b257aa1b4e624414e81b.svg'
-const ICON_FILTER = 'http://localhost:3845/assets/cccab81c301913a8203e5aae99ef088f545f72be.svg'
-const ICON_SEARCH = 'http://localhost:3845/assets/19f4eecf65c525d41a751b542cd6230b4a4d4dfe.svg'
-const ICON_FIRST = 'http://localhost:3845/assets/b8fb007a2b85d9ae3ee89d0d8cc29a5897221245.svg'
-const ICON_PREV = 'http://localhost:3845/assets/5d2185e396aaaed3c50d1be6fdd20e718dc6196f.svg'
-const ICON_NEXT = 'http://localhost:3845/assets/ba0f2f5a5f0d38e98223d7bd103f1caccfc08882.svg'
-const ICON_LAST = 'http://localhost:3845/assets/fc38c0250e3ec6a56267ab34409369f5f45313e2.svg'
-const ICON_ADD = 'http://localhost:3845/assets/63c407761ce9918ca4aaf1d01039aee414a2bc91.svg'
-const ICON_DELETE = 'http://localhost:3845/assets/19a4f818969ca650a79b24af986f0c4075633e8c.svg'
-const ICON_MORE = 'http://localhost:3845/assets/07d75c832e2862ac5dc6e7352f602b84d4692c2b.svg'
-
-type Specialist = {
+export type Specialist = {
   id: string
   name: string
   role: string
@@ -28,7 +40,7 @@ type Specialist = {
   status: 'Activo' | 'Inactivo'
 }
 
-const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
+export const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
   {
     name: 'Fernandino Fernández',
     role: 'Odontólogo',
@@ -151,21 +163,27 @@ const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
   }
 ] as const
 
-const initialSpecialists: Specialist[] = initialSpecialistsData.map((item, idx) => ({
-  ...item,
-  id: `s${idx + 1}`
-}))
+const initialSpecialists: Specialist[] = initialSpecialistsData.map(
+  (item, idx) => ({
+    ...item,
+    id: `s${idx + 1}`
+  })
+)
 
-const colorToneStyles: Record<Specialist['colorTone'], { bg: string; text: string }> = {
+const colorToneStyles: Record<
+  Specialist['colorTone'],
+  { bg: string; text: string }
+> = {
   morado: { bg: 'bg-[#f3eaff]', text: 'text-[#7725eb]' },
   naranja: { bg: 'bg-[#fff7e8]', text: 'text-[#d97706]' },
   verde: { bg: 'bg-[#e9f8f1]', text: 'text-[#2e7d5b]' }
 }
 
-const statusStyles: Record<Specialist['status'], { bg: string; text: string }> = {
-  Activo: { bg: 'bg-[#e0f2fe]', text: 'text-[#075985]' },
-  Inactivo: { bg: 'bg-[#cbd3d9]', text: 'text-[#24282c]' }
-}
+const statusStyles: Record<Specialist['status'], { bg: string; text: string }> =
+  {
+    Activo: { bg: 'bg-[#e0f2fe]', text: 'text-[#075985]' },
+    Inactivo: { bg: 'bg-[#cbd3d9]', text: 'text-[#24282c]' }
+  }
 
 function TableHeader({
   allSelected,
@@ -177,7 +195,7 @@ function TableHeader({
   onToggleAll: () => void
 }) {
   return (
-    <div className='grid grid-cols-[2.5rem_1fr_0.7fr_0.6fr_1fr_0.5fr_0.5fr_0.5fr] w-full'>
+    <div className='grid grid-cols-[2.5rem_1fr_0.7fr_0.6fr_1fr_0.5fr_0.5fr_0.5fr] w-full sticky top-0 z-10 bg-[var(--color-surface)]'>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
         <input
           type='checkbox'
@@ -186,71 +204,152 @@ function TableHeader({
             if (el) el.indeterminate = indeterminate
           }}
           onChange={onToggleAll}
-          className='size-4 accent-[#338f88] cursor-pointer'
+          className='size-4 accent-[var(--color-brand-500)] cursor-pointer'
           aria-label='Seleccionar todos'
         />
       </div>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
-        <img src={ICON_HEART} alt='' className='mr-1.5 size-4 flex-shrink-0' aria-hidden />
-        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>Profesional</p>
+        <PersonRounded
+          className='mr-1.5 size-4 flex-shrink-0 text-[var(--color-neutral-500)]'
+          aria-hidden='true'
+        />
+        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+          Profesional
+        </p>
       </div>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
-        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>Especialidad</p>
+        <LocalHospitalRounded
+          className='mr-1.5 size-4 flex-shrink-0 text-[var(--color-neutral-500)]'
+          aria-hidden='true'
+        />
+        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+          Especialidad
+        </p>
       </div>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
-        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>Teléfono</p>
+        <PhoneRounded
+          className='mr-1.5 size-4 flex-shrink-0 text-[var(--color-neutral-500)]'
+          aria-hidden='true'
+        />
+        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+          Teléfono
+        </p>
       </div>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
-        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>Email</p>
+        <EmailRounded
+          className='mr-1.5 size-4 flex-shrink-0 text-[var(--color-neutral-500)]'
+          aria-hidden='true'
+        />
+        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+          Email
+        </p>
       </div>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
-        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>Color</p>
+        <ContrastRounded
+          className='mr-1.5 size-4 flex-shrink-0 text-[var(--color-neutral-500)]'
+          aria-hidden='true'
+        />
+        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+          Color
+        </p>
       </div>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
-        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>% comisión</p>
+        <PaymentsRounded
+          className='mr-1.5 size-4 flex-shrink-0 text-[var(--color-neutral-500)]'
+          aria-hidden='true'
+        />
+        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+          % comisión
+        </p>
       </div>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
-        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>Estado</p>
+        <CheckCircleRounded
+          className='mr-1.5 size-4 flex-shrink-0 text-[var(--color-neutral-500)]'
+          aria-hidden='true'
+        />
+        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+          Estado
+        </p>
       </div>
     </div>
   )
 }
 
+// Generate initials from name
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
+
 function TableRow({
   specialist,
   selected,
-  onToggle
+  onToggle,
+  onRowClick
 }: {
   specialist: Specialist
   selected: boolean
   onToggle: () => void
+  onRowClick: () => void
 }) {
+  const initials = getInitials(specialist.name)
+
   return (
     <div
-      className='grid grid-cols-[2.5rem_1fr_0.7fr_0.6fr_1fr_0.5fr_0.5fr_0.5fr] w-full h-[3rem]'
-      style={{ background: selected ? 'var(--color-brand-50)' : 'transparent' }}
+      className={`grid grid-cols-[2.5rem_1fr_0.7fr_0.6fr_1fr_0.5fr_0.5fr_0.5fr] w-full h-[3rem] cursor-pointer transition-colors ${
+        selected
+          ? 'bg-[var(--color-brand-50)] border-l-2 border-l-[var(--color-brand-500)]'
+          : 'hover:bg-[var(--color-neutral-50)] border-l-2 border-l-transparent'
+      }`}
+      onClick={onRowClick}
+      role='row'
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') onRowClick()
+      }}
     >
-      <div className='flex items-center border-b border-neutral-300 px-2 py-2'>
+      <div
+        className='flex items-center border-b border-neutral-300 px-2 py-2'
+        onClick={(e) => e.stopPropagation()}
+      >
         <input
           type='checkbox'
           checked={selected}
           onChange={onToggle}
-          className='size-4 accent-[#338f88] cursor-pointer'
+          className='size-4 accent-[var(--color-brand-500)] cursor-pointer'
           aria-label={`Seleccionar ${specialist.name}`}
         />
       </div>
       <div className='flex items-center gap-2 border-b border-neutral-300 px-2 py-2 min-w-0'>
-        <div className='size-8 rounded-full bg-neutral-200 flex-shrink-0' />
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>{specialist.name}</p>
+        <div
+          className={`size-8 rounded-full flex-shrink-0 flex items-center justify-center text-body-sm font-medium ${
+            colorToneStyles[specialist.colorTone].bg
+          } ${colorToneStyles[specialist.colorTone].text}`}
+        >
+          {initials}
+        </div>
+        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
+          {specialist.name}
+        </p>
       </div>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>{specialist.role}</p>
+        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
+          {specialist.role}
+        </p>
       </div>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>{specialist.phone}</p>
+        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
+          {specialist.phone}
+        </p>
       </div>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>{specialist.email}</p>
+        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
+          {specialist.email}
+        </p>
       </div>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
         <span
@@ -270,7 +369,9 @@ function TableRow({
         </span>
       </div>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>{specialist.commission}</p>
+        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
+          {specialist.commission}
+        </p>
       </div>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
         <span
@@ -296,17 +397,88 @@ function TableRow({
 export default function SpecialistsListPage() {
   const [showAddModal, setShowAddModal] = React.useState(false)
   const [data, setData] = React.useState<Specialist[]>(initialSpecialists)
-  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(
-    new Set(initialSpecialists.length ? [initialSpecialists[3]?.id ?? initialSpecialists[0].id] : [])
-  )
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
   const [editingId, setEditingId] = React.useState<string | null>(null)
 
-  const selectionCount = selectedIds.size
-  const allSelected = selectionCount > 0 && selectionCount === data.length
-  const indeterminate = selectionCount > 0 && selectionCount < data.length
-  const editingSpecialist = editingId ? data.find((s) => s.id === editingId) : undefined
+  // Search and filter state
+  const [search, setSearch] = React.useState('')
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all')
+  const [specialtyFilter, setSpecialtyFilter] =
+    React.useState<SpecialtyFilter>(null)
+  const [showFilterDropdown, setShowFilterDropdown] = React.useState(false)
+  const filterDropdownRef = useRef<HTMLDivElement>(null)
 
-  const toggleRow = (id: string) => {
+  // Get unique specialties from data
+  const uniqueSpecialties = useMemo(() => {
+    const roles = new Set(data.map((s) => s.role))
+    return Array.from(roles).sort()
+  }, [data])
+
+  // Filter data based on search and filters
+  const filteredData = useMemo(() => {
+    return data.filter((specialist) => {
+      // Search filter
+      const searchLower = search.toLowerCase().trim()
+      if (searchLower) {
+        const matchesSearch =
+          specialist.name.toLowerCase().includes(searchLower) ||
+          specialist.email.toLowerCase().includes(searchLower) ||
+          specialist.role.toLowerCase().includes(searchLower) ||
+          specialist.phone.includes(searchLower)
+        if (!matchesSearch) return false
+      }
+
+      // Status filter
+      if (statusFilter === 'active' && specialist.status !== 'Activo')
+        return false
+      if (statusFilter === 'inactive' && specialist.status !== 'Inactivo')
+        return false
+
+      // Specialty filter
+      if (specialtyFilter && specialist.role !== specialtyFilter) return false
+
+      return true
+    })
+  }, [data, search, statusFilter, specialtyFilter])
+
+  // Close filter dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        filterDropdownRef.current &&
+        !filterDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowFilterDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const selectionCount = selectedIds.size
+  const allSelected =
+    selectionCount > 0 && selectionCount === filteredData.length
+  const indeterminate =
+    selectionCount > 0 && selectionCount < filteredData.length
+  const editingSpecialist = editingId
+    ? data.find((s) => s.id === editingId)
+    : undefined
+
+  // Get current filter label
+  const getFilterLabel = (): string => {
+    if (specialtyFilter) return specialtyFilter
+    if (statusFilter === 'active') return 'Activos'
+    if (statusFilter === 'inactive') return 'Inactivos'
+    return 'Todos'
+  }
+
+  const clearFilters = useCallback(() => {
+    setStatusFilter('all')
+    setSpecialtyFilter(null)
+    setShowFilterDropdown(false)
+  }, [])
+
+  const toggleRow = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) {
@@ -316,18 +488,27 @@ export default function SpecialistsListPage() {
       }
       return next
     })
-  }
+  }, [])
 
-  const toggleAll = () => {
+  const toggleAll = useCallback(() => {
     setSelectedIds((prev) => {
-      if (prev.size === data.length) return new Set<string>()
-      return new Set(data.map((s) => s.id))
+      if (prev.size === filteredData.length) return new Set<string>()
+      return new Set(filteredData.map((s) => s.id))
     })
-  }
+  }, [filteredData])
+
+  const handleRowClick = useCallback((id: string) => {
+    setEditingId(id)
+    setShowAddModal(true)
+  }, [])
 
   const handleAddProfessional = (form: ProfessionalFormData) => {
     const colorTone: Specialist['colorTone'] =
-      form.color === 'morado' ? 'morado' : form.color === 'naranja' ? 'naranja' : 'verde'
+      form.color === 'morado'
+        ? 'morado'
+        : form.color === 'naranja'
+        ? 'naranja'
+        : 'verde'
 
     setData((prev) => [
       ...prev,
@@ -353,7 +534,11 @@ export default function SpecialistsListPage() {
 
   const handleEditProfessional = (form: ProfessionalFormData) => {
     const colorTone: Specialist['colorTone'] =
-      form.color === 'morado' ? 'morado' : form.color === 'naranja' ? 'naranja' : 'verde'
+      form.color === 'morado'
+        ? 'morado'
+        : form.color === 'naranja'
+        ? 'naranja'
+        : 'verde'
     setData((prev) =>
       prev.map((s) =>
         s.id === editingId
@@ -370,7 +555,10 @@ export default function SpecialistsListPage() {
                   ? 'Naranja'
                   : 'Verde',
               colorTone,
-              commission: form.comision && form.comision.trim() ? form.comision : s.commission,
+              commission:
+                form.comision && form.comision.trim()
+                  ? form.comision
+                  : s.commission,
               status: form.estado
             }
           : s
@@ -393,6 +581,30 @@ export default function SpecialistsListPage() {
     const onlyId = Array.from(selectedIds)[0]
     setEditingId(onlyId)
     setShowAddModal(true)
+  }
+
+  const handleDeactivateSelected = () => {
+    if (selectionCount === 0) return
+    setData((prev) =>
+      prev.map((s) =>
+        selectedIds.has(s.id) ? { ...s, status: 'Inactivo' as const } : s
+      )
+    )
+    setSelectedIds(new Set())
+  }
+
+  const handleDeleteSelected = () => {
+    if (selectionCount === 0) return
+    if (
+      window.confirm(
+        `¿Estás seguro de que quieres eliminar ${selectionCount} especialista${
+          selectionCount > 1 ? 's' : ''
+        }?`
+      )
+    ) {
+      setData((prev) => prev.filter((s) => !selectedIds.has(s.id)))
+      setSelectedIds(new Set())
+    }
   }
 
   const modalInitialData = editingSpecialist
@@ -420,8 +632,10 @@ export default function SpecialistsListPage() {
           aria-label='Nuevo especialista'
           onClick={() => setShowAddModal(true)}
         >
-          <img src={ICON_ADD} alt='' className='size-6' />
-          <span className='text-body-md text-[var(--color-neutral-900)] whitespace-nowrap'>Nuevo especialista</span>
+          <AddRounded className='size-6 text-[var(--color-neutral-900)]' />
+          <span className='text-body-md text-[var(--color-neutral-900)] whitespace-nowrap'>
+            Nuevo especialista
+          </span>
         </button>
       </div>
 
@@ -435,11 +649,14 @@ export default function SpecialistsListPage() {
                 <span className='text-body-sm'>
                   {selectionCount === 0
                     ? '0 seleccionado'
-                    : `${selectionCount} seleccionado${selectionCount > 1 ? 's' : ''}`}
+                    : `${selectionCount} seleccionado${
+                        selectionCount > 1 ? 's' : ''
+                      }`}
                 </span>
               </div>
               <button
                 type='button'
+                title='Editar especialista seleccionado'
                 className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-2 py-1 border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
                 onClick={selectionCount === 1 ? handleOpenEdit : undefined}
                 disabled={selectionCount !== 1}
@@ -448,79 +665,259 @@ export default function SpecialistsListPage() {
               </button>
               <button
                 type='button'
-                className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-2 py-1 border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors'
+                title='Desactivar especialistas seleccionados'
+                onClick={handleDeactivateSelected}
+                disabled={selectionCount === 0}
+                className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-2 py-1 border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
               >
                 <span className='text-body-sm'>Desactivar</span>
               </button>
               <button
                 type='button'
-                className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-2 py-1 border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors'
+                title='Eliminar especialistas seleccionados'
+                aria-label='Eliminar'
+                onClick={handleDeleteSelected}
+                disabled={selectionCount === 0}
+                className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-2 py-1 border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
               >
-                <img src={ICON_DELETE} alt='Eliminar' className='size-5' />
+                <DeleteRounded className='size-5 text-[var(--color-neutral-700)]' />
               </button>
               <button
                 type='button'
+                title='Más opciones'
+                aria-label='Más opciones'
                 className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-2 py-1 rounded-r border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors'
               >
-                <img src={ICON_MORE} alt='Más opciones' className='size-5' />
+                <MoreHorizRounded className='size-5 text-[var(--color-neutral-700)]' />
               </button>
             </div>
 
             <div className='flex items-center gap-2'>
-              <button
-                type='button'
-                className='flex items-center justify-center size-8 rounded-full hover:bg-neutral-100 transition-colors'
-                aria-label='Buscar'
-              >
-                <img src={ICON_SEARCH} alt='' className='size-6' />
-              </button>
-              <button
-                type='button'
-                className='flex items-center gap-1 px-2 py-1 rounded-full border border-[var(--color-neutral-700)] hover:bg-neutral-100 transition-colors'
-              >
-                <img src={ICON_FILTER} alt='' className='size-6' />
-                <span className='text-body-sm text-[var(--color-neutral-700)]'>Todos</span>
-              </button>
+              {/* Search Input */}
+              <div className='relative'>
+                <SearchRounded className='absolute left-2.5 top-1/2 -translate-y-1/2 size-5 text-[var(--color-neutral-500)]' />
+                <input
+                  type='search'
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder='Buscar especialistas...'
+                  aria-label='Buscar especialistas'
+                  className='h-8 w-40 lg:w-48 rounded-full pl-9 pr-3 text-body-sm border border-neutral-300 outline-none bg-[var(--color-page-bg)] focus:border-[var(--color-brand-500)] focus:ring-1 focus:ring-[var(--color-brand-500)] transition-colors placeholder:text-[var(--color-neutral-400)]'
+                />
+                {search && (
+                  <button
+                    type='button'
+                    onClick={() => setSearch('')}
+                    className='absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-neutral-100 rounded-full transition-colors'
+                    aria-label='Limpiar búsqueda'
+                  >
+                    <CloseRounded className='size-4 text-[var(--color-neutral-500)]' />
+                  </button>
+                )}
+              </div>
+
+              {/* Filter Dropdown */}
+              <div className='relative' ref={filterDropdownRef}>
+                <button
+                  type='button'
+                  aria-label='Filtrar especialistas'
+                  aria-expanded={showFilterDropdown}
+                  aria-haspopup='listbox'
+                  onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full border transition-colors ${
+                    statusFilter !== 'all' || specialtyFilter
+                      ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-50)] text-[var(--color-brand-700)]'
+                      : 'border-neutral-300 hover:bg-neutral-100 text-[var(--color-neutral-700)]'
+                  }`}
+                >
+                  <FilterListRounded className='size-5' />
+                  <span className='text-body-sm'>{getFilterLabel()}</span>
+                  <KeyboardArrowDownRounded
+                    className={`size-5 transition-transform ${
+                      showFilterDropdown ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {showFilterDropdown && (
+                  <div
+                    className='absolute right-0 top-full mt-1 w-48 bg-[var(--color-surface)] border border-neutral-200 rounded-lg shadow-lg z-20 py-1'
+                    role='listbox'
+                  >
+                    <p className='px-3 py-1.5 text-label-sm text-[var(--color-neutral-500)] font-medium'>
+                      Estado
+                    </p>
+                    <button
+                      type='button'
+                      role='option'
+                      aria-selected={statusFilter === 'all' && !specialtyFilter}
+                      onClick={() => {
+                        clearFilters()
+                      }}
+                      className={`w-full text-left px-3 py-2 text-body-sm hover:bg-neutral-50 transition-colors ${
+                        statusFilter === 'all' && !specialtyFilter
+                          ? 'text-[var(--color-brand-600)] bg-[var(--color-brand-50)]'
+                          : 'text-[var(--color-neutral-700)]'
+                      }`}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type='button'
+                      role='option'
+                      aria-selected={statusFilter === 'active'}
+                      onClick={() => {
+                        setStatusFilter('active')
+                        setSpecialtyFilter(null)
+                        setShowFilterDropdown(false)
+                      }}
+                      className={`w-full text-left px-3 py-2 text-body-sm hover:bg-neutral-50 transition-colors ${
+                        statusFilter === 'active'
+                          ? 'text-[var(--color-brand-600)] bg-[var(--color-brand-50)]'
+                          : 'text-[var(--color-neutral-700)]'
+                      }`}
+                    >
+                      Activos
+                    </button>
+                    <button
+                      type='button'
+                      role='option'
+                      aria-selected={statusFilter === 'inactive'}
+                      onClick={() => {
+                        setStatusFilter('inactive')
+                        setSpecialtyFilter(null)
+                        setShowFilterDropdown(false)
+                      }}
+                      className={`w-full text-left px-3 py-2 text-body-sm hover:bg-neutral-50 transition-colors ${
+                        statusFilter === 'inactive'
+                          ? 'text-[var(--color-brand-600)] bg-[var(--color-brand-50)]'
+                          : 'text-[var(--color-neutral-700)]'
+                      }`}
+                    >
+                      Inactivos
+                    </button>
+
+                    <div className='border-t border-neutral-200 my-1' />
+
+                    <p className='px-3 py-1.5 text-label-sm text-[var(--color-neutral-500)] font-medium'>
+                      Especialidad
+                    </p>
+                    {uniqueSpecialties.map((specialty) => (
+                      <button
+                        key={specialty}
+                        type='button'
+                        role='option'
+                        aria-selected={specialtyFilter === specialty}
+                        onClick={() => {
+                          setSpecialtyFilter(specialty)
+                          setStatusFilter('all')
+                          setShowFilterDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-body-sm hover:bg-neutral-50 transition-colors ${
+                          specialtyFilter === specialty
+                            ? 'text-[var(--color-brand-600)] bg-[var(--color-brand-50)]'
+                            : 'text-[var(--color-neutral-700)]'
+                        }`}
+                      >
+                        {specialty}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Table with scroll */}
-          <div className='flex-1 overflow-auto px-[min(1.5rem,2vw)] pb-[min(1.5rem,2vh)]'>
-            <div className='border border-neutral-300 rounded overflow-hidden'>
-              <TableHeader allSelected={allSelected} indeterminate={indeterminate} onToggleAll={toggleAll} />
-              {data.map((s) => (
-                <TableRow
-                  key={s.id}
-                  specialist={s}
-                  selected={selectedIds.has(s.id)}
-                  onToggle={() => toggleRow(s.id)}
+          <div className='flex-1 min-h-0 px-[min(1.5rem,2vw)] pb-[min(1.5rem,2vh)]'>
+            {filteredData.length === 0 ? (
+              /* Empty State */
+              <div className='flex flex-col items-center justify-center py-16 border border-neutral-300 rounded bg-[var(--color-surface)]'>
+                <PersonRounded className='size-12 text-[var(--color-neutral-300)]' />
+                <p className='text-body-md text-[var(--color-neutral-500)] mt-4'>
+                  {search || statusFilter !== 'all' || specialtyFilter
+                    ? 'No se encontraron especialistas con los filtros aplicados'
+                    : 'No hay especialistas registrados'}
+                </p>
+                {(search || statusFilter !== 'all' || specialtyFilter) && (
+                  <button
+                    type='button'
+                    onClick={() => {
+                      setSearch('')
+                      clearFilters()
+                    }}
+                    className='mt-4 px-4 py-2 text-body-sm text-[var(--color-brand-600)] hover:bg-[var(--color-brand-50)] rounded-lg transition-colors'
+                  >
+                    Limpiar filtros
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className='border border-neutral-300 rounded overflow-auto h-full'>
+                <TableHeader
+                  allSelected={allSelected}
+                  indeterminate={indeterminate}
+                  onToggleAll={toggleAll}
                 />
-              ))}
-            </div>
+                {filteredData.map((s) => (
+                  <TableRow
+                    key={s.id}
+                    specialist={s}
+                    selected={selectedIds.has(s.id)}
+                    onToggle={() => toggleRow(s.id)}
+                    onRowClick={() => handleRowClick(s.id)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Pagination */}
           <div className='flex-none flex items-center justify-end gap-3 px-[min(1.5rem,2vw)] pb-[min(1rem,1.5vh)] text-[var(--color-neutral-700)]'>
             <div className='flex items-center gap-1'>
-              <button type='button' className='p-1 hover:bg-neutral-100 rounded transition-colors'>
-                <img src={ICON_FIRST} alt='Primera página' className='size-6' />
+              <button
+                type='button'
+                aria-label='Primera página'
+                className='p-1 hover:bg-neutral-100 rounded transition-colors'
+              >
+                <FirstPageRounded className='size-6 text-[var(--color-neutral-600)]' />
               </button>
-              <button type='button' className='p-1 hover:bg-neutral-100 rounded transition-colors'>
-                <img src={ICON_PREV} alt='Anterior' className='size-6' />
+              <button
+                type='button'
+                aria-label='Página anterior'
+                className='p-1 hover:bg-neutral-100 rounded transition-colors'
+              >
+                <ChevronLeftRounded className='size-6 text-[var(--color-neutral-600)]' />
               </button>
             </div>
             <div className='flex items-center gap-1.5'>
-              <span className='text-body-sm font-bold underline text-[var(--color-neutral-900)]'>1</span>
-              <span className='text-body-sm text-[var(--color-neutral-500)]'>2</span>
-              <span className='text-body-sm text-[var(--color-neutral-500)]'>...</span>
-              <span className='text-body-sm text-[var(--color-neutral-500)]'>12</span>
+              <span className='text-body-sm font-bold underline text-[var(--color-neutral-900)]'>
+                1
+              </span>
+              <span className='text-body-sm text-[var(--color-neutral-500)]'>
+                2
+              </span>
+              <span className='text-body-sm text-[var(--color-neutral-500)]'>
+                ...
+              </span>
+              <span className='text-body-sm text-[var(--color-neutral-500)]'>
+                12
+              </span>
             </div>
             <div className='flex items-center gap-1'>
-              <button type='button' className='p-1 hover:bg-neutral-100 rounded transition-colors'>
-                <img src={ICON_NEXT} alt='Siguiente' className='size-6' />
+              <button
+                type='button'
+                aria-label='Página siguiente'
+                className='p-1 hover:bg-neutral-100 rounded transition-colors'
+              >
+                <ChevronRightRounded className='size-6 text-[var(--color-neutral-600)]' />
               </button>
-              <button type='button' className='p-1 hover:bg-neutral-100 rounded transition-colors'>
-                <img src={ICON_LAST} alt='Última página' className='size-6' />
+              <button
+                type='button'
+                aria-label='Última página'
+                className='p-1 hover:bg-neutral-100 rounded transition-colors'
+              >
+                <LastPageRounded className='size-6 text-[var(--color-neutral-600)]' />
               </button>
             </div>
           </div>

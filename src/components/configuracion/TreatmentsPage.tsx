@@ -4595,10 +4595,11 @@ export default function TreatmentsPage() {
                     {searchVisible ? (
                       <div className='relative'>
                         <input
-                          type='text'
+                          type='search'
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          placeholder='Buscar...'
+                          placeholder='Buscar tratamientos...'
+                          aria-label='Buscar tratamientos'
                           className='h-8 w-40 rounded-full px-3 pr-8 text-body-sm border border-[var(--color-neutral-700)] outline-none bg-[var(--color-page-bg)] focus:border-[var(--color-brand-500)] focus:ring-1 focus:ring-[var(--color-brand-500)] transition-colors'
                           autoFocus
                         />
@@ -4695,13 +4696,14 @@ export default function TreatmentsPage() {
                   {qbSearchVisible ? (
                     <div className='relative'>
                       <input
-                        type='text'
+                        type='search'
                         value={qbSearchTerm}
                         onChange={(e) => {
                           setQbSearchTerm(e.target.value)
                           setQbCurrentPage(1)
                         }}
-                        placeholder='Buscar...'
+                        placeholder='Buscar paquetes...'
+                        aria-label='Buscar paquetes de presupuesto'
                         className='h-8 w-40 rounded-full px-3 pr-8 text-body-sm border border-[var(--color-neutral-700)] outline-none bg-[var(--color-page-bg)] focus:border-[var(--color-brand-500)] focus:ring-1 focus:ring-[var(--color-brand-500)] transition-colors'
                         autoFocus
                       />
@@ -4799,13 +4801,14 @@ export default function TreatmentsPage() {
                   {discSearchVisible ? (
                     <div className='relative'>
                       <input
-                        type='text'
+                        type='search'
                         value={discSearchTerm}
                         onChange={(e) => {
                           setDiscSearchTerm(e.target.value)
                           setDiscCurrentPage(1)
                         }}
-                        placeholder='Buscar...'
+                        placeholder='Buscar descuentos...'
+                        aria-label='Buscar descuentos'
                         className='h-8 w-40 rounded-full px-3 pr-8 text-body-sm border border-[var(--color-neutral-700)] outline-none bg-[var(--color-page-bg)] focus:border-[var(--color-brand-500)] focus:ring-1 focus:ring-[var(--color-brand-500)] transition-colors'
                         autoFocus
                       />

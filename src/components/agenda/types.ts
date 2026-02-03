@@ -9,9 +9,9 @@ export type Weekday =
 
 // Re-export block types from context for convenience
 export type {
+  AgendaBlock,
   BlockType,
-  RecurrencePattern,
-  AgendaBlock
+  RecurrencePattern
 } from '@/context/AppointmentsContext'
 
 export { BLOCK_TYPE_CONFIG } from '@/context/AppointmentsContext'
@@ -172,6 +172,21 @@ export type AgendaEvent = {
     description: string
     amount: string
   }[] // Tratamientos vinculados a esta cita
+  // Campos para citas creadas por el agente de voz
+  createdByVoiceAgent?: boolean // Marca que fue creada por IA
+  voiceAgentCallId?: string // ID de la llamada vinculada
+  voiceAgentData?: {
+    callSummary: string
+    patientSentiment:
+      | 'aliviado'
+      | 'nervioso'
+      | 'enfadado'
+      | 'contento'
+      | 'preocupado'
+    callDuration: string
+    callIntent: string
+    transcriptionAvailable: boolean
+  }
 }
 
 export type DayColumn = {

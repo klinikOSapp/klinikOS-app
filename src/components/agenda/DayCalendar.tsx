@@ -5,10 +5,19 @@
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import RegisterPaymentModal from '@/components/pacientes/modals/patient-record/RegisterPaymentModal'
-import { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react'
 
 import Portal from '@/components/ui/Portal'
 import { useAppointments } from '@/context/AppointmentsContext'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import AgendaBlockCard from './AgendaBlockCard'
 import AppointmentContextMenu, {
   type ContextMenuAction
@@ -225,7 +234,8 @@ const TIME_LABELS = [
   '20:00'
 ]
 
-const BOX_HEADERS = [
+// Default box headers - will be overridden by ConfigurationContext
+const DEFAULT_BOX_HEADERS = [
   { id: 'box-1', label: 'BOX 1', tone: 'neutral' as const },
   { id: 'box-2', label: 'BOX 2', tone: 'neutral' as const },
   { id: 'box-3', label: 'BOX 3', tone: 'neutral' as const }
@@ -236,11 +246,12 @@ const boxIdToName = (boxId: string): string => boxId.replace('-', ' ')
 
 // Function to calculate dynamic box layout based on selected boxes
 const getBoxLayout = (
-  selectedBoxes: string[]
+  selectedBoxes: string[],
+  boxHeaders: typeof DEFAULT_BOX_HEADERS = DEFAULT_BOX_HEADERS
 ): Record<string, { left: string; width: string }> => {
-  // Filter to only include boxes that exist in BOX_HEADERS
+  // Filter to only include boxes that exist in boxHeaders
   const validBoxes = selectedBoxes.filter((id) =>
-    BOX_HEADERS.some((opt) => opt.id === id)
+    boxHeaders.some((opt) => opt.id === id)
   )
 
   if (validBoxes.length === 0) {
@@ -293,6 +304,8 @@ type DayEvent = {
   completed?: boolean // Indica si la cita ya se ha realizado
   confirmed?: boolean // Indica si el paciente confirmó la cita
   visitStatus?: VisitStatus // Estado de visita del paciente
+  createdByVoiceAgent?: boolean // Indica si fue creada por el agente de voz (IA)
+  voiceAgentCallId?: string // ID de la llamada vinculada
 }
 
 type DayEventSelection = {
@@ -703,7 +716,11 @@ function TimeColumn({ period = 'full' }: { period?: DayPeriodType }) {
   )
 }
 
-function BoxHeaders({ visibleBoxes }: { visibleBoxes: typeof BOX_HEADERS }) {
+function BoxHeaders({
+  visibleBoxes
+}: {
+  visibleBoxes: typeof DEFAULT_BOX_HEADERS
+}) {
   return (
     <div
       className='sticky top-0 z-10 flex w-full border-b border-[var(--color-border-default)] bg-[var(--color-neutral-50)]'
@@ -846,11 +863,16 @@ function DayEvent({
   // Animación pulsante para estado "Llamar"
   const isPulsing = visitStatus === 'call_patient'
 
-  // Estados de borde/sombra - Azul para confirmadas (igual que vista semanal)
+  // Determinar si es cita creada por agente de voz (IA)
+  const isVoiceAgentAppointment = event.createdByVoiceAgent === true
+
+  // Estados de borde/sombra - Rosa para IA, Azul para confirmadas
   const stateClasses = isActive
     ? 'border-[var(--color-brand-500)] shadow-[0px_4px_12px_rgba(81,214,199,0.35)]'
     : isHovered
     ? 'border-[var(--color-brand-500)]'
+    : isVoiceAgentAppointment
+    ? 'border-[#EC4899] border-2 shadow-[0_0_0_1px_rgba(236,72,153,0.2)]'
     : isConfirmed
     ? 'border-[#3B82F6] shadow-[0_0_0_1px_rgba(59,130,246,0.15)]'
     : 'border-[var(--color-border)]'
@@ -961,16 +983,30 @@ function DayEvent({
           <div className='flex min-w-0 flex-1 flex-col gap-[0.375rem]'>
             {/* Nombre del paciente - Negrita */}
             {patient && (
-              <p
-                className='font-bold text-[var(--color-neutral-900)]'
-                style={{
-                  fontSize: '0.875rem',
-                  lineHeight: '1.25rem',
-                  ...clampStyle(1)
-                }}
-              >
-                {patient}
-              </p>
+              <div className='flex items-center gap-1.5'>
+                {/* Indicador de cita creada por agente de voz (IA) */}
+                {isVoiceAgentAppointment && (
+                  <span
+                    className='inline-flex shrink-0 items-center justify-center rounded bg-[var(--color-event-ai-bg)] px-1 py-0.5 text-[0.5rem] font-bold text-[var(--color-event-ai)]'
+                    title='Cita creada por agente de voz'
+                  >
+                    <span className='material-symbols-rounded text-xs mr-0.5'>
+                      smart_toy
+                    </span>
+                    IA
+                  </span>
+                )}
+                <p
+                  className='font-bold text-[var(--color-neutral-900)]'
+                  style={{
+                    fontSize: '0.875rem',
+                    lineHeight: '1.25rem',
+                    ...clampStyle(1)
+                  }}
+                >
+                  {patient}
+                </p>
+              </div>
             )}
             {/* Tratamiento - Cursiva */}
             <p
@@ -1214,6 +1250,7 @@ function DayGrid({
   visitStatusMap,
   onVisitStatusChange,
   showConfirmedOnly = false,
+  showAIOnly = false,
   blocks = [],
   onEditBlock,
   onDeleteBlock,
@@ -1262,6 +1299,7 @@ function DayGrid({
   visitStatusMap?: Record<string, VisitStatus>
   onVisitStatusChange?: (eventId: string, newStatus: VisitStatus) => void
   showConfirmedOnly?: boolean
+  showAIOnly?: boolean // Filter for AI-created appointments
   // Block-related props
   blocks?: DayBlock[]
   onEditBlock?: (blockId: string) => void
@@ -1352,7 +1390,11 @@ function DayGrid({
             confirmedEvents?.[event.id] ?? event.confirmed ?? false
           const confirmedMatch = !showConfirmedOnly || isConfirmed
 
-          if (professionalMatch && confirmedMatch) {
+          // Filter by AI-created (if showAIOnly is true)
+          const isAICreated = event.createdByVoiceAgent === true
+          const aiMatch = !showAIOnly || isAICreated
+
+          if (professionalMatch && confirmedMatch && aiMatch) {
             // Adjust event top position for the period
             const adjustedEvent = {
               ...event,
@@ -1687,6 +1729,8 @@ type ExternalAppointment = {
   box?: string
   bgColor?: string
   detail?: EventDetail // Incluye notas y otra información del evento
+  createdByVoiceAgent?: boolean // Indica si fue creada por el agente de voz (IA)
+  voiceAgentCallId?: string // ID de la llamada vinculada
 }
 
 // Tipo para bandas de profesionales dinámicas
@@ -1721,6 +1765,8 @@ interface DayCalendarProps {
   onVisitStatusChange?: (appointmentId: string, newStatus: VisitStatus) => void
   /** Filtrar solo citas confirmadas */
   showConfirmedOnly?: boolean
+  /** Filtrar solo citas creadas por IA */
+  showAIOnly?: boolean
   /** Callback para editar un bloqueo */
   onEditBlock?: (blockId: string) => void
   /** Callback para eliminar un bloqueo */
@@ -1810,7 +1856,10 @@ function buildEventsFromAppointments(
         appt.detail ??
         createEventDetail(`${appt.start} ${title}`, appt.box ?? 'Box 1'),
       box: appt.box ?? boxId,
-      height
+      height,
+      // Propiedades del agente de voz (IA)
+      createdByVoiceAgent: appt.createdByVoiceAgent,
+      voiceAgentCallId: appt.voiceAgentCallId
     }
 
     // Add event to the correct slot and box
@@ -1837,23 +1886,43 @@ export default function DayCalendar({
   currentDate,
   bands = DAILY_BANDS,
   onAppointmentMove,
-  selectedBoxes = BOX_HEADERS.map((b) => b.id), // Default to all boxes
+  selectedBoxes: selectedBoxesProp,
   selectedProfessionals = [], // Empty means all professionals
   onOpenCreateAppointment,
   onVisitStatusChange,
   showConfirmedOnly = false,
+  showAIOnly = false,
   onEditBlock,
   onDeleteBlock
 }: DayCalendarProps) {
+  // Router for navigation (e.g., to voice agent page)
+  const router = useRouter()
+
   // Get blocks from context
   const { getBlocksByDate, deleteBlock } = useAppointments()
 
+  // Get boxes from configuration context
+  const { activeBoxes } = useConfiguration()
+
+  // Transform active boxes to match the expected format
+  const effectiveBoxHeaders = useMemo(
+    () =>
+      activeBoxes.length > 0
+        ? activeBoxes.map((b) => ({ id: b.id, label: b.label, tone: b.tone }))
+        : DEFAULT_BOX_HEADERS,
+    [activeBoxes]
+  )
+
+  // Use prop if provided, otherwise default to all boxes from config
+  const selectedBoxes =
+    selectedBoxesProp ?? effectiveBoxHeaders.map((b) => b.id)
+
   // Get visible boxes based on filter
-  const visibleBoxes = BOX_HEADERS.filter((box) =>
+  const visibleBoxes = effectiveBoxHeaders.filter((box) =>
     selectedBoxes.includes(box.id)
   )
   const boxCount = visibleBoxes.length || 1
-  const boxLayout = getBoxLayout(selectedBoxes)
+  const boxLayout = getBoxLayout(selectedBoxes, effectiveBoxHeaders)
   const [hovered, setHovered] = useState<DayEventSelection>(null)
   const [active, setActive] = useState<DayEventSelection>(null)
   const [localEvents, setLocalEvents] = useState<TimeSlot[]>([])
@@ -2177,11 +2246,18 @@ export default function DayCalendar({
             patientName: detail?.patientFull || 'Paciente'
           })
           break
+
+        case 'view-voice-call':
+          // Navegar al agente de voz con el ID de la llamada para abrir el detalle
+          if (event.voiceAgentCallId) {
+            router.push(`/agente-voz?callId=${event.voiceAgentCallId}`)
+          }
+          break
       }
 
       setContextMenu(null)
     },
-    [contextMenu, onOpenCreateAppointment]
+    [contextMenu, onOpenCreateAppointment, router]
   )
 
   // === Quick appointment creation handlers ===
@@ -2201,6 +2277,14 @@ export default function DayCalendar({
   // Handle slot drag start
   const handleSlotDragStart = useCallback(
     (slotIndex: number, boxId: string, clientY: number) => {
+      // If there's an active overlay (appointment details), only close it
+      // Don't start drag selection to create a new appointment
+      if (active) {
+        setActive(null)
+        setHovered(null)
+        return
+      }
+
       setSlotDragState({
         startSlot: slotIndex,
         currentSlot: slotIndex,
@@ -2208,11 +2292,10 @@ export default function DayCalendar({
         isDragging: true,
         startY: clientY
       })
-      // Clear any hover/active state
+      // Clear any hover state
       setHovered(null)
-      setActive(null)
     },
-    []
+    [active]
   )
 
   // Handle slot drag move
@@ -2519,7 +2602,7 @@ export default function DayCalendar({
         const relX = x - gridRect.left
         const boxIndex = Math.max(0, Math.min(2, Math.floor(relX / boxWidth)))
         const targetBoxId: BoxId = (['box1', 'box2', 'box3'] as const)[boxIndex]
-        const targetBox = BOX_HEADERS[boxIndex]?.label ?? 'BOX 1'
+        const targetBox = DEFAULT_BOX_HEADERS[boxIndex]?.label ?? 'BOX 1'
 
         // Calcular tiempos (igual que vista semanal)
         const startTime = slotToTime(newSlot)
@@ -2640,7 +2723,7 @@ export default function DayCalendar({
       const boxWidth = gridRect.width / 3
       const relX = x - gridRect.left
       const boxIndex = Math.max(0, Math.min(2, Math.floor(relX / boxWidth)))
-      const targetBox = BOX_HEADERS[boxIndex]?.label ?? 'BOX 1'
+      const targetBox = DEFAULT_BOX_HEADERS[boxIndex]?.label ?? 'BOX 1'
 
       // Calcular tiempos finales (igual que vista semanal)
       const startTime = slotToTime(newSlot)
@@ -2752,6 +2835,7 @@ export default function DayCalendar({
         visitStatusMap={visitStatusMap}
         onVisitStatusChange={handleVisitStatusChange}
         showConfirmedOnly={showConfirmedOnly}
+        showAIOnly={showAIOnly}
         // Block-related props
         blocks={visualBlocks}
         onEditBlock={onEditBlock}
@@ -2965,6 +3049,8 @@ export default function DayCalendar({
           onToggleConfirmed={(confirmed) =>
             handleToggleConfirmed(contextMenu.event.id, confirmed)
           }
+          createdByVoiceAgent={contextMenu.event.createdByVoiceAgent}
+          voiceAgentCallId={contextMenu.event.voiceAgentCallId}
         />
       )}
     </div>

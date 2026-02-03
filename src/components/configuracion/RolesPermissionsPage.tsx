@@ -1,7 +1,11 @@
 'use client'
 
-import React, { useCallback, useMemo, useState } from 'react'
-import { AddRounded, SearchRounded, FilterAltRounded } from '@/components/icons/md3'
+import {
+  AddRounded,
+  FilterAltRounded,
+  SearchRounded
+} from '@/components/icons/md3'
+import { useCallback, useMemo, useState } from 'react'
 import SpecialistListModal from './SpecialistListModal'
 
 // Types
@@ -130,11 +134,13 @@ const initialPermissions: Permission[] = [
 
 export default function RolesPermissionsPage() {
   const [activeTab, setActiveTab] = useState<'roles' | 'permisos'>('roles')
-  const [roles] = useState<Role[]>(initialRoles)
+  const [roles, setRoles] = useState<Role[]>(initialRoles)
   const [permissions] = useState<Permission[]>(initialPermissions)
   const [search, setSearch] = useState('')
   const [showSpecialistModal, setShowSpecialistModal] = useState(false)
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
+  const [showAddRoleModal, setShowAddRoleModal] = useState(false)
+  const [newRoleName, setNewRoleName] = useState('')
 
   // Filter roles
   const filteredRoles = useMemo(() => {
@@ -156,9 +162,21 @@ export default function RolesPermissionsPage() {
   }, [permissions, search])
 
   const handleAddRole = useCallback(() => {
-    // TODO: Open modal to add new role
-    console.log('Add new role')
+    setNewRoleName('')
+    setShowAddRoleModal(true)
   }, [])
+
+  const handleSaveRole = useCallback(() => {
+    if (!newRoleName.trim()) return
+    const newRole: Role = {
+      id: `r${Date.now()}`,
+      nombre: newRoleName.trim(),
+      usuariosAsignados: 0
+    }
+    setRoles((prev) => [...prev, newRole])
+    setShowAddRoleModal(false)
+    setNewRoleName('')
+  }, [newRoleName])
 
   const handleViewUserList = useCallback((role: Role) => {
     setSelectedRole(role)
@@ -170,7 +188,8 @@ export default function RolesPermissionsPage() {
     setSelectedRole(null)
   }, [])
 
-  const resultCount = activeTab === 'roles' ? filteredRoles.length : filteredPermissions.length
+  const resultCount =
+    activeTab === 'roles' ? filteredRoles.length : filteredPermissions.length
 
   return (
     <>
@@ -233,7 +252,9 @@ export default function RolesPermissionsPage() {
                   className='flex items-center gap-0.5 px-2 py-1 rounded-full border border-[var(--color-neutral-700)] hover:bg-neutral-100 transition-colors cursor-pointer'
                 >
                   <FilterAltRounded className='size-6 text-[var(--color-neutral-700)]' />
-                  <span className='text-body-sm text-[var(--color-neutral-700)]'>Todos</span>
+                  <span className='text-body-sm text-[var(--color-neutral-700)]'>
+                    Todos
+                  </span>
                 </button>
               </div>
             </div>
@@ -353,6 +374,73 @@ export default function RolesPermissionsPage() {
         roleName={selectedRole?.nombre ?? ''}
         specialists={[]}
       />
+
+      {/* Add Role Modal */}
+      {showAddRoleModal && (
+        <div
+          className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'
+          onClick={() => setShowAddRoleModal(false)}
+        >
+          <div
+            className='w-[min(24rem,95vw)] bg-white rounded-xl shadow-xl overflow-hidden'
+            onClick={(e) => e.stopPropagation()}
+            role='dialog'
+            aria-modal='true'
+            aria-labelledby='add-role-title'
+          >
+            <div className='flex items-center justify-between px-6 py-4 border-b border-neutral-200'>
+              <h2
+                id='add-role-title'
+                className='text-title-lg font-medium text-[var(--color-neutral-900)]'
+              >
+                Nuevo rol
+              </h2>
+              <button
+                type='button'
+                onClick={() => setShowAddRoleModal(false)}
+                className='text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-700)]'
+                aria-label='Cerrar'
+              >
+                ✕
+              </button>
+            </div>
+            <div className='p-6'>
+              <label
+                htmlFor='role-name'
+                className='block text-body-sm font-medium text-[var(--color-neutral-700)] mb-2'
+              >
+                Nombre del rol
+              </label>
+              <input
+                id='role-name'
+                type='text'
+                value={newRoleName}
+                onChange={(e) => setNewRoleName(e.target.value)}
+                placeholder='Ej: Recepcionista'
+                className='w-full h-11 px-3 rounded-lg border border-neutral-300 text-body-md text-[var(--color-neutral-900)] outline-none focus:border-[var(--color-brand-500)] focus:ring-2 focus:ring-[var(--color-brand-100)]'
+                autoFocus
+              />
+            </div>
+            <div className='flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-200 bg-neutral-50'>
+              <button
+                type='button'
+                onClick={() => setShowAddRoleModal(false)}
+                className='px-4 py-2 text-body-md font-medium text-[var(--color-neutral-700)] rounded-lg hover:bg-neutral-100 transition-colors'
+              >
+                Cancelar
+              </button>
+              <button
+                type='button'
+                onClick={handleSaveRole}
+                disabled={!newRoleName.trim()}
+                className='px-4 py-2 text-body-md font-medium text-white bg-[var(--color-brand-500)] rounded-lg hover:bg-[var(--color-brand-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+              >
+                Crear rol
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -15,6 +15,7 @@ import {
   VisibilityOffOutlined,
   VisibilityOutlined
 } from '@/components/icons/md3'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import React, { useCallback, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -282,7 +283,7 @@ function ExpenseActionsMenu({
   )
 }
 
-// Edit Expense Modal
+// Edit/Create Expense Modal
 function EditExpenseModal({
   open,
   onClose,
@@ -292,14 +293,29 @@ function EditExpenseModal({
   open: boolean
   onClose: () => void
   expense: Expense | null
-  onSave: (updatedExpense: Expense) => void
+  onSave: (updatedExpense: Expense, isNew: boolean) => void
 }) {
+  const isNew = expense === null
   const [formData, setFormData] = useState<Expense | null>(null)
 
   // Reset form when modal opens with new data
   React.useEffect(() => {
-    if (open && expense) {
-      setFormData({ ...expense })
+    if (open) {
+      if (expense) {
+        setFormData({ ...expense })
+      } else {
+        // Initialize empty form for new expense
+        setFormData({
+          id: `exp-${Date.now()}`,
+          nombre: '',
+          importe: 0,
+          frecuencia: 'Mensual',
+          categoria: 'Otros',
+          fechaVencimiento: new Date().toISOString().split('T')[0],
+          estado: 'Pendiente',
+          archivado: false
+        })
+      }
     }
   }, [open, expense])
 
@@ -308,7 +324,7 @@ function EditExpenseModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (formData) {
-      onSave(formData)
+      onSave(formData, isNew)
       onClose()
     }
   }
@@ -331,7 +347,9 @@ function EditExpenseModal({
       <div className='relative bg-white rounded-lg w-[min(36rem,92vw)] overflow-hidden'>
         {/* Header */}
         <div className='flex items-center justify-between h-14 px-8 border-b border-neutral-300'>
-          <h2 className='text-title-md text-neutral-900'>Editar gasto</h2>
+          <h2 className='text-title-md text-neutral-900'>
+            {isNew ? 'Nuevo gasto' : 'Editar gasto'}
+          </h2>
           <button
             type='button'
             onClick={onClose}
@@ -508,7 +526,7 @@ function EditExpenseModal({
             </button>
             <button
               type='submit'
-              className='px-4 py-2 rounded-[8.5rem] bg-brand-500 text-white text-title-sm hover:bg-brand-600 transition-colors cursor-pointer'
+              className='px-4 py-2 rounded-[8.5rem] bg-[var(--color-brand-500)] text-white text-title-sm hover:bg-[var(--color-brand-600)] transition-colors cursor-pointer'
             >
               Guardar cambios
             </button>
@@ -707,6 +725,10 @@ export default function FinancesExpensesPage() {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
 
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null)
+
   // Filter expenses
   const filteredExpenses = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -742,8 +764,9 @@ export default function FinancesExpensesPage() {
   }, [])
 
   const handleAddExpense = useCallback(() => {
-    // TODO: Open modal to add new expense
-    console.log('Add new expense')
+    // Open modal to add new expense (null expense means create mode)
+    setEditingExpense(null)
+    setEditModalOpen(true)
   }, [])
 
   // Handler to open actions menu
@@ -766,12 +789,19 @@ export default function FinancesExpensesPage() {
     setEditModalOpen(true)
   }, [])
 
-  // Handler to save edited expense
-  const handleSaveExpense = useCallback((updatedExpense: Expense) => {
-    setExpenses((prev) =>
-      prev.map((e) => (e.id === updatedExpense.id ? updatedExpense : e))
-    )
-  }, [])
+  // Handler to save edited or new expense
+  const handleSaveExpense = useCallback(
+    (updatedExpense: Expense, isNew: boolean) => {
+      if (isNew) {
+        setExpenses((prev) => [...prev, updatedExpense])
+      } else {
+        setExpenses((prev) =>
+          prev.map((e) => (e.id === updatedExpense.id ? updatedExpense : e))
+        )
+      }
+    },
+    []
+  )
 
   // Handler to toggle archive status
   const handleToggleArchive = useCallback((expense: Expense) => {
@@ -784,17 +814,20 @@ export default function FinancesExpensesPage() {
     )
   }, [])
 
-  // Handler to delete expense
+  // Handler to open delete confirmation dialog
   const handleDeleteExpense = useCallback((expense: Expense) => {
-    // Show confirmation dialog
-    if (
-      window.confirm(
-        `¿Estás seguro de que quieres eliminar el gasto "${expense.nombre}"?`
-      )
-    ) {
-      setExpenses((prev) => prev.filter((e) => e.id !== expense.id))
-    }
+    setExpenseToDelete(expense)
+    setDeleteDialogOpen(true)
+    setActiveMenu(null) // Close the actions menu
   }, [])
+
+  // Handler to confirm deletion
+  const confirmDeleteExpense = useCallback(() => {
+    if (expenseToDelete) {
+      setExpenses((prev) => prev.filter((e) => e.id !== expenseToDelete.id))
+      setExpenseToDelete(null)
+    }
+  }, [expenseToDelete])
 
   return (
     <>
@@ -896,59 +929,78 @@ export default function FinancesExpensesPage() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedExpenses.map((expense) => (
-                  <tr
-                    key={expense.id}
-                    className='h-10 bg-white hover:bg-[var(--color-neutral-50)] transition-colors'
-                  >
-                    <td className='px-2 border-b border-r border-neutral-300'>
-                      <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
-                        {expense.nombre}
-                      </span>
-                    </td>
-                    <td className='px-2 border-b border-r border-neutral-300'>
-                      <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
-                        {formatCurrency(expense.importe)}
-                      </span>
-                    </td>
-                    <td className='px-2 border-b border-r border-neutral-300'>
-                      <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
-                        {expense.frecuencia}
-                      </span>
-                    </td>
-                    <td className='px-2 border-b border-r border-neutral-300'>
-                      <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
-                        {expense.categoria}
-                      </span>
-                    </td>
-                    <td className='px-2 border-b border-r border-neutral-300'>
-                      <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
-                        {expense.fechaInicio} - {expense.fechaFin}
-                      </span>
-                    </td>
-                    <td className='px-2 border-b border-r border-neutral-300'>
-                      <button
-                        type='button'
-                        className='text-body-md font-medium text-[var(--color-brand-600)] hover:underline cursor-pointer'
-                      >
-                        Ver nota
-                      </button>
-                    </td>
-                    <td className='px-2 border-b border-r border-neutral-300'>
-                      <StatusBadge status={expense.estado} />
-                    </td>
-                    <td className='px-2 border-b border-neutral-300 text-center'>
-                      <button
-                        type='button'
-                        onClick={(e) => handleOpenMenu(expense, e)}
-                        className='p-1 hover:bg-[var(--color-neutral-100)] rounded-lg transition-colors cursor-pointer'
-                        aria-label='Acciones rápidas'
-                      >
-                        <MoreVertRounded className='size-5 text-[var(--color-neutral-600)]' />
-                      </button>
+                {paginatedExpenses.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className='py-12 text-center'>
+                      <div className='flex flex-col items-center gap-2'>
+                        <p className='text-body-lg text-[var(--color-neutral-500)]'>
+                          {search
+                            ? 'No se encontraron gastos'
+                            : 'No hay gastos registrados'}
+                        </p>
+                        <p className='text-body-sm text-[var(--color-neutral-400)]'>
+                          {search
+                            ? 'Intenta con otros términos de búsqueda'
+                            : 'Añade un nuevo gasto para comenzar'}
+                        </p>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  paginatedExpenses.map((expense) => (
+                    <tr
+                      key={expense.id}
+                      className='h-10 bg-white hover:bg-[var(--color-neutral-50)] transition-colors'
+                    >
+                      <td className='px-2 border-b border-r border-neutral-300'>
+                        <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                          {expense.nombre}
+                        </span>
+                      </td>
+                      <td className='px-2 border-b border-r border-neutral-300'>
+                        <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                          {formatCurrency(expense.importe)}
+                        </span>
+                      </td>
+                      <td className='px-2 border-b border-r border-neutral-300'>
+                        <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                          {expense.frecuencia}
+                        </span>
+                      </td>
+                      <td className='px-2 border-b border-r border-neutral-300'>
+                        <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                          {expense.categoria}
+                        </span>
+                      </td>
+                      <td className='px-2 border-b border-r border-neutral-300'>
+                        <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                          {expense.fechaInicio} - {expense.fechaFin}
+                        </span>
+                      </td>
+                      <td className='px-2 border-b border-r border-neutral-300'>
+                        <button
+                          type='button'
+                          className='text-body-md font-medium text-[var(--color-brand-600)] hover:underline cursor-pointer'
+                        >
+                          Ver nota
+                        </button>
+                      </td>
+                      <td className='px-2 border-b border-r border-neutral-300'>
+                        <StatusBadge status={expense.estado} />
+                      </td>
+                      <td className='px-2 border-b border-neutral-300 text-center'>
+                        <button
+                          type='button'
+                          onClick={(e) => handleOpenMenu(expense, e)}
+                          className='p-1 hover:bg-[var(--color-neutral-100)] rounded-lg transition-colors cursor-pointer'
+                          aria-label='Acciones rápidas'
+                        >
+                          <MoreVertRounded className='size-5 text-[var(--color-neutral-600)]' />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -985,6 +1037,21 @@ export default function FinancesExpensesPage() {
         }}
         expense={editingExpense}
         onSave={handleSaveExpense}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onClose={() => {
+          setDeleteDialogOpen(false)
+          setExpenseToDelete(null)
+        }}
+        onConfirm={confirmDeleteExpense}
+        title='Eliminar gasto'
+        message={`¿Estás seguro de que quieres eliminar el gasto "${expenseToDelete?.nombre}"? Esta acción no se puede deshacer.`}
+        confirmLabel='Eliminar'
+        cancelLabel='Cancelar'
+        variant='danger'
       />
     </>
   )

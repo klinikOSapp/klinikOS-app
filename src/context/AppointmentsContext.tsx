@@ -53,7 +53,13 @@ export type LinkedTreatmentStatus =
   | 'completed'
   | 'cancelled'
 
-export type ToothFace = 'mesial' | 'distal' | 'oclusal' | 'vestibular' | 'lingual' | 'palatino'
+export type ToothFace =
+  | 'mesial'
+  | 'distal'
+  | 'oclusal'
+  | 'vestibular'
+  | 'lingual'
+  | 'palatino'
 
 export type LinkedTreatment = {
   id: string
@@ -149,7 +155,38 @@ export type AgendaBlock = {
 // TIPOS UNIFICADOS PARA CITAS
 // ============================================
 
-export type AppointmentStatus = 'Confirmada' | 'No confirmada' | 'Reagendar'
+export type AppointmentStatus =
+  | 'Confirmada'
+  | 'No confirmada'
+  | 'Reagendar'
+  | 'Pendiente IA'
+
+// ============================================
+// TIPOS PARA CITAS CREADAS POR AGENTE DE VOZ
+// ============================================
+
+export type VoiceAgentSentiment =
+  | 'aliviado'
+  | 'nervioso'
+  | 'enfadado'
+  | 'contento'
+  | 'preocupado'
+
+export type VoiceAgentCallIntent =
+  | 'pedir_cita_higiene'
+  | 'consulta_financiacion'
+  | 'urgencia_dolor'
+  | 'cancelar_cita'
+  | 'confirmar_cita'
+  | 'consulta_general'
+
+export type VoiceAgentData = {
+  callSummary: string // Resumen de la llamada
+  patientSentiment: VoiceAgentSentiment // Sentimiento detectado
+  callDuration: string // Duración de la llamada (MM:SS)
+  callIntent: VoiceAgentCallIntent // Intención detectada
+  transcriptionAvailable: boolean // Si hay transcripción disponible
+}
 
 export type Appointment = {
   id: string
@@ -195,6 +232,10 @@ export type Appointment = {
   attachments?: VisitAttachment[]
   // Estado del odontograma en esa visita (snapshot)
   odontogramSnapshot?: string
+  // Campos para citas creadas por el agente de voz
+  createdByVoiceAgent?: boolean // Marca que fue creada por IA
+  voiceAgentCallId?: string // ID de la llamada vinculada
+  voiceAgentData?: VoiceAgentData // Datos de la llamada
 }
 
 // ============================================
@@ -208,7 +249,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   // CITAS PASADAS COMPLETADAS (3-27 Enero 2026)
   // Con historial clínico, SOAP notes y pagos
   // ============================================
-  
+
   // --- María García López (pat-001) - 4 citas pasadas ---
   {
     id: 'apt-001-01',
@@ -232,18 +273,36 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     waitingDuration: 480000,
     consultationDuration: 1560000,
     soapNotes: {
-      subjective: 'Paciente refiere sensibilidad al frío en zona posterior derecha desde hace 2 semanas. Dolor 4/10.',
-      objective: 'Exploración revela caries oclusal en pieza 16. Sensibilidad positiva al frío. RX: sin afectación pulpar.',
-      assessment: 'Caries oclusal pieza 16. Pronóstico favorable con tratamiento conservador.',
+      subjective:
+        'Paciente refiere sensibilidad al frío en zona posterior derecha desde hace 2 semanas. Dolor 4/10.',
+      objective:
+        'Exploración revela caries oclusal en pieza 16. Sensibilidad positiva al frío. RX: sin afectación pulpar.',
+      assessment:
+        'Caries oclusal pieza 16. Pronóstico favorable con tratamiento conservador.',
       plan: 'Obturación composite pieza 16 programada. Indicaciones de higiene.',
       updatedAt: '2026-01-08T10:15:00Z',
       updatedBy: 'Dr. Antonio Ruiz'
     },
     linkedTreatments: [
-      { id: 'treat-001-01', treatmentCode: 'REV', description: 'Revisión general', amount: '45 €', status: 'completed', completedAt: '2026-01-08T10:00:00Z', completedBy: 'Dr. Antonio Ruiz' }
+      {
+        id: 'treat-001-01',
+        treatmentCode: 'REV',
+        description: 'Revisión general',
+        amount: '45 €',
+        status: 'completed',
+        completedAt: '2026-01-08T10:00:00Z',
+        completedBy: 'Dr. Antonio Ruiz'
+      }
     ],
     attachments: [
-      { id: 'att-001-01', name: 'RX-panoramica-08ene.jpg', type: 'xray', url: '/attachments/rx-001-01.jpg', uploadedAt: '2026-01-08T09:45:00Z', uploadedBy: 'Dr. Antonio Ruiz' }
+      {
+        id: 'att-001-01',
+        name: 'RX-panoramica-08ene.jpg',
+        type: 'xray',
+        url: '/attachments/rx-001-01.jpg',
+        uploadedAt: '2026-01-08T09:45:00Z',
+        uploadedBy: 'Dr. Antonio Ruiz'
+      }
     ]
   },
   {
@@ -268,15 +327,28 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     waitingDuration: 360000,
     consultationDuration: 2700000,
     soapNotes: {
-      subjective: 'Paciente acude para tratamiento programado. Sin sintomatología actual.',
-      objective: 'Anestesia infiltrativa. Remoción de caries. Obturación con composite A2.',
-      assessment: 'Tratamiento completado sin complicaciones. Oclusión correcta.',
+      subjective:
+        'Paciente acude para tratamiento programado. Sin sintomatología actual.',
+      objective:
+        'Anestesia infiltrativa. Remoción de caries. Obturación con composite A2.',
+      assessment:
+        'Tratamiento completado sin complicaciones. Oclusión correcta.',
       plan: 'Control en 2 semanas si molestias. Próxima revisión en 6 meses.',
       updatedAt: '2026-01-15T12:00:00Z',
       updatedBy: 'Dr. Antonio Ruiz'
     },
     linkedTreatments: [
-      { id: 'treat-001-02', treatmentCode: 'OBC', description: 'Obturación composite', amount: '85 €', pieceNumber: 16, toothFace: 'oclusal', status: 'completed', completedAt: '2026-01-15T11:50:00Z', completedBy: 'Dr. Antonio Ruiz' }
+      {
+        id: 'treat-001-02',
+        treatmentCode: 'OBC',
+        description: 'Obturación composite',
+        amount: '85 €',
+        pieceNumber: 16,
+        toothFace: 'oclusal',
+        status: 'completed',
+        completedAt: '2026-01-15T11:50:00Z',
+        completedBy: 'Dr. Antonio Ruiz'
+      }
     ]
   },
   {
@@ -302,14 +374,24 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     consultationDuration: 1800000,
     soapNotes: {
       subjective: 'Paciente sin molestias. Revisión rutinaria.',
-      objective: 'Limpieza ultrasónica. Eliminación de cálculo supragingival leve.',
-      assessment: 'Buena higiene general. Leve acumulación en lingual de incisivos inferiores.',
+      objective:
+        'Limpieza ultrasónica. Eliminación de cálculo supragingival leve.',
+      assessment:
+        'Buena higiene general. Leve acumulación en lingual de incisivos inferiores.',
       plan: 'Refuerzo técnica de cepillado zona lingual inferior.',
       updatedAt: '2026-01-22T09:30:00Z',
       updatedBy: 'Laura Sánchez'
     },
     linkedTreatments: [
-      { id: 'treat-001-03', treatmentCode: 'LDE', description: 'Limpieza dental', amount: '72 €', status: 'completed', completedAt: '2026-01-22T09:25:00Z', completedBy: 'Laura Sánchez' }
+      {
+        id: 'treat-001-03',
+        treatmentCode: 'LDE',
+        description: 'Limpieza dental',
+        amount: '72 €',
+        status: 'completed',
+        completedAt: '2026-01-22T09:25:00Z',
+        completedBy: 'Laura Sánchez'
+      }
     ]
   },
   {
@@ -335,14 +417,23 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     consultationDuration: 900000,
     soapNotes: {
       subjective: 'Sin molestias tras tratamiento.',
-      objective: 'Obturación en buen estado. Oclusión correcta. Sin sensibilidad.',
+      objective:
+        'Obturación en buen estado. Oclusión correcta. Sin sensibilidad.',
       assessment: 'Evolución favorable.',
       plan: 'Alta. Próxima revisión en 6 meses.',
       updatedAt: '2026-01-28T10:30:00Z',
       updatedBy: 'Dr. Antonio Ruiz'
     },
     linkedTreatments: [
-      { id: 'treat-001-04', treatmentCode: 'CTR', description: 'Control post-operatorio', amount: '0 €', status: 'completed', completedAt: '2026-01-28T10:25:00Z', completedBy: 'Dr. Antonio Ruiz' }
+      {
+        id: 'treat-001-04',
+        treatmentCode: 'CTR',
+        description: 'Control post-operatorio',
+        amount: '0 €',
+        status: 'completed',
+        completedAt: '2026-01-28T10:25:00Z',
+        completedBy: 'Dr. Antonio Ruiz'
+      }
     ]
   },
 
@@ -369,15 +460,25 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     waitingDuration: 600000,
     consultationDuration: 1500000,
     soapNotes: {
-      subjective: 'Paciente refiere dolor intermitente en molar inferior derecho.',
-      objective: 'Caries profunda en 36 con compromiso pulpar. RX confirma lesión periapical.',
+      subjective:
+        'Paciente refiere dolor intermitente en molar inferior derecho.',
+      objective:
+        'Caries profunda en 36 con compromiso pulpar. RX confirma lesión periapical.',
       assessment: 'Pulpitis irreversible 36. Requiere endodoncia.',
       plan: 'Endodoncia 36 programada. Presupuesto entregado y aceptado con financiación.',
       updatedAt: '2026-01-10T10:30:00Z',
       updatedBy: 'Dr. Antonio Ruiz'
     },
     linkedTreatments: [
-      { id: 'treat-002-01', treatmentCode: 'REV', description: 'Revisión y diagnóstico', amount: '45 €', status: 'completed', completedAt: '2026-01-10T10:25:00Z', completedBy: 'Dr. Antonio Ruiz' }
+      {
+        id: 'treat-002-01',
+        treatmentCode: 'REV',
+        description: 'Revisión y diagnóstico',
+        amount: '45 €',
+        status: 'completed',
+        completedAt: '2026-01-10T10:25:00Z',
+        completedBy: 'Dr. Antonio Ruiz'
+      }
     ]
   },
   {
@@ -401,18 +502,37 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     confirmed: true,
     waitingDuration: 480000,
     consultationDuration: 4500000,
-    paymentInfo: { totalAmount: 320, paidAmount: 106.67, pendingAmount: 213.33, currency: '€' },
-    installmentPlan: { totalInstallments: 3, currentInstallment: 1, amountPerInstallment: 106.67 },
+    paymentInfo: {
+      totalAmount: 320,
+      paidAmount: 106.67,
+      pendingAmount: 213.33,
+      currency: '€'
+    },
+    installmentPlan: {
+      totalInstallments: 3,
+      currentInstallment: 1,
+      amountPerInstallment: 106.67
+    },
     soapNotes: {
       subjective: 'Paciente nervioso pero colaborador.',
-      objective: 'Anestesia troncular. Apertura cameral. Conductometría: 3 conductos. Instrumentación.',
+      objective:
+        'Anestesia troncular. Apertura cameral. Conductometría: 3 conductos. Instrumentación.',
       assessment: 'Primera fase completada. Medicación intraconducto.',
       plan: 'Segunda sesión en 1 semana para obturación.',
       updatedAt: '2026-01-17T17:30:00Z',
       updatedBy: 'Dr. Francisco Moreno'
     },
     linkedTreatments: [
-      { id: 'treat-002-02', treatmentCode: 'END', description: 'Endodoncia 36 - Fase 1', amount: '160 €', pieceNumber: 36, status: 'completed', completedAt: '2026-01-17T17:20:00Z', completedBy: 'Dr. Francisco Moreno' }
+      {
+        id: 'treat-002-02',
+        treatmentCode: 'END',
+        description: 'Endodoncia 36 - Fase 1',
+        amount: '160 €',
+        pieceNumber: 36,
+        status: 'completed',
+        completedAt: '2026-01-17T17:20:00Z',
+        completedBy: 'Dr. Francisco Moreno'
+      }
     ]
   },
   {
@@ -436,8 +556,17 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     confirmed: true,
     waitingDuration: 300000,
     consultationDuration: 3000000,
-    paymentInfo: { totalAmount: 320, paidAmount: 213.34, pendingAmount: 106.66, currency: '€' },
-    installmentPlan: { totalInstallments: 3, currentInstallment: 2, amountPerInstallment: 106.67 },
+    paymentInfo: {
+      totalAmount: 320,
+      paidAmount: 213.34,
+      pendingAmount: 106.66,
+      currency: '€'
+    },
+    installmentPlan: {
+      totalInstallments: 3,
+      currentInstallment: 2,
+      amountPerInstallment: 106.67
+    },
     soapNotes: {
       subjective: 'Sin dolor desde última sesión.',
       objective: 'Obturación de conductos con gutapercha. Sellado provisional.',
@@ -447,7 +576,16 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
       updatedBy: 'Dr. Francisco Moreno'
     },
     linkedTreatments: [
-      { id: 'treat-002-03', treatmentCode: 'END', description: 'Endodoncia 36 - Fase 2', amount: '160 €', pieceNumber: 36, status: 'completed', completedAt: '2026-01-24T16:55:00Z', completedBy: 'Dr. Francisco Moreno' }
+      {
+        id: 'treat-002-03',
+        treatmentCode: 'END',
+        description: 'Endodoncia 36 - Fase 2',
+        amount: '160 €',
+        pieceNumber: 36,
+        status: 'completed',
+        completedAt: '2026-01-24T16:55:00Z',
+        completedBy: 'Dr. Francisco Moreno'
+      }
     ]
   },
 
@@ -475,14 +613,24 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     consultationDuration: 1200000,
     soapNotes: {
       subjective: 'Tratamiento progresando bien. Sin molestias.',
-      objective: 'Cambio a alineador #8. Ajuste perfecto. IPR realizado en 12-22.',
+      objective:
+        'Cambio a alineador #8. Ajuste perfecto. IPR realizado en 12-22.',
       assessment: 'Progreso según planificación.',
       plan: 'Siguiente revisión en 4 semanas. Continuar con alineadores.',
       updatedAt: '2026-01-06T09:30:00Z',
       updatedBy: 'Dra. Elena Navarro'
     },
     linkedTreatments: [
-      { id: 'treat-003-01', treatmentCode: 'INV', description: 'Revisión Invisalign', amount: '0 €', status: 'completed', completedAt: '2026-01-06T09:25:00Z', completedBy: 'Dra. Elena Navarro', notes: 'Incluido en tratamiento' }
+      {
+        id: 'treat-003-01',
+        treatmentCode: 'INV',
+        description: 'Revisión Invisalign',
+        amount: '0 €',
+        status: 'completed',
+        completedAt: '2026-01-06T09:25:00Z',
+        completedBy: 'Dra. Elena Navarro',
+        notes: 'Incluido en tratamiento'
+      }
     ]
   },
   {
@@ -508,14 +656,23 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     consultationDuration: 1500000,
     soapNotes: {
       subjective: 'Paciente VIP. Limpieza rutinaria durante ortodoncia.',
-      objective: 'Limpieza supragingival. Eliminación de placa en zonas de ataches.',
+      objective:
+        'Limpieza supragingival. Eliminación de placa en zonas de ataches.',
       assessment: 'Higiene excelente.',
       plan: 'Continuar con rutina de higiene. Uso de cepillo interdental.',
       updatedAt: '2026-01-13T09:30:00Z',
       updatedBy: 'Laura Sánchez'
     },
     linkedTreatments: [
-      { id: 'treat-003-02', treatmentCode: 'LDE', description: 'Limpieza dental', amount: '72 €', status: 'completed', completedAt: '2026-01-13T09:25:00Z', completedBy: 'Laura Sánchez' }
+      {
+        id: 'treat-003-02',
+        treatmentCode: 'LDE',
+        description: 'Limpieza dental',
+        amount: '72 €',
+        status: 'completed',
+        completedAt: '2026-01-13T09:25:00Z',
+        completedBy: 'Laura Sánchez'
+      }
     ]
   },
   {
@@ -548,7 +705,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
       updatedBy: 'Dra. Elena Navarro'
     },
     linkedTreatments: [
-      { id: 'treat-003-03', treatmentCode: 'INV', description: 'Revisión Invisalign', amount: '0 €', status: 'completed', completedAt: '2026-01-27T09:25:00Z', completedBy: 'Dra. Elena Navarro' }
+      {
+        id: 'treat-003-03',
+        treatmentCode: 'INV',
+        description: 'Revisión Invisalign',
+        amount: '0 €',
+        status: 'completed',
+        completedAt: '2026-01-27T09:25:00Z',
+        completedBy: 'Dra. Elena Navarro'
+      }
     ]
   },
 
@@ -576,14 +741,23 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     consultationDuration: 1200000,
     soapNotes: {
       subjective: 'Acompañado por madre. Sin molestias.',
-      objective: 'Dentición mixta completa. Molares permanentes erupcionados. Sin caries.',
+      objective:
+        'Dentición mixta completa. Molares permanentes erupcionados. Sin caries.',
       assessment: 'Desarrollo normal. Candidato a selladores.',
       plan: 'Selladores en 16, 26, 36, 46. Aplicación de flúor.',
       updatedAt: '2026-01-09T17:30:00Z',
       updatedBy: 'Dr. Antonio Ruiz'
     },
     linkedTreatments: [
-      { id: 'treat-004-01', treatmentCode: 'REV', description: 'Revisión pediátrica', amount: '35 €', status: 'completed', completedAt: '2026-01-09T17:25:00Z', completedBy: 'Dr. Antonio Ruiz' }
+      {
+        id: 'treat-004-01',
+        treatmentCode: 'REV',
+        description: 'Revisión pediátrica',
+        amount: '35 €',
+        status: 'completed',
+        completedAt: '2026-01-09T17:25:00Z',
+        completedBy: 'Dr. Antonio Ruiz'
+      }
     ]
   },
   {
@@ -616,7 +790,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
       updatedBy: 'Dr. Antonio Ruiz'
     },
     linkedTreatments: [
-      { id: 'treat-004-02', treatmentCode: 'SEL', description: 'Selladores molares x4', amount: '60 €', status: 'completed', completedAt: '2026-01-23T17:40:00Z', completedBy: 'Dr. Antonio Ruiz' }
+      {
+        id: 'treat-004-02',
+        treatmentCode: 'SEL',
+        description: 'Selladores molares x4',
+        amount: '60 €',
+        status: 'completed',
+        completedAt: '2026-01-23T17:40:00Z',
+        completedBy: 'Dr. Antonio Ruiz'
+      }
     ]
   },
 
@@ -651,7 +833,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
       updatedBy: 'Dra. Elena Navarro'
     },
     linkedTreatments: [
-      { id: 'treat-005-01', treatmentCode: 'INV', description: 'Revisión Invisalign', amount: '0 €', status: 'completed', completedAt: '2026-01-07T11:25:00Z', completedBy: 'Dra. Elena Navarro' }
+      {
+        id: 'treat-005-01',
+        treatmentCode: 'INV',
+        description: 'Revisión Invisalign',
+        amount: '0 €',
+        status: 'completed',
+        completedAt: '2026-01-07T11:25:00Z',
+        completedBy: 'Dra. Elena Navarro'
+      }
     ]
   },
   {
@@ -684,7 +874,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
       updatedBy: 'Dra. Elena Navarro'
     },
     linkedTreatments: [
-      { id: 'treat-005-02', treatmentCode: 'INV', description: 'Revisión Invisalign', amount: '0 €', status: 'completed', completedAt: '2026-01-21T11:25:00Z', completedBy: 'Dra. Elena Navarro' }
+      {
+        id: 'treat-005-02',
+        treatmentCode: 'INV',
+        description: 'Revisión Invisalign',
+        amount: '0 €',
+        status: 'completed',
+        completedAt: '2026-01-21T11:25:00Z',
+        completedBy: 'Dra. Elena Navarro'
+      }
     ]
   },
 
@@ -719,7 +917,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
       updatedBy: 'Dra. Carmen Díaz'
     },
     linkedTreatments: [
-      { id: 'treat-006-01', treatmentCode: 'VAL', description: 'Valoración periodontal', amount: '50 €', status: 'completed', completedAt: '2026-01-14T12:25:00Z', completedBy: 'Dra. Carmen Díaz' }
+      {
+        id: 'treat-006-01',
+        treatmentCode: 'VAL',
+        description: 'Valoración periodontal',
+        amount: '50 €',
+        status: 'completed',
+        completedAt: '2026-01-14T12:25:00Z',
+        completedBy: 'Dra. Carmen Díaz'
+      }
     ]
   },
   {
@@ -752,7 +958,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
       updatedBy: 'Dra. Carmen Díaz'
     },
     linkedTreatments: [
-      { id: 'treat-006-02', treatmentCode: 'RAR', description: 'Raspado cuadrante 1', amount: '120 €', status: 'completed', completedAt: '2026-01-28T12:25:00Z', completedBy: 'Dra. Carmen Díaz' }
+      {
+        id: 'treat-006-02',
+        treatmentCode: 'RAR',
+        description: 'Raspado cuadrante 1',
+        amount: '120 €',
+        status: 'completed',
+        completedAt: '2026-01-28T12:25:00Z',
+        completedBy: 'Dra. Carmen Díaz'
+      }
     ]
   },
 
@@ -780,14 +994,23 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     consultationDuration: 1500000,
     soapNotes: {
       subjective: 'Pérdida de pieza 36 por fractura. Desea implante.',
-      objective: 'Zona edéntula 36 cicatrizada. Hueso aparentemente suficiente.',
+      objective:
+        'Zona edéntula 36 cicatrizada. Hueso aparentemente suficiente.',
       assessment: 'Candidata a implante unitario.',
       plan: 'TAC previo. Planificación quirúrgica.',
       updatedAt: '2026-01-08T12:30:00Z',
       updatedBy: 'Dr. Miguel Á. Torres'
     },
     linkedTreatments: [
-      { id: 'treat-007-01', treatmentCode: 'CON', description: 'Consulta implantes', amount: '45 €', status: 'completed', completedAt: '2026-01-08T12:25:00Z', completedBy: 'Dr. Miguel Á. Torres' }
+      {
+        id: 'treat-007-01',
+        treatmentCode: 'CON',
+        description: 'Consulta implantes',
+        amount: '45 €',
+        status: 'completed',
+        completedAt: '2026-01-08T12:25:00Z',
+        completedBy: 'Dr. Miguel Á. Torres'
+      }
     ]
   },
   {
@@ -813,17 +1036,35 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     consultationDuration: 4500000,
     soapNotes: {
       subjective: 'Paciente algo nerviosa pero colaboradora.',
-      objective: 'Implante Straumann 4.1x10mm insertado en posición 36. Torque 35Ncm.',
+      objective:
+        'Implante Straumann 4.1x10mm insertado en posición 36. Torque 35Ncm.',
       assessment: 'Cirugía sin complicaciones. Estabilidad primaria excelente.',
       plan: 'Control a 7 días. Osteointegración 3 meses.',
       updatedAt: '2026-01-22T17:30:00Z',
       updatedBy: 'Dr. Miguel Á. Torres'
     },
     linkedTreatments: [
-      { id: 'treat-007-02', treatmentCode: 'IMP', description: 'Implante dental', amount: '800 €', pieceNumber: 36, status: 'completed', completedAt: '2026-01-22T17:20:00Z', completedBy: 'Dr. Miguel Á. Torres', fromBudgetId: 'budget-007-01' }
+      {
+        id: 'treat-007-02',
+        treatmentCode: 'IMP',
+        description: 'Implante dental',
+        amount: '800 €',
+        pieceNumber: 36,
+        status: 'completed',
+        completedAt: '2026-01-22T17:20:00Z',
+        completedBy: 'Dr. Miguel Á. Torres',
+        fromBudgetId: 'budget-007-01'
+      }
     ],
     attachments: [
-      { id: 'att-007-01', name: 'TAC-implante-36.jpg', type: 'xray', url: '/attachments/tac-007-01.jpg', uploadedAt: '2026-01-15T10:00:00Z', uploadedBy: 'Dr. Miguel Á. Torres' }
+      {
+        id: 'att-007-01',
+        name: 'TAC-implante-36.jpg',
+        type: 'xray',
+        url: '/attachments/tac-007-01.jpg',
+        uploadedAt: '2026-01-15T10:00:00Z',
+        uploadedBy: 'Dr. Miguel Á. Torres'
+      }
     ]
   },
 
@@ -849,8 +1090,17 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     confirmed: true,
     waitingDuration: 420000,
     consultationDuration: 4200000,
-    paymentInfo: { totalAmount: 1200, paidAmount: 400, pendingAmount: 800, currency: '€' },
-    installmentPlan: { totalInstallments: 12, currentInstallment: 4, amountPerInstallment: 100 },
+    paymentInfo: {
+      totalAmount: 1200,
+      paidAmount: 400,
+      pendingAmount: 800,
+      currency: '€'
+    },
+    installmentPlan: {
+      totalInstallments: 12,
+      currentInstallment: 4,
+      amountPerInstallment: 100
+    },
     soapNotes: {
       subjective: 'Segunda fase de tratamiento implantológico.',
       objective: 'Implante 46 colocado. Torque 40Ncm.',
@@ -860,7 +1110,16 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
       updatedBy: 'Dr. Miguel Á. Torres'
     },
     linkedTreatments: [
-      { id: 'treat-008-01', treatmentCode: 'IMP', description: 'Implante 46 - Fase 1', amount: '800 €', pieceNumber: 46, status: 'completed', completedAt: '2026-01-03T11:20:00Z', completedBy: 'Dr. Miguel Á. Torres' }
+      {
+        id: 'treat-008-01',
+        treatmentCode: 'IMP',
+        description: 'Implante 46 - Fase 1',
+        amount: '800 €',
+        pieceNumber: 46,
+        status: 'completed',
+        completedAt: '2026-01-03T11:20:00Z',
+        completedBy: 'Dr. Miguel Á. Torres'
+      }
     ]
   },
   {
@@ -893,7 +1152,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
       updatedBy: 'Dr. Miguel Á. Torres'
     },
     linkedTreatments: [
-      { id: 'treat-008-02', treatmentCode: 'CTR', description: 'Control post-implante', amount: '0 €', status: 'completed', completedAt: '2026-01-10T10:25:00Z', completedBy: 'Dr. Miguel Á. Torres' }
+      {
+        id: 'treat-008-02',
+        treatmentCode: 'CTR',
+        description: 'Control post-implante',
+        amount: '0 €',
+        status: 'completed',
+        completedAt: '2026-01-10T10:25:00Z',
+        completedBy: 'Dr. Miguel Á. Torres'
+      }
     ]
   },
   {
@@ -917,8 +1184,17 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     confirmed: true,
     waitingDuration: 360000,
     consultationDuration: 1200000,
-    paymentInfo: { totalAmount: 1200, paidAmount: 500, pendingAmount: 700, currency: '€' },
-    installmentPlan: { totalInstallments: 12, currentInstallment: 5, amountPerInstallment: 100 },
+    paymentInfo: {
+      totalAmount: 1200,
+      paidAmount: 500,
+      pendingAmount: 700,
+      currency: '€'
+    },
+    installmentPlan: {
+      totalInstallments: 12,
+      currentInstallment: 5,
+      amountPerInstallment: 100
+    },
     soapNotes: {
       subjective: 'Sin molestias.',
       objective: 'Osteointegración en progreso. RX control satisfactoria.',
@@ -928,7 +1204,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
       updatedBy: 'Dr. Miguel Á. Torres'
     },
     linkedTreatments: [
-      { id: 'treat-008-03', treatmentCode: 'CTR', description: 'Control osteointegración', amount: '0 €', status: 'completed', completedAt: '2026-01-24T10:25:00Z', completedBy: 'Dr. Miguel Á. Torres' }
+      {
+        id: 'treat-008-03',
+        treatmentCode: 'CTR',
+        description: 'Control osteointegración',
+        amount: '0 €',
+        status: 'completed',
+        completedAt: '2026-01-24T10:25:00Z',
+        completedBy: 'Dr. Miguel Á. Torres'
+      }
     ]
   },
 
@@ -963,7 +1247,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
       updatedBy: 'Dr. Antonio Ruiz'
     },
     linkedTreatments: [
-      { id: 'treat-009-01', treatmentCode: 'CON', description: 'Primera consulta', amount: '0 €', status: 'completed', completedAt: '2026-01-20T09:25:00Z', completedBy: 'Dr. Antonio Ruiz' }
+      {
+        id: 'treat-009-01',
+        treatmentCode: 'CON',
+        description: 'Primera consulta',
+        amount: '0 €',
+        status: 'completed',
+        completedAt: '2026-01-20T09:25:00Z',
+        completedBy: 'Dr. Antonio Ruiz'
+      }
     ]
   },
 
@@ -998,7 +1290,16 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
       updatedBy: 'Dr. Antonio Ruiz'
     },
     linkedTreatments: [
-      { id: 'treat-012-01', treatmentCode: 'CTR', description: 'Control endodoncia', amount: '0 €', pieceNumber: 25, status: 'completed', completedAt: '2026-01-16T10:25:00Z', completedBy: 'Dr. Antonio Ruiz' }
+      {
+        id: 'treat-012-01',
+        treatmentCode: 'CTR',
+        description: 'Control endodoncia',
+        amount: '0 €',
+        pieceNumber: 25,
+        status: 'completed',
+        completedAt: '2026-01-16T10:25:00Z',
+        completedBy: 'Dr. Antonio Ruiz'
+      }
     ]
   },
 
@@ -1025,7 +1326,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     waitingDuration: 540000,
     consultationDuration: 1800000,
     linkedTreatments: [
-      { id: 'treat-010-01', treatmentCode: 'LDE', description: 'Limpieza dental', amount: '72 €', status: 'completed', completedAt: '2026-01-15T17:25:00Z', completedBy: 'Laura Sánchez' }
+      {
+        id: 'treat-010-01',
+        treatmentCode: 'LDE',
+        description: 'Limpieza dental',
+        amount: '72 €',
+        status: 'completed',
+        completedAt: '2026-01-15T17:25:00Z',
+        completedBy: 'Laura Sánchez'
+      }
     ]
   },
   {
@@ -1049,9 +1358,22 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     confirmed: true,
     waitingDuration: 420000,
     consultationDuration: 3000000,
-    paymentInfo: { totalAmount: 180, paidAmount: 50, pendingAmount: 130, currency: '€' },
+    paymentInfo: {
+      totalAmount: 180,
+      paidAmount: 50,
+      pendingAmount: 130,
+      currency: '€'
+    },
     linkedTreatments: [
-      { id: 'treat-011-01', treatmentCode: 'PER', description: 'Periodontal fase 1', amount: '180 €', status: 'completed', completedAt: '2026-01-20T12:55:00Z', completedBy: 'Dra. Carmen Díaz' }
+      {
+        id: 'treat-011-01',
+        treatmentCode: 'PER',
+        description: 'Periodontal fase 1',
+        amount: '180 €',
+        status: 'completed',
+        completedAt: '2026-01-20T12:55:00Z',
+        completedBy: 'Dra. Carmen Díaz'
+      }
     ]
   },
   {
@@ -1076,7 +1398,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     waitingDuration: 300000,
     consultationDuration: 1200000,
     linkedTreatments: [
-      { id: 'treat-013-01', treatmentCode: 'REV', description: 'Revisión', amount: '40 €', status: 'completed', completedAt: '2026-01-27T18:25:00Z', completedBy: 'Dr. Antonio Ruiz' }
+      {
+        id: 'treat-013-01',
+        treatmentCode: 'REV',
+        description: 'Revisión',
+        amount: '40 €',
+        status: 'completed',
+        completedAt: '2026-01-27T18:25:00Z',
+        completedBy: 'Dr. Antonio Ruiz'
+      }
     ]
   },
   {
@@ -1101,7 +1431,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     waitingDuration: 360000,
     consultationDuration: 1500000,
     linkedTreatments: [
-      { id: 'treat-014-01', treatmentCode: 'IMP', description: 'Impresiones férula', amount: '50 €', status: 'completed', completedAt: '2026-01-13T18:55:00Z', completedBy: 'Dr. Antonio Ruiz' }
+      {
+        id: 'treat-014-01',
+        treatmentCode: 'IMP',
+        description: 'Impresiones férula',
+        amount: '50 €',
+        status: 'completed',
+        completedAt: '2026-01-13T18:55:00Z',
+        completedBy: 'Dr. Antonio Ruiz'
+      }
     ]
   },
   {
@@ -1126,7 +1464,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     waitingDuration: 420000,
     consultationDuration: 1500000,
     linkedTreatments: [
-      { id: 'treat-015-01', treatmentCode: 'LDE', description: 'Limpieza dental', amount: '72 €', status: 'completed', completedAt: '2026-01-06T19:25:00Z', completedBy: 'Laura Sánchez' }
+      {
+        id: 'treat-015-01',
+        treatmentCode: 'LDE',
+        description: 'Limpieza dental',
+        amount: '72 €',
+        status: 'completed',
+        completedAt: '2026-01-06T19:25:00Z',
+        completedBy: 'Laura Sánchez'
+      }
     ]
   },
 
@@ -1134,7 +1480,7 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
   // HOY - 31 de enero de 2026
   // 15 citas con diferentes estados de visita
   // ============================================
-  
+
   // Completadas (3)
   {
     id: 'apt-today-01',
@@ -1158,7 +1504,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     waitingDuration: 420000,
     consultationDuration: 1800000,
     linkedTreatments: [
-      { id: 'treat-today-01', treatmentCode: 'LDE', description: 'Limpieza dental', amount: '72 €', status: 'completed', completedAt: '2026-01-31T09:25:00Z', completedBy: 'Laura Sánchez' }
+      {
+        id: 'treat-today-01',
+        treatmentCode: 'LDE',
+        description: 'Limpieza dental',
+        amount: '72 €',
+        status: 'completed',
+        completedAt: '2026-01-31T09:25:00Z',
+        completedBy: 'Laura Sánchez'
+      }
     ]
   },
   {
@@ -1182,10 +1536,28 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     confirmed: true,
     waitingDuration: 360000,
     consultationDuration: 2400000,
-    paymentInfo: { totalAmount: 320, paidAmount: 320, pendingAmount: 0, currency: '€' },
-    installmentPlan: { totalInstallments: 3, currentInstallment: 3, amountPerInstallment: 106.67 },
+    paymentInfo: {
+      totalAmount: 320,
+      paidAmount: 320,
+      pendingAmount: 0,
+      currency: '€'
+    },
+    installmentPlan: {
+      totalInstallments: 3,
+      currentInstallment: 3,
+      amountPerInstallment: 106.67
+    },
     linkedTreatments: [
-      { id: 'treat-today-02', treatmentCode: 'REC', description: 'Reconstrucción composite', amount: '120 €', pieceNumber: 36, status: 'completed', completedAt: '2026-01-31T09:40:00Z', completedBy: 'Dr. Antonio Ruiz' }
+      {
+        id: 'treat-today-02',
+        treatmentCode: 'REC',
+        description: 'Reconstrucción composite',
+        amount: '120 €',
+        pieceNumber: 36,
+        status: 'completed',
+        completedAt: '2026-01-31T09:40:00Z',
+        completedBy: 'Dr. Antonio Ruiz'
+      }
     ]
   },
   {
@@ -1210,7 +1582,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     waitingDuration: 300000,
     consultationDuration: 1200000,
     linkedTreatments: [
-      { id: 'treat-today-03', treatmentCode: 'FLU', description: 'Aplicación flúor', amount: '35 €', status: 'completed', completedAt: '2026-01-31T09:55:00Z', completedBy: 'Laura Sánchez' }
+      {
+        id: 'treat-today-03',
+        treatmentCode: 'FLU',
+        description: 'Aplicación flúor',
+        amount: '35 €',
+        status: 'completed',
+        completedAt: '2026-01-31T09:55:00Z',
+        completedBy: 'Laura Sánchez'
+      }
     ]
   },
 
@@ -1234,7 +1614,13 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     visitStatus: 'in_consultation',
     confirmed: true,
     linkedTreatments: [
-      { id: 'treat-today-04', treatmentCode: 'INV', description: 'Revisión Invisalign', amount: '0 €', status: 'in_progress' }
+      {
+        id: 'treat-today-04',
+        treatmentCode: 'INV',
+        description: 'Revisión Invisalign',
+        amount: '0 €',
+        status: 'in_progress'
+      }
     ]
   },
   {
@@ -1256,7 +1642,13 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     visitStatus: 'in_consultation',
     confirmed: true,
     linkedTreatments: [
-      { id: 'treat-today-05', treatmentCode: 'INV', description: 'Ajuste Invisalign', amount: '0 €', status: 'in_progress' }
+      {
+        id: 'treat-today-05',
+        treatmentCode: 'INV',
+        description: 'Ajuste Invisalign',
+        amount: '0 €',
+        status: 'in_progress'
+      }
     ]
   },
 
@@ -1280,7 +1672,14 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     visitStatus: 'call_patient',
     confirmed: true,
     linkedTreatments: [
-      { id: 'treat-today-06', treatmentCode: 'CTR', description: 'Control implante', amount: '0 €', pieceNumber: 36, status: 'pending' }
+      {
+        id: 'treat-today-06',
+        treatmentCode: 'CTR',
+        description: 'Control implante',
+        amount: '0 €',
+        pieceNumber: 36,
+        status: 'pending'
+      }
     ]
   },
   {
@@ -1302,7 +1701,13 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     visitStatus: 'call_patient',
     confirmed: true,
     linkedTreatments: [
-      { id: 'treat-today-07', treatmentCode: 'LDE', description: 'Limpieza dental', amount: '72 €', status: 'pending' }
+      {
+        id: 'treat-today-07',
+        treatmentCode: 'LDE',
+        description: 'Limpieza dental',
+        amount: '72 €',
+        status: 'pending'
+      }
     ]
   },
 
@@ -1326,7 +1731,13 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     visitStatus: 'waiting_room',
     confirmed: true,
     linkedTreatments: [
-      { id: 'treat-today-08', treatmentCode: 'RAR', description: 'Raspado cuadrante 2', amount: '120 €', status: 'pending' }
+      {
+        id: 'treat-today-08',
+        treatmentCode: 'RAR',
+        description: 'Raspado cuadrante 2',
+        amount: '120 €',
+        status: 'pending'
+      }
     ]
   },
   {
@@ -1348,7 +1759,13 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     visitStatus: 'waiting_room',
     confirmed: true,
     linkedTreatments: [
-      { id: 'treat-today-09', treatmentCode: 'REV', description: 'Revisión', amount: '40 €', status: 'pending' }
+      {
+        id: 'treat-today-09',
+        treatmentCode: 'REV',
+        description: 'Revisión',
+        amount: '40 €',
+        status: 'pending'
+      }
     ]
   },
   {
@@ -1369,9 +1786,20 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     bgColor: 'var(--color-event-purple)',
     visitStatus: 'waiting_room',
     confirmed: true,
-    paymentInfo: { totalAmount: 180, paidAmount: 50, pendingAmount: 130, currency: '€' },
+    paymentInfo: {
+      totalAmount: 180,
+      paidAmount: 50,
+      pendingAmount: 130,
+      currency: '€'
+    },
     linkedTreatments: [
-      { id: 'treat-today-10', treatmentCode: 'PER', description: 'Periodontal fase 2', amount: '180 €', status: 'pending' }
+      {
+        id: 'treat-today-10',
+        treatmentCode: 'PER',
+        description: 'Periodontal fase 2',
+        amount: '180 €',
+        status: 'pending'
+      }
     ]
   },
   {
@@ -1392,10 +1820,26 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     bgColor: 'var(--color-brand-0)',
     visitStatus: 'waiting_room',
     confirmed: true,
-    paymentInfo: { totalAmount: 1200, paidAmount: 500, pendingAmount: 700, currency: '€' },
-    installmentPlan: { totalInstallments: 12, currentInstallment: 6, amountPerInstallment: 100 },
+    paymentInfo: {
+      totalAmount: 1200,
+      paidAmount: 500,
+      pendingAmount: 700,
+      currency: '€'
+    },
+    installmentPlan: {
+      totalInstallments: 12,
+      currentInstallment: 6,
+      amountPerInstallment: 100
+    },
     linkedTreatments: [
-      { id: 'treat-today-11', treatmentCode: 'CTR', description: 'Control implante', amount: '0 €', pieceNumber: 46, status: 'pending' }
+      {
+        id: 'treat-today-11',
+        treatmentCode: 'CTR',
+        description: 'Control implante',
+        amount: '0 €',
+        pieceNumber: 46,
+        status: 'pending'
+      }
     ]
   },
 
@@ -1419,7 +1863,14 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     visitStatus: 'scheduled',
     confirmed: true,
     linkedTreatments: [
-      { id: 'treat-today-12', treatmentCode: 'EMP', description: 'Empaste composite', amount: '85 €', pieceNumber: 16, status: 'pending' }
+      {
+        id: 'treat-today-12',
+        treatmentCode: 'EMP',
+        description: 'Empaste composite',
+        amount: '85 €',
+        pieceNumber: 16,
+        status: 'pending'
+      }
     ]
   },
   {
@@ -1441,7 +1892,14 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     visitStatus: 'scheduled',
     confirmed: true,
     linkedTreatments: [
-      { id: 'treat-today-13', treatmentCode: 'FER', description: 'Entrega férula', amount: '300 €', status: 'pending', fromBudgetId: 'budget-014-01' }
+      {
+        id: 'treat-today-13',
+        treatmentCode: 'FER',
+        description: 'Entrega férula',
+        amount: '300 €',
+        status: 'pending',
+        fromBudgetId: 'budget-014-01'
+      }
     ]
   },
   {
@@ -1461,7 +1919,13 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     bgColor: 'var(--color-event-coral)',
     visitStatus: 'scheduled',
     linkedTreatments: [
-      { id: 'treat-today-14', treatmentCode: 'REV', description: 'Revisión anual', amount: '40 €', status: 'pending' }
+      {
+        id: 'treat-today-14',
+        treatmentCode: 'REV',
+        description: 'Revisión anual',
+        amount: '40 €',
+        status: 'pending'
+      }
     ]
   },
   {
@@ -1483,14 +1947,21 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     visitStatus: 'scheduled',
     confirmed: true,
     linkedTreatments: [
-      { id: 'treat-today-15', treatmentCode: 'EXT', description: 'Extracción molar', amount: '90 €', pieceNumber: 47, status: 'pending' }
+      {
+        id: 'treat-today-15',
+        treatmentCode: 'EXT',
+        description: 'Extracción molar',
+        amount: '90 €',
+        pieceNumber: 47,
+        status: 'pending'
+      }
     ]
   },
 
   // ============================================
   // CITAS FUTURAS (1-7 Febrero 2026)
   // ============================================
-  
+
   // 1 Feb
   {
     id: 'apt-fut-01',
@@ -1509,7 +1980,13 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     tags: ['confirmada'],
     bgColor: 'var(--color-event-teal)',
     linkedTreatments: [
-      { id: 'treat-fut-01', treatmentCode: 'LDE', description: 'Limpieza dental', amount: '72 €', status: 'pending' }
+      {
+        id: 'treat-fut-01',
+        treatmentCode: 'LDE',
+        description: 'Limpieza dental',
+        amount: '72 €',
+        status: 'pending'
+      }
     ]
   },
   {
@@ -1529,10 +2006,17 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     tags: ['confirmada'],
     bgColor: 'var(--color-event-coral)',
     linkedTreatments: [
-      { id: 'treat-fut-02', treatmentCode: 'BLA', description: 'Blanqueamiento LED', amount: '250 €', status: 'pending', fromBudgetId: 'budget-009-01' }
+      {
+        id: 'treat-fut-02',
+        treatmentCode: 'BLA',
+        description: 'Blanqueamiento LED',
+        amount: '250 €',
+        status: 'pending',
+        fromBudgetId: 'budget-009-01'
+      }
     ]
   },
-  
+
   // 3 Feb
   {
     id: 'apt-fut-03',
@@ -1551,7 +2035,13 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     tags: ['confirmada'],
     bgColor: 'var(--color-event-teal)',
     linkedTreatments: [
-      { id: 'treat-fut-03', treatmentCode: 'INV', description: 'Revisión Invisalign', amount: '0 €', status: 'pending' }
+      {
+        id: 'treat-fut-03',
+        treatmentCode: 'INV',
+        description: 'Revisión Invisalign',
+        amount: '0 €',
+        status: 'pending'
+      }
     ]
   },
   {
@@ -1571,7 +2061,13 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     tags: ['confirmada', 'deuda'],
     bgColor: 'var(--color-event-coral)',
     linkedTreatments: [
-      { id: 'treat-fut-04', treatmentCode: 'RAR', description: 'Raspado cuadrante 3', amount: '120 €', status: 'pending' }
+      {
+        id: 'treat-fut-04',
+        treatmentCode: 'RAR',
+        description: 'Raspado cuadrante 3',
+        amount: '120 €',
+        status: 'pending'
+      }
     ]
   },
   {
@@ -1591,7 +2087,15 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     tags: ['confirmada'],
     bgColor: 'var(--color-brand-0)',
     linkedTreatments: [
-      { id: 'treat-fut-05', treatmentCode: 'COR', description: 'Impresiones corona', amount: '50 €', pieceNumber: 36, status: 'pending', fromBudgetId: 'budget-002-01' }
+      {
+        id: 'treat-fut-05',
+        treatmentCode: 'COR',
+        description: 'Impresiones corona',
+        amount: '50 €',
+        pieceNumber: 36,
+        status: 'pending',
+        fromBudgetId: 'budget-002-01'
+      }
     ]
   },
 
@@ -1613,7 +2117,13 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     tags: ['confirmada'],
     bgColor: 'var(--color-event-purple)',
     linkedTreatments: [
-      { id: 'treat-fut-06', treatmentCode: 'FLU', description: 'Flúor tópico', amount: '35 €', status: 'pending' }
+      {
+        id: 'treat-fut-06',
+        treatmentCode: 'FLU',
+        description: 'Flúor tópico',
+        amount: '35 €',
+        status: 'pending'
+      }
     ]
   },
   {
@@ -1633,7 +2143,13 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     tags: ['confirmada', 'deuda'],
     bgColor: 'var(--color-event-coral)',
     linkedTreatments: [
-      { id: 'treat-fut-07', treatmentCode: 'PER', description: 'Periodontal fase 3', amount: '180 €', status: 'pending' }
+      {
+        id: 'treat-fut-07',
+        treatmentCode: 'PER',
+        description: 'Periodontal fase 3',
+        amount: '180 €',
+        status: 'pending'
+      }
     ]
   },
 
@@ -1655,7 +2171,14 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     tags: ['confirmada'],
     bgColor: 'var(--color-brand-0)',
     linkedTreatments: [
-      { id: 'treat-fut-08', treatmentCode: 'CTR', description: 'Control implante', amount: '0 €', pieceNumber: 36, status: 'pending' }
+      {
+        id: 'treat-fut-08',
+        treatmentCode: 'CTR',
+        description: 'Control implante',
+        amount: '0 €',
+        pieceNumber: 36,
+        status: 'pending'
+      }
     ]
   },
   {
@@ -1674,10 +2197,26 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     charge: 'Si',
     tags: ['confirmada'],
     bgColor: 'var(--color-brand-0)',
-    paymentInfo: { totalAmount: 1200, paidAmount: 600, pendingAmount: 600, currency: '€' },
-    installmentPlan: { totalInstallments: 12, currentInstallment: 7, amountPerInstallment: 100 },
+    paymentInfo: {
+      totalAmount: 1200,
+      paidAmount: 600,
+      pendingAmount: 600,
+      currency: '€'
+    },
+    installmentPlan: {
+      totalInstallments: 12,
+      currentInstallment: 7,
+      amountPerInstallment: 100
+    },
     linkedTreatments: [
-      { id: 'treat-fut-09', treatmentCode: 'CTR', description: 'Control implante', amount: '0 €', pieceNumber: 46, status: 'pending' }
+      {
+        id: 'treat-fut-09',
+        treatmentCode: 'CTR',
+        description: 'Control implante',
+        amount: '0 €',
+        pieceNumber: 46,
+        status: 'pending'
+      }
     ]
   },
 
@@ -1699,7 +2238,14 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     tags: ['confirmada'],
     bgColor: 'var(--color-event-coral)',
     linkedTreatments: [
-      { id: 'treat-fut-10', treatmentCode: 'BLA', description: 'Blanqueamiento sesión 2', amount: '0 €', status: 'pending', notes: 'Incluido en presupuesto' }
+      {
+        id: 'treat-fut-10',
+        treatmentCode: 'BLA',
+        description: 'Blanqueamiento sesión 2',
+        amount: '0 €',
+        status: 'pending',
+        notes: 'Incluido en presupuesto'
+      }
     ]
   },
   {
@@ -1719,7 +2265,13 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     tags: ['confirmada'],
     bgColor: 'var(--color-event-teal)',
     linkedTreatments: [
-      { id: 'treat-fut-11', treatmentCode: 'CTR', description: 'Control férula', amount: '0 €', status: 'pending' }
+      {
+        id: 'treat-fut-11',
+        treatmentCode: 'CTR',
+        description: 'Control férula',
+        amount: '0 €',
+        status: 'pending'
+      }
     ]
   },
 
@@ -1741,7 +2293,13 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     tags: ['confirmada'],
     bgColor: 'var(--color-event-teal)',
     linkedTreatments: [
-      { id: 'treat-fut-12', treatmentCode: 'REV', description: 'Revisión semestral', amount: '45 €', status: 'pending' }
+      {
+        id: 'treat-fut-12',
+        treatmentCode: 'REV',
+        description: 'Revisión semestral',
+        amount: '45 €',
+        status: 'pending'
+      }
     ]
   },
   {
@@ -1761,7 +2319,13 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     tags: ['confirmada', 'deuda'],
     bgColor: 'var(--color-event-coral)',
     linkedTreatments: [
-      { id: 'treat-fut-13', treatmentCode: 'RAR', description: 'Raspado cuadrante 4', amount: '120 €', status: 'pending' }
+      {
+        id: 'treat-fut-13',
+        treatmentCode: 'RAR',
+        description: 'Raspado cuadrante 4',
+        amount: '120 €',
+        status: 'pending'
+      }
     ]
   },
   {
@@ -1781,8 +2345,244 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
     tags: ['confirmada'],
     bgColor: 'var(--color-brand-0)',
     linkedTreatments: [
-      { id: 'treat-fut-14', treatmentCode: 'COR', description: 'Corona zirconio', amount: '450 €', pieceNumber: 36, status: 'pending', fromBudgetId: 'budget-002-01' }
+      {
+        id: 'treat-fut-14',
+        treatmentCode: 'COR',
+        description: 'Corona zirconio',
+        amount: '450 €',
+        pieceNumber: 36,
+        status: 'pending',
+        fromBudgetId: 'budget-002-01'
+      }
     ]
+  },
+
+  // ============================================
+  // CITAS CREADAS POR AGENTE DE VOZ (IA)
+  // Estado: 'Pendiente IA' - pendientes de confirmación por usuario
+  // IDs vinculados a CallRecords en la tabla del agente de voz
+  // ============================================
+
+  // Cita 1 - Carlos Martínez Pérez (vinculada a llamada '1')
+  {
+    id: 'apt-ai-001',
+    date: '2026-02-02',
+    startTime: '10:00',
+    endTime: '10:30',
+    patientName: 'Carlos Martínez Pérez',
+    patientPhone: '+34 667 890 111',
+    patientAge: 42,
+    patientId: 'pat-ai-001',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Limpieza dental - Cita creada por agente de voz',
+    status: 'Pendiente IA',
+    box: 'box 1',
+    charge: 'No',
+    bgColor: 'var(--color-brand-100)', // Color de limpieza
+    createdByVoiceAgent: true,
+    voiceAgentCallId: '1',
+    voiceAgentData: {
+      callSummary:
+        'Paciente solicita cita para limpieza dental rutinaria. Última limpieza hace 8 meses.',
+      patientSentiment: 'aliviado',
+      callDuration: '12:42',
+      callIntent: 'pedir_cita_higiene',
+      transcriptionAvailable: true
+    }
+  },
+
+  // Cita 2 - Nacho Nieto Iniesta (vinculada a llamada '2')
+  {
+    id: 'apt-ai-002',
+    date: '2026-02-02',
+    startTime: '11:30',
+    endTime: '12:00',
+    patientName: 'Nacho Nieto Iniesta',
+    patientPhone: '+34 658 478 512',
+    patientAge: 35,
+    patientId: 'pat-ai-002',
+    professional: 'Dra. Elena Moreno',
+    reason: 'Consulta financiación tratamiento - Cita creada por agente de voz',
+    status: 'Pendiente IA',
+    box: 'box 2',
+    charge: 'No',
+    bgColor: 'var(--color-event-purple)', // Color de consulta
+    createdByVoiceAgent: true,
+    voiceAgentCallId: '2',
+    voiceAgentData: {
+      callSummary:
+        'Paciente consulta opciones de financiación para tratamiento de ortodoncia. Interesado en conocer cuotas mensuales.',
+      patientSentiment: 'nervioso',
+      callDuration: '09:12',
+      callIntent: 'consulta_financiacion',
+      transcriptionAvailable: true
+    }
+  },
+
+  // Cita 3 - Sofia Rodríguez López (vinculada a llamada '3') - URGENTE
+  {
+    id: 'apt-ai-003',
+    date: '2026-02-02',
+    startTime: '14:00',
+    endTime: '14:30',
+    patientName: 'Sofia Rodríguez López',
+    patientPhone: '+34 667 890 111',
+    patientAge: 28,
+    patientId: 'pat-ai-003',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Urgencia por dolor molar - Cita creada por agente de voz',
+    status: 'Pendiente IA',
+    box: 'box 1',
+    charge: 'No',
+    bgColor: 'var(--color-event-coral)', // Color de urgencia
+    createdByVoiceAgent: true,
+    voiceAgentCallId: '3',
+    voiceAgentData: {
+      callSummary:
+        'Paciente reporta dolor intenso en molar inferior derecho desde ayer. Posible infección. Requiere atención urgente.',
+      patientSentiment: 'enfadado',
+      callDuration: '02:32',
+      callIntent: 'urgencia_dolor',
+      transcriptionAvailable: true
+    }
+  },
+
+  // Cita 4 - Paciente nuevo sin asignar (vinculada a llamada '4')
+  {
+    id: 'apt-ai-004',
+    date: '2026-02-03',
+    startTime: '09:30',
+    endTime: '10:00',
+    patientName: 'Nuevo paciente (pendiente datos)',
+    patientPhone: '+34 658 478 512',
+    patientId: 'pat-ai-004',
+    professional: 'Dra. Elena Moreno',
+    reason: 'Primera consulta - Cita creada por agente de voz',
+    status: 'Pendiente IA',
+    box: 'box 2',
+    charge: 'No',
+    bgColor: 'var(--color-event-teal)', // Color de primera consulta
+    createdByVoiceAgent: true,
+    voiceAgentCallId: '4',
+    voiceAgentData: {
+      callSummary:
+        'Llamada de paciente nuevo interesado en consulta de ortodoncia. No proporcionó todos los datos personales.',
+      patientSentiment: 'contento',
+      callDuration: '05:47',
+      callIntent: 'consulta_financiacion',
+      transcriptionAvailable: true
+    }
+  },
+
+  // Cita 5 - Javier Fernández Torres (vinculada a llamada '5')
+  {
+    id: 'apt-ai-005',
+    date: '2026-02-03',
+    startTime: '16:00',
+    endTime: '16:30',
+    patientName: 'Javier Fernández Torres',
+    patientPhone: '+34 658 478 512',
+    patientAge: 51,
+    patientId: 'pat-ai-005',
+    professional: 'Dra. Carmen Díaz',
+    reason: 'Revisión periódica - Cita creada por agente de voz',
+    status: 'Pendiente IA',
+    box: 'box 3',
+    charge: 'No',
+    bgColor: 'var(--color-brand-100)', // Color de revisión
+    createdByVoiceAgent: true,
+    voiceAgentCallId: '5',
+    voiceAgentData: {
+      callSummary:
+        'Paciente solicita cita de revisión semestral. Paciente habitual, sin problemas reportados.',
+      patientSentiment: 'preocupado',
+      callDuration: '03:52',
+      callIntent: 'pedir_cita_higiene',
+      transcriptionAvailable: true
+    }
+  },
+
+  // Cita 6 - Lucía Pérez Gómez (vinculada a llamada '6')
+  {
+    id: 'apt-ai-006',
+    date: '2026-02-04',
+    startTime: '10:30',
+    endTime: '11:00',
+    patientName: 'Lucía Pérez Gómez',
+    patientPhone: '+34 667 890 111',
+    patientAge: 33,
+    patientId: 'pat-ai-006',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Blanqueamiento dental - Cita creada por agente de voz',
+    status: 'Pendiente IA',
+    box: 'box 1',
+    charge: 'No',
+    bgColor: 'var(--color-event-purple)', // Color de estética
+    createdByVoiceAgent: true,
+    voiceAgentCallId: '6',
+    voiceAgentData: {
+      callSummary:
+        'Paciente interesada en tratamiento de blanqueamiento dental. Solicita presupuesto previo.',
+      patientSentiment: 'contento',
+      callDuration: '03:12',
+      callIntent: 'consulta_general',
+      transcriptionAvailable: true
+    }
+  },
+
+  // Cita 7 - Paciente nuevo (vinculada a llamada '7')
+  {
+    id: 'apt-ai-007',
+    date: '2026-02-05',
+    startTime: '12:00',
+    endTime: '12:30',
+    patientName: 'Paciente pendiente identificar',
+    patientPhone: '+34 658 478 512',
+    patientId: 'pat-ai-007',
+    professional: 'Dra. Elena Moreno',
+    reason: 'Consulta financiación implantes - Cita creada por agente de voz',
+    status: 'Pendiente IA',
+    box: 'box 2',
+    charge: 'No',
+    bgColor: 'var(--color-event-purple)', // Color de consulta
+    createdByVoiceAgent: true,
+    voiceAgentCallId: '7',
+    voiceAgentData: {
+      callSummary:
+        'Consulta sobre opciones de financiación para implantes dentales. Paciente nuevo, pendiente de completar ficha.',
+      patientSentiment: 'aliviado',
+      callDuration: '05:47',
+      callIntent: 'consulta_financiacion',
+      transcriptionAvailable: true
+    }
+  },
+
+  // Cita 8 - Pablo Sánchez Delgado (vinculada a llamada '9') - URGENTE
+  {
+    id: 'apt-ai-008',
+    date: '2026-02-05',
+    startTime: '15:00',
+    endTime: '15:30',
+    patientName: 'Pablo Sánchez Delgado',
+    patientPhone: '+34 667 890 111',
+    patientAge: 39,
+    patientId: 'pat-ai-008',
+    professional: 'Dr. Antonio Ruiz',
+    reason: 'Urgencia - Revisión prótesis - Cita creada por agente de voz',
+    status: 'Pendiente IA',
+    box: 'box 1',
+    charge: 'No',
+    bgColor: 'var(--color-event-coral)', // Color de urgencia
+    createdByVoiceAgent: true,
+    voiceAgentCallId: '9',
+    voiceAgentData: {
+      callSummary:
+        'Paciente reporta molestia en prótesis dental. Necesita ajuste urgente. Dolor al masticar.',
+      patientSentiment: 'contento',
+      callDuration: '05:47',
+      callIntent: 'pedir_cita_higiene',
+      transcriptionAvailable: true
+    }
   }
 ]
 
@@ -1902,7 +2702,10 @@ type AppointmentsContextType = {
     box?: string
   ) => boolean
   // Funciones para historial clínico
-  getAppointmentsByPatient: (patientId?: string, patientName?: string) => Appointment[]
+  getAppointmentsByPatient: (
+    patientId?: string,
+    patientName?: string
+  ) => Appointment[]
   updateSOAPNotes: (appointmentId: string, notes: VisitSOAPNotes) => void
   updateLinkedTreatmentStatus: (
     appointmentId: string,
@@ -1910,7 +2713,10 @@ type AppointmentsContextType = {
     status: LinkedTreatmentStatus,
     completedBy?: string
   ) => void
-  addAttachment: (appointmentId: string, attachment: Omit<VisitAttachment, 'id'>) => void
+  addAttachment: (
+    appointmentId: string,
+    attachment: Omit<VisitAttachment, 'id'>
+  ) => void
   removeAttachment: (appointmentId: string, attachmentId: string) => void
 }
 
@@ -1943,9 +2749,61 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
   // Actualizar una cita existente
   const updateAppointment = useCallback(
     (id: string, updates: Partial<Appointment>) => {
-      setAppointments((prev) =>
-        prev.map((apt) => (apt.id === id ? { ...apt, ...updates } : apt))
-      )
+      setAppointments((prev) => {
+        const updatedAppointments = prev.map((apt) => {
+          if (apt.id !== id) return apt
+
+          const updatedApt = { ...apt, ...updates }
+
+          // Sync with Voice Agent: Dispatch event if this appointment
+          // was created by the voice agent and status changed
+          if (
+            apt.voiceAgentCallId &&
+            updates.status &&
+            apt.status !== updates.status
+          ) {
+            // Dispatch custom event for voice agent to listen
+            const event = new CustomEvent('appointment:status-change', {
+              detail: {
+                appointmentId: apt.id,
+                voiceAgentCallId: apt.voiceAgentCallId,
+                oldStatus: apt.status,
+                newStatus: updates.status,
+                appointment: updatedApt
+              }
+            })
+            window.dispatchEvent(event)
+            console.log(
+              `📡 Voice Agent Sync: Appointment ${apt.id} status changed from ${apt.status} to ${updates.status}`
+            )
+          }
+
+          // Sync with Voice Agent: Dispatch event if visit status changed
+          if (
+            apt.voiceAgentCallId &&
+            updates.visitStatus &&
+            apt.visitStatus !== updates.visitStatus
+          ) {
+            const event = new CustomEvent('appointment:visit-status-change', {
+              detail: {
+                appointmentId: apt.id,
+                voiceAgentCallId: apt.voiceAgentCallId,
+                oldVisitStatus: apt.visitStatus,
+                newVisitStatus: updates.visitStatus,
+                appointment: updatedApt
+              }
+            })
+            window.dispatchEvent(event)
+            console.log(
+              `📡 Voice Agent Sync: Appointment ${apt.id} visit status changed to ${updates.visitStatus}`
+            )
+          }
+
+          return updatedApt
+        })
+
+        return updatedAppointments
+      })
     },
     []
   )
@@ -2100,9 +2958,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
       setAppointments((prev) =>
         prev.map((apt) => (apt.id === id ? { ...apt, confirmed } : apt))
       )
-      console.log(
-        `✅ Cita ${id} ${confirmed ? 'confirmada' : 'desconfirmada'}`
-      )
+      console.log(`✅ Cita ${id} ${confirmed ? 'confirmada' : 'desconfirmada'}`)
     },
     []
   )
@@ -2136,14 +2992,24 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
               const durations = calculateFinalDurations(updatedHistory)
               waitingDuration = durations.waitingDuration ?? undefined
               consultationDuration = durations.consultationDuration ?? undefined
-              
+
               console.log(
-                `⏱️ Duraciones finales registradas: Espera=${waitingDuration ? Math.round(waitingDuration / 60000) + 'min' : 'N/A'}, Consulta=${consultationDuration ? Math.round(consultationDuration / 60000) + 'min' : 'N/A'}`
+                `⏱️ Duraciones finales registradas: Espera=${
+                  waitingDuration
+                    ? Math.round(waitingDuration / 60000) + 'min'
+                    : 'N/A'
+                }, Consulta=${
+                  consultationDuration
+                    ? Math.round(consultationDuration / 60000) + 'min'
+                    : 'N/A'
+                }`
               )
             }
 
             console.log(
-              `✅ Estado de visita actualizado: ${apt.patientName} → ${newStatus} (${now.toLocaleTimeString('es-ES')})`
+              `✅ Estado de visita actualizado: ${
+                apt.patientName
+              } → ${newStatus} (${now.toLocaleTimeString('es-ES')})`
             )
 
             return {
@@ -2165,7 +3031,9 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
   // Obtener conteo de citas por estado de visita para una fecha
   const getVisitStatusCounts = useCallback(
     (date: string): Record<VisitStatus, number> => {
-      const appointmentsForDate = appointments.filter((apt) => apt.date === date)
+      const appointmentsForDate = appointments.filter(
+        (apt) => apt.date === date
+      )
 
       const counts: Record<VisitStatus, number> = {
         scheduled: 0,
@@ -2191,7 +3059,9 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
 
   // Agregar un nuevo bloqueo
   const addBlock = useCallback((blockData: Omit<AgendaBlock, 'id'>): string => {
-    const newId = `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const newId = `block-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 9)}`
     const newBlock: AgendaBlock = {
       ...blockData,
       id: newId
@@ -2238,16 +3108,16 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
           )
         } else if (deleteRecurrence && !blockToDelete.parentBlockId) {
           // Este es el bloque padre, eliminar todos los hijos
-          return prev.filter(
-            (b) => b.id !== id && b.parentBlockId !== id
-          )
+          return prev.filter((b) => b.id !== id && b.parentBlockId !== id)
         }
 
         // Solo eliminar este bloqueo
         return prev.filter((b) => b.id !== id)
       })
       console.log(
-        `✅ Bloqueo ${id} eliminado${deleteRecurrence ? ' (con recurrencia)' : ''}`
+        `✅ Bloqueo ${id} eliminado${
+          deleteRecurrence ? ' (con recurrencia)' : ''
+        }`
       )
     },
     []
@@ -2317,7 +3187,11 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     (patientId?: string, patientName?: string): Appointment[] => {
       return appointments.filter((apt) => {
         if (patientId && apt.patientId === patientId) return true
-        if (patientName && apt.patientName.toLowerCase() === patientName.toLowerCase()) return true
+        if (
+          patientName &&
+          apt.patientName.toLowerCase() === patientName.toLowerCase()
+        )
+          return true
         return false
       })
     },
@@ -2357,22 +3231,28 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
       setAppointments((prev) =>
         prev.map((apt) => {
           if (apt.id !== appointmentId) return apt
-          
+
           const updatedTreatments = apt.linkedTreatments?.map((t) =>
             t.id === treatmentId
               ? {
                   ...t,
                   status,
-                  completedAt: status === 'completed' ? new Date().toISOString() : t.completedAt,
-                  completedBy: status === 'completed' ? completedBy : t.completedBy
+                  completedAt:
+                    status === 'completed'
+                      ? new Date().toISOString()
+                      : t.completedAt,
+                  completedBy:
+                    status === 'completed' ? completedBy : t.completedBy
                 }
               : t
           )
-          
+
           return { ...apt, linkedTreatments: updatedTreatments }
         })
       )
-      console.log(`✅ Estado de tratamiento ${treatmentId} actualizado a ${status}`)
+      console.log(
+        `✅ Estado de tratamiento ${treatmentId} actualizado a ${status}`
+      )
     },
     []
   )
@@ -2384,11 +3264,14 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         ...attachment,
         id: `att-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       }
-      
+
       setAppointments((prev) =>
         prev.map((apt) =>
           apt.id === appointmentId
-            ? { ...apt, attachments: [...(apt.attachments || []), newAttachment] }
+            ? {
+                ...apt,
+                attachments: [...(apt.attachments || []), newAttachment]
+              }
             : apt
         )
       )
@@ -2403,11 +3286,18 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
       setAppointments((prev) =>
         prev.map((apt) =>
           apt.id === appointmentId
-            ? { ...apt, attachments: apt.attachments?.filter((a) => a.id !== attachmentId) }
+            ? {
+                ...apt,
+                attachments: apt.attachments?.filter(
+                  (a) => a.id !== attachmentId
+                )
+              }
             : apt
         )
       )
-      console.log(`✅ Archivo adjunto ${attachmentId} eliminado de cita ${appointmentId}`)
+      console.log(
+        `✅ Archivo adjunto ${attachmentId} eliminado de cita ${appointmentId}`
+      )
     },
     []
   )

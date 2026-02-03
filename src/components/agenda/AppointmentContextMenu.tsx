@@ -1,18 +1,25 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
 import { MD3Icon, type MD3IconName } from '@/components/icons/MD3Icon'
 import Portal from '@/components/ui/Portal'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState
+} from 'react'
 import type { EventDetail, VisitStatus } from './types'
 import { VISIT_STATUS_CONFIG, VISIT_STATUS_ORDER } from './types'
 
-export type ContextMenuAction = 
+export type ContextMenuAction =
   | 'view-patient'
   | 'view-appointment'
   | 'new-appointment'
   | 'new-budget'
   | 'new-prescription'
   | 'report'
+  | 'view-voice-call'
 
 export interface AppointmentContextMenuProps {
   /** Posición del menú en la pantalla */
@@ -31,9 +38,17 @@ export interface AppointmentContextMenuProps {
   isConfirmed?: boolean
   /** Callback para cambiar el estado de confirmación */
   onToggleConfirmed?: (confirmed: boolean) => void
+  /** Si la cita fue creada por el agente de voz */
+  createdByVoiceAgent?: boolean
+  /** ID de la llamada vinculada (si fue creada por agente de voz) */
+  voiceAgentCallId?: string
 }
 
-const MENU_ITEMS: { id: ContextMenuAction; label: string; icon: MD3IconName }[] = [
+const MENU_ITEMS: {
+  id: ContextMenuAction
+  label: string
+  icon: MD3IconName
+}[] = [
   { id: 'view-patient', label: 'Ver paciente', icon: 'AccountCircleRounded' },
   { id: 'view-appointment', label: 'Ver cita', icon: 'CalendarMonthRounded' },
   { id: 'new-appointment', label: 'Nueva cita', icon: 'AddRounded' },
@@ -50,11 +65,16 @@ export default function AppointmentContextMenu({
   currentVisitStatus = 'scheduled',
   onVisitStatusChange,
   isConfirmed = false,
-  onToggleConfirmed
+  onToggleConfirmed,
+  createdByVoiceAgent = false,
+  voiceAgentCallId
 }: AppointmentContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [showStatusSubmenu, setShowStatusSubmenu] = useState(false)
-  const [adjustedPosition, setAdjustedPosition] = useState({ x: position.x, y: position.y })
+  const [adjustedPosition, setAdjustedPosition] = useState({
+    x: position.x,
+    y: position.y
+  })
 
   // Función para calcular la posición ajustada
   const calculatePosition = useCallback(() => {
@@ -182,6 +202,26 @@ export default function AppointmentContextMenu({
           ))}
         </div>
 
+        {/* Opción "Ver llamada IA" - Solo para citas creadas por agente de voz */}
+        {createdByVoiceAgent && voiceAgentCallId && (
+          <>
+            <div className='my-1 h-px bg-[var(--color-border-default)]' />
+            <div className='py-1'>
+              <button
+                type='button'
+                role='menuitem'
+                onClick={() => handleItemClick('view-voice-call')}
+                className='flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-[var(--color-event-ai)] transition-colors hover:bg-[var(--color-event-ai-bg)] focus:bg-[var(--color-event-ai-bg)] focus:outline-none'
+              >
+                <span className='material-symbols-rounded text-lg'>
+                  smart_toy
+                </span>
+                <span className='font-medium'>Ver llamada IA</span>
+              </button>
+            </div>
+          </>
+        )}
+
         {/* Toggle de confirmación */}
         {onToggleConfirmed && (
           <>
@@ -244,7 +284,10 @@ export default function AppointmentContextMenu({
                 <div className='flex items-center gap-3'>
                   <span
                     className='h-3 w-3 rounded-full'
-                    style={{ backgroundColor: VISIT_STATUS_CONFIG[currentVisitStatus].color }}
+                    style={{
+                      backgroundColor:
+                        VISIT_STATUS_CONFIG[currentVisitStatus].color
+                    }}
                   />
                   <span>Estado de visita</span>
                 </div>

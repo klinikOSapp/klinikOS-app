@@ -44,7 +44,9 @@ function createLegacyIcon(name: MD3IconName) {
   return Icon
 }
 
-export const AccessTimeFilledRounded = createLegacyIcon('AccessTimeFilledRounded')
+export const AccessTimeFilledRounded = createLegacyIcon(
+  'AccessTimeFilledRounded'
+)
 export const AccountCircleRounded = createLegacyIcon('AccountCircleRounded')
 export const AddAPhotoRounded = createLegacyIcon('AddAPhotoRounded')
 export const AddPhotoAlternateRounded = createLegacyIcon(
@@ -72,7 +74,9 @@ export const CheckCircleRounded = createLegacyIcon('CheckCircleRounded')
 export const CheckRounded = createLegacyIcon('CheckRounded')
 export const ChevronLeftRounded = createLegacyIcon('ChevronLeftRounded')
 export const ChevronRightRounded = createLegacyIcon('ChevronRightRounded')
-export const CleaningServicesRounded = createLegacyIcon('CleaningServicesRounded')
+export const CleaningServicesRounded = createLegacyIcon(
+  'CleaningServicesRounded'
+)
 export const CloseRounded = createLegacyIcon('CloseRounded')
 export const CloudDownloadRounded = createLegacyIcon('CloudDownloadRounded')
 export const CloudUploadRounded = createLegacyIcon('CloudUploadRounded')
@@ -80,6 +84,7 @@ export const CompareRounded = createLegacyIcon('CompareRounded')
 export const ContrastRounded = createLegacyIcon('ContrastRounded')
 export const DeleteRounded = createLegacyIcon('DeleteRounded')
 export const DescriptionRounded = createLegacyIcon('DescriptionRounded')
+export const DoorFrontRounded = createLegacyIcon('DoorFrontRounded')
 export const DownloadRounded = createLegacyIcon('DownloadRounded')
 export const EditRounded = createLegacyIcon('EditRounded')
 export const ElectricBoltRounded = createLegacyIcon('ElectricBoltRounded')
@@ -104,7 +109,9 @@ export const MailRounded = createLegacyIcon('MailRounded')
 export const MonitorHeartRounded = createLegacyIcon('MonitorHeartRounded')
 export const MoreHorizRounded = createLegacyIcon('MoreHorizRounded')
 export const MoreVertRounded = createLegacyIcon('MoreVertRounded')
-export const NotificationsActiveRounded = createLegacyIcon('NotificationsActiveRounded')
+export const NotificationsActiveRounded = createLegacyIcon(
+  'NotificationsActiveRounded'
+)
 export const PaymentsRounded = createLegacyIcon('PaymentsRounded')
 export const PeopleRounded = createLegacyIcon('PeopleRounded')
 export const PersonRounded = createLegacyIcon('PersonRounded')
@@ -124,6 +131,7 @@ export const RadioButtonUncheckedRounded = createLegacyIcon(
 export const SearchRounded = createLegacyIcon('SearchRounded')
 export const SellRounded = createLegacyIcon('SellRounded')
 export const SettingsRounded = createLegacyIcon('SettingsRounded')
+export const SupportAgentRounded = createLegacyIcon('SupportAgentRounded')
 export const TimelineRounded = createLegacyIcon('TimelineRounded')
 export const UploadFileRounded = createLegacyIcon('UploadFileRounded')
 export const UploadRounded = createLegacyIcon('UploadRounded')

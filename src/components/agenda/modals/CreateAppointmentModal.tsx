@@ -1,12 +1,22 @@
 'use client'
 
-import { SelectInput, DatePickerInput } from '@/components/pacientes/modals/add-patient/AddPatientInputs'
+import {
+  DatePickerInput,
+  SelectInput
+} from '@/components/pacientes/modals/add-patient/AddPatientInputs'
 import Portal from '@/components/ui/Portal'
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
-import { createPortal } from 'react-dom'
-import type { BlockType, RecurrencePattern } from '@/context/AppointmentsContext'
-import { BLOCK_TYPE_CONFIG, useAppointments } from '@/context/AppointmentsContext'
+import type {
+  BlockType,
+  RecurrencePattern
+} from '@/context/AppointmentsContext'
+import {
+  BLOCK_TYPE_CONFIG,
+  useAppointments
+} from '@/context/AppointmentsContext'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import { usePatients, type PatientTreatment } from '@/context/PatientsContext'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 type CreateAppointmentModalProps = {
   isOpen: boolean
@@ -95,16 +105,16 @@ const TIME_SLOTS = (() => {
 })()
 
 // Reusable form row component for consistent styling
-function FormRow({ 
-  label, 
-  icon, 
-  required, 
-  children 
-}: { 
+function FormRow({
+  label,
+  icon,
+  required,
+  children
+}: {
   label: string
   icon?: string
   required?: boolean
-  children: React.ReactNode 
+  children: React.ReactNode
 }) {
   return (
     <div className='flex items-center gap-4'>
@@ -119,9 +129,7 @@ function FormRow({
           {required && <span className='ml-0.5 text-red-400'>*</span>}
         </p>
       </div>
-      <div className='flex-1'>
-        {children}
-      </div>
+      <div className='flex-1'>{children}</div>
     </div>
   )
 }
@@ -137,7 +145,10 @@ function TimePickerInput({
   hasError?: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
-  const [popoverPos, setPopoverPos] = useState<{ left: number; top: number } | null>(null)
+  const [popoverPos, setPopoverPos] = useState<{
+    left: number
+    top: number
+  } | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -148,8 +159,10 @@ function TimePickerInput({
     const handleClick = (e: MouseEvent) => {
       const target = e.target as Node
       if (
-        buttonRef.current && !buttonRef.current.contains(target) &&
-        popoverRef.current && !popoverRef.current.contains(target)
+        buttonRef.current &&
+        !buttonRef.current.contains(target) &&
+        popoverRef.current &&
+        !popoverRef.current.contains(target)
       ) {
         setIsOpen(false)
       }
@@ -164,12 +177,12 @@ function TimePickerInput({
     const rect = buttonRef.current.getBoundingClientRect()
     const popoverHeight = 280
     const margin = 8
-    
+
     let top = rect.bottom + 4
     if (top + popoverHeight > window.innerHeight - margin) {
       top = rect.top - popoverHeight - 4
     }
-    
+
     setPopoverPos({
       left: rect.left,
       top: Math.max(margin, top)
@@ -179,7 +192,7 @@ function TimePickerInput({
   // Scroll to selected time when opening
   useEffect(() => {
     if (isOpen && listRef.current && value) {
-      const selectedIndex = TIME_SLOTS.findIndex(s => s.value === value)
+      const selectedIndex = TIME_SLOTS.findIndex((s) => s.value === value)
       if (selectedIndex >= 0) {
         const itemHeight = 40
         listRef.current.scrollTop = selectedIndex * itemHeight - 100
@@ -194,47 +207,50 @@ function TimePickerInput({
       <button
         ref={buttonRef}
         type='button'
-        onClick={() => setIsOpen(v => !v)}
+        onClick={() => setIsOpen((v) => !v)}
         className={`h-12 w-full rounded-lg border bg-[var(--color-neutral-50)] px-3 text-left text-sm transition-colors focus:outline-none focus:ring-2 ${
-          hasError 
-            ? 'border-red-300 focus:border-red-400 focus:ring-red-100' 
+          hasError
+            ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
             : 'border-[var(--color-neutral-300)] focus:border-brand-400 focus:ring-brand-100'
-        } ${value ? 'text-[var(--color-neutral-900)]' : 'text-[var(--color-neutral-400)]'}`}
+        } ${
+          value
+            ? 'text-[var(--color-neutral-900)]'
+            : 'text-[var(--color-neutral-400)]'
+        }`}
       >
         {displayValue}
       </button>
-      
-      {isOpen && popoverPos && createPortal(
-        <div
-          ref={popoverRef}
-          className='fixed z-[10000] w-36 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden'
-          style={{ left: popoverPos.left, top: popoverPos.top }}
-        >
-          <div 
-            ref={listRef}
-            className='max-h-[280px] overflow-y-auto py-1'
+
+      {isOpen &&
+        popoverPos &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            className='fixed z-[10000] w-36 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden'
+            style={{ left: popoverPos.left, top: popoverPos.top }}
           >
-            {TIME_SLOTS.map((slot) => (
-              <button
-                key={slot.value}
-                type='button'
-                onClick={() => {
-                  onChange(slot.value)
-                  setIsOpen(false)
-                }}
-                className={`w-full h-10 px-4 text-left text-sm transition-colors ${
-                  slot.value === value
-                    ? 'bg-brand-50 text-brand-600 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {slot.label}
-              </button>
-            ))}
-          </div>
-        </div>,
-        document.body
-      )}
+            <div ref={listRef} className='max-h-[280px] overflow-y-auto py-1'>
+              {TIME_SLOTS.map((slot) => (
+                <button
+                  key={slot.value}
+                  type='button'
+                  onClick={() => {
+                    onChange(slot.value)
+                    setIsOpen(false)
+                  }}
+                  className={`w-full h-10 px-4 text-left text-sm transition-colors ${
+                    slot.value === value
+                      ? 'bg-brand-50 text-brand-600 font-medium'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {slot.label}
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   )
 }
@@ -250,7 +266,7 @@ const DURATION_OPTIONS = [
   { value: '105', label: '1h 45m' },
   { value: '120', label: '2 horas' },
   { value: '150', label: '2h 30m' },
-  { value: '180', label: '3 horas' },
+  { value: '180', label: '3 horas' }
 ]
 
 // Duration Input Component - editable input with dropdown suggestions
@@ -263,7 +279,11 @@ function DurationInput({
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [inputValue, setInputValue] = useState('')
-  const [popoverPos, setPopoverPos] = useState<{ left: number; top: number; width: number } | null>(null)
+  const [popoverPos, setPopoverPos] = useState<{
+    left: number
+    top: number
+    width: number
+  } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
@@ -281,8 +301,10 @@ function DurationInput({
     const handleClick = (e: MouseEvent) => {
       const target = e.target as Node
       if (
-        containerRef.current && !containerRef.current.contains(target) &&
-        popoverRef.current && !popoverRef.current.contains(target)
+        containerRef.current &&
+        !containerRef.current.contains(target) &&
+        popoverRef.current &&
+        !popoverRef.current.contains(target)
       ) {
         setIsOpen(false)
       }
@@ -297,12 +319,12 @@ function DurationInput({
     const rect = containerRef.current.getBoundingClientRect()
     const popoverHeight = 280
     const margin = 8
-    
+
     let top = rect.bottom + 4
     if (top + popoverHeight > window.innerHeight - margin) {
       top = rect.top - popoverHeight - 4
     }
-    
+
     setPopoverPos({
       left: rect.left,
       top: Math.max(margin, top),
@@ -354,7 +376,8 @@ function DurationInput({
   }
 
   // Get display value - show formatted label when not focused
-  const displayValue = document.activeElement === inputRef.current ? inputValue : (value || '')
+  const displayValue =
+    document.activeElement === inputRef.current ? inputValue : value || ''
 
   return (
     <>
@@ -376,7 +399,7 @@ function DurationInput({
             type='button'
             tabIndex={-1}
             onClick={() => {
-              setIsOpen(v => !v)
+              setIsOpen((v) => !v)
               if (!isOpen) inputRef.current?.focus()
             }}
             className='absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600'
@@ -387,34 +410,42 @@ function DurationInput({
           </button>
         </div>
       </div>
-      
-      {isOpen && popoverPos && createPortal(
-        <div
-          ref={popoverRef}
-          className='fixed z-[10000] bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden'
-          style={{ left: popoverPos.left, top: popoverPos.top, width: popoverPos.width }}
-        >
-          <div className='max-h-[260px] overflow-y-auto py-1'>
-            {DURATION_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type='button'
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handleSelectPreset(option.value)}
-                className={`w-full h-10 px-4 text-left text-sm transition-colors flex items-center justify-between ${
-                  option.value === value
-                    ? 'bg-brand-50 text-brand-600 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <span>{option.label}</span>
-                <span className='text-xs text-gray-400'>{option.value} min</span>
-              </button>
-            ))}
-          </div>
-        </div>,
-        document.body
-      )}
+
+      {isOpen &&
+        popoverPos &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            className='fixed z-[10000] bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden'
+            style={{
+              left: popoverPos.left,
+              top: popoverPos.top,
+              width: popoverPos.width
+            }}
+          >
+            <div className='max-h-[260px] overflow-y-auto py-1'>
+              {DURATION_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type='button'
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelectPreset(option.value)}
+                  className={`w-full h-10 px-4 text-left text-sm transition-colors flex items-center justify-between ${
+                    option.value === value
+                      ? 'bg-brand-50 text-brand-600 font-medium'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <span>{option.label}</span>
+                  <span className='text-xs text-gray-400'>
+                    {option.value} min
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   )
 }
@@ -447,48 +478,68 @@ export default function CreateAppointmentModal({
   initialData
 }: CreateAppointmentModalProps) {
   const { isTimeSlotBlocked } = useAppointments()
-  const { getPatientsForSelect, getPendingTreatments, getPatientById, resetTreatmentsForNextAppointment, updateTreatment } = usePatients()
-  const [formData, setFormData] = useState<AppointmentFormData>(() => getEmptyFormData())
-  const [blockFormData, setBlockFormData] = useState<BlockFormData>(() => getEmptyBlockFormData())
-  const [blockConflictError, setBlockConflictError] = useState<string | null>(null)
-  const [pendingTreatments, setPendingTreatments] = useState<SelectableTreatment[]>([])
-  
+  const { activeProfessionals, activeBoxes } = useConfiguration()
+  const {
+    getPatientsForSelect,
+    getPendingTreatments,
+    getPatientById,
+    resetTreatmentsForNextAppointment,
+    updateTreatment
+  } = usePatients()
+  const [formData, setFormData] = useState<AppointmentFormData>(() =>
+    getEmptyFormData()
+  )
+  const [blockFormData, setBlockFormData] = useState<BlockFormData>(() =>
+    getEmptyBlockFormData()
+  )
+  const [blockConflictError, setBlockConflictError] = useState<string | null>(
+    null
+  )
+  const [pendingTreatments, setPendingTreatments] = useState<
+    SelectableTreatment[]
+  >([])
+
   const isBlockMode = formData.servicio === 'block'
-  
+
   // Get patients list from context
   const pacientes = getPatientsForSelect()
 
   // Handle patient selection - load pending treatments
-  const handlePatientChange = useCallback((patientId: string) => {
-    const patient = getPatientById(patientId)
-    const patientName = patient?.fullName || ''
-    
-    setFormData(prev => ({ 
-      ...prev, 
-      paciente: patientName,
-      pacienteId: patientId,
-      // Clear block mode when selecting a patient
-      servicio: prev.servicio === 'block' ? '' : prev.servicio
-    }))
-    
-    if (patientId) {
-      // Get pending treatments for this patient
-      const treatments = getPendingTreatments(patientId)
-      // Pre-select treatments that are marked for next appointment in the Treatments tab
-      const selectableTreatments: SelectableTreatment[] = treatments.map(t => ({
-        ...t,
-        selected: t.markedForNextAppointment || false
+  const handlePatientChange = useCallback(
+    (patientId: string) => {
+      const patient = getPatientById(patientId)
+      const patientName = patient?.fullName || ''
+
+      setFormData((prev) => ({
+        ...prev,
+        paciente: patientName,
+        pacienteId: patientId,
+        // Clear block mode when selecting a patient
+        servicio: prev.servicio === 'block' ? '' : prev.servicio
       }))
-      setPendingTreatments(selectableTreatments)
-    } else {
-      setPendingTreatments([])
-    }
-  }, [getPatientById, getPendingTreatments])
+
+      if (patientId) {
+        // Get pending treatments for this patient
+        const treatments = getPendingTreatments(patientId)
+        // Pre-select treatments that are marked for next appointment in the Treatments tab
+        const selectableTreatments: SelectableTreatment[] = treatments.map(
+          (t) => ({
+            ...t,
+            selected: t.markedForNextAppointment || false
+          })
+        )
+        setPendingTreatments(selectableTreatments)
+      } else {
+        setPendingTreatments([])
+      }
+    },
+    [getPatientById, getPendingTreatments]
+  )
 
   // Toggle treatment selection
   const toggleTreatmentSelection = useCallback((treatmentId: string) => {
-    setPendingTreatments(prev => 
-      prev.map(t => 
+    setPendingTreatments((prev) =>
+      prev.map((t) =>
         t.id === treatmentId ? { ...t, selected: !t.selected } : t
       )
     )
@@ -497,8 +548,8 @@ export default function CreateAppointmentModal({
   // Get selected treatments for form submission
   const selectedTreatments = useMemo(() => {
     return pendingTreatments
-      .filter(t => t.selected)
-      .map(t => ({
+      .filter((t) => t.selected)
+      .map((t) => ({
         id: t.id,
         description: t.description,
         amount: String(t.amount)
@@ -508,16 +559,30 @@ export default function CreateAppointmentModal({
   const hasTimeSlotConflict = useMemo(() => {
     if (isBlockMode) return false
     if (!formData.fecha || !formData.hora) return false
-    
+
     const [hours, minutes] = formData.hora.split(':').map(Number)
     const duration = parseInt(formData.duracion || '30', 10)
     const endMinutes = hours * 60 + minutes + duration
     const endHours = Math.floor(endMinutes / 60)
     const endMins = endMinutes % 60
-    const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`
-    
-    return isTimeSlotBlocked(formData.fecha, formData.hora, endTime, formData.box || undefined)
-  }, [isBlockMode, formData.fecha, formData.hora, formData.duracion, formData.box, isTimeSlotBlocked])
+    const endTime = `${String(endHours).padStart(2, '0')}:${String(
+      endMins
+    ).padStart(2, '0')}`
+
+    return isTimeSlotBlocked(
+      formData.fecha,
+      formData.hora,
+      endTime,
+      formData.box || undefined
+    )
+  }, [
+    isBlockMode,
+    formData.fecha,
+    formData.hora,
+    formData.duracion,
+    formData.box,
+    isTimeSlotBlocked
+  ])
 
   useEffect(() => {
     if (hasTimeSlotConflict) {
@@ -560,14 +625,14 @@ export default function CreateAppointmentModal({
         linkedTreatments: selectedTreatments
       }
       onSubmit?.(dataWithTreatments)
-      
+
       // Update treatment status to 'En curso' for all selected treatments
       if (formData.pacienteId && selectedTreatments.length > 0) {
-        selectedTreatments.forEach(t => {
+        selectedTreatments.forEach((t) => {
           updateTreatment(formData.pacienteId, t.id, { status: 'En curso' })
         })
       }
-      
+
       // Reset treatment selections in context after creating appointment
       if (formData.pacienteId) {
         resetTreatmentsForNextAppointment(formData.pacienteId)
@@ -579,10 +644,10 @@ export default function CreateAppointmentModal({
   }
 
   const toggleRecurrenceDay = (dayValue: number) => {
-    setBlockFormData(prev => {
+    setBlockFormData((prev) => {
       const currentDays = prev.recurrence.daysOfWeek || []
       const newDays = currentDays.includes(dayValue)
-        ? currentDays.filter(d => d !== dayValue)
+        ? currentDays.filter((d) => d !== dayValue)
         : [...currentDays, dayValue].sort()
       return {
         ...prev,
@@ -594,6 +659,25 @@ export default function CreateAppointmentModal({
     })
   }
 
+  // Professionals from configuration context - MUST be before early return to avoid hooks order change
+  const responsables = useMemo(
+    () => [
+      { value: '', label: 'Sin asignar' },
+      ...activeProfessionals.map((p) => ({ value: p.id, label: p.name }))
+    ],
+    [activeProfessionals]
+  )
+
+  // Boxes from configuration context - MUST be before early return to avoid hooks order change
+  const boxes = useMemo(
+    () =>
+      activeBoxes.map((b) => ({
+        value: b.label.toLowerCase(),
+        label: b.label
+      })),
+    [activeBoxes]
+  )
+
   if (!isOpen) return null
 
   const servicios = [
@@ -603,58 +687,50 @@ export default function CreateAppointmentModal({
     { value: 'ortodoncia', label: 'Ortodoncia' },
     { value: 'endodoncia', label: 'Endodoncia' },
     { value: 'revision', label: 'Revisión' },
-    { value: 'extraccion', label: 'Extracción' },
+    { value: 'extraccion', label: 'Extracción' }
   ]
 
   // pacientes now comes from context (getPatientsForSelect)
 
-  const responsables = [
-    { value: '', label: 'Sin asignar' },
-    { value: 'dr1', label: 'Dr. Antonio López' },
-    { value: 'dr2', label: 'Dra. Carmen Sánchez' },
-    { value: 'dr3', label: 'Dr. Miguel Torres' },
-  ]
-
-  const blockTypes = Object.entries(BLOCK_TYPE_CONFIG).map(([value, config]) => ({
-    value,
-    label: config.label
-  }))
-
-  const boxes = [
-    { value: 'box 1', label: 'Box 1' },
-    { value: 'box 2', label: 'Box 2' },
-    { value: 'box 3', label: 'Box 3' },
-  ]
-
+  const blockTypes = Object.entries(BLOCK_TYPE_CONFIG).map(
+    ([value, config]) => ({
+      value,
+      label: config.label
+    })
+  )
 
   const recurrenceTypes = [
     { value: 'none', label: 'No repetir' },
     { value: 'daily', label: 'Diario' },
     { value: 'weekly', label: 'Semanal' },
     { value: 'monthly', label: 'Mensual' },
-    { value: 'custom', label: 'Personalizado' },
+    { value: 'custom', label: 'Personalizado' }
   ]
 
-  const isBlockFormValid = isBlockMode && 
-    blockFormData.blockType && 
-    blockFormData.fecha && 
-    blockFormData.hora && 
-    blockFormData.duracion && 
+  const isBlockFormValid =
+    isBlockMode &&
+    blockFormData.blockType &&
+    blockFormData.fecha &&
+    blockFormData.hora &&
+    blockFormData.duracion &&
     blockFormData.box
 
   // Determine if patient has pending treatments
-  const hasPendingTreatments = formData.pacienteId && pendingTreatments.length > 0
-  
+  const hasPendingTreatments =
+    formData.pacienteId && pendingTreatments.length > 0
+
   // Appointment is valid if:
   // - Has patient, date, time, duration, and no conflict
   // - AND either: has selected treatments OR has selected a service (when no pending treatments)
-  const isAppointmentFormValid = !isBlockMode && 
-    formData.paciente && 
-    formData.fecha && 
+  const isAppointmentFormValid =
+    !isBlockMode &&
+    formData.paciente &&
+    formData.fecha &&
     formData.hora &&
     formData.duracion &&
     !hasTimeSlotConflict &&
-    (selectedTreatments.length > 0 || (!hasPendingTreatments && formData.servicio))
+    (selectedTreatments.length > 0 ||
+      (!hasPendingTreatments && formData.servicio))
 
   const canSubmit = isBlockMode ? isBlockFormValid : isAppointmentFormValid
 
@@ -669,18 +745,24 @@ export default function CreateAppointmentModal({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className={`flex items-center justify-between px-6 py-4 ${
-            isBlockMode 
-              ? 'bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200' 
-              : 'bg-gradient-to-r from-brand-50 to-teal-50 border-b border-brand-100'
-          }`}>
+          <div
+            className={`flex items-center justify-between px-6 py-4 ${
+              isBlockMode
+                ? 'bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200'
+                : 'bg-gradient-to-r from-brand-50 to-teal-50 border-b border-brand-100'
+            }`}
+          >
             <div className='flex items-center gap-3'>
-              <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-                isBlockMode ? 'bg-gray-200' : 'bg-brand-100'
-              }`}>
-                <span className={`material-symbols-rounded text-xl ${
-                  isBlockMode ? 'text-gray-600' : 'text-brand-600'
-                }`}>
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                  isBlockMode ? 'bg-gray-200' : 'bg-brand-100'
+                }`}
+              >
+                <span
+                  className={`material-symbols-rounded text-xl ${
+                    isBlockMode ? 'text-gray-600' : 'text-brand-600'
+                  }`}
+                >
                   {isBlockMode ? 'block' : 'calendar_add_on'}
                 </span>
               </div>
@@ -689,7 +771,9 @@ export default function CreateAppointmentModal({
                   {isBlockMode ? 'Bloquear agenda' : 'Nueva cita'}
                 </h2>
                 <p className='text-xs text-[#6b7280]'>
-                  {isBlockMode ? 'Reservar tiempo para actividades' : 'Agendar paciente'}
+                  {isBlockMode
+                    ? 'Reservar tiempo para actividades'
+                    : 'Agendar paciente'}
                 </p>
               </div>
             </div>
@@ -705,16 +789,19 @@ export default function CreateAppointmentModal({
           {/* Content */}
           <div className='max-h-[60vh] overflow-y-auto px-6 py-5'>
             <div className='flex flex-col gap-5'>
-
               {isBlockMode ? (
                 <>
                   {/* Back to appointment mode */}
                   <button
                     type='button'
-                    onClick={() => setFormData(prev => ({ ...prev, servicio: '' }))}
+                    onClick={() =>
+                      setFormData((prev) => ({ ...prev, servicio: '' }))
+                    }
                     className='flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 transition-colors -mb-2'
                   >
-                    <span className='material-symbols-rounded text-base'>arrow_back</span>
+                    <span className='material-symbols-rounded text-base'>
+                      arrow_back
+                    </span>
                     <span>Volver a crear cita</span>
                   </button>
 
@@ -723,7 +810,12 @@ export default function CreateAppointmentModal({
                     <SelectInput
                       placeholder='Seleccionar tipo...'
                       value={blockFormData.blockType}
-                      onChange={(v) => setBlockFormData(prev => ({ ...prev, blockType: v as BlockType }))}
+                      onChange={(v) =>
+                        setBlockFormData((prev) => ({
+                          ...prev,
+                          blockType: v as BlockType
+                        }))
+                      }
                       options={blockTypes}
                     />
                   </FormRow>
@@ -732,7 +824,9 @@ export default function CreateAppointmentModal({
                     <SelectInput
                       placeholder='Seleccionar box...'
                       value={blockFormData.box}
-                      onChange={(v) => setBlockFormData(prev => ({ ...prev, box: v }))}
+                      onChange={(v) =>
+                        setBlockFormData((prev) => ({ ...prev, box: v }))
+                      }
                       options={boxes}
                     />
                   </FormRow>
@@ -741,7 +835,12 @@ export default function CreateAppointmentModal({
                     <SelectInput
                       placeholder='Sin asignar'
                       value={blockFormData.responsable}
-                      onChange={(v) => setBlockFormData(prev => ({ ...prev, responsable: v }))}
+                      onChange={(v) =>
+                        setBlockFormData((prev) => ({
+                          ...prev,
+                          responsable: v
+                        }))
+                      }
                       options={responsables}
                     />
                   </FormRow>
@@ -751,28 +850,42 @@ export default function CreateAppointmentModal({
                   <FormRow label='Fecha' icon='calendar_month' required>
                     <DatePickerInput
                       value={stringToDate(blockFormData.fecha)}
-                      onChange={(d) => setBlockFormData(prev => ({ ...prev, fecha: dateToString(d) }))}
+                      onChange={(d) =>
+                        setBlockFormData((prev) => ({
+                          ...prev,
+                          fecha: dateToString(d)
+                        }))
+                      }
                     />
                   </FormRow>
 
                   <FormRow label='Hora' icon='schedule' required>
                     <TimePickerInput
                       value={blockFormData.hora}
-                      onChange={(t) => setBlockFormData(prev => ({ ...prev, hora: t }))}
+                      onChange={(t) =>
+                        setBlockFormData((prev) => ({ ...prev, hora: t }))
+                      }
                     />
                   </FormRow>
 
                   <FormRow label='Duración' icon='timelapse' required>
                     <DurationInput
                       value={blockFormData.duracion}
-                      onChange={(v) => setBlockFormData(prev => ({ ...prev, duracion: v }))}
+                      onChange={(v) =>
+                        setBlockFormData((prev) => ({ ...prev, duracion: v }))
+                      }
                     />
                   </FormRow>
 
                   <FormRow label='Descripción' icon='notes'>
                     <textarea
                       value={blockFormData.observaciones}
-                      onChange={(e) => setBlockFormData(prev => ({ ...prev, observaciones: e.target.value }))}
+                      onChange={(e) =>
+                        setBlockFormData((prev) => ({
+                          ...prev,
+                          observaciones: e.target.value
+                        }))
+                      }
                       placeholder='Ej: Limpieza, descanso, reunión...'
                       className='h-20 w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 transition-colors focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100'
                       rows={2}
@@ -785,14 +898,16 @@ export default function CreateAppointmentModal({
                     <SelectInput
                       placeholder='No repetir'
                       value={blockFormData.recurrence.type}
-                      onChange={(v) => setBlockFormData(prev => ({ 
-                        ...prev, 
-                        recurrence: { 
-                          ...prev.recurrence, 
-                          type: v as RecurrencePattern['type'],
-                          daysOfWeek: v === 'custom' ? [] : undefined
-                        } 
-                      }))}
+                      onChange={(v) =>
+                        setBlockFormData((prev) => ({
+                          ...prev,
+                          recurrence: {
+                            ...prev.recurrence,
+                            type: v as RecurrencePattern['type'],
+                            daysOfWeek: v === 'custom' ? [] : undefined
+                          }
+                        }))
+                      }
                       options={recurrenceTypes}
                     />
                   </FormRow>
@@ -801,7 +916,10 @@ export default function CreateAppointmentModal({
                     <FormRow label='Días' icon='date_range'>
                       <div className='flex gap-1.5'>
                         {DAYS_OF_WEEK.map((day) => {
-                          const isSelected = blockFormData.recurrence.daysOfWeek?.includes(day.value)
+                          const isSelected =
+                            blockFormData.recurrence.daysOfWeek?.includes(
+                              day.value
+                            )
                           return (
                             <button
                               key={day.value}
@@ -825,14 +943,18 @@ export default function CreateAppointmentModal({
                   {blockFormData.recurrence.type !== 'none' && (
                     <FormRow label='Hasta' icon='event'>
                       <DatePickerInput
-                        value={stringToDate(blockFormData.recurrence.endDate || '')}
-                        onChange={(d) => setBlockFormData(prev => ({ 
-                          ...prev, 
-                          recurrence: { 
-                            ...prev.recurrence, 
-                            endDate: dateToString(d) 
-                          } 
-                        }))}
+                        value={stringToDate(
+                          blockFormData.recurrence.endDate || ''
+                        )}
+                        onChange={(d) =>
+                          setBlockFormData((prev) => ({
+                            ...prev,
+                            recurrence: {
+                              ...prev.recurrence,
+                              endDate: dateToString(d)
+                            }
+                          }))
+                        }
                       />
                     </FormRow>
                   )}
@@ -849,7 +971,9 @@ export default function CreateAppointmentModal({
                       onCreate={(text) => handleOpenCreatePatient(text)}
                       createLabel='Crear paciente'
                       createLabelFromInput={(text) =>
-                        text?.trim() ? `Crear "${text.trim()}"` : 'Crear paciente'
+                        text?.trim()
+                          ? `Crear "${text.trim()}"`
+                          : 'Crear paciente'
                       }
                     />
                   </FormRow>
@@ -858,10 +982,14 @@ export default function CreateAppointmentModal({
                   {!formData.pacienteId && (
                     <button
                       type='button'
-                      onClick={() => setFormData(prev => ({ ...prev, servicio: 'block' }))}
+                      onClick={() =>
+                        setFormData((prev) => ({ ...prev, servicio: 'block' }))
+                      }
                       className='flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors -mt-2'
                     >
-                      <span className='material-symbols-rounded text-base'>block</span>
+                      <span className='material-symbols-rounded text-base'>
+                        block
+                      </span>
                       <span>¿Necesitas bloquear la agenda?</span>
                     </button>
                   )}
@@ -882,17 +1010,25 @@ export default function CreateAppointmentModal({
                           <button
                             key={treatment.id}
                             type='button'
-                            onClick={() => toggleTreatmentSelection(treatment.id)}
+                            onClick={() =>
+                              toggleTreatmentSelection(treatment.id)
+                            }
                             className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${
                               treatment.selected
                                 ? 'border-brand-300 bg-white shadow-sm'
                                 : 'border-transparent bg-white/60 hover:bg-white hover:border-gray-200'
                             }`}
                           >
-                            <span className={`material-symbols-rounded text-xl ${
-                              treatment.selected ? 'text-brand-500' : 'text-gray-300'
-                            }`}>
-                              {treatment.selected ? 'check_box' : 'check_box_outline_blank'}
+                            <span
+                              className={`material-symbols-rounded text-xl ${
+                                treatment.selected
+                                  ? 'text-brand-500'
+                                  : 'text-gray-300'
+                              }`}
+                            >
+                              {treatment.selected
+                                ? 'check_box'
+                                : 'check_box_outline_blank'}
                             </span>
                             <div className='flex-1 min-w-0'>
                               <p className='text-sm font-medium text-gray-900 truncate'>
@@ -912,7 +1048,9 @@ export default function CreateAppointmentModal({
                       </div>
                       {selectedTreatments.length > 0 && (
                         <p className='mt-3 text-xs text-brand-600'>
-                          {selectedTreatments.length} tratamiento{selectedTreatments.length > 1 ? 's' : ''} seleccionado{selectedTreatments.length > 1 ? 's' : ''}
+                          {selectedTreatments.length} tratamiento
+                          {selectedTreatments.length > 1 ? 's' : ''}{' '}
+                          seleccionado{selectedTreatments.length > 1 ? 's' : ''}
                         </p>
                       )}
                     </div>
@@ -924,8 +1062,10 @@ export default function CreateAppointmentModal({
                       <SelectInput
                         placeholder='Seleccionar servicio...'
                         value={formData.servicio}
-                        onChange={(v) => setFormData(prev => ({ ...prev, servicio: v }))}
-                        options={servicios.filter(s => s.value !== 'block')}
+                        onChange={(v) =>
+                          setFormData((prev) => ({ ...prev, servicio: v }))
+                        }
+                        options={servicios.filter((s) => s.value !== 'block')}
                       />
                     </FormRow>
                   )}
@@ -934,8 +1074,10 @@ export default function CreateAppointmentModal({
                     <SelectInput
                       placeholder='Seleccionar...'
                       value={formData.responsable}
-                      onChange={(v) => setFormData(prev => ({ ...prev, responsable: v }))}
-                      options={responsables.filter(r => r.value !== '')}
+                      onChange={(v) =>
+                        setFormData((prev) => ({ ...prev, responsable: v }))
+                      }
+                      options={responsables.filter((r) => r.value !== '')}
                     />
                   </FormRow>
 
@@ -943,7 +1085,9 @@ export default function CreateAppointmentModal({
                     <SelectInput
                       placeholder='Cualquiera'
                       value={formData.box}
-                      onChange={(v) => setFormData(prev => ({ ...prev, box: v }))}
+                      onChange={(v) =>
+                        setFormData((prev) => ({ ...prev, box: v }))
+                      }
                       options={[{ value: '', label: 'Cualquiera' }, ...boxes]}
                     />
                   </FormRow>
@@ -953,14 +1097,21 @@ export default function CreateAppointmentModal({
                   <FormRow label='Fecha' icon='calendar_month' required>
                     <DatePickerInput
                       value={stringToDate(formData.fecha)}
-                      onChange={(d) => setFormData(prev => ({ ...prev, fecha: dateToString(d) }))}
+                      onChange={(d) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          fecha: dateToString(d)
+                        }))
+                      }
                     />
                   </FormRow>
 
                   <FormRow label='Hora' icon='schedule' required>
                     <TimePickerInput
                       value={formData.hora}
-                      onChange={(t) => setFormData(prev => ({ ...prev, hora: t }))}
+                      onChange={(t) =>
+                        setFormData((prev) => ({ ...prev, hora: t }))
+                      }
                       hasError={!!blockConflictError}
                     />
                   </FormRow>
@@ -968,21 +1119,32 @@ export default function CreateAppointmentModal({
                   <FormRow label='Duración' icon='timelapse' required>
                     <DurationInput
                       value={formData.duracion}
-                      onChange={(v) => setFormData(prev => ({ ...prev, duracion: v }))}
+                      onChange={(v) =>
+                        setFormData((prev) => ({ ...prev, duracion: v }))
+                      }
                     />
                   </FormRow>
 
                   {blockConflictError && (
                     <div className='flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2'>
-                      <span className='material-symbols-rounded text-base text-red-500'>warning</span>
-                      <p className='text-xs text-red-600'>{blockConflictError}</p>
+                      <span className='material-symbols-rounded text-base text-red-500'>
+                        warning
+                      </span>
+                      <p className='text-xs text-red-600'>
+                        {blockConflictError}
+                      </p>
                     </div>
                   )}
 
                   <FormRow label='Notas' icon='notes'>
                     <textarea
                       value={formData.observaciones}
-                      onChange={(e) => setFormData(prev => ({ ...prev, observaciones: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          observaciones: e.target.value
+                        }))
+                      }
                       placeholder='Observaciones adicionales...'
                       className='h-20 w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 transition-colors focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100'
                       rows={2}

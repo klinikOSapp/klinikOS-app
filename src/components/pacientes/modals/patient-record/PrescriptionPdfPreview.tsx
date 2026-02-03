@@ -7,6 +7,7 @@ import {
   PictureAsPdfRounded
 } from '@/components/icons/md3'
 import Portal from '@/components/ui/Portal'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import {
   downloadBlob,
   formatPrescriptionFilename,
@@ -49,6 +50,18 @@ export default function PrescriptionPdfPreview({
   const [document, setDocument] = React.useState<GeneratedDocument | null>(null)
   const [isGenerating, setIsGenerating] = React.useState(false)
 
+  // Get clinic data from configuration context
+  const { clinicInfo } = useConfiguration()
+
+  // Build full clinic address from configuration
+  const fullClinicAddress = [
+    clinicInfo.direccion,
+    clinicInfo.poblacion,
+    clinicInfo.codigoPostal
+  ]
+    .filter(Boolean)
+    .join(', ')
+
   // Build medications array from data
   const medications = React.useMemo(() => {
     if (data?.medicamentos && data.medicamentos.length > 0) {
@@ -85,7 +98,7 @@ export default function PrescriptionPdfPreview({
 
     setIsGenerating(true)
 
-    // Build prescription data
+    // Build prescription data using clinic info from configuration context
     const prescriptionData: PrescriptionData = {
       patientName: patientName,
       patientDni: '44556677X',
@@ -93,9 +106,9 @@ export default function PrescriptionPdfPreview({
       patientAge: 45,
       doctorName: data?.especialista || 'Dr. García López',
       doctorLicense: 'XX 895 895 895',
-      clinicName: 'Clínica Tama Dental',
-      clinicAddress: 'C/ Principal, 123',
-      clinicPhone: '91 123 45 67',
+      clinicName: clinicInfo.nombreComercial || 'Clínica Dental',
+      clinicAddress: fullClinicAddress || clinicInfo.direccion || '',
+      clinicPhone: clinicInfo.telefono || '',
       prescriptionDate: new Date(),
       caseNotes: '',
       medications

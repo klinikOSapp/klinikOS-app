@@ -1,11 +1,7 @@
 'use client'
 
-import BillingLegalPage from '@/components/configuracion/BillingLegalPage'
+import Documents from '@/components/configuracion/Documents'
 
 export default function ConfiguracionFacturacionPage() {
-  return <BillingLegalPage />
+  return <Documents />
 }
-
-
-
-

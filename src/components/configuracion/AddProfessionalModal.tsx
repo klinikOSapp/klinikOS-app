@@ -2,12 +2,12 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import React from 'react'
 import {
   AddRounded,
   CloseRounded,
   KeyboardArrowDownRounded
 } from '@/components/icons/md3'
+import React from 'react'
 
 export type ProfessionalFormData = {
   nombre: string
@@ -49,11 +49,20 @@ function Field({
   placeholder
 }: FieldProps) {
   return (
-    <div className={['flex flex-col gap-[0.5rem] w-full', className].filter(Boolean).join(' ')}>
+    <div
+      className={['flex flex-col gap-[0.5rem] w-full', className]
+        .filter(Boolean)
+        .join(' ')}
+    >
       <div className='flex items-center justify-between'>
-        <p className='font-inter text-[0.875rem] leading-[1.25rem] text-neutral-900'>{label}</p>
+        <p className='font-inter text-[0.875rem] leading-[1.25rem] text-neutral-900'>
+          {label}
+        </p>
         {required ? (
-          <span className='text-[0.75rem] leading-[0.875rem] text-[var(--color-error-600)]' aria-hidden>
+          <span
+            className='text-[0.75rem] leading-[0.875rem] text-[var(--color-error-600)]'
+            aria-hidden
+          >
             *
           </span>
         ) : null}
@@ -68,7 +77,9 @@ function Field({
           />
         </div>
         {helperText ? (
-          <p className='font-inter text-[0.6875rem] leading-[1rem] font-medium text-neutral-600'>{helperText}</p>
+          <p className='font-inter text-[0.6875rem] leading-[1rem] font-medium text-neutral-600'>
+            {helperText}
+          </p>
         ) : null}
       </div>
     </div>
@@ -93,11 +104,20 @@ function SelectField({
   className?: string
 }) {
   return (
-    <div className={['flex flex-col gap-[0.5rem] w-full', className].filter(Boolean).join(' ')}>
+    <div
+      className={['flex flex-col gap-[0.5rem] w-full', className]
+        .filter(Boolean)
+        .join(' ')}
+    >
       <div className='flex items-center justify-between'>
-        <p className='font-inter text-[0.875rem] leading-[1.25rem] text-neutral-900'>{label}</p>
+        <p className='font-inter text-[0.875rem] leading-[1.25rem] text-neutral-900'>
+          {label}
+        </p>
         {required ? (
-          <span className='text-[0.75rem] leading-[0.875rem] text-[var(--color-error-600)]' aria-hidden>
+          <span
+            className='text-[0.75rem] leading-[0.875rem] text-[var(--color-error-600)]'
+            aria-hidden
+          >
             *
           </span>
         ) : null}
@@ -120,7 +140,9 @@ function SelectField({
           </span>
         </div>
         {helperText ? (
-          <p className='font-inter text-[0.6875rem] leading-[1rem] font-medium text-neutral-600'>{helperText}</p>
+          <p className='font-inter text-[0.6875rem] leading-[1rem] font-medium text-neutral-600'>
+            {helperText}
+          </p>
         ) : null}
       </div>
     </div>
@@ -180,7 +202,9 @@ export default function AddProfessionalModal({
         onClick={(e) => e.stopPropagation()}
       >
         <header className='flex h-[3.5rem] items-center justify-between border-b border-[var(--color-neutral-300)] px-[2rem]'>
-          <p className='font-inter text-[1.125rem] leading-[1.75rem] font-medium text-neutral-900'>{title}</p>
+          <p className='font-inter text-[1.125rem] leading-[1.75rem] font-medium text-neutral-900'>
+            {title}
+          </p>
           <button
             type='button'
             onClick={onClose}
@@ -191,18 +215,27 @@ export default function AddProfessionalModal({
           </button>
         </header>
 
-        <form onSubmit={handleSubmit} className='max-h-[calc(90vh-3.5rem)] overflow-y-auto'>
+        <form
+          onSubmit={handleSubmit}
+          className='max-h-[calc(90vh-3.5rem)] overflow-y-auto'
+        >
           <div className='mx-auto flex w-[min(49rem,calc(100%-2rem))] flex-col gap-[2.5rem] px-[2rem] py-[2.5rem]'>
             <section className='flex flex-col gap-[1rem]'>
               <p className='font-inter text-[1.125rem] leading-[1.75rem] font-medium text-neutral-900'>
                 Introduce los datos del nuevo especialista
               </p>
               <div className='flex flex-col gap-[0.5rem]'>
-                <p className='font-inter text-[0.875rem] leading-[1.25rem] text-neutral-900'>Foto del profesional</p>
+                <p className='font-inter text-[0.875rem] leading-[1.25rem] text-neutral-900'>
+                  Foto del profesional
+                </p>
                 <div className='flex flex-wrap items-center gap-[1.5rem]'>
                   <div className='relative size-[6.5625rem] overflow-hidden rounded-[0.5rem] bg-neutral-200'>
                     {form.fotoUrl ? (
-                      <img src={form.fotoUrl} alt='Foto del profesional' className='size-full object-cover' />
+                      <img
+                        src={form.fotoUrl}
+                        alt='Foto del profesional'
+                        className='size-full object-cover'
+                      />
                     ) : null}
                   </div>
                   <button
@@ -222,7 +255,8 @@ export default function AddProfessionalModal({
                 required
                 value={form.nombre}
                 onChange={updateField('nombre')}
-                helperText='Texto descriptivo'
+                placeholder='Ej: María García López'
+                helperText='Nombre completo tal como aparecerá en la agenda'
               />
 
               <div className='flex flex-wrap gap-[1.5rem]'>
@@ -231,7 +265,8 @@ export default function AddProfessionalModal({
                   required
                   value={form.telefono}
                   onChange={updateField('telefono')}
-                  helperText='Texto descriptivo'
+                  placeholder='Ej: 612 345 678'
+                  helperText='Número de contacto del profesional'
                   className='w-[min(23.75rem,100%)]'
                 />
                 <Field
@@ -239,7 +274,8 @@ export default function AddProfessionalModal({
                   required
                   value={form.email}
                   onChange={updateField('email')}
-                  helperText='Texto descriptivo'
+                  placeholder='Ej: maria@clinica.es'
+                  helperText='Correo electrónico profesional'
                   className='w-[min(23.75rem,100%)]'
                 />
               </div>
@@ -249,7 +285,7 @@ export default function AddProfessionalModal({
                 required
                 value={form.especialidad}
                 onChange={updateField('especialidad')}
-                helperText='Texto descriptivo'
+                helperText='Área de especialización principal'
                 options={[
                   { label: 'Odontólogo', value: 'Odontólogo' },
                   { label: 'Ortodoncista', value: 'Ortodoncista' },
@@ -264,8 +300,10 @@ export default function AddProfessionalModal({
                   label='Color'
                   required
                   value={form.color}
-                  onChange={(v) => updateField('color')(v as ProfessionalFormData['color'])}
-                  helperText='Texto descriptivo'
+                  onChange={(v) =>
+                    updateField('color')(v as ProfessionalFormData['color'])
+                  }
+                  helperText='Color identificativo en la agenda'
                   options={[
                     { label: 'Verde', value: 'verde' },
                     { label: 'Morado', value: 'morado' },
@@ -277,8 +315,10 @@ export default function AddProfessionalModal({
                   label='Estado'
                   required
                   value={form.estado}
-                  onChange={(v) => updateField('estado')(v as ProfessionalFormData['estado'])}
-                  helperText='Texto descriptivo'
+                  onChange={(v) =>
+                    updateField('estado')(v as ProfessionalFormData['estado'])
+                  }
+                  helperText='Profesionales inactivos no aparecen en la agenda'
                   options={[
                     { label: 'Activo', value: 'Activo' },
                     { label: 'Inactivo', value: 'Inactivo' }
@@ -291,7 +331,8 @@ export default function AddProfessionalModal({
                 label='% comisión (opcional)'
                 value={form.comision ?? ''}
                 onChange={updateField('comision')}
-                helperText='Texto descriptivo'
+                placeholder='Ej: 15'
+                helperText='Porcentaje de comisión por servicios realizados'
               />
             </section>
 
@@ -309,8 +350,3 @@ export default function AddProfessionalModal({
     </div>
   )
 }
-
-
-
-
-

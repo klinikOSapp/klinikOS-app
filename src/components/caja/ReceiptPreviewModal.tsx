@@ -1,14 +1,15 @@
 'use client'
 
 import {
+  CheckCircleRounded,
   CloseRounded,
-  PrintRounded,
   DownloadRounded,
-  CheckCircleRounded
+  PrintRounded
 } from '@/components/icons/md3'
-import type { Receipt, PaymentMethod } from '@/types/payments'
+import { useConfiguration } from '@/context/ConfigurationContext'
+import type { PaymentMethod, Receipt } from '@/types/payments'
 import { formatPaymentMethod } from '@/types/payments'
-import React, { useRef } from 'react'
+import { useRef } from 'react'
 import { createPortal } from 'react-dom'
 
 type ReceiptPreviewModalProps = {
@@ -36,9 +37,21 @@ export default function ReceiptPreviewModal({
 }: ReceiptPreviewModalProps) {
   const printRef = useRef<HTMLDivElement>(null)
 
+  // Get clinic data from configuration context
+  const { clinicInfo } = useConfiguration()
+
   if (!open) return null
 
-  // Use receipt data if available, otherwise use transactionData
+  // Build full clinic address from configuration
+  const fullClinicAddress = [
+    clinicInfo.direccion,
+    clinicInfo.poblacion,
+    clinicInfo.codigoPostal
+  ]
+    .filter(Boolean)
+    .join(', ')
+
+  // Use receipt data if available, otherwise use transactionData with clinic info from context
   const displayData = receipt || {
     receiptNumber: 'Pendiente de generar',
     date: transactionData?.date || new Date().toISOString(),
@@ -47,9 +60,9 @@ export default function ReceiptPreviewModal({
     amount: transactionData?.amount || 0,
     paymentMethod: transactionData?.paymentMethod || 'efectivo',
     paymentReference: transactionData?.paymentReference,
-    clinicName: 'Clínica Dental KlinikOS',
-    clinicNIF: 'B12345678',
-    clinicAddress: 'Calle Ejemplo 123, Madrid'
+    clinicName: clinicInfo.nombreComercial || 'Clínica Dental',
+    clinicNIF: clinicInfo.cif || '',
+    clinicAddress: fullClinicAddress
   }
 
   const formatDate = (dateStr: string) => {
@@ -193,9 +206,17 @@ export default function ReceiptPreviewModal({
         <body>
           <div class="receipt">
             <div class="header">
-              <div class="clinic-name">${displayData.clinicName || 'Clínica Dental KlinikOS'}</div>
-              <div class="clinic-info">NIF: ${displayData.clinicNIF || 'B12345678'}</div>
-              <div class="clinic-info">${displayData.clinicAddress || 'Calle Ejemplo 123, Madrid'}</div>
+              <div class="clinic-name">${
+                displayData.clinicName ||
+                clinicInfo.nombreComercial ||
+                'Clínica Dental'
+              }</div>
+              <div class="clinic-info">NIF: ${
+                displayData.clinicNIF || clinicInfo.cif || ''
+              }</div>
+              <div class="clinic-info">${
+                displayData.clinicAddress || fullClinicAddress
+              }</div>
             </div>
             
             <div class="receipt-title">
@@ -220,19 +241,27 @@ export default function ReceiptPreviewModal({
             
             <div class="section">
               <div class="label">Método de pago</div>
-              <div class="value">${formatPaymentMethod(displayData.paymentMethod as PaymentMethod)}</div>
+              <div class="value">${formatPaymentMethod(
+                displayData.paymentMethod as PaymentMethod
+              )}</div>
             </div>
             
-            ${displayData.paymentReference ? `
+            ${
+              displayData.paymentReference
+                ? `
               <div class="section">
                 <div class="label">Referencia</div>
                 <div class="value" style="font-family: monospace;">${displayData.paymentReference}</div>
               </div>
-            ` : ''}
+            `
+                : ''
+            }
             
             <div class="amount-section">
               <div class="amount-label">IMPORTE PAGADO</div>
-              <div class="amount-value">${formatAmount(displayData.amount)} €</div>
+              <div class="amount-value">${formatAmount(
+                displayData.amount
+              )} €</div>
               <div class="paid-badge" style="margin-top: 12px;">
                 ✓ PAGADO
               </div>
@@ -250,7 +279,7 @@ export default function ReceiptPreviewModal({
     printWindow.document.write(printContent)
     printWindow.document.close()
     printWindow.focus()
-    
+
     // Wait for content to load then print
     setTimeout(() => {
       printWindow.print()
@@ -263,7 +292,7 @@ export default function ReceiptPreviewModal({
     if (!receipt && onGenerateReceipt) {
       onGenerateReceipt()
     }
-    
+
     // Trigger print dialog which allows saving as PDF
     handlePrint()
   }
@@ -271,10 +300,7 @@ export default function ReceiptPreviewModal({
   return createPortal(
     <div className='fixed inset-0 z-[9999] flex items-center justify-center'>
       {/* Backdrop */}
-      <div
-        className='absolute inset-0 bg-neutral-900/90'
-        onClick={onClose}
-      />
+      <div className='absolute inset-0 bg-neutral-900/90' onClick={onClose} />
 
       {/* Modal */}
       <div className='relative bg-white rounded-lg w-[36rem] max-h-[90vh] overflow-hidden flex flex-col'>
@@ -295,26 +321,30 @@ export default function ReceiptPreviewModal({
 
         {/* Content - Receipt Preview */}
         <div className='flex-1 overflow-y-auto p-6'>
-          <div 
+          <div
             ref={printRef}
             className='bg-white border-2 border-neutral-200 rounded-xl p-6 max-w-sm mx-auto'
           >
             {/* Clinic Header */}
             <div className='text-center border-b border-dashed border-neutral-300 pb-4 mb-4'>
               <h3 className='text-lg font-bold text-brand-600'>
-                {displayData.clinicName || 'Clínica Dental KlinikOS'}
+                {displayData.clinicName ||
+                  clinicInfo.nombreComercial ||
+                  'Clínica Dental'}
               </h3>
               <p className='text-xs text-neutral-500'>
-                NIF: {displayData.clinicNIF || 'B12345678'}
+                NIF: {displayData.clinicNIF || clinicInfo.cif || ''}
               </p>
               <p className='text-xs text-neutral-500'>
-                {displayData.clinicAddress || 'Calle Ejemplo 123, Madrid'}
+                {displayData.clinicAddress || fullClinicAddress}
               </p>
             </div>
 
             {/* Receipt Title */}
             <div className='text-center bg-neutral-100 rounded-lg py-2 px-4 mb-4'>
-              <p className='text-base font-semibold text-neutral-900'>RECIBO DE PAGO</p>
+              <p className='text-base font-semibold text-neutral-900'>
+                RECIBO DE PAGO
+              </p>
               <p className='text-sm font-mono text-brand-600'>
                 {displayData.receiptNumber}
               </p>
@@ -323,26 +353,44 @@ export default function ReceiptPreviewModal({
             {/* Receipt Details */}
             <div className='space-y-3 mb-4'>
               <div>
-                <p className='text-xs text-neutral-500 uppercase tracking-wide'>Fecha</p>
-                <p className='text-sm text-neutral-900'>{formatDate(displayData.date)}</p>
-              </div>
-              <div>
-                <p className='text-xs text-neutral-500 uppercase tracking-wide'>Paciente</p>
-                <p className='text-sm text-neutral-900'>{displayData.patientName}</p>
-              </div>
-              <div>
-                <p className='text-xs text-neutral-500 uppercase tracking-wide'>Concepto</p>
-                <p className='text-sm text-neutral-900'>{displayData.concept}</p>
-              </div>
-              <div>
-                <p className='text-xs text-neutral-500 uppercase tracking-wide'>Método de pago</p>
+                <p className='text-xs text-neutral-500 uppercase tracking-wide'>
+                  Fecha
+                </p>
                 <p className='text-sm text-neutral-900'>
-                  {formatPaymentMethod(displayData.paymentMethod as PaymentMethod)}
+                  {formatDate(displayData.date)}
+                </p>
+              </div>
+              <div>
+                <p className='text-xs text-neutral-500 uppercase tracking-wide'>
+                  Paciente
+                </p>
+                <p className='text-sm text-neutral-900'>
+                  {displayData.patientName}
+                </p>
+              </div>
+              <div>
+                <p className='text-xs text-neutral-500 uppercase tracking-wide'>
+                  Concepto
+                </p>
+                <p className='text-sm text-neutral-900'>
+                  {displayData.concept}
+                </p>
+              </div>
+              <div>
+                <p className='text-xs text-neutral-500 uppercase tracking-wide'>
+                  Método de pago
+                </p>
+                <p className='text-sm text-neutral-900'>
+                  {formatPaymentMethod(
+                    displayData.paymentMethod as PaymentMethod
+                  )}
                 </p>
               </div>
               {displayData.paymentReference && (
                 <div>
-                  <p className='text-xs text-neutral-500 uppercase tracking-wide'>Referencia</p>
+                  <p className='text-xs text-neutral-500 uppercase tracking-wide'>
+                    Referencia
+                  </p>
                   <p className='text-sm text-neutral-900 font-mono'>
                     {displayData.paymentReference}
                   </p>
@@ -366,8 +414,12 @@ export default function ReceiptPreviewModal({
 
             {/* Footer */}
             <div className='text-center border-t border-dashed border-neutral-300 pt-4'>
-              <p className='text-xs text-neutral-500'>Gracias por confiar en nosotros</p>
-              <p className='text-xs text-neutral-400'>Este recibo es un comprobante de pago</p>
+              <p className='text-xs text-neutral-500'>
+                Gracias por confiar en nosotros
+              </p>
+              <p className='text-xs text-neutral-400'>
+                Este recibo es un comprobante de pago
+              </p>
             </div>
           </div>
         </div>

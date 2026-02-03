@@ -4,7 +4,8 @@
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import { useAppointments } from '@/context/AppointmentsContext'
-import { useRouter } from 'next/navigation'
+import { useConfiguration } from '@/context/ConfigurationContext'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type {
   CSSProperties,
   ReactElement,
@@ -47,6 +48,7 @@ import {
   VisitStatusCountersCompact,
   VisitStatusDropdown
 } from './VisitStatusCounters'
+import VoiceAgentPendingWidget from './VoiceAgentPendingWidget'
 
 type SpecialistAvailability = {
   id: string
@@ -137,9 +139,10 @@ const VIEW_OPTIONS: { id: ViewOption; label: string }[] = [
   { id: 'mes', label: 'Mes' }
 ]
 
-// PROFESSIONAL_OPTIONS is defined after CLINIC_PROFESSIONALS below
+// BOX_OPTIONS and PROFESSIONAL_OPTIONS are now provided via ConfigurationContext
+// These constants are kept for backwards compatibility but should be replaced with context values
 
-const BOX_OPTIONS = [
+const DEFAULT_BOX_OPTIONS = [
   { id: 'box-1', label: 'Box 1' },
   { id: 'box-2', label: 'Box 2' },
   { id: 'box-3', label: 'Box 3' }
@@ -155,11 +158,12 @@ const boxIdToName = (boxId: string): string => boxId.replace('-', ' ')
 
 // Function to calculate dynamic box layout based on selected boxes
 const getBoxLayout = (
-  selectedBoxes: string[]
+  selectedBoxes: string[],
+  boxOptions: Array<{ id: string; label: string }> = DEFAULT_BOX_OPTIONS
 ): Record<string, { left: string; width: string }> => {
-  // Filter to only include boxes that exist in BOX_OPTIONS
+  // Filter to only include boxes that exist in boxOptions
   const validBoxes = selectedBoxes.filter((id) =>
-    BOX_OPTIONS.some((opt) => opt.id === id)
+    boxOptions.some((opt) => opt.id === id)
   )
 
   if (validBoxes.length === 0) {
@@ -1019,6 +1023,80 @@ const EVENT_DATA: Record<Weekday, AgendaEvent[]> = {
         economicStatus: 'Pagado',
         notes: 'Revisión anual. Paciente con implante hace 3 años.',
         duration: '19:00 - 19:30 (30 minutos)'
+      })
+    },
+    // ============================================
+    // CITAS CREADAS POR AGENTE DE VOZ (IA)
+    // Estas citas tienen borde rosa y badge "IA"
+    // El color de fondo depende del tipo de tratamiento
+    // ============================================
+    {
+      id: 'apt-ai-001',
+      top: timeToTop(10, 0),
+      height: durationToHeight(30),
+      title: 'Limpieza dental',
+      patient: 'Carlos Martínez Pérez',
+      box: 'Box 3',
+      timeRange: '10:00 - 10:30',
+      backgroundClass: 'bg-[var(--color-brand-100)]', // Color de limpieza
+      createdByVoiceAgent: true,
+      voiceAgentCallId: '1',
+      detail: createDetail('monday', 'Limpieza dental', '10:00', {
+        patientFull: 'Carlos Martínez Pérez',
+        patientPhone: '+34 667 890 111',
+        patientEmail: 'carlos.martinez@email.com',
+        professional: PROFESSIONALS.antonioRuiz,
+        economicAmount: '65 €',
+        economicStatus: 'Pendiente IA',
+        notes:
+          'Cita creada por agente de voz. Paciente solicita limpieza dental rutinaria.',
+        duration: '10:00 - 10:30 (30 minutos)'
+      })
+    },
+    {
+      id: 'apt-ai-002',
+      top: timeToTop(11, 30),
+      height: durationToHeight(30),
+      title: 'Consulta financiación',
+      patient: 'Nacho Nieto Iniesta',
+      box: 'Box 2',
+      timeRange: '11:30 - 12:00',
+      backgroundClass: 'bg-[#fbe9fb]', // Color de consulta
+      createdByVoiceAgent: true,
+      voiceAgentCallId: '2',
+      detail: createDetail('monday', 'Consulta financiación', '11:30', {
+        patientFull: 'Nacho Nieto Iniesta',
+        patientPhone: '+34 658 478 512',
+        patientEmail: 'nacho.nieto@email.com',
+        professional: PROFESSIONALS.elenaNavarro,
+        economicAmount: '0 €',
+        economicStatus: 'Pendiente IA',
+        notes:
+          'Cita creada por agente de voz. Consulta opciones de financiación para ortodoncia.',
+        duration: '11:30 - 12:00 (30 minutos)'
+      })
+    },
+    {
+      id: 'apt-ai-003',
+      top: timeToTop(14, 0),
+      height: durationToHeight(30),
+      title: 'Urgencia dolor molar',
+      patient: 'Sofia Rodríguez López',
+      box: 'Box 1',
+      timeRange: '14:00 - 14:30',
+      backgroundClass: 'bg-[#fbf3e9]', // Color de urgencia
+      createdByVoiceAgent: true,
+      voiceAgentCallId: '3',
+      detail: createDetail('monday', 'Urgencia dolor molar', '14:00', {
+        patientFull: 'Sofia Rodríguez López',
+        patientPhone: '+34 667 890 111',
+        patientEmail: 'sofia.rodriguez@email.com',
+        professional: PROFESSIONALS.antonioRuiz,
+        economicAmount: '0 €',
+        economicStatus: 'Pendiente IA',
+        notes:
+          'URGENTE. Cita creada por agente de voz. Dolor intenso en molar inferior derecho.',
+        duration: '14:00 - 14:30 (30 minutos)'
       })
     }
   ],
@@ -2434,7 +2512,7 @@ function HeaderLabels({
   }, [activeSpecId])
 
   // Get visible boxes sorted by their original order
-  const visibleBoxes = BOX_OPTIONS.filter((opt) =>
+  const visibleBoxes = DEFAULT_BOX_OPTIONS.filter((opt) =>
     selectedBoxes.includes(opt.id)
   )
   const boxCount = visibleBoxes.length || 1
@@ -2641,6 +2719,7 @@ function DayGrid({
   onVisitStatusChange,
   confirmedEvents,
   showConfirmedOnly,
+  showAIOnly,
   // Block-related props
   blocks = [],
   activeBlockId,
@@ -2690,6 +2769,7 @@ function DayGrid({
   onVisitStatusChange?: (eventId: string, newStatus: VisitStatus) => void
   confirmedEvents?: Record<string, boolean>
   showConfirmedOnly?: boolean
+  showAIOnly?: boolean // Filter for AI-created appointments
   // Block-related props
   blocks?: WeekBlock[]
   activeBlockId?: string | null
@@ -2735,7 +2815,11 @@ function DayGrid({
     const isConfirmed = confirmedEvents?.[event.id] ?? event.confirmed ?? false
     const confirmedMatch = !showConfirmedOnly || isConfirmed
 
-    return boxMatch && professionalMatch && confirmedMatch
+    // Filter by AI-created (if showAIOnly is true)
+    const isAICreated = event.createdByVoiceAgent === true
+    const aiMatch = !showAIOnly || isAICreated
+
+    return boxMatch && professionalMatch && confirmedMatch && aiMatch
   })
   // Domingo con patrón de puntos SVG
   const isSunday = column.id === 'sunday'
@@ -4023,6 +4107,10 @@ const DAY_VIEW_FALLBACK_APPOINTMENTS = [
 
 export default function WeekScheduler() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Configuration context for professionals and boxes
+  const { professionalOptions, boxOptions } = useConfiguration()
 
   // Hook del contexto de citas compartido para sincronización con Parte Diario
   const {
@@ -4045,13 +4133,22 @@ export default function WeekScheduler() {
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
   const [viewOption, setViewOption] = useState<ViewOption>('semana')
   const [dayPeriod, setDayPeriod] = useState<DayPeriod>('full')
+
+  // Use configuration context for professional and box options
+  // Fallback to hardcoded PROFESSIONAL_OPTIONS for backwards compatibility with existing data
+  const effectiveProfessionalOptions =
+    professionalOptions.length > 0 ? professionalOptions : PROFESSIONAL_OPTIONS
+  const effectiveBoxOptions =
+    boxOptions.length > 0 ? boxOptions : DEFAULT_BOX_OPTIONS
+
   const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>(
-    PROFESSIONAL_OPTIONS.map((opt) => opt.id) // All professionals selected by default
+    () => effectiveProfessionalOptions.map((opt) => opt.id) // All professionals selected by default
   )
-  const [selectedBoxes, setSelectedBoxes] = useState<string[]>(
-    BOX_OPTIONS.map((option) => option.id)
+  const [selectedBoxes, setSelectedBoxes] = useState<string[]>(() =>
+    effectiveBoxOptions.map((option) => option.id)
   )
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(false)
+  const [showAIOnly, setShowAIOnly] = useState(false) // Filter for AI-created appointments
 
   // Estado para filtro de estado de visita (null = mostrar todos)
   const [activeVisitStatusFilter, setActiveVisitStatusFilter] = useState<
@@ -4191,6 +4288,30 @@ export default function WeekScheduler() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
+
+  // Handle appointmentId from URL to auto-select an appointment (from Voice Agent "Ver cita")
+  useEffect(() => {
+    const appointmentId = searchParams.get('appointmentId')
+    if (!appointmentId) return
+
+    // Find the appointment in dayColumnsState
+    for (const column of dayColumnsState) {
+      const event = column.events.find((e) => e.id === appointmentId)
+      if (event) {
+        // Activate the appointment to show its overlay
+        setActive({ event, column })
+        // Clear the URL parameter to prevent re-triggering
+        router.replace('/agenda', { scroll: false })
+        console.log(`✅ Cita ${appointmentId} encontrada y activada`)
+        return
+      }
+    }
+
+    // Appointment not found - could be on a different week
+    console.log(
+      `⚠️ Cita ${appointmentId} no encontrada en la vista semanal actual`
+    )
+  }, [searchParams, dayColumnsState, router])
 
   useEffect(() => {
     if (!openDropdown) return
@@ -4569,6 +4690,46 @@ export default function WeekScheduler() {
     []
   )
 
+  // Handle action=create from URL to open CreateAppointmentModal with pre-filled data (from Voice Agent)
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action !== 'create') return
+
+    // Extract pre-fill data from URL parameters
+    const paciente = searchParams.get('paciente') || undefined
+    const pacientePhone = searchParams.get('pacientePhone') || undefined
+    const observaciones = searchParams.get('observaciones') || undefined
+    const createdByVoiceAgent =
+      searchParams.get('createdByVoiceAgent') === 'true'
+    const voiceAgentCallId = searchParams.get('voiceAgentCallId') || undefined
+
+    // Build prefill object - we'll store voiceAgent info for the form submission
+    const prefill: Partial<AppointmentFormData> = {
+      paciente: paciente || '',
+      observaciones: observaciones || ''
+    }
+
+    // Open the modal with pre-filled data
+    openCreateAppointmentModal(prefill)
+
+    // Store voice agent info in a way that can be used when submitting
+    // We'll add these fields to window temporarily to pass to the submit handler
+    if (createdByVoiceAgent) {
+      ;(window as Record<string, unknown>).__voiceAgentPrefill = {
+        createdByVoiceAgent,
+        voiceAgentCallId,
+        pacientePhone
+      }
+    }
+
+    // Clear the URL parameters to prevent re-triggering
+    router.replace('/agenda', { scroll: false })
+    console.log('✅ Abriendo modal de crear cita desde agente de voz', {
+      paciente,
+      observaciones
+    })
+  }, [searchParams, router, openCreateAppointmentModal])
+
   // Handler para acciones del menú contextual
   const handleContextMenuAction = useCallback(
     (action: ContextMenuAction) => {
@@ -4627,11 +4788,18 @@ export default function WeekScheduler() {
             patientName: detail?.patientFull || 'Paciente'
           })
           break
+
+        case 'view-voice-call':
+          // Navegar al agente de voz con el ID de la llamada para abrir los detalles
+          if (event.voiceAgentCallId) {
+            router.push(`/agente-voz?callId=${event.voiceAgentCallId}`)
+          }
+          break
       }
 
       setContextMenu(null)
     },
-    [contextMenu, dayColumnsState, openCreateAppointmentModal]
+    [contextMenu, dayColumnsState, openCreateAppointmentModal, router]
   )
 
   const timeToMinutes = (time: string): number => {
@@ -5293,7 +5461,7 @@ export default function WeekScheduler() {
 
         // Calcular el box objetivo dinámicamente basándose en los boxes seleccionados
         const validBoxes = selectedBoxes
-          .filter((id) => BOX_OPTIONS.some((opt) => opt.id === id))
+          .filter((id) => DEFAULT_BOX_OPTIONS.some((opt) => opt.id === id))
           .sort() // Ordenar para mantener consistencia (box-1, box-2, box-3)
         const numBoxes = validBoxes.length || 1
         const boxWidthPx = rect.width / numBoxes
@@ -5447,6 +5615,21 @@ export default function WeekScheduler() {
       .join(', ')
     const eventTitle = eventTreatments || data.servicio || 'Nueva cita'
 
+    // Check for voice agent prefill data from URL navigation
+    const voiceAgentPrefill = (window as Record<string, unknown>)
+      .__voiceAgentPrefill as
+      | {
+          createdByVoiceAgent?: boolean
+          voiceAgentCallId?: string
+          pacientePhone?: string
+        }
+      | undefined
+
+    // Clean up the temporary storage
+    if (voiceAgentPrefill) {
+      delete (window as Record<string, unknown>).__voiceAgentPrefill
+    }
+
     const newEvent: AgendaEvent = {
       id: eventId,
       top: `${topRem}rem`,
@@ -5455,8 +5638,13 @@ export default function WeekScheduler() {
       patient: data.paciente || 'Paciente',
       box: data.box || 'Box 1',
       timeRange: `${data.hora} - ${endTime}`,
-      backgroundClass: 'bg-[var(--color-brand-100)]',
+      backgroundClass: voiceAgentPrefill?.createdByVoiceAgent
+        ? 'bg-[var(--color-event-ai-bg)]'
+        : 'bg-[var(--color-brand-100)]',
       linkedTreatments: data.linkedTreatments,
+      // Voice agent fields
+      createdByVoiceAgent: voiceAgentPrefill?.createdByVoiceAgent,
+      voiceAgentCallId: voiceAgentPrefill?.voiceAgentCallId,
       detail: {
         title: eventTitle,
         date: data.fecha,
@@ -5491,18 +5679,25 @@ export default function WeekScheduler() {
       endTime: endTime,
       patientName: data.paciente || 'Paciente',
       patientId: data.pacienteId || undefined,
-      patientPhone: '', // No disponible en el formulario actual
+      patientPhone: voiceAgentPrefill?.pacientePhone || '', // From voice agent or empty
       professional: data.responsable || 'Profesional',
       reason: reason,
-      status: 'No confirmada',
+      status: voiceAgentPrefill?.createdByVoiceAgent
+        ? 'Pendiente IA'
+        : 'No confirmada',
       box: data.box || 'box 1',
       charge: 'No',
-      bgColor: 'var(--color-brand-100)',
+      bgColor: voiceAgentPrefill?.createdByVoiceAgent
+        ? 'var(--color-event-ai-bg)'
+        : 'var(--color-brand-100)',
       notes: data.observaciones || '',
       linkedTreatments: data.linkedTreatments?.map((t) => ({
         ...t,
         status: 'pending' as const
-      }))
+      })),
+      // Voice agent fields
+      createdByVoiceAgent: voiceAgentPrefill?.createdByVoiceAgent,
+      voiceAgentCallId: voiceAgentPrefill?.voiceAgentCallId
     })
 
     handleCreateModalClose()
@@ -5584,6 +5779,14 @@ export default function WeekScheduler() {
   // Handle slot drag start
   const handleSlotDragStart = useCallback(
     (slotIndex: number, columnId: string, boxId: string, clientY: number) => {
+      // If there's an active overlay (appointment details), only close it
+      // Don't start drag selection to create a new appointment
+      if (active) {
+        setActive(null)
+        setHovered(null)
+        return
+      }
+
       setSlotDragState({
         startSlot: slotIndex,
         currentSlot: slotIndex,
@@ -5593,7 +5796,7 @@ export default function WeekScheduler() {
         startY: clientY
       })
     },
-    []
+    [active]
   )
 
   // Handle slot drag move
@@ -5787,7 +5990,7 @@ export default function WeekScheduler() {
                 <MultiSelectDropdown
                   id={professionalDropdownId}
                   selected={selectedProfessionals}
-                  options={PROFESSIONAL_OPTIONS}
+                  options={effectiveProfessionalOptions}
                   onToggle={handleProfessionalToggle}
                 />
               ) : null}
@@ -5812,7 +6015,7 @@ export default function WeekScheduler() {
                 <MultiSelectDropdown
                   id={boxDropdownId}
                   selected={selectedBoxes}
-                  options={BOX_OPTIONS}
+                  options={effectiveBoxOptions}
                   onToggle={handleBoxToggle}
                 />
               ) : null}
@@ -5847,6 +6050,39 @@ export default function WeekScheduler() {
             </span>
             <span className='hidden xl:inline'>Confirmadas</span>
           </button>
+
+          {/* Toggle IA (AI-created appointments) */}
+          <button
+            type='button'
+            aria-pressed={showAIOnly}
+            onClick={() => setShowAIOnly((prev) => !prev)}
+            className={[
+              'inline-flex h-[2.25rem] items-center gap-2 rounded-full border px-3 text-body-sm font-medium transition-all duration-150',
+              showAIOnly
+                ? 'border-[#EC4899] bg-[#FDF2F8] text-[#BE185D]'
+                : 'border-[var(--color-border-default)] bg-[var(--color-neutral-50)] text-[var(--color-neutral-600)] hover:bg-[var(--color-brand-0)]'
+            ].join(' ')}
+            title='Mostrar solo citas creadas por IA'
+          >
+            <span
+              className={[
+                'flex h-4 w-4 items-center justify-center rounded-full text-xs transition-colors',
+                showAIOnly
+                  ? 'bg-[#EC4899] text-white'
+                  : 'bg-[var(--color-neutral-300)]'
+              ].join(' ')}
+            >
+              {showAIOnly ? (
+                <span className='material-symbols-rounded text-xs'>
+                  smart_toy
+                </span>
+              ) : null}
+            </span>
+            <span className='hidden xl:inline'>IA</span>
+          </button>
+
+          {/* Voice Agent Pending Calls Widget */}
+          <VoiceAgentPendingWidget />
 
           {/* Separador sutil */}
           <div className='h-5 w-px bg-[var(--color-neutral-300)]' />
@@ -5937,6 +6173,7 @@ export default function WeekScheduler() {
               openCreateAppointmentModal(prefill)
             }
             showConfirmedOnly={showConfirmedOnly}
+            showAIOnly={showAIOnly}
           />
         </div>
       ) : (
@@ -5984,6 +6221,7 @@ export default function WeekScheduler() {
                   onVisitStatusChange={handleVisitStatusChange}
                   confirmedEvents={confirmedEvents}
                   showConfirmedOnly={showConfirmedOnly}
+                  showAIOnly={showAIOnly}
                   // Block-related props
                   blocks={getBlocksForWeekday(index)}
                   activeBlockId={activeBlockId}
@@ -6250,6 +6488,22 @@ export default function WeekScheduler() {
                   onToggleConfirmed={(confirmed) =>
                     handleToggleConfirmed(overlaySource.event.id, confirmed)
                   }
+                  // Voice agent props
+                  createdByVoiceAgent={
+                    freshEvent?.createdByVoiceAgent ??
+                    overlaySource.event.createdByVoiceAgent
+                  }
+                  voiceAgentCallId={
+                    freshEvent?.voiceAgentCallId ??
+                    overlaySource.event.voiceAgentCallId
+                  }
+                  voiceAgentData={
+                    freshEvent?.voiceAgentData ??
+                    overlaySource.event.voiceAgentData
+                  }
+                  onViewVoiceCall={(callId) => {
+                    router.push(`/agente-voz?callId=${callId}`)
+                  }}
                 />
               ) : null}
             </div>
@@ -6320,6 +6574,8 @@ export default function WeekScheduler() {
           onToggleConfirmed={(confirmed) =>
             handleToggleConfirmed(contextMenu.event.id, confirmed)
           }
+          createdByVoiceAgent={contextMenu.event.createdByVoiceAgent}
+          voiceAgentCallId={contextMenu.event.voiceAgentCallId}
         />
       )}
     </section>

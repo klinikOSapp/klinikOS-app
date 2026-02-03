@@ -5,6 +5,43 @@ import type { CSSProperties } from 'react'
 import QuickActionsSection from '../QuickActionsSection'
 import type { EventDetail } from '../types'
 
+// Voice agent data types (matching AppointmentsContext)
+export type VoiceAgentSentiment =
+  | 'aliviado'
+  | 'nervioso'
+  | 'enfadado'
+  | 'contento'
+  | 'preocupado'
+
+export type VoiceAgentData = {
+  callSummary: string
+  patientSentiment: VoiceAgentSentiment
+  callDuration: string
+  callIntent: string
+  transcriptionAvailable: boolean
+}
+
+// Sentiment labels for display
+const SENTIMENT_LABELS: Record<VoiceAgentSentiment, string> = {
+  aliviado: 'Aliviado',
+  nervioso: 'Nervioso',
+  enfadado: 'Enfadado',
+  contento: 'Contento',
+  preocupado: 'Preocupado'
+}
+
+// Sentiment icons/colors
+const SENTIMENT_CONFIG: Record<
+  VoiceAgentSentiment,
+  { color: string; icon: string }
+> = {
+  aliviado: { color: '#10B981', icon: 'sentiment_satisfied' },
+  nervioso: { color: '#F59E0B', icon: 'sentiment_neutral' },
+  enfadado: { color: '#EF4444', icon: 'sentiment_very_dissatisfied' },
+  contento: { color: '#3B82F6', icon: 'sentiment_very_satisfied' },
+  preocupado: { color: '#8B5CF6', icon: 'sentiment_dissatisfied' }
+}
+
 export interface AppointmentDetailOverlayProps {
   detail: EventDetail
   box: string
@@ -17,6 +54,12 @@ export interface AppointmentDetailOverlayProps {
   // Estado de confirmación de la cita
   isConfirmed?: boolean
   onToggleConfirmed?: (confirmed: boolean) => void
+  // Voice agent data (for AI-created appointments)
+  createdByVoiceAgent?: boolean
+  voiceAgentCallId?: string
+  voiceAgentData?: VoiceAgentData
+  // Callback to view the linked call details
+  onViewVoiceCall?: (callId: string) => void
 }
 
 // Extrae el color CSS de una clase de Tailwind bg-[...]
@@ -40,10 +83,16 @@ export default function AppointmentDetailOverlay({
   onPaymentAction,
   onViewPatient,
   isConfirmed = false,
-  onToggleConfirmed
+  onToggleConfirmed,
+  createdByVoiceAgent = false,
+  voiceAgentCallId,
+  voiceAgentData,
+  onViewVoiceCall
 }: AppointmentDetailOverlayProps) {
   const showQuickActions = onPaymentAction || onViewPatient
-  const headerBgColor = extractBgColor(backgroundClass) || 'var(--color-brand-100)'
+  const headerBgColor = createdByVoiceAgent
+    ? 'var(--color-event-ai-bg)'
+    : extractBgColor(backgroundClass) || 'var(--color-brand-100)'
 
   return (
     <div
@@ -81,7 +130,9 @@ export default function AppointmentDetailOverlay({
               ].join(' ')}
             >
               <MD3Icon
-                name={isConfirmed ? 'CheckCircleRounded' : 'EventAvailableRounded'}
+                name={
+                  isConfirmed ? 'CheckCircleRounded' : 'EventAvailableRounded'
+                }
                 size={0.875}
                 fill={isConfirmed ? 1 : 0}
               />
@@ -101,7 +152,9 @@ export default function AppointmentDetailOverlay({
           gap: 'var(--scheduler-overlay-section-gap)',
           paddingInline: 'var(--scheduler-overlay-body-pad-x)',
           paddingTop: 'var(--scheduler-overlay-body-pad-top)',
-          paddingBottom: showQuickActions ? '1rem' : 'var(--scheduler-overlay-body-pad-bottom)'
+          paddingBottom: showQuickActions
+            ? '1rem'
+            : 'var(--scheduler-overlay-body-pad-bottom)'
         }}
       >
         {/* Información principal de la cita */}
@@ -124,6 +177,75 @@ export default function AppointmentDetailOverlay({
             </>
           )}
         </div>
+
+        {/* Voice Agent Info - Only for AI-created appointments */}
+        {createdByVoiceAgent && (
+          <div className='rounded-lg border border-[#EC4899]/30 bg-[var(--color-event-ai-bg)] p-3'>
+            {/* Header with AI badge */}
+            <div className='flex items-center gap-2 mb-2'>
+              <span className='inline-flex shrink-0 items-center justify-center rounded bg-[#EC4899] px-1.5 py-0.5 text-[0.625rem] font-bold text-white'>
+                <span className='material-symbols-rounded text-xs mr-0.5'>
+                  smart_toy
+                </span>
+                IA
+              </span>
+              <span className='text-xs font-medium text-[#EC4899]'>
+                Creada por agente de voz
+              </span>
+            </div>
+
+            {/* Voice agent data if available */}
+            {voiceAgentData && (
+              <div className='flex flex-col gap-2'>
+                {/* Call summary - truncated */}
+                <p className='text-sm text-[var(--color-neutral-700)] line-clamp-2'>
+                  &ldquo;{voiceAgentData.callSummary}&rdquo;
+                </p>
+
+                {/* Sentiment and duration row */}
+                <div className='flex items-center justify-between text-xs'>
+                  <div className='flex items-center gap-1.5'>
+                    <span
+                      className='material-symbols-rounded text-base'
+                      style={{
+                        color:
+                          SENTIMENT_CONFIG[voiceAgentData.patientSentiment]
+                            ?.color || '#6B7280'
+                      }}
+                    >
+                      {SENTIMENT_CONFIG[voiceAgentData.patientSentiment]
+                        ?.icon || 'sentiment_neutral'}
+                    </span>
+                    <span className='text-[var(--color-neutral-600)]'>
+                      {SENTIMENT_LABELS[voiceAgentData.patientSentiment] ||
+                        'Desconocido'}
+                    </span>
+                  </div>
+                  <div className='flex items-center gap-1'>
+                    <span className='material-symbols-rounded text-sm text-[var(--color-neutral-500)]'>
+                      timer
+                    </span>
+                    <span className='text-[var(--color-neutral-600)]'>
+                      {voiceAgentData.callDuration}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* View full call button */}
+            {voiceAgentCallId && onViewVoiceCall && (
+              <button
+                type='button'
+                onClick={() => onViewVoiceCall(voiceAgentCallId)}
+                className='mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-[#EC4899]/40 bg-white px-3 py-1.5 text-xs font-medium text-[#EC4899] transition-colors hover:bg-[#EC4899]/10'
+              >
+                <span className='material-symbols-rounded text-sm'>call</span>
+                <span>Ver llamada completa</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Económico - Con soporte para pagos parciales */}
         {(detail.economicAmount ||
@@ -374,7 +496,6 @@ export default function AppointmentDetailOverlay({
             )}
           </div>
         </OverlaySection>
-
       </div>
 
       {/* Footer - Acciones rápidas fijas (no afectadas por scroll) */}

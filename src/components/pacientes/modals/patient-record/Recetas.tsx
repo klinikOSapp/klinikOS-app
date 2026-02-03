@@ -9,6 +9,7 @@ import {
   PictureAsPdfRounded,
   VisibilityRounded
 } from '@/components/icons/md3'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import {
   downloadPrescriptionPDF,
   type PrescriptionData
@@ -89,6 +90,18 @@ export default function Recetas({
   onPrescriptionCreationOpened,
   patientName
 }: RecetasProps) {
+  // Get clinic data from configuration context
+  const { clinicInfo } = useConfiguration()
+
+  // Build full clinic address from configuration
+  const fullClinicAddress = [
+    clinicInfo.direccion,
+    clinicInfo.poblacion,
+    clinicInfo.codigoPostal
+  ]
+    .filter(Boolean)
+    .join(', ')
+
   // Nombre del paciente para mostrar (usa prop o mock)
   const displayPatientName = patientName || 'María García López'
   const [isCreateOpen, setIsCreateOpen] = React.useState(
@@ -159,7 +172,7 @@ export default function Recetas({
   }
 
   const handleDownloadPrescription = (row: PrescriptionRow) => {
-    // Build prescription data for PDF generation
+    // Build prescription data for PDF generation using clinic info from configuration
     const prescriptionData: PrescriptionData = {
       patientName: displayPatientName,
       patientDni: '44556677X',
@@ -167,9 +180,9 @@ export default function Recetas({
       patientAge: 45,
       doctorName: row.especialista || 'Dr. García López',
       doctorLicense: 'XX 895 895 895',
-      clinicName: 'Clínica Tama Dental',
-      clinicAddress: 'C/ Principal, 123',
-      clinicPhone: '91 123 45 67',
+      clinicName: clinicInfo.nombreComercial || 'Clínica Dental',
+      clinicAddress: fullClinicAddress || clinicInfo.direccion || '',
+      clinicPhone: clinicInfo.telefono || '',
       prescriptionDate: new Date(),
       caseNotes: '',
       medications: row.medicamento

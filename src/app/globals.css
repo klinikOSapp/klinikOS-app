@@ -408,6 +408,9 @@
   --color-event-purple: #f1e9fb; /* Purple event background */
   --color-event-teal: #e9fbf9; /* Teal event background */
   --color-event-coral: #fbe9e9; /* Coral event background */
+  --color-event-ai: #ec4899; /* Rosa/Fucsia for AI-created appointments */
+  --color-event-ai-bg: #fdf2f8; /* Light pink background for AI appointments */
+  --color-event-ai-border: #f472b6; /* Pink border for AI appointments */
 
   /* Day calendar (vista diaria) - Figma exact values */
   --day-time-column-width: 5.5rem; /* 88px from Figma */
@@ -497,6 +500,30 @@
 
   /* Button pill styling */
   --button-pill-radius: 8.5rem; /* 136px - muy redondeado */
+}
+
+/* Custom scrollbar styles for call cards */
+.card-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-neutral-300) transparent;
+}
+
+.card-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.card-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.card-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--color-neutral-300);
+  border-radius: 3px;
+}
+
+.card-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-neutral-400);
 }
 
 /* Logo animation */
