@@ -70,6 +70,7 @@ type MonthEvent = {
   bgColor: string
   detail?: EventDetail
   box?: string
+  createdByVoiceAgent?: boolean
 }
 
 type SpecialistAvailability = {
