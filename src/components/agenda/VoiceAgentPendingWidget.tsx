@@ -162,14 +162,20 @@ export default function VoiceAgentPendingWidget({
 
   // Navigate to voice agent page with call selected
   const handleCallClick = (callId: string) => {
-    router.push(`/agente-voz?callId=${callId}`)
     setIsOpen(false)
+    // Use setTimeout to ensure the dropdown closes before navigation
+    setTimeout(() => {
+      router.push(`/agente-voz?callId=${callId}`)
+    }, 0)
   }
 
   // Navigate to voice agent page (main view)
   const handleViewAll = () => {
-    router.push('/agente-voz')
     setIsOpen(false)
+    // Use setTimeout to ensure the dropdown closes before navigation
+    setTimeout(() => {
+      router.push('/agente-voz')
+    }, 0)
   }
 
   // Don't render if no actionable calls

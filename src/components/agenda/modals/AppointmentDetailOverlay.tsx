@@ -2,7 +2,6 @@
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import type { CSSProperties } from 'react'
-import QuickActionsSection from '../QuickActionsSection'
 import type { EventDetail } from '../types'
 
 // Voice agent data types (matching AppointmentsContext)
@@ -33,13 +32,29 @@ const SENTIMENT_LABELS: Record<VoiceAgentSentiment, string> = {
 // Sentiment icons/colors
 const SENTIMENT_CONFIG: Record<
   VoiceAgentSentiment,
-  { color: string; icon: string }
+  { color: string; bgColor: string; icon: string }
 > = {
-  aliviado: { color: '#10B981', icon: 'sentiment_satisfied' },
-  nervioso: { color: '#F59E0B', icon: 'sentiment_neutral' },
-  enfadado: { color: '#EF4444', icon: 'sentiment_very_dissatisfied' },
-  contento: { color: '#3B82F6', icon: 'sentiment_very_satisfied' },
-  preocupado: { color: '#8B5CF6', icon: 'sentiment_dissatisfied' }
+  aliviado: {
+    color: '#10B981',
+    bgColor: '#D1FAE5',
+    icon: 'sentiment_satisfied'
+  },
+  nervioso: { color: '#F59E0B', bgColor: '#FEF3C7', icon: 'sentiment_neutral' },
+  enfadado: {
+    color: '#EF4444',
+    bgColor: '#FEE2E2',
+    icon: 'sentiment_very_dissatisfied'
+  },
+  contento: {
+    color: '#3B82F6',
+    bgColor: '#DBEAFE',
+    icon: 'sentiment_very_satisfied'
+  },
+  preocupado: {
+    color: '#8B5CF6',
+    bgColor: '#EDE9FE',
+    icon: 'sentiment_dissatisfied'
+  }
 }
 
 export interface AppointmentDetailOverlayProps {
@@ -60,6 +75,8 @@ export interface AppointmentDetailOverlayProps {
   voiceAgentData?: VoiceAgentData
   // Callback to view the linked call details
   onViewVoiceCall?: (callId: string) => void
+  // Callback to close the overlay
+  onClose?: () => void
 }
 
 // Extrae el color CSS de una clase de Tailwind bg-[...]
@@ -70,9 +87,17 @@ function extractBgColor(backgroundClass?: string): string | undefined {
   return match ? match[1] : undefined
 }
 
+// Extract initials from patient name
+function getInitials(name: string): string {
+  if (!name) return '?'
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+}
+
 const overlayStyle: CSSProperties = {
   width: 'var(--scheduler-overlay-width)',
-  borderRadius: '0.5rem 0.5rem 0 0'
+  borderRadius: '0.75rem'
 }
 
 export default function AppointmentDetailOverlay({
@@ -87,18 +112,33 @@ export default function AppointmentDetailOverlay({
   createdByVoiceAgent = false,
   voiceAgentCallId,
   voiceAgentData,
-  onViewVoiceCall
+  onViewVoiceCall,
+  onClose
 }: AppointmentDetailOverlayProps) {
   const showQuickActions = onPaymentAction || onViewPatient
   const headerBgColor = createdByVoiceAgent
     ? 'var(--color-event-ai-bg)'
     : extractBgColor(backgroundClass) || 'var(--color-brand-100)'
 
+  // Get patient initials for avatar
+  const patientInitials = getInitials(detail.patientFull || '')
+
+  // Calculate payment percentage
+  const paymentPercentage =
+    detail.paymentInfo && detail.paymentInfo.totalAmount > 0
+      ? Math.min(
+          100,
+          (detail.paymentInfo.paidAmount / detail.paymentInfo.totalAmount) * 100
+        )
+      : 0
+
+  const isPaid = detail.paymentInfo && detail.paymentInfo.pendingAmount === 0
+
   return (
     <div
       data-overlay='true'
       id='scheduler-event-overlay'
-      className='pointer-events-auto absolute z-20 flex flex-col border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] shadow-[var(--scheduler-overlay-shadow)]'
+      className='pointer-events-auto absolute z-20 flex flex-col border border-[var(--color-neutral-200)] bg-[var(--color-neutral-0)] shadow-lg animate-in fade-in slide-in-from-left-2 duration-200'
       style={{
         ...overlayStyle,
         top: position.top,
@@ -108,105 +148,130 @@ export default function AppointmentDetailOverlay({
       }}
       onClick={(event) => event.stopPropagation()}
     >
-      {/* Header - Color dinámico según la cita */}
+      {/* Header Mejorado - Con avatar y mejor jerarquía */}
       <div
-        className='flex shrink-0 items-center justify-between rounded-tl-[0.5rem] rounded-tr-[0.5rem] px-[var(--scheduler-overlay-header-pad-x)] py-[var(--scheduler-overlay-header-pad-y)]'
+        className='relative flex shrink-0 items-center gap-3 rounded-t-[0.75rem] px-4 py-3'
         style={{ backgroundColor: headerBgColor }}
       >
-        <h3 className='text-title-md font-medium text-[var(--color-neutral-900)] leading-[var(--leading-title-md)]'>
-          {detail.title}
-        </h3>
-        <div className='flex items-center gap-3'>
-          {/* Toggle de confirmación */}
-          {onToggleConfirmed && (
-            <button
-              type='button'
-              onClick={() => onToggleConfirmed(!isConfirmed)}
-              className={[
-                'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all',
-                isConfirmed
-                  ? 'bg-[#3B82F6] text-white shadow-sm'
-                  : 'bg-white/80 text-[var(--color-neutral-600)] hover:bg-white hover:text-[#3B82F6]'
-              ].join(' ')}
-            >
-              <MD3Icon
-                name={
-                  isConfirmed ? 'CheckCircleRounded' : 'EventAvailableRounded'
-                }
-                size={0.875}
-                fill={isConfirmed ? 1 : 0}
-              />
-              <span>{isConfirmed ? 'Confirmada' : 'Sin confirmar'}</span>
-            </button>
-          )}
-          <span className='text-base font-bold text-[var(--color-neutral-900)] leading-6'>
+        {/* Avatar con iniciales */}
+        <div className='flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/40 shadow-sm'>
+          <span className='text-base font-semibold text-[var(--color-neutral-800)]'>
+            {patientInitials}
+          </span>
+        </div>
+
+        {/* Info principal */}
+        <div className='min-w-0 flex-1'>
+          <h3 className='truncate text-base font-semibold text-[var(--color-neutral-900)] leading-tight'>
+            {detail.patientFull}
+          </h3>
+          <p className='truncate text-sm text-[var(--color-neutral-700)]'>
+            {detail.title}
+          </p>
+        </div>
+
+        {/* Badge de box */}
+        <div className='flex shrink-0 items-center gap-2'>
+          <span className='rounded-md bg-white/60 px-2 py-0.5 text-sm font-bold text-[var(--color-neutral-800)] shadow-sm'>
             {box}
           </span>
+          {/* Botón cerrar */}
+          {onClose && (
+            <button
+              type='button'
+              onClick={onClose}
+              className='flex h-7 w-7 items-center justify-center rounded-full bg-white/40 text-[var(--color-neutral-600)] transition-colors hover:bg-white/60 hover:text-[var(--color-neutral-900)]'
+              aria-label='Cerrar'
+            >
+              <MD3Icon name='CloseRounded' size={1} />
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Toggle de confirmación - Debajo del header */}
+      {onToggleConfirmed && (
+        <div className='flex items-center justify-between border-b border-[var(--color-neutral-200)] bg-[var(--color-neutral-50)] px-4 py-2'>
+          <span className='text-xs font-medium text-[var(--color-neutral-600)]'>
+            Estado de la cita
+          </span>
+          <button
+            type='button'
+            onClick={() => onToggleConfirmed(!isConfirmed)}
+            className={[
+              'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all',
+              isConfirmed
+                ? 'bg-[#3B82F6] text-white shadow-sm'
+                : 'bg-white text-[var(--color-neutral-600)] shadow-sm ring-1 ring-inset ring-[var(--color-neutral-300)] hover:bg-[var(--color-neutral-100)] hover:text-[#3B82F6]'
+            ].join(' ')}
+          >
+            <MD3Icon
+              name={
+                isConfirmed ? 'CheckCircleRounded' : 'EventAvailableRounded'
+              }
+              size={0.875}
+              fill={isConfirmed ? 1 : 0}
+            />
+            <span>{isConfirmed ? 'Confirmada' : 'Sin confirmar'}</span>
+          </button>
+        </div>
+      )}
+
       {/* Body - Scrollable content area */}
-      <div
-        className='flex min-h-0 flex-1 flex-col overflow-y-auto text-label-sm text-[var(--color-neutral-600)]'
-        style={{
-          gap: 'var(--scheduler-overlay-section-gap)',
-          paddingInline: 'var(--scheduler-overlay-body-pad-x)',
-          paddingTop: 'var(--scheduler-overlay-body-pad-top)',
-          paddingBottom: showQuickActions
-            ? '1rem'
-            : 'var(--scheduler-overlay-body-pad-bottom)'
-        }}
-      >
-        {/* Información principal de la cita */}
-        <div className='flex flex-col gap-1'>
-          {/* Nombre del paciente - Negrita */}
-          <p className='text-base font-bold text-[var(--color-neutral-900)] leading-6'>
-            {detail.patientFull}
-          </p>
-          {/* Tratamiento - Cursiva */}
-          <p className='text-sm italic text-[var(--color-neutral-700)] leading-5'>
+      <div className='flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4'>
+        {/* Información principal - Tratamiento y notas */}
+        <div className='rounded-lg bg-[var(--color-neutral-50)] p-3'>
+          <p className='text-sm font-medium italic text-[var(--color-neutral-700)]'>
             {detail.treatmentDescription || detail.title}
           </p>
-          {/* Separador y Notas */}
           {detail.notes && (
             <>
-              <hr className='my-2 border-t border-[var(--color-border-default)]' />
-              <p className='text-sm font-normal text-[var(--color-neutral-600)] leading-5'>
+              <hr className='my-2 border-t border-[var(--color-neutral-200)]' />
+              <p className='text-sm text-[var(--color-neutral-600)]'>
                 {detail.notes}
               </p>
             </>
           )}
         </div>
 
-        {/* Voice Agent Info - Only for AI-created appointments */}
+        {/* Voice Agent Info - Rediseñado con gradiente */}
         {createdByVoiceAgent && (
-          <div className='rounded-lg border border-[#EC4899]/30 bg-[var(--color-event-ai-bg)] p-3'>
-            {/* Header with AI badge */}
-            <div className='flex items-center gap-2 mb-2'>
-              <span className='inline-flex shrink-0 items-center justify-center rounded bg-[#EC4899] px-1.5 py-0.5 text-[0.625rem] font-bold text-white'>
-                <span className='material-symbols-rounded text-xs mr-0.5'>
+          <div className='relative overflow-hidden rounded-lg border border-[#F9A8D4] bg-gradient-to-br from-[#FDF2F8] to-[#FCE7F3] p-4'>
+            {/* Badge IA flotante */}
+            <div className='absolute right-3 top-3'>
+              <span className='inline-flex items-center gap-1 rounded-full bg-[#EC4899] px-2 py-0.5 text-[0.625rem] font-bold text-white shadow-sm'>
+                <span className='material-symbols-rounded text-xs'>
                   smart_toy
                 </span>
                 IA
               </span>
-              <span className='text-xs font-medium text-[#EC4899]'>
-                Creada por agente de voz
-              </span>
             </div>
+
+            <p className='mb-2 text-xs font-medium text-[#DB2777]'>
+              Creada por agente de voz
+            </p>
 
             {/* Voice agent data if available */}
             {voiceAgentData && (
-              <div className='flex flex-col gap-2'>
-                {/* Call summary - truncated */}
-                <p className='text-sm text-[var(--color-neutral-700)] line-clamp-2'>
+              <div className='flex flex-col gap-3'>
+                {/* Call summary as quote */}
+                <blockquote className='border-l-2 border-[#F472B6] pl-3 text-sm italic text-[var(--color-neutral-700)]'>
                   &ldquo;{voiceAgentData.callSummary}&rdquo;
-                </p>
+                </blockquote>
 
                 {/* Sentiment and duration row */}
-                <div className='flex items-center justify-between text-xs'>
-                  <div className='flex items-center gap-1.5'>
+                <div className='flex items-center gap-3 text-xs'>
+                  {/* Sentiment badge */}
+                  <div
+                    className='flex items-center gap-1 rounded-full px-2 py-1'
+                    style={{
+                      backgroundColor:
+                        SENTIMENT_CONFIG[voiceAgentData.patientSentiment]
+                          ?.bgColor || '#F3F4F6'
+                    }}
+                  >
                     <span
-                      className='material-symbols-rounded text-base'
+                      className='material-symbols-rounded text-sm'
                       style={{
                         color:
                           SENTIMENT_CONFIG[voiceAgentData.patientSentiment]
@@ -216,18 +281,24 @@ export default function AppointmentDetailOverlay({
                       {SENTIMENT_CONFIG[voiceAgentData.patientSentiment]
                         ?.icon || 'sentiment_neutral'}
                     </span>
-                    <span className='text-[var(--color-neutral-600)]'>
+                    <span
+                      className='font-medium'
+                      style={{
+                        color:
+                          SENTIMENT_CONFIG[voiceAgentData.patientSentiment]
+                            ?.color || '#6B7280'
+                      }}
+                    >
                       {SENTIMENT_LABELS[voiceAgentData.patientSentiment] ||
                         'Desconocido'}
                     </span>
                   </div>
-                  <div className='flex items-center gap-1'>
-                    <span className='material-symbols-rounded text-sm text-[var(--color-neutral-500)]'>
+                  <span className='text-[var(--color-neutral-400)]'>•</span>
+                  <div className='flex items-center gap-1 text-[var(--color-neutral-600)]'>
+                    <span className='material-symbols-rounded text-sm'>
                       timer
                     </span>
-                    <span className='text-[var(--color-neutral-600)]'>
-                      {voiceAgentData.callDuration}
-                    </span>
+                    <span>{voiceAgentData.callDuration}</span>
                   </div>
                 </div>
               </div>
@@ -238,304 +309,257 @@ export default function AppointmentDetailOverlay({
               <button
                 type='button'
                 onClick={() => onViewVoiceCall(voiceAgentCallId)}
-                className='mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-[#EC4899]/40 bg-white px-3 py-1.5 text-xs font-medium text-[#EC4899] transition-colors hover:bg-[#EC4899]/10'
+                className='mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-[#F9A8D4] bg-white py-2 text-sm font-medium text-[#DB2777] shadow-sm transition-all hover:bg-[#FDF2F8] hover:shadow-md'
               >
-                <span className='material-symbols-rounded text-sm'>call</span>
+                <span className='material-symbols-rounded text-base'>call</span>
                 <span>Ver llamada completa</span>
               </button>
             )}
           </div>
         )}
 
-        {/* Económico - Con soporte para pagos parciales */}
+        {/* Sección Económica - Rediseñada como card de estado */}
         {(detail.economicAmount ||
           detail.economicStatus ||
           detail.paymentInfo) && (
-          <OverlaySection
-            icon={
+          <div
+            className={`rounded-lg border p-4 ${
+              isPaid
+                ? 'border-[var(--color-success-200)] bg-[var(--color-success-50)]'
+                : detail.paymentInfo && detail.paymentInfo.pendingAmount > 0
+                ? 'border-[var(--color-warning-200)] bg-[var(--color-warning-50)]'
+                : 'border-[var(--color-neutral-200)] bg-[var(--color-neutral-50)]'
+            }`}
+          >
+            <div className='mb-2 flex items-center gap-2'>
               <MD3Icon
-                name='EuroRounded'
-                size='inherit'
+                name='PaymentsRounded'
+                size={1.125}
                 className='text-[var(--color-neutral-600)]'
               />
-            }
-            label={detail.economicLabel || 'Económico'}
-          >
-            <div className='flex flex-col gap-2'>
-              {/* Si hay paymentInfo, mostrar desglose detallado */}
-              {detail.paymentInfo ? (
-                <>
-                  {/* Total */}
-                  <div className='flex items-center justify-between text-sm leading-5'>
-                    <span className='font-normal text-[var(--color-neutral-600)]'>
-                      Total:
+              <span className='text-sm font-medium text-[var(--color-neutral-700)]'>
+                {detail.economicLabel || 'Económico'}
+              </span>
+            </div>
+
+            {detail.paymentInfo ? (
+              <div className='flex flex-col gap-3'>
+                {/* Monto pendiente destacado */}
+                <div className='flex items-baseline justify-between'>
+                  <span
+                    className={`text-2xl font-bold ${
+                      isPaid
+                        ? 'text-[var(--color-success-600)]'
+                        : 'text-[var(--color-warning-600)]'
+                    }`}
+                  >
+                    {detail.paymentInfo.pendingAmount.toLocaleString('es-ES', {
+                      minimumFractionDigits: 2
+                    })}{' '}
+                    {detail.paymentInfo.currency}
+                  </span>
+                  <span className='text-xs text-[var(--color-neutral-500)]'>
+                    {isPaid ? 'pagado' : 'pendiente'}
+                  </span>
+                </div>
+
+                {/* Barra de progreso mejorada */}
+                <div className='relative h-2.5 w-full overflow-hidden rounded-full bg-[var(--color-neutral-200)]'>
+                  <div
+                    className='absolute inset-y-0 left-0 rounded-full bg-[var(--color-brand-500)] transition-all duration-500'
+                    style={{ width: `${paymentPercentage}%` }}
+                  />
+                </div>
+
+                {/* Detalles de pago */}
+                <div className='flex justify-between text-xs text-[var(--color-neutral-600)]'>
+                  <span>
+                    Pagado:{' '}
+                    <span className='font-medium text-[var(--color-success-600)]'>
+                      {detail.paymentInfo.paidAmount.toLocaleString('es-ES', {
+                        minimumFractionDigits: 2
+                      })}{' '}
+                      {detail.paymentInfo.currency}
                     </span>
+                  </span>
+                  <span>
+                    Total:{' '}
                     <span className='font-medium text-[var(--color-neutral-900)]'>
                       {detail.paymentInfo.totalAmount.toLocaleString('es-ES', {
                         minimumFractionDigits: 2
                       })}{' '}
                       {detail.paymentInfo.currency}
                     </span>
-                  </div>
+                  </span>
+                </div>
 
-                  {/* Pagado con porcentaje */}
-                  <div className='flex items-center justify-between text-sm leading-5'>
-                    <span className='font-normal text-[var(--color-neutral-600)]'>
-                      Pagado:
+                {/* Plan de cuotas si existe */}
+                {detail.installmentPlan && (
+                  <div className='flex items-center gap-2 rounded-md bg-white/60 px-2 py-1.5 text-xs'>
+                    <MD3Icon
+                      name='CalendarMonthRounded'
+                      size={0.875}
+                      className='text-[var(--color-neutral-500)]'
+                    />
+                    <span className='text-[var(--color-neutral-700)]'>
+                      Cuota {detail.installmentPlan.currentInstallment} de{' '}
+                      {detail.installmentPlan.totalInstallments}
                     </span>
-                    <span className='font-medium text-[var(--color-success-600)]'>
-                      {detail.paymentInfo.paidAmount.toLocaleString('es-ES', {
-                        minimumFractionDigits: 2
-                      })}{' '}
-                      {detail.paymentInfo.currency}
-                      {detail.paymentInfo.totalAmount > 0 && (
-                        <span className='ml-1 text-xs text-[var(--color-neutral-500)]'>
-                          (
-                          {Math.round(
-                            (detail.paymentInfo.paidAmount /
-                              detail.paymentInfo.totalAmount) *
-                              100
-                          )}
-                          %)
-                        </span>
-                      )}
-                    </span>
-                  </div>
-
-                  {/* Pendiente */}
-                  <div className='flex items-center justify-between text-sm leading-5'>
-                    <span className='font-normal text-[var(--color-neutral-600)]'>
-                      Pendiente:
-                    </span>
-                    <span
-                      className={`font-medium ${
-                        detail.paymentInfo.pendingAmount > 0
-                          ? 'text-amber-600'
-                          : 'text-[var(--color-success-600)]'
-                      }`}
-                    >
-                      {detail.paymentInfo.pendingAmount.toLocaleString(
+                    <span className='text-[var(--color-neutral-500)]'>
+                      (
+                      {detail.installmentPlan.amountPerInstallment.toLocaleString(
                         'es-ES',
                         { minimumFractionDigits: 2 }
                       )}{' '}
-                      {detail.paymentInfo.currency}
+                      {detail.paymentInfo.currency}/cuota)
                     </span>
                   </div>
-
-                  {/* Barra de progreso */}
-                  <div className='mt-1'>
-                    <div className='h-2 w-full overflow-hidden rounded-full bg-[var(--color-neutral-200)]'>
-                      <div
-                        className='h-full rounded-full bg-[var(--color-brand-500)] transition-all duration-300'
-                        style={{
-                          width: `${
-                            detail.paymentInfo.totalAmount > 0
-                              ? Math.min(
-                                  100,
-                                  (detail.paymentInfo.paidAmount /
-                                    detail.paymentInfo.totalAmount) *
-                                    100
-                                )
-                              : 0
-                          }%`
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Plan de cuotas si existe */}
-                  {detail.installmentPlan && (
-                    <div className='mt-1 flex items-center gap-1.5 text-sm leading-5'>
-                      <MD3Icon
-                        name='CalendarMonthRounded'
-                        size={0.875}
-                        className='text-[var(--color-neutral-500)]'
-                      />
-                      <span className='font-normal text-[var(--color-neutral-600)]'>
-                        Cuota {detail.installmentPlan.currentInstallment} de{' '}
-                        {detail.installmentPlan.totalInstallments}
-                      </span>
-                      <span className='text-xs text-[var(--color-neutral-500)]'>
-                        (
-                        {detail.installmentPlan.amountPerInstallment.toLocaleString(
-                          'es-ES',
-                          { minimumFractionDigits: 2 }
-                        )}{' '}
-                        {detail.paymentInfo.currency}/cuota)
-                      </span>
-                    </div>
-                  )}
-                </>
-              ) : (
-                /* Fallback al formato anterior si no hay paymentInfo */
-                <>
-                  {detail.economicAmount && (
-                    <div
-                      className='flex items-center text-sm font-normal text-[var(--color-neutral-900)] leading-5'
-                      style={{ gap: 'var(--scheduler-overlay-contact-gap)' }}
-                    >
-                      <MD3Icon
-                        name='EuroRounded'
-                        size={1}
-                        className='text-[var(--color-neutral-600)]'
-                      />
-                      <span>{detail.economicAmount}</span>
-                    </div>
-                  )}
-                  {detail.economicStatus && (
-                    <p className='text-sm font-normal text-[var(--color-neutral-900)] leading-5'>
-                      {detail.economicStatus}
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-          </OverlaySection>
+                )}
+              </div>
+            ) : (
+              /* Fallback al formato anterior si no hay paymentInfo */
+              <div className='flex flex-col gap-1'>
+                {detail.economicAmount && (
+                  <span className='text-lg font-semibold text-[var(--color-neutral-900)]'>
+                    {detail.economicAmount}
+                  </span>
+                )}
+                {detail.economicStatus && (
+                  <span className='text-sm text-[var(--color-neutral-700)]'>
+                    {detail.economicStatus}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
-        {/* Profesional */}
-        <OverlaySection
-          icon={
-            <MD3Icon
-              name='MonitorHeartRounded'
-              size='inherit'
-              className='text-[var(--color-neutral-600)]'
-            />
-          }
+        {/* Profesional - Card */}
+        <OverlayCard
+          icon={<MD3Icon name='MonitorHeartRounded' size={1.125} />}
           label={detail.professionalLabel}
         >
-          <div
-            className='flex items-center text-sm font-normal text-[var(--color-neutral-900)] leading-5'
-            style={{ gap: 'var(--scheduler-overlay-icon-gap)' }}
-          >
+          <div className='flex items-center gap-2'>
             <span
               aria-hidden='true'
-              className='inline-flex shrink-0 rounded-full'
-              style={{
-                width: 'var(--scheduler-overlay-avatar-size)',
-                height: 'var(--scheduler-overlay-avatar-size)',
-                backgroundColor: 'var(--scheduler-overlay-avatar-color)'
-              }}
-            />
-            <span>{detail.professional}</span>
+              className='inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-neutral-700)] text-xs font-medium text-white'
+            >
+              {getInitials(detail.professional || '')}
+            </span>
+            <span className='text-sm font-medium text-[var(--color-neutral-900)]'>
+              {detail.professional}
+            </span>
           </div>
-        </OverlaySection>
+        </OverlayCard>
 
-        {/* Contacto del paciente - Solo si hay datos de contacto */}
+        {/* Contacto del paciente - Card */}
         {(detail.patientPhone || detail.patientEmail || detail.referredBy) && (
-          <OverlaySection
-            icon={
-              <MD3Icon
-                name='AccountCircleRounded'
-                size='inherit'
-                className='text-[var(--color-neutral-600)]'
-              />
-            }
+          <OverlayCard
+            icon={<MD3Icon name='AccountCircleRounded' size={1.125} />}
             label='Contacto'
           >
-            <div className='flex flex-col gap-1'>
+            <div className='flex flex-col gap-2'>
               {detail.patientPhone && (
-                <div
-                  className='flex items-center text-sm font-normal text-[var(--color-neutral-900)] leading-5'
-                  style={{ gap: 'var(--scheduler-overlay-contact-gap)' }}
-                >
+                <div className='flex items-center gap-2 text-sm text-[var(--color-neutral-900)]'>
                   <MD3Icon
                     name='PhoneRounded'
                     size={1}
-                    className='text-[var(--color-neutral-600)]'
+                    className='text-[var(--color-neutral-500)]'
                   />
                   <span>{detail.patientPhone}</span>
                 </div>
               )}
               {detail.patientEmail && (
-                <div
-                  className='flex items-center text-sm font-normal text-[var(--color-neutral-900)] leading-5'
-                  style={{ gap: 'var(--scheduler-overlay-contact-gap)' }}
-                >
+                <div className='flex items-center gap-2 text-sm text-[var(--color-neutral-900)]'>
                   <MD3Icon
                     name='EmailRounded'
                     size={1}
-                    className='text-[var(--color-neutral-600)]'
+                    className='text-[var(--color-neutral-500)]'
                   />
                   <span>{detail.patientEmail}</span>
                 </div>
               )}
               {detail.referredBy && (
-                <div className='flex items-center gap-1.5 text-sm leading-5'>
-                  <span className='font-normal text-[var(--color-neutral-600)]'>
+                <div className='flex items-center gap-2 text-sm'>
+                  <span className='text-[var(--color-neutral-500)]'>
                     Referido por:
                   </span>
-                  <span className='font-normal text-[var(--color-neutral-900)]'>
+                  <span className='font-medium text-[var(--color-neutral-900)]'>
                     {detail.referredBy}
                   </span>
                 </div>
               )}
             </div>
-          </OverlaySection>
+          </OverlayCard>
         )}
 
-        {/* Fecha y ubicación */}
-        <OverlaySection
-          icon={
-            <MD3Icon
-              name='CalendarMonthRounded'
-              size='inherit'
-              className='text-[var(--color-neutral-600)]'
-            />
-          }
+        {/* Fecha y ubicación - Card */}
+        <OverlayCard
+          icon={<MD3Icon name='CalendarMonthRounded' size={1.125} />}
           label={detail.locationLabel}
         >
           <div className='flex flex-col gap-1'>
-            <p className='text-sm font-normal text-[var(--color-neutral-900)] leading-5'>
+            <p className='text-sm font-medium text-[var(--color-neutral-900)]'>
               {detail.date}
             </p>
             {detail.duration && (
-              <p className='text-sm font-normal text-[var(--color-neutral-900)] leading-5'>
+              <p className='text-xs text-[var(--color-neutral-600)]'>
                 {detail.duration}
               </p>
             )}
           </div>
-        </OverlaySection>
+        </OverlayCard>
       </div>
 
-      {/* Footer - Acciones rápidas fijas (no afectadas por scroll) */}
+      {/* Footer - Acciones rápidas mejoradas */}
       {showQuickActions && (
-        <div
-          className='shrink-0 border-t border-[var(--color-border-default)] bg-[var(--color-neutral-0)]'
-          style={{
-            paddingInline: 'var(--scheduler-overlay-body-pad-x)',
-            paddingBlock: '1rem'
-          }}
-        >
-          <QuickActionsSection
-            showPaymentAction={
-              !!onPaymentAction &&
-              // Usar paymentInfo si existe
+        <div className='shrink-0 border-t border-[var(--color-neutral-200)] bg-[var(--color-neutral-50)] p-4'>
+          <p className='mb-3 text-xs font-medium text-[var(--color-neutral-500)]'>
+            Acciones rápidas
+          </p>
+          <div className='grid grid-cols-2 gap-3'>
+            {/* Botón Ver ficha */}
+            <button
+              type='button'
+              onClick={() => onViewPatient?.()}
+              className='flex items-center justify-center gap-2 rounded-xl border border-[var(--color-neutral-300)] bg-white py-3 text-sm font-medium text-[var(--color-neutral-900)] shadow-sm transition-all hover:border-[var(--color-neutral-400)] hover:shadow-md'
+            >
+              <MD3Icon name='FolderOpenRounded' size={1.25} />
+              <span>Ver ficha</span>
+            </button>
+
+            {/* Botón Cobrar */}
+            {onPaymentAction &&
               ((detail.paymentInfo && detail.paymentInfo.pendingAmount > 0) ||
-                // Fallback al sistema anterior
                 detail.economicStatus === 'Pendiente de cobro' ||
                 detail.economicStatus === 'Pendiente de pago' ||
-                detail.economicStatus?.includes('Pendiente') ||
-                false)
-            }
-            paymentAmount={
-              // Mostrar el monto pendiente si hay paymentInfo
-              detail.paymentInfo
-                ? `${detail.paymentInfo.pendingAmount.toLocaleString('es-ES', {
-                    minimumFractionDigits: 2
-                  })} ${detail.paymentInfo.currency}`
-                : detail.economicAmount
-            }
-            onPaymentClick={() => onPaymentAction?.()}
-            onViewPatientClick={() => onViewPatient?.()}
-          />
+                detail.economicStatus?.includes('Pendiente')) && (
+                <button
+                  type='button'
+                  onClick={() => onPaymentAction?.()}
+                  className='flex items-center justify-center gap-2 rounded-xl bg-[var(--color-brand-500)] py-3 text-sm font-medium text-[var(--color-brand-900)] shadow-sm transition-all hover:bg-[var(--color-brand-400)] hover:shadow-md'
+                >
+                  <MD3Icon name='PaymentsRounded' size={1.25} />
+                  <span>
+                    Cobrar{' '}
+                    {detail.paymentInfo
+                      ? `${detail.paymentInfo.pendingAmount.toLocaleString(
+                          'es-ES',
+                          { minimumFractionDigits: 2 }
+                        )} ${detail.paymentInfo.currency}`
+                      : detail.economicAmount || ''}
+                  </span>
+                </button>
+              )}
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-function OverlaySection({
+// Nueva sección como card con fondo sutil
+function OverlayCard({
   icon,
   label,
   children
@@ -545,26 +569,12 @@ function OverlaySection({
   children: React.ReactNode
 }) {
   return (
-    <div className='flex items-start gap-[var(--scheduler-overlay-icon-gap)]'>
-      <span
-        aria-hidden='true'
-        className='flex shrink-0 items-center justify-center text-[var(--scheduler-overlay-icon-size)]'
-        style={{
-          width: 'var(--scheduler-overlay-icon-size)',
-          height: 'var(--scheduler-overlay-icon-size)'
-        }}
-      >
+    <div className='rounded-lg bg-[var(--color-neutral-50)] p-3'>
+      <div className='mb-2 flex items-center gap-2 text-[var(--color-neutral-600)]'>
         {icon}
-      </span>
-      <div
-        className='flex flex-col'
-        style={{ gap: 'var(--scheduler-overlay-value-gap)' }}
-      >
-        <span className='text-xs font-normal text-[var(--color-neutral-600)] leading-4'>
-          {label}
-        </span>
-        <div>{children}</div>
+        <span className='text-xs font-medium'>{label}</span>
       </div>
+      <div className='pl-6'>{children}</div>
     </div>
   )
 }

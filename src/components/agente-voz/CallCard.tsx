@@ -298,16 +298,18 @@ export default function CallCard({
         </div>
 
         {/* Transcript link */}
-        <button
-          type='button'
-          className='mt-2 text-xs text-[#6d7783] underline underline-offset-2 hover:text-brand-600 transition-colors'
-          onClick={(e) => {
-            e.stopPropagation()
-            // TODO: Show transcription modal
-          }}
-        >
-          Mostrar transcripción completa
-        </button>
+        {onViewTranscription && (
+          <button
+            type='button'
+            className='mt-2 text-xs text-[#6d7783] underline underline-offset-2 hover:text-brand-600 transition-colors'
+            onClick={(e) => {
+              e.stopPropagation()
+              onViewTranscription()
+            }}
+          >
+            Mostrar transcripción completa
+          </button>
+        )}
       </div>
 
       {/* Footer Actions - Glassmorphism */}

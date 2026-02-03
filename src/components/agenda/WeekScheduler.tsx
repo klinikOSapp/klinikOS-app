@@ -29,6 +29,7 @@ import AppointmentContextMenu, {
 import AppointmentSummaryCard from './AppointmentSummaryCard'
 import DayCalendar from './DayCalendar'
 import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
+import AppointmentHoverOverlay from './modals/AppointmentHoverOverlay'
 import CreateAppointmentModal from './modals/CreateAppointmentModal'
 import MonthCalendar from './MonthCalendar'
 import SlotDragSelection, {
@@ -6262,209 +6263,21 @@ export default function WeekScheduler() {
                 !active &&
                 hovered.event.detail &&
                 (() => {
-                  const overlayHeight = '21.875rem' // 350px (44px header + 306px body) from Figma
+                  const overlayHeight = 'auto'
                   const position = getSmartOverlayPosition(
                     hovered.event.top,
                     hovered.column,
                     overlayHeight,
                     hovered.event
                   )
-                  // Extraer color de backgroundClass (ej: 'bg-[#fbe9f0]' -> '#fbe9f0')
-                  const bgMatch =
-                    hovered.event.backgroundClass?.match(/bg-\[([^\]]+)\]/)
-                  const headerBgColor = bgMatch
-                    ? bgMatch[1]
-                    : 'var(--color-brand-100)'
                   return (
-                    <div
-                      className='pointer-events-none absolute z-10 flex flex-col overflow-hidden rounded-t-[0.5rem] rounded-b-none border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)]'
-                      style={{
-                        top: position.top,
-                        left: position.left,
-                        width: 'var(--scheduler-overlay-width)',
-                        maxHeight: position.maxHeight,
-                        height: overlayHeight
-                      }}
-                    >
-                      {/* Header - Color dinámico según la cita */}
-                      <div
-                        className='flex items-center justify-between px-[1rem] py-[0.5rem]'
-                        style={{ backgroundColor: headerBgColor }}
-                      >
-                        <p className='font-medium text-[1.125rem] leading-[1.75rem] text-[var(--color-neutral-900)]'>
-                          {hovered.event.detail.title}
-                        </p>
-                        <p className='font-bold text-[1rem] leading-[1.5rem] text-[var(--color-neutral-900)]'>
-                          {hovered.event.box}
-                        </p>
-                      </div>
-
-                      {/* Body: absolute layout to mirror Figma */}
-                      <div
-                        className='relative bg-[var(--color-neutral-0)]'
-                        style={{ height: '19.125rem' }} // 306px
-                      >
-                        {/* Notas (prioridad) */}
-                        <div className='absolute left-[1rem] right-[1rem] top-[1rem] flex flex-col gap-[0.375rem]'>
-                          <div className='flex items-center gap-[0.25rem]'>
-                            <MD3Icon
-                              name='DescriptionRounded'
-                              size={1}
-                              className='text-[var(--color-neutral-600)]'
-                            />
-                            <p
-                              className='font-normal text-[var(--color-neutral-600)]'
-                              style={{
-                                fontSize: '0.75rem',
-                                lineHeight: '1rem'
-                              }}
-                            >
-                              {hovered.event.detail.notesLabel ?? NOTES_LABEL}
-                            </p>
-                          </div>
-                          <p
-                            className='font-normal text-[var(--color-neutral-900)]'
-                            style={{
-                              fontSize: '0.875rem',
-                              lineHeight: '1.25rem'
-                            }}
-                          >
-                            {hovered.event.detail.notes ?? DEFAULT_NOTES}
-                          </p>
-                        </div>
-
-                        {/* Económico */}
-                        {(hovered.event.detail.economicAmount ||
-                          hovered.event.detail.economicStatus) && (
-                          <div className='absolute left-[1rem] top-[4.75rem] flex flex-col gap-[0.375rem]'>
-                            <div className='flex items-center gap-[0.25rem]'>
-                              <MD3Icon
-                                name='EuroRounded'
-                                size={1}
-                                className='text-[var(--color-neutral-600)]'
-                              />
-                              <p
-                                className='font-normal text-[var(--color-neutral-600)]'
-                                style={{
-                                  fontSize: '0.75rem',
-                                  lineHeight: '1rem'
-                                }}
-                              >
-                                {hovered.event.detail.economicLabel ??
-                                  'Económico'}
-                              </p>
-                            </div>
-                            {hovered.event.detail.economicAmount && (
-                              <p
-                                className='font-normal text-[var(--color-neutral-900)]'
-                                style={{
-                                  fontSize: '0.875rem',
-                                  lineHeight: '1.25rem'
-                                }}
-                              >
-                                {hovered.event.detail.economicAmount}
-                              </p>
-                            )}
-                            {hovered.event.detail.economicStatus && (
-                              <p
-                                className='font-normal text-[var(--color-neutral-900)]'
-                                style={{
-                                  fontSize: '0.875rem',
-                                  lineHeight: '1.25rem'
-                                }}
-                              >
-                                {hovered.event.detail.economicStatus}
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Profesional */}
-                        <div className='absolute left-[1rem] top-[8.75rem] flex items-center gap-[0.25rem]'>
-                          <MD3Icon
-                            name='MonitorHeartRounded'
-                            size={1}
-                            className='text-[var(--color-neutral-600)]'
-                          />
-                          <p
-                            className='font-normal text-[var(--color-neutral-600)]'
-                            style={{ fontSize: '0.75rem', lineHeight: '1rem' }}
-                          >
-                            {hovered.event.detail.professionalLabel ??
-                              PROFESSIONAL_LABEL}
-                          </p>
-                        </div>
-                        <div
-                          className='absolute left-[1rem] top-[10.25rem] flex items-center gap-4'
-                          style={{ gap: '1rem' }}
-                        >
-                          <span
-                            className='inline-flex shrink-0 rounded-full bg-[var(--color-neutral-700)]'
-                            style={{ width: '2rem', height: '2rem' }} // 32px
-                          />
-                          <p
-                            className='font-normal text-[var(--color-neutral-900)]'
-                            style={{
-                              fontSize: '0.875rem',
-                              lineHeight: '1.25rem'
-                            }}
-                          >
-                            {hovered.event.detail.professional}
-                          </p>
-                        </div>
-
-                        {/* Paciente */}
-                        <div className='absolute left-[1rem] top-[13.75rem] flex items-center gap-[0.25rem]'>
-                          <MD3Icon
-                            name='AccountCircleRounded'
-                            size={1}
-                            className='text-[var(--color-neutral-600)]'
-                          />
-                          <p
-                            className='font-normal text-[var(--color-neutral-600)]'
-                            style={{ fontSize: '0.75rem', lineHeight: '1rem' }}
-                          >
-                            {hovered.event.detail.patientLabel ?? PATIENT_LABEL}
-                          </p>
-                        </div>
-                        <p
-                          className='absolute left-[1rem] font-normal text-[var(--color-neutral-900)]'
-                          style={{
-                            top: '15.25rem',
-                            fontSize: '0.875rem',
-                            lineHeight: '1.25rem'
-                          }}
-                        >
-                          {hovered.event.detail.patientFull}
-                        </p>
-
-                        {/* Fecha y ubicación */}
-                        <div className='absolute left-[1rem] top-[17.25rem] flex items-center gap-[0.25rem]'>
-                          <MD3Icon
-                            name='CalendarMonthRounded'
-                            size={1}
-                            className='text-[var(--color-neutral-600)]'
-                          />
-                          <p
-                            className='font-normal text-[var(--color-neutral-600)]'
-                            style={{ fontSize: '0.75rem', lineHeight: '1rem' }} // 12/16px
-                          >
-                            {hovered.event.detail.locationLabel ??
-                              LOCATION_LABEL}
-                          </p>
-                        </div>
-                        <p
-                          className='absolute left-[1rem] font-normal text-[var(--color-neutral-900)]'
-                          style={{
-                            top: '18.75rem',
-                            fontSize: '0.875rem',
-                            lineHeight: '1.25rem'
-                          }} // 14/20px
-                        >
-                          {hovered.event.detail.date}
-                        </p>
-                      </div>
-                    </div>
+                    <AppointmentHoverOverlay
+                      detail={hovered.event.detail}
+                      box={hovered.event.box}
+                      position={position}
+                      backgroundClass={hovered.event.backgroundClass}
+                      createdByVoiceAgent={hovered.event.createdByVoiceAgent}
+                    />
                   )
                 })()}
 
@@ -6504,6 +6317,7 @@ export default function WeekScheduler() {
                   onViewVoiceCall={(callId) => {
                     router.push(`/agente-voz?callId=${callId}`)
                   }}
+                  onClose={() => setActive(null)}
                 />
               ) : null}
             </div>

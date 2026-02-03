@@ -215,17 +215,31 @@ export default function CallDetailModal({
           aria-labelledby='call-detail-title'
         >
           {/* Header */}
-          <header className='flex items-center justify-between px-8 h-14 border-b border-neutral-300 shrink-0'>
-            <h2
-              id='call-detail-title'
-              className='text-title-md font-medium text-neutral-900'
-            >
-              {isBasicMode ? 'Detalle de llamada' : 'Detalle de cita agendada'}
-            </h2>
+          <header className='flex items-center justify-between px-8 h-16 border-b border-neutral-200 shrink-0 bg-gradient-to-r from-neutral-50 to-white'>
+            <div className='flex items-center gap-3'>
+              <div className='w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center'>
+                <span className='material-symbols-rounded text-xl text-brand-600'>
+                  {isBasicMode ? 'call' : 'event_available'}
+                </span>
+              </div>
+              <div>
+                <h2
+                  id='call-detail-title'
+                  className='text-lg font-semibold text-neutral-900'
+                >
+                  {isBasicMode
+                    ? 'Detalle de llamada'
+                    : 'Detalle de cita agendada'}
+                </h2>
+                <p className='text-xs text-neutral-500'>
+                  {formattedDate} · {call.time}
+                </p>
+              </div>
+            </div>
             <button
               type='button'
               onClick={onClose}
-              className='p-1 text-neutral-600 hover:text-neutral-900 transition-colors rounded hover:bg-neutral-100'
+              className='w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-neutral-900 transition-colors rounded-lg hover:bg-neutral-100'
               aria-label='Cerrar'
             >
               <span className='material-symbols-rounded text-xl'>close</span>
@@ -236,34 +250,41 @@ export default function CallDetailModal({
           <div className='flex-1 overflow-y-auto'>
             <div className='flex min-h-full'>
               {/* Left Column - Timeline */}
-              <div className='w-[17rem] p-8 border-r border-neutral-300 shrink-0'>
+              <div className='w-[17rem] p-6 border-r border-neutral-200 shrink-0 bg-neutral-50/50'>
+                <h4 className='text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-4'>
+                  Proceso de la llamada
+                </h4>
                 <div className='flex flex-col'>
                   {MOCK_TIMELINE.map((step, index) => (
                     <div key={step.id} className='flex gap-3'>
                       {/* Timeline indicator */}
                       <div className='flex flex-col items-center'>
                         <div
-                          className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                          className={`w-7 h-7 rounded-full flex items-center justify-center shadow-sm ${
                             step.completed
-                              ? 'bg-brand-500 text-white'
-                              : 'bg-neutral-200 text-neutral-500'
+                              ? 'bg-gradient-to-br from-brand-400 to-brand-500 text-white'
+                              : 'bg-neutral-200 text-neutral-400'
                           }`}
                         >
-                          <span className='material-symbols-rounded text-base'>
-                            {step.completed ? 'check_circle' : 'circle'}
+                          <span className='material-symbols-rounded text-[1rem]'>
+                            {step.completed ? 'check' : 'circle'}
                           </span>
                         </div>
                         {index < MOCK_TIMELINE.length - 1 && (
-                          <div className='w-0.5 h-6 bg-neutral-300' />
+                          <div
+                            className={`w-0.5 h-5 ${
+                              step.completed ? 'bg-brand-300' : 'bg-neutral-300'
+                            }`}
+                          />
                         )}
                       </div>
 
                       {/* Step content */}
-                      <div className='pb-6'>
-                        <p className='text-title-sm font-medium text-neutral-900'>
+                      <div className='pb-4 pt-0.5'>
+                        <p className='text-sm font-medium text-neutral-800 leading-tight'>
                           {step.label}
                         </p>
-                        <p className='text-label-sm text-neutral-900'>
+                        <p className='text-xs text-neutral-500 mt-0.5'>
                           {step.timestamp}
                         </p>
                       </div>
@@ -272,110 +293,140 @@ export default function CallDetailModal({
                 </div>
 
                 {/* Call stats */}
-                <div className='mt-4 pt-4 border-t border-neutral-200'>
-                  <div className='mb-4'>
-                    <p className='text-body-md text-neutral-700'>Duración</p>
-                    <p className='text-body-md text-neutral-900'>
+                <div className='mt-4 pt-4 border-t border-neutral-200 space-y-3'>
+                  <div className='flex items-center justify-between p-2.5 bg-white rounded-lg border border-neutral-200'>
+                    <div className='flex items-center gap-2'>
+                      <span className='material-symbols-rounded text-lg text-neutral-500'>
+                        timer
+                      </span>
+                      <span className='text-sm text-neutral-600'>Duración</span>
+                    </div>
+                    <span className='text-sm font-semibold text-neutral-900'>
                       {call.duration}
-                    </p>
+                    </span>
                   </div>
-                  <div>
-                    <p className='text-body-md text-neutral-700'>Sentimiento</p>
-                    <p className='text-body-md text-neutral-900'>
+                  <div className='flex items-center justify-between p-2.5 bg-white rounded-lg border border-neutral-200'>
+                    <div className='flex items-center gap-2'>
+                      <span className='material-symbols-rounded text-lg text-neutral-500'>
+                        sentiment_satisfied
+                      </span>
+                      <span className='text-sm text-neutral-600'>
+                        Sentimiento
+                      </span>
+                    </div>
+                    <span className='text-sm font-semibold text-neutral-900'>
                       {SENTIMENT_LABELS[call.sentiment]}
-                    </p>
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* Right Column - Details */}
-              <div className='flex-1 p-8'>
-                {/* Patient Info */}
-                <div className='flex gap-6 mb-8'>
-                  {/* Avatar placeholder */}
-                  <div className='w-24 h-24 rounded-full bg-neutral-600 shrink-0 flex items-center justify-center'>
-                    <span className='material-symbols-rounded text-4xl text-white'>
+              <div className='flex-1 p-6'>
+                {/* Patient Info Card */}
+                <div className='flex gap-5 mb-6 p-4 bg-gradient-to-br from-neutral-50 to-white rounded-xl border border-neutral-200'>
+                  {/* Avatar */}
+                  <div className='w-20 h-20 rounded-2xl bg-gradient-to-br from-neutral-600 to-neutral-700 shrink-0 flex items-center justify-center shadow-lg'>
+                    <span className='material-symbols-rounded text-3xl text-white'>
                       person
                     </span>
                   </div>
 
                   {/* Patient details */}
-                  <div className='flex flex-col gap-2'>
-                    <h3 className='text-2xl font-medium text-neutral-900'>
+                  <div className='flex flex-col justify-center gap-1.5 min-w-0'>
+                    <h3 className='text-xl font-semibold text-neutral-900 truncate'>
                       {call.patient ?? 'Paciente desconocido'}
                     </h3>
-                    <div className='flex items-center gap-2'>
-                      <span className='material-symbols-rounded text-xl text-neutral-600'>
-                        mail
-                      </span>
-                      <span className='text-body-md text-neutral-900'>
-                        ejemplo@gmail.com
-                      </span>
-                    </div>
-                    <div className='flex items-center gap-2'>
-                      <span className='material-symbols-rounded text-xl text-neutral-600'>
-                        call
-                      </span>
-                      <span className='text-body-md text-neutral-900'>
-                        {call.phone}
-                      </span>
+                    <div className='flex items-center gap-4'>
+                      <div className='flex items-center gap-1.5 text-neutral-600'>
+                        <span className='material-symbols-rounded text-lg'>
+                          mail
+                        </span>
+                        <span className='text-sm'>ejemplo@gmail.com</span>
+                      </div>
+                      <div className='flex items-center gap-1.5 text-neutral-600'>
+                        <span className='material-symbols-rounded text-lg'>
+                          call
+                        </span>
+                        <span className='text-sm font-medium'>
+                          {call.phone}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Appointment Info - Only shown in advanced mode */}
                 {!isBasicMode && (
-                  <div className='mb-6'>
-                    <h4 className='text-title-sm font-medium text-neutral-900 mb-4'>
+                  <div className='mb-5'>
+                    <h4 className='text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3'>
                       Información de la cita
                     </h4>
-                    <div className='bg-white rounded-lg p-4'>
-                      {/* Fecha */}
-                      <div className='flex items-center gap-10 mb-4'>
-                        <span className='text-body-md text-neutral-700 w-24'>
-                          Fecha
-                        </span>
-                        <div className='flex items-center gap-8'>
-                          <div className='flex items-center gap-2'>
-                            <span className='material-symbols-rounded text-base text-neutral-900'>
+                    <div className='bg-brand-50/50 rounded-xl p-4 border border-brand-100'>
+                      <div className='grid grid-cols-2 gap-4'>
+                        {/* Fecha y Hora */}
+                        <div className='flex items-center gap-3 p-3 bg-white rounded-lg'>
+                          <div className='w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center'>
+                            <span className='material-symbols-rounded text-xl text-brand-600'>
                               calendar_month
                             </span>
-                            <span className='text-body-sm text-neutral-900'>
+                          </div>
+                          <div>
+                            <p className='text-xs text-neutral-500'>Fecha</p>
+                            <p className='text-sm font-medium text-neutral-900'>
                               {formattedDate}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className='flex items-center gap-3 p-3 bg-white rounded-lg'>
+                          <div className='w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center'>
+                            <span className='material-symbols-rounded text-xl text-brand-600'>
+                              schedule
                             </span>
                           </div>
-                          <div className='flex items-center gap-2'>
-                            <span className='material-symbols-rounded text-base text-neutral-900'>
-                              more_time
-                            </span>
-                            <span className='text-body-sm text-neutral-900'>
+                          <div>
+                            <p className='text-xs text-neutral-500'>Hora</p>
+                            <p className='text-sm font-medium text-neutral-900'>
                               {call.time} - {call.time.split(':')[0]}:
                               {(parseInt(call.time.split(':')[1]) + 30)
                                 .toString()
                                 .padStart(2, '0')}
-                            </span>
+                            </p>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Duración */}
-                      <div className='flex items-center gap-10 mb-4'>
-                        <span className='text-body-md text-neutral-700 w-24'>
-                          Duración
-                        </span>
-                        <span className='text-body-md text-neutral-900'>
-                          30 minutos
-                        </span>
-                      </div>
+                        {/* Duración */}
+                        <div className='flex items-center gap-3 p-3 bg-white rounded-lg'>
+                          <div className='w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center'>
+                            <span className='material-symbols-rounded text-xl text-brand-600'>
+                              timer
+                            </span>
+                          </div>
+                          <div>
+                            <p className='text-xs text-neutral-500'>Duración</p>
+                            <p className='text-sm font-medium text-neutral-900'>
+                              30 minutos
+                            </p>
+                          </div>
+                        </div>
 
-                      {/* Profesional */}
-                      <div className='flex items-center gap-10'>
-                        <span className='text-body-md text-neutral-700 w-24'>
-                          Profesional
-                        </span>
-                        <span className='text-body-md text-neutral-900'>
-                          Carlos Martínez - odontólogo
-                        </span>
+                        {/* Profesional */}
+                        <div className='flex items-center gap-3 p-3 bg-white rounded-lg'>
+                          <div className='w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center'>
+                            <span className='material-symbols-rounded text-xl text-brand-600'>
+                              person
+                            </span>
+                          </div>
+                          <div>
+                            <p className='text-xs text-neutral-500'>
+                              Profesional
+                            </p>
+                            <p className='text-sm font-medium text-neutral-900'>
+                              Carlos Martínez
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -383,53 +434,67 @@ export default function CallDetailModal({
 
                 {/* Call Info - Only shown in basic mode */}
                 {isBasicMode && (
-                  <div className='mb-6'>
-                    <h4 className='text-title-sm font-medium text-neutral-900 mb-4'>
+                  <div className='mb-5'>
+                    <h4 className='text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3'>
                       Información de la llamada
                     </h4>
-                    <div className='bg-neutral-50 rounded-lg p-4'>
-                      {/* Hora de llamada */}
-                      <div className='flex items-center gap-10 mb-4'>
-                        <span className='text-body-md text-neutral-700 w-24'>
-                          Hora
-                        </span>
-                        <div className='flex items-center gap-2'>
-                          <span className='material-symbols-rounded text-base text-neutral-900'>
-                            schedule
-                          </span>
-                          <span className='text-body-sm text-neutral-900'>
-                            {call.time}
-                          </span>
+                    <div className='bg-neutral-50 rounded-xl p-4 border border-neutral-200'>
+                      <div className='grid grid-cols-3 gap-3'>
+                        {/* Hora */}
+                        <div className='flex items-center gap-3 p-3 bg-white rounded-lg'>
+                          <div className='w-9 h-9 rounded-lg bg-neutral-100 flex items-center justify-center'>
+                            <span className='material-symbols-rounded text-lg text-neutral-600'>
+                              schedule
+                            </span>
+                          </div>
+                          <div>
+                            <p className='text-xs text-neutral-500'>Hora</p>
+                            <p className='text-sm font-medium text-neutral-900'>
+                              {call.time}
+                            </p>
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Duración de la llamada */}
-                      <div className='flex items-center gap-10 mb-4'>
-                        <span className='text-body-md text-neutral-700 w-24'>
-                          Duración
-                        </span>
-                        <span className='text-body-md text-neutral-900'>
-                          {call.duration}
-                        </span>
-                      </div>
+                        {/* Duración */}
+                        <div className='flex items-center gap-3 p-3 bg-white rounded-lg'>
+                          <div className='w-9 h-9 rounded-lg bg-neutral-100 flex items-center justify-center'>
+                            <span className='material-symbols-rounded text-lg text-neutral-600'>
+                              timer
+                            </span>
+                          </div>
+                          <div>
+                            <p className='text-xs text-neutral-500'>Duración</p>
+                            <p className='text-sm font-medium text-neutral-900'>
+                              {call.duration}
+                            </p>
+                          </div>
+                        </div>
 
-                      {/* Teléfono */}
-                      <div className='flex items-center gap-10'>
-                        <span className='text-body-md text-neutral-700 w-24'>
-                          Teléfono
-                        </span>
-                        <span className='text-body-md text-neutral-900'>
-                          {call.phone}
-                        </span>
+                        {/* Teléfono */}
+                        <div className='flex items-center gap-3 p-3 bg-white rounded-lg'>
+                          <div className='w-9 h-9 rounded-lg bg-neutral-100 flex items-center justify-center'>
+                            <span className='material-symbols-rounded text-lg text-neutral-600'>
+                              call
+                            </span>
+                          </div>
+                          <div>
+                            <p className='text-xs text-neutral-500'>Teléfono</p>
+                            <p className='text-sm font-medium text-neutral-900'>
+                              {call.phone}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
                     {/* Basic mode info banner */}
-                    <div className='mt-4 p-3 bg-brand-50 border border-brand-200 rounded-lg flex items-start gap-3'>
-                      <span className='material-symbols-rounded text-lg text-brand-600 shrink-0 mt-0.5'>
-                        info
-                      </span>
-                      <p className='text-body-sm text-brand-800'>
+                    <div className='mt-4 p-3.5 bg-gradient-to-r from-brand-50 to-brand-50/50 border border-brand-200 rounded-xl flex items-start gap-3'>
+                      <div className='w-8 h-8 rounded-lg bg-brand-100 flex items-center justify-center shrink-0'>
+                        <span className='material-symbols-rounded text-lg text-brand-600'>
+                          info
+                        </span>
+                      </div>
+                      <p className='text-sm text-brand-800 leading-relaxed'>
                         Llama al paciente para agendar la cita manualmente. Una
                         vez gestionada, marca la llamada como resuelta.
                       </p>
@@ -438,41 +503,65 @@ export default function CallDetailModal({
                 )}
 
                 {/* Motivo */}
-                <div className='mb-6'>
-                  <h4 className='text-title-sm font-medium text-neutral-900 mb-4'>
-                    Motivo
+                <div className='mb-5'>
+                  <h4 className='text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3'>
+                    Motivo de la llamada
                   </h4>
-                  <p className='text-body-md text-neutral-900'>
-                    {CALL_INTENT_LABELS[call.intent]}
-                    {call.summary && ` - ${call.summary}`}
-                  </p>
+                  <div className='p-4 bg-neutral-50 rounded-xl border border-neutral-200'>
+                    <div className='flex items-start gap-3'>
+                      <div className='w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center shrink-0'>
+                        <span className='material-symbols-rounded text-lg text-amber-600'>
+                          lightbulb
+                        </span>
+                      </div>
+                      <div>
+                        <p className='text-sm font-medium text-neutral-900'>
+                          {CALL_INTENT_LABELS[call.intent]}
+                        </p>
+                        {call.summary && (
+                          <p className='text-sm text-neutral-600 mt-1'>
+                            {call.summary}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Comunicaciones */}
                 <div>
-                  <h4 className='text-title-sm font-medium text-neutral-900 mb-4'>
-                    Comunicaciones
+                  <h4 className='text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3'>
+                    Comunicaciones enviadas
                   </h4>
-                  <div className='flex flex-col gap-3'>
+                  <div className='space-y-2'>
                     {MOCK_COMMUNICATIONS.map((comm) => (
-                      <div key={comm.id} className='flex items-start gap-3'>
-                        <span
-                          className={`material-symbols-rounded text-xl ${
-                            comm.checked ? 'text-brand-500' : 'text-neutral-400'
+                      <div
+                        key={comm.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                          comm.checked
+                            ? 'bg-success-50/50 border-success-200'
+                            : 'bg-neutral-50 border-neutral-200'
+                        }`}
+                      >
+                        <div
+                          className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                            comm.checked
+                              ? 'bg-success-500 text-white'
+                              : 'bg-neutral-300 text-white'
                           }`}
                         >
-                          {comm.checked
-                            ? 'check_box'
-                            : 'check_box_outline_blank'}
-                        </span>
-                        <div>
-                          <p className='text-body-md text-neutral-900'>
+                          <span className='material-symbols-rounded text-sm'>
+                            {comm.checked ? 'check' : 'remove'}
+                          </span>
+                        </div>
+                        <div className='flex-1 min-w-0'>
+                          <p className='text-sm font-medium text-neutral-900'>
                             {comm.label}
                           </p>
-                          <p className='text-xs font-medium text-neutral-600'>
-                            {comm.timestamp}
-                          </p>
                         </div>
+                        <span className='text-xs text-neutral-500 shrink-0'>
+                          {comm.timestamp}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -482,14 +571,14 @@ export default function CallDetailModal({
           </div>
 
           {/* Footer Actions */}
-          <footer className='flex items-center justify-end gap-4 px-8 py-4 border-t border-neutral-300 shrink-0'>
+          <footer className='flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-200 bg-neutral-50/50 shrink-0'>
             {isBasicMode ? (
               <>
                 {/* Basic mode: Cerrar, Marcar como resuelta, Llamar */}
                 <button
                   type='button'
                   onClick={onClose}
-                  className='text-title-sm font-medium text-neutral-900 hover:text-neutral-700 transition-colors'
+                  className='px-4 py-2.5 text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition-colors'
                 >
                   Cerrar
                 </button>
@@ -500,9 +589,9 @@ export default function CallDetailModal({
                     onClose()
                   }}
                   disabled={call.status === 'resuelta'}
-                  className='px-4 py-2 bg-success-100 border border-success-300 text-success-800 font-medium rounded-full hover:bg-success-200 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed'
+                  className='px-5 py-2.5 bg-success-50 border border-success-200 text-success-700 text-sm font-semibold rounded-xl hover:bg-success-100 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed'
                 >
-                  <span className='material-symbols-rounded text-xl'>
+                  <span className='material-symbols-rounded text-lg'>
                     check_circle
                   </span>
                   <span>Marcar como resuelta</span>
@@ -510,9 +599,9 @@ export default function CallDetailModal({
                 <button
                   type='button'
                   onClick={onCall}
-                  className='px-4 py-2 bg-brand-400 border border-neutral-300 text-neutral-900 font-medium rounded-full hover:bg-brand-500 transition-colors flex items-center gap-2'
+                  className='px-5 py-2.5 bg-brand-500 text-white text-sm font-semibold rounded-xl hover:bg-brand-600 transition-colors flex items-center gap-2 shadow-sm'
                 >
-                  <span className='material-symbols-rounded text-xl'>call</span>
+                  <span className='material-symbols-rounded text-lg'>call</span>
                   <span>Llamar</span>
                 </button>
               </>
@@ -522,16 +611,16 @@ export default function CallDetailModal({
                 <button
                   type='button'
                   onClick={onClose}
-                  className='text-title-sm font-medium text-neutral-900 hover:text-neutral-700 transition-colors'
+                  className='px-4 py-2.5 text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition-colors'
                 >
                   Cerrar
                 </button>
                 <button
                   type='button'
                   onClick={handleViewAppointment}
-                  className='px-4 py-2 bg-brand-400 border border-neutral-300 text-neutral-900 font-medium rounded-full hover:bg-brand-500 transition-colors flex items-center gap-2'
+                  className='px-5 py-2.5 bg-brand-500 text-white text-sm font-semibold rounded-xl hover:bg-brand-600 transition-colors flex items-center gap-2 shadow-sm'
                 >
-                  <span className='material-symbols-rounded text-xl'>
+                  <span className='material-symbols-rounded text-lg'>
                     calendar_month
                   </span>
                   <span>Ver en agenda</span>
@@ -539,9 +628,9 @@ export default function CallDetailModal({
                 <button
                   type='button'
                   onClick={onCall}
-                  className='px-4 py-2 bg-neutral-50 border border-neutral-300 text-neutral-900 font-medium rounded-full hover:bg-neutral-100 transition-colors flex items-center gap-2'
+                  className='px-5 py-2.5 bg-white border border-neutral-300 text-neutral-700 text-sm font-semibold rounded-xl hover:bg-neutral-50 transition-colors flex items-center gap-2'
                 >
-                  <span className='material-symbols-rounded text-xl'>call</span>
+                  <span className='material-symbols-rounded text-lg'>call</span>
                   <span>Llamar</span>
                 </button>
               </>
@@ -551,7 +640,7 @@ export default function CallDetailModal({
                 <button
                   type='button'
                   onClick={onClose}
-                  className='text-title-sm font-medium text-neutral-900 hover:text-neutral-700 transition-colors'
+                  className='px-4 py-2.5 text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition-colors'
                 >
                   Cerrar
                 </button>
@@ -559,9 +648,9 @@ export default function CallDetailModal({
                   type='button'
                   onClick={handleCreateAppointment}
                   disabled={!onCreateAppointment}
-                  className='px-4 py-2 bg-brand-400 border border-neutral-300 text-neutral-900 font-medium rounded-full hover:bg-brand-500 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed'
+                  className='px-5 py-2.5 bg-brand-500 text-white text-sm font-semibold rounded-xl hover:bg-brand-600 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed'
                 >
-                  <span className='material-symbols-rounded text-xl'>
+                  <span className='material-symbols-rounded text-lg'>
                     add_circle
                   </span>
                   <span>Crear cita</span>
@@ -569,9 +658,9 @@ export default function CallDetailModal({
                 <button
                   type='button'
                   onClick={onCall}
-                  className='px-4 py-2 bg-neutral-50 border border-neutral-300 text-neutral-900 font-medium rounded-full hover:bg-neutral-100 transition-colors flex items-center gap-2'
+                  className='px-5 py-2.5 bg-white border border-neutral-300 text-neutral-700 text-sm font-semibold rounded-xl hover:bg-neutral-50 transition-colors flex items-center gap-2'
                 >
-                  <span className='material-symbols-rounded text-xl'>call</span>
+                  <span className='material-symbols-rounded text-lg'>call</span>
                   <span>Llamar</span>
                 </button>
               </>

@@ -395,6 +395,14 @@
   --scheduler-overlay-avatar-color: var(--color-neutral-700);
   --scheduler-overlay-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
+  /* Overlay v2 - Mejorado */
+  --scheduler-overlay-header-height: 5rem; /* 80px */
+  --scheduler-overlay-avatar-size-lg: 2.75rem; /* 44px */
+  --scheduler-overlay-section-radius: 0.75rem; /* 12px */
+  --scheduler-overlay-section-padding: 1rem; /* 16px */
+  --scheduler-overlay-card-bg: var(--color-neutral-50);
+  --scheduler-overlay-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
+
   /* Month calendar (vista mensual) - Figma exact values */
   --month-row-height: 10.925rem; /* 174.8px from Figma */
   --month-cell-padding-top: 1rem; /* 16px from Figma */

@@ -268,37 +268,41 @@ export default function VoiceAgentPage() {
                 voiceAgentTier === 'advanced' ? 'basic' : 'advanced'
               )
             }
-            className={`relative inline-flex h-7 w-[7.5rem] items-center rounded-full transition-colors cursor-pointer ${
+            className={`relative inline-flex h-7 w-[8.5rem] items-center rounded-full transition-colors cursor-pointer p-0.5 ${
               voiceAgentTier === 'advanced'
                 ? 'bg-success-100 border border-success-300'
-                : 'bg-neutral-200 border border-neutral-300'
+                : 'bg-neutral-100 border border-neutral-300'
             }`}
             title='Click para cambiar de modo (solo para testing)'
           >
             {/* Sliding indicator */}
             <span
-              className={`absolute h-6 w-[3.5rem] rounded-full transition-all duration-200 ${
+              className={`absolute h-6 w-[4rem] rounded-full transition-all duration-200 ease-in-out ${
                 voiceAgentTier === 'advanced'
-                  ? 'left-[3.75rem] bg-success-500'
-                  : 'left-0.5 bg-neutral-500'
+                  ? 'translate-x-[4.25rem] bg-success-500'
+                  : 'translate-x-0.5 bg-neutral-500'
               }`}
             />
-            {/* Labels */}
-            <span
-              className={`absolute left-2 text-label-sm font-medium transition-colors ${
-                voiceAgentTier === 'basic' ? 'text-white' : 'text-neutral-600'
-              }`}
-            >
-              Básico
-            </span>
-            <span
-              className={`absolute right-2 text-label-sm font-medium transition-colors ${
-                voiceAgentTier === 'advanced'
-                  ? 'text-white'
-                  : 'text-neutral-600'
-              }`}
-            >
-              Avanzado
+            {/* Labels container */}
+            <span className='relative flex w-full h-full'>
+              {/* Basic label */}
+              <span
+                className={`flex-1 flex items-center justify-center text-label-sm font-medium transition-colors z-10 ${
+                  voiceAgentTier === 'basic' ? 'text-white' : 'text-neutral-500'
+                }`}
+              >
+                Básico
+              </span>
+              {/* Advanced label */}
+              <span
+                className={`flex-1 flex items-center justify-center text-label-sm font-medium transition-colors z-10 ${
+                  voiceAgentTier === 'advanced'
+                    ? 'text-white'
+                    : 'text-neutral-500'
+                }`}
+              >
+                Avanzado
+              </span>
             </span>
           </button>
           {/* Tier indicator icon */}
