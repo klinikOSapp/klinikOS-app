@@ -1,5 +1,6 @@
 'use client'
 
+import { TableRowsRounded, ViewTimelineRounded } from '@/components/icons/md3'
 import type {
   Appointment,
   LinkedTreatmentStatus,
@@ -9,9 +10,13 @@ import { useAppointments } from '@/context/AppointmentsContext'
 import { usePatientFiles } from '@/context/PatientFilesContext'
 import React from 'react'
 import UploadFileModal, { type UploadFileType } from './UploadFileModal'
+import ClinicalHistoryTable from './clinical-history/ClinicalHistoryTable'
 import VisitCard from './clinical-history/VisitCard'
 import VisitDetailPanel from './clinical-history/VisitDetailPanel'
 import type { ClinicalHistoryFilter } from './clinical-history/types'
+
+// View mode type
+type ViewMode = 'timeline' | 'table'
 
 type ClinicalHistoryProps = {
   onClose?: () => void
@@ -30,6 +35,7 @@ export default function ClinicalHistory({
 }: ClinicalHistoryProps) {
   const {
     getAppointmentsByPatient,
+    updateAppointment,
     updateSOAPNotes,
     updateLinkedTreatmentStatus,
     addAttachment,
@@ -41,6 +47,9 @@ export default function ClinicalHistory({
 
   // Filter state
   const [filter, setFilter] = React.useState<ClinicalHistoryFilter>('todas')
+
+  // View mode state (timeline or table)
+  const [viewMode, setViewMode] = React.useState<ViewMode>('timeline')
 
   // Selected appointment state
   const [selectedAppointmentId, setSelectedAppointmentId] = React.useState<
@@ -335,29 +344,68 @@ export default function ClinicalHistory({
         </p>
       </div>
 
-      {/* Filter tabs */}
-      <div className='absolute left-[var(--spacing-plnav)] top-[8rem] flex items-center gap-[var(--spacing-gapmd)]'>
-        {filters.map((f) => (
+      {/* Filter tabs and view toggle */}
+      <div className='absolute left-[var(--spacing-plnav)] right-[var(--spacing-plnav)] top-[8rem] flex items-center justify-between'>
+        {/* Filter tabs */}
+        <div className='flex items-center gap-[var(--spacing-gapmd)]'>
+          {filters.map((f) => (
+            <button
+              key={f.key}
+              type='button'
+              role='tab'
+              aria-selected={filter === f.key}
+              onClick={() => setFilter(f.key)}
+              onKeyDown={handleKeyDown(f.key)}
+              tabIndex={0}
+              className={[
+                'px-3 py-1.5 rounded-full cursor-pointer transition-colors',
+                filter === f.key
+                  ? 'bg-[var(--color-neutral-900)] text-[var(--color-neutral-50)]'
+                  : 'text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-100)]'
+              ].join(' ')}
+            >
+              <span className="font-['Inter:Medium',_sans-serif] text-label-md">
+                {f.label}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* View mode toggle */}
+        <div className='flex items-center gap-1 p-1 bg-[var(--color-neutral-100)] rounded-lg'>
           <button
-            key={f.key}
             type='button'
-            role='tab'
-            aria-selected={filter === f.key}
-            onClick={() => setFilter(f.key)}
-            onKeyDown={handleKeyDown(f.key)}
-            tabIndex={0}
+            onClick={() => setViewMode('timeline')}
             className={[
-              'px-3 py-1.5 rounded-full cursor-pointer transition-colors',
-              filter === f.key
-                ? 'bg-[var(--color-neutral-900)] text-[var(--color-neutral-50)]'
-                : 'text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-100)]'
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors cursor-pointer',
+              viewMode === 'timeline'
+                ? 'bg-white shadow-sm text-[var(--color-neutral-900)]'
+                : 'text-[var(--color-neutral-600)] hover:text-[var(--color-neutral-900)]'
             ].join(' ')}
+            title='Vista timeline'
           >
+            <ViewTimelineRounded className='size-5' />
             <span className="font-['Inter:Medium',_sans-serif] text-label-md">
-              {f.label}
+              Timeline
             </span>
           </button>
-        ))}
+          <button
+            type='button'
+            onClick={() => setViewMode('table')}
+            className={[
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors cursor-pointer',
+              viewMode === 'table'
+                ? 'bg-white shadow-sm text-[var(--color-neutral-900)]'
+                : 'text-[var(--color-neutral-600)] hover:text-[var(--color-neutral-900)]'
+            ].join(' ')}
+            title='Vista tabla'
+          >
+            <TableRowsRounded className='size-5' />
+            <span className="font-['Inter:Medium',_sans-serif] text-label-md">
+              Tabla
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Main content area */}
@@ -370,90 +418,127 @@ export default function ClinicalHistory({
           bottom: 'var(--spacing-plnav)'
         }}
       >
-        <div className='flex gap-6 h-full'>
-          {/* Left timeline panel */}
-          <div className='w-[20rem] shrink-0 flex flex-col'>
-            {/* Timeline header */}
-            <div className='flex items-center justify-between mb-4'>
-              <span className="font-['Inter:Medium',_sans-serif] text-[var(--color-neutral-700)] text-body-sm">
-                {filteredAppointments.length} visita
-                {filteredAppointments.length !== 1 ? 's' : ''}
-              </span>
+        {viewMode === 'timeline' ? (
+          /* Timeline View */
+          <div className='flex gap-6 h-full'>
+            {/* Left timeline panel */}
+            <div className='w-[20rem] shrink-0 flex flex-col'>
+              {/* Timeline header */}
+              <div className='flex items-center justify-between mb-4'>
+                <span className="font-['Inter:Medium',_sans-serif] text-[var(--color-neutral-700)] text-body-sm">
+                  {filteredAppointments.length} visita
+                  {filteredAppointments.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              {/* Timeline scroll area */}
+              <div className='flex-1 overflow-y-auto pr-2'>
+                {filteredAppointments.length > 0 ? (
+                  <div className='relative'>
+                    {/* Vertical timeline line */}
+                    <div
+                      className='absolute left-3 top-6 bottom-6 w-0.5 bg-[var(--color-brand-200)]'
+                      aria-hidden='true'
+                    />
+
+                    {/* Timeline cards */}
+                    <div className='space-y-4 relative'>
+                      {filteredAppointments.map((apt, index) => (
+                        <div key={apt.id} className='relative pl-8'>
+                          {/* Timeline dot */}
+                          <div
+                            className={[
+                              'absolute left-0 top-4 w-6 h-6 rounded-full border-2 z-10',
+                              selectedAppointmentId === apt.id
+                                ? 'bg-[var(--color-brand-500)] border-[var(--color-brand-500)]'
+                                : apt.visitStatus === 'completed'
+                                ? 'bg-[var(--color-brand-100)] border-[var(--color-brand-400)]'
+                                : 'bg-white border-[var(--color-brand-400)]'
+                            ].join(' ')}
+                            aria-hidden='true'
+                          />
+
+                          <VisitCard
+                            appointment={apt}
+                            selected={selectedAppointmentId === apt.id}
+                            onClick={() => {
+                              setSelectedAppointmentId(apt.id)
+                              setIsEditing(false)
+                            }}
+                            isUpcoming={isUpcoming(apt)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className='h-full flex items-center justify-center'>
+                    <div className='text-center py-8'>
+                      <p className="font-['Inter:Regular',_sans-serif] text-[var(--color-neutral-500)] text-body-sm">
+                        No hay visitas para mostrar
+                      </p>
+                      <p className="font-['Inter:Regular',_sans-serif] text-[var(--color-neutral-400)] text-label-sm mt-1">
+                        Prueba cambiando el filtro
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Timeline scroll area */}
-            <div className='flex-1 overflow-y-auto pr-2'>
-              {filteredAppointments.length > 0 ? (
-                <div className='relative'>
-                  {/* Vertical timeline line */}
-                  <div
-                    className='absolute left-3 top-6 bottom-6 w-0.5 bg-[var(--color-brand-200)]'
-                    aria-hidden='true'
-                  />
-
-                  {/* Timeline cards */}
-                  <div className='space-y-4 relative'>
-                    {filteredAppointments.map((apt, index) => (
-                      <div key={apt.id} className='relative pl-8'>
-                        {/* Timeline dot */}
-                        <div
-                          className={[
-                            'absolute left-0 top-4 w-6 h-6 rounded-full border-2 z-10',
-                            selectedAppointmentId === apt.id
-                              ? 'bg-[var(--color-brand-500)] border-[var(--color-brand-500)]'
-                              : apt.visitStatus === 'completed'
-                              ? 'bg-[var(--color-brand-100)] border-[var(--color-brand-400)]'
-                              : 'bg-white border-[var(--color-brand-400)]'
-                          ].join(' ')}
-                          aria-hidden='true'
-                        />
-
-                        <VisitCard
-                          appointment={apt}
-                          selected={selectedAppointmentId === apt.id}
-                          onClick={() => {
-                            setSelectedAppointmentId(apt.id)
-                            setIsEditing(false)
-                          }}
-                          isUpcoming={isUpcoming(apt)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className='h-full flex items-center justify-center'>
-                  <div className='text-center py-8'>
-                    <p className="font-['Inter:Regular',_sans-serif] text-[var(--color-neutral-500)] text-body-sm">
-                      No hay visitas para mostrar
-                    </p>
-                    <p className="font-['Inter:Regular',_sans-serif] text-[var(--color-neutral-400)] text-label-sm mt-1">
-                      Prueba cambiando el filtro
-                    </p>
-                  </div>
-                </div>
-              )}
+            {/* Right detail panel */}
+            <div className='flex-1 min-w-0 bg-white border border-[var(--color-neutral-200)] rounded-xl overflow-hidden'>
+              <VisitDetailPanel
+                appointment={selectedAppointment}
+                isEditing={isEditing}
+                editedNotes={editedNotes}
+                onEdit={handleEdit}
+                onSave={handleSave}
+                onSaveAsDraft={handleSaveAsDraft}
+                onCancel={handleCancel}
+                onSOAPChange={handleSOAPChange}
+                onTreatmentStatusChange={handleTreatmentStatusChange}
+                onUploadAttachment={handleUploadAttachment}
+                onRemoveAttachment={handleRemoveAttachment}
+                onUploadOdontogram={handleUploadOdontogram}
+              />
             </div>
           </div>
-
-          {/* Right detail panel */}
-          <div className='flex-1 min-w-0 bg-white border border-[var(--color-neutral-200)] rounded-xl overflow-hidden'>
-            <VisitDetailPanel
-              appointment={selectedAppointment}
-              isEditing={isEditing}
-              editedNotes={editedNotes}
-              onEdit={handleEdit}
-              onSave={handleSave}
-              onSaveAsDraft={handleSaveAsDraft}
-              onCancel={handleCancel}
-              onSOAPChange={handleSOAPChange}
-              onTreatmentStatusChange={handleTreatmentStatusChange}
-              onUploadAttachment={handleUploadAttachment}
-              onRemoveAttachment={handleRemoveAttachment}
-              onUploadOdontogram={handleUploadOdontogram}
+        ) : (
+          /* Table View - Full width, no detail panel */
+          <div className='h-full'>
+            <ClinicalHistoryTable
+              appointments={filteredAppointments}
+              onUpdateAppointment={updateAppointment}
+              onUpdateSOAPNotes={(id, notes) => {
+                updateSOAPNotes(id, {
+                  ...notes,
+                  updatedAt: new Date().toISOString(),
+                  updatedBy: 'Dr. Usuario'
+                })
+              }}
+              isUpcoming={isUpcoming}
+              onViewDetails={(appointmentId) => {
+                // Switch to timeline view and select the appointment
+                setSelectedAppointmentId(appointmentId)
+                setViewMode('timeline')
+              }}
+              onUploadFile={(appointmentId) => {
+                // Select the appointment and open upload modal
+                setSelectedAppointmentId(appointmentId)
+                setUploadType('document')
+                setIsUploadModalOpen(true)
+              }}
+              onMarkComplete={(appointmentId) => {
+                // Mark the appointment as completed
+                updateAppointment(appointmentId, {
+                  visitStatus: 'completed',
+                  completed: true
+                })
+              }}
             />
           </div>
-        </div>
+        )}
       </div>
 
       {/* Upload File Modal */}
