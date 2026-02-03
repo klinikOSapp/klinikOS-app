@@ -469,7 +469,7 @@ export default function CallDetailModal({
                           <p className='text-body-md text-neutral-900'>
                             {comm.label}
                           </p>
-                          <p className='text-[11px] font-medium text-neutral-600'>
+                          <p className='text-xs font-medium text-neutral-600'>
                             {comm.timestamp}
                           </p>
                         </div>

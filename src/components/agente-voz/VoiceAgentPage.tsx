@@ -1,7 +1,7 @@
 'use client'
 
 import { useSubscription } from '@/context/SubscriptionContext'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import CallDistributionDonut from './CallDistributionDonut'
 import CallVolumeChart from './CallVolumeChart'
 import CallsTable from './CallsTable'
@@ -341,7 +341,9 @@ export default function VoiceAgentPage() {
 
       {/* Bottom Section: Calls Table - Scrollable */}
       <div className='flex-1 min-h-0 bg-surface-app overflow-y-auto'>
-        <CallsTable voiceAgentTier={voiceAgentTier} />
+        <Suspense fallback={<div className='p-4'>Cargando...</div>}>
+          <CallsTable voiceAgentTier={voiceAgentTier} />
+        </Suspense>
       </div>
     </div>
   )

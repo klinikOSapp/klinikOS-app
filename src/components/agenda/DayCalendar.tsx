@@ -247,7 +247,7 @@ const boxIdToName = (boxId: string): string => boxId.replace('-', ' ')
 // Function to calculate dynamic box layout based on selected boxes
 const getBoxLayout = (
   selectedBoxes: string[],
-  boxHeaders: typeof DEFAULT_BOX_HEADERS = DEFAULT_BOX_HEADERS
+  boxHeaders: Array<{ id: string; label: string; tone: string }> = DEFAULT_BOX_HEADERS
 ): Record<string, { left: string; width: string }> => {
   // Filter to only include boxes that exist in boxHeaders
   const validBoxes = selectedBoxes.filter((id) =>
@@ -719,7 +719,7 @@ function TimeColumn({ period = 'full' }: { period?: DayPeriodType }) {
 function BoxHeaders({
   visibleBoxes
 }: {
-  visibleBoxes: typeof DEFAULT_BOX_HEADERS
+  visibleBoxes: Array<{ id: string; label: string; tone: string }>
 }) {
   return (
     <div

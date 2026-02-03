@@ -1068,7 +1068,7 @@ const EVENT_DATA: Record<Weekday, AgendaEvent[]> = {
         patientFull: 'Nacho Nieto Iniesta',
         patientPhone: '+34 658 478 512',
         patientEmail: 'nacho.nieto@email.com',
-        professional: PROFESSIONALS.elenaNavarro,
+        professional: PROFESSIONALS.elenaNava,
         economicAmount: '0 €',
         economicStatus: 'Pendiente IA',
         notes:
@@ -4715,7 +4715,7 @@ export default function WeekScheduler() {
     // Store voice agent info in a way that can be used when submitting
     // We'll add these fields to window temporarily to pass to the submit handler
     if (createdByVoiceAgent) {
-      ;(window as Record<string, unknown>).__voiceAgentPrefill = {
+      ;(window as unknown as Record<string, unknown>).__voiceAgentPrefill = {
         createdByVoiceAgent,
         voiceAgentCallId,
         pacientePhone
@@ -5616,7 +5616,7 @@ export default function WeekScheduler() {
     const eventTitle = eventTreatments || data.servicio || 'Nueva cita'
 
     // Check for voice agent prefill data from URL navigation
-    const voiceAgentPrefill = (window as Record<string, unknown>)
+    const voiceAgentPrefill = (window as unknown as Record<string, unknown>)
       .__voiceAgentPrefill as
       | {
           createdByVoiceAgent?: boolean
@@ -5627,7 +5627,7 @@ export default function WeekScheduler() {
 
     // Clean up the temporary storage
     if (voiceAgentPrefill) {
-      delete (window as Record<string, unknown>).__voiceAgentPrefill
+      delete (window as unknown as Record<string, unknown>).__voiceAgentPrefill
     }
 
     const newEvent: AgendaEvent = {

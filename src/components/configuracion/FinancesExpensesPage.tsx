@@ -311,9 +311,10 @@ function EditExpenseModal({
           importe: 0,
           frecuencia: 'Mensual',
           categoria: 'Otros',
-          fechaVencimiento: new Date().toISOString().split('T')[0],
-          estado: 'Pendiente',
-          archivado: false
+          fechaInicio: new Date().toISOString().split('T')[0],
+          fechaFin: '',
+          notas: '',
+          estado: 'activo'
         })
       }
     }
