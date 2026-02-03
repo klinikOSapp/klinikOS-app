@@ -4,6 +4,7 @@ import { ChevronLeftRounded, ChevronRightRounded } from '@/components/icons/md3'
 import { SidebarProps } from '@/types/layout'
 import { usePathname } from 'next/navigation'
 import CTANav from './CTANav'
+import ClinicCard from './ClinicCard'
 import NavElement from './NavElement'
 
 export default function Sidebar({
@@ -21,13 +22,11 @@ export default function Sidebar({
 
   const pathname = usePathname()
 
-  const menuItems =
-    ctaMenuItems ??
-    [
-      { id: 'nueva-cita', label: 'Nueva cita' },
-      { id: 'nuevo-presupuesto', label: 'Nuevo presupuesto' },
-      { id: 'nuevo-paciente', label: 'Nuevo paciente' }
-    ]
+  const menuItems = ctaMenuItems ?? [
+    { id: 'nueva-cita', label: 'Nueva cita' },
+    { id: 'nuevo-presupuesto', label: 'Nuevo presupuesto' },
+    { id: 'nuevo-paciente', label: 'Nuevo paciente' }
+  ]
 
   return (
     <aside
@@ -38,7 +37,10 @@ export default function Sidebar({
         'pt-6',
         'relative',
         'z-30',
-        isHydrated ? 'transition-[width] duration-300 ease-in-out opacity-100' : 'opacity-0'
+        'flex flex-col',
+        isHydrated
+          ? 'transition-[width] duration-300 ease-in-out opacity-100'
+          : 'opacity-0'
       ].join(' ')}
       aria-label='Sidebar navigation'
     >
@@ -57,7 +59,9 @@ export default function Sidebar({
           <button
             type='button'
             onClick={() => onToggleCollapsed(!collapsed)}
-            aria-label={collapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
+            aria-label={
+              collapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'
+            }
             aria-pressed={collapsed}
             className='size-10 rounded-full border border-[var(--color-brand-200)] bg-[var(--color-neutral-50)] text-[var(--color-brand-900)] flex items-center justify-center shadow-[0px_1px_2px_0px_rgba(0,0,0,0.15)] hover:bg-[var(--color-brand-50)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] transition-colors duration-150 ease-out'
           >
@@ -70,7 +74,8 @@ export default function Sidebar({
         )}
       </div>
 
-      <div className='px-6'>
+      {/* Navigation content - flex-1 to push ClinicCard to bottom */}
+      <div className='px-6 flex-1 overflow-y-auto'>
         <div className='mt-8'>
           <p
             className={[
@@ -82,7 +87,8 @@ export default function Sidebar({
           </p>
           <nav className='mt-2 grid gap-0 -mx-6'>
             {itemsTop.map((it) => {
-              const childActive = it.children?.some((child) => pathname === child.href) ?? false
+              const childActive =
+                it.children?.some((child) => pathname === child.href) ?? false
               const sectionActive = pathname === it.href
 
               return (
@@ -121,9 +127,7 @@ export default function Sidebar({
                       )}
                       {/* Popover (sidebar colapsado) */}
                       {collapsed && (
-                        <div
-                          className='absolute left-full top-0 ml-2 min-w-[10rem] bg-white rounded-xl shadow-lg border border-[var(--color-brand-100)] py-2 opacity-0 invisible translate-x-[-0.5rem] transition-all duration-200 ease-out group-hover/navitem:opacity-100 group-hover/navitem:visible group-hover/navitem:translate-x-0 group-focus-within/navitem:opacity-100 group-focus-within/navitem:visible group-focus-within/navitem:translate-x-0 z-50'
-                        >
+                        <div className='absolute left-full top-0 ml-2 min-w-[10rem] bg-white rounded-xl shadow-lg border border-[var(--color-brand-100)] py-2 opacity-0 invisible translate-x-[-0.5rem] transition-all duration-200 ease-out group-hover/navitem:opacity-100 group-hover/navitem:visible group-hover/navitem:translate-x-0 group-focus-within/navitem:opacity-100 group-focus-within/navitem:visible group-focus-within/navitem:translate-x-0 z-50'>
                           {it.children.map((child) => (
                             <NavElement
                               key={child.id}
@@ -157,7 +161,8 @@ export default function Sidebar({
             <nav className='mt-2 grid gap-0 -mx-6'>
               {itemsBottom.map((it) => {
                 // Check if current path starts with item href (for nested routes like /configuracion/facturacion)
-                const isActive = pathname === it.href || pathname.startsWith(`${it.href}/`)
+                const isActive =
+                  pathname === it.href || pathname.startsWith(`${it.href}/`)
                 return (
                   <NavElement
                     key={it.id}
@@ -173,6 +178,9 @@ export default function Sidebar({
           </div>
         )}
       </div>
+
+      {/* Clinic selector card - fixed at bottom */}
+      <ClinicCard collapsed={collapsed} />
     </aside>
   )
 }

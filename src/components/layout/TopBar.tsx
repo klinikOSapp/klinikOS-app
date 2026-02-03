@@ -1,9 +1,8 @@
 'use client'
 
-import React from 'react'
-import Image from 'next/image'
 import { SettingsRounded } from '@/components/icons/md3'
 import { TopBarProps } from '@/types/layout'
+import Image from 'next/image'
 
 export default function TopBar({ userName, userAvatarUrl }: TopBarProps) {
   return (
