@@ -671,7 +671,7 @@ export default function CashMovementsTable({
       </div>
 
       <div className='mt-6 flex-1 overflow-hidden rounded-lg'>
-        <div className='h-full overflow-y-auto overflow-x-auto'>
+        <div className='h-full overflow-y-auto table-scroll-x'>
           <table className='w-full min-w-[50rem] table-fixed border-collapse text-left'>
             <thead className='sticky top-0 z-10 bg-[var(--color-neutral-50)]'>
               <tr>

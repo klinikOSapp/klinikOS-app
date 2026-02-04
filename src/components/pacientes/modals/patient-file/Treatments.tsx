@@ -253,7 +253,7 @@ export default function Treatments({
 
           {/* Tabla */}
           <div className='bg-white rounded-[min(1rem,2vw)] overflow-hidden border border-[var(--color-neutral-200)]'>
-            <div className='overflow-x-auto'>
+            <div className='table-scroll-x'>
               <table className='w-full'>
                 <thead>
                   <tr className='border-b border-[var(--color-neutral-200)] bg-[var(--color-neutral-50)]'>
@@ -400,7 +400,7 @@ export default function Treatments({
 
           {/* Tabla */}
           <div className='bg-white rounded-[min(1rem,2vw)] overflow-hidden border border-[var(--color-neutral-200)]'>
-            <div className='overflow-x-auto'>
+            <div className='table-scroll-x'>
               <table className='w-full'>
                 <thead>
                   <tr className='border-b border-[var(--color-neutral-200)] bg-[var(--color-neutral-50)]'>

@@ -1423,7 +1423,7 @@ export default function AddTreatmentsToBudgetModal({
 
                     {/* Tabla Tratamientos - Proporciones reducidas (~75%) */}
                     <div className='bg-white rounded-[0.375rem] overflow-hidden'>
-                      <div className='overflow-x-auto'>
+                      <div className='table-scroll-x'>
                         <table className='w-full border-collapse min-w-[80rem]'>
                           <thead>
                             <tr className='bg-[#F8FAFB]'>

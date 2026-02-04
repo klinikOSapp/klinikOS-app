@@ -114,6 +114,7 @@ export const MoreVertRounded = createLegacyIcon('MoreVertRounded')
 export const NotificationsActiveRounded = createLegacyIcon(
   'NotificationsActiveRounded'
 )
+export const OpenInNewRounded = createLegacyIcon('OpenInNewRounded')
 export const PaymentsRounded = createLegacyIcon('PaymentsRounded')
 export const PeopleRounded = createLegacyIcon('PeopleRounded')
 export const PersonRounded = createLegacyIcon('PersonRounded')

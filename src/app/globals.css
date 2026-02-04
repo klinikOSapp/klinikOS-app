@@ -534,6 +534,33 @@
   background-color: var(--color-neutral-400);
 }
 
+/* Scrollbar horizontal siempre visible para tablas */
+.table-scroll-x {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-neutral-400) var(--color-neutral-100);
+}
+
+.table-scroll-x::-webkit-scrollbar {
+  height: 8px;
+  display: block;
+}
+
+.table-scroll-x::-webkit-scrollbar-track {
+  background: var(--color-neutral-100);
+  border-radius: 4px;
+}
+
+.table-scroll-x::-webkit-scrollbar-thumb {
+  background-color: var(--color-neutral-400);
+  border-radius: 4px;
+  border: 2px solid var(--color-neutral-100);
+}
+
+.table-scroll-x::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-neutral-500);
+}
+
 /* Logo animation */
 .logo-animation {
   position: relative;

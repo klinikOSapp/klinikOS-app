@@ -190,7 +190,7 @@ export default function SpecialistListModal({
             </div>
 
             {/* Table */}
-            <div className='flex-1 overflow-auto min-h-0'>
+            <div className='flex-1 table-scroll-x overflow-y-auto min-h-0'>
               <table className='w-full min-w-[49rem] border-collapse'>
                 <thead className='sticky top-0 bg-white z-10'>
                   <tr>

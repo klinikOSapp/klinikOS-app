@@ -1,6 +1,12 @@
 'use client'
 
-import { TableRowsRounded, ViewTimelineRounded } from '@/components/icons/md3'
+import {
+  CloseRounded,
+  DescriptionRounded,
+  ImageRounded,
+  TableRowsRounded,
+  ViewTimelineRounded
+} from '@/components/icons/md3'
 import type {
   Appointment,
   LinkedTreatmentStatus,
@@ -64,6 +70,10 @@ export default function ClinicalHistory({
   const [isUploadModalOpen, setIsUploadModalOpen] = React.useState(false)
   const [uploadType, setUploadType] = React.useState<UploadFileType>('document')
   const [uploadError, setUploadError] = React.useState<string | null>(null)
+
+  // Upload type selector modal (for table view)
+  const [isUploadTypeSelectorOpen, setIsUploadTypeSelectorOpen] =
+    React.useState(false)
 
   // Get patient appointments
   const patientAppointments = React.useMemo(() => {
@@ -226,8 +236,8 @@ export default function ClinicalHistory({
     setIsUploadModalOpen(true)
   }
 
-  const handleUploadOdontogram = () => {
-    setUploadType('odontogram')
+  const handleUploadImage = () => {
+    setUploadType('image')
     setIsUploadModalOpen(true)
   }
 
@@ -500,7 +510,7 @@ export default function ClinicalHistory({
                 onTreatmentStatusChange={handleTreatmentStatusChange}
                 onUploadAttachment={handleUploadAttachment}
                 onRemoveAttachment={handleRemoveAttachment}
-                onUploadOdontogram={handleUploadOdontogram}
+                onUploadImage={handleUploadImage}
               />
             </div>
           </div>
@@ -524,10 +534,9 @@ export default function ClinicalHistory({
                 setViewMode('timeline')
               }}
               onUploadFile={(appointmentId) => {
-                // Select the appointment and open upload modal
+                // Select the appointment and open type selector
                 setSelectedAppointmentId(appointmentId)
-                setUploadType('document')
-                setIsUploadModalOpen(true)
+                setIsUploadTypeSelectorOpen(true)
               }}
               onMarkComplete={(appointmentId) => {
                 // Mark the appointment as completed
@@ -540,6 +549,81 @@ export default function ClinicalHistory({
           </div>
         )}
       </div>
+
+      {/* Upload Type Selector Modal (for table view) */}
+      {isUploadTypeSelectorOpen && (
+        <div className='fixed inset-0 z-[100] bg-black/50 grid place-items-center'>
+          <div className='bg-white rounded-2xl shadow-xl w-[min(92vw,400px)] overflow-hidden'>
+            {/* Header */}
+            <div className='flex items-center justify-between px-6 py-4 border-b border-[var(--color-neutral-200)]'>
+              <h3 className="font-['Inter:Medium',_sans-serif] text-[var(--color-neutral-900)] text-title-md">
+                Subir archivo
+              </h3>
+              <button
+                type='button'
+                onClick={() => setIsUploadTypeSelectorOpen(false)}
+                className='p-1 hover:bg-[var(--color-neutral-100)] rounded-lg transition-colors cursor-pointer'
+                aria-label='Cerrar'
+              >
+                <CloseRounded className='size-5 text-[var(--color-neutral-600)]' />
+              </button>
+            </div>
+
+            {/* Options */}
+            <div className='p-4 flex flex-col gap-3'>
+              <p className="font-['Inter:Regular',_sans-serif] text-[var(--color-neutral-600)] text-body-sm mb-2">
+                ¿Qué tipo de archivo deseas subir?
+              </p>
+
+              {/* Document option */}
+              <button
+                type='button'
+                onClick={() => {
+                  setIsUploadTypeSelectorOpen(false)
+                  setUploadType('document')
+                  setIsUploadModalOpen(true)
+                }}
+                className='flex items-center gap-4 p-4 rounded-xl border border-[var(--color-neutral-200)] hover:border-[var(--color-brand-400)] hover:bg-[var(--color-brand-50)] transition-colors cursor-pointer group'
+              >
+                <div className='size-12 rounded-lg bg-[var(--color-neutral-100)] group-hover:bg-[var(--color-brand-100)] flex items-center justify-center transition-colors'>
+                  <DescriptionRounded className='size-6 text-[var(--color-neutral-600)] group-hover:text-[var(--color-brand-600)]' />
+                </div>
+                <div className='flex-1 text-left'>
+                  <p className="font-['Inter:Medium',_sans-serif] text-[var(--color-neutral-900)] text-body-md">
+                    Documento
+                  </p>
+                  <p className="font-['Inter:Regular',_sans-serif] text-[var(--color-neutral-500)] text-body-sm">
+                    PDF, informes, consentimientos...
+                  </p>
+                </div>
+              </button>
+
+              {/* Image option */}
+              <button
+                type='button'
+                onClick={() => {
+                  setIsUploadTypeSelectorOpen(false)
+                  setUploadType('image')
+                  setIsUploadModalOpen(true)
+                }}
+                className='flex items-center gap-4 p-4 rounded-xl border border-[var(--color-neutral-200)] hover:border-[var(--color-brand-400)] hover:bg-[var(--color-brand-50)] transition-colors cursor-pointer group'
+              >
+                <div className='size-12 rounded-lg bg-[var(--color-neutral-100)] group-hover:bg-[var(--color-brand-100)] flex items-center justify-center transition-colors'>
+                  <ImageRounded className='size-6 text-[var(--color-neutral-600)] group-hover:text-[var(--color-brand-600)]' />
+                </div>
+                <div className='flex-1 text-left'>
+                  <p className="font-['Inter:Medium',_sans-serif] text-[var(--color-neutral-900)] text-body-md">
+                    Imagen
+                  </p>
+                  <p className="font-['Inter:Regular',_sans-serif] text-[var(--color-neutral-500)] text-body-sm">
+                    Fotos clínicas, radiografías...
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upload File Modal */}
       <UploadFileModal

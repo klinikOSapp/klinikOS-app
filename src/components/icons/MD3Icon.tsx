@@ -66,6 +66,7 @@ const ICON_GLYPHS = {
   MoreHorizRounded: 'more_horiz',
   MoreVertRounded: 'more_vert',
   NotificationsActiveRounded: 'notifications_active',
+  OpenInNewRounded: 'open_in_new',
   PaymentsRounded: 'payments',
   PeopleRounded: 'group',
   PersonRounded: 'person',

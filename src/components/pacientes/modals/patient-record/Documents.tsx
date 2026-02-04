@@ -2,19 +2,25 @@
 
 import {
   AddRounded,
+  ArrowBackRounded,
   AttachEmailRounded,
   CloseRounded,
   DownloadRounded,
   ImageRounded,
   MoreVertRounded,
+  OpenInNewRounded,
   PictureAsPdfRounded,
   VisibilityRounded
 } from '@/components/icons/md3'
 import { usePatientFiles } from '@/context/PatientFilesContext'
+import { type DocumentTemplate } from '@/context/ConfigurationContext'
+import { type GeneratedDocument } from '@/utils/exportUtils'
 import React from 'react'
+import PatientDocumentEditor from './PatientDocumentEditor'
+import TemplateSelectionModal from './TemplateSelectionModal'
 import UploadConsentModal from './UploadConsentModal'
 
-type ConsentsProps = {
+type DocumentsProps = {
   onClose?: () => void
   patientId?: string
 }
@@ -172,10 +178,14 @@ type ConsentRowExtended = ConsentRow & {
   url?: string
 }
 
-export default function Consents({ onClose, patientId }: ConsentsProps) {
+export default function Documents({ onClose, patientId }: DocumentsProps) {
   const { getConsentsByPatient } = usePatientFiles()
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null)
   const [isUploadOpen, setIsUploadOpen] = React.useState(false)
+  const [isTemplateSelectionOpen, setIsTemplateSelectionOpen] =
+    React.useState(false)
+  const [selectedTemplate, setSelectedTemplate] =
+    React.useState<DocumentTemplate | null>(null)
   const [localRows, setLocalRows] =
     React.useState<ConsentRowExtended[]>(MOCK_ROWS)
   const [toast, setToast] = React.useState<{
@@ -209,6 +219,21 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
   const handleViewDocument = (row: ConsentRowExtended) => {
     setPreviewDocument(row)
   }
+
+  // Open document in a new window (for PDF viewing/printing)
+  const handlePrintDocument = React.useCallback((row: ConsentRowExtended) => {
+    if (!row.url) {
+      setToast({
+        message: 'Archivo no disponible',
+        variant: 'error'
+      })
+      window.setTimeout(() => setToast(null), 3000)
+      return
+    }
+
+    // Open document in new window (works for PDFs and images)
+    window.open(row.url, '_blank')
+  }, [])
 
   const handleDownloadDocument = (row: ConsentRowExtended) => {
     if (row.url) {
@@ -327,11 +352,11 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
         {/* Add button */}
         <div className='flex justify-end p-4'>
           <button
-            onClick={() => setIsUploadOpen(true)}
+            onClick={() => setIsTemplateSelectionOpen(true)}
             className='flex items-center gap-2 rounded-[136px] px-4 py-2 text-body-md text-neutral-900 bg-neutral-50 border border-neutral-300 hover:bg-brand-100 hover:border-brand-300 active:bg-brand-900 active:text-neutral-50 active:border-brand-900 transition-colors cursor-pointer'
           >
             <AddRounded className='size-5' />
-            <span className='font-medium'>Añadir consentimiento</span>
+            <span className='font-medium'>Añadir documento</span>
           </button>
         </div>
 
@@ -450,11 +475,23 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
                       <button
                         type='button'
                         role='menuitem'
+                        onClick={() => {
+                          handlePrintDocument(row)
+                          setOpenMenuRowId(null)
+                        }}
+                        className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)] cursor-pointer'
+                      >
+                        <OpenInNewRounded className='size-5' />
+                        <span className='text-body-md'>Abrir en nueva ventana</span>
+                      </button>
+                      <button
+                        type='button'
+                        role='menuitem'
                         onClick={() => handleDownloadDocument(row)}
                         className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)] cursor-pointer'
                       >
                         <DownloadRounded className='size-5' />
-                        <span className='text-body-md'>Descargar</span>
+                        <span className='text-body-md'>Descargar original</span>
                       </button>
                     </div>
                   )}
@@ -491,63 +528,143 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
         }}
       />
 
-      {/* Document Preview Modal */}
+      {/* Template Selection Modal */}
+      <TemplateSelectionModal
+        open={isTemplateSelectionOpen}
+        onClose={() => setIsTemplateSelectionOpen(false)}
+        onSelectTemplate={(template) => {
+          setSelectedTemplate(template)
+          setIsTemplateSelectionOpen(false)
+        }}
+      />
+
+      {/* Patient Document Editor */}
+      <PatientDocumentEditor
+        open={selectedTemplate !== null}
+        onClose={() => setSelectedTemplate(null)}
+        template={selectedTemplate}
+        patientData={{
+          nombre: 'María García López', // TODO: Get from patient context
+          dni: '12345678A',
+          email: 'maria@example.com',
+          telefono: '612345678',
+          direccion: 'Calle Mayor 1, Valencia',
+          fecha_nacimiento: '15/03/1985',
+          edad: '40',
+          sexo: 'Mujer'
+        }}
+        onSave={(document: GeneratedDocument) => {
+          // Add the PDF document to the list
+          const d = new Date()
+          const dd = String(d.getDate()).padStart(2, '0')
+          const mm = String(d.getMonth() + 1).padStart(2, '0')
+          const yyyy = d.getFullYear()
+
+          const newRow: ConsentRowExtended = {
+            id: `doc-${Date.now()}`,
+            name: document.filename,
+            sentAt: `${dd}/${mm}/${yyyy}`,
+            status: 'Enviado',
+            url: document.url
+          }
+          setLocalRows((prev) => [newRow, ...prev])
+          setToast({ message: 'Documento PDF creado correctamente', variant: 'success' })
+          window.setTimeout(() => setToast(null), 3000)
+        }}
+      />
+
+      {/* Document Preview Modal - Same style as Budget Preview */}
       {previewDocument && (
         <div className='fixed inset-0 z-[150] bg-black/60 grid place-items-center'>
-          <div className='bg-white rounded-xl shadow-xl w-[min(90vw,800px)] h-[min(85vh,600px)] flex flex-col overflow-hidden'>
-            {/* Header */}
-            <div className='flex items-center justify-between px-6 py-4 border-b border-neutral-200'>
-              <div>
-                <p className='text-title-lg text-neutral-900'>
-                  {previewDocument.name}
-                </p>
-                <p className='text-body-sm text-neutral-600'>
-                  Estado: {previewDocument.status} • Fecha:{' '}
-                  {previewDocument.sentAt}
-                </p>
-              </div>
-              <div className='flex items-center gap-2'>
-                <button
-                  type='button'
-                  onClick={() => handleDownloadDocument(previewDocument)}
-                  className='p-2 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer'
-                  title='Descargar'
-                >
-                  <DownloadRounded className='size-5 text-neutral-700' />
-                </button>
+          <div className='bg-white rounded-xl shadow-xl w-[min(95vw,1000px)] h-[min(90vh,800px)] flex flex-col overflow-hidden'>
+            {/* Preview Header */}
+            <div className='flex items-center justify-between px-6 py-3 border-b border-[#E2E7EA] bg-[#F8FAFB]'>
+              <div className='flex items-center gap-4'>
                 <button
                   type='button'
                   onClick={() => setPreviewDocument(null)}
-                  className='p-2 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer'
-                  aria-label='Cerrar'
+                  className='flex items-center gap-1 text-[0.875rem] text-[#535C66] hover:text-[#24282C] transition-colors cursor-pointer'
                 >
-                  <CloseRounded className='size-5 text-neutral-700' />
+                  <ArrowBackRounded className='w-[1.25rem] h-[1.25rem]' />
+                  <span>Volver</span>
+                </button>
+                <div className='h-5 w-px bg-[#CBD3D9]' />
+                <span className='text-[1rem] font-medium text-[#24282C]'>
+                  Vista previa del documento
+                </span>
+              </div>
+            </div>
+
+            {/* Document info bar */}
+            <div className='flex items-center justify-between px-6 py-2 border-b border-[#E2E7EA] bg-white'>
+              <div className='flex items-center gap-3'>
+                {previewDocument.name.toLowerCase().endsWith('.pdf') ? (
+                  <PictureAsPdfRounded className='w-[1.5rem] h-[1.5rem] text-[#E53935]' />
+                ) : previewDocument.name.toLowerCase().endsWith('.html') ? (
+                  <PictureAsPdfRounded className='w-[1.5rem] h-[1.5rem] text-[var(--color-brand-500)]' />
+                ) : (
+                  <ImageRounded className='w-[1.5rem] h-[1.5rem] text-[#1976D2]' />
+                )}
+                <div>
+                  <p className='text-[0.875rem] font-medium text-[#24282C]'>
+                    {previewDocument.name}
+                  </p>
+                  <p className='text-[0.75rem] text-[#535C66]'>
+                    Estado: {previewDocument.status} • Fecha: {previewDocument.sentAt}
+                  </p>
+                </div>
+              </div>
+              <div className='flex items-center gap-2'>
+                {/* Open in new window */}
+                <button
+                  type='button'
+                  onClick={() => handlePrintDocument(previewDocument)}
+                  className='flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F5F7F9] border border-[#CBD3D9] text-[0.875rem] font-medium text-[#535C66] hover:bg-[#E2E7EA] transition-colors cursor-pointer'
+                >
+                  <OpenInNewRounded className='w-[1rem] h-[1rem]' />
+                  <span>Abrir</span>
+                </button>
+                {/* Download */}
+                <button
+                  type='button'
+                  onClick={() => handleDownloadDocument(previewDocument)}
+                  className='flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#E9FBF9] border border-[var(--color-brand-300)] text-[0.875rem] font-medium text-[var(--color-brand-700)] hover:bg-[var(--color-brand-100)] transition-colors cursor-pointer'
+                >
+                  <DownloadRounded className='w-[1rem] h-[1rem]' />
+                  <span>Descargar</span>
                 </button>
               </div>
             </div>
-            {/* Content */}
-            <div className='flex-1 bg-neutral-100 p-4 overflow-auto'>
+
+            {/* PDF Viewer */}
+            <div className='flex-1 bg-[#E2E7EA] p-4 overflow-auto'>
               {previewDocument.url ? (
                 previewDocument.name.toLowerCase().endsWith('.pdf') ? (
                   <iframe
                     src={previewDocument.url}
-                    className='w-full h-full rounded-lg bg-white'
+                    className='w-full h-full rounded-lg shadow-lg bg-white'
+                    title={previewDocument.name}
+                  />
+                ) : previewDocument.name.toLowerCase().endsWith('.html') ? (
+                  <iframe
+                    src={previewDocument.url}
+                    className='w-full h-full rounded-lg shadow-lg bg-white'
                     title={previewDocument.name}
                   />
                 ) : (
-                  <div className='w-full h-full flex items-center justify-center'>
+                  <div className='w-full h-full flex items-center justify-center bg-white rounded-lg shadow-lg'>
                     <img
                       src={previewDocument.url}
                       alt={previewDocument.name}
-                      className='max-w-full max-h-full object-contain rounded-lg'
+                      className='max-w-full max-h-full object-contain'
                     />
                   </div>
                 )
               ) : (
-                <div className='w-full h-full flex flex-col items-center justify-center text-neutral-500'>
-                  <PictureAsPdfRounded className='size-16 mb-4' />
-                  <p className='text-body-md'>Vista previa no disponible</p>
-                  <p className='text-body-sm mt-1'>
+                <div className='w-full h-full flex flex-col items-center justify-center text-[#535C66] bg-white rounded-lg shadow-lg'>
+                  <PictureAsPdfRounded className='size-16 mb-4 text-[#CBD3D9]' />
+                  <p className='text-[1rem] font-medium'>Vista previa no disponible</p>
+                  <p className='text-[0.875rem] mt-1'>
                     El archivo no tiene una URL asociada
                   </p>
                 </div>

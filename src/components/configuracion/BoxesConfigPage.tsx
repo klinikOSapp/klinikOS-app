@@ -8,6 +8,7 @@ import {
   EditRounded,
   LocalHospitalRounded
 } from '@/components/icons/md3'
+import Portal from '@/components/ui/Portal'
 import { useConfiguration, type Box } from '@/context/ConfigurationContext'
 import { useCallback, useState } from 'react'
 
@@ -140,10 +141,11 @@ function BoxEditModal({
   if (!box && !isNew) return null
 
   return (
-    <div
-      className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'
-      onClick={onClose}
-    >
+    <Portal>
+      <div
+        className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'
+        onClick={onClose}
+      >
       <div
         className='w-[min(28rem,95vw)] bg-white rounded-xl shadow-xl overflow-hidden'
         onClick={(e) => e.stopPropagation()}
@@ -272,6 +274,7 @@ function BoxEditModal({
         </div>
       </div>
     </div>
+    </Portal>
   )
 }
 

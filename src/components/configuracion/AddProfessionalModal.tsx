@@ -7,6 +7,7 @@ import {
   CloseRounded,
   KeyboardArrowDownRounded
 } from '@/components/icons/md3'
+import Portal from '@/components/ui/Portal'
 import React from 'react'
 
 export type ProfessionalFormData = {
@@ -189,11 +190,12 @@ export default function AddProfessionalModal({
   }
 
   return (
-    <div
-      className='fixed inset-0 z-50 flex items-start justify-center bg-black/30 px-4 py-8'
-      onClick={onClose}
-      role='presentation'
-    >
+    <Portal>
+      <div
+        className='fixed inset-0 z-50 flex items-start justify-center bg-black/30 px-4 py-8'
+        onClick={onClose}
+        role='presentation'
+      >
       <div
         role='dialog'
         aria-modal='true'
@@ -341,12 +343,13 @@ export default function AddProfessionalModal({
                 type='submit'
                 className='flex h-[2.5rem] w-[min(12.1875rem,100%)] items-center justify-center rounded-[8.5rem] bg-[var(--color-brand-500)] px-[1rem] py-[0.5rem] text-[1rem] leading-[1.5rem] font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-400)]'
               >
-                {submitLabel}
-              </button>
-            </div>
+              {submitLabel}
+            </button>
           </div>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
+  </div>
+    </Portal>
   )
 }

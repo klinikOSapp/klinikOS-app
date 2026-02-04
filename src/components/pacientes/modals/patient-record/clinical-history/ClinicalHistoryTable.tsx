@@ -6,7 +6,9 @@ import {
   AttachFileRounded,
   CalendarMonthRounded,
   CheckCircleRounded,
+  CheckRounded,
   DescriptionRounded,
+  KeyboardArrowDownRounded,
   MedicalServicesRounded,
   MoreVertRounded,
   PersonRounded,
@@ -133,6 +135,338 @@ function EditableCell({
 }
 
 // ============================================
+// Professional Dropdown Component
+// ============================================
+type ProfessionalDropdownProps = {
+  value: string
+  isOpen: boolean
+  onToggle: () => void
+  onSelect: (value: string) => void
+}
+
+function ProfessionalDropdown({
+  value,
+  isOpen,
+  onToggle,
+  onSelect
+}: ProfessionalDropdownProps) {
+  const dropdownRef = React.useRef<HTMLDivElement>(null)
+
+  // Close on outside click
+  React.useEffect(() => {
+    if (!isOpen) return
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        onToggle()
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen, onToggle])
+
+  const currentLabel =
+    PROFESSIONALS.find((p) => p.value === value)?.label || value
+
+  return (
+    <div className='relative inline-flex' ref={dropdownRef}>
+      <button
+        type='button'
+        onClick={(e) => {
+          e.stopPropagation()
+          onToggle()
+        }}
+        className='inline-flex h-[1.75rem] items-center gap-1 rounded-lg px-2 text-[0.8125rem] font-medium bg-[var(--color-neutral-100)] text-[var(--color-neutral-700)] hover:bg-[var(--color-neutral-200)] transition-colors cursor-pointer'
+      >
+        <span className='truncate max-w-[7rem]'>{currentLabel}</span>
+        <KeyboardArrowDownRounded
+          className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {isOpen && (
+        <div className='absolute left-0 top-[calc(100%+0.25rem)] z-20 min-w-[10rem] max-h-[12rem] overflow-y-auto rounded-lg border border-[var(--color-neutral-200)] bg-white shadow-lg'>
+          {PROFESSIONALS.map((prof) => (
+            <button
+              key={prof.value}
+              type='button'
+              onClick={(e) => {
+                e.stopPropagation()
+                onSelect(prof.value)
+              }}
+              className={`flex w-full items-center justify-between px-3 py-2 text-[0.8125rem] text-[var(--color-neutral-700)] hover:bg-[var(--color-neutral-50)] transition-colors cursor-pointer ${
+                prof.value === value ? 'font-semibold' : ''
+              }`}
+            >
+              <span>{prof.label}</span>
+              {prof.value === value && (
+                <CheckRounded className='w-4 h-4 text-[var(--color-brand-500)]' />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// Treatments Hover Card Component
+// ============================================
+type TreatmentsHoverCardProps = {
+  treatments: Appointment['linkedTreatments']
+}
+
+const TREATMENT_STATUS_COLORS: Record<
+  string,
+  { bg: string; text: string; label: string }
+> = {
+  pending: {
+    bg: 'bg-[var(--color-warning-100)]',
+    text: 'text-[var(--color-warning-700)]',
+    label: 'Pendiente'
+  },
+  in_progress: {
+    bg: 'bg-[var(--color-info-100)]',
+    text: 'text-[var(--color-info-700)]',
+    label: 'En curso'
+  },
+  completed: {
+    bg: 'bg-[var(--color-success-100)]',
+    text: 'text-[var(--color-success-700)]',
+    label: 'Completado'
+  },
+  cancelled: {
+    bg: 'bg-[var(--color-neutral-200)]',
+    text: 'text-[var(--color-neutral-600)]',
+    label: 'Cancelado'
+  }
+}
+
+function TreatmentsHoverCard({ treatments }: TreatmentsHoverCardProps) {
+  const [isOpen, setIsOpen] = React.useState(false)
+  const [position, setPosition] = React.useState<{
+    top: number
+    left: number
+  } | null>(null)
+  const triggerRef = React.useRef<HTMLDivElement>(null)
+  const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+
+  const treatmentCount = treatments?.length || 0
+
+  const handleMouseEnter = () => {
+    if (treatmentCount === 0) return
+    hoverTimeoutRef.current = setTimeout(() => {
+      if (triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect()
+        setPosition({
+          top: rect.bottom + 4,
+          left: rect.left
+        })
+        setIsOpen(true)
+      }
+    }, 300)
+  }
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+    }
+    setIsOpen(false)
+  }
+
+  return (
+    <div
+      ref={triggerRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className='relative'
+    >
+      <div
+        className={`flex items-center gap-1 ${treatmentCount > 0 ? 'cursor-pointer' : ''}`}
+      >
+        <MedicalServicesRounded
+          className={`w-[1rem] h-[1rem] ${
+            treatmentCount > 0
+              ? 'text-[var(--color-brand-500)]'
+              : 'text-[var(--color-neutral-300)]'
+          }`}
+        />
+        <span
+          className={`text-[0.875rem] leading-[1.25rem] ${
+            treatmentCount > 0
+              ? 'text-[var(--color-neutral-700)]'
+              : 'text-[var(--color-neutral-400)]'
+          }`}
+        >
+          {treatmentCount > 0 ? treatmentCount : '—'}
+        </span>
+      </div>
+
+      {/* Hover card */}
+      {isOpen && position && treatments && treatments.length > 0 && (
+        <div
+          className='fixed z-50 bg-white rounded-lg shadow-lg border border-[var(--color-neutral-200)] p-3 min-w-[280px] max-w-[360px]'
+          style={{ top: position.top, left: position.left }}
+          onMouseEnter={() => {
+            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+          }}
+          onMouseLeave={handleMouseLeave}
+        >
+          <p className="font-['Inter:Medium',_sans-serif] text-[var(--color-neutral-900)] text-body-sm mb-2">
+            Tratamientos ({treatments.length})
+          </p>
+          <div className='flex flex-col gap-2 max-h-[200px] overflow-y-auto'>
+            {treatments.map((treatment) => {
+              const statusConfig =
+                TREATMENT_STATUS_COLORS[treatment.status] ||
+                TREATMENT_STATUS_COLORS.pending
+              return (
+                <div
+                  key={treatment.id}
+                  className='flex items-start justify-between gap-2 p-2 bg-[var(--color-neutral-50)] rounded-lg'
+                >
+                  <div className='flex-1 min-w-0'>
+                    <div className='flex items-center gap-2'>
+                      <p className="font-['Inter:Medium',_sans-serif] text-[var(--color-neutral-800)] text-label-md truncate">
+                        {treatment.description}
+                      </p>
+                      {treatment.pieceNumber && (
+                        <span className='shrink-0 px-1.5 py-0.5 bg-[var(--color-neutral-200)] rounded text-[0.625rem] text-[var(--color-neutral-600)]'>
+                          #{treatment.pieceNumber}
+                        </span>
+                      )}
+                    </div>
+                    <div className='flex items-center gap-2 mt-1'>
+                      <span className='text-label-sm text-[var(--color-neutral-500)]'>
+                        {treatment.amount}
+                      </span>
+                      {treatment.completedBy && (
+                        <span className='text-label-sm text-[var(--color-neutral-400)]'>
+                          • {treatment.completedBy}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <span
+                    className={`shrink-0 px-2 py-0.5 rounded-full text-[0.625rem] font-medium ${statusConfig.bg} ${statusConfig.text}`}
+                  >
+                    {statusConfig.label}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// Status Dropdown Component
+// ============================================
+const VISIT_STATUS_OPTIONS: Array<{ value: VisitStatus; label: string }> = [
+  { value: 'scheduled', label: 'Programada' },
+  { value: 'waiting_room', label: 'En sala espera' },
+  { value: 'call_patient', label: 'Llamar' },
+  { value: 'in_consultation', label: 'En consulta' },
+  { value: 'completed', label: 'Completada' }
+]
+
+type StatusDropdownProps = {
+  value: VisitStatus
+  isOpen: boolean
+  onToggle: () => void
+  onSelect: (value: VisitStatus) => void
+}
+
+function StatusDropdown({
+  value,
+  isOpen,
+  onToggle,
+  onSelect
+}: StatusDropdownProps) {
+  const dropdownRef = React.useRef<HTMLDivElement>(null)
+  const statusConfig = VISIT_STATUS_CONFIG[value]
+
+  // Close on outside click
+  React.useEffect(() => {
+    if (!isOpen) return
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        onToggle()
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen, onToggle])
+
+  const currentLabel =
+    VISIT_STATUS_OPTIONS.find((s) => s.value === value)?.label || value
+
+  return (
+    <div className='relative inline-flex' ref={dropdownRef}>
+      <button
+        type='button'
+        onClick={(e) => {
+          e.stopPropagation()
+          onToggle()
+        }}
+        className='inline-flex h-[1.75rem] items-center gap-1 rounded-full px-2.5 text-[0.75rem] font-medium transition-colors cursor-pointer'
+        style={{
+          backgroundColor: statusConfig.bgColor,
+          color: statusConfig.textColor
+        }}
+      >
+        <span>{currentLabel}</span>
+        <KeyboardArrowDownRounded
+          className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {isOpen && (
+        <div className='absolute left-0 top-[calc(100%+0.25rem)] z-20 min-w-[9rem] rounded-lg border border-[var(--color-neutral-200)] bg-white shadow-lg overflow-hidden'>
+          {VISIT_STATUS_OPTIONS.map((status) => {
+            const config = VISIT_STATUS_CONFIG[status.value]
+            return (
+              <button
+                key={status.value}
+                type='button'
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSelect(status.value)
+                }}
+                className={`flex w-full items-center justify-between px-3 py-2 text-[0.8125rem] hover:bg-[var(--color-neutral-50)] transition-colors cursor-pointer ${
+                  status.value === value ? 'font-semibold' : ''
+                }`}
+                style={{ color: config.textColor }}
+              >
+                <div className='flex items-center gap-2'>
+                  <span
+                    className='w-2 h-2 rounded-full'
+                    style={{ backgroundColor: config.bgColor }}
+                  />
+                  <span>{status.label}</span>
+                </div>
+                {status.value === value && (
+                  <CheckRounded className='w-4 h-4 text-[var(--color-brand-500)]' />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
 // Visit Row Component
 // ============================================
 type VisitRowProps = {
@@ -151,9 +485,12 @@ function VisitRow({
   onOpenMenu
 }: VisitRowProps) {
   const visitStatus = appointment.visitStatus || 'scheduled'
-  const statusConfig = VISIT_STATUS_CONFIG[visitStatus]
-  const treatmentCount = appointment.linkedTreatments?.length || 0
   const attachmentCount = appointment.attachments?.length || 0
+
+  // Dropdown states
+  const [openDropdown, setOpenDropdown] = React.useState<
+    'professional' | 'status' | null
+  >(null)
 
   // Combine S/O notes for display
   const soNotes = [
@@ -220,53 +557,45 @@ function VisitRow({
         </span>
       </TableBodyCell>
 
-      {/* Profesional - Select */}
+      {/* Profesional - Dropdown */}
       <TableBodyCell width='10rem'>
-        <select
+        <ProfessionalDropdown
           value={appointment.professional}
-          onChange={(e) =>
-            onUpdateAppointment({ professional: e.target.value })
+          isOpen={openDropdown === 'professional'}
+          onToggle={() =>
+            setOpenDropdown((prev) =>
+              prev === 'professional' ? null : 'professional'
+            )
           }
-          className='w-full bg-transparent border-none outline-none text-[0.875rem] leading-[1.25rem] text-[#24282C] 
-            focus:bg-[var(--color-neutral-50)] rounded px-1 py-0.5 cursor-pointer'
-        >
-          {PROFESSIONALS.map((prof) => (
-            <option key={prof.value} value={prof.value}>
-              {prof.label}
-            </option>
-          ))}
-        </select>
-      </TableBodyCell>
-
-      {/* Motivo - Editable */}
-      <TableBodyCell width='12rem'>
-        <EditableCell
-          value={appointment.reason}
-          onChange={(value) => onUpdateAppointment({ reason: value })}
-          placeholder='Motivo de consulta'
-          className='truncate'
+          onSelect={(value) => {
+            onUpdateAppointment({ professional: value })
+            setOpenDropdown(null)
+          }}
         />
       </TableBodyCell>
 
-      {/* Estado - Select */}
-      <TableBodyCell width='7rem'>
-        <select
+      {/* Motivo - ExpandedTextInput */}
+      <TableBodyCell width='12rem'>
+        <ExpandedTextInput
+          value={appointment.reason}
+          onChange={(value) => onUpdateAppointment({ reason: value })}
+          placeholder='Motivo de consulta'
+        />
+      </TableBodyCell>
+
+      {/* Estado - Dropdown */}
+      <TableBodyCell width='8rem'>
+        <StatusDropdown
           value={visitStatus}
-          onChange={(e) =>
-            onUpdateAppointment({ visitStatus: e.target.value as VisitStatus })
+          isOpen={openDropdown === 'status'}
+          onToggle={() =>
+            setOpenDropdown((prev) => (prev === 'status' ? null : 'status'))
           }
-          className='w-full border-none outline-none text-[0.75rem] font-medium rounded-full px-2 py-0.5 cursor-pointer'
-          style={{
-            backgroundColor: statusConfig.bgColor,
-            color: statusConfig.textColor
+          onSelect={(value) => {
+            onUpdateAppointment({ visitStatus: value })
+            setOpenDropdown(null)
           }}
-        >
-          <option value='scheduled'>Programada</option>
-          <option value='waiting_room'>En sala espera</option>
-          <option value='call_patient'>Llamar</option>
-          <option value='in_consultation'>En consulta</option>
-          <option value='completed'>Completada</option>
-        </select>
+        />
       </TableBodyCell>
 
       {/* Duración */}
@@ -281,26 +610,9 @@ function VisitRow({
         </span>
       </TableBodyCell>
 
-      {/* Tratamientos */}
+      {/* Tratamientos - Hover card */}
       <TableBodyCell width='5rem'>
-        <div className='flex items-center gap-1'>
-          <MedicalServicesRounded
-            className={`w-[1rem] h-[1rem] ${
-              treatmentCount > 0
-                ? 'text-[var(--color-brand-500)]'
-                : 'text-[var(--color-neutral-300)]'
-            }`}
-          />
-          <span
-            className={`text-[0.875rem] leading-[1.25rem] ${
-              treatmentCount > 0
-                ? 'text-[var(--color-neutral-700)]'
-                : 'text-[var(--color-neutral-400)]'
-            }`}
-          >
-            {treatmentCount > 0 ? treatmentCount : '—'}
-          </span>
-        </div>
+        <TreatmentsHoverCard treatments={appointment.linkedTreatments} />
       </TableBodyCell>
 
       {/* S/O (Notas) - ExpandedTextInput */}
@@ -405,7 +717,7 @@ export default function ClinicalHistoryTable({
 
   return (
     <div className='bg-white rounded-[0.5rem] overflow-hidden h-full flex flex-col'>
-      <div className='overflow-x-auto flex-1'>
+      <div className='table-scroll-x flex-1'>
         <table className='w-full border-collapse min-w-[85rem]'>
           <thead className='sticky top-0 z-10'>
             <tr className='bg-[#F8FAFB]'>
@@ -433,7 +745,7 @@ export default function ClinicalHistoryTable({
                   <span>Motivo</span>
                 </div>
               </TableHeaderCell>
-              <TableHeaderCell width='7rem'>Estado</TableHeaderCell>
+              <TableHeaderCell width='8rem'>Estado</TableHeaderCell>
               <TableHeaderCell width='5rem'>
                 <div className='flex items-center gap-1.5'>
                   <AccessTimeFilledRounded className='w-[1rem] h-[1rem] text-[#535C66]' />

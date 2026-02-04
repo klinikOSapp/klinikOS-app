@@ -7,7 +7,7 @@ import {
 } from '@/components/icons/md3'
 import React from 'react'
 
-export type UploadFileType = 'document' | 'odontogram'
+export type UploadFileType = 'document' | 'image'
 
 export interface UploadFileModalProps {
   open: boolean
@@ -35,7 +35,7 @@ export default function UploadFileModal({
 
   const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024 // 20MB
 
-  const isOdontogram = type === 'odontogram'
+  const isImage = type === 'image'
 
   const config = {
     document: {
@@ -48,21 +48,21 @@ export default function UploadFileModal({
         const isPdf =
           file.type === 'application/pdf' ||
           file.name.toLowerCase().endsWith('.pdf')
-        const isImage = file.type.startsWith('image/')
-        if (!isPdf && !isImage)
+        const isImg = file.type.startsWith('image/')
+        if (!isPdf && !isImg)
           return 'Formato no soportado. Sube un PDF o imagen.'
         return null
       }
     },
-    odontogram: {
-      title: 'Odontograma',
-      subtitle: 'Subir odontograma',
+    image: {
+      title: 'Imágenes',
+      subtitle: 'Subir imagen',
       description:
-        'Sube una imagen del odontograma del paciente. Esta imagen también se guardará en la sección de imágenes RX del paciente.',
+        'Sube una imagen clínica del paciente. Esta imagen también se guardará en la sección de imágenes del paciente.',
       accept: 'image/*',
       validateType: (file: File) => {
-        const isImage = file.type.startsWith('image/')
-        if (!isImage)
+        const isImg = file.type.startsWith('image/')
+        if (!isImg)
           return 'Formato no soportado. Sube una imagen (PNG, JPG, etc.).'
         return null
       }
@@ -105,32 +105,32 @@ export default function UploadFileModal({
 
   return (
     <div className='fixed inset-0 z-[100] bg-black/50 grid place-items-center'>
-      <div className='bg-[var(--color-surface-modal,#fff)] rounded-[24px] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)] w-[min(92vw,960px)] h-[min(85vh,640px)] relative overflow-hidden'>
+      <div className='bg-[var(--color-surface-modal,#fff)] rounded-2xl border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)] w-[min(92vw,560px)] relative'>
         <button
           type='button'
           aria-label='Cerrar'
           onClick={onClose}
-          className='absolute top-4 right-4 size-8 grid place-items-center text-[var(--color-neutral-900)] cursor-pointer hover:opacity-70 transition-opacity'
+          className='absolute top-4 right-4 size-8 grid place-items-center text-[var(--color-neutral-900)] cursor-pointer hover:opacity-70 transition-opacity z-10'
         >
-          <CloseRounded className='size-6' />
+          <CloseRounded className='size-5' />
         </button>
 
-        <div className='px-16 pt-14 pb-8 overflow-auto h-full'>
-          <p className='text-title-sm text-[var(--color-neutral-900)]'>
+        <div className='px-8 pt-8 pb-6'>
+          <p className='text-label-md text-[var(--color-neutral-500)]'>
             {currentConfig.title}
           </p>
-          <h2 className='font-inter text-display-md font-normal text-[var(--color-neutral-900)] mt-2'>
+          <h2 className='font-inter text-title-lg font-medium text-[var(--color-neutral-900)] mt-1'>
             {currentConfig.subtitle}
           </h2>
-          <p className='text-body-md text-[var(--color-neutral-900)] mt-2 max-w-[620px]'>
+          <p className='text-body-sm text-[var(--color-neutral-600)] mt-2'>
             {currentConfig.description}
           </p>
 
           <div
             className={[
-              'mt-8 rounded-[16px] border-2 border-dashed px-20 py-24 flex flex-col items-center gap-8 bg-[var(--color-neutral-50)]',
+              'mt-5 rounded-xl border-2 border-dashed px-8 py-10 flex flex-col items-center gap-4 bg-[var(--color-neutral-50)]',
               isDragging
-                ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-0)]'
+                ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-50)]'
                 : 'border-[var(--color-neutral-300)]'
             ].join(' ')}
             onDragOver={(e) => {
@@ -153,23 +153,25 @@ export default function UploadFileModal({
             role='region'
             aria-label='Zona para arrastrar y soltar archivos'
           >
-            {isOdontogram ? (
-              <ImageRounded className='size-20 text-[var(--color-neutral-900)]' />
+            {isImage ? (
+              <ImageRounded className='size-12 text-[var(--color-neutral-400)]' />
             ) : (
-              <UploadFileRounded className='size-20 text-[var(--color-neutral-900)]' />
+              <UploadFileRounded className='size-12 text-[var(--color-neutral-400)]' />
             )}
-            <p className='font-inter text-body-lg text-[var(--color-neutral-900)]'>
-              {isOdontogram ? 'Subir imagen del odontograma' : 'Subir archivo'}
+            <p className='font-inter text-body-md text-[var(--color-neutral-700)]'>
+              {isImage
+                ? 'Arrastra una imagen aquí'
+                : 'Arrastra un archivo aquí'}
             </p>
             {dragInfo && (
-              <p className='text-body-md text-[var(--color-neutral-900)]'>
+              <p className='text-body-sm text-[var(--color-neutral-600)]'>
                 {dragInfo.name} — {formatSize(dragInfo.size)}
               </p>
             )}
             <button
               type='button'
               onClick={() => fileInputRef.current?.click()}
-              className='border border-[var(--color-neutral-300)] rounded-[24px] px-3 py-2 font-inter text-body-lg text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-50)] cursor-pointer transition-colors'
+              className='border border-[var(--color-neutral-300)] rounded-full px-4 py-2 font-inter text-body-sm text-[var(--color-neutral-700)] hover:bg-white cursor-pointer transition-colors'
             >
               Seleccionar de tu dispositivo
             </button>
@@ -186,13 +188,12 @@ export default function UploadFileModal({
           </div>
 
           {/* Info about where the file will be saved */}
-          <div className='mt-6 p-4 bg-[var(--color-info-50)] border border-[var(--color-info-200)] rounded-lg'>
-            <p className='text-body-sm text-[var(--color-info-800)]'>
-              {isOdontogram ? (
+          <div className='mt-4 p-3 bg-[var(--color-info-50)] border border-[var(--color-info-200)] rounded-lg'>
+            <p className='text-label-sm text-[var(--color-info-700)]'>
+              {isImage ? (
                 <>
-                  <strong>Nota:</strong> El odontograma se guardará
-                  automáticamente en la sección de &quot;Imágenes RX&quot; del
-                  paciente.
+                  <strong>Nota:</strong> La imagen se guardará automáticamente
+                  en la sección de &quot;Imágenes&quot; del paciente.
                 </>
               ) : (
                 <>

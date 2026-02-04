@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@fontsource/material-symbols-rounded": "^5.2.30",
+    "html2pdf.js": "^0.14.0",
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.7",
     "next": "15.5.9",

@@ -10,6 +10,29 @@ import {
 } from 'react'
 
 // ============================================
+// TIPOS PARA PLANTILLAS DE DOCUMENTOS
+// ============================================
+
+export type DocumentTemplateType =
+  | 'factura'
+  | 'receta'
+  | 'justificante'
+  | 'consentimiento'
+  | 'presupuesto'
+  | 'informe'
+
+export type DocumentTemplate = {
+  id: string
+  title: string
+  type: DocumentTemplateType
+  content: string
+  logoUrl?: string
+  logoPosition?: { x: number; y: number }
+  isDefault: boolean
+  lastModified?: string
+}
+
+// ============================================
 // TIPOS PARA CONFIGURACIÓN DE CLÍNICA
 // ============================================
 
@@ -235,6 +258,471 @@ const initialWorkingHours: WorkingHoursConfig = {
 }
 
 // ============================================
+// PLANTILLAS DE DOCUMENTOS POR DEFECTO
+// ============================================
+
+export const DEFAULT_DOCUMENT_TEMPLATES: Record<DocumentTemplateType, string> = {
+  factura: `
+    <div style="text-align: center; margin-bottom: 24px;">
+      <h1 style="font-size: 24px; color: #1E4947; margin: 0;">FACTURA</h1>
+      <p style="color: #535C66; margin: 4px 0 0 0;">Nº {{documento.numero}}</p>
+    </div>
+    
+    <div style="display: flex; justify-content: space-between; margin-bottom: 24px;">
+      <div>
+        <p style="font-weight: bold; color: #1E4947;">{{clinica.nombre}}</p>
+        <p style="color: #535C66; font-size: 13px;">{{clinica.nif}}</p>
+        <p style="color: #535C66; font-size: 13px;">{{clinica.direccion}}</p>
+        <p style="color: #535C66; font-size: 13px;">{{clinica.telefono}}</p>
+      </div>
+      <div style="text-align: right;">
+        <p style="color: #535C66; font-size: 13px;">Fecha: {{documento.fecha}}</p>
+      </div>
+    </div>
+    
+    <div style="background: #F5F7F9; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+      <p style="font-weight: bold; color: #24282C; margin: 0 0 8px 0;">Datos del paciente</p>
+      <p style="color: #535C66; font-size: 13px; margin: 4px 0;">Nombre: {{paciente.nombre}}</p>
+      <p style="color: #535C66; font-size: 13px; margin: 4px 0;">DNI: {{paciente.dni}}</p>
+      <p style="color: #535C66; font-size: 13px; margin: 4px 0;">Dirección: {{paciente.direccion}}</p>
+    </div>
+    
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+      <thead>
+        <tr style="background: #1E4947; color: white;">
+          <th style="padding: 12px; text-align: left;">Concepto</th>
+          <th style="padding: 12px; text-align: right;">Importe</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid #E5E7EB;">
+          <td style="padding: 12px;">{{tratamiento.nombre}}</td>
+          <td style="padding: 12px; text-align: right;">{{tratamiento.precio}}</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <div style="text-align: right; margin-bottom: 32px;">
+      <p style="font-size: 18px; font-weight: bold; color: #1E4947;">Total: {{presupuesto.total}}</p>
+    </div>
+    
+    <div style="border-top: 1px solid #E5E7EB; padding-top: 16px; text-align: center; color: #535C66; font-size: 12px;">
+      <p>{{clinica.nombre}} • {{clinica.email}} • {{clinica.web}}</p>
+    </div>
+  `,
+  receta: `
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+      <div>
+        <h1 style="font-size: 20px; color: #1E4947; margin: 0;">RECETA MÉDICA</h1>
+        <p style="color: #535C66; font-size: 13px; margin: 4px 0 0 0;">{{clinica.nombre}}</p>
+      </div>
+      <div style="text-align: right;">
+        <p style="color: #535C66; font-size: 13px;">Fecha: {{documento.fecha}}</p>
+        <p style="color: #535C66; font-size: 13px;">Nº: {{documento.numero}}</p>
+      </div>
+    </div>
+    
+    <div style="background: #F5F7F9; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <p style="color: #6B7280; font-size: 12px; margin: 0;">Paciente</p>
+          <p style="color: #24282C; font-weight: 500; margin: 4px 0 0 0;">{{paciente.nombre}}</p>
+        </div>
+        <div>
+          <p style="color: #6B7280; font-size: 12px; margin: 0;">DNI</p>
+          <p style="color: #24282C; font-weight: 500; margin: 4px 0 0 0;">{{paciente.dni}}</p>
+        </div>
+        <div>
+          <p style="color: #6B7280; font-size: 12px; margin: 0;">Sexo</p>
+          <p style="color: #24282C; font-weight: 500; margin: 4px 0 0 0;">{{paciente.sexo}}</p>
+        </div>
+        <div>
+          <p style="color: #6B7280; font-size: 12px; margin: 0;">Edad</p>
+          <p style="color: #24282C; font-weight: 500; margin: 4px 0 0 0;">{{paciente.edad}} años</p>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin-bottom: 24px;">
+      <h2 style="font-size: 16px; color: #1E4947; margin: 0 0 16px 0; border-bottom: 2px solid #1E4947; padding-bottom: 8px;">Prescripción</h2>
+      
+      <div style="background: #F0FDF4; border-left: 4px solid #22C55E; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 12px;">
+        <p style="font-weight: bold; color: #24282C; margin: 0 0 8px 0;">{{receta.medicamento}}</p>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; font-size: 13px;">
+          <div>
+            <span style="color: #6B7280;">Dosis:</span>
+            <span style="color: #24282C; margin-left: 4px;">{{receta.dosis}}</span>
+          </div>
+          <div>
+            <span style="color: #6B7280;">Frecuencia:</span>
+            <span style="color: #24282C; margin-left: 4px;">{{receta.frecuencia}}</span>
+          </div>
+          <div>
+            <span style="color: #6B7280;">Duración:</span>
+            <span style="color: #24282C; margin-left: 4px;">{{receta.duracion}}</span>
+          </div>
+          <div>
+            <span style="color: #6B7280;">Vía:</span>
+            <span style="color: #24282C; margin-left: 4px;">{{receta.via}}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="background: #FEF3C7; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+      <p style="color: #92400E; font-size: 13px; margin: 0;"><strong>Notas del caso:</strong> {{receta.notas}}</p>
+    </div>
+    
+    <div style="border-top: 1px solid #E5E7EB; padding-top: 24px; display: flex; justify-content: space-between;">
+      <div>
+        <p style="color: #6B7280; font-size: 12px; margin: 0;">Doctor/a</p>
+        <p style="color: #24282C; font-weight: bold; margin: 4px 0;">{{profesional.nombre}}</p>
+        <p style="color: #535C66; font-size: 13px; margin: 2px 0;">{{profesional.especialidad}}</p>
+        <p style="color: #535C66; font-size: 13px; margin: 2px 0;">Nº Colegiado: {{profesional.num_colegiado}}</p>
+      </div>
+      <div style="text-align: center;">
+        <p style="color: #6B7280; font-size: 12px; margin: 0 0 8px 0;">Firma</p>
+        <div style="width: 150px; height: 60px; border-bottom: 1px solid #24282C;"></div>
+      </div>
+    </div>
+  `,
+  presupuesto: `
+    <div style="text-align: center; margin-bottom: 32px;">
+      <h1 style="font-size: 24px; color: #1E4947; margin: 0;">PRESUPUESTO</h1>
+      <p style="color: #535C66; margin: 4px 0 0 0;">Nº {{documento.numero}}</p>
+    </div>
+    
+    <div style="display: flex; justify-content: space-between; margin-bottom: 24px;">
+      <div>
+        <p style="font-weight: bold; color: #1E4947; font-size: 16px;">{{clinica.nombre}}</p>
+        <p style="color: #535C66; font-size: 13px;">{{clinica.direccion}}</p>
+        <p style="color: #535C66; font-size: 13px;">Tel: {{clinica.telefono}}</p>
+      </div>
+      <div style="text-align: right;">
+        <p style="color: #535C66; font-size: 13px;">Fecha: {{documento.fecha}}</p>
+        <p style="color: #535C66; font-size: 13px;">Validez: {{presupuesto.validez}}</p>
+      </div>
+    </div>
+    
+    <div style="background: #F5F7F9; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+      <p style="font-weight: bold; color: #24282C; margin: 0 0 8px 0;">Datos del paciente</p>
+      <p style="color: #535C66; font-size: 13px; margin: 4px 0;">{{paciente.nombre}}</p>
+      <p style="color: #535C66; font-size: 13px; margin: 4px 0;">DNI: {{paciente.dni}}</p>
+    </div>
+    
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+      <thead>
+        <tr style="background: #1E4947; color: white;">
+          <th style="padding: 12px; text-align: left;">Pieza</th>
+          <th style="padding: 12px; text-align: left;">Tratamiento</th>
+          <th style="padding: 12px; text-align: right;">Precio</th>
+          <th style="padding: 12px; text-align: right;">Dto.</th>
+          <th style="padding: 12px; text-align: right;">Importe</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid #E5E7EB;">
+          <td style="padding: 12px;">{{tratamiento.pieza}}</td>
+          <td style="padding: 12px;">{{tratamiento.nombre}}</td>
+          <td style="padding: 12px; text-align: right;">{{tratamiento.precio}}</td>
+          <td style="padding: 12px; text-align: right;">-</td>
+          <td style="padding: 12px; text-align: right;">{{tratamiento.precio}}</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 32px;">
+      <div style="width: 250px;">
+        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #E5E7EB;">
+          <span style="color: #535C66;">Subtotal:</span>
+          <span style="color: #24282C;">{{presupuesto.subtotal}}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #E5E7EB;">
+          <span style="color: #535C66;">Descuento:</span>
+          <span style="color: #22C55E;">-{{presupuesto.descuento}}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 12px 0; font-size: 18px; font-weight: bold;">
+          <span style="color: #1E4947;">TOTAL:</span>
+          <span style="color: #1E4947;">{{presupuesto.total}}</span>
+        </div>
+      </div>
+    </div>
+    
+    <div style="background: #FEF3C7; padding: 12px; border-radius: 8px; margin-bottom: 24px;">
+      <p style="color: #92400E; font-size: 12px; margin: 0;">
+        * Este presupuesto tiene una validez de {{presupuesto.validez}}. Los precios pueden variar sin previo aviso.
+      </p>
+    </div>
+    
+    <div style="border-top: 1px solid #E5E7EB; padding-top: 16px; text-align: center; color: #535C66; font-size: 12px;">
+      <p>{{clinica.nombre}} • {{clinica.email}} • {{clinica.web}}</p>
+    </div>
+  `,
+  consentimiento: `
+    <div style="text-align: center; margin-bottom: 32px;">
+      <h1 style="font-size: 22px; color: #1E4947; margin: 0;">CONSENTIMIENTO INFORMADO</h1>
+      <p style="color: #535C66; font-size: 14px; margin: 8px 0 0 0;">{{clinica.nombre}}</p>
+    </div>
+    
+    <div style="margin-bottom: 24px;">
+      <p style="color: #24282C; line-height: 1.8; text-align: justify;">
+        Yo, <strong>{{paciente.nombre}}</strong>, con DNI <strong>{{paciente.dni}}</strong>, 
+        declaro que he sido informado/a de manera clara, comprensible y satisfactoria sobre 
+        el procedimiento que se me va a realizar, sus beneficios, riesgos y alternativas.
+      </p>
+    </div>
+    
+    <div style="background: #F5F7F9; padding: 20px; border-radius: 8px; margin-bottom: 24px;">
+      <h2 style="font-size: 16px; color: #1E4947; margin: 0 0 12px 0;">Procedimiento</h2>
+      <p style="color: #535C66; line-height: 1.6; margin: 0;">
+        {{tratamiento.nombre}}: {{tratamiento.descripcion}}
+      </p>
+    </div>
+    
+    <div style="margin-bottom: 24px;">
+      <h2 style="font-size: 16px; color: #1E4947; margin: 0 0 12px 0;">Declaraciones</h2>
+      <ul style="color: #535C66; line-height: 2; padding-left: 20px;">
+        <li>He comprendido la información proporcionada sobre el procedimiento.</li>
+        <li>He tenido la oportunidad de realizar las preguntas que he considerado necesarias.</li>
+        <li>Todas mis dudas han sido resueltas satisfactoriamente.</li>
+        <li>Entiendo que puedo revocar este consentimiento en cualquier momento.</li>
+        <li>Autorizo la realización del procedimiento descrito.</li>
+      </ul>
+    </div>
+    
+    <div style="margin-bottom: 32px;">
+      <p style="color: #24282C; line-height: 1.8; text-align: justify;">
+        He leído y comprendido este documento de consentimiento informado y acepto 
+        voluntariamente someterme al procedimiento indicado.
+      </p>
+    </div>
+    
+    <div style="display: flex; justify-content: space-between; padding-top: 24px; border-top: 1px solid #E5E7EB;">
+      <div style="text-align: center; width: 45%;">
+        <p style="color: #6B7280; font-size: 12px; margin: 0 0 40px 0;">Firma del paciente</p>
+        <div style="border-bottom: 1px solid #24282C; margin-bottom: 8px;"></div>
+        <p style="color: #24282C; font-size: 13px; margin: 0;">{{paciente.nombre}}</p>
+        <p style="color: #535C66; font-size: 12px; margin: 4px 0 0 0;">DNI: {{paciente.dni}}</p>
+      </div>
+      <div style="text-align: center; width: 45%;">
+        <p style="color: #6B7280; font-size: 12px; margin: 0 0 40px 0;">Firma del profesional</p>
+        <div style="border-bottom: 1px solid #24282C; margin-bottom: 8px;"></div>
+        <p style="color: #24282C; font-size: 13px; margin: 0;">{{profesional.nombre}}</p>
+        <p style="color: #535C66; font-size: 12px; margin: 4px 0 0 0;">Nº Col: {{profesional.num_colegiado}}</p>
+      </div>
+    </div>
+    
+    <div style="margin-top: 24px; text-align: center;">
+      <p style="color: #535C66; font-size: 12px;">En {{clinica.direccion}}, a {{documento.fecha}}</p>
+    </div>
+  `,
+  justificante: `
+    <div style="text-align: center; margin-bottom: 32px;">
+      <h1 style="font-size: 22px; color: #1E4947; margin: 0;">JUSTIFICANTE DE ASISTENCIA</h1>
+      <p style="color: #535C66; margin: 8px 0 0 0;">{{clinica.nombre}}</p>
+    </div>
+    
+    <div style="margin-bottom: 24px;">
+      <p style="color: #24282C; line-height: 1.8; text-align: justify;">
+        Se hace constar que <strong>{{paciente.nombre}}</strong>, con DNI <strong>{{paciente.dni}}</strong>, 
+        ha acudido a nuestra clínica el día <strong>{{documento.fecha}}</strong> para recibir atención médica.
+      </p>
+    </div>
+    
+    <div style="background: #F5F7F9; padding: 20px; border-radius: 8px; margin-bottom: 24px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <p style="color: #6B7280; font-size: 12px; margin: 0;">Paciente</p>
+          <p style="color: #24282C; font-weight: 500; margin: 4px 0 0 0;">{{paciente.nombre}}</p>
+        </div>
+        <div>
+          <p style="color: #6B7280; font-size: 12px; margin: 0;">DNI</p>
+          <p style="color: #24282C; font-weight: 500; margin: 4px 0 0 0;">{{paciente.dni}}</p>
+        </div>
+        <div>
+          <p style="color: #6B7280; font-size: 12px; margin: 0;">Fecha de asistencia</p>
+          <p style="color: #24282C; font-weight: 500; margin: 4px 0 0 0;">{{documento.fecha}}</p>
+        </div>
+        <div>
+          <p style="color: #6B7280; font-size: 12px; margin: 0;">Motivo</p>
+          <p style="color: #24282C; font-weight: 500; margin: 4px 0 0 0;">{{tratamiento.nombre}}</p>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin-bottom: 32px;">
+      <p style="color: #24282C; line-height: 1.8; text-align: justify;">
+        Y para que conste a los efectos oportunos, se expide el presente justificante 
+        en {{clinica.direccion}}, a {{documento.fecha}}.
+      </p>
+    </div>
+    
+    <div style="display: flex; justify-content: flex-end; padding-top: 24px; border-top: 1px solid #E5E7EB;">
+      <div style="text-align: center; width: 250px;">
+        <p style="color: #6B7280; font-size: 12px; margin: 0 0 40px 0;">Firma y sello</p>
+        <div style="border-bottom: 1px solid #24282C; margin-bottom: 8px;"></div>
+        <p style="color: #24282C; font-size: 13px; margin: 0;">{{profesional.nombre}}</p>
+        <p style="color: #535C66; font-size: 12px; margin: 4px 0 0 0;">{{profesional.especialidad}}</p>
+        <p style="color: #535C66; font-size: 12px; margin: 2px 0 0 0;">Nº Col: {{profesional.num_colegiado}}</p>
+      </div>
+    </div>
+    
+    <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #E5E7EB; text-align: center;">
+      <p style="color: #535C66; font-size: 12px; margin: 0;">{{clinica.nombre}} • {{clinica.direccion}}</p>
+      <p style="color: #535C66; font-size: 12px; margin: 4px 0 0 0;">Tel: {{clinica.telefono}} • {{clinica.email}}</p>
+    </div>
+  `,
+  informe: `
+    <div style="text-align: center; margin-bottom: 32px;">
+      <h1 style="font-size: 22px; color: #1E4947; margin: 0;">INFORME CLÍNICO</h1>
+      <p style="color: #535C66; margin: 8px 0 0 0;">{{clinica.nombre}}</p>
+      <p style="color: #535C66; font-size: 13px; margin: 4px 0 0 0;">Nº Informe: {{documento.numero}}</p>
+    </div>
+    
+    <div style="background: #F5F7F9; padding: 20px; border-radius: 8px; margin-bottom: 24px;">
+      <h2 style="font-size: 14px; color: #1E4947; margin: 0 0 12px 0; text-transform: uppercase;">Datos del paciente</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div>
+          <p style="color: #6B7280; font-size: 12px; margin: 0;">Nombre completo</p>
+          <p style="color: #24282C; margin: 4px 0 0 0;">{{paciente.nombre}}</p>
+        </div>
+        <div>
+          <p style="color: #6B7280; font-size: 12px; margin: 0;">DNI</p>
+          <p style="color: #24282C; margin: 4px 0 0 0;">{{paciente.dni}}</p>
+        </div>
+        <div>
+          <p style="color: #6B7280; font-size: 12px; margin: 0;">Fecha de nacimiento</p>
+          <p style="color: #24282C; margin: 4px 0 0 0;">{{paciente.fecha_nacimiento}}</p>
+        </div>
+        <div>
+          <p style="color: #6B7280; font-size: 12px; margin: 0;">Edad</p>
+          <p style="color: #24282C; margin: 4px 0 0 0;">{{paciente.edad}} años</p>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin-bottom: 24px;">
+      <h2 style="font-size: 14px; color: #1E4947; margin: 0 0 12px 0; text-transform: uppercase; border-bottom: 2px solid #1E4947; padding-bottom: 8px;">Motivo de consulta</h2>
+      <p style="color: #535C66; line-height: 1.8;">
+        {{tratamiento.descripcion}}
+      </p>
+    </div>
+    
+    <div style="margin-bottom: 24px;">
+      <h2 style="font-size: 14px; color: #1E4947; margin: 0 0 12px 0; text-transform: uppercase; border-bottom: 2px solid #1E4947; padding-bottom: 8px;">Exploración clínica</h2>
+      <p style="color: #535C66; line-height: 1.8;">
+        [Describir hallazgos de la exploración]
+      </p>
+    </div>
+    
+    <div style="margin-bottom: 24px;">
+      <h2 style="font-size: 14px; color: #1E4947; margin: 0 0 12px 0; text-transform: uppercase; border-bottom: 2px solid #1E4947; padding-bottom: 8px;">Diagnóstico</h2>
+      <p style="color: #535C66; line-height: 1.8;">
+        [Indicar diagnóstico]
+      </p>
+    </div>
+    
+    <div style="margin-bottom: 24px;">
+      <h2 style="font-size: 14px; color: #1E4947; margin: 0 0 12px 0; text-transform: uppercase; border-bottom: 2px solid #1E4947; padding-bottom: 8px;">Plan de tratamiento</h2>
+      <p style="color: #535C66; line-height: 1.8;">
+        {{tratamiento.nombre}}
+      </p>
+    </div>
+    
+    <div style="margin-bottom: 24px;">
+      <h2 style="font-size: 14px; color: #1E4947; margin: 0 0 12px 0; text-transform: uppercase; border-bottom: 2px solid #1E4947; padding-bottom: 8px;">Recomendaciones</h2>
+      <p style="color: #535C66; line-height: 1.8;">
+        [Indicar recomendaciones al paciente]
+      </p>
+    </div>
+    
+    <div style="display: flex; justify-content: space-between; padding-top: 24px; border-top: 1px solid #E5E7EB; margin-top: 32px;">
+      <div>
+        <p style="color: #535C66; font-size: 13px;">{{clinica.direccion}}</p>
+        <p style="color: #535C66; font-size: 13px;">{{documento.fecha}}</p>
+      </div>
+      <div style="text-align: center; width: 200px;">
+        <p style="color: #6B7280; font-size: 12px; margin: 0 0 40px 0;">Firma del profesional</p>
+        <div style="border-bottom: 1px solid #24282C; margin-bottom: 8px;"></div>
+        <p style="color: #24282C; font-size: 13px; margin: 0;">{{profesional.nombre}}</p>
+        <p style="color: #535C66; font-size: 12px; margin: 4px 0 0 0;">{{profesional.especialidad}}</p>
+        <p style="color: #535C66; font-size: 12px; margin: 2px 0 0 0;">Nº Col: {{profesional.num_colegiado}}</p>
+      </div>
+    </div>
+  `
+}
+
+// Initial document templates
+const initialDocumentTemplates: DocumentTemplate[] = [
+  {
+    id: 'd1',
+    title: 'Facturas',
+    type: 'factura',
+    content: DEFAULT_DOCUMENT_TEMPLATES.factura,
+    isDefault: true
+  },
+  {
+    id: 'd2',
+    title: 'Recetas',
+    type: 'receta',
+    content: DEFAULT_DOCUMENT_TEMPLATES.receta,
+    isDefault: true
+  },
+  {
+    id: 'd3',
+    title: 'Presupuestos',
+    type: 'presupuesto',
+    content: DEFAULT_DOCUMENT_TEMPLATES.presupuesto,
+    isDefault: true
+  },
+  {
+    id: 'd4',
+    title: 'Justificantes de asistencia',
+    type: 'justificante',
+    content: DEFAULT_DOCUMENT_TEMPLATES.justificante,
+    isDefault: true
+  },
+  {
+    id: 'd5',
+    title: 'Consentimiento Protección de datos (RGPD)',
+    type: 'consentimiento',
+    content: DEFAULT_DOCUMENT_TEMPLATES.consentimiento,
+    isDefault: true
+  },
+  {
+    id: 'd6',
+    title: 'Consentimiento Tratamiento con sedación',
+    type: 'consentimiento',
+    content: DEFAULT_DOCUMENT_TEMPLATES.consentimiento,
+    isDefault: true
+  },
+  {
+    id: 'd7',
+    title: 'Consentimiento Extracción dental',
+    type: 'consentimiento',
+    content: DEFAULT_DOCUMENT_TEMPLATES.consentimiento,
+    isDefault: true
+  },
+  {
+    id: 'd8',
+    title: 'Informes clínicos',
+    type: 'informe',
+    content: DEFAULT_DOCUMENT_TEMPLATES.informe,
+    isDefault: true
+  }
+]
+
+// Type labels for document templates
+export const DOCUMENT_TYPE_LABELS: Record<DocumentTemplateType, string> = {
+  factura: 'Factura',
+  receta: 'Receta',
+  presupuesto: 'Presupuesto',
+  justificante: 'Justificante',
+  consentimiento: 'Consentimiento',
+  informe: 'Informe'
+}
+
+// ============================================
 // CONTEXT TYPE
 // ============================================
 
@@ -280,6 +768,20 @@ type ConfigurationContextType = {
     startHour: number
     endHour: number
   }
+
+  // Document Templates
+  documentTemplates: DocumentTemplate[]
+  addDocumentTemplate: (
+    template: Omit<DocumentTemplate, 'id' | 'lastModified'>
+  ) => void
+  updateDocumentTemplate: (
+    id: string,
+    updates: Partial<DocumentTemplate>
+  ) => void
+  deleteDocumentTemplate: (id: string) => void
+  getDocumentTemplateById: (id: string) => DocumentTemplate | undefined
+  getDocumentTemplatesByType: (type: DocumentTemplateType) => DocumentTemplate[]
+  resetDocumentTemplate: (id: string) => void
 }
 
 // ============================================
@@ -303,6 +805,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const [boxes, setBoxes] = useState<Box[]>(initialBoxes)
   const [workingHours, setWorkingHours] =
     useState<WorkingHoursConfig>(initialWorkingHours)
+  const [documentTemplates, setDocumentTemplates] = useState<DocumentTemplate[]>(
+    initialDocumentTemplates
+  )
 
   // ====== CLINIC INFO ======
   const updateClinicInfo = useCallback((updates: Partial<ClinicInfo>) => {
@@ -445,6 +950,62 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     [workingHours]
   )
 
+  // ====== DOCUMENT TEMPLATES ======
+  const addDocumentTemplate = useCallback(
+    (template: Omit<DocumentTemplate, 'id' | 'lastModified'>) => {
+      const newTemplate: DocumentTemplate = {
+        ...template,
+        id: `doc-${Date.now()}`,
+        lastModified: new Date().toISOString()
+      }
+      setDocumentTemplates((prev) => [...prev, newTemplate])
+    },
+    []
+  )
+
+  const updateDocumentTemplate = useCallback(
+    (id: string, updates: Partial<DocumentTemplate>) => {
+      setDocumentTemplates((prev) =>
+        prev.map((t) =>
+          t.id === id
+            ? { ...t, ...updates, lastModified: new Date().toISOString() }
+            : t
+        )
+      )
+    },
+    []
+  )
+
+  const deleteDocumentTemplate = useCallback((id: string) => {
+    setDocumentTemplates((prev) => prev.filter((t) => t.id !== id))
+  }, [])
+
+  const getDocumentTemplateById = useCallback(
+    (id: string) => documentTemplates.find((t) => t.id === id),
+    [documentTemplates]
+  )
+
+  const getDocumentTemplatesByType = useCallback(
+    (type: DocumentTemplateType) =>
+      documentTemplates.filter((t) => t.type === type),
+    [documentTemplates]
+  )
+
+  const resetDocumentTemplate = useCallback((id: string) => {
+    setDocumentTemplates((prev) =>
+      prev.map((t) => {
+        if (t.id === id && t.isDefault) {
+          return {
+            ...t,
+            content: DEFAULT_DOCUMENT_TEMPLATES[t.type],
+            lastModified: new Date().toISOString()
+          }
+        }
+        return t
+      })
+    )
+  }, [])
+
   // ====== CONTEXT VALUE ======
   const value = useMemo<ConfigurationContextType>(
     () => ({
@@ -470,7 +1031,14 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       boxOptions,
       workingHours,
       updateWorkingHours,
-      getPeriodConfig
+      getPeriodConfig,
+      documentTemplates,
+      addDocumentTemplate,
+      updateDocumentTemplate,
+      deleteDocumentTemplate,
+      getDocumentTemplateById,
+      getDocumentTemplatesByType,
+      resetDocumentTemplate
     }),
     [
       clinicInfo,
@@ -495,7 +1063,14 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       boxOptions,
       workingHours,
       updateWorkingHours,
-      getPeriodConfig
+      getPeriodConfig,
+      documentTemplates,
+      addDocumentTemplate,
+      updateDocumentTemplate,
+      deleteDocumentTemplate,
+      getDocumentTemplateById,
+      getDocumentTemplatesByType,
+      resetDocumentTemplate
     ]
   )
 

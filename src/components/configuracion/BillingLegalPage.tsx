@@ -5,6 +5,7 @@ import {
   FilterAltRounded,
   SearchRounded
 } from '@/components/icons/md3'
+import Portal from '@/components/ui/Portal'
 import { useCallback, useMemo, useState } from 'react'
 import TemplateEditorModal, {
   type DocumentTemplate
@@ -772,10 +773,11 @@ export default function BillingLegalPage() {
 
       {/* New Document Modal */}
       {showNewDocumentModal && (
-        <div
-          className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'
-          onClick={() => setShowNewDocumentModal(false)}
-        >
+        <Portal>
+          <div
+            className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'
+            onClick={() => setShowNewDocumentModal(false)}
+          >
           <div
             className='w-[min(28rem,95vw)] bg-white rounded-xl shadow-xl overflow-hidden'
             onClick={(e) => e.stopPropagation()}
@@ -860,6 +862,7 @@ export default function BillingLegalPage() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </>
   )

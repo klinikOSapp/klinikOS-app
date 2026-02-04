@@ -9,7 +9,7 @@ import BudgetsPayments, {
 } from './BudgetsPayments'
 import ClientSummary from './ClientSummary'
 import ClinicalHistory from './ClinicalHistory'
-import Consents from './Consents'
+import Documents from './Documents'
 import Recetas from './Recetas'
 import Resumen from './Resumen'
 import RxImages from './RxImages'
@@ -399,7 +399,7 @@ export default function PatientRecordModal({
                     />
                   )}
                   {active === 'Documentos' && (
-                    <Consents onClose={onClose} patientId={patientId} />
+                    <Documents onClose={onClose} patientId={patientId} />
                   )}
                   {active === 'Recetas' && (
                     <Recetas

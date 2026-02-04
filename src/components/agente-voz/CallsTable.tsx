@@ -884,7 +884,7 @@ export default function CallsTable({
             voiceAgentTier={voiceAgentTier}
           />
         ) : (
-          <div className='w-full overflow-x-auto flex-1 flex flex-col'>
+          <div className='w-full table-scroll-x flex-1 flex flex-col'>
             <table className='w-full min-w-[80rem] table-fixed'>
               {/* Header - Sticky vertical and horizontal for key columns */}
               <thead className='sticky top-0 z-20 bg-surface-app'>
