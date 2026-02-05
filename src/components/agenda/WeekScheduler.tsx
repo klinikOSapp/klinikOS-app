@@ -4752,6 +4752,7 @@ export default function WeekScheduler() {
           // Abrir modal de ficha del paciente
           setPatientRecordConfig({
             open: true,
+            initialTab: 'Resumen',
             patientId: event.id,
             patientName: detail?.patientFull || 'Paciente'
           })
