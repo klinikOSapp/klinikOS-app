@@ -171,35 +171,44 @@ function getOverlayTop(relativeTop: string): string {
   return `calc(var(--scheduler-day-header-height) + ${trimmed})`
 }
 
-function getOverlayLeft(boxId: string): string {
-  // Smart positioning: place overlay to the right of the box when possible
-  // If box is the last one (box3), place overlay to the LEFT
-  const isLastBox = boxId === 'box3'
-
-  if (isLastBox) {
-    // Place overlay to the LEFT
-    // Calculate: 2/3 of the width (from left edge) - overlay width - gutter
-    return `max(1rem, calc(66.67% - var(--scheduler-overlay-width) - ${OVERLAY_GUTTER}))`
+function getOverlayLeft(boxId: string, totalBoxes: number = 3): string {
+  // SMART POSITIONING: Place overlay in the OPPOSITE half of the day view
+  // This ensures the overlay never covers the appointment, regardless of how many boxes exist
+  
+  // Extract box number from boxId (e.g., "box1" -> 1, "box-3" -> 3, "box 2" -> 2)
+  const boxMatch = boxId.match(/\d+/)
+  const boxNumber = boxMatch ? parseInt(boxMatch[0], 10) : 1
+  
+  // Determine if the event is in the first half or second half of boxes
+  // First half: boxes 1 to ceil(totalBoxes/2) -> overlay goes RIGHT
+  // Second half: remaining boxes -> overlay goes LEFT
+  const midpoint = Math.ceil(totalBoxes / 2)
+  const isInFirstHalf = boxNumber <= midpoint
+  
+  // Calculate box width as percentage (each box gets equal width)
+  const boxWidthPercent = 100 / totalBoxes
+  
+  if (isInFirstHalf) {
+    // Event is in first half -> place overlay to the RIGHT (after the midpoint)
+    // Position: time column + (midpoint boxes * boxWidth) + gutter
+    const leftPercent = midpoint * boxWidthPercent
+    return `calc(var(--day-time-column-width) + ${leftPercent}% + ${OVERLAY_GUTTER})`
+  } else {
+    // Event is in second half -> place overlay to the LEFT (before the midpoint)
+    // Position: time column + (midpoint * boxWidth) - overlay width - gutter
+    const leftPercent = midpoint * boxWidthPercent
+    return `max(1rem, calc(var(--day-time-column-width) + ${leftPercent}% - var(--scheduler-overlay-width) - ${OVERLAY_GUTTER}))`
   }
-
-  // For first and middle boxes, place overlay to the RIGHT
-  // box1: starts after time column (var(--day-time-column-width)) + 1/3 width + gutter
-  // box2: starts at 1/3 + 1/3 width + gutter
-  if (boxId === 'box1') {
-    return `calc(var(--day-time-column-width) + 33.33% + ${OVERLAY_GUTTER})`
-  }
-
-  // box2
-  return `calc(var(--day-time-column-width) + 66.67% + ${OVERLAY_GUTTER})`
 }
 
 function getSmartOverlayPosition(
   relativeTop: string,
   boxId: string,
-  overlayHeight: string = 'var(--scheduler-overlay-height)'
+  overlayHeight: string = 'var(--scheduler-overlay-height)',
+  totalBoxes: number = 3
 ) {
   const baseTop = getOverlayTop(relativeTop)
-  const baseLeft = getOverlayLeft(boxId)
+  const baseLeft = getOverlayLeft(boxId, totalBoxes)
 
   return {
     top: `max(0rem, min(${baseTop}, calc(100vh - ${overlayHeight} - var(--spacing-topbar) - var(--scheduler-toolbar-height) - var(--scheduler-day-header-height) - 1rem)))`,
@@ -2203,6 +2212,15 @@ export default function DayCalendar({
       const detail = event.detail
 
       switch (action) {
+        case 'view-patient':
+          // Abrir modal de ficha del paciente
+          setPatientRecordConfig({
+            open: true,
+            patientId: event.id,
+            patientName: detail?.patientFull || 'Paciente'
+          })
+          break
+
         case 'view-appointment':
           // Abrir overlay de detalle de la cita
           setActive({
@@ -2880,7 +2898,8 @@ export default function DayCalendar({
           const position = getSmartOverlayPosition(
             hovered.event.top,
             hovered.boxId,
-            'auto'
+            'auto',
+            boxCount
           )
           return (
             <AppointmentHoverOverlay
@@ -2899,7 +2918,9 @@ export default function DayCalendar({
         (() => {
           const position = getSmartOverlayPosition(
             overlaySource.event.top,
-            overlaySource.boxId
+            overlaySource.boxId,
+            'var(--scheduler-overlay-height)',
+            boxCount
           )
           return (
             <AppointmentDetailOverlay

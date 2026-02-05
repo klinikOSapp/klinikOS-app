@@ -625,37 +625,40 @@ function getOverlayTop(
 
 function getOverlayLeft(
   column: DayColumn,
-  event?: Pick<AgendaEvent, 'left' | 'width' | 'height' | 'box'>
+  event?: Pick<AgendaEvent, 'left' | 'width' | 'height' | 'box'>,
+  totalBoxes: number = 2
 ): string {
-  // Place the overlay in the adjacent box within the same day column.
-  const halfColumn = `calc(var(${column.widthVar}) / 2)`
-  const isBox1 = (event?.box ?? '').toLowerCase().includes('box 1')
-  const isFirstDay = column.id === 'monday'
-  const isLastDay = column.id === 'friday'
-
-  if (isBox1) {
-    // Event en Box 1 → overlay en Box 2 (derecha de la mitad del día),
-    // salvo en el último día, donde lo sacamos hacia la izquierda para no invadir día siguiente.
-    if (isLastDay) {
-      return `calc(var(${column.leftVar}) + ${halfColumn} - var(--scheduler-overlay-width) - ${OVERLAY_GUTTER})`
-    }
-    return `calc(var(${column.leftVar}) + ${halfColumn} + ${OVERLAY_GUTTER})`
+  // SMART POSITIONING: Place overlay in the OPPOSITE half of the day column
+  // This ensures the overlay never covers the appointment, regardless of how many boxes exist
+  
+  // Extract box number from event.box (e.g., "Box 1" -> 1, "Box 3" -> 3)
+  const boxMatch = (event?.box ?? '').match(/\d+/)
+  const boxNumber = boxMatch ? parseInt(boxMatch[0], 10) : 1
+  
+  // Determine if the event is in the first half or second half of boxes
+  // First half: boxes 1 to floor(totalBoxes/2) -> overlay goes RIGHT
+  // Second half: boxes floor(totalBoxes/2)+1 to totalBoxes -> overlay goes LEFT
+  const midpoint = Math.ceil(totalBoxes / 2)
+  const isInFirstHalf = boxNumber <= midpoint
+  
+  // Calculate position within the day column
+  if (isInFirstHalf) {
+    // Event is in first half -> place overlay in the RIGHT half of the column
+    // Position: column start + half column width + gutter
+    return `calc(var(${column.leftVar}) + var(${column.widthVar}) / 2 + ${OVERLAY_GUTTER})`
+  } else {
+    // Event is in second half -> place overlay in the LEFT half of the column
+    // Position: column start + (half column width - overlay width - gutter)
+    return `calc(var(${column.leftVar}) + var(${column.widthVar}) / 2 - var(--scheduler-overlay-width) - ${OVERLAY_GUTTER})`
   }
-
-  // Event en Box 2 → overlay en Box 1 (izquierda de la mitad del día),
-  // salvo en el primer día, donde lo sacamos hacia la derecha para no invadir día anterior.
-  if (isFirstDay) {
-    return `calc(var(${column.leftVar}) + ${halfColumn} + ${OVERLAY_GUTTER})`
-  }
-
-  return `calc(var(${column.leftVar}) + ${halfColumn} - var(--scheduler-overlay-width) - ${OVERLAY_GUTTER})`
 }
 
 function getSmartOverlayPosition(
   relativeTop: string,
   column: DayColumn,
   overlayHeight: string = 'var(--scheduler-overlay-height)',
-  event?: Pick<AgendaEvent, 'left' | 'width' | 'height' | 'box'>
+  event?: Pick<AgendaEvent, 'left' | 'width' | 'height' | 'box'>,
+  totalBoxes: number = 2
 ) {
   // Calculate base positions
   const baseTop = getOverlayTop(
@@ -663,7 +666,7 @@ function getSmartOverlayPosition(
     overlayHeight,
     event?.height ?? '0rem'
   )
-  const baseLeft = getOverlayLeft(column, event)
+  const baseLeft = getOverlayLeft(column, event, totalBoxes)
 
   // Return position with constraint to prevent overflow
   // Using CSS max() and min() functions to clamp the overlay within viewport
@@ -4355,6 +4358,10 @@ export default function WeekScheduler() {
         .find((e) => e.id === active.event.id)
     : null
   const activeDetail = freshEvent?.detail ?? overlaySource?.event.detail
+  
+  // Calculate total visible boxes for smart overlay positioning
+  const totalVisibleBoxes = selectedBoxes.length || 2
+  
   const overlayPosition =
     overlaySource && activeDetail
       ? activeDetail.overlayOffsets?.top && activeDetail.overlayOffsets?.left
@@ -4366,7 +4373,8 @@ export default function WeekScheduler() {
             overlaySource.event.top,
             overlaySource.column,
             'var(--scheduler-overlay-height)',
-            overlaySource.event
+            overlaySource.event,
+            totalVisibleBoxes
           )
       : null
 
@@ -4740,6 +4748,15 @@ export default function WeekScheduler() {
       const detail = event.detail
 
       switch (action) {
+        case 'view-patient':
+          // Abrir modal de ficha del paciente
+          setPatientRecordConfig({
+            open: true,
+            patientId: event.id,
+            patientName: detail?.patientFull || 'Paciente'
+          })
+          break
+
         case 'view-appointment':
           // Abrir overlay de detalle de la cita - encontrar la columna correspondiente
           const column = dayColumnsState.find((col) =>
@@ -6268,7 +6285,8 @@ export default function WeekScheduler() {
                     hovered.event.top,
                     hovered.column,
                     overlayHeight,
-                    hovered.event
+                    hovered.event,
+                    totalVisibleBoxes
                   )
                   return (
                     <AppointmentHoverOverlay
