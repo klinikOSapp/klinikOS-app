@@ -65,7 +65,7 @@ const SPECIALTY_PERCENTAGES: Record<Specialty, number> = {
 }
 
 // Escalas Y dinámicas según timeScale
-const Y_CONFIG = {
+const Y_CONFIG: Record<string, { domain: [number, number]; labels: string[] }> = {
   month: {
     domain: [0, 40000] as [number, number],
     labels: ['40K', '32K', '24K', '16K', '8K', '0']
@@ -77,6 +77,10 @@ const Y_CONFIG = {
   day: {
     domain: [0, 2000] as [number, number],
     labels: ['2K', '1.6K', '1.2K', '800', '400', '0']
+  },
+  year: {
+    domain: [0, 480000] as [number, number],
+    labels: ['480K', '384K', '288K', '192K', '96K', '0']
   }
 }
 
@@ -245,7 +249,7 @@ export default function BillingLineChart({
           <div className='flex flex-1'>
             {/* Y-axis labels - responsive width */}
             <div className='flex w-8 lg:w-10 shrink-0 flex-col justify-between py-2 text-label-sm font-normal text-neutral-400'>
-              {yConfig.labels.map((value) => (
+              {yConfig.labels.map((value: string) => (
                 <span key={value}>{value}</span>
               ))}
             </div>

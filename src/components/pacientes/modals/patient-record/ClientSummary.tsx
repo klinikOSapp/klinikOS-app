@@ -24,6 +24,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 type ClientSummaryProps = {
   onClose?: () => void
   patientId?: string
+  initialEditMode?: boolean
+  onEditModeOpened?: () => void
+  readOnly?: boolean
 }
 
 type AlertSeverity = 'low' | 'medium' | 'high'

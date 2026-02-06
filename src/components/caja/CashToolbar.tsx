@@ -20,6 +20,7 @@ type CashToolbarProps = {
   onNavigatePrevious: () => void
   timeScale: CashTimeScale
   onTimeScaleChange: (scale: CashTimeScale) => void
+  showClosingButton?: boolean
 }
 
 const SCALE_OPTIONS: { id: CashTimeScale; label: string }[] = [

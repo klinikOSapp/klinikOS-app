@@ -1,29 +1,11 @@
 'use client'
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-import { MD3Icon } from '@/components/icons/MD3Icon'
+import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
+import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
+import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
+import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded'
 import React from 'react'
 import { createPortal } from 'react-dom'
-
-type NominatimAddress = {
-  road?: string
-  street?: string
-  city?: string
-  town?: string
-  village?: string
-  postcode?: string
-  state?: string
-  province?: string
-  country?: string
-  country_code?: string
-}
-
-type NominatimSuggestion = {
-  place_id?: string | number
-  display_name?: string
-  address?: NominatimAddress
-}
 
 export function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -31,182 +13,28 @@ export function FieldLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-// ============================================
-// FUNCIONES DE VALIDACIÓN
-// ============================================
-
-// Validar DNI español (8 números + 1 letra)
-export function validateDNI(dni: string): { valid: boolean; error?: string } {
-  if (!dni) return { valid: true } // Campo vacío es válido si no es requerido
-  
-  const dniRegex = /^[0-9]{8}[A-Za-z]$/
-  if (!dniRegex.test(dni)) {
-    return { valid: false, error: 'Formato: 8 dígitos + letra (ej: 12345678A)' }
-  }
-  
-  // Validar letra del DNI
-  const letters = 'TRWAGMYFPDXBNJZSQVHLCKE'
-  const number = parseInt(dni.slice(0, 8), 10)
-  const expectedLetter = letters[number % 23]
-  const actualLetter = dni.slice(8).toUpperCase()
-  
-  if (actualLetter !== expectedLetter) {
-    return { valid: false, error: 'La letra del DNI no es correcta' }
-  }
-  
-  return { valid: true }
-}
-
-// Validar NIE español (X/Y/Z + 7 números + 1 letra)
-export function validateNIE(nie: string): { valid: boolean; error?: string } {
-  if (!nie) return { valid: true }
-  
-  const nieRegex = /^[XYZxyz][0-9]{7}[A-Za-z]$/
-  if (!nieRegex.test(nie)) {
-    return { valid: false, error: 'Formato: X/Y/Z + 7 dígitos + letra (ej: X1234567A)' }
-  }
-  
-  // Validar letra del NIE
-  const letters = 'TRWAGMYFPDXBNJZSQVHLCKE'
-  let nieNumber = nie.toUpperCase()
-  nieNumber = nieNumber.replace('X', '0').replace('Y', '1').replace('Z', '2')
-  const number = parseInt(nieNumber.slice(0, 8), 10)
-  const expectedLetter = letters[number % 23]
-  const actualLetter = nie.slice(8).toUpperCase()
-  
-  if (actualLetter !== expectedLetter) {
-    return { valid: false, error: 'La letra del NIE no es correcta' }
-  }
-  
-  return { valid: true }
-}
-
-// Validar Pasaporte (formato genérico)
-export function validatePassport(passport: string): { valid: boolean; error?: string } {
-  if (!passport) return { valid: true }
-  
-  // Mínimo 5 caracteres alfanuméricos
-  const passportRegex = /^[A-Za-z0-9]{5,20}$/
-  if (!passportRegex.test(passport)) {
-    return { valid: false, error: 'Formato inválido (5-20 caracteres alfanuméricos)' }
-  }
-  
-  return { valid: true }
-}
-
-// Validar documento según tipo
-export function validateDocument(
-  value: string, 
-  type: 'DNI' | 'NIE' | 'Pasaporte' | 'Otro'
-): { valid: boolean; error?: string } {
-  switch (type) {
-    case 'DNI':
-      return validateDNI(value)
-    case 'NIE':
-      return validateNIE(value)
-    case 'Pasaporte':
-      return validatePassport(value)
-    default:
-      return { valid: true }
-  }
-}
-
-// Validar email
-export function validateEmail(email: string): { valid: boolean; error?: string } {
-  if (!email) return { valid: true }
-  
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(email)) {
-    return { valid: false, error: 'Formato de email inválido' }
-  }
-  
-  return { valid: true }
-}
-
-// Validar teléfono español
-export function validatePhone(phone: string): { valid: boolean; error?: string } {
-  if (!phone) return { valid: true }
-  
-  // Eliminar espacios y guiones
-  const cleanPhone = phone.replace(/[\s-]/g, '')
-  
-  // Teléfono español: 9 dígitos empezando por 6, 7, 8 o 9
-  const phoneRegex = /^[6789][0-9]{8}$/
-  if (!phoneRegex.test(cleanPhone)) {
-    return { valid: false, error: 'Formato: 9 dígitos (ej: 612345678)' }
-  }
-  
-  return { valid: true }
-}
-
-// Calcular edad desde fecha de nacimiento
-export function calculateAgeFromDate(birthDate: Date): number {
-  const today = new Date()
-  let age = today.getFullYear() - birthDate.getFullYear()
-  const monthDiff = today.getMonth() - birthDate.getMonth()
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--
-  }
-  return age
-}
-
-// Generar número de historia clínica único
-export function generateMedicalRecordNumber(): string {
-  const date = new Date()
-  const year = date.getFullYear().toString().slice(-2)
-  const month = (date.getMonth() + 1).toString().padStart(2, '0')
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase()
-  return `HC-${year}${month}-${random}`
-}
-
 export function TextInput({
   placeholder = 'Value',
   required,
   value,
-  onChange,
-  error,
-  onBlur,
-  type = 'text'
+  onChange
 }: {
   placeholder?: string
   required?: boolean
   value?: string
   onChange?: (v: string) => void
-  error?: string
-  onBlur?: () => void
-  type?: 'text' | 'email' | 'tel'
 }) {
-  const hasError = !!error
-  
   return (
-    <div className='relative flex flex-col gap-1'>
-      <div className='relative'>
-        <input
-          type={type}
-          placeholder={placeholder}
-          className={`w-full h-12 rounded-[0.5rem] bg-[var(--color-neutral-50)] border px-2.5 text-body-md text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)] outline-none transition-colors ${
-            hasError 
-              ? 'border-[var(--color-error-500)] focus:border-[var(--color-error-600)]' 
-              : 'border-[var(--color-neutral-300)] focus:border-[var(--color-brand-500)]'
-          }`}
-          value={value}
-          onChange={onChange ? (e) => onChange(e.target.value) : undefined}
-          onBlur={onBlur}
-        />
-        {required && !hasError && (
-          <span className='absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-error-600)] text-body-md leading-none'>
-            *
-          </span>
-        )}
-        {hasError && (
-          <span className='absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-error-500)]'>
-            <MD3Icon name='ErrorRounded' size='sm' />
-          </span>
-        )}
-      </div>
-      {hasError && (
-        <span className='text-label-sm text-[var(--color-error-600)]'>
-          {error}
+    <div className='relative'>
+      <input
+        placeholder={placeholder}
+        className='w-full h-12 rounded-[0.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5 text-body-md text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)] outline-none'
+        value={value}
+        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+      />
+      {required && (
+        <span className='absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-error-600)] text-body-md leading-none'>
+          *
         </span>
       )}
     </div>
@@ -218,26 +46,20 @@ export function SelectInput({
   value,
   onChange,
   options,
-  onCreate,
-  createLabel = 'Crear',
-  createLabelFromInput
+  onCreate: _onCreate,
+  createLabel: _createLabel,
+  createLabelFromInput: _createLabelFromInput
 }: {
   placeholder?: string
   value?: string
   onChange?: (v: string) => void
   options?: { label: string; value: string }[]
-  onCreate?: (inputValue?: string) => void
+  onCreate?: (text: string) => void
   createLabel?: string
-  createLabelFromInput?: (inputValue: string) => string
+  createLabelFromInput?: (text: string) => string
 }) {
   const [isOpen, setIsOpen] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
-  const [inputValue, setInputValue] = React.useState<string>('')
-
-  React.useEffect(() => {
-    const selectedOption = options?.find((opt) => opt.value === value)
-    setInputValue(selectedOption?.label ?? '')
-  }, [options, value])
 
   // Cerrar dropdown al hacer clic fuera
   React.useEffect(() => {
@@ -256,58 +78,43 @@ export function SelectInput({
     return undefined
   }, [isOpen])
 
-  const filteredOptions =
-    options?.filter((opt) =>
-      inputValue
-        ? opt.label.toLowerCase().includes(inputValue.toLowerCase())
-        : true
-    ) ?? []
+  const selectedOption = options?.find((opt) => opt.value === value)
+  const displayText = selectedOption?.label || placeholder
 
   return (
     <div className='relative' ref={containerRef}>
-      <div className='relative flex h-12 items-center rounded-[0.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5'>
-        <input
-          type='text'
-          value={inputValue}
-          placeholder={placeholder}
-          onChange={(e) => {
-            setInputValue(e.target.value)
-            setIsOpen(true)
-          }}
-          onFocus={() => setIsOpen(true)}
-          className='w-full bg-transparent pr-6 text-body-md text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)] outline-none'
-        />
-        <button
-          type='button'
-          aria-label='Abrir selección'
-          onClick={() => setIsOpen((prev) => !prev)}
-          className='absolute right-2 flex items-center justify-center text-[var(--color-neutral-700)]'
+      <button
+        type='button'
+        onClick={() => setIsOpen(!isOpen)}
+        className='w-full h-12 rounded-[0.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5 pr-2 py-2 flex items-center justify-between text-left outline-none hover:border-[var(--color-neutral-400)] transition-colors'
+      >
+        <span
+          className={`text-body-md ${
+            selectedOption
+              ? 'text-[var(--color-neutral-900)]'
+              : 'text-[var(--color-neutral-400)]'
+          }`}
         >
-          <MD3Icon
-            name='KeyboardArrowDownRounded'
-            size='sm'
-            className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          />
-        </button>
-      </div>
+          {displayText}
+        </span>
+        <KeyboardArrowDownRounded
+          className={`text-[var(--color-neutral-700)] transition-transform ${
+            isOpen ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
 
-      {isOpen && (
+      {isOpen && options && options.length > 0 && (
         <div
           className='absolute z-50 w-full mt-1 bg-[rgba(248,250,251,0.95)] backdrop-blur-[2px] rounded-[0.5rem] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)] border border-[var(--color-neutral-300)] py-2 max-h-60 overflow-y-auto'
           style={{ backdropFilter: 'blur(2px)' }}
         >
-          {filteredOptions.length === 0 && (
-            <div className='px-2 py-1 text-body-md text-[var(--color-neutral-500)]'>
-              Sin resultados
-            </div>
-          )}
-          {filteredOptions.map((opt) => (
+          {options.map((opt) => (
             <button
               key={opt.value}
               type='button'
               onClick={() => {
                 onChange?.(opt.value)
-                setInputValue(opt.label)
                 setIsOpen(false)
               }}
               className={`w-full px-2 py-1 text-left text-body-md font-medium text-[var(--color-neutral-900)] hover:bg-[var(--color-brand-50)] transition-colors ${
@@ -317,22 +124,6 @@ export function SelectInput({
               {opt.label}
             </button>
           ))}
-          {filteredOptions.length === 0 && onCreate && (
-            <div className='px-2 pt-2'>
-              <button
-                type='button'
-                onClick={() => {
-                  onCreate(inputValue)
-                  setIsOpen(false)
-                }}
-                className='w-full rounded-[0.5rem] bg-[var(--color-brand-50)] px-3 py-2 text-left text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-100)]'
-              >
-                {createLabelFromInput
-                  ? createLabelFromInput(inputValue)
-                  : createLabel}
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -371,7 +162,7 @@ export function AutocompleteInput({
   required?: boolean
   value?: string
   onChange?: (v: string) => void
-  onSelect?: (suggestion: {
+  onSelect?: (suggestion: { 
     display: string
     street: string
     city: string
@@ -381,13 +172,11 @@ export function AutocompleteInput({
     countryCode: string
   }) => void
 }) {
-  const [suggestions, setSuggestions] = React.useState<NominatimSuggestion[]>(
-    []
-  )
+  const [suggestions, setSuggestions] = React.useState<any[]>([])
   const [isLoading, setIsLoading] = React.useState(false)
   const [showSuggestions, setShowSuggestions] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
-  const debounceTimer = React.useRef<NodeJS.Timeout | null>(null)
+  const debounceTimer = React.useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Cerrar sugerencias al hacer clic fuera
   React.useEffect(() => {
@@ -429,7 +218,7 @@ export function AutocompleteInput({
           }
         }
       )
-      const data = (await response.json()) as NominatimSuggestion[]
+      const data = await response.json()
       setSuggestions(data)
       setShowSuggestions(true)
     } catch (error) {
@@ -453,7 +242,7 @@ export function AutocompleteInput({
     }, 300) // Esperar 300ms después de que el usuario deje de escribir
   }
 
-  const handleSelectSuggestion = (suggestion: NominatimSuggestion) => {
+  const handleSelectSuggestion = (suggestion: any) => {
     const address = suggestion.address || {}
     const street = address.road || address.street || ''
     const city = address.city || address.town || address.village || ''
@@ -610,11 +399,6 @@ export function DatePickerInput({
   const monthRef = React.useRef<HTMLInputElement>(null)
   const yearRef = React.useRef<HTMLInputElement>(null)
 
-  // Sync internal state when external value prop changes
-  React.useEffect(() => {
-    setSelectedDate(value ?? null)
-  }, [value])
-
   // Actualizar inputs cuando cambia selectedDate
   React.useEffect(() => {
     if (selectedDate) {
@@ -629,30 +413,20 @@ export function DatePickerInput({
   }, [selectedDate])
 
   // Función para validar y actualizar la fecha
-  const updateDateFromInputs = React.useCallback(
-    (d: string, m: string, y: string) => {
-      if (d.length === 2 && m.length === 2 && y.length === 4) {
-        const day = parseInt(d, 10)
-        const month = parseInt(m, 10)
-        const year = parseInt(y, 10)
-        if (
-          day >= 1 &&
-          day <= 31 &&
-          month >= 1 &&
-          month <= 12 &&
-          year >= 1900 &&
-          year <= 2100
-        ) {
-          const newDate = new Date(year, month - 1, day)
-          if (newDate.getDate() === day && newDate.getMonth() === month - 1) {
-            setSelectedDate(newDate)
-            onChange?.(newDate)
-          }
+  const updateDateFromInputs = React.useCallback((d: string, m: string, y: string) => {
+    if (d.length === 2 && m.length === 2 && y.length === 4) {
+      const day = parseInt(d, 10)
+      const month = parseInt(m, 10)
+      const year = parseInt(y, 10)
+      if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2100) {
+        const newDate = new Date(year, month - 1, day)
+        if (newDate.getDate() === day && newDate.getMonth() === month - 1) {
+          setSelectedDate(newDate)
+          onChange?.(newDate)
         }
       }
-    },
-    [onChange]
-  )
+    }
+  }, [onChange])
 
   const handleDayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 2)
@@ -867,14 +641,14 @@ export function DatePickerInput({
           onClick={() => setCalendarOpen((v) => !v)}
           className='p-1 rounded hover:bg-[var(--color-neutral-100)]'
         >
-          <MD3Icon name='CalendarMonthRounded' size='md' />
+          <CalendarMonthRounded className='w-6 h-6' />
         </button>
         {calendarOpen &&
           popoverPos &&
           createPortal(
             <div
               ref={calendarRef}
-              className='fixed z-[10000] w-[22.5rem] bg-[var(--color-surface-popover,#fff)] rounded-[1rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)] overflow-hidden'
+              className='fixed z-[100] w-[22.5rem] bg-[var(--color-surface-popover,#fff)] rounded-[1rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)] overflow-hidden'
               style={{
                 left: popoverPos.left,
                 top: popoverPos.top,
@@ -890,11 +664,7 @@ export function DatePickerInput({
                     onClick={prevMonth}
                   >
                     <div className='w-10 h-10 rounded-full grid place-items-center'>
-                      <MD3Icon
-                        name='ChevronLeftRounded'
-                        size='lg'
-                        className='text-[var(--color-neutral-900)]'
-                      />
+                      <ChevronLeftRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
                     </div>
                   </button>
                   <div className='relative ml-1'>
@@ -909,11 +679,7 @@ export function DatePickerInput({
                       <span className='text-body-sm font-medium text-[var(--color-neutral-700)]'>
                         {monthLabels[viewMonth]}
                       </span>
-                      <MD3Icon
-                        name='KeyboardArrowDownRounded'
-                        size='md'
-                        className='text-[var(--color-neutral-700)]'
-                      />
+                      <KeyboardArrowDownRounded className='w-[18px] h-[18px] text-[var(--color-neutral-700)]' />
                     </button>
                     {showMonthMenu && (
                       <div className='absolute left-0 top-[calc(100%+4px)] z-10 w-32 max-h-60 overflow-auto bg-[var(--color-surface-popover)] rounded-[0.75rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)]'>
@@ -943,11 +709,7 @@ export function DatePickerInput({
                     onClick={nextMonth}
                   >
                     <div className='w-10 h-10 rounded-full grid place-items-center'>
-                      <MD3Icon
-                        name='ChevronRightRounded'
-                        size='lg'
-                        className='text-[var(--color-neutral-900)]'
-                      />
+                      <ChevronRightRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
                     </div>
                   </button>
                 </div>
@@ -958,11 +720,7 @@ export function DatePickerInput({
                     onClick={prevYear}
                   >
                     <div className='w-10 h-10 rounded-full grid place-items-center'>
-                      <MD3Icon
-                        name='ChevronLeftRounded'
-                        size='lg'
-                        className='text-[var(--color-neutral-900)]'
-                      />
+                      <ChevronLeftRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
                     </div>
                   </button>
                   <div className='relative ml-1'>
@@ -977,11 +735,7 @@ export function DatePickerInput({
                       <span className='text-body-sm font-medium text-[var(--color-neutral-700)]'>
                         {viewYear}
                       </span>
-                      <MD3Icon
-                        name='KeyboardArrowDownRounded'
-                        size='md'
-                        className='text-[var(--color-neutral-700)]'
-                      />
+                      <KeyboardArrowDownRounded className='w-[18px] h-[18px] text-[var(--color-neutral-700)]' />
                     </button>
                     {showYearMenu && (
                       <div className='absolute left-0 top-[calc(100%+4px)] z-10 w-28 max-h-60 overflow-auto bg-[var(--color-surface-popover)] rounded-[0.75rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)]'>
@@ -1014,11 +768,7 @@ export function DatePickerInput({
                     onClick={nextYear}
                   >
                     <div className='w-10 h-10 rounded-full grid place-items-center'>
-                      <MD3Icon
-                        name='ChevronRightRounded'
-                        size='lg'
-                        className='text-[var(--color-neutral-900)]'
-                      />
+                      <ChevronRightRounded className='w-6 h-6 text-[var(--color-neutral-900)]' />
                     </div>
                   </button>
                 </div>

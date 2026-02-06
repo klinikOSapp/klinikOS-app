@@ -13,6 +13,7 @@ const SOCIAL_OPTIONS = [
 
 type RegisterLandingCardProps = {
   onEmailSubmit?: (email: string) => void
+  onGoogleClick?: () => void | Promise<void>
 }
 
 export default function RegisterLandingCard({

@@ -17,6 +17,9 @@ import React from 'react'
 type ClinicalHistoryProps = {
   onClose?: () => void
   patientId?: string
+  patientName?: string
+  initialEditMode?: boolean
+  onEditModeOpened?: () => void
 }
 
 type AppointmentRecord = {

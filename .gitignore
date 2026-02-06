@@ -47,3 +47,5 @@ next-env.d.ts
 
 *.md
 *.pdf
+
+UI changes/*
