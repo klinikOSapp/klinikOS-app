@@ -37,6 +37,8 @@
 
   --color-success-50: #e9f8f1;
   --color-success-200: #a0e3c3;
+  --color-success-400: #4ade80;
+  --color-success-500: #22c55e;
   --color-success-600: #2e7d5b;
   --color-success-800: #1d4f3a;
 
@@ -99,7 +101,7 @@
   /* Spacing - NOW SCALES WITH FLUID BASE */
   --spacing-topbar: 4rem; /* 64px ÷ 16 = 4rem */
   --spacing-sidebar: 16rem; /* 256px ÷ 16 = 16rem */
-  --spacing-sidebar-collapsed: 5rem; /* 80px ÷ 16 = 5rem */
+  --spacing-sidebar-collapsed: 6rem; /* 96px ÷ 16 = 6rem (Figma MCP) */
   --spacing-nav-item: 3rem; /* 48px ÷ 16 = 3rem */
   --spacing-cta: 3.5rem; /* 56px ÷ 16 = 3.5rem */
   --spacing-gapsm: 0.5rem; /* 8px ÷ 16 = 0.5rem */
@@ -107,16 +109,20 @@
   --spacing-plnav: 1.5rem; /* 24px ÷ 16 = 1.5rem */
 
   /* Dashboard specific spacing tokens (from Figma measurements) */
-  --space-card-pad: 1rem; /* 16px */
+  --space-card-pad: 1.25rem; /* más padding interno */
   --space-card-gap: 1.5rem; /* 24px exact gap entre cards Figma */
   --space-card-gap2: 0.6875rem; /* 11px */
-  --space-card-inner: 0.5rem; /* 8px */
-  --space-header-cards: 2.4375rem; /* 39px header -> cards gap */
+  --space-card-inner: 0.75rem; /* + aire dentro de las cards */
+  --space-header-cards: 0.9375rem; /* 15px header -> cards gap (Figma) */
   --space-card-row: 0.5rem; /* 8px between rows inside card */
   --space-card-metric: 0.25rem; /* 4px between value and KPI */
 
   /* Dashboard-specific spacing - usando clamp() con vh para escalar verticalmente */
-  --spacing-card-gap: clamp(1rem, 2vw, 1.5rem); /* 24px exactos con degradado seguro */
+  --spacing-card-gap: clamp(
+    1rem,
+    2vw,
+    1.5rem
+  ); /* 24px exactos con degradado seguro */
   --spacing-section-gap: clamp(
     1rem,
     2.5vh,
@@ -181,10 +187,13 @@
   --leading-body-lg: 1.75rem; /* 28px */
 
   /* Dashboard Component Dimensions */
-  --height-card-stat: 10.1875rem; /* 163px - cards de estadísticas */
+  --height-card-stat: 11.5rem; /* + altura para stats */
   --height-card-chart: 21.375rem; /* 342px exactos - cards con gráficos */
-  --width-card-stat: 32.6875rem; /* 523px - ancho card estadística */
+  /* Vinculamos el ancho de stats a la carta grande: 2 stats + gap = chart-lg */
   --width-card-chart-lg: 66.8125rem; /* 1069px - ancho card grande */
+  --width-card-stat: calc(
+    (var(--width-card-chart-lg) - var(--spacing-card-gap)) / 2
+  );
   --width-card-chart-md: 33.0625rem; /* 529px - ancho card mediano */
   --width-income-card: 9.75rem; /* 156px exactos - tarjeta Tipos de ingreso */
   --height-income-card: 6.25rem; /* 100px exactos - tarjeta Tipos de ingreso */
@@ -195,7 +204,7 @@
   --height-card-chart-prof: 21.375rem; /* 342px ÷ 16 = 21.375rem */
   --chart-prof-width-limit: 95vw; /* Viewport safety limit */
   --chart-prof-height-limit: 85vh; /* Viewport safety limit (adjusted from 39.1vh) */
-  
+
   /* Chart ratios calculated from Figma measurements */
   --chart-prof-axis-left-ratio: 0.10397; /* 55px ÷ 529px */
   --chart-prof-axis-label-left-ratio: 0.03025; /* 16px ÷ 529px */
@@ -206,15 +215,15 @@
   --chart-prof-labels-bottom-ratio: 0.88304; /* 302px ÷ 342px */
   --chart-prof-content-height-ratio: 0.93567; /* 320px ÷ 342px */
   --chart-prof-bar-width-ratio: 0.10964; /* 58px ÷ 529px */
-  
+
   /* Bar positions - extracted from Figma MCP */
   --chart-prof-bar-1-left-ratio: 0.10397; /* 55px ÷ 529px - Dr. Guille */
-  --chart-prof-bar-2-left-ratio: 0.31570; /* 167px ÷ 529px - Dra. Laura */
+  --chart-prof-bar-2-left-ratio: 0.3157; /* 167px ÷ 529px - Dra. Laura */
   --chart-prof-bar-3-left-ratio: 0.55955; /* 296px ÷ 529px - Tamara */
   --chart-prof-bar-4-left-ratio: 0.81285; /* 430px ÷ 529px - Nerea */
   --chart-prof-bar-1-top-ratio: 0.28363; /* 97px ÷ 342px */
   --chart-prof-bar-2-top-ratio: 0.38012; /* 130px ÷ 342px */
-  --chart-prof-bar-3-top-ratio: 0.51170; /* 175px ÷ 342px */
+  --chart-prof-bar-3-top-ratio: 0.5117; /* 175px ÷ 342px */
   --chart-prof-bar-4-top-ratio: 0.46491; /* 159px ÷ 342px */
   --chart-prof-bar-1-height-ratio: 0.57018; /* 195px ÷ 342px */
   --chart-prof-bar-2-height-ratio: 0.47368; /* 162px ÷ 342px */
@@ -228,8 +237,8 @@
   /* Fluid heights - adapt to viewport usando vh para escalar verticalmente */
   --height-card-stat-fluid: min(
     var(--height-card-stat),
-    18vh
-  ); /* 163px exactos con límite de viewport para pantallas bajas */
+    22vh
+  ); /* más alto cuando hay viewport disponible */
   --height-card-chart-fluid-base: clamp(
     15rem,
     32vh,
@@ -240,11 +249,10 @@
   ); /* valor por defecto, se puede sobreescribir por sección */
 
   /* Fluid widths - adapt to viewport */
-  --width-card-stat-fluid: clamp(
-    20rem,
-    27.239583vw,
-    32.6875rem
-  ); /* 320px → 523px scaled al viewport (523px ÷ 1920px) */
+  /* Cards de stats alineadas al chart grande en modo fluido */
+  --width-card-stat-fluid: calc(
+    (var(--width-card-chart-lg-fluid) - var(--spacing-card-gap)) / 2
+  );
   --width-card-chart-lg-fluid: clamp(
     40rem,
     55.677083vw,
@@ -342,27 +350,24 @@
   --scheduler-label-left: 0.0625rem; /* 1px divider */
 
   /* Fluid percentages - adapt to container width */
-  --scheduler-header-width-first: 18.75%; /* 312/1664 */
-  --scheduler-header-width: 13.52%; /* 225/1664 */
-  --scheduler-day-width-first: 13.64%; /* 227/1664 */
-  --scheduler-day-width: 13.52%; /* 225/1664 */
+  --scheduler-header-width-first: 23.85%; /* 396.8/1664 */
+  --scheduler-header-width: 19.04%; /* 316.8/1664 */
+  --scheduler-day-width-first: 19.04%; /* 316.8/1664 */
+  --scheduler-day-width: 19.04%; /* 316.8/1664 */
   --scheduler-day-left-mon: 4.81%; /* 80/1664 */
-  --scheduler-day-left-tue: 18.45%; /* 307/1664 */
-  --scheduler-day-left-wed: 31.97%; /* 532/1664 */
-  --scheduler-day-left-thu: 45.61%; /* 759/1664 */
-  --scheduler-day-left-fri: 59.13%; /* 984/1664 */
-  --scheduler-day-left-sat: 72.78%; /* 1211/1664 */
-  --scheduler-day-left-sun: 86.30%; /* 1436/1664 */
+  --scheduler-day-left-tue: 23.85%; /* 396.8/1664 */
+  --scheduler-day-left-wed: 42.88%; /* 713.6/1664 */
+  --scheduler-day-left-thu: 61.92%; /* 1030.4/1664 */
+  --scheduler-day-left-fri: 80.96%; /* 1347.2/1664 */
   --scheduler-header-left-mon: 0%; /* 0/1664 */
-  --scheduler-header-left-tue: 18.75%; /* 312/1664 */
-  --scheduler-header-left-wed: 32.27%; /* 537/1664 */
-  --scheduler-header-left-thu: 45.79%; /* 762/1664 */
-  --scheduler-header-left-fri: 59.31%; /* 987/1664 */
-  --scheduler-header-left-sat: 72.84%; /* 1212/1664 */
-  --scheduler-header-left-sun: 86.36%; /* 1437/1664 */
+  --scheduler-header-left-tue: 23.85%; /* 396.8/1664 */
+  --scheduler-header-left-wed: 42.88%; /* 713.6/1664 */
+  --scheduler-header-left-thu: 61.92%; /* 1030.4/1664 */
+  --scheduler-header-left-fri: 80.96%; /* 1347.2/1664 */
   --scheduler-box-top-second: 27.25rem; /* 436px */
   --scheduler-slot-height: 7.785625rem; /* 124.57px - altura por hora completa */
   --scheduler-slot-height-half: 3.8928125rem; /* 62.285px - altura por media hora (124.57/2) */
+  --scheduler-slot-height-quarter: 1.94640625rem; /* 31.1425px - altura por 15 min (124.57/4) */
   /* Event card sizing - relative to column (227px reference) */
   --scheduler-event-width: 92.95%; /* 211px/227px from Figma */
   --scheduler-event-left-offset: 3.52%; /* 8px/227px from Figma */
@@ -390,6 +395,14 @@
   --scheduler-overlay-avatar-color: var(--color-neutral-700);
   --scheduler-overlay-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
+  /* Overlay v2 - Mejorado */
+  --scheduler-overlay-header-height: 5rem; /* 80px */
+  --scheduler-overlay-avatar-size-lg: 2.75rem; /* 44px */
+  --scheduler-overlay-section-radius: 0.75rem; /* 12px */
+  --scheduler-overlay-section-padding: 1rem; /* 16px */
+  --scheduler-overlay-card-bg: var(--color-neutral-50);
+  --scheduler-overlay-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
+
   /* Month calendar (vista mensual) - Figma exact values */
   --month-row-height: 10.925rem; /* 174.8px from Figma */
   --month-cell-padding-top: 1rem; /* 16px from Figma */
@@ -403,6 +416,9 @@
   --color-event-purple: #f1e9fb; /* Purple event background */
   --color-event-teal: #e9fbf9; /* Teal event background */
   --color-event-coral: #fbe9e9; /* Coral event background */
+  --color-event-ai: #ec4899; /* Rosa/Fucsia for AI-created appointments */
+  --color-event-ai-bg: #fdf2f8; /* Light pink background for AI appointments */
+  --color-event-ai-border: #f472b6; /* Pink border for AI appointments */
 
   /* Day calendar (vista diaria) - Figma exact values */
   --day-time-column-width: 5.5rem; /* 88px from Figma */
@@ -471,7 +487,7 @@
   --modal-create-line-top: 53.25rem; /* 852px */
   --modal-create-line-width: 31.5rem; /* 504px */
   --modal-create-button-top: 55.75rem; /* 892px */
-  
+
   /* Field positions (top values) */
   --modal-create-field-servicio-top: 11.5rem; /* 184px */
   --modal-create-field-paciente-top: 17.9375rem; /* 287px */
@@ -480,7 +496,7 @@
   --modal-create-field-presupuesto-top: 37.9375rem; /* 607px */
   --modal-create-field-fecha-top: 43.9375rem; /* 703px */
   --modal-create-field-hora-top: 48.9375rem; /* ~783px - calculado manteniendo gap similar */
-  
+
   /* Input/Select styling */
   --input-border-width: 0.5px;
   --input-radius: 0.5rem; /* 8px */
@@ -489,9 +505,33 @@
   --input-text-color: var(--color-neutral-900);
   --input-placeholder-color: var(--color-neutral-400);
   --input-description-color: var(--color-neutral-600);
-  
+
   /* Button pill styling */
   --button-pill-radius: 8.5rem; /* 136px - muy redondeado */
+}
+
+/* Custom scrollbar styles for call cards */
+.card-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-neutral-300) transparent;
+}
+
+.card-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.card-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.card-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--color-neutral-300);
+  border-radius: 3px;
+}
+
+.card-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-neutral-400);
 }
 
 /* Logo animation */
@@ -591,6 +631,35 @@
   }
 }
 
+/* ✅ Animación de checkmark para citas completadas */
+@keyframes checkmark {
+  0% {
+    stroke-dasharray: 0, 20;
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dasharray: 20, 0;
+    opacity: 1;
+  }
+}
+
+@keyframes checkPop {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 /* ✨ BASE HTML FLUIDA - Hace TODO responsive automáticamente */
 html {
   /*
@@ -635,22 +704,13 @@ body {
     gap: var(--spacing-section-gap);
   }
 
-  .dashboard-grid-stats {
-    display: grid;
-    gap: var(--spacing-card-gap);
-    grid-template-columns: repeat(
-      3,
-      minmax(min(100%, var(--width-card-stat-fluid)), var(--width-card-stat))
-    );
-  }
-
+  /* Both grids use same base structure */
+  .dashboard-grid-stats,
   .dashboard-grid-charts {
     display: grid;
     gap: var(--spacing-card-gap);
-    grid-template-columns: repeat(
-      auto-fit,
-      minmax(min(100%, var(--width-card-chart-md-fluid)), 1fr)
-    );
+    width: 100%;
+    grid-template-columns: 1fr;
   }
 
   .dashboard-grid-bottom {
@@ -677,37 +737,112 @@ body {
     flex-direction: column;
     gap: var(--spacing-header-stack);
   }
+}
 
-  @media (min-width: 1024px) {
-    .dashboard-grid-charts {
-      grid-template-columns: minmax(0, var(--width-card-chart-lg-fluid)) minmax(
-          0,
-          var(--width-card-chart-md-fluid)
-        );
-      justify-content: center;
-    }
+/* Dashboard row layouts - responsive grid (768px tablet to 1920px desktop) */
 
-    .dashboard-grid-stats {
-      grid-template-columns: repeat(3, minmax(0, var(--width-card-stat)));
-      justify-content: center;
-    }
+/* Stats row: 2 cols on tablet (768-1023px), 3 cols on desktop (1024px+) */
+.dashboard-stats-row {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, 1fr); /* Default: 2 cols for tablet */
+  width: 100%;
+}
+
+.dashboard-stats-row > * {
+  min-width: 0;
+}
+
+/* Third card spans full width on 2-column layout */
+.dashboard-stats-row > *:last-child {
+  grid-column: span 2;
+}
+
+/* Desktop: 3 columns, third card back to normal */
+@media (min-width: 1024px) {
+  .dashboard-stats-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .dashboard-stats-row > *:last-child {
+    grid-column: span 1;
+  }
+}
+
+/* Charts row: stack on tablet, 2:1 ratio on desktop */
+.dashboard-charts-row {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr; /* Stack on tablet */
+  width: 100%;
+}
+
+.dashboard-charts-row > * {
+  min-width: 0;
+}
+
+/* Desktop: 2:1 ratio (first item 2fr, second item 1fr) */
+@media (min-width: 1024px) {
+  .dashboard-charts-row {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+/* Legacy classes for backwards compatibility */
+@media screen and (min-width: 1024px) {
+  body .dashboard-grid-stats {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  body .dashboard-grid-charts {
+    grid-template-columns: 2fr 1fr !important;
   }
 }
 
 /* Utility: Standard page container */
 @layer utilities {
   .container-page {
-    --container-gutter: clamp(1rem, 3vw, var(--spacing-plnav));
-    --dashboard-max-width: calc(
-      (2 * var(--width-card-stat)) + var(--width-card-chart-lg) +
-        (2 * var(--spacing-card-gap))
-    );
-    width: min(
-      100%,
-      calc(var(--dashboard-max-width) + (2 * var(--container-gutter)))
-    );
+    --container-gutter: clamp(0.75rem, 2vw, 1.5rem);
+    width: 100%;
     margin-inline: auto;
     padding-inline: var(--container-gutter);
+    box-sizing: border-box;
+  }
+
+  /* Remove focus outline from chart containers and all interactive elements */
+  .recharts-wrapper,
+  .recharts-wrapper *,
+  .recharts-surface,
+  .recharts-pie,
+  .recharts-pie-sector,
+  .recharts-layer,
+  section:focus,
+  section:focus-visible,
+  section:active,
+  div:focus,
+  div:focus-visible,
+  svg:focus,
+  svg:focus-visible,
+  path:focus,
+  path:focus-visible,
+  g:focus,
+  g:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Remove blue highlight on tap for mobile/touch */
+  *:focus {
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+  }
+
+  /* Specifically target elements that might get focus ring */
+  [tabindex]:focus,
+  [tabindex]:focus-visible,
+  button:focus:not(:focus-visible),
+  [role='button']:focus:not(:focus-visible) {
+    outline: none !important;
+    box-shadow: none !important;
   }
   /* Oculta scrollbars pero mantiene el scroll funcional */
   .scrollbar-hide::-webkit-scrollbar {
@@ -717,12 +852,24 @@ body {
     -ms-overflow-style: none; /* IE & Edge */
     scrollbar-width: none; /* Firefox */
   }
+
+  .border-hairline {
+    border: 0.5px solid rgba(203, 211, 217, 0.6);
+  }
+
+  .border-hairline-r {
+    border-right: 0.5px solid rgba(203, 211, 217, 0.6);
+  }
+
+  .border-hairline-b {
+    border-bottom: 0.5px solid rgba(203, 211, 217, 0.6);
+  }
 }
 
-/* Dashboard gaps at ≥1600px (incl. 1920px): force 1rem horizontally and vertically between cards */
+/* Dashboard gaps a 1600px+: mantener 24px exactos como en Figma */
 @media (min-width: 1600px) {
   :root {
-    --spacing-card-gap: 1rem;
+    --spacing-card-gap: 1.5rem;
   }
 }
 
@@ -735,5 +882,17 @@ body {
       calc(36.455vh - 1.5rem),
       24.58125rem
     );
+  }
+}
+
+/* Tablet-specific adjustments (768px - 1023px) */
+@media (max-width: 1023px) {
+  :root {
+    /* More compact card heights for tablet */
+    --height-card-stat-fluid: min(var(--height-card-stat), 16vh);
+    --height-card-chart-fluid: min(21.375rem, 28vh);
+    /* Reduce spacing for tablet */
+    --spacing-card-gap: 0.75rem;
+    --spacing-section-gap: clamp(0.75rem, 2vh, 1.25rem);
   }
 }

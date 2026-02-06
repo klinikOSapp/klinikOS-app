@@ -1,76 +1,286 @@
 'use client'
 
 import ClientLayout from '@/app/client-layout'
-import HeaderControls from '@/components/gestion/HeaderControls'
+import type { CashTimeScale } from '@/components/caja/cajaTypes'
+import CashToolbar from '@/components/caja/CashToolbar'
 import AccountingPanel from '@/components/gestion/AccountingPanel'
 import BillingLineChart from '@/components/gestion/BillingLineChart'
+import type { SpecialtyFilter } from '@/components/gestion/gestionTypes'
 import IncomeTypes from '@/components/gestion/IncomeTypes'
 import PatientsSummary from '@/components/gestion/PatientsSummary'
 import ProductionTotalCard from '@/components/gestion/ProductionTotalCard'
 import ProfessionalBars from '@/components/gestion/ProfessionalBars'
 import SpecialtyDonut from '@/components/gestion/SpecialtyDonut'
-import { useUserRole } from '@/context/role-context'
-import { useRouter } from 'next/navigation'
 import type { CSSProperties } from 'react'
-import { useEffect } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+
+const secondRowStyles = {
+  '--height-card-chart-fluid': '100%',
+  '--height-card-chart': '100%'
+} as CSSProperties
 
 const thirdRowStyles = {
-  '--height-card-chart-fluid-base': 'clamp(17.6rem, 34vh, 23.25rem)',
-  '--chart-prof-height-limit': '34vh',
-  '--accounting-height-limit': '34vh'
+  '--height-card-chart-fluid': '100%',
+  '--height-card-chart': '100%',
+  '--height-card-chart-fluid-base': '100%',
+  '--chart-prof-height-limit': '100%',
+  '--accounting-height-limit': '100%'
 } as CSSProperties
 
 export default function GestionPage() {
-  const router = useRouter()
-  const { role, canViewFinancials } = useUserRole()
+  const [timeScale, setTimeScale] = useState<CashTimeScale>('week')
+  const [anchorDate, setAnchorDate] = useState(() => new Date())
+  const [selectedSpecialty, setSelectedSpecialty] =
+    useState<SpecialtyFilter>(null)
 
-  useEffect(() => {
-    if (role && !canViewFinancials) {
-      router.replace('/')
-    }
-  }, [role, canViewFinancials, router])
+  const dateLabel = useMemo(
+    () => formatToolbarLabel(anchorDate, timeScale),
+    [anchorDate, timeScale]
+  )
 
-  if (role && !canViewFinancials) {
-    return (
-      <div className='flex h-[calc(100dvh-var(--spacing-topbar))] flex-col items-center justify-center rounded-tl-[var(--radius-xl)] bg-[var(--color-neutral-50)] px-6 text-center text-neutral-700'>
-        <p className='text-title-md font-semibold text-neutral-900'>Sin acceso</p>
-        <p className='mt-2 max-w-md text-body-md'>
-          Tu rol actual no tiene permisos para ver el panel de gestión. Contacta con gerencia si
-          necesitas acceso.
-        </p>
-      </div>
-    )
-  }
+  const handleNavigate = useCallback(
+    (direction: 1 | -1) => {
+      setAnchorDate((prev) => {
+        const candidate = shiftAnchor(prev, timeScale, direction)
+        return isAfterCurrentPeriod(candidate, timeScale) ? prev : candidate
+      })
+    },
+    [timeScale]
+  )
+
+  const handleTimeScaleChange = useCallback((scale: CashTimeScale) => {
+    setTimeScale(scale)
+    setAnchorDate(new Date())
+  }, [])
 
   return (
     <ClientLayout>
-      <div className='bg-surface-app min-h-screen overflow-auto pb-plnav'>
-        <div className='container-page py-fluid-md pb-plnav'>
-          <HeaderControls />
-
-          {/* First row - Stats cards */}
-          <div className='dashboard-grid-stats mt-header-stack'>
-            <IncomeTypes />
-            <PatientsSummary />
-            <ProductionTotalCard />
-          </div>
-
-          {/* Second row - Billing chart + Specialty donut */}
-          <div className='dashboard-grid-charts mt-gapmd'>
-            <BillingLineChart />
-            <SpecialtyDonut />
-          </div>
-
-          {/* Third row - Accounting + Professional bars */}
+      <div className='w-full max-w-layout mx-auto h-[calc(100dvh-var(--spacing-topbar))] bg-surface-app rounded-tl-[var(--radius-xl)] flex flex-col overflow-hidden'>
+        <div className='flex-1 overflow-y-auto overflow-x-hidden'>
           <div
-            className='dashboard-grid-charts dashboard-grid-bottom mt-gapmd mb-plnav'
-            style={thirdRowStyles}
+            className='container-page py-fluid-md pb-plnav flex h-full flex-col gap-gapmd overflow-hidden'
+            style={{ '--dashboard-max-width': '100%' } as React.CSSProperties}
           >
-            <AccountingPanel />
-            <ProfessionalBars />
+            {/* Toolbar row with filter indicator - responsive */}
+            <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-gapmd shrink-0'>
+              <CashToolbar
+                dateLabel={dateLabel}
+                onNavigateNext={() => handleNavigate(1)}
+                onNavigatePrevious={() => handleNavigate(-1)}
+                timeScale={timeScale}
+                onTimeScaleChange={handleTimeScaleChange}
+                showClosingButton={false}
+              />
+
+              {/* Specialty filter indicator - inline with controls */}
+              {selectedSpecialty && (
+                <div className='flex items-center gap-2 shrink-0'>
+                  <span className='text-sm text-neutral-600 hidden lg:inline'>
+                    Filtrando por:
+                  </span>
+                  <button
+                    type='button'
+                    onClick={() => setSelectedSpecialty(null)}
+                    className='inline-flex items-center gap-1 lg:gap-1.5 rounded-full bg-brand-50 px-2 lg:px-3 py-1 text-xs lg:text-sm font-medium text-brand-700 transition-colors hover:bg-brand-100 outline-none focus:outline-none'
+                  >
+                    {selectedSpecialty}
+                    <span className='material-symbols-rounded text-sm lg:text-base leading-none'>
+                      close
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className='flex flex-1 flex-col gap-3 lg:gap-gapmd min-h-0 overflow-y-auto lg:overflow-visible'>
+              {/* First row - Stats cards - responsive: 2+1 on tablet, 3 columns on desktop */}
+              <div className='dashboard-stats-row flex-none min-w-0'>
+                <IncomeTypes
+                  timeScale={timeScale}
+                  selectedSpecialty={selectedSpecialty}
+                />
+                <PatientsSummary
+                  timeScale={timeScale}
+                  selectedSpecialty={selectedSpecialty}
+                />
+                <ProductionTotalCard
+                  timeScale={timeScale}
+                  selectedSpecialty={selectedSpecialty}
+                />
+              </div>
+
+              {/* Second row - Billing chart + Specialty donut - stacked on tablet, 2:1 ratio on desktop */}
+              <div
+                className='dashboard-charts-row flex-none lg:flex-1 min-h-[17rem] lg:min-h-0 min-w-0'
+                style={secondRowStyles}
+              >
+                <BillingLineChart
+                  timeScale={timeScale}
+                  anchorDate={anchorDate}
+                  selectedSpecialty={selectedSpecialty}
+                />
+                <SpecialtyDonut
+                  timeScale={timeScale}
+                  selectedSpecialty={selectedSpecialty}
+                  onSpecialtySelect={setSelectedSpecialty}
+                />
+              </div>
+
+              {/* Third row - Accounting + Professional bars - stacked on tablet, 2:1 ratio on desktop */}
+              <div
+                className='dashboard-charts-row dashboard-grid-bottom flex-none lg:flex-1 min-h-[17rem] lg:min-h-0 min-w-0'
+                style={thirdRowStyles}
+              >
+                <AccountingPanel
+                  timeScale={timeScale}
+                  selectedSpecialty={selectedSpecialty}
+                />
+                <ProfessionalBars
+                  timeScale={timeScale}
+                  selectedSpecialty={selectedSpecialty}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </ClientLayout>
   )
+}
+
+function formatToolbarLabel(date: Date, scale: CashTimeScale) {
+  switch (scale) {
+    case 'week': {
+      const start = startOfWeek(date)
+      const end = addDays(start, 6)
+      const startLabel = formatDateWithCapitalizedMonths(start, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      })
+      const endLabel = formatDateWithCapitalizedMonths(end, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      })
+      return `${startLabel} - ${endLabel}`
+    }
+    case 'month': {
+      return formatDateWithCapitalizedMonths(date, {
+        month: 'long',
+        year: 'numeric'
+      })
+    }
+    case 'day':
+    default: {
+      return formatDateWithCapitalizedMonths(date, {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      })
+    }
+  }
+}
+
+function shiftAnchor(date: Date, scale: CashTimeScale, direction: 1 | -1) {
+  const multiplier = direction === 1 ? 1 : -1
+  switch (scale) {
+    case 'week':
+      return addDays(date, multiplier * 7)
+    case 'month':
+      return addMonths(date, multiplier)
+    case 'day':
+    default:
+      return addDays(date, multiplier)
+  }
+}
+
+function isAfterCurrentPeriod(date: Date, scale: CashTimeScale) {
+  const today = new Date()
+  switch (scale) {
+    case 'week':
+      return startOfWeek(date) > startOfWeek(today)
+    case 'month': {
+      const target = new Date(date.getFullYear(), date.getMonth(), 1)
+      const current = new Date(today.getFullYear(), today.getMonth(), 1)
+      return target > current
+    }
+    case 'day':
+    default:
+      return date > today
+  }
+}
+
+function formatDateWithCapitalizedMonths(
+  date: Date,
+  options: Intl.DateTimeFormatOptions
+) {
+  const formatted = new Intl.DateTimeFormat('es-ES', options).format(date)
+  return capitalizeSpanishMonth(formatted)
+}
+
+function capitalizeSpanishMonth(label: string) {
+  const longMap: Record<string, string> = {
+    enero: 'Enero',
+    febrero: 'Febrero',
+    marzo: 'Marzo',
+    abril: 'Abril',
+    mayo: 'Mayo',
+    junio: 'Junio',
+    julio: 'Julio',
+    agosto: 'Agosto',
+    septiembre: 'Septiembre',
+    octubre: 'Octubre',
+    noviembre: 'Noviembre',
+    diciembre: 'Diciembre'
+  }
+
+  const shortMap: Record<string, string> = {
+    ene: 'Ene',
+    feb: 'Feb',
+    mar: 'Mar',
+    abr: 'Abr',
+    may: 'May',
+    jun: 'Jun',
+    jul: 'Jul',
+    ago: 'Ago',
+    sept: 'Sept',
+    oct: 'Oct',
+    nov: 'Nov',
+    dic: 'Dic'
+  }
+
+  let result = label.replace(
+    /\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/gi,
+    (match) => longMap[match.toLowerCase()] ?? match
+  )
+
+  result = result.replace(
+    /\b(ene|feb|mar|abr|may|jun|jul|ago|sept|oct|nov|dic)\b/gi,
+    (match) => shortMap[match.toLowerCase()] ?? match
+  )
+
+  return result
+}
+
+function addDays(date: Date, amount: number) {
+  const copy = new Date(date)
+  copy.setDate(copy.getDate() + amount)
+  return copy
+}
+
+function addMonths(date: Date, amount: number) {
+  const copy = new Date(date)
+  copy.setMonth(copy.getMonth() + amount)
+  return copy
+}
+
+function startOfWeek(date: Date) {
+  const copy = new Date(date)
+  const day = copy.getDay() || 7
+  if (day !== 1) {
+    copy.setDate(copy.getDate() - (day - 1))
+  }
+  return copy
 }

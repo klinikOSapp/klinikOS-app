@@ -14,10 +14,13 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@fontsource/material-symbols-rounded": "^5.2.30",
     "@mui/icons-material": "^7.3.3",
     "@mui/material": "^7.3.3",
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.45.4",
+    "jspdf": "^4.0.0",
+    "jspdf-autotable": "^5.0.7",
     "next": "15.5.9",
     "pdfkit": "^0.17.2",
     "react": "19.1.0",

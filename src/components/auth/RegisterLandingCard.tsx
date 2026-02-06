@@ -5,7 +5,6 @@ import React from 'react'
 
 const SOCIAL_OPTIONS = [
   {
-    id: 'google',
     label: 'Continuar con Google',
     iconSrc: '/google-icon-logo-svgrepo-com.svg',
     alt: 'Google'
@@ -14,12 +13,10 @@ const SOCIAL_OPTIONS = [
 
 type RegisterLandingCardProps = {
   onEmailSubmit?: (email: string) => void
-  onGoogleClick?: () => void
 }
 
 export default function RegisterLandingCard({
-  onEmailSubmit,
-  onGoogleClick
+  onEmailSubmit
 }: RegisterLandingCardProps) {
   const [email, setEmail] = React.useState('')
 
@@ -102,7 +99,6 @@ export default function RegisterLandingCard({
                   height: 'var(--landing-cta-height)',
                   borderRadius: '7.65rem' // 122.4px
                 }}
-                onClick={option.id === 'google' ? onGoogleClick : undefined}
               >
                 <span className='inline-flex items-center justify-center gap-[0.5rem]'>
                   <Image

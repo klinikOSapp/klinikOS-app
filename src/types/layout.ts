@@ -5,6 +5,7 @@ export interface NavItem {
   label: string
   href: string
   icon?: React.ReactNode
+  children?: NavItem[]
 }
 
 export interface SidebarProps {
@@ -14,8 +15,10 @@ export interface SidebarProps {
     label: string
     onClick?: () => void
   }
+  ctaMenuItems?: { id: string; label: string; onClick?: () => void }[]
   collapsed?: boolean
   onToggleCollapsed?: (next: boolean) => void
+  isHydrated?: boolean
 }
 
 export interface TopBarProps {
@@ -26,4 +29,5 @@ export interface TopBarProps {
 
 export interface LayoutProps {
   children: React.ReactNode
+  ctaMenuItems?: { id: string; label: string; onClick?: () => void }[]
 }

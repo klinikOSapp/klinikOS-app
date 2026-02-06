@@ -1,26 +1,19 @@
 'use client'
 
-import { TextInput, ToggleInput } from './AddPatientInputs'
+import React from 'react'
+import { SelectInput, TextInput, ToggleInput, validateEmail, validatePhone } from './AddPatientInputs'
 
 type Props = {
   recordatorios: boolean
   onChangeRecordatorios: (v: boolean) => void
   marketing: boolean
   onChangeMarketing: (v: boolean) => void
-  terminos: boolean
-  onChangeTerminos: (v: boolean) => void
-  whatsappOptIn: boolean
-  onChangeWhatsappOptIn: (v: boolean) => void
   telefono?: string
   onChangeTelefono?: (v: string) => void
   email?: string
   onChangeEmail?: (v: string) => void
-  emergencyName?: string
-  onChangeEmergencyName?: (v: string) => void
-  emergencyPhone?: string
-  onChangeEmergencyPhone?: (v: string) => void
-  emergencyEmail?: string
-  onChangeEmergencyEmail?: (v: string) => void
+  referidoPor?: string
+  onChangeReferidoPor?: (v: string) => void
 }
 
 export default function AddPatientStepContacto({
@@ -28,33 +21,70 @@ export default function AddPatientStepContacto({
   onChangeRecordatorios,
   marketing,
   onChangeMarketing,
-  terminos,
-  onChangeTerminos,
-  whatsappOptIn,
-  onChangeWhatsappOptIn,
   telefono,
   onChangeTelefono,
   email,
   onChangeEmail,
-  emergencyName,
-  onChangeEmergencyName,
-  emergencyPhone,
-  onChangeEmergencyPhone,
-  emergencyEmail,
-  onChangeEmergencyEmail
+  referidoPor,
+  onChangeReferidoPor
 }: Props) {
+  const [emailError, setEmailError] = React.useState<string | undefined>()
+  const [phoneError, setPhoneError] = React.useState<string | undefined>()
+
+  const handleEmailChange = (value: string) => {
+    onChangeEmail?.(value)
+    if (emailError) setEmailError(undefined)
+  }
+
+  const handleEmailBlur = () => {
+    if (email) {
+      const validation = validateEmail(email)
+      setEmailError(validation.error)
+    }
+  }
+
+  const handlePhoneChange = (value: string) => {
+    onChangeTelefono?.(value)
+    if (phoneError) setPhoneError(undefined)
+  }
+
+  const handlePhoneBlur = () => {
+    if (telefono) {
+      const validation = validatePhone(telefono)
+      setPhoneError(validation.error)
+    }
+  }
   return (
     <div className='left-[18.375rem] top-[10rem] absolute inline-flex flex-col justify-start items-start gap-6 w-[31.5rem] h-[43.25rem] overflow-y-auto overflow-x-clip pr-2 pb-2 scrollbar-hide'>
       <div className='inline-flex flex-col gap-2 w-full'>
         <div className='text-title-sm text-[var(--color-neutral-900)]'>
           Teléfono
         </div>
-        <TextInput
-          placeholder='Número con prefijo internacional'
-          required
-          value={telefono}
-          onChange={onChangeTelefono}
-        />
+        <div className='flex gap-3 w-full'>
+          <div className='w-20'>
+            <SelectInput
+              placeholder='+34'
+              value='+34'
+              options={[
+                { label: '+34', value: '+34' },
+                { label: '+1', value: '+1' },
+                { label: '+33', value: '+33' },
+                { label: '+44', value: '+44' }
+              ]}
+            />
+          </div>
+          <div className='flex-1'>
+            <TextInput
+              placeholder='612 345 678'
+              required
+              type='tel'
+              value={telefono}
+              onChange={handlePhoneChange}
+              onBlur={handlePhoneBlur}
+              error={phoneError}
+            />
+          </div>
+        </div>
       </div>
 
       <div className='inline-flex flex-col gap-2 w-full'>
@@ -62,10 +92,13 @@ export default function AddPatientStepContacto({
           Email
         </div>
         <TextInput
-          placeholder='persona@ejemplo.com'
+          placeholder='ejemplo@correo.com'
           required
+          type='email'
           value={email}
-          onChange={onChangeEmail}
+          onChange={handleEmailChange}
+          onBlur={handleEmailBlur}
+          error={emailError}
         />
       </div>
 
@@ -78,8 +111,6 @@ export default function AddPatientStepContacto({
             <label key={label} className='flex items-center gap-3'>
               <input
                 type='checkbox'
-                checked
-                readOnly
                 className='size-5 accent-[var(--color-brand-500)]'
               />
               <span className='text-body-md text-[var(--color-neutral-900)]'>
@@ -87,27 +118,6 @@ export default function AddPatientStepContacto({
               </span>
             </label>
           ))}
-        </div>
-      </div>
-
-      <div className='inline-flex flex-col gap-3 w-full'>
-        <div className='text-title-sm text-[var(--color-neutral-900)]'>
-          WhatsApp / mensajería
-        </div>
-        <div className='flex items-start gap-4'>
-          <ToggleInput
-            ariaLabel='Permitir mensajes por WhatsApp'
-            checked={whatsappOptIn}
-            onChange={onChangeWhatsappOptIn}
-          />
-          <div>
-            <p className='text-body-md text-[var(--color-neutral-900)]'>
-              Permite recordatorios por apps de mensajería
-            </p>
-            <p className='text-label-sm text-[var(--color-neutral-600)]'>
-              Incluye WhatsApp/Telegram.
-            </p>
-          </div>
         </div>
       </div>
 
@@ -153,63 +163,35 @@ export default function AddPatientStepContacto({
         </div>
       </div>
 
-      <div className='inline-flex flex-col gap-3 w-full'>
-        <div className='text-title-sm text-[var(--color-neutral-900)]'>
-          Términos y privacidad
-        </div>
-        <div className='flex items-start gap-4'>
-          <ToggleInput
-            ariaLabel='Términos y privacidad'
-            checked={terminos}
-            onChange={onChangeTerminos}
-          />
-          <div>
-            <p className='text-body-md text-[var(--color-neutral-900)]'>
-              Términos de uso y privacidad
-            </p>
-            <p className='text-label-sm underline text-[var(--color-brand-500)]'>
-              Ver términos de uso
-            </p>
-          </div>
-        </div>
-      </div>
-
       <div className='inline-flex flex-col gap-2 w-full'>
         <div className='text-title-sm text-[var(--color-neutral-900)]'>
-          Contacto de emergencia
+          Contacto emergencia
         </div>
         <div className='grid grid-cols-1 gap-4'>
           <div>
             <div className='text-title-sm text-[var(--color-neutral-900)] mb-2'>
               Nombre
             </div>
-            <TextInput
-              placeholder='Nombre completo'
-              value={emergencyName}
-              onChange={onChangeEmergencyName}
-            />
+            <TextInput placeholder='Value' />
           </div>
           <div>
             <div className='text-title-sm text-[var(--color-neutral-900)] mb-2'>
               Teléfono de contacto
             </div>
-            <TextInput
-              placeholder='Teléfono'
-              value={emergencyPhone}
-              onChange={onChangeEmergencyPhone}
-            />
-          </div>
-          <div>
-            <div className='text-title-sm text-[var(--color-neutral-900)] mb-2'>
-              Email
-            </div>
-            <TextInput
-              placeholder='persona@ejemplo.com'
-              value={emergencyEmail}
-              onChange={onChangeEmergencyEmail}
-            />
+            <TextInput placeholder='Value' />
           </div>
         </div>
+      </div>
+
+      <div className='inline-flex flex-col gap-2 w-full'>
+        <div className='text-title-sm text-[var(--color-neutral-900)]'>
+          Referido por
+        </div>
+        <TextInput
+          placeholder='Nombre de quien refirió al paciente'
+          value={referidoPor}
+          onChange={onChangeReferidoPor}
+        />
       </div>
     </div>
   )

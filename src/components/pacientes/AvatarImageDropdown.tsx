@@ -1,8 +1,12 @@
 'use client'
 
-import AddAPhotoRounded from '@mui/icons-material/AddAPhotoRounded'
-import PhotoCameraRounded from '@mui/icons-material/PhotoCameraRounded'
-import UploadRounded from '@mui/icons-material/UploadRounded'
+/* eslint-disable @next/next/no-img-element */
+
+import {
+  AddAPhotoRounded,
+  PhotoCameraRounded,
+  UploadRounded
+} from '@/components/icons/md3'
 import React from 'react'
 
 export interface AvatarImageDropdownProps {
@@ -143,7 +147,7 @@ export default function AvatarImageDropdown({
       {menuOpen && (
         <div
           role='menu'
-          className='absolute right-0 mt-2 w-60 rounded-lg bg-[var(--color-neutral-50)] shadow-[var(--shadow-cta)] border border-[var(--color-neutral-200)] p-2 z-10'
+          className='absolute right-0 mt-2 w-60 rounded-lg bg-[var(--color-neutral-50)] shadow-[var(--shadow-cta)] border border-[var(--color-neutral-200)] p-2 z-[100]'
         >
           <button
             type='button'

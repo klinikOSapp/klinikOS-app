@@ -1,8 +1,10 @@
 'use client'
 
-import AddAPhotoRounded from '@mui/icons-material/AddAPhotoRounded'
-import AddRounded from '@mui/icons-material/AddRounded'
-import ArrowBackIosNewRounded from '@mui/icons-material/ArrowBackIosNewRounded'
+import {
+  AddAPhotoRounded,
+  AddRounded,
+  ArrowBackIosNewRounded
+} from '@/components/icons/md3'
 import React from 'react'
 
 type Props = {

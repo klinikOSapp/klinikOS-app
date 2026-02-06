@@ -9,6 +9,16 @@ export default function DateNavigator({
   onPrevious,
   onNext
 }: DateNavigatorProps) {
+  // Expand the center pill dynamically so longer week ranges don't feel cramped
+  const dynamicCenterWidthRem = Math.min(
+    18, // hard cap to avoid oversizing
+    Math.max(12, (dateLabel?.length ?? 0) * 0.6) // base width driven by label length
+  )
+  const centerWidthStyle = {
+    width: `min(${dynamicCenterWidthRem}rem, 80vw)`,
+    minWidth: 'var(--nav-chip-width-center)'
+  }
+
   return (
     <div className='inline-flex overflow-hidden rounded-full border border-border bg-surface-app'>
       {/* Botón Anterior */}
@@ -38,7 +48,7 @@ export default function DateNavigator({
           h-[var(--nav-chip-height)]
           px-[var(--nav-chip-pad-x)]
         '
-        style={{ width: 'var(--nav-chip-width-center)' }}
+        style={centerWidthStyle}
       >
         <span className='text-title-sm font-medium text-fg text-center whitespace-nowrap'>
           {dateLabel}

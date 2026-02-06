@@ -3,10 +3,12 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
-import BarChartRounded from '@mui/icons-material/BarChartRounded'
-import PeopleRounded from '@mui/icons-material/PeopleRounded'
-import DescriptionRounded from '@mui/icons-material/DescriptionRounded'
+import {
+  BarChartRounded,
+  CalendarMonthRounded,
+  DescriptionRounded,
+  PeopleRounded
+} from '@/components/icons/md3'
 
 const items = [
   {

@@ -1,8 +1,12 @@
 'use client'
 
-import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded'
-import CloseRounded from '@mui/icons-material/CloseRounded'
-import KeyboardArrowUpRounded from '@mui/icons-material/KeyboardArrowUpRounded'
+/* eslint-disable react-hooks/exhaustive-deps */
+
+import {
+  ArrowForwardRounded,
+  CloseRounded,
+  KeyboardArrowUpRounded
+} from '@/components/icons/md3'
 import React from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -212,7 +216,9 @@ export default function OdontogramaModal({
   const [selectedTeeth, setSelectedTeeth] = React.useState<Set<number>>(
     () => new Set(DEFAULT_SELECTED_TEETH)
   )
-  const [lastClickedTooth, setLastClickedTooth] = React.useState<number | null>(null)
+  const [lastClickedTooth, setLastClickedTooth] = React.useState<number | null>(
+    null
+  )
 
   // Helper function to get teeth in the same quadrant
   const getQuadrantTeeth = (toothId: number): number[] => {
@@ -251,10 +257,21 @@ export default function OdontogramaModal({
 
   const toggleTooth = React.useCallback(
     (toothId: number, shiftKey: boolean = false) => {
-      console.log('🦷 Click en diente:', toothId, '| Shift:', shiftKey, '| Último diente:', lastClickedTooth)
+      console.log(
+        '🦷 Click en diente:',
+        toothId,
+        '| Shift:',
+        shiftKey,
+        '| Último diente:',
+        lastClickedTooth
+      )
 
       // If Shift is pressed and we have a previous tooth, select range
-      if (shiftKey && lastClickedTooth !== null && lastClickedTooth !== toothId) {
+      if (
+        shiftKey &&
+        lastClickedTooth !== null &&
+        lastClickedTooth !== toothId
+      ) {
         console.log('🔄 Shift+Click - seleccionando rango')
         const teethInRange = getTeethInRange(lastClickedTooth, toothId)
         console.log('📋 Dientes en rango:', teethInRange)
@@ -364,7 +381,9 @@ export default function OdontogramaModal({
                         style={{ width: '0.0625rem' }}
                       />
                     </div>
-                    <p className='text-title-sm text-neutral-900 mt-[1.5625rem]'>Inferior</p>
+                    <p className='text-title-sm text-neutral-900 mt-[1.5625rem]'>
+                      Inferior
+                    </p>
                   </div>
                   <div className='absolute left-0 top-[20rem] flex w-full items-center justify-between'>
                     <p className='text-title-sm text-neutral-900'>Izquierda</p>
@@ -407,7 +426,9 @@ export default function OdontogramaModal({
                       <KeyboardArrowUpRounded sx={{ fontSize: '1rem' }} />
                       Shift
                     </kbd>
-                    <span>y haz clic en otro diente para seleccionar un rango</span>
+                    <span>
+                      y haz clic en otro diente para seleccionar un rango
+                    </span>
                   </div>
                 </div>
 
@@ -418,7 +439,10 @@ export default function OdontogramaModal({
                     </p>
                   ) : (
                     selectedTeethList.map((toothId) => (
-                      <div key={toothId} className='flex items-center gap-[0.5rem]'>
+                      <div
+                        key={toothId}
+                        className='flex items-center gap-[0.5rem]'
+                      >
                         <span className='block size-[1rem] rounded-full bg-brand-500' />
                         <p className='text-label-sm text-neutral-900'>
                           Diente #{toothId}
@@ -436,9 +460,6 @@ export default function OdontogramaModal({
                       placeholder='Value'
                     />
                   </div>
-                  <span className='text-label-sm text-neutral-600'>
-                    Texto descriptivo
-                  </span>
                 </label>
 
                 <button

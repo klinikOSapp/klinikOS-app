@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
+import '@fontsource/material-symbols-rounded/400.css'
 import './globals.css'
+import { Providers } from './providers'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -15,6 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'klinikOS: The new era of clinic management',
   description: 'The new era of clinic management',
+  manifest: '/manifest.json',
   icons: {
     icon: [
       { url: '/favicon/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
@@ -37,16 +40,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang='en'>
-      <head>
-        <link
-          rel='stylesheet'
-          href='https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0'
-        />
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased h-dvh overflow-hidden`}
       >
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

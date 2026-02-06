@@ -26,5 +26,5 @@
   "terminal.integrated.env.osx": {
     "PNPM_HOME": "/opt/homebrew/bin"
   },
-  "extensions.ignoreRecommendations": false
+  "extensions.ignoreRecommendations": true
 }

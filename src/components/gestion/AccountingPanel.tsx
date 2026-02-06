@@ -1,218 +1,639 @@
-import type { CSSProperties } from 'react'
+'use client'
 
-const CARD_WIDTH_BASE = 'var(--width-card-chart-lg-fluid)'
-const CARD_HEIGHT_BASE = 'var(--height-card-chart-fluid)'
+import type { CashTimeScale } from '@/components/caja/cajaTypes'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
+import type { SpecialtyFilter } from './gestionTypes'
+
+const CARD_WIDTH = 'var(--width-card-chart-lg-fluid)'
+const CARD_HEIGHT_CLAMP = 'clamp(17rem, 34vh, 21.375rem)'
 const CARD_WIDTH_LIMIT = 'var(--accounting-width-limit)'
 const CARD_HEIGHT_LIMIT = 'var(--accounting-height-limit)'
-const CARD_WIDTH_CLAMP = `min(${CARD_WIDTH_BASE}, ${CARD_WIDTH_LIMIT})`
-const CARD_HEIGHT_CLAMP = `min(${CARD_HEIGHT_BASE}, ${CARD_HEIGHT_LIMIT})`
 
-const columnHeightPx = 262
-const fixedOffsetPercent = `${((75 / columnHeightPx) * 100).toFixed(3)}%`
-const fixedHeightPercent = `${((187 / columnHeightPx) * 100).toFixed(3)}%`
-const variableOffsetPercent = `${((154 / columnHeightPx) * 100).toFixed(3)}%`
-const variableHeightPercent = `${((108 / columnHeightPx) * 100).toFixed(3)}%`
-
-const widthValue = (px: number) => {
+const toWidth = (px: number) => {
   const ratio = (px / 1069).toFixed(6)
-  return `min(calc(${CARD_WIDTH_BASE} * ${ratio}), calc(${CARD_WIDTH_LIMIT} * ${ratio}))`
+  return `min(calc(${CARD_WIDTH} * ${ratio}), calc(${CARD_WIDTH_LIMIT} * ${ratio}))`
 }
 
-const heightValue = (px: number) => {
+// Data by specialty for week
+const SPECIALTY_DATA_WEEK = {
+  Conservadora: {
+    produced: '3.360 €',
+    invoiced: '2.880 €',
+    collected: '2.400 €',
+    pending: '480 €',
+    deltas: {
+      produced: '+ 15%',
+      invoiced: '+ 12%',
+      collected: '+ 10%',
+      pending: '- 8%'
+    }
+  },
+  Ortodoncia: {
+    produced: '2.520 €',
+    invoiced: '2.160 €',
+    collected: '1.800 €',
+    pending: '360 €',
+    deltas: {
+      produced: '+ 10%',
+      invoiced: '+ 8%',
+      collected: '+ 6%',
+      pending: '- 4%'
+    }
+  },
+  Implantes: {
+    produced: '1.680 €',
+    invoiced: '1.440 €',
+    collected: '1.200 €',
+    pending: '240 €',
+    deltas: {
+      produced: '+ 14%',
+      invoiced: '+ 11%',
+      collected: '+ 9%',
+      pending: '- 6%'
+    }
+  },
+  Estética: {
+    produced: '840 €',
+    invoiced: '720 €',
+    collected: '600 €',
+    pending: '120 €',
+    deltas: {
+      produced: '+ 8%',
+      invoiced: '+ 7%',
+      collected: '+ 5%',
+      pending: '- 3%'
+    }
+  }
+} as const
+
+// Data by specialty for month
+const SPECIALTY_DATA_MONTH = {
+  Conservadora: {
+    produced: '15.120 €',
+    invoiced: '12.960 €',
+    collected: '10.800 €',
+    pending: '2.160 €',
+    deltas: {
+      produced: '+ 20%',
+      invoiced: '+ 17%',
+      collected: '+ 14%',
+      pending: '- 5%'
+    }
+  },
+  Ortodoncia: {
+    produced: '11.340 €',
+    invoiced: '9.720 €',
+    collected: '8.100 €',
+    pending: '1.620 €',
+    deltas: {
+      produced: '+ 16%',
+      invoiced: '+ 13%',
+      collected: '+ 11%',
+      pending: '- 3%'
+    }
+  },
+  Implantes: {
+    produced: '7.560 €',
+    invoiced: '6.480 €',
+    collected: '5.400 €',
+    pending: '1.080 €',
+    deltas: {
+      produced: '+ 19%',
+      invoiced: '+ 16%',
+      collected: '+ 13%',
+      pending: '- 4%'
+    }
+  },
+  Estética: {
+    produced: '3.780 €',
+    invoiced: '3.240 €',
+    collected: '2.700 €',
+    pending: '540 €',
+    deltas: {
+      produced: '+ 12%',
+      invoiced: '+ 10%',
+      collected: '+ 8%',
+      pending: '- 2%'
+    }
+  }
+} as const
+
+function getKpiCards(timeScale: CashTimeScale, specialty?: SpecialtyFilter) {
+  const baseCards = [
+    {
+      title: 'Producido',
+      bg: 'var(--color-info-50)',
+      icon: 'attach_money',
+      left: 16,
+      top: 64,
+      width: 198
+    },
+    {
+      title: 'Facturado',
+      bg: '#e9f6fb',
+      icon: 'receipt_long',
+      left: 236,
+      top: 64,
+      width: 198
+    },
+    {
+      title: 'Cobrado',
+      bg: 'var(--color-brand-50)',
+      icon: 'check_circle',
+      left: 16,
+      top: 196,
+      width: 198
+    },
+    {
+      title: 'Por cobrar',
+      bg: 'var(--color-warning-50)',
+      icon: 'hourglass_top',
+      left: 236,
+      top: 196,
+      width: 204
+    }
+  ] as const
+
+  // If specialty is selected, use specialty-specific data
+  if (specialty) {
+    const dataSource =
+      timeScale === 'month' ? SPECIALTY_DATA_MONTH : SPECIALTY_DATA_WEEK
+    const specialtyData = dataSource[specialty]
+    return baseCards.map((card, index) => ({
+      ...card,
+      value:
+        index === 0
+          ? specialtyData.produced
+          : index === 1
+          ? specialtyData.invoiced
+          : index === 2
+          ? specialtyData.collected
+          : specialtyData.pending,
+      delta:
+        index === 0
+          ? specialtyData.deltas.produced
+          : index === 1
+          ? specialtyData.deltas.invoiced
+          : index === 2
+          ? specialtyData.deltas.collected
+          : specialtyData.deltas.pending
+    }))
+  }
+
+  // Default totals (no filter)
+  if (timeScale === 'week') {
+    return baseCards.map((card, index) => ({
+      ...card,
+      value: ['8.400 €', '7.200 €', '6.000 €', '1.200 €'][index],
+      delta: ['+ 12%', '+ 10%', '+ 8%', '- 5%'][index]
+    }))
+  }
+
+  return baseCards.map((card, index) => ({
+    ...card,
+    value: ['37.800 €', '32.400 €', '27.000 €', '5.400 €'][index],
+    delta: ['+ 18%', '+ 15%', '+ 12%', '- 3%'][index]
+  }))
+}
+
+function getDonut(timeScale: CashTimeScale, specialty?: SpecialtyFilter) {
+  // Specialty-specific values
+  const specialtyValuesWeek = {
+    Conservadora: { value: 2400, target: 2880 },
+    Ortodoncia: { value: 1800, target: 2160 },
+    Implantes: { value: 1200, target: 1440 },
+    Estética: { value: 600, target: 720 }
+  }
+
+  const specialtyValuesMonth = {
+    Conservadora: { value: 10800, target: 12960 },
+    Ortodoncia: { value: 8100, target: 9720 },
+    Implantes: { value: 5400, target: 6480 },
+    Estética: { value: 2700, target: 3240 }
+  }
+
+  let value: number
+  let target: number
+
+  if (specialty) {
+    const source =
+      timeScale === 'month' ? specialtyValuesMonth : specialtyValuesWeek
+    value = source[specialty].value
+    target = source[specialty].target
+  } else if (timeScale === 'week') {
+    value = 6000
+    target = 7200
+  } else {
+    value = 27000
+    target = 32400
+  }
+
+  const pending = Math.max(target - value, 0)
+
+  return {
+    data: [
+      { name: 'actual', value, color: 'var(--color-brand-500)' },
+      {
+        name: 'remaining',
+        value: pending,
+        color: 'var(--color-brand-50)'
+      }
+    ],
+    progress: value / target,
+    valueLabel: value.toLocaleString('es-ES') + ' €',
+    targetLabel: target.toLocaleString('es-ES') + ' €',
+    pendingValue: pending,
+    pendingLabel: pending.toLocaleString('es-ES') + ' €'
+  }
+}
+
+function getSideStack(timeScale: CashTimeScale, specialty?: SpecialtyFilter) {
+  const baseStack = [
+    {
+      title: specialty ? `Facturación ${specialty}` : 'Total facturación',
+      top: 64,
+      height: 248,
+      bg: 'var(--color-brand-50)',
+      percent: undefined,
+      textClass: 'text-fg-secondary'
+    },
+    {
+      title: 'Gastos fijos',
+      top: 160,
+      height: 177,
+      bg: 'var(--color-brand-200)',
+      percent: '60%',
+      textClass: 'text-fg-secondary'
+    }
+  ] as const
+
+  // Specialty-specific invoiced values
+  const specialtyInvoicedWeek = {
+    Conservadora: 2880,
+    Ortodoncia: 2160,
+    Implantes: 1440,
+    Estética: 720
+  }
+
+  const specialtyInvoicedMonth = {
+    Conservadora: 12960,
+    Ortodoncia: 9720,
+    Implantes: 6480,
+    Estética: 3240
+  }
+
+  let invoiced: number
+  if (specialty) {
+    invoiced =
+      timeScale === 'month'
+        ? specialtyInvoicedMonth[specialty]
+        : specialtyInvoicedWeek[specialty]
+  } else {
+    invoiced = timeScale === 'month' ? 32400 : 7200
+  }
+
+  const fixedCosts = Math.round(invoiced * 0.6) // 60% fixed costs ratio
+
+  return [
+    {
+      ...baseStack[0],
+      value: invoiced.toLocaleString('es-ES') + ' €'
+    },
+    {
+      ...baseStack[1],
+      value: fixedCosts.toLocaleString('es-ES') + ' €'
+    }
+  ]
+}
+
+const toHeight = (px: number) => {
   const ratio = (px / 342).toFixed(6)
-  return `min(calc(${CARD_HEIGHT_BASE} * ${ratio}), calc(${CARD_HEIGHT_LIMIT} * ${ratio}))`
+  return `min(calc(${CARD_HEIGHT_CLAMP} * ${ratio}), calc(${CARD_HEIGHT_LIMIT} * ${ratio}))`
 }
 
-export default function AccountingPanel() {
-  const cardStyles: CSSProperties = {
-    width: CARD_WIDTH_CLAMP,
-    height: CARD_HEIGHT_CLAMP
-  }
+type AccountingStyle = CSSProperties &
+  Record<'--accounting-height-current' | '--stack-scale-y', string>
 
-  const headerStyles: CSSProperties = {
-    left: widthValue(16),
-    right: widthValue(16),
-    top: heightValue(16)
-  }
+const DONUT_CARD_WIDTH = 400
+const DONUT_CARD_HEIGHT = 248
 
-  const columnStyles: CSSProperties = {
-    left: widthValue(16),
-    top: heightValue(56),
-    width: widthValue(214),
-    height: heightValue(columnHeightPx)
-  }
+// Constantes para el donut responsive (misma lógica que CashSummaryCard)
+const BASE_ROOT_FONT_SIZE_PX = 16
+const DONUT_HEIGHT_RATIO = 186.093 / 307 // mantener proporción real del semi-donut
+const DONUT_SCALE = 1.55
+const DONUT_MAX_WIDTH_REM = 25 // máximo ancho del donut
+const DONUT_MIN_WIDTH_REM = 10 // mínimo ancho del donut
 
-  const summaryStyles: CSSProperties = {
-    left: widthValue(266),
-    top: heightValue(56),
-    width: widthValue(240),
-    height: heightValue(120)
-  }
+const getRootFontSize = (allowWindow = false) => {
+  if (!allowWindow || typeof window === 'undefined') return BASE_ROOT_FONT_SIZE_PX
+  const value = parseFloat(
+    getComputedStyle(document.documentElement).fontSize ||
+      String(BASE_ROOT_FONT_SIZE_PX)
+  )
+  return Number.isFinite(value) ? value : BASE_ROOT_FONT_SIZE_PX
+}
 
-  const fixedCardStyles: CSSProperties = {
-    left: widthValue(535),
-    top: heightValue(56),
-    width: widthValue(240),
-    height: heightValue(240)
-  }
+const remToPx = (rem: number, rootFontSize = BASE_ROOT_FONT_SIZE_PX) =>
+  rem * rootFontSize
 
-  const variableCardStyles: CSSProperties = {
-    left: widthValue(804),
-    top: heightValue(56),
-    width: widthValue(240),
-    height: heightValue(212)
+const pxToRem = (px: number, rootFontSize = BASE_ROOT_FONT_SIZE_PX) =>
+  px / rootFontSize
+// Altura total del stack lateral (desde el top de la primera card hasta el bottom de la segunda) en Figma: top1=64, height1=248, top2=160, height2=177 → span=273px
+const STACK_TOTAL_SPAN_PX = 273
+const STACK_SCALE = Number((DONUT_CARD_HEIGHT / STACK_TOTAL_SPAN_PX).toFixed(6)) // ≈0.908058, iguala la altura total del stack al alto del donut
+// Posicionamiento horizontal (ajustado para igualar gaps KPI↔donut↔stack en 1920px)
+const DONUT_LEFT = 457 // px
+
+export default function AccountingPanel({
+  timeScale,
+  selectedSpecialty
+}: {
+  timeScale: CashTimeScale
+  selectedSpecialty?: SpecialtyFilter
+}) {
+  const kpis = getKpiCards(timeScale, selectedSpecialty)
+  const sideStack = getSideStack(timeScale, selectedSpecialty)
+  const donut = getDonut(timeScale, selectedSpecialty)
+
+  const sectionStyle: AccountingStyle = {
+    width: '100%',
+    maxWidth: '100%',
+    height: `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`,
+    // Altura efectiva de la tarjeta (se reutiliza para escalar el stack lateral en viewports bajos)
+    '--accounting-height-current': `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`,
+    // Escalamos el stack para que su span total (273px) iguale la altura del donut (248px) en todos los viewports.
+    '--stack-scale-y': STACK_SCALE.toString()
   }
 
   return (
     <section
-      className='relative overflow-clip rounded-lg bg-surface shadow-elevation-card'
-      style={cardStyles}
+      className='relative min-w-0 overflow-clip rounded-lg bg-surface shadow-elevation-card'
+      style={sectionStyle}
     >
       <header
-        className='absolute flex items-center text-title-sm font-medium text-fg'
-        style={headerStyles}
+        className='absolute flex items-baseline justify-between text-title-sm font-medium text-fg'
+        style={{
+          left: toWidth(16),
+          right: toWidth(16),
+          top: toHeight(16)
+        }}
       >
-        <h3>Contabilidad</h3>
+        <span>
+          Panel de contabilidad
+          {selectedSpecialty && (
+            <span className='text-brand-500 font-normal'>
+              {' '}
+              · {selectedSpecialty}
+            </span>
+          )}
+        </span>
       </header>
 
-      {/* Left stacked column */}
-      <div className='absolute' style={columnStyles}>
-        <div className='relative h-full'>
-          <div className='absolute inset-x-0 top-0 bottom-0 overflow-clip rounded-t-2xl bg-surface-accent'>
-            <div className='flex h-full flex-col justify-between p-gapsm text-fg-secondary'>
-              <p className='text-label-sm'>Total facturación</p>
-              <p className='text-title-sm font-medium text-right'>60.000 €</p>
-            </div>
+      {kpis.map((card) => (
+        <article
+          key={card.title}
+          className='absolute flex flex-col rounded-lg p-2 overflow-hidden min-w-0'
+          style={{
+            left: toWidth(card.left),
+            top: toHeight(card.top),
+            width: toWidth(card.width),
+            height: toHeight(116),
+            backgroundColor: card.bg
+          }}
+        >
+          {/* Icon - fixed size */}
+          <span className='material-symbols-rounded text-base leading-none text-neutral-600 shrink-0'>
+            {card.icon}
+          </span>
+          {/* Title */}
+          <p className='text-label-sm text-neutral-600 mt-1 truncate shrink-0'>
+            {card.title}
+          </p>
+          {/* Value + Delta - pushed to bottom */}
+          <div className='mt-auto flex items-baseline justify-between gap-1 min-w-0 overflow-hidden'>
+            <p className='text-neutral-600 text-lg lg:text-xl font-normal truncate min-w-0'>
+              {card.value}
+            </p>
+            <span
+              className={`shrink-0 text-xs lg:text-label-sm font-medium ${
+                card.delta.startsWith('-') ? 'text-red-500' : 'text-brand-500'
+              }`}
+            >
+              {card.delta}
+            </span>
           </div>
+        </article>
+      ))}
 
-          <div
-            className='absolute left-0 right-0 overflow-clip rounded-t-2xl bg-brand-200'
-            style={{ top: fixedOffsetPercent, height: fixedHeightPercent }}
-          >
-            <div className='flex h-full flex-col justify-between p-gapsm text-fg-secondary'>
-              <div className='flex items-center justify-between text-label-sm'>
-                <span>Gastos fijos</span>
-                <span className='font-medium'>62%</span>
-              </div>
-              <p className='text-title-sm font-medium text-right'>36.000 €</p>
-            </div>
-          </div>
+      <AccountingDonut
+        donut={donut}
+        style={{
+          left: toWidth(457),
+          right: toWidth(205),
+          top: toHeight(64),
+          height: toHeight(DONUT_CARD_HEIGHT)
+        }}
+      />
 
+      <div
+        className='absolute'
+        style={{
+          right: toWidth(16), // margen derecho igual al padding izquierdo Figma (16px)
+          top: 0,
+          width: toWidth(173),
+          height: '100%'
+        }}
+      >
+        {sideStack.map((item) => (
           <div
-            className='absolute left-0 right-0 overflow-clip bg-brandSemantic'
+            key={item.title}
+            className='absolute rounded-[1rem]'
             style={{
-              top: variableOffsetPercent,
-              height: variableHeightPercent
+              left: 0,
+              top: `calc(${toHeight(item.top)} * var(--stack-scale-y))`,
+              width: '100%',
+              height: `calc(${toHeight(item.height)} * var(--stack-scale-y))`,
+              backgroundColor: item.bg
             }}
           >
-            <div className='flex h-full flex-col justify-between p-gapsm text-fg-inverse'>
-              <div className='flex items-center justify-between text-label-sm'>
-                <span>Gastos Variables</span>
-                <span className='font-medium'>32%</span>
-              </div>
-              <p className='text-title-sm font-medium text-right'>18.000 €</p>
+            <div className='relative h-full w-full'>
+              <p
+                className={`absolute left-[0.5rem] top-[0.5rem] text-label-sm ${item.textClass}`}
+                style={{ lineHeight: '1rem' }}
+              >
+                {item.title}
+              </p>
+              {item.percent ? (
+                <span
+                  className={`absolute right-[0.5rem] top-[0.5rem] text-label-sm font-medium ${item.textClass}`}
+                  style={{ lineHeight: '1rem' }}
+                >
+                  {item.percent}
+                </span>
+              ) : null}
+              <p
+                className={`absolute left-[0.5rem] top-[2.5rem] text-title-sm font-medium ${item.textClass}`}
+                style={{ lineHeight: '1.5rem' }}
+              >
+                {item.value}
+              </p>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Resumen del mes */}
-      <div
-        className='absolute border border-border rounded-2xl bg-surface p-fluid-sm'
-        style={summaryStyles}
-      >
-        <h3 className='text-title-sm font-medium text-fg mb-fluid-sm'>
-          Resumen del mes
-        </h3>
-        <dl className='space-y-gapsm'>
-          <div className='flex justify-between text-label-sm text-fg'>
-            <dt>Facturado:</dt>
-            <dd className='text-body-sm'>60.000 €</dd>
-          </div>
-          <div className='flex justify-between text-label-sm text-fg'>
-            <dt>Gastos totales:</dt>
-            <dd className='text-body-sm'>-30.000 €</dd>
-          </div>
-        </dl>
-      </div>
-
-      {/* Gastos fijos */}
-      <div
-        className='absolute border border-border rounded-2xl bg-surface p-fluid-sm'
-        style={fixedCardStyles}
-      >
-        <h3 className='text-title-sm font-medium text-fg mb-fluid-sm'>
-          Gastos fijos
-        </h3>
-        <dl className='flex h-full flex-col justify-between'>
-          <div className='space-y-gapsm'>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Nóminas:</dt>
-              <dd className='text-body-sm'>15.000 €</dd>
-            </div>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Alquiler:</dt>
-              <dd className='text-body-sm'>3.000 €</dd>
-            </div>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Servicios:</dt>
-              <dd className='text-body-sm'>500 €</dd>
-            </div>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Seguros:</dt>
-              <dd className='text-body-sm'>300 €</dd>
-            </div>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Otros:</dt>
-              <dd className='text-body-sm'>200 €</dd>
-            </div>
-          </div>
-          <div>
-            <div className='my-gapsm h-px bg-border' />
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Total</dt>
-              <dd className='text-body-sm'>18.500 €</dd>
-            </div>
-          </div>
-        </dl>
-      </div>
-
-      {/* Gastos variables */}
-      <div
-        className='absolute border border-border rounded-2xl bg-surface p-fluid-sm'
-        style={variableCardStyles}
-      >
-        <h3 className='text-title-sm font-medium text-fg mb-fluid-sm'>
-          Gastos variables
-        </h3>
-        <dl className='flex h-full flex-col justify-between'>
-          <div className='space-y-gapsm'>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Implantes:</dt>
-              <dd className='text-body-sm'>8.000 €</dd>
-            </div>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Mat. conservadora:</dt>
-              <dd className='text-body-sm'>2.500 €</dd>
-            </div>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Mat. Ortodoncia:</dt>
-              <dd className='text-body-sm'>1.000 €</dd>
-            </div>
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Otros:</dt>
-              <dd className='text-body-sm'>200 €</dd>
-            </div>
-          </div>
-          <div>
-            <div className='my-gapsm h-px bg-border' />
-            <div className='flex justify-between text-label-sm text-fg'>
-              <dt>Total</dt>
-              <dd className='text-body-sm'>11.500 €</dd>
-            </div>
-          </div>
-        </dl>
+        ))}
       </div>
     </section>
+  )
+}
+
+// Componente del donut con ResizeObserver (misma lógica que CashSummaryCard)
+function AccountingDonut({
+  donut,
+  style
+}: {
+  donut: {
+    data: Array<{ name: string; value: number; color: string }>
+    valueLabel: string
+    targetLabel: string
+    pendingValue: number
+    pendingLabel: string
+  }
+  style: CSSProperties
+}) {
+  const donutCardRef = useRef<HTMLDivElement | null>(null)
+  const [chartDimensions, setChartDimensions] = useState(() => {
+    const rootFontSize = BASE_ROOT_FONT_SIZE_PX
+    const widthPx = remToPx(DONUT_MAX_WIDTH_REM, rootFontSize)
+    return {
+      widthPx,
+      heightPx: widthPx * DONUT_HEIGHT_RATIO
+    }
+  })
+  const [rootFontSize, setRootFontSize] = useState(BASE_ROOT_FONT_SIZE_PX)
+
+  useEffect(() => {
+    setRootFontSize(getRootFontSize(true))
+
+    const node = donutCardRef.current
+    if (!node || typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      const measuredRootFontSize = getRootFontSize(true)
+      const maxWidthPx = remToPx(DONUT_MAX_WIDTH_REM, measuredRootFontSize)
+      const minWidthPx = remToPx(DONUT_MIN_WIDTH_REM, measuredRootFontSize)
+
+      const availableWidth = entry.contentRect.width
+      const widthPx = Math.min(maxWidthPx, Math.max(minWidthPx, availableWidth))
+
+      const maxHeightPx = entry.contentRect.height
+      const heightPx = Math.min(
+        widthPx * DONUT_HEIGHT_RATIO,
+        Math.max(0, maxHeightPx)
+      )
+
+      setChartDimensions((prev) => {
+        if (prev.widthPx === widthPx && prev.heightPx === heightPx) return prev
+        return { widthPx, heightPx }
+      })
+    })
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  const chartWrapperStyles: CSSProperties = {
+    position: 'absolute',
+    left: '50%',
+    top: '16%',
+    transform: 'translate(-50%, -50%)',
+    width: `${pxToRem(chartDimensions.widthPx * DONUT_SCALE, rootFontSize)}rem`,
+    height: `${pxToRem(chartDimensions.heightPx * DONUT_SCALE, rootFontSize)}rem`
+  }
+
+  const valueStackStyles: CSSProperties = {
+    position: 'absolute',
+    left: '50%',
+    top: '68%',
+    transform: 'translate(-50%, -50%)',
+    textAlign: 'center'
+  }
+
+  return (
+    <div
+      ref={donutCardRef}
+      className='absolute rounded-lg bg-surface shadow-[0px_4px_24px_rgba(36,40,44,0.08)]'
+      style={{
+        ...style,
+        minWidth: '10rem',
+        padding: '1rem',
+        overflow: 'hidden'
+      }}
+    >
+      <p className='text-label-md text-fg-secondary'>Cobrado vs Facturado</p>
+
+      {chartDimensions.widthPx > 0 && chartDimensions.heightPx > 0 ? (
+        <div className='absolute' style={chartWrapperStyles} aria-hidden='true'>
+          <ResponsiveContainer width='100%' height='100%'>
+            <PieChart style={{ outline: 'none' }}>
+              <Pie
+                data={donut.data}
+                dataKey='value'
+                startAngle={180}
+                endAngle={0}
+                innerRadius='85%'
+                outerRadius='100%'
+                cx='50%'
+                cy='100%'
+                stroke='transparent'
+              >
+                {donut.data.map((slice) => (
+                  <Cell key={slice.name} fill={slice.color} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      ) : null}
+
+      <div
+        className='absolute flex flex-col items-center gap-[0.25rem] text-center text-neutral-600'
+        style={valueStackStyles}
+      >
+        <p
+          className='text-headline-lg text-fg-secondary'
+          style={{ color: 'var(--color-neutral-600)' }}
+        >
+          {donut.valueLabel}
+        </p>
+        <p className='flex items-baseline gap-[0.5rem] text-label-sm leading-[1rem]'>
+          <span
+            className='font-medium'
+            style={{
+              color: 'var(--color-neutral-600)',
+              fontSize: '0.6875rem',
+              lineHeight: '1rem'
+            }}
+          >
+            de
+          </span>
+          <span
+            className='text-title-sm font-medium leading-[1.75rem]'
+            style={{ color: 'var(--color-neutral-600)' }}
+          >
+            {donut.targetLabel}
+          </span>
+        </p>
+        {donut.pendingValue > 0 && (
+          <p
+            className='text-label-sm font-medium'
+            style={{ color: 'var(--color-warning-600)' }}
+          >
+            {donut.pendingLabel} pdte cobrar
+          </p>
+        )}
+      </div>
+    </div>
   )
 }

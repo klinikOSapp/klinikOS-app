@@ -1,66 +1,72 @@
+import type { CashTimeScale } from '@/components/caja/cajaTypes'
+import type { SpecialtyFilter } from './gestionTypes'
+
 type IncomeItem = {
   label: string
   value: string
   percent: string
-  delta?: string
 }
-type IncomeTypesProps = { yearLabel?: string; items?: IncomeItem[] }
 
-const defaultItems: IncomeItem[] = [
-  { label: 'Efectivo', value: '1.200 €', percent: '44%', delta: '+ 12%' },
-  { label: 'Tarjeta/TPV', value: '2.200 €', percent: '56%', delta: '+ 12%' },
-  { label: 'Financiación', value: '800 €', percent: '44%', delta: '+ 12%' }
-]
+type IncomeTypesProps = {
+  yearLabel?: string
+  items?: IncomeItem[]
+  timeScale?: CashTimeScale
+  selectedSpecialty?: SpecialtyFilter
+}
+
+function getItems(timeScale: CashTimeScale): IncomeItem[] {
+  // Los métodos de pago = desglose del COBRADO
+  if (timeScale === 'month') {
+    // Total Cobrado mes: 27.000 €
+    return [
+      { label: 'Efectivo', value: '8.100 €', percent: '30%' },
+      { label: 'Tarjeta/TPV', value: '14.850 €', percent: '55%' },
+      { label: 'Financiación', value: '4.050 €', percent: '15%' }
+    ]
+  }
+
+  // Total Cobrado semana: 6.000 €
+  return [
+    { label: 'Efectivo', value: '1.800 €', percent: '30%' },
+    { label: 'Tarjeta/TPV', value: '3.300 €', percent: '55%' },
+    { label: 'Financiación', value: '900 €', percent: '15%' }
+  ]
+}
 
 export default function IncomeTypes({
   yearLabel = '2024',
-  items = defaultItems
+  items,
+  timeScale = 'week',
+  selectedSpecialty
 }: IncomeTypesProps) {
+  void yearLabel
+  void selectedSpecialty // Will be used for filtering when connected to real data
+  const data = items ?? getItems(timeScale)
+
   return (
-    <section className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid w-card-stat-fluid shrink-0 flex flex-col px-card-pad pt-card-pad pb-card-inner'>
-      <div
-        className='w-full'
-        style={{
-          maxWidth: 'calc((var(--width-income-card) * 3) + (0.75rem * 2))',
-          marginInline: 'auto'
-        }}
-      >
-        <header className='flex items-baseline justify-between'>
-          <h3 className='text-title-sm font-medium text-fg'>Tipos de ingreso</h3>
-          <div className='flex items-center gap-card-metric text-label-md text-fg'>
-            <span>{yearLabel}</span>
-            <span className='material-symbols-rounded text-[16px]'>
-              arrow_drop_down
-            </span>
-          </div>
+    <section className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid overflow-hidden min-w-0 flex flex-col px-[0.5rem] pt-0 pb-card-inner'>
+      <div className='w-full px-[0.5rem]'>
+        <header className='mt-[1rem] flex items-baseline justify-between'>
+          <h3 className='text-title-sm font-medium text-fg'>
+            Métodos de pago
+          </h3>
         </header>
-        <div
-          className='mt-header-cards grid gap-[0.75rem] justify-center'
-          style={{
-            gridTemplateColumns:
-              'repeat(3, min(var(--width-income-card), calc((100% - (0.75rem * 2)) / 3)))'
-          }}
-        >
-          {items.map((i) => (
+        <div className='mt-[0.9375rem] grid gap-[0.5rem] lg:gap-[0.75rem] grid-cols-1 sm:grid-cols-3 auto-rows-fr'>
+          {data.map((i) => (
             <div
               key={i.label}
-              className='bg-surface-app rounded-lg pt-card-pad px-card-pad pb-card-inner flex flex-col gap-card-row h-income-card w-full'
-              style={{ maxWidth: 'var(--width-income-card)' }}
+              className='bg-surface-app rounded-lg px-[0.5rem] py-[0.5rem] flex min-h-[4rem] lg:h-income-card w-full flex-col items-start text-left'
             >
-              <div className='flex items-center justify-between text-label-md text-fg-secondary whitespace-nowrap'>
-                <span>{i.label}</span>
-                <span className='font-medium text-fg-secondary'>{i.percent}</span>
-              </div>
-              <div className='text-headline-sm text-fg-secondary whitespace-nowrap'>
-                {i.value}
-              </div>
-              <div className='flex items-center gap-card-metric whitespace-nowrap'>
-                <span className='text-body-sm text-brandSemantic'>
-                  {i.delta ?? '+ 12%'}
-                </span>
-                <span className='material-symbols-rounded text-brandSemantic text-[16px]'>
-                  arrow_outward
-                </span>
+              <div className='flex flex-col items-start gap-[0.5rem] w-full'>
+                <div className='flex items-center justify-between gap-[0.5rem] text-label-md text-fg-secondary whitespace-nowrap w-full'>
+                  <span>{i.label}</span>
+                  <span className='font-medium text-fg-secondary'>
+                    {i.percent}
+                  </span>
+                </div>
+                <div className='text-headline-sm text-fg-secondary text-[var(--color-neutral-600)] whitespace-nowrap'>
+                  {i.value}
+                </div>
               </div>
             </div>
           ))}

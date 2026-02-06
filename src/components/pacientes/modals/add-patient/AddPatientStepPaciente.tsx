@@ -3,7 +3,14 @@
 import AvatarImageDropdown from '@/components/pacientes/AvatarImageDropdown'
 import React from 'react'
 import DatePicker from './AddPatientDatePicker'
-import { SelectInput, TextInput } from './AddPatientInputs'
+import { 
+  SelectInput, 
+  TextInput, 
+  validateDocument, 
+  calculateAgeFromDate 
+} from './AddPatientInputs'
+
+type DocumentType = 'DNI' | 'NIE' | 'Pasaporte' | 'Otro'
 
 type Props = {
   nombre?: string
@@ -12,13 +19,16 @@ type Props = {
   onChangeApellidos?: (v: string) => void
   fechaNacimiento?: Date | null
   onChangeFechaNacimiento?: (d: Date) => void
+  tipoDocumento?: DocumentType
+  onChangeTipoDocumento?: (v: DocumentType) => void
   dni?: string
   onChangeDni?: (v: string) => void
   sexo?: string
   onChangeSexo?: (v: string) => void
   idioma?: string
   onChangeIdioma?: (v: string) => void
-  onAvatarSelected?: (file: File | null) => void
+  edad?: number
+  onChangeEdad?: (v: number) => void
 }
 
 export default function AddPatientStepPaciente({
@@ -28,30 +38,66 @@ export default function AddPatientStepPaciente({
   onChangeApellidos,
   fechaNacimiento,
   onChangeFechaNacimiento,
+  tipoDocumento = 'DNI',
+  onChangeTipoDocumento,
   dni,
   onChangeDni,
   sexo,
   onChangeSexo,
   idioma,
   onChangeIdioma,
-  onAvatarSelected
+  edad,
+  onChangeEdad
 }: Props) {
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
   const lastUrlRef = React.useRef<string | null>(null)
+  const [documentError, setDocumentError] = React.useState<string | undefined>()
 
   const setPreviewFromFile = React.useCallback((file: File) => {
     const url = URL.createObjectURL(file)
     if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current)
     lastUrlRef.current = url
     setPreviewUrl(url)
-    onAvatarSelected?.(file)
-  }, [onAvatarSelected])
+  }, [])
 
   React.useEffect(() => {
     return () => {
       if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current)
     }
   }, [])
+
+  // Calcular edad automáticamente cuando cambia fecha de nacimiento
+  React.useEffect(() => {
+    if (fechaNacimiento && onChangeEdad) {
+      const calculatedAge = calculateAgeFromDate(fechaNacimiento)
+      onChangeEdad(calculatedAge)
+    }
+  }, [fechaNacimiento, onChangeEdad])
+
+  // Validar documento cuando cambia el valor o el tipo
+  const handleDocumentChange = (value: string) => {
+    onChangeDni?.(value)
+    // Limpiar error mientras escribe
+    if (documentError) {
+      setDocumentError(undefined)
+    }
+  }
+
+  const handleDocumentBlur = () => {
+    if (dni) {
+      const validation = validateDocument(dni, tipoDocumento)
+      setDocumentError(validation.error)
+    }
+  }
+
+  const handleDocumentTypeChange = (value: string) => {
+    onChangeTipoDocumento?.(value as DocumentType)
+    // Re-validar con el nuevo tipo
+    if (dni) {
+      const validation = validateDocument(dni, value as DocumentType)
+      setDocumentError(validation.error)
+    }
+  }
 
   return (
     <>
@@ -65,11 +111,20 @@ export default function AddPatientStepPaciente({
         Apellidos
       </div>
       <div className='left-[18.375rem] top-[47.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
-        DNI/NIE
+        Tipo de documento
+      </div>
+      <div className='left-[18.375rem] top-[53.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
+        Número de documento
       </div>
       <div className='left-[18.375rem] top-[29.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
         Fecha de nacimiento
       </div>
+      {edad !== undefined && edad >= 0 && (
+        <div className='left-[42rem] top-[29.9375rem] absolute flex items-center gap-2'>
+          <span className='text-[var(--color-neutral-500)] text-body-md font-sans'>Edad:</span>
+          <span className='text-[var(--color-neutral-900)] text-body-md font-sans font-medium'>{edad} años</span>
+        </div>
+      )}
       <div className='left-[18.375rem] top-[35.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
         Sexo biológico
       </div>
@@ -121,10 +176,9 @@ export default function AddPatientStepPaciente({
           value={sexo ?? ''}
           onChange={onChangeSexo}
           options={[
-            { label: 'Femenino', value: 'female' },
-            { label: 'Masculino', value: 'male' },
-            { label: 'Otro', value: 'other' },
-            { label: 'Prefiero no decirlo', value: 'undisclosed' }
+            { label: 'Femenino', value: 'femenino' },
+            { label: 'Masculino', value: 'masculino' },
+            { label: 'Otro / Prefiero no decir', value: 'otro' }
           ]}
         />
       </div>
@@ -144,11 +198,27 @@ export default function AddPatientStepPaciente({
       </div>
 
       <div className='w-[19.1875rem] left-[30.6875rem] top-[47.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
+        <SelectInput
+          placeholder='Selecciona tipo'
+          value={tipoDocumento}
+          onChange={handleDocumentTypeChange}
+          options={[
+            { label: 'DNI', value: 'DNI' },
+            { label: 'NIE', value: 'NIE' },
+            { label: 'Pasaporte', value: 'Pasaporte' },
+            { label: 'Otro', value: 'Otro' }
+          ]}
+        />
+      </div>
+
+      <div className='w-[19.1875rem] left-[30.6875rem] top-[53.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
         <TextInput
-          placeholder='DNI/NIE'
+          placeholder={tipoDocumento === 'DNI' ? '12345678A' : tipoDocumento === 'NIE' ? 'X1234567A' : 'Número de documento'}
           required
           value={dni}
-          onChange={onChangeDni}
+          onChange={handleDocumentChange}
+          onBlur={handleDocumentBlur}
+          error={documentError}
         />
       </div>
     </>

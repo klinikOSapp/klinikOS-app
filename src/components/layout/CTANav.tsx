@@ -1,15 +1,16 @@
 'use client'
 
 import React from 'react'
-import AddRounded from '@mui/icons-material/AddRounded'
+import { AddRounded } from '@/components/icons/md3'
 
 export interface CTANavProps {
   label: string
   onClick?: () => void
   menuItems?: { id: string; label: string; onClick?: () => void }[]
+  collapsed?: boolean
 }
 
-export default function CTANav({ label, onClick, menuItems }: CTANavProps) {
+export default function CTANav({ label, onClick, menuItems, collapsed }: CTANavProps) {
   const hasMenu = Boolean(menuItems && menuItems.length)
 
   return (
@@ -17,13 +18,24 @@ export default function CTANav({ label, onClick, menuItems }: CTANavProps) {
       <button
         type='button'
         onClick={onClick}
-        className='bg-[var(--color-neutral-50)] rounded-[var(--radius-xl)] shadow-[var(--shadow-cta)] px-4 h-[var(--spacing-cta)] inline-flex items-center gap-[var(--spacing-gapsm)] text-[var(--color-neutral-900)] hover:bg-[var(--color-brand-200)] focus:bg-[var(--color-brand-200)] active:bg-[var(--color-brand-900)] active:text-[var(--color-neutral-50)] transition-colors duration-150 ease-out'
+        className={[
+          'bg-[var(--color-neutral-50)] rounded-[var(--radius-xl)] shadow-[var(--shadow-cta)] h-[var(--spacing-cta)]',
+          'inline-flex items-center gap-[var(--spacing-gapsm)] text-[var(--color-neutral-900)] hover:bg-[var(--color-brand-200)] focus:bg-[var(--color-brand-200)] active:bg-[var(--color-brand-900)] active:text-[var(--color-neutral-50)] transition-colors duration-150 ease-out',
+          collapsed ? 'justify-center w-[min(var(--spacing-cta),95vw)] px-0' : 'px-4'
+        ].join(' ')}
         aria-label={label}
         aria-haspopup={hasMenu ? 'menu' : undefined}
         aria-expanded={undefined}
       >
         <AddRounded className='size-5' aria-hidden='true' />
-        <span className='font-inter text-title-md'>{label}</span>
+        <span
+          className={[
+            'font-inter text-title-md transition-opacity duration-200',
+            collapsed ? 'sr-only opacity-0' : 'opacity-100'
+          ].join(' ')}
+        >
+          {label}
+        </span>
       </button>
 
       {hasMenu && (

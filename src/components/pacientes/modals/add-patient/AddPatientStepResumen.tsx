@@ -1,17 +1,46 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
+import { MD3Icon } from '@/components/icons/MD3Icon'
+
+// Tipos para alergias con severidad
+type AllergySeverity = 'leve' | 'moderada' | 'grave' | 'extrema'
+
+type AllergyEntry = {
+  id: string
+  name: string
+  severity: AllergySeverity
+  notes?: string
+}
+
+// Colores por severidad
+const severityColors: Record<AllergySeverity, { bg: string; text: string }> = {
+  leve: { bg: 'bg-[var(--color-warning-100)]', text: 'text-[var(--color-warning-700)]' },
+  moderada: { bg: 'bg-[var(--color-warning-200)]', text: 'text-[var(--color-warning-800)]' },
+  grave: { bg: 'bg-[var(--color-error-100)]', text: 'text-[var(--color-error-700)]' },
+  extrema: { bg: 'bg-[var(--color-error-200)]', text: 'text-[var(--color-error-800)]' }
+}
+
+const severityLabels: Record<AllergySeverity, string> = {
+  leve: 'L',
+  moderada: 'M',
+  grave: 'G',
+  extrema: 'E'
+}
+
 type Props = {
   // Datos básicos
   nombre?: string
   apellidos?: string
   email?: string
   telefono?: string
-  alergias?: string[]
+  alergias?: string[] // Legacy support
+  alergiasConSeveridad?: AllergyEntry[] // New format
   anotaciones?: string
   // Consentimientos / toggles
   recordatorios?: boolean
   marketing?: boolean
-  terminos?: boolean
 }
 
 export default function AddPatientStepResumen({
@@ -20,111 +49,154 @@ export default function AddPatientStepResumen({
   email,
   telefono,
   alergias = [],
+  alergiasConSeveridad = [],
   anotaciones,
   recordatorios,
-  marketing,
-  terminos
+  marketing
 }: Props) {
   const fullName =
-    [nombre, apellidos].filter(Boolean).join(' ').trim() || 'Nombre y apellidos'
-  const consentList = [
-    { label: 'Tratamiento de datos personales', value: true },
-    {
-      label: 'Consentimiento uso de imagen',
-      value: Boolean(marketing)
-    },
-    {
-      label: 'Marketing y redes sociales',
-      value: Boolean(marketing)
-    },
-    {
-      label: 'Comunicación SMS/WPP',
-      value: Boolean(recordatorios)
-    },
-    {
-      label: 'Términos de uso y privacidad',
-      value: Boolean(terminos)
-    }
-  ]
+    [nombre, apellidos].filter(Boolean).join(' ').trim() || 'Lucia López Cano'
   return (
-    <div className='absolute left-[9.5rem] top-[5rem] w-[46rem]'>
-      <div className='rounded-[1.5rem] bg-white shadow-[0_20px_80px_rgba(15,23,42,0.08)] border border-[#e4e9ee] p-8 flex flex-col gap-8'>
-        <div className='flex flex-wrap items-center gap-6'>
-          <div className='size-24 rounded-full bg-[var(--color-neutral-600)] border-2 border-[var(--color-neutral-200)]' />
-          <div className='flex flex-col gap-1 min-w-[14rem]'>
-            <p className='text-title-lg text-[var(--color-neutral-900)]'>{fullName}</p>
-            {email ? <p className='text-body-md text-[var(--color-neutral-600)]'>{email}</p> : null}
-            {telefono ? (
-              <p className='text-body-md text-[var(--color-neutral-600)]'>{telefono}</p>
-            ) : null}
-          </div>
-        </div>
-
-        <div className='grid gap-8 md:grid-cols-2'>
-          <div className='flex flex-col gap-6'>
-            <section className='space-y-2'>
-              <p className='text-label-sm uppercase tracking-[0.05em] text-[var(--color-neutral-500)]'>
-                Alergias
-              </p>
-              <div className='flex flex-wrap gap-2'>
-                {alergias.length > 0 ? (
-                  alergias.map((a) => (
-                    <span
-                      key={a}
-                      className='inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[var(--color-error-100)] text-[var(--color-error-600)] text-label-sm'
-                    >
-                      {a}
-                    </span>
-                  ))
-                ) : (
-                  <span className='text-body-md text-[var(--color-neutral-500)]'>—</span>
-                )}
-              </div>
-            </section>
-            <section className='space-y-2'>
-              <p className='text-label-sm uppercase tracking-[0.05em] text-[var(--color-neutral-500)]'>
-                Notas internas
-              </p>
-              <div className='rounded-xl border border-[#e4e9ee] bg-[var(--color-neutral-50)] px-3 py-2 text-body-md text-[var(--color-neutral-800)] min-h-[3rem]'>
-                {anotaciones?.trim() || '—'}
-              </div>
-            </section>
-          </div>
-
-          <div className='space-y-4'>
-            <p className='text-label-sm uppercase tracking-[0.05em] text-[var(--color-neutral-500)]'>
-              Consentimientos
+    <>
+      {/* Avatar + Info del Paciente */}
+      <div className='absolute left-[18.375rem] top-[10rem] flex items-center gap-6'>
+        <div className='size-24 rounded-full bg-[var(--color-neutral-700)]' />
+        <div className='flex flex-col gap-2 w-[14.25rem]'>
+          <p className='text-[1.5rem] leading-[2rem] font-medium text-[var(--color-neutral-900)]'>
+            {fullName}
+          </p>
+          <div className='flex items-center gap-2'>
+            <MD3Icon
+              name='MailOutlineRounded'
+              size='md'
+              className='text-[var(--color-neutral-900)]'
+            />
+            <p className='text-body-md text-[var(--color-neutral-900)]'>
+              {email || 'Email no proporcionado'}
             </p>
-            <div className='flex flex-col gap-3'>
-              {consentList.map((item) => (
-                <ResumenItem key={item.label} label={item.label} checked={item.value} />
-              ))}
-            </div>
+          </div>
+          <div className='flex items-center gap-2'>
+            <MD3Icon
+              name='PhoneRounded'
+              size='md'
+              className='text-[var(--color-neutral-900)]'
+            />
+            <p className='text-body-md text-[var(--color-neutral-900)]'>
+              {telefono || 'Teléfono no proporcionado'}
+            </p>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Alergias */}
+      <p className='absolute left-[18.375rem] top-[18.25rem] text-[0.75rem] leading-[1rem] font-medium text-[#8A95A1]'>
+        Alergias:
+      </p>
+      <div className='absolute left-[25.5625rem] top-[18rem] flex flex-wrap items-center gap-2 max-w-[24rem]'>
+        {alergiasConSeveridad.length > 0 ? (
+          alergiasConSeveridad.map((a) => {
+            const colors = severityColors[a.severity]
+            return (
+              <span
+                key={a.id}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${colors.bg} ${colors.text} text-[0.75rem] leading-[1rem] font-medium`}
+                title={`Severidad: ${a.severity}`}
+              >
+                {a.name}
+                <span className='opacity-70'>({severityLabels[a.severity]})</span>
+              </span>
+            )
+          })
+        ) : alergias.length > 0 ? (
+          alergias.map((a) => (
+            <span
+              key={a}
+              className='inline-flex items-center px-2 py-1 rounded-full bg-[var(--color-error-200)] text-[var(--color-error-600)] text-[0.75rem] leading-[1rem] font-medium'
+            >
+              {a}
+            </span>
+          ))
+        ) : (
+          <span className='text-body-md text-[var(--color-neutral-500)]'>
+            Sin alergias
+          </span>
+        )}
+      </div>
+
+      {/* Anotaciones */}
+      <p className='absolute left-[18.375rem] top-[21rem] text-[0.75rem] leading-[1rem] font-medium text-[#8A95A1]'>
+        Anotaciones:
+      </p>
+      <p className='absolute left-[25.5625rem] top-[21rem] text-body-md text-[var(--color-neutral-900)] w-[24rem]'>
+        {anotaciones || 'Sin anotaciones'}
+      </p>
+
+      {/* Consentimientos */}
+      <p className='absolute left-[18.375rem] top-[25.5rem] text-[0.75rem] leading-[1rem] font-medium text-[#8A95A1]'>
+        Consentimientos:
+      </p>
+
+      <ResumenItem
+        label='Tratamiento de datos personales'
+        checked={true}
+        top='25.5rem'
+      />
+      <ResumenItem
+        label='Consentimiento de uso de imagen'
+        checked={Boolean(marketing)}
+        negative
+        top='27.625rem'
+      />
+      <ResumenItem
+        label='Marketing y RRSS'
+        checked={Boolean(marketing)}
+        negative
+        top='29.75rem'
+      />
+      <ResumenItem
+        label='Comunicación SMS/WPP'
+        checked={Boolean(recordatorios)}
+        top='31.875rem'
+      />
+    </>
   )
 }
 
 function ResumenItem({
   label,
   checked,
-  negative
+  negative,
+  top
 }: {
   label: string
   checked: boolean
   negative?: boolean
+  top: string
 }) {
-  const icon = checked && !negative ? '✔︎' : '✖︎'
-  const color =
-    checked && !negative
-      ? 'text-[var(--color-brand-500)]'
-      : 'text-[var(--color-neutral-900)]'
+  const showCheck = checked && !negative
+  const showCancel = !checked || negative
+
   return (
-    <div className='flex items-center gap-2'>
-      <span className={`${color} text-label-md`}>{icon}</span>
-      <span className='text-body-md text-[var(--color-neutral-900)]'>{label}</span>
+    <div
+      className='absolute left-[25.5625rem] flex items-center gap-2'
+      style={{ top }}
+    >
+      {showCheck ? (
+        <MD3Icon
+          name='CheckCircleRounded'
+          size='lg'
+          className='text-[var(--color-brand-500)]'
+        />
+      ) : (
+        <MD3Icon
+          name='CancelRounded'
+          size='lg'
+          className='text-[var(--color-neutral-900)]'
+        />
+      )}
+      <span className='text-body-md text-[var(--color-neutral-900)]'>
+        {label}
+      </span>
     </div>
   )
 }

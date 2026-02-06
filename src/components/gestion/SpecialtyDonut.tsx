@@ -1,10 +1,12 @@
 'use client'
 
+import type { CashTimeScale } from '@/components/caja/cajaTypes'
 import type { CSSProperties } from 'react'
-import { Pie, PieChart, ResponsiveContainer, Cell } from 'recharts'
+import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
+import type { Specialty, SpecialtyFilter } from './gestionTypes'
 
 type SpecialtyShare = {
-  label: string
+  label: Specialty
   percentage: number
   colorToken: string
 }
@@ -15,151 +17,201 @@ type ProductionTotalCardProps = {
   delta?: string
   view?: 'barras' | 'circular'
   specialties?: SpecialtyShare[]
+  timeScale?: CashTimeScale
+  selectedSpecialty?: SpecialtyFilter
+  onSpecialtySelect?: (specialty: SpecialtyFilter) => void
 }
 
+// Brand colors from design system (hex values for Recharts compatibility)
+const BRAND_COLORS = {
+  brand50: '#E3F5F2',
+  brand200: '#80D6C9',
+  brand500: '#00A991',
+  brand800: '#004D42'
+}
+
+// Color activo cuando está seleccionado
+const SELECTED_RING_COLOR = '#00A991' // brand-500
+
+// Desglose del FACTURADO por especialidad
 const DEFAULT_SPECIALTIES: SpecialtyShare[] = [
+  // Semana: Total Facturado = 7.200 €
   {
     label: 'Conservadora',
-    percentage: 40,
-    colorToken: 'var(--color-brand-50)'
+    percentage: 40, // 2.880 €
+    colorToken: BRAND_COLORS.brand50
   },
-  { label: 'Ortodoncia', percentage: 30, colorToken: 'var(--color-brand-200)' },
-  { label: 'Implantes', percentage: 20, colorToken: 'var(--color-brand-500)' },
-  { label: 'Estética', percentage: 10, colorToken: 'var(--color-brand-800)' }
+  { label: 'Ortodoncia', percentage: 30, colorToken: BRAND_COLORS.brand200 }, // 2.160 €
+  { label: 'Implantes', percentage: 20, colorToken: BRAND_COLORS.brand500 }, // 1.440 €
+  { label: 'Estética', percentage: 10, colorToken: BRAND_COLORS.brand800 } // 720 €
 ]
 
-const CARD_WIDTH = 'var(--width-card-chart-md-fluid)'
+const MONTH_SPECIALTIES: SpecialtyShare[] = [
+  // Mes: Total Facturado = 32.400 €
+  {
+    label: 'Conservadora',
+    percentage: 40, // 12.960 €
+    colorToken: BRAND_COLORS.brand50
+  },
+  { label: 'Ortodoncia', percentage: 30, colorToken: BRAND_COLORS.brand200 }, // 9.720 €
+  { label: 'Implantes', percentage: 20, colorToken: BRAND_COLORS.brand500 }, // 6.480 €
+  { label: 'Estética', percentage: 10, colorToken: BRAND_COLORS.brand800 } // 3.240 €
+]
+
 const CARD_HEIGHT = 'var(--height-card-chart-fluid)'
-const DONUT_SIZE_REM = 12.6875
-const LEGEND_WIDTH_REM = 8.375
-type ChartCardStyles = CSSProperties & Record<'--card-width-current', string>
 
 export default function ProductionTotalCard({
   year = '2024',
-  value = '€ 56 K',
-  delta = '+ 35%',
-  view = 'circular',
-  specialties = DEFAULT_SPECIALTIES
+  value,
+  delta,
+  view: _view = 'circular',
+  specialties,
+  timeScale = 'week',
+  selectedSpecialty,
+  onSpecialtySelect
 }: ProductionTotalCardProps) {
-  const sectionStyles = {
-    '--card-width-current': `min(${CARD_WIDTH}, 95vw)`,
-    width: 'var(--card-width-current)',
-    height: `min(${CARD_HEIGHT}, calc(100vh - 6rem))`
-  } satisfies ChartCardStyles
+  void year
+  void _view
+  const resolvedSpecialties =
+    specialties ??
+    (timeScale === 'month' ? MONTH_SPECIALTIES : DEFAULT_SPECIALTIES)
+  // Valor central = Total Facturado
+  const resolvedValue =
+    value ?? (timeScale === 'month' ? '€ 32,4 K' : '€ 7,2 K')
+  const resolvedDelta = delta ?? (timeScale === 'month' ? '+ 15%' : '+ 10%')
 
-  const donutSize = `min(${DONUT_SIZE_REM}rem, calc(var(--card-width-current) - ${LEGEND_WIDTH_REM}rem - 3rem))`
-  const legendLeft = `min(16.9375rem, calc(var(--card-width-current) - ${LEGEND_WIDTH_REM}rem - 1rem))`
-  const legendWidth = `min(${LEGEND_WIDTH_REM}rem, calc(var(--card-width-current) - ${DONUT_SIZE_REM}rem - 3rem))`
+  // Handler para clic en especialidad
+  const handleSpecialtyClick = (label: Specialty) => {
+    if (!onSpecialtySelect) return
+    // Si ya está seleccionada, deseleccionar (toggle)
+    if (selectedSpecialty === label) {
+      onSpecialtySelect(null)
+    } else {
+      onSpecialtySelect(label)
+    }
+  }
+
+  const sectionStyles: CSSProperties = {
+    width: '100%',
+    height: '100%',
+    minHeight: 'min(14rem, 20vh)'
+  }
 
   return (
     <section
-      className='relative overflow-clip rounded-lg bg-surface text-fg shadow-elevation-card'
+      className='relative overflow-hidden rounded-lg bg-surface text-fg shadow-elevation-card flex flex-col min-w-0'
       style={sectionStyles}
     >
-      <header
-        className='absolute left-[1rem] top-[1rem] flex items-baseline justify-between'
-        style={{
-          width: `min(31.0625rem, calc(var(--card-width-current) - 2rem))`
-        }}
-      >
-        <h3 className='text-title-sm font-medium text-fg'>
+      {/* Header */}
+      <header className='px-3 lg:px-4 pt-3 lg:pt-4 shrink-0 flex items-center gap-2 justify-between'>
+        <h3 className='text-title-sm font-medium text-fg truncate'>
           Facturación por especialidad
         </h3>
-        <button
-          type='button'
-          className='flex items-center gap-[0.25rem] text-[0.75rem] font-normal leading-4 text-fg'
-          aria-label={`Seleccionar periodo ${year}`}
-        >
-          {year}
-          <span className='material-symbols-rounded text-[1rem] leading-4 text-fg'>
-            arrow_drop_down
-          </span>
-        </button>
+        {/* Hint for filtering - only show when not filtered */}
+        {onSpecialtySelect && !selectedSpecialty && (
+          <p className='text-label-sm text-neutral-400 flex items-center gap-1 shrink-0'>
+            <span className='material-symbols-rounded text-sm'>touch_app</span>
+            <span className='hidden lg:inline'>Clic para filtrar el dashboard</span>
+          </p>
+        )}
       </header>
 
-      <div
-        className='absolute left-[1rem] top-[3.5rem] flex'
-        style={{
-          width: `min(7.75rem, calc(var(--card-width-current) - 2rem))`
-        }}
-      >
-        <button
-          type='button'
-          className='flex w-[3.0625rem] items-center justify-center rounded-l-[1rem] border border-neutral-300 border-r-0 bg-neutral-300 px-[0.5rem] py-[0.25rem] text-[0.75rem] font-normal leading-4 text-neutral-900'
-          aria-pressed={view === 'barras'}
+      {/* Content - responsive layout: column on tablet, row on desktop */}
+      <div className='flex-1 flex flex-col lg:flex-row items-center px-3 lg:px-4 pt-2 pb-3 lg:pb-4 gap-2 lg:gap-4 min-w-0 overflow-hidden'>
+        {/* Donut - responsive size, can shrink */}
+        <div
+          className='relative outline-none shrink-0'
+          style={{ 
+            width: 'min(11rem, 40vw)', 
+            height: 'min(11rem, 40vw)',
+            minWidth: '7rem',
+            minHeight: '7rem'
+          }}
+          tabIndex={-1}
         >
-          Barras
-        </button>
-        <button
-          type='button'
-          className='flex w-[3.5rem] items-center justify-center rounded-r-[1rem] border border-neutral-300 px-[0.25rem] py-[0.25rem] text-[0.75rem] font-normal leading-4 text-neutral-900'
-          aria-pressed={view === 'circular'}
-        >
-          Circular
-        </button>
-      </div>
-
-      <div
-        className='absolute left-[1rem] top-[6.5rem] flex items-center justify-center'
-        style={{
-          width: donutSize,
-          height: donutSize
-        }}
-        aria-hidden='true'
-      >
-        <ResponsiveContainer width='100%' height='100%'>
-          <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
-            <Pie
-              data={specialties}
-              dataKey='percentage'
-              startAngle={90}
-              endAngle={-270}
-              innerRadius='88%'
-              outerRadius='100%'
-              paddingAngle={0}
-              cornerRadius={16}
-              stroke='transparent'
-              isAnimationActive
+          <ResponsiveContainer width='100%' height='100%'>
+            <PieChart
+              margin={{ top: 2, right: 2, bottom: 2, left: 2 }}
+              style={{ outline: 'none' }}
             >
-              {specialties.map(({ label, colorToken }) => (
-                <Cell key={label} fill={colorToken} />
-              ))}
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-        <div className='absolute inset-[0.75rem] rounded-full border border-[rgba(255,255,255,0.5)] bg-surface' />
-        <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-gapsm'>
-          <p className='text-headline-lg text-neutral-900'>{value}</p>
-          <div className='flex items-center gap-gapsm'>
-            <span className='text-body-sm font-normal text-brand-500'>{delta}</span>
-            <span className='material-symbols-rounded text-[1rem] leading-4 text-brand-500'>
-              arrow_outward
+              <Pie
+                data={resolvedSpecialties}
+                dataKey='percentage'
+                startAngle={90}
+                endAngle={-270}
+                innerRadius='70%'
+                outerRadius='100%'
+                paddingAngle={0}
+                stroke='transparent'
+                isAnimationActive
+                style={{ cursor: onSpecialtySelect ? 'pointer' : 'default' }}
+                onClick={(_, index) => {
+                  const specialty = resolvedSpecialties[index]
+                  if (specialty) handleSpecialtyClick(specialty.label)
+                }}
+              >
+                {resolvedSpecialties.map(({ label, colorToken }) => {
+                  const isSelected = selectedSpecialty === label
+                  const isOtherSelected =
+                    selectedSpecialty && selectedSpecialty !== label
+                  return (
+                    <Cell
+                      key={label}
+                      fill={colorToken}
+                      opacity={isOtherSelected ? 0.3 : 1}
+                      stroke={isSelected ? SELECTED_RING_COLOR : 'transparent'}
+                      strokeWidth={isSelected ? 3 : 0}
+                    />
+                  )
+                })}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+          {/* Center content */}
+          <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center'>
+            <p className='text-base lg:text-title-md font-bold text-neutral-900 whitespace-nowrap'>
+              {resolvedValue}
+            </p>
+            <span className='text-xs lg:text-label-sm font-medium text-brand-500'>
+              {resolvedDelta}
             </span>
           </div>
         </div>
-      </div>
 
-      <dl
-        className='absolute top-[9.6875rem] flex flex-col gap-[0.75rem] text-[0.75rem] leading-4 text-neutral-800'
-        style={{
-          left: legendLeft,
-          width: legendWidth
-        }}
-      >
-        {specialties.map(({ label, percentage, colorToken }) => (
-          <div key={label} className='flex items-center gap-[0.5rem]'>
-            <span
-              className='h-[0.75rem] w-[0.75rem] rounded-full'
-              style={{ backgroundColor: colorToken }}
-              aria-hidden='true'
-            />
-            <div className='flex w-full items-center justify-between gap-[0.5rem]'>
-              <dt className='font-normal'>{label}</dt>
-              <dd className='font-medium'>{percentage}%</dd>
-            </div>
-          </div>
-        ))}
-      </dl>
+        {/* Legend - vertical list */}
+        <dl className='flex flex-col gap-1 lg:gap-1.5 text-sm text-neutral-800 justify-center min-w-0 overflow-visible'>
+          {resolvedSpecialties.map(({ label, percentage, colorToken }) => {
+            const isSelected = selectedSpecialty === label
+            const isOtherSelected =
+              selectedSpecialty && selectedSpecialty !== label
+            return (
+              <button
+                key={label}
+                type='button'
+                onClick={() => handleSpecialtyClick(label)}
+                className={`flex items-center gap-2 lg:gap-3 rounded-md px-2 py-1 transition-colors duration-150 outline-none focus:outline-none min-w-0 ${
+                  onSpecialtySelect ? 'hover:bg-neutral-100 cursor-pointer' : ''
+                } ${isSelected ? 'bg-brand-50 ring-1 ring-inset ring-brand-500' : ''} ${
+                  isOtherSelected ? 'opacity-40' : ''
+                }`}
+                disabled={!onSpecialtySelect}
+              >
+                <span
+                  className='h-2.5 w-2.5 shrink-0 rounded-full'
+                  style={{ backgroundColor: colorToken }}
+                  aria-hidden='true'
+                />
+                <dt className='font-normal text-sm text-left truncate min-w-0 flex-1'>
+                  {label}
+                </dt>
+                <dd className='font-semibold tabular-nums text-right text-sm shrink-0'>
+                  {percentage}%
+                </dd>
+              </button>
+            )
+          })}
+        </dl>
+      </div>
     </section>
   )
 }

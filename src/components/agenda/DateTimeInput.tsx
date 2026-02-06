@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 type DateTimeInputProps = {
   label?: string
   value?: string
@@ -15,7 +17,7 @@ export default function DateTimeInput({
   placeholder = 'Seleccionar',
   onChange,
   type = 'date',
-  className = '',
+  className = ''
 }: DateTimeInputProps) {
   const isPlaceholder = !value
   const iconName = type === 'date' ? 'calendar_month' : 'schedule'
@@ -35,7 +37,11 @@ export default function DateTimeInput({
           px-[0.625rem] py-[0.5rem]
           pr-10
           font-normal text-base leading-6
-          ${isPlaceholder ? 'text-[var(--input-placeholder-color)]' : 'text-[var(--input-text-color)]'}
+          ${
+            isPlaceholder
+              ? 'text-[var(--input-placeholder-color)]'
+              : 'text-[var(--input-text-color)]'
+          }
           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-opacity-50
           cursor-pointer
         `}
@@ -48,4 +54,3 @@ export default function DateTimeInput({
     </div>
   )
 }
-
