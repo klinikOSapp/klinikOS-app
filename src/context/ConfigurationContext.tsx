@@ -137,6 +137,262 @@ export type WorkingHoursConfig = {
 }
 
 // ============================================
+// TIPOS PARA HORARIOS DE PROFESIONALES
+// ============================================
+
+// Día de la semana en inglés (para WeeklySchedule keys)
+export type WeekDay =
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday'
+
+// Pausa/descanso dentro del horario
+export type ScheduleBreak = {
+  id: string
+  name: string // "Comida", "Descanso", "Reunión"
+  start: string // "14:00"
+  end: string // "15:00"
+}
+
+// Horario de un día específico
+export type DaySchedule = {
+  isWorking: boolean
+  shifts: TimeRange[] // Puede tener turno mañana + tarde
+  breaks: ScheduleBreak[] // Pausas dentro del horario
+}
+
+// Horario semanal de un profesional
+export type WeeklySchedule = {
+  monday: DaySchedule
+  tuesday: DaySchedule
+  wednesday: DaySchedule
+  thursday: DaySchedule
+  friday: DaySchedule
+  saturday: DaySchedule
+  sunday: DaySchedule
+}
+
+// Tipo de excepción de horario
+export type ScheduleExceptionType = 'vacation' | 'holiday' | 'absence' | 'special'
+
+// Excepción de horario (vacaciones, festivos, ausencias)
+export type ScheduleException = {
+  id: string
+  professionalId: string
+  date: string // "2026-02-10" ISO format
+  type: ScheduleExceptionType
+  reason?: string
+  customSchedule?: DaySchedule // Si tiene horario especial ese día
+}
+
+// Plantilla de horario predefinida
+export type ScheduleTemplate = {
+  id: string
+  name: string // "Jornada completa 9-18h"
+  description?: string
+  weeklySchedule: WeeklySchedule
+  isDefault?: boolean
+}
+
+// Horario completo de un profesional
+export type ProfessionalSchedule = {
+  professionalId: string
+  weeklySchedule: WeeklySchedule
+  exceptions: ScheduleException[]
+  appliedTemplateId?: string
+}
+
+// Mapeo de días español a inglés
+export const DAY_MAP_ES_TO_EN: Record<DayOfWeek, WeekDay> = {
+  lunes: 'monday',
+  martes: 'tuesday',
+  miercoles: 'wednesday',
+  jueves: 'thursday',
+  viernes: 'friday',
+  sabado: 'saturday',
+  domingo: 'sunday'
+}
+
+// Mapeo de días inglés a español
+export const DAY_MAP_EN_TO_ES: Record<WeekDay, DayOfWeek> = {
+  monday: 'lunes',
+  tuesday: 'martes',
+  wednesday: 'miercoles',
+  thursday: 'jueves',
+  friday: 'viernes',
+  saturday: 'sabado',
+  sunday: 'domingo'
+}
+
+// Labels para días de la semana
+export const WEEKDAY_LABELS: Record<WeekDay, string> = {
+  monday: 'Lunes',
+  tuesday: 'Martes',
+  wednesday: 'Miércoles',
+  thursday: 'Jueves',
+  friday: 'Viernes',
+  saturday: 'Sábado',
+  sunday: 'Domingo'
+}
+
+// Labels cortos para días de la semana
+export const WEEKDAY_LABELS_SHORT: Record<WeekDay, string> = {
+  monday: 'L',
+  tuesday: 'M',
+  wednesday: 'X',
+  thursday: 'J',
+  friday: 'V',
+  saturday: 'S',
+  sunday: 'D'
+}
+
+// Orden de días de la semana
+export const WEEKDAYS_ORDER: WeekDay[] = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday'
+]
+
+// Labels para tipos de excepción
+export const EXCEPTION_TYPE_LABELS: Record<ScheduleExceptionType, string> = {
+  vacation: 'Vacaciones',
+  holiday: 'Festivo',
+  absence: 'Ausencia',
+  special: 'Horario especial'
+}
+
+// Helper para crear un DaySchedule no laborable
+const createNonWorkingDay = (): DaySchedule => ({
+  isWorking: false,
+  shifts: [],
+  breaks: []
+})
+
+// Helper para crear un DaySchedule con turno completo (mañana + tarde)
+const createFullDaySchedule = (): DaySchedule => ({
+  isWorking: true,
+  shifts: [
+    { start: '09:00', end: '14:00' },
+    { start: '15:00', end: '18:00' }
+  ],
+  breaks: [{ id: 'lunch-1', name: 'Comida', start: '14:00', end: '15:00' }]
+})
+
+// Helper para crear un DaySchedule solo mañana
+const createMorningSchedule = (): DaySchedule => ({
+  isWorking: true,
+  shifts: [{ start: '09:00', end: '14:00' }],
+  breaks: []
+})
+
+// Helper para crear un DaySchedule solo tarde
+const createAfternoonSchedule = (): DaySchedule => ({
+  isWorking: true,
+  shifts: [{ start: '15:00', end: '20:00' }],
+  breaks: []
+})
+
+// Helper para crear un DaySchedule con horario de clínica (9-20 con pausa)
+const createClinicDaySchedule = (): DaySchedule => ({
+  isWorking: true,
+  shifts: [
+    { start: '09:00', end: '14:00' },
+    { start: '15:00', end: '20:00' }
+  ],
+  breaks: [{ id: 'lunch-clinic', name: 'Comida', start: '14:00', end: '15:00' }]
+})
+
+// ============================================
+// PLANTILLAS DE HORARIOS PREDEFINIDAS
+// ============================================
+
+export const DEFAULT_SCHEDULE_TEMPLATES: ScheduleTemplate[] = [
+  {
+    id: 'full-day',
+    name: 'Jornada completa 9-18h',
+    description: 'Lunes a viernes, 9:00-14:00 y 15:00-18:00 con pausa para comer',
+    isDefault: true,
+    weeklySchedule: {
+      monday: createFullDaySchedule(),
+      tuesday: createFullDaySchedule(),
+      wednesday: createFullDaySchedule(),
+      thursday: createFullDaySchedule(),
+      friday: createFullDaySchedule(),
+      saturday: createNonWorkingDay(),
+      sunday: createNonWorkingDay()
+    }
+  },
+  {
+    id: 'morning',
+    name: 'Media jornada mañana',
+    description: 'Lunes a viernes, 9:00-14:00',
+    isDefault: true,
+    weeklySchedule: {
+      monday: createMorningSchedule(),
+      tuesday: createMorningSchedule(),
+      wednesday: createMorningSchedule(),
+      thursday: createMorningSchedule(),
+      friday: createMorningSchedule(),
+      saturday: createNonWorkingDay(),
+      sunday: createNonWorkingDay()
+    }
+  },
+  {
+    id: 'afternoon',
+    name: 'Media jornada tarde',
+    description: 'Lunes a viernes, 15:00-20:00',
+    isDefault: true,
+    weeklySchedule: {
+      monday: createAfternoonSchedule(),
+      tuesday: createAfternoonSchedule(),
+      wednesday: createAfternoonSchedule(),
+      thursday: createAfternoonSchedule(),
+      friday: createAfternoonSchedule(),
+      saturday: createNonWorkingDay(),
+      sunday: createNonWorkingDay()
+    }
+  },
+  {
+    id: 'clinic-default',
+    name: 'Horario de clínica',
+    description: 'Lunes a viernes, según horario configurado de la clínica (9:00-20:00)',
+    isDefault: true,
+    weeklySchedule: {
+      monday: createClinicDaySchedule(),
+      tuesday: createClinicDaySchedule(),
+      wednesday: createClinicDaySchedule(),
+      thursday: createClinicDaySchedule(),
+      friday: createClinicDaySchedule(),
+      saturday: createNonWorkingDay(),
+      sunday: createNonWorkingDay()
+    }
+  },
+  {
+    id: 'alternating',
+    name: 'Semana alternada',
+    description: 'Lunes, miércoles y viernes mañana; martes y jueves tarde',
+    isDefault: true,
+    weeklySchedule: {
+      monday: createMorningSchedule(),
+      tuesday: createAfternoonSchedule(),
+      wednesday: createMorningSchedule(),
+      thursday: createAfternoonSchedule(),
+      friday: createMorningSchedule(),
+      saturday: createNonWorkingDay(),
+      sunday: createNonWorkingDay()
+    }
+  }
+]
+
+// ============================================
 // DATOS INICIALES (MOCK)
 // ============================================
 
@@ -256,6 +512,80 @@ const initialWorkingHours: WorkingHoursConfig = {
   morningShift: { start: '09:00', end: '14:00' },
   afternoonShift: { start: '15:00', end: '20:00' }
 }
+
+// Initial professional schedules (mock data matching initialProfessionals)
+const initialProfessionalSchedules: ProfessionalSchedule[] = [
+  {
+    professionalId: 'prof-1', // Dr. Antonio Ruiz - Odontólogo
+    weeklySchedule: {
+      monday: createClinicDaySchedule(),
+      tuesday: createClinicDaySchedule(),
+      wednesday: createClinicDaySchedule(),
+      thursday: createClinicDaySchedule(),
+      friday: createMorningSchedule(),
+      saturday: createNonWorkingDay(),
+      sunday: createNonWorkingDay()
+    },
+    exceptions: [],
+    appliedTemplateId: undefined
+  },
+  {
+    professionalId: 'prof-2', // Dra. María García - Ortodoncista
+    weeklySchedule: {
+      monday: createMorningSchedule(),
+      tuesday: createAfternoonSchedule(),
+      wednesday: createMorningSchedule(),
+      thursday: createAfternoonSchedule(),
+      friday: createMorningSchedule(),
+      saturday: createNonWorkingDay(),
+      sunday: createNonWorkingDay()
+    },
+    exceptions: [],
+    appliedTemplateId: 'alternating'
+  },
+  {
+    professionalId: 'prof-3', // Carlos Pérez - Higienista
+    weeklySchedule: {
+      monday: createMorningSchedule(),
+      tuesday: createMorningSchedule(),
+      wednesday: createMorningSchedule(),
+      thursday: createMorningSchedule(),
+      friday: createMorningSchedule(),
+      saturday: createNonWorkingDay(),
+      sunday: createNonWorkingDay()
+    },
+    exceptions: [],
+    appliedTemplateId: 'morning'
+  },
+  {
+    professionalId: 'prof-4', // Dra. Laura Martínez - Implantólogo
+    weeklySchedule: {
+      monday: createAfternoonSchedule(),
+      tuesday: createAfternoonSchedule(),
+      wednesday: createAfternoonSchedule(),
+      thursday: createAfternoonSchedule(),
+      friday: createAfternoonSchedule(),
+      saturday: createNonWorkingDay(),
+      sunday: createNonWorkingDay()
+    },
+    exceptions: [],
+    appliedTemplateId: 'afternoon'
+  },
+  {
+    professionalId: 'prof-5', // Javier Herrera - Higienista (Inactivo)
+    weeklySchedule: {
+      monday: createNonWorkingDay(),
+      tuesday: createNonWorkingDay(),
+      wednesday: createNonWorkingDay(),
+      thursday: createNonWorkingDay(),
+      friday: createNonWorkingDay(),
+      saturday: createNonWorkingDay(),
+      sunday: createNonWorkingDay()
+    },
+    exceptions: [],
+    appliedTemplateId: undefined
+  }
+]
 
 // ============================================
 // PLANTILLAS DE DOCUMENTOS POR DEFECTO
@@ -782,6 +1112,19 @@ type ConfigurationContextType = {
   getDocumentTemplateById: (id: string) => DocumentTemplate | undefined
   getDocumentTemplatesByType: (type: DocumentTemplateType) => DocumentTemplate[]
   resetDocumentTemplate: (id: string) => void
+
+  // Professional Schedules
+  professionalSchedules: ProfessionalSchedule[]
+  scheduleTemplates: ScheduleTemplate[]
+  getProfessionalSchedule: (professionalId: string) => ProfessionalSchedule | undefined
+  updateProfessionalSchedule: (professionalId: string, schedule: WeeklySchedule) => void
+  applyTemplateToProfessional: (professionalId: string, templateId: string) => void
+  addScheduleException: (exception: Omit<ScheduleException, 'id'>) => void
+  removeScheduleException: (exceptionId: string) => void
+  copySchedule: (fromProfessionalId: string, toProfessionalId: string) => void
+  isProfessionalAvailable: (professionalId: string, date: Date, time: string) => boolean
+  getProfessionalScheduleForDate: (professionalId: string, date: Date) => DaySchedule | null
+  getAvailableProfessionalsForDate: (date: Date) => Professional[]
 }
 
 // ============================================
@@ -808,6 +1151,10 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const [documentTemplates, setDocumentTemplates] = useState<DocumentTemplate[]>(
     initialDocumentTemplates
   )
+  const [professionalSchedules, setProfessionalSchedules] = useState<ProfessionalSchedule[]>(
+    initialProfessionalSchedules
+  )
+  const [scheduleTemplates] = useState<ScheduleTemplate[]>(DEFAULT_SCHEDULE_TEMPLATES)
 
   // ====== CLINIC INFO ======
   const updateClinicInfo = useCallback((updates: Partial<ClinicInfo>) => {
@@ -1006,6 +1353,202 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
+  // ====== PROFESSIONAL SCHEDULES ======
+  const getProfessionalSchedule = useCallback(
+    (professionalId: string) =>
+      professionalSchedules.find((s) => s.professionalId === professionalId),
+    [professionalSchedules]
+  )
+
+  const updateProfessionalSchedule = useCallback(
+    (professionalId: string, schedule: WeeklySchedule) => {
+      setProfessionalSchedules((prev) => {
+        const existingIndex = prev.findIndex((s) => s.professionalId === professionalId)
+        if (existingIndex >= 0) {
+          return prev.map((s) =>
+            s.professionalId === professionalId
+              ? { ...s, weeklySchedule: schedule, appliedTemplateId: undefined }
+              : s
+          )
+        }
+        // Create new schedule if doesn't exist
+        return [
+          ...prev,
+          {
+            professionalId,
+            weeklySchedule: schedule,
+            exceptions: [],
+            appliedTemplateId: undefined
+          }
+        ]
+      })
+    },
+    []
+  )
+
+  const applyTemplateToProfessional = useCallback(
+    (professionalId: string, templateId: string) => {
+      const template = scheduleTemplates.find((t) => t.id === templateId)
+      if (!template) return
+
+      setProfessionalSchedules((prev) => {
+        const existingIndex = prev.findIndex((s) => s.professionalId === professionalId)
+        if (existingIndex >= 0) {
+          return prev.map((s) =>
+            s.professionalId === professionalId
+              ? { ...s, weeklySchedule: template.weeklySchedule, appliedTemplateId: templateId }
+              : s
+          )
+        }
+        return [
+          ...prev,
+          {
+            professionalId,
+            weeklySchedule: template.weeklySchedule,
+            exceptions: [],
+            appliedTemplateId: templateId
+          }
+        ]
+      })
+    },
+    [scheduleTemplates]
+  )
+
+  const addScheduleException = useCallback(
+    (exception: Omit<ScheduleException, 'id'>) => {
+      const newException: ScheduleException = {
+        ...exception,
+        id: `exc-${Date.now()}`
+      }
+      setProfessionalSchedules((prev) =>
+        prev.map((s) =>
+          s.professionalId === exception.professionalId
+            ? { ...s, exceptions: [...s.exceptions, newException] }
+            : s
+        )
+      )
+    },
+    []
+  )
+
+  const removeScheduleException = useCallback((exceptionId: string) => {
+    setProfessionalSchedules((prev) =>
+      prev.map((s) => ({
+        ...s,
+        exceptions: s.exceptions.filter((e) => e.id !== exceptionId)
+      }))
+    )
+  }, [])
+
+  const copySchedule = useCallback(
+    (fromProfessionalId: string, toProfessionalId: string) => {
+      const sourceSchedule = professionalSchedules.find(
+        (s) => s.professionalId === fromProfessionalId
+      )
+      if (!sourceSchedule) return
+
+      setProfessionalSchedules((prev) => {
+        const existingIndex = prev.findIndex((s) => s.professionalId === toProfessionalId)
+        if (existingIndex >= 0) {
+          return prev.map((s) =>
+            s.professionalId === toProfessionalId
+              ? {
+                  ...s,
+                  weeklySchedule: sourceSchedule.weeklySchedule,
+                  appliedTemplateId: undefined
+                }
+              : s
+          )
+        }
+        return [
+          ...prev,
+          {
+            professionalId: toProfessionalId,
+            weeklySchedule: sourceSchedule.weeklySchedule,
+            exceptions: [],
+            appliedTemplateId: undefined
+          }
+        ]
+      })
+    },
+    [professionalSchedules]
+  )
+
+  // Helper to get day of week from Date
+  const getDayOfWeek = (date: Date): WeekDay => {
+    const days: WeekDay[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+    return days[date.getDay()]
+  }
+
+  // Helper to parse time string to minutes
+  const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(':').map(Number)
+    return hours * 60 + minutes
+  }
+
+  const getProfessionalScheduleForDate = useCallback(
+    (professionalId: string, date: Date): DaySchedule | null => {
+      const schedule = professionalSchedules.find((s) => s.professionalId === professionalId)
+      if (!schedule) return null
+
+      // Check for exceptions on this date
+      const dateStr = date.toISOString().split('T')[0]
+      const exception = schedule.exceptions.find((e) => e.date === dateStr)
+
+      if (exception) {
+        // If exception is vacation/holiday/absence without custom schedule, return non-working
+        if (exception.type !== 'special' || !exception.customSchedule) {
+          return { isWorking: false, shifts: [], breaks: [] }
+        }
+        // Return custom schedule for special exceptions
+        return exception.customSchedule
+      }
+
+      // Return regular schedule for the day of week
+      const dayOfWeek = getDayOfWeek(date)
+      return schedule.weeklySchedule[dayOfWeek]
+    },
+    [professionalSchedules]
+  )
+
+  const isProfessionalAvailable = useCallback(
+    (professionalId: string, date: Date, time: string): boolean => {
+      const daySchedule = getProfessionalScheduleForDate(professionalId, date)
+      if (!daySchedule || !daySchedule.isWorking) return false
+
+      const requestedMinutes = timeToMinutes(time)
+
+      // Check if time falls within any shift
+      const inShift = daySchedule.shifts.some((shift) => {
+        const shiftStart = timeToMinutes(shift.start)
+        const shiftEnd = timeToMinutes(shift.end)
+        return requestedMinutes >= shiftStart && requestedMinutes < shiftEnd
+      })
+
+      if (!inShift) return false
+
+      // Check if time falls within any break
+      const inBreak = daySchedule.breaks.some((breakPeriod) => {
+        const breakStart = timeToMinutes(breakPeriod.start)
+        const breakEnd = timeToMinutes(breakPeriod.end)
+        return requestedMinutes >= breakStart && requestedMinutes < breakEnd
+      })
+
+      return !inBreak
+    },
+    [getProfessionalScheduleForDate]
+  )
+
+  const getAvailableProfessionalsForDate = useCallback(
+    (date: Date): Professional[] => {
+      return activeProfessionals.filter((professional) => {
+        const daySchedule = getProfessionalScheduleForDate(professional.id, date)
+        return daySchedule?.isWorking === true
+      })
+    },
+    [activeProfessionals, getProfessionalScheduleForDate]
+  )
+
   // ====== CONTEXT VALUE ======
   const value = useMemo<ConfigurationContextType>(
     () => ({
@@ -1038,7 +1581,18 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       deleteDocumentTemplate,
       getDocumentTemplateById,
       getDocumentTemplatesByType,
-      resetDocumentTemplate
+      resetDocumentTemplate,
+      professionalSchedules,
+      scheduleTemplates,
+      getProfessionalSchedule,
+      updateProfessionalSchedule,
+      applyTemplateToProfessional,
+      addScheduleException,
+      removeScheduleException,
+      copySchedule,
+      isProfessionalAvailable,
+      getProfessionalScheduleForDate,
+      getAvailableProfessionalsForDate
     }),
     [
       clinicInfo,
@@ -1070,7 +1624,18 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       deleteDocumentTemplate,
       getDocumentTemplateById,
       getDocumentTemplatesByType,
-      resetDocumentTemplate
+      resetDocumentTemplate,
+      professionalSchedules,
+      scheduleTemplates,
+      getProfessionalSchedule,
+      updateProfessionalSchedule,
+      applyTemplateToProfessional,
+      addScheduleException,
+      removeScheduleException,
+      copySchedule,
+      isProfessionalAvailable,
+      getProfessionalScheduleForDate,
+      getAvailableProfessionalsForDate
     ]
   )
 

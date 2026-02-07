@@ -190,38 +190,8 @@ const getBoxLayout = (
   return layout
 }
 
-// Specialist availability for week view (same style as MonthCalendar)
-const SAMPLE_SPECIALISTS: SpecialistAvailability[] = [
-  {
-    id: 'sp1',
-    name: 'Odontólogo',
-    timeRange: '10:00 - 16:00',
-    color: 'var(--color-info-200)'
-  },
-  {
-    id: 'sp2',
-    name: 'Higienista dental',
-    timeRange: '09:00 - 14:00',
-    color: 'var(--color-event-teal)'
-  },
-  {
-    id: 'sp3',
-    name: 'Pediatra',
-    timeRange: '11:00 - 18:00',
-    color: 'var(--color-event-purple)'
-  }
-]
-
-// Specialists by weekday
-const SPECIALISTS_BY_WEEKDAY: Record<Weekday, SpecialistAvailability[]> = {
-  monday: [SAMPLE_SPECIALISTS[0]],
-  tuesday: [SAMPLE_SPECIALISTS[1], SAMPLE_SPECIALISTS[0]],
-  wednesday: [SAMPLE_SPECIALISTS[2]],
-  thursday: [],
-  friday: [SAMPLE_SPECIALISTS[0], SAMPLE_SPECIALISTS[2]],
-  saturday: [],
-  sunday: []
-}
+// Note: Specialist availability is now fetched dynamically from ConfigurationContext
+// using getAvailableProfessionalsForDate and getProfessionalScheduleForDate
 
 const DATE_BY_DAY: Record<Weekday, string> = {
   monday: 'Lunes, 5 de Enero 2026',
@@ -430,110 +400,7 @@ const PATIENTS = {
   }
 }
 
-// Profesionales de la clínica dental (para bandas dinámicas)
-export const CLINIC_PROFESSIONALS = {
-  drRuiz: {
-    id: 'drRuiz',
-    name: 'Dr. Antonio Ruiz García',
-    specialty: 'Odontólogo General',
-    bandLabel: 'Dr. Ruiz (Odontología)',
-    bandColor: '#f0fafa',
-    scheduleStart: '09:00',
-    scheduleEnd: '14:00'
-  },
-  draLopez: {
-    id: 'draLopez',
-    name: 'Dra. María López Fernández',
-    specialty: 'Endodoncista',
-    bandLabel: 'Dra. López (Endodoncia)',
-    bandColor: '#fbe9fb',
-    scheduleStart: '09:00',
-    scheduleEnd: '14:00'
-  },
-  drMartinez: {
-    id: 'drMartinez',
-    name: 'Dr. Carlos Martínez Soto',
-    specialty: 'Cirujano Oral',
-    bandLabel: 'Dr. Martínez (Cirugía)',
-    bandColor: '#fff4e6',
-    scheduleStart: '10:00',
-    scheduleEnd: '18:00'
-  },
-  draGarcia: {
-    id: 'draGarcia',
-    name: 'Dra. Laura García Vidal',
-    specialty: 'Ortodoncista',
-    bandLabel: 'Dra. García (Ortodoncia)',
-    bandColor: '#e6f4ff',
-    scheduleStart: '15:00',
-    scheduleEnd: '20:00'
-  },
-  drSanchez: {
-    id: 'drSanchez',
-    name: 'Dr. Pedro Sánchez Ruiz',
-    specialty: 'Periodoncista',
-    bandLabel: 'Dr. Sánchez (Periodoncia)',
-    bandColor: '#e6ffe6',
-    scheduleStart: '09:00',
-    scheduleEnd: '13:00'
-  },
-  draPeña: {
-    id: 'draPeña',
-    name: 'Dra. Ana Peña Moreno',
-    specialty: 'Odontopediatra',
-    bandLabel: 'Dra. Peña (Pediatría)',
-    bandColor: '#ffe6f0',
-    scheduleStart: '16:00',
-    scheduleEnd: '20:00'
-  },
-  anestesistaJimenez: {
-    id: 'anestesistaJimenez',
-    name: 'Dr. Roberto Jiménez Blanco',
-    specialty: 'Anestesista',
-    bandLabel: 'Dr. Jiménez (Anestesia)',
-    bandColor: '#f5e6ff',
-    scheduleStart: '10:00',
-    scheduleEnd: '16:00'
-  }
-} as const
-
-export type ProfessionalId = keyof typeof CLINIC_PROFESSIONALS
-
-// Professional options derived from CLINIC_PROFESSIONALS
-const PROFESSIONAL_OPTIONS = Object.entries(CLINIC_PROFESSIONALS).map(
-  ([key, prof]) => ({
-    id: key,
-    label: prof.name
-  })
-)
-
-// Función para obtener las bandas de profesionales de un día específico
-export function getBandsForDate(
-  date: Date,
-  events: typeof MONTH_EVENTS_EXTENDED
-): { id: string; label: string; background: string }[] {
-  const dayEvents = events.filter(
-    (e) => e.date.toDateString() === date.toDateString()
-  )
-
-  // Obtener profesionales únicos del día
-  const professionalIds = new Set<ProfessionalId>()
-  dayEvents.forEach((e) => {
-    if (e.professionalId) {
-      professionalIds.add(e.professionalId)
-    }
-  })
-
-  // Convertir a bandas
-  return Array.from(professionalIds).map((profId) => {
-    const prof = CLINIC_PROFESSIONALS[profId]
-    return {
-      id: prof.id,
-      label: `${prof.bandLabel} ${prof.scheduleStart} - ${prof.scheduleEnd}`,
-      background: prof.bandColor
-    }
-  })
-}
+// Note: CLINIC_PROFESSIONALS removed - professional data now comes from ConfigurationContext
 
 // Tratamientos dentales
 const TREATMENTS = {
@@ -4114,7 +3981,13 @@ export default function WeekScheduler() {
   const searchParams = useSearchParams()
 
   // Configuration context for professionals and boxes
-  const { professionalOptions, boxOptions } = useConfiguration()
+  const {
+    professionalOptions,
+    boxOptions,
+    getAvailableProfessionalsForDate,
+    getProfessionalScheduleForDate,
+    activeProfessionals
+  } = useConfiguration()
 
   // Hook del contexto de citas compartido para sincronización con Parte Diario
   const {
@@ -4139,14 +4012,11 @@ export default function WeekScheduler() {
   const [dayPeriod, setDayPeriod] = useState<DayPeriod>('full')
 
   // Use configuration context for professional and box options
-  // Fallback to hardcoded PROFESSIONAL_OPTIONS for backwards compatibility with existing data
-  const effectiveProfessionalOptions =
-    professionalOptions.length > 0 ? professionalOptions : PROFESSIONAL_OPTIONS
   const effectiveBoxOptions =
     boxOptions.length > 0 ? boxOptions : DEFAULT_BOX_OPTIONS
 
   const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>(
-    () => effectiveProfessionalOptions.map((opt) => opt.id) // All professionals selected by default
+    () => professionalOptions.map((opt) => opt.id) // All professionals selected by default
   )
   const [selectedBoxes, setSelectedBoxes] = useState<string[]>(() =>
     effectiveBoxOptions.map((option) => option.id)
@@ -5296,12 +5166,33 @@ export default function WeekScheduler() {
         tone = 'neutral' // Past
       }
 
+      // Get available professionals for this date dynamically
+      const availableProfessionals = getAvailableProfessionalsForDate(date)
+      const specialists: SpecialistAvailability[] = availableProfessionals.map(
+        (prof) => {
+          const daySchedule = getProfessionalScheduleForDate(prof.id, date)
+          let timeRange = ''
+          if (daySchedule?.isWorking && daySchedule.shifts.length > 0) {
+            timeRange = daySchedule.shifts
+              .map((s) => `${s.start} - ${s.end}`)
+              .join(', ')
+          }
+          const profOption = professionalOptions.find((p) => p.id === prof.id)
+          return {
+            id: prof.id,
+            name: prof.name,
+            timeRange,
+            color: profOption?.color || 'var(--color-neutral-400)'
+          }
+        }
+      )
+
       return {
         ...HEADER_CELLS[index],
         label: formatHeaderLabel(date),
         id: weekdayId,
         tone,
-        specialists: SPECIALISTS_BY_WEEKDAY[weekdayId] || []
+        specialists
       }
     })
   }
@@ -6009,7 +5900,7 @@ export default function WeekScheduler() {
                 <MultiSelectDropdown
                   id={professionalDropdownId}
                   selected={selectedProfessionals}
-                  options={effectiveProfessionalOptions}
+                  options={professionalOptions}
                   onToggle={handleProfessionalToggle}
                 />
               ) : null}

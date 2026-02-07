@@ -32,6 +32,7 @@ const ICON_GLYPHS = {
   CloudDownloadRounded: 'cloud_download',
   CloudUploadRounded: 'cloud_upload',
   CompareRounded: 'compare',
+  ContentCopyRounded: 'content_copy',
   ContrastRounded: 'contrast',
   DeleteRounded: 'delete',
   DeleteSweepRounded: 'delete_sweep',

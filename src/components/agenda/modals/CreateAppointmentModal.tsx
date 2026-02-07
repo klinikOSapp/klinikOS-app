@@ -478,7 +478,7 @@ export default function CreateAppointmentModal({
   initialData
 }: CreateAppointmentModalProps) {
   const { isTimeSlotBlocked } = useAppointments()
-  const { activeProfessionals, activeBoxes } = useConfiguration()
+  const { activeProfessionals, activeBoxes, isProfessionalAvailable, getProfessionalById } = useConfiguration()
   const {
     getPatientsForSelect,
     getPendingTreatments,
@@ -495,6 +495,7 @@ export default function CreateAppointmentModal({
   const [blockConflictError, setBlockConflictError] = useState<string | null>(
     null
   )
+  const [scheduleWarning, setScheduleWarning] = useState<string | null>(null)
   const [pendingTreatments, setPendingTreatments] = useState<
     SelectableTreatment[]
   >([])
@@ -591,6 +592,30 @@ export default function CreateAppointmentModal({
       setBlockConflictError(null)
     }
   }, [hasTimeSlotConflict])
+
+  // Check professional availability when form data changes
+  useEffect(() => {
+    if (isBlockMode || !formData.responsable || !formData.fecha || !formData.hora) {
+      setScheduleWarning(null)
+      return
+    }
+    const dateObj = stringToDate(formData.fecha)
+    if (!dateObj) {
+      setScheduleWarning(null)
+      return
+    }
+    const professional = getProfessionalById(formData.responsable)
+    if (!professional) {
+      setScheduleWarning(null)
+      return
+    }
+    const isAvailable = isProfessionalAvailable(formData.responsable, dateObj, formData.hora)
+    if (!isAvailable) {
+      setScheduleWarning(professional.name + ' no disponible en este horario')
+    } else {
+      setScheduleWarning(null)
+    }
+  }, [formData.responsable, formData.fecha, formData.hora, isBlockMode, isProfessionalAvailable, getProfessionalById])
 
   const handleOpenCreatePatient = (name?: string) => {
     onClose()
@@ -1132,6 +1157,18 @@ export default function CreateAppointmentModal({
                       </span>
                       <p className='text-xs text-red-600'>
                         {blockConflictError}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Schedule warning - professional not available */}
+                  {scheduleWarning && (
+                    <div className='flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2'>
+                      <span className='material-symbols-rounded text-base text-amber-500'>
+                        schedule
+                      </span>
+                      <p className='text-xs text-amber-600'>
+                        {scheduleWarning}
                       </p>
                     </div>
                   )}
