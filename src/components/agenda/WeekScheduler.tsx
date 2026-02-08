@@ -134,6 +134,8 @@ const HEADER_CELLS: HeaderCell[] = [
 
 type ViewOption = 'dia' | 'semana' | 'mes'
 
+type ProfessionalId = string
+
 const VIEW_OPTIONS: { id: ViewOption; label: string }[] = [
   { id: 'dia', label: 'Dia' },
   { id: 'semana', label: 'Semana' },
