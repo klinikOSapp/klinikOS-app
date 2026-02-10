@@ -4,7 +4,9 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState
 } from 'react'
 import type {
@@ -14,6 +16,7 @@ import type {
   PaymentMethod
 } from '@/types/payments'
 import { generateReceiptNumber } from '@/types/payments'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 // ─────────────────────────────────────────────────────────────
 // Types - Estructura compatible con Supabase (PostgreSQL)
@@ -1087,6 +1090,49 @@ export type DaySummary = {
   closing?: CashClosing
 }
 
+function mapDbPaymentMethodToUi(value: string | null): CashTransaction['payment_method'] {
+  switch ((value || '').toLowerCase()) {
+    case 'efectivo':
+    case 'cash':
+      return 'efectivo'
+    case 'tpv':
+    case 'card':
+      return 'tpv'
+    case 'transferencia':
+    case 'transfer':
+      return 'transferencia'
+    case 'financiacion':
+    case 'financing':
+      return 'financiacion'
+    default:
+      return 'otros'
+  }
+}
+
+function mapDbProductionStatus(value: string | null): CashTransaction['production_status'] {
+  return String(value || '').toLowerCase() === 'done' ? 'hecho' : 'pendiente'
+}
+
+function isoDate(dateValue: string | Date): string {
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toISOString().slice(0, 10)
+}
+
+type DbCajaMovementRow = {
+  invoice_id: number | null
+  invoice_number: string | null
+  issue_timestamp: string | null
+  day_madrid: string | null
+  patient_first_name: string | null
+  patient_last_name: string | null
+  quote_id: number | null
+  quote_number: string | null
+  production_status: string | null
+  total_paid: number | string | null
+  last_payment_method: string | null
+}
+
 // ─────────────────────────────────────────────────────────────
 // Context
 // ─────────────────────────────────────────────────────────────
@@ -1098,9 +1144,236 @@ export function CashClosingProvider({
 }: {
   children: React.ReactNode
 }) {
-  const [closings, setClosings] = useState<CashClosing[]>(INITIAL_MOCK_CLOSINGS)
-  const [transactions, setTransactions] = useState<CashTransaction[]>(MOCK_TRANSACTIONS)
+  const [closings, setClosings] = useState<CashClosing[]>([])
+  const [transactions, setTransactions] = useState<CashTransaction[]>([])
   const [receipts, setReceipts] = useState<Receipt[]>([])
+  const clinicIdRef = useRef<string | null>(null)
+  const staffIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function hydrateCashData() {
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const {
+          data: { session }
+        } = await supabase.auth.getSession()
+        if (!session) return
+
+        staffIdRef.current = session.user.id
+
+        const { data: clinics, error: clinicsError } =
+          await supabase.rpc('get_my_clinics')
+        if (clinicsError || !Array.isArray(clinics) || clinics.length === 0) {
+          return
+        }
+
+        const clinicId = String(clinics[0])
+        clinicIdRef.current = clinicId
+
+        const start = new Date()
+        start.setDate(start.getDate() - 365)
+        const end = new Date()
+        end.setDate(end.getDate() + 1)
+
+        const [{ data: closingRows }, { data: movementRows }] = await Promise.all([
+          supabase
+            .from('daily_cash_closings')
+            .select(
+              'id, clinic_id, closing_date, staff_id, notes, starter_box_amount, daily_box_amount, cash_withdrawals, cash_balance, card_total, financed_total, payment_method_breakdown'
+            )
+            .eq('clinic_id', clinicId)
+            .order('closing_date', { ascending: false }),
+          supabase.rpc('get_caja_movements_in_time_range', {
+            p_clinic_id: clinicId,
+            p_start_time: start.toISOString(),
+            p_end_time: end.toISOString()
+          })
+        ])
+
+        const mappedClosings = (closingRows || []).map((row) => {
+          const breakdown =
+            (row.payment_method_breakdown as Record<string, number> | null) || {}
+          const initialCash = Number(row.starter_box_amount ?? 100)
+          const dailyCash = Number(row.daily_box_amount ?? 0)
+          const cardTotal = Number(row.card_total ?? 0)
+          const financedTotal = Number(row.financed_total ?? 0)
+          const cashOutflow = Number(row.cash_withdrawals ?? 0)
+          const finalBalance = Number(
+            row.cash_balance ?? initialCash + dailyCash - cashOutflow
+          )
+
+          return {
+            id: String(row.id),
+            clinic_id: row.clinic_id,
+            closing_date: row.closing_date,
+            created_at: `${row.closing_date}T20:00:00.000Z`,
+            updated_at: `${row.closing_date}T20:00:00.000Z`,
+            closed_by: row.staff_id,
+            initial_cash: initialCash,
+            total_income:
+              dailyCash + cardTotal + financedTotal + Number(breakdown.transfer || 0),
+            total_expenses: 0,
+            cash_outflow: cashOutflow,
+            final_balance: finalBalance,
+            income_by_method: {
+              efectivo: Number(breakdown.cash ?? dailyCash),
+              tpv: Number(breakdown.card ?? cardTotal),
+              transferencia: Number(breakdown.transfer ?? 0),
+              financiacion: Number(financedTotal),
+              otros: Number(breakdown.other ?? 0)
+            },
+            transaction_count: 0,
+            status: 'closed' as const,
+            notes: row.notes
+          } as CashClosing
+        })
+
+        const closingByDate = new Map(
+          mappedClosings.map((closing) => [closing.closing_date, closing])
+        )
+
+        const mappedTransactions: CashTransaction[] = (
+          (movementRows || []) as DbCajaMovementRow[]
+        ).map((row) => {
+            const date = String(
+              row.day_madrid || isoDate(row.issue_timestamp || new Date())
+            )
+            const totalPaid = Number(row.total_paid || 0)
+            const patientName = [row.patient_first_name, row.patient_last_name]
+              .filter(Boolean)
+              .join(' ')
+              .trim()
+            return {
+              id: `inv-${row.invoice_id}`,
+              clinic_id: clinicId,
+              closing_id: closingByDate.get(date)?.id || null,
+              transaction_date: date,
+              created_at:
+                typeof row.issue_timestamp === 'string'
+                  ? row.issue_timestamp
+                  : new Date().toISOString(),
+              patient_id: null,
+              patient_name: patientName || 'Paciente',
+              concept: row.quote_number || row.invoice_number || 'Movimiento caja',
+              amount: totalPaid,
+              payment_method: mapDbPaymentMethodToUi(
+                row.last_payment_method as string | null
+              ),
+              payment_status: totalPaid > 0 ? 'cobrado' : 'pendiente',
+              production_status: mapDbProductionStatus(
+                row.production_status as string | null
+              ),
+              invoice_id:
+                row.invoice_id != null ? String(row.invoice_id) : null,
+              appointment_id: null,
+              budget_id: row.quote_id != null ? String(row.quote_id) : null,
+              installment_ids: null
+            }
+          })
+
+        const txCountByDate = new Map<string, number>()
+        for (const tx of mappedTransactions) {
+          txCountByDate.set(
+            tx.transaction_date,
+            (txCountByDate.get(tx.transaction_date) || 0) + 1
+          )
+        }
+
+        const closingsWithCount = mappedClosings.map((closing) => ({
+          ...closing,
+          transaction_count: txCountByDate.get(closing.closing_date) || 0
+        }))
+
+        if (isMounted) {
+          setClosings(closingsWithCount)
+          setTransactions(mappedTransactions)
+        }
+      } catch (error) {
+        console.warn('CashClosingContext DB hydration failed, using local state', error)
+      }
+    }
+
+    void hydrateCashData()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const createInvoiceAndPayment = useCallback(
+    async (input: {
+      patientId: string
+      amount: number
+      paymentMethod: string
+      reference?: string
+      concept: string
+      paymentDate?: Date
+    }): Promise<string | null> => {
+      const clinicId = clinicIdRef.current
+      const staffId = staffIdRef.current
+      if (!clinicId || !staffId) return null
+
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const paymentDate = input.paymentDate || new Date()
+
+        const { data: invoiceNumberData } = await supabase.rpc(
+          'get_next_invoice_number',
+          { p_clinic_id: clinicId, p_series_id: null }
+        )
+        const payload = (invoiceNumberData || {}) as Record<string, unknown>
+        const invoiceNumber =
+          typeof payload.invoice_number === 'string'
+            ? payload.invoice_number
+            : `TMP-${Date.now()}`
+        const seriesId =
+          typeof payload.series_id === 'number' ? payload.series_id : null
+
+        const { data: invoiceRow, error: invoiceError } = await supabase
+          .from('invoices')
+          .insert({
+            patient_id: input.patientId,
+            clinic_id: clinicId,
+            invoice_number: invoiceNumber,
+            total_amount: input.amount,
+            amount_paid: input.amount,
+            status: 'open',
+            issue_timestamp: paymentDate.toISOString(),
+            series_id: seriesId
+          })
+          .select('id')
+          .single()
+
+        if (invoiceError || !invoiceRow) {
+          console.warn('No se pudo crear invoice para caja', invoiceError)
+          return null
+        }
+
+        const { error: paymentError } = await supabase.from('payments').insert({
+          invoice_id: invoiceRow.id,
+          clinic_id: clinicId,
+          staff_id: staffId,
+          payment_method: input.paymentMethod,
+          amount: input.amount,
+          transaction_date: paymentDate.toISOString(),
+          transaction_id: input.reference || null,
+          notes: input.concept
+        })
+
+        if (paymentError) {
+          console.warn('No se pudo crear payment para caja', paymentError)
+        }
+
+        return String(invoiceRow.id)
+      } catch (error) {
+        console.warn('Error creando invoice/payment en caja', error)
+        return null
+      }
+    },
+    []
+  )
 
   const getClosingByDate = useCallback(
     (date: string) => {
@@ -1171,14 +1444,16 @@ export function CashClosingProvider({
     (date: string, cashOutflow: number, notes?: string): CashClosing => {
       const summary = getDaySummary(date)
       const existingClosing = getClosingByDate(date)
+      const clinicId = clinicIdRef.current || existingClosing?.clinic_id || MOCK_CLINIC_ID
+      const staffId = staffIdRef.current || existingClosing?.closed_by || MOCK_USER_ID
 
       const newClosing: CashClosing = {
         id: existingClosing?.id ?? `closing-${Date.now()}`,
-        clinic_id: MOCK_CLINIC_ID,
+        clinic_id: clinicId,
         closing_date: date,
         created_at: existingClosing?.created_at ?? new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        closed_by: MOCK_USER_ID,
+        closed_by: staffId,
         initial_cash: summary.initialCash,
         total_income: summary.totalIncome,
         total_expenses: summary.totalExpenses,
@@ -1194,6 +1469,44 @@ export function CashClosingProvider({
         const filtered = prev.filter((c) => c.closing_date !== date)
         return [...filtered, newClosing]
       })
+
+      void (async () => {
+        if (!clinicIdRef.current || !staffIdRef.current) return
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const { error } = await supabase.from('daily_cash_closings').upsert(
+            {
+              clinic_id: clinicIdRef.current,
+              closing_date: date,
+              staff_id: staffIdRef.current,
+              expected_cash: summary.finalBalance,
+              actual_cash: newClosing.final_balance,
+              card_total: summary.incomeByMethod.tpv,
+              financed_total: summary.incomeByMethod.financiacion,
+              discrepancy: 0,
+              notes: notes ?? null,
+              starter_box_amount: summary.initialCash,
+              daily_box_amount: summary.incomeByMethod.efectivo,
+              cash_withdrawals: cashOutflow,
+              cash_balance: newClosing.final_balance,
+              payment_method_breakdown: {
+                cash: summary.incomeByMethod.efectivo,
+                card: summary.incomeByMethod.tpv,
+                transfer: summary.incomeByMethod.transferencia,
+                financing: summary.incomeByMethod.financiacion,
+                other: summary.incomeByMethod.otros
+              }
+            },
+            { onConflict: 'clinic_id,closing_date' }
+          )
+
+          if (error) {
+            console.warn('No se pudo persistir daily_cash_closings en DB', error)
+          }
+        } catch (error) {
+          console.warn('Error persistiendo cierre de caja en DB', error)
+        }
+      })()
 
       return newClosing
     },
@@ -1212,6 +1525,23 @@ export function CashClosingProvider({
           : c
       )
     )
+    void (async () => {
+      const clinicId = clinicIdRef.current
+      if (!clinicId) return
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const { error } = await supabase
+          .from('daily_cash_closings')
+          .delete()
+          .eq('clinic_id', clinicId)
+          .eq('closing_date', date)
+        if (error) {
+          console.warn('No se pudo reabrir cierre (delete DB)', error)
+        }
+      } catch (error) {
+        console.warn('Error reabriendo cierre en DB', error)
+      }
+    })()
   }, [])
 
   // Registrar pago de cuotas de presupuesto
@@ -1220,7 +1550,7 @@ export function CashClosingProvider({
       const today = new Date().toISOString().split('T')[0]
       const newTransaction: CashTransaction = {
         id: `tx-budget-${Date.now()}`,
-        clinic_id: 'clinic-001',
+        clinic_id: clinicIdRef.current || MOCK_CLINIC_ID,
         closing_id: null,
         transaction_date: today,
         created_at: new Date().toISOString(),
@@ -1238,9 +1568,28 @@ export function CashClosingProvider({
       }
 
       setTransactions((prev) => [newTransaction, ...prev])
+
+      void (async () => {
+        const invoiceId = await createInvoiceAndPayment({
+          patientId: data.patientId,
+          amount: data.amount,
+          paymentMethod: data.paymentMethod,
+          reference: data.reference,
+          concept: `Cuota presupuesto: ${data.budgetDescription}`,
+          paymentDate: new Date()
+        })
+
+        if (!invoiceId) return
+        setTransactions((prev) =>
+          prev.map((tx) =>
+            tx.id === newTransaction.id ? { ...tx, invoice_id: invoiceId } : tx
+          )
+        )
+      })()
+
       return newTransaction
     },
-    []
+    [createInvoiceAndPayment]
   )
 
   // Registrar pago simple (no de presupuesto)
@@ -1249,7 +1598,7 @@ export function CashClosingProvider({
       const today = new Date().toISOString().split('T')[0]
       const newTransaction: CashTransaction = {
         id: `tx-payment-${Date.now()}`,
-        clinic_id: MOCK_CLINIC_ID,
+        clinic_id: clinicIdRef.current || MOCK_CLINIC_ID,
         closing_id: null,
         transaction_date: today,
         created_at: new Date().toISOString(),
@@ -1267,9 +1616,26 @@ export function CashClosingProvider({
       }
 
       setTransactions((prev) => [newTransaction, ...prev])
+
+      void (async () => {
+        const invoiceId = await createInvoiceAndPayment({
+          patientId: data.patientId,
+          amount: data.amount,
+          paymentMethod: data.paymentMethod,
+          concept: data.concept,
+          paymentDate: new Date()
+        })
+        if (!invoiceId) return
+        setTransactions((prev) =>
+          prev.map((tx) =>
+            tx.id === newTransaction.id ? { ...tx, invoice_id: invoiceId } : tx
+          )
+        )
+      })()
+
       return newTransaction
     },
-    []
+    [createInvoiceAndPayment]
   )
 
   // Generar y guardar recibo
@@ -1329,15 +1695,40 @@ export function CashClosingProvider({
   // Generar factura para transacción
   const generateInvoiceForTransaction = useCallback(
     (transactionId: string): string => {
-      const invoiceId = `inv-${Date.now()}`
-      setTransactions((prev) =>
-        prev.map((t) =>
-          t.id === transactionId ? { ...t, invoice_id: invoiceId } : t
+      const optimisticInvoiceId = `inv-${Date.now()}`
+
+      const tx = transactions.find((item) => item.id === transactionId)
+      if (!tx || !tx.patient_id) {
+        setTransactions((prev) =>
+          prev.map((t) =>
+            t.id === transactionId
+              ? { ...t, invoice_id: optimisticInvoiceId }
+              : t
+          )
         )
-      )
-      return invoiceId
+        return optimisticInvoiceId
+      }
+      const patientId = tx.patient_id
+
+      void (async () => {
+        const invoiceId = await createInvoiceAndPayment({
+          patientId,
+          amount: tx.amount,
+          paymentMethod: tx.payment_method,
+          concept: tx.concept,
+          paymentDate: new Date(tx.created_at)
+        })
+        if (!invoiceId) return
+        setTransactions((prev) =>
+          prev.map((item) =>
+            item.id === transactionId ? { ...item, invoice_id: invoiceId } : item
+          )
+        )
+      })()
+
+      return optimisticInvoiceId
     },
-    []
+    [createInvoiceAndPayment, transactions]
   )
 
   const getAvailableDates = useCallback(() => {

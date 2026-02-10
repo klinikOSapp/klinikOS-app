@@ -5,8 +5,10 @@ import {
   ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useState
 } from 'react'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 // ============================================
 // TIPOS PARA PACIENTES (Preparados para DB)
@@ -354,6 +356,137 @@ export function formatDateLong(isoDate: string): string {
     month: 'long',
     year: 'numeric'
   })
+}
+
+type DbPatientRow = {
+  id: string
+  clinic_id: string
+  first_name: string | null
+  last_name: string | null
+  phone_number: string | null
+  email: string | null
+  date_of_birth: string | null
+  biological_sex: 'female' | 'male' | 'other' | 'undisclosed' | null
+  national_id: string | null
+  lead_source: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+type DbPatientTreatmentRow = {
+  id: string
+  patient_id: string
+  treatment_code: string | null
+  treatment_name: string | null
+  tooth_number: string | null
+  amount: number | null
+  final_amount: number | null
+  paid_amount: number | null
+  status: 'Pending' | 'In progress' | 'Completed' | 'Cancelled' | null
+  payment_status: 'Unpaid' | 'Partial' | 'Paid' | null
+  scheduled_date: string | null
+  completed_at: string | null
+  completed_by: string | null
+  completed_by_name: string | null
+  budget_id: number | null
+  notes: string | null
+  marked_for_next_appointment: boolean | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+function toIsoDate(input?: string | null): string | undefined {
+  if (!input) return undefined
+  const date = new Date(input)
+  if (Number.isNaN(date.getTime())) return undefined
+  return date.toISOString().split('T')[0]
+}
+
+function eurosToCents(value?: number | null): number {
+  return Math.round(Number(value || 0) * 100)
+}
+
+function formatEuroAmount(valueInEuros?: number | null): string {
+  const value = Number(valueInEuros || 0)
+  return `${value.toLocaleString('es-ES', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  })} €`
+}
+
+function mapDbTreatmentStatusToUi(
+  status: DbPatientTreatmentRow['status']
+): TreatmentStatus {
+  switch (status) {
+    case 'In progress':
+      return 'En curso'
+    case 'Completed':
+      return 'Completado'
+    case 'Cancelled':
+      return 'Cancelado'
+    case 'Pending':
+    default:
+      return 'Pendiente'
+  }
+}
+
+function mapDbPaymentStatusToUi(
+  status: DbPatientTreatmentRow['payment_status']
+): TreatmentPaymentStatus {
+  switch (status) {
+    case 'Partial':
+      return 'Parcial'
+    case 'Paid':
+      return 'Pagado'
+    case 'Unpaid':
+    default:
+      return 'Sin pagar'
+  }
+}
+
+function mapUiTreatmentStatusToDb(status: TreatmentStatus): DbPatientTreatmentRow['status'] {
+  switch (status) {
+    case 'En curso':
+      return 'In progress'
+    case 'Completado':
+      return 'Completed'
+    case 'Cancelado':
+      return 'Cancelled'
+    case 'Pendiente':
+    default:
+      return 'Pending'
+  }
+}
+
+function mapUiPaymentStatusToDb(
+  status: TreatmentPaymentStatus
+): DbPatientTreatmentRow['payment_status'] {
+  switch (status) {
+    case 'Parcial':
+      return 'Partial'
+    case 'Pagado':
+      return 'Paid'
+    case 'Sin pagar':
+    default:
+      return 'Unpaid'
+  }
+}
+
+function mapDbSexToUi(
+  sex: DbPatientRow['biological_sex']
+): PatientGender | undefined {
+  switch (sex) {
+    case 'female':
+      return 'Femenino'
+    case 'male':
+      return 'Masculino'
+    case 'other':
+      return 'Otro'
+    case 'undisclosed':
+      return 'No especificado'
+    default:
+      return undefined
+  }
 }
 
 // ============================================
@@ -1524,6 +1657,144 @@ const PatientsContext = createContext<PatientsContextType | undefined>(undefined
 export function PatientsProvider({ children }: { children: ReactNode }) {
   const [patients, setPatients] = useState<Patient[]>(INITIAL_PATIENTS)
 
+  useEffect(() => {
+    let isMounted = true
+
+    async function hydratePatientsFromDb() {
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const {
+          data: { session }
+        } = await supabase.auth.getSession()
+
+        if (!session) return
+
+        const { data: clinics, error: clinicsError } = await supabase.rpc('get_my_clinics')
+        if (clinicsError || !Array.isArray(clinics) || clinics.length === 0) return
+
+        const clinicId = String(clinics[0])
+
+        const [{ data: patientRows, error: patientsError }, { data: treatmentRows, error: treatmentsError }] =
+          await Promise.all([
+            supabase
+              .from('patients')
+              .select(
+                'id, clinic_id, first_name, last_name, phone_number, email, date_of_birth, biological_sex, national_id, lead_source, created_at, updated_at'
+              )
+              .eq('clinic_id', clinicId)
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('patient_treatments')
+              .select(
+                'id, patient_id, treatment_code, treatment_name, tooth_number, amount, final_amount, paid_amount, status, payment_status, scheduled_date, completed_at, completed_by, completed_by_name, budget_id, notes, marked_for_next_appointment, created_at, updated_at'
+              )
+              .eq('clinic_id', clinicId)
+              .order('created_at', { ascending: false })
+          ])
+
+        if (patientsError || !patientRows || patientRows.length === 0) return
+        if (treatmentsError) {
+          console.warn('No se pudieron cargar patient_treatments, se cargan pacientes sin tratamientos DB', treatmentsError)
+        }
+
+        const treatmentsByPatient = new Map<string, PatientTreatment[]>()
+        const rawTreatments = (treatmentRows || []) as DbPatientTreatmentRow[]
+
+        for (const row of rawTreatments) {
+          const finalAmountEuros = Number(row.final_amount ?? row.amount ?? 0)
+          const paidAmountEuros = Number(row.paid_amount ?? 0)
+          const treatment: PatientTreatment = {
+            id: row.id,
+            code:
+              row.treatment_code ||
+              (row.treatment_name || 'TRT')
+                .trim()
+                .slice(0, 3)
+                .toUpperCase(),
+            description: row.treatment_name || 'Tratamiento',
+            tooth: row.tooth_number || undefined,
+            scheduledDate: row.scheduled_date || undefined,
+            completedDate: toIsoDate(row.completed_at),
+            amount: eurosToCents(finalAmountEuros),
+            amountFormatted: formatEuroAmount(finalAmountEuros),
+            status: mapDbTreatmentStatusToUi(row.status),
+            paymentStatus: mapDbPaymentStatusToUi(row.payment_status),
+            paidAmount: eurosToCents(paidAmountEuros),
+            professional: row.completed_by_name || 'Sin asignar',
+            professionalId: row.completed_by || undefined,
+            budgetId: row.budget_id != null ? String(row.budget_id) : undefined,
+            notes: row.notes || undefined,
+            createdAt: toIsoDate(row.created_at) || new Date().toISOString().split('T')[0],
+            updatedAt: toIsoDate(row.updated_at),
+            markedForNextAppointment: Boolean(row.marked_for_next_appointment)
+          }
+
+          const list = treatmentsByPatient.get(row.patient_id) || []
+          list.push(treatment)
+          treatmentsByPatient.set(row.patient_id, list)
+        }
+
+        const mappedPatients = (patientRows as DbPatientRow[]).map((row) => {
+          const firstName = (row.first_name || '').trim()
+          const lastName = (row.last_name || '').trim()
+          const fullName = `${firstName} ${lastName}`.trim() || 'Paciente sin nombre'
+          const treatments = treatmentsByPatient.get(row.id) || []
+
+          const totalDebtCents = treatments.reduce((sum, treatment) => {
+            const remaining = Math.max(treatment.amount - treatment.paidAmount, 0)
+            return sum + remaining
+          }, 0)
+
+          const birthDate = row.date_of_birth || undefined
+
+          return {
+            id: row.id,
+            clinicId: row.clinic_id,
+            firstName: firstName || 'Paciente',
+            lastName,
+            fullName,
+            documentNumber: row.national_id || undefined,
+            gender: mapDbSexToUi(row.biological_sex),
+            birthDate,
+            age: birthDate ? calculateAge(birthDate) : undefined,
+            phone: row.phone_number || '',
+            email: row.email || undefined,
+            status: 'Activo' as PatientStatus,
+            tags: totalDebtCents > 0 ? (['activo', 'deuda'] as PatientTag[]) : (['activo'] as PatientTag[]),
+            source: row.lead_source || undefined,
+            medicalHistory: {
+              allergies: [],
+              medications: [],
+              conditions: []
+            },
+            treatments,
+            consents: [],
+            finance: {
+              totalDebt: totalDebtCents,
+              hasFinancing: false,
+              currency: '€'
+            },
+            preRegistrationComplete: true,
+            createdAt: toIsoDate(row.created_at) || new Date().toISOString().split('T')[0],
+            updatedAt: toIsoDate(row.updated_at)
+          } as Patient
+        })
+
+        if (isMounted && mappedPatients.length > 0) {
+          setPatients(mappedPatients)
+        }
+      } catch (error) {
+        console.warn('PatientsContext DB hydration failed, using mock data', error)
+      }
+    }
+
+    void hydratePatientsFromDb()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   // ============================================
   // FUNCIONES CRUD
   // ============================================
@@ -1679,6 +1950,49 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
         )
       )
       console.log(`✅ Tratamiento ${treatmentId} actualizado`)
+
+      void (async () => {
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const dbUpdates: Record<string, unknown> = {
+            updated_at: new Date().toISOString()
+          }
+
+          if (updates.status !== undefined) {
+            dbUpdates.status = mapUiTreatmentStatusToDb(updates.status)
+          }
+          if (updates.paymentStatus !== undefined) {
+            dbUpdates.payment_status = mapUiPaymentStatusToDb(updates.paymentStatus)
+          }
+          if (updates.paidAmount !== undefined) {
+            dbUpdates.paid_amount = updates.paidAmount / 100
+          }
+          if (updates.scheduledDate !== undefined) {
+            dbUpdates.scheduled_date = updates.scheduledDate || null
+          }
+          if (updates.completedDate !== undefined) {
+            dbUpdates.completed_at = updates.completedDate || null
+          }
+          if (updates.notes !== undefined) {
+            dbUpdates.notes = updates.notes || null
+          }
+          if (updates.markedForNextAppointment !== undefined) {
+            dbUpdates.marked_for_next_appointment = updates.markedForNextAppointment
+          }
+
+          const { error } = await supabase
+            .from('patient_treatments')
+            .update(dbUpdates)
+            .eq('id', treatmentId)
+            .eq('patient_id', patientId)
+
+          if (error) {
+            console.warn('No se pudo persistir updateTreatment en DB', error)
+          }
+        } catch (error) {
+          console.warn('Error persistiendo updateTreatment en DB', error)
+        }
+      })()
     },
     []
   )
@@ -1686,6 +2000,7 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
   // Alternar el estado de "marcado para próxima cita" de un tratamiento
   const toggleTreatmentForNextAppointment = useCallback(
     (patientId: string, treatmentId: string) => {
+      let nextMarkedValue = false
       setPatients((prev) =>
         prev.map((p) =>
           p.id === patientId
@@ -1693,13 +2008,37 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
                 ...p,
                 treatments: p.treatments.map((t) =>
                   t.id === treatmentId
-                    ? { ...t, markedForNextAppointment: !t.markedForNextAppointment }
+                    ? (() => {
+                        const newValue = !t.markedForNextAppointment
+                        nextMarkedValue = newValue
+                        return { ...t, markedForNextAppointment: newValue }
+                      })()
                     : t
                 )
               }
             : p
         )
       )
+
+      void (async () => {
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const { error } = await supabase
+            .from('patient_treatments')
+            .update({
+              marked_for_next_appointment: nextMarkedValue,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', treatmentId)
+            .eq('patient_id', patientId)
+
+          if (error) {
+            console.warn('No se pudo persistir marcado de tratamiento en DB', error)
+          }
+        } catch (error) {
+          console.warn('Error persistiendo marcado de tratamiento en DB', error)
+        }
+      })()
     },
     []
   )
@@ -1707,20 +2046,48 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
   // Resetear todos los tratamientos marcados para próxima cita (después de crear cita)
   const resetTreatmentsForNextAppointment = useCallback(
     (patientId: string) => {
+      const treatmentIdsToReset: string[] = []
       setPatients((prev) =>
         prev.map((p) =>
           p.id === patientId
             ? {
                 ...p,
-                treatments: p.treatments.map((t) => ({
-                  ...t,
-                  markedForNextAppointment: false
-                }))
+                treatments: p.treatments.map((t) => {
+                  if (t.markedForNextAppointment) {
+                    treatmentIdsToReset.push(t.id)
+                  }
+                  return {
+                    ...t,
+                    markedForNextAppointment: false
+                  }
+                })
               }
             : p
         )
       )
       console.log(`✅ Tratamientos para próxima cita reseteados para paciente ${patientId}`)
+
+      if (treatmentIdsToReset.length === 0) return
+
+      void (async () => {
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const { error } = await supabase
+            .from('patient_treatments')
+            .update({
+              marked_for_next_appointment: false,
+              updated_at: new Date().toISOString()
+            })
+            .eq('patient_id', patientId)
+            .in('id', treatmentIdsToReset)
+
+          if (error) {
+            console.warn('No se pudo resetear marcados en DB', error)
+          }
+        } catch (error) {
+          console.warn('Error reseteando marcados en DB', error)
+        }
+      })()
     },
     []
   )

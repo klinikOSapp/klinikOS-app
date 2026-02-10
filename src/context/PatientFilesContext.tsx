@@ -5,8 +5,10 @@ import {
   ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useState
 } from 'react'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 // ============================================
 // TIPOS PARA ARCHIVOS DEL PACIENTE
@@ -80,6 +82,69 @@ const INITIAL_PATIENT_FILES: PatientFile[] = [
   }
 ]
 
+type DbClinicalAttachmentRow = {
+  id: number
+  patient_id: string
+  appointment_id: number | null
+  staff_id: string
+  file_name: string
+  file_type: string | null
+  storage_path: string
+  created_at: string
+}
+
+type DbPatientConsentRow = {
+  id: number
+  patient_id: string
+  consent_type: string
+  status: string
+  signed_at: string | null
+  document_url: string | null
+  created_at: string
+}
+
+function inferFileType(
+  fileType: string | null | undefined,
+  fileName: string
+): PatientFileType {
+  const lowerType = (fileType || '').toLowerCase()
+  const lowerName = fileName.toLowerCase()
+  if (lowerType.includes('odontogram') || lowerName.includes('odontogram')) {
+    return 'odontogram'
+  }
+  if (lowerType.includes('xray') || lowerName.includes('rx')) {
+    return 'rx_image'
+  }
+  if (lowerType.startsWith('image/')) {
+    return 'rx_image'
+  }
+  return 'document'
+}
+
+function mapConsentStatusToUi(status: string): 'Firmado' | 'Enviado' | 'Pendiente' {
+  switch ((status || '').toLowerCase()) {
+    case 'signed':
+      return 'Firmado'
+    case 'sent':
+      return 'Enviado'
+    case 'pending':
+    default:
+      return 'Pendiente'
+  }
+}
+
+function mapConsentStatusToDb(status: PatientFile['consentStatus']): string {
+  switch (status) {
+    case 'Firmado':
+      return 'signed'
+    case 'Enviado':
+      return 'sent'
+    case 'Pendiente':
+    default:
+      return 'pending'
+  }
+}
+
 // ============================================
 // CONTEXTO
 // ============================================
@@ -124,7 +189,98 @@ const PatientFilesContext = createContext<PatientFilesContextType | undefined>(
 // ============================================
 
 export function PatientFilesProvider({ children }: { children: ReactNode }) {
-  const [files, setFiles] = useState<PatientFile[]>(INITIAL_PATIENT_FILES)
+  const [files, setFiles] = useState<PatientFile[]>([])
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function hydrateFilesFromDb() {
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const {
+          data: { session }
+        } = await supabase.auth.getSession()
+        if (!session) return
+
+        const { data: clinics, error: clinicsError } =
+          await supabase.rpc('get_my_clinics')
+        if (clinicsError || !Array.isArray(clinics) || clinics.length === 0) {
+          return
+        }
+
+        const clinicId = String(clinics[0])
+        const { data: patientRows, error: patientsError } = await supabase
+          .from('patients')
+          .select('id')
+          .eq('clinic_id', clinicId)
+
+        if (patientsError || !patientRows || patientRows.length === 0) {
+          return
+        }
+
+        const patientIds = patientRows.map((row) => row.id)
+        const [{ data: attachmentRows }, { data: consentRows }] = await Promise.all([
+          supabase
+            .from('clinical_attachments')
+            .select(
+              'id, patient_id, appointment_id, staff_id, file_name, file_type, storage_path, created_at'
+            )
+            .in('patient_id', patientIds),
+          supabase
+            .from('patient_consents')
+            .select(
+              'id, patient_id, consent_type, status, signed_at, document_url, created_at'
+            )
+            .in('patient_id', patientIds)
+        ])
+
+        const mappedAttachments: PatientFile[] = (
+          (attachmentRows || []) as DbClinicalAttachmentRow[]
+        ).map((row) => ({
+          id: `attachment-${row.id}`,
+          patientId: row.patient_id,
+          name: row.file_name,
+          type: inferFileType(row.file_type, row.file_name),
+          url: row.storage_path,
+          mimeType: row.file_type || 'application/octet-stream',
+          size: 0,
+          uploadedAt: row.created_at,
+          uploadedBy: row.staff_id,
+          appointmentId: row.appointment_id ? String(row.appointment_id) : undefined
+        }))
+
+        const mappedConsents: PatientFile[] = (
+          (consentRows || []) as DbPatientConsentRow[]
+        ).map((row) => ({
+          id: `consent-${row.id}`,
+          patientId: row.patient_id,
+          name: `${row.consent_type}.pdf`,
+          type: 'consent',
+          url: row.document_url || '',
+          mimeType: 'application/pdf',
+          size: 0,
+          uploadedAt: row.created_at,
+          uploadedBy: 'Sistema',
+          consentStatus: mapConsentStatusToUi(row.status),
+          consentSentAt: row.signed_at
+            ? new Date(row.signed_at).toLocaleDateString('es-ES')
+            : undefined
+        }))
+
+        if (isMounted) {
+          setFiles([...mappedAttachments, ...mappedConsents])
+        }
+      } catch (error) {
+        console.warn('PatientFilesContext DB hydration failed, using local state', error)
+      }
+    }
+
+    void hydrateFilesFromDb()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   // Add a new file
   const addFile = useCallback((fileData: Omit<PatientFile, 'id'>): string => {
@@ -135,6 +291,85 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
     }
     setFiles((prev) => [...prev, newFile])
     console.log(`✅ Archivo añadido: ${newFile.name} (${newFile.type})`)
+
+    void (async () => {
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const {
+          data: { session }
+        } = await supabase.auth.getSession()
+
+        if (!session) return
+        const staffId = session.user.id
+
+        if (fileData.type === 'consent') {
+          const { data: inserted, error } = await supabase
+            .from('patient_consents')
+            .insert({
+              patient_id: fileData.patientId,
+              consent_type: fileData.name.replace(/\.pdf$/i, ''),
+              status: mapConsentStatusToDb(fileData.consentStatus),
+              signed_at:
+                fileData.consentStatus === 'Firmado'
+                  ? new Date().toISOString()
+                  : null,
+              document_url: fileData.url || null
+            })
+            .select('id')
+            .single()
+
+          if (error || !inserted) {
+            console.warn('No se pudo persistir patient_consent en DB', error)
+            return
+          }
+
+          setFiles((prev) =>
+            prev.map((file) =>
+              file.id === newId ? { ...file, id: `consent-${inserted.id}` } : file
+            )
+          )
+          return
+        }
+
+        const fileType =
+          fileData.type === 'odontogram'
+            ? 'odontogram'
+            : fileData.type === 'rx_image'
+            ? fileData.mimeType || 'image/jpeg'
+            : fileData.mimeType || 'application/octet-stream'
+
+        const { data: inserted, error } = await supabase
+          .from('clinical_attachments')
+          .insert({
+            patient_id: fileData.patientId,
+            appointment_id: fileData.appointmentId
+              ? Number(fileData.appointmentId)
+              : null,
+            staff_id: staffId,
+            file_name: fileData.name,
+            file_type: fileType,
+            storage_path: fileData.url || ''
+          })
+          .select('id')
+          .single()
+
+        if (error || !inserted) {
+          console.warn('No se pudo persistir clinical_attachment en DB', error)
+          return
+        }
+
+        setFiles((prev) =>
+          prev.map((file) =>
+            file.id === newId
+              ? { ...file, id: `attachment-${inserted.id}` }
+              : file
+          )
+        )
+      } catch (error) {
+        console.warn('Error persistiendo archivo en DB', error)
+      }
+    })()
+
     return newId
   }, [])
 
@@ -145,6 +380,59 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
         prev.map((file) => (file.id === id ? { ...file, ...updates } : file))
       )
       console.log(`✅ Archivo ${id} actualizado`)
+
+      void (async () => {
+        try {
+          const supabase = createSupabaseBrowserClient()
+          if (id.startsWith('consent-')) {
+            const numericId = Number(id.replace('consent-', ''))
+            if (Number.isNaN(numericId)) return
+            const payload: Record<string, unknown> = {}
+            if (updates.name !== undefined) {
+              payload.consent_type = updates.name.replace(/\.pdf$/i, '')
+            }
+            if (updates.consentStatus !== undefined) {
+              payload.status = mapConsentStatusToDb(updates.consentStatus)
+              payload.signed_at =
+                updates.consentStatus === 'Firmado'
+                  ? new Date().toISOString()
+                  : null
+            }
+            if (updates.url !== undefined) {
+              payload.document_url = updates.url || null
+            }
+            const { error } = await supabase
+              .from('patient_consents')
+              .update(payload)
+              .eq('id', numericId)
+            if (error) {
+              console.warn('No se pudo actualizar patient_consent en DB', error)
+            }
+            return
+          }
+
+          if (id.startsWith('attachment-')) {
+            const numericId = Number(id.replace('attachment-', ''))
+            if (Number.isNaN(numericId)) return
+            const payload: Record<string, unknown> = {}
+            if (updates.name !== undefined) payload.file_name = updates.name
+            if (updates.url !== undefined) payload.storage_path = updates.url
+            if (updates.mimeType !== undefined) payload.file_type = updates.mimeType
+            const { error } = await supabase
+              .from('clinical_attachments')
+              .update(payload)
+              .eq('id', numericId)
+            if (error) {
+              console.warn(
+                'No se pudo actualizar clinical_attachment en DB',
+                error
+              )
+            }
+          }
+        } catch (error) {
+          console.warn('Error actualizando archivo en DB', error)
+        }
+      })()
     },
     []
   )
@@ -160,6 +448,38 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
       return prev.filter((f) => f.id !== id)
     })
     console.log(`✅ Archivo ${id} eliminado`)
+
+    void (async () => {
+      try {
+        const supabase = createSupabaseBrowserClient()
+        if (id.startsWith('consent-')) {
+          const numericId = Number(id.replace('consent-', ''))
+          if (Number.isNaN(numericId)) return
+          const { error } = await supabase
+            .from('patient_consents')
+            .delete()
+            .eq('id', numericId)
+          if (error) {
+            console.warn('No se pudo eliminar patient_consent en DB', error)
+          }
+          return
+        }
+
+        if (id.startsWith('attachment-')) {
+          const numericId = Number(id.replace('attachment-', ''))
+          if (Number.isNaN(numericId)) return
+          const { error } = await supabase
+            .from('clinical_attachments')
+            .delete()
+            .eq('id', numericId)
+          if (error) {
+            console.warn('No se pudo eliminar clinical_attachment en DB', error)
+          }
+        }
+      } catch (error) {
+        console.warn('Error eliminando archivo en DB', error)
+      }
+    })()
   }, [])
 
   // Get files by patient

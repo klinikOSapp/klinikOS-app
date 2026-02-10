@@ -649,16 +649,30 @@ type WeekEvent = {
   bgColor: string
 }
 
+type MonthEventInput = {
+  id: string
+  date: string // YYYY-MM-DD
+  title: string
+  patient: string
+  timeRange: string
+  box: string
+  bgColor: string
+}
+
 interface MonthCalendarProps {
   currentMonth?: Date
   currentWeekStart?: Date
   weekEvents?: WeekEvent[]
+  monthEvents?: MonthEventInput[]
+  disableMockFallback?: boolean
 }
 
 export default function MonthCalendar({
   currentMonth: propCurrentMonth,
   currentWeekStart,
-  weekEvents = []
+  weekEvents = [],
+  monthEvents = [],
+  disableMockFallback = false
 }: MonthCalendarProps) {
   const [hovered, setHovered] = useState<MonthEventSelection>(null)
   const [active, setActive] = useState<MonthEventSelection>(null)
@@ -704,6 +718,22 @@ export default function MonthCalendar({
 
   // Helper to convert WeekEvent to MonthEvent
   const weekEventToMonthEvent = (ev: WeekEvent): MonthEvent => {
+    const startTime = ev.timeRange?.split('-')[0]?.trim() || '12:30'
+    return {
+      id: ev.id,
+      label: `${startTime} ${ev.title}`,
+      bgColor: ev.bgColor,
+      detail: createEventDetail(
+        `${startTime} ${ev.title}`,
+        ev.box,
+        ev.patient,
+        ev.timeRange ? `${ev.timeRange} (60 minutos)` : undefined
+      ),
+      box: ev.box
+    }
+  }
+
+  const monthEventInputToMonthEvent = (ev: MonthEventInput): MonthEvent => {
     const startTime = ev.timeRange?.split('-')[0]?.trim() || '12:30'
     return {
       id: ev.id,
@@ -775,7 +805,11 @@ export default function MonthCalendar({
 
       // Get events for this day from weekEvents prop
       let dayEvents: MonthEvent[] = []
-      if (!isSunday && weekEvents.length > 0) {
+      if (!isSunday && monthEvents.length > 0) {
+        const dateKey = cellDate.toLocaleDateString('en-CA')
+        const eventsForDay = monthEvents.filter((ev) => ev.date === dateKey)
+        dayEvents = eventsForDay.map(monthEventInputToMonthEvent)
+      } else if (!isSunday && weekEvents.length > 0) {
         const weekday = getWeekdayFromDate(cellDate)
         if (weekday) {
           const eventsForDay = weekEvents.filter((ev) => ev.weekday === weekday)
@@ -784,7 +818,13 @@ export default function MonthCalendar({
       }
 
       // Fallback to sample events if no weekEvents provided
-      if (dayEvents.length === 0 && !isSunday && weekEvents.length === 0) {
+      if (
+        dayEvents.length === 0 &&
+        !isSunday &&
+        weekEvents.length === 0 &&
+        monthEvents.length === 0 &&
+        !disableMockFallback
+      ) {
         if (day === 7 && today.getTime() === cellDate.getTime()) {
           dayEvents = [SAMPLE_EVENTS[0]]
         } else if (day === 9) {

@@ -332,6 +332,8 @@ export default function PatientRecordModal({
                   )}
                   {active === 'Resumen' && (
                     <Resumen
+                      patientId={patientId}
+                      patientName={patientName}
                       onClose={onClose}
                       onNavigateToTreatments={(withAddAction) => {
                         setActive('Tratamientos')
@@ -403,6 +405,7 @@ export default function PatientRecordModal({
                   )}
                   {active === 'Recetas' && (
                     <Recetas
+                      patientId={patientId}
                       onClose={onClose}
                       openPrescriptionCreation={shouldOpenPrescription}
                       onPrescriptionCreationOpened={() =>

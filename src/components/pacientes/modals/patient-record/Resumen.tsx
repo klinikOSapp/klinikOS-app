@@ -11,10 +11,14 @@ import {
   AppsRounded
 } from '@/components/icons/md3'
 import AvatarImageDropdown from '@/components/pacientes/AvatarImageDropdown'
+import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import React from 'react'
 
 type ResumenProps = {
   onClose?: () => void
+  patientId?: string
+  patientName?: string
   onNavigateToTreatments?: (withAddAction?: boolean) => void
   onNavigateToFinances?: (withBudgetCreation?: boolean) => void
   onNavigateToInfo?: (withEditMode?: boolean) => void
@@ -23,8 +27,7 @@ type ResumenProps = {
   onNavigateToPrescriptions?: () => void
 }
 
-// Datos mock del paciente (en producción vendrían de props o API)
-const mockPatientData = {
+const DEFAULT_PATIENT_DATA = {
   nombre: 'Lucia López Cano',
   edad: '33 años',
   email: 'Emailexample@gmail.com',
@@ -70,6 +73,8 @@ const mockPatientData = {
 
 export default function Resumen({
   onClose,
+  patientId,
+  patientName,
   onNavigateToTreatments,
   onNavigateToFinances,
   onNavigateToInfo,
@@ -77,6 +82,11 @@ export default function Resumen({
   onNavigateToConsents,
   onNavigateToPrescriptions
 }: ResumenProps) {
+  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
+  const [patientData, setPatientData] = React.useState(() => ({
+    ...DEFAULT_PATIENT_DATA,
+    nombre: patientName || DEFAULT_PATIENT_DATA.nombre
+  }))
   const [avatarPreviewUrl, setAvatarPreviewUrl] = React.useState<string | null>(
     null
   )
@@ -94,6 +104,177 @@ export default function Resumen({
       if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current)
     }
   }, [])
+
+  React.useEffect(() => {
+    let isMounted = true
+
+    async function hydrateResumen() {
+      if (!patientId) return
+      try {
+        const { data: patient } = await supabase
+          .from('patients')
+          .select('id, first_name, last_name, email, phone_number, date_of_birth')
+          .eq('id', patientId)
+          .maybeSingle()
+
+        if (!isMounted || !patient) return
+
+        const fullName =
+          [patient.first_name, patient.last_name].filter(Boolean).join(' ') ||
+          patientName ||
+          DEFAULT_PATIENT_DATA.nombre
+        const years = patient.date_of_birth
+          ? Math.max(
+              0,
+              new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear()
+            )
+          : null
+
+        const nowIso = new Date().toISOString()
+
+        const [
+          { data: nextAppointments },
+          { data: alerts },
+          { data: pendingConsents },
+          { data: openInvoices },
+          { data: pendingTreatments }
+        ] = await Promise.all([
+          supabase
+            .from('appointments')
+            .select('scheduled_start_time, scheduled_end_time, status, notes')
+            .eq('patient_id', patientId)
+            .gte('scheduled_start_time', nowIso)
+            .order('scheduled_start_time', { ascending: true })
+            .limit(1),
+          supabase
+            .from('patient_medical_alerts')
+            .select('alert_type, description')
+            .eq('patient_id', patientId)
+            .limit(50),
+          supabase
+            .from('patient_consents')
+            .select('consent_type, status')
+            .eq('patient_id', patientId)
+            .neq('status', 'signed')
+            .limit(20),
+          supabase
+            .from('invoices')
+            .select('invoice_number, total_amount, amount_paid, status')
+            .eq('patient_id', patientId)
+            .in('status', ['open', 'overdue'])
+            .order('issue_timestamp', { ascending: false })
+            .limit(20),
+          supabase
+            .from('patient_treatments')
+            .select('treatment_name, scheduled_date, final_amount, status')
+            .eq('patient_id', patientId)
+            .in('status', ['pending', 'in_progress'])
+            .order('scheduled_date', { ascending: true })
+            .limit(10)
+        ])
+
+        const nextAppointment = nextAppointments?.[0]
+        const startAt = nextAppointment?.scheduled_start_time
+          ? new Date(nextAppointment.scheduled_start_time)
+          : null
+        const endAt = nextAppointment?.scheduled_end_time
+          ? new Date(nextAppointment.scheduled_end_time)
+          : null
+        const nextDuration =
+          startAt && endAt
+            ? `${Math.max(
+                15,
+                Math.round((endAt.getTime() - startAt.getTime()) / 60000)
+              )} minutos`
+            : DEFAULT_PATIENT_DATA.proximaCita.duracion
+
+        const debt = (openInvoices || []).reduce((sum, inv) => {
+          return sum + (Number(inv.total_amount || 0) - Number(inv.amount_paid || 0))
+        }, 0)
+
+        if (!isMounted) return
+        setPatientData((prev) => ({
+          ...prev,
+          nombre: fullName,
+          edad: years !== null ? `${years} años` : prev.edad,
+          email: patient.email || prev.email,
+          telefono: patient.phone_number || prev.telefono,
+          proximaCita: startAt
+            ? {
+                ...prev.proximaCita,
+                tipo: nextAppointment?.notes || prev.proximaCita.tipo,
+                fecha: startAt.toLocaleDateString(DEFAULT_LOCALE, {
+                  timeZone: DEFAULT_TIMEZONE
+                }),
+                hora: startAt.toLocaleTimeString(DEFAULT_LOCALE, {
+                  timeZone: DEFAULT_TIMEZONE,
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }),
+                duracion: nextDuration,
+                estado:
+                  nextAppointment?.status === 'confirmed'
+                    ? 'Confirmado'
+                    : nextAppointment?.status === 'completed'
+                    ? 'Completado'
+                    : 'Pendiente'
+              }
+            : prev.proximaCita,
+          informacionCritica: {
+            ...prev.informacionCritica,
+            alergias:
+              alerts
+                ?.filter((a) => a.alert_type === 'allergy')
+                .map((a) => a.description)
+                .slice(0, 4) || prev.informacionCritica.alergias,
+            enfermedades:
+              alerts
+                ?.filter((a) => a.alert_type !== 'allergy')
+                .map((a) => a.description)
+                .slice(0, 4) || prev.informacionCritica.enfermedades
+          },
+          tratamientosPendientes:
+            pendingTreatments?.map((t) => ({
+              nombre: t.treatment_name || 'Tratamiento',
+              fecha: t.scheduled_date
+                ? new Date(t.scheduled_date).toLocaleDateString(DEFAULT_LOCALE, {
+                    timeZone: DEFAULT_TIMEZONE
+                  })
+                : '—',
+              doctora: prev.proximaCita.doctora,
+              precio: `${Number(t.final_amount || 0).toFixed(2)}€`,
+              estado: t.status === 'in_progress' ? 'En curso' : 'Pendiente'
+            })) || prev.tratamientosPendientes,
+          saldoPendiente: `${debt.toLocaleString(DEFAULT_LOCALE, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          })} €`,
+          documentosPendientes:
+            pendingConsents?.map((c) => ({
+              tipo: 'Consentimiento',
+              descripcion: c.consent_type
+            })) || prev.documentosPendientes,
+          facturasVencidas:
+            openInvoices
+              ?.filter((inv) => inv.status === 'overdue')
+              .map((inv) => ({
+                numero: inv.invoice_number || 'Factura',
+                descripcion: 'Factura pendiente',
+                importe: `${(
+                  Number(inv.total_amount || 0) - Number(inv.amount_paid || 0)
+                ).toFixed(2)}€`
+              })) || prev.facturasVencidas
+        }))
+      } catch (error) {
+        console.warn('Resumen hydration failed, keeping fallback data', error)
+      }
+    }
+
+    void hydrateResumen()
+    return () => {
+      isMounted = false
+    }
+  }, [patientId, patientName, supabase])
 
   return (
     <div
@@ -138,13 +319,13 @@ export default function Resumen({
             className='font-medium leading-8 text-[#24282c] text-2xl'
             data-node-id='resumen-name'
           >
-            {mockPatientData.nombre}
+            {patientData.nombre}
           </p>
           <p
             className='font-normal leading-6 text-[#24282c] text-base'
             data-node-id='resumen-age'
           >
-            Edad: {mockPatientData.edad}
+            Edad: {patientData.edad}
           </p>
         </div>
 
@@ -159,7 +340,7 @@ export default function Resumen({
           >
             <MailRounded className='size-6 text-[#24282c]' />
             <p className='font-normal leading-6 text-[#24282c] text-base whitespace-nowrap'>
-              {mockPatientData.email}
+              {patientData.email}
             </p>
           </div>
           <div
@@ -168,7 +349,7 @@ export default function Resumen({
           >
             <CallRounded className='size-6 text-[#24282c]' />
             <p className='font-normal leading-6 text-[#24282c] text-base whitespace-nowrap'>
-              {mockPatientData.telefono}
+              {patientData.telefono}
             </p>
           </div>
         </div>
@@ -209,25 +390,25 @@ export default function Resumen({
           <p
             className="font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] not-italic text-[#24282c] text-[1rem]"
           >
-            {mockPatientData.proximaCita.tipo}
+            {patientData.proximaCita.tipo}
           </p>
           <p
             className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[0.875rem]"
           >
-            {mockPatientData.proximaCita.fecha} - {mockPatientData.proximaCita.hora}
+            {patientData.proximaCita.fecha} - {patientData.proximaCita.hora}
           </p>
           <p
             className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[0.875rem]"
           >
-            {mockPatientData.proximaCita.doctora}
+            {patientData.proximaCita.doctora}
           </p>
           <p
             className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[0.875rem]"
           >
-            {mockPatientData.proximaCita.duracion}
+            {patientData.proximaCita.duracion}
           </p>
           <span className='inline-block px-[0.75rem] py-[0.25rem] bg-[#E9FBF9] text-[0.875rem] text-[var(--color-brand-700)] rounded-full'>
-            {mockPatientData.proximaCita.estado}
+            {patientData.proximaCita.estado}
           </span>
         </div>
       </div>
@@ -261,7 +442,7 @@ export default function Resumen({
               Alergias
             </p>
             <div className='flex flex-wrap gap-[0.5rem]'>
-              {mockPatientData.informacionCritica.alergias.map((alergia, idx) => (
+              {patientData.informacionCritica.alergias.map((alergia, idx) => (
                 <span
                   key={idx}
                   className='inline-block px-[0.75rem] py-[0.375rem] bg-[#f7b7ba] text-[0.75rem] text-red-700 rounded-full font-medium'
@@ -282,7 +463,7 @@ export default function Resumen({
             <p
               className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[1rem]"
             >
-              {mockPatientData.informacionCritica.enfermedades.join(', ')}
+              {patientData.informacionCritica.enfermedades.join(', ')}
             </p>
           </div>
 
@@ -294,7 +475,7 @@ export default function Resumen({
               Medicación actual
             </p>
             <div className='flex flex-wrap gap-[0.5rem]'>
-              {mockPatientData.informacionCritica.medicacion.map((med, idx) => (
+              {patientData.informacionCritica.medicacion.map((med, idx) => (
                 <span
                   key={idx}
                   className={`inline-block px-[0.75rem] py-[0.375rem] text-[0.75rem] rounded-full font-medium ${
@@ -319,7 +500,7 @@ export default function Resumen({
             <p
               className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] italic text-[#aeb8c2] text-[0.875rem]"
             >
-              {mockPatientData.informacionCritica.notas}
+              {patientData.informacionCritica.notas}
             </p>
           </div>
           </div>
@@ -357,7 +538,7 @@ export default function Resumen({
           </div>
         </div>
         <div className='space-y-[0.75rem]'>
-          {mockPatientData.tratamientosPendientes.map((tratamiento, idx) => (
+          {patientData.tratamientosPendientes.map((tratamiento, idx) => (
             <div
               key={idx}
               className='flex items-center justify-between p-[0.75rem] hover:bg-[var(--color-neutral-50)] rounded-lg'
@@ -443,7 +624,7 @@ export default function Resumen({
             onClick={() => onNavigateToFinances?.()}
             className='inline-block px-[1rem] py-[0.5rem] bg-[#f7b7ba] text-[1.125rem] text-red-700 rounded-full font-medium cursor-pointer hover:opacity-80 transition-opacity'
           >
-            {mockPatientData.saldoPendiente}
+            {patientData.saldoPendiente}
           </button>
         </div>
       </div>
@@ -462,11 +643,11 @@ export default function Resumen({
           <span
             className="font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] not-italic text-red-700 text-[0.875rem]"
           >
-            {mockPatientData.documentosPendientes.length} documentos pendientes
+            {patientData.documentosPendientes.length} documentos pendientes
           </span>
         </div>
         <div className='space-y-[0.75rem]'>
-          {mockPatientData.documentosPendientes.map((doc, idx) => (
+          {patientData.documentosPendientes.map((doc, idx) => (
             <button
               key={idx}
               type='button'
@@ -516,11 +697,11 @@ export default function Resumen({
           <span
             className="font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] not-italic text-red-700 text-[0.875rem]"
           >
-            {mockPatientData.facturasVencidas.length} facturas vencidas
+            {patientData.facturasVencidas.length} facturas vencidas
           </span>
         </div>
         <div className='space-y-[0.75rem]'>
-          {mockPatientData.facturasVencidas.map((factura, idx) => (
+          {patientData.facturasVencidas.map((factura, idx) => (
             <button
               key={idx}
               type='button'
@@ -600,7 +781,7 @@ export default function Resumen({
           </div>
         </div>
         <div className='space-y-[0.75rem]'>
-          {mockPatientData.historialReciente.map((item, idx) => (
+          {patientData.historialReciente.map((item, idx) => (
             <div
               key={idx}
               className='flex items-center justify-between p-[0.75rem] hover:bg-[var(--color-neutral-50)] rounded-lg'

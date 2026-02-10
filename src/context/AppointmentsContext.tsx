@@ -5,11 +5,14 @@ import {
   ReactNode,
   useCallback,
   useContext,
+  useEffect,
+  useRef,
   useState
 } from 'react'
 
 import type { VisitStatus, VisitStatusLog } from '@/components/agenda/types'
 import { calculateFinalDurations } from '@/hooks/useWaitTimer'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 // Re-exportar tipos de visita para uso en otros componentes
 export type { VisitStatus, VisitStatusLog }
@@ -2644,6 +2647,141 @@ const INITIAL_BLOCKS: AgendaBlock[] = [
   }
 ]
 
+type DbCalendarAppointmentRow = {
+  id: number
+  scheduled_start_time: string
+  scheduled_end_time: string
+  status: string
+  notes: string | null
+  box_name: string | null
+  patient_id: string
+  patient_name: string | null
+  patient_phone: string | null
+  service_name: string | null
+  staff_assigned: Array<{ staff_id?: string; full_name?: string }> | null
+  clinical_notes: Array<{
+    note_type?: string
+    content?: string
+    content_json?: Record<string, unknown> | unknown[]
+  }> | null
+}
+
+type DbAppointmentHoldRow = {
+  id: number
+  start_time: string
+  end_time: string
+  box_id: string | null
+  status: string
+  summary_text: string | null
+  summary_json: Record<string, unknown> | null
+}
+
+type DbClinicalAttachmentRow = {
+  id: number
+  appointment_id: number | null
+  file_name: string
+  file_type: string | null
+  storage_path: string
+  created_at: string
+  staff_id: string
+}
+
+function isLikelyUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  )
+}
+
+function toIsoDate(dateValue: string | Date): string {
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toISOString().slice(0, 10)
+}
+
+function toTimeHHMM(dateValue: string | Date): string {
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue)
+  if (Number.isNaN(date.getTime())) return '09:00'
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
+function buildLocalIso(date: string, time: string): string {
+  const hhmm = time.length === 5 ? time : '09:00'
+  return new Date(`${date}T${hhmm}:00`).toISOString()
+}
+
+function mapDbAppointmentStatusToUi(
+  status: string
+): { status: AppointmentStatus; confirmed: boolean; completed: boolean } {
+  switch (status) {
+    case 'confirmed':
+      return { status: 'Confirmada', confirmed: true, completed: false }
+    case 'completed':
+      return { status: 'Confirmada', confirmed: true, completed: true }
+    case 'not_accepted':
+      return { status: 'Pendiente IA', confirmed: false, completed: false }
+    case 'cancelled':
+      return { status: 'Reagendar', confirmed: false, completed: false }
+    case 'checked_in':
+    case 'in_progress':
+      return { status: 'Confirmada', confirmed: true, completed: false }
+    case 'no_show':
+      return { status: 'No confirmada', confirmed: false, completed: false }
+    case 'scheduled':
+    default:
+      return { status: 'No confirmada', confirmed: false, completed: false }
+  }
+}
+
+function mapUiStatusToDb(status: AppointmentStatus): string {
+  switch (status) {
+    case 'Confirmada':
+      return 'confirmed'
+    case 'Reagendar':
+      return 'cancelled'
+    case 'Pendiente IA':
+      return 'not_accepted'
+    case 'No confirmada':
+    default:
+      return 'scheduled'
+  }
+}
+
+function mapDbToVisitStatus(status: string): VisitStatus {
+  switch (status) {
+    case 'checked_in':
+      return 'waiting_room'
+    case 'in_progress':
+      return 'in_consultation'
+    case 'completed':
+      return 'completed'
+    case 'confirmed':
+    case 'scheduled':
+    case 'not_accepted':
+    case 'cancelled':
+    case 'no_show':
+    default:
+      return 'scheduled'
+  }
+}
+
+function mapVisitStatusToDb(status: VisitStatus): string {
+  switch (status) {
+    case 'waiting_room':
+      return 'checked_in'
+    case 'call_patient':
+      return 'checked_in'
+    case 'in_consultation':
+      return 'in_progress'
+    case 'completed':
+      return 'completed'
+    case 'scheduled':
+    default:
+      return 'scheduled'
+  }
+}
+
 // ============================================
 // CONTEXTO
 // ============================================
@@ -2729,26 +2867,496 @@ const AppointmentsContext = createContext<AppointmentsContextType | undefined>(
 // ============================================
 
 export function AppointmentsProvider({ children }: { children: ReactNode }) {
-  const [appointments, setAppointments] =
-    useState<Appointment[]>(INITIAL_APPOINTMENTS)
+  const [appointments, setAppointments] = useState<Appointment[]>([])
   const [payments, setPayments] = useState<PaymentRecord[]>([])
-  const [blocks, setBlocks] = useState<AgendaBlock[]>(INITIAL_BLOCKS)
+  const [blocks, setBlocks] = useState<AgendaBlock[]>([])
+  const clinicIdRef = useRef<string | null>(null)
+  const staffIdRef = useRef<string | null>(null)
+  const boxIdByLabelRef = useRef<Record<string, string>>({})
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function hydrateFromDb() {
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const {
+          data: { session }
+        } = await supabase.auth.getSession()
+        if (!session) return
+
+        staffIdRef.current = session.user.id
+
+        const { data: clinics, error: clinicsError } =
+          await supabase.rpc('get_my_clinics')
+        if (clinicsError || !Array.isArray(clinics) || clinics.length === 0) {
+          return
+        }
+
+        const clinicId = String(clinics[0])
+        clinicIdRef.current = clinicId
+
+        const startDate = new Date()
+        startDate.setDate(startDate.getDate() - 365)
+        const endDate = new Date()
+        endDate.setDate(endDate.getDate() + 365)
+
+        const dateFrom = startDate.toISOString().slice(0, 10)
+        const dateTo = endDate.toISOString().slice(0, 10)
+
+        const [{ data: calendarRows }, { data: boxRows }, { data: holdRows }, { data: paymentRows }] =
+          await Promise.all([
+            supabase.rpc('get_appointments_calendar', {
+              p_clinic_id: clinicId,
+              p_start_date: dateFrom,
+              p_end_date: dateTo,
+              p_staff_id: null,
+              p_box_id: null
+            }),
+            supabase
+              .from('boxes')
+              .select('id, name_or_number')
+              .eq('clinic_id', clinicId),
+            supabase
+              .from('appointment_holds')
+              .select('id, start_time, end_time, box_id, status, summary_text, summary_json')
+              .eq('clinic_id', clinicId)
+              .neq('status', 'cancelled')
+              .order('start_time', { ascending: true }),
+            supabase
+              .from('payments')
+              .select('id, invoice_id, amount, payment_method, transaction_date, notes')
+              .eq('clinic_id', clinicId)
+              .order('transaction_date', { ascending: false })
+              .limit(500)
+          ])
+
+        const boxMapById = new Map<string, string>()
+        const boxMapByLabel = new Map<string, string>()
+        for (const row of boxRows || []) {
+          const id = String(row.id)
+          const label = String(row.name_or_number || 'Box').trim()
+          boxMapById.set(id, label)
+          boxMapByLabel.set(label.toLowerCase(), id)
+          boxMapByLabel.set(label.replace(/\s+/g, '').toLowerCase(), id)
+        }
+        boxIdByLabelRef.current = Object.fromEntries(boxMapByLabel.entries())
+
+        const appointmentIds = Array.isArray(calendarRows)
+          ? (calendarRows as DbCalendarAppointmentRow[]).map((row) => row.id)
+          : []
+
+        const { data: attachmentRows } =
+          appointmentIds.length > 0
+            ? await supabase
+                .from('clinical_attachments')
+                .select(
+                  'id, appointment_id, file_name, file_type, storage_path, created_at, staff_id'
+                )
+                .in('appointment_id', appointmentIds)
+            : { data: [] as DbClinicalAttachmentRow[] }
+
+        const attachmentByAppointment = new Map<string, VisitAttachment[]>()
+        for (const row of (attachmentRows || []) as DbClinicalAttachmentRow[]) {
+          if (!row.appointment_id) continue
+          const key = String(row.appointment_id)
+          const list = attachmentByAppointment.get(key) || []
+          const attachmentType: VisitAttachment['type'] =
+            row.file_type?.startsWith('image/')
+              ? 'image'
+              : row.file_type?.includes('xray')
+              ? 'xray'
+              : 'document'
+          list.push({
+            id: String(row.id),
+            name: row.file_name,
+            type: attachmentType,
+            url: row.storage_path,
+            uploadedAt: row.created_at,
+            uploadedBy: row.staff_id
+          })
+          attachmentByAppointment.set(key, list)
+        }
+
+        const mappedAppointments: Appointment[] = (
+          (calendarRows || []) as DbCalendarAppointmentRow[]
+        ).map((row) => {
+          const startIso = row.scheduled_start_time
+          const endIso = row.scheduled_end_time
+          const statusInfo = mapDbAppointmentStatusToUi(row.status)
+          const firstStaff = Array.isArray(row.staff_assigned)
+            ? row.staff_assigned[0]
+            : undefined
+          const reason = row.service_name || 'Consulta'
+
+          let soapNotes: VisitSOAPNotes | undefined
+          let linkedTreatments: LinkedTreatment[] | undefined
+          const notesRows = Array.isArray(row.clinical_notes)
+            ? row.clinical_notes
+            : []
+
+          for (const noteRow of notesRows) {
+            if (noteRow.note_type === 'soap') {
+              const contentJson =
+                noteRow.content_json && typeof noteRow.content_json === 'object'
+                  ? (noteRow.content_json as VisitSOAPNotes)
+                  : undefined
+              soapNotes =
+                contentJson ||
+                ({
+                  subjective: noteRow.content || ''
+                } as VisitSOAPNotes)
+            }
+            if (
+              noteRow.note_type === 'linked_treatments' &&
+              Array.isArray(noteRow.content_json)
+            ) {
+              linkedTreatments = (noteRow.content_json as unknown[]).map(
+                (item, index) => {
+                  const rowData = (item || {}) as Record<string, unknown>
+                  return {
+                    id: String(rowData.id || `lt-${row.id}-${index}`),
+                    treatmentCode:
+                      typeof rowData.treatmentCode === 'string'
+                        ? rowData.treatmentCode
+                        : undefined,
+                    description: String(rowData.description || 'Tratamiento'),
+                    amount: String(rowData.amount || '0'),
+                    status:
+                      (rowData.status as LinkedTreatmentStatus) || 'pending',
+                    notes:
+                      typeof rowData.notes === 'string'
+                        ? rowData.notes
+                        : undefined
+                  }
+                }
+              )
+            }
+          }
+
+          return {
+            id: String(row.id),
+            date: toIsoDate(startIso),
+            startTime: toTimeHHMM(startIso),
+            endTime: toTimeHHMM(endIso),
+            patientName: row.patient_name || 'Paciente',
+            patientPhone: row.patient_phone || '',
+            patientId: row.patient_id,
+            professional: firstStaff?.full_name || 'Profesional',
+            reason,
+            status: statusInfo.status,
+            box: row.box_name || undefined,
+            charge: 'No',
+            notes: row.notes || undefined,
+            completed: statusInfo.completed,
+            confirmed: statusInfo.confirmed,
+            visitStatus: mapDbToVisitStatus(row.status),
+            linkedTreatments,
+            soapNotes,
+            attachments: attachmentByAppointment.get(String(row.id)) || []
+          }
+        })
+
+        const invoiceIds = Array.from(
+          new Set(
+            ((paymentRows || []) as Array<{ invoice_id: number | null }>)
+              .map((row) => row.invoice_id)
+              .filter((id): id is number => typeof id === 'number')
+          )
+        )
+
+        const { data: invoiceRows } =
+          invoiceIds.length > 0
+            ? await supabase
+                .from('invoices')
+                .select('id, patient_id')
+                .in('id', invoiceIds)
+            : { data: [] as Array<{ id: number; patient_id: string }> }
+
+        const patientIds = Array.from(
+          new Set((invoiceRows || []).map((row) => row.patient_id))
+        )
+
+        const { data: patientRows } =
+          patientIds.length > 0
+            ? await supabase
+                .from('patients')
+                .select('id, first_name, last_name')
+                .in('id', patientIds)
+            : {
+                data: [] as Array<{
+                  id: string
+                  first_name: string | null
+                  last_name: string | null
+                }>
+              }
+
+        const invoicePatientMap = new Map<number, string>()
+        for (const row of invoiceRows || []) {
+          invoicePatientMap.set(row.id, row.patient_id)
+        }
+
+        const patientNameMap = new Map<string, string>()
+        for (const row of patientRows || []) {
+          patientNameMap.set(
+            row.id,
+            `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'Paciente'
+          )
+        }
+
+        const mappedPayments: PaymentRecord[] = (
+          paymentRows || []
+        ).map((row) => {
+          const patientId =
+            row.invoice_id != null
+              ? invoicePatientMap.get(row.invoice_id) || ''
+              : ''
+          return {
+            id: String(row.id),
+            appointmentId: '',
+            patientId,
+            patientName: patientNameMap.get(patientId) || 'Paciente',
+            treatment: row.notes || 'Pago',
+            amount: Number(row.amount || 0),
+            currency: '€',
+            paymentMethod: row.payment_method || 'efectivo',
+            paymentDate: new Date(row.transaction_date),
+            createdAt: new Date(row.transaction_date)
+          }
+        })
+
+        const mappedBlocks: AgendaBlock[] = ((holdRows || []) as DbAppointmentHoldRow[])
+          .filter((row) => row.status !== 'cancelled')
+          .map((row) => {
+            const summary = (row.summary_json || {}) as Record<string, unknown>
+            const start = new Date(row.start_time)
+            const end = new Date(row.end_time)
+            const blockType = String(summary.block_type || 'other') as BlockType
+            return {
+              id: String(row.id),
+              date: toIsoDate(start),
+              startTime: toTimeHHMM(start),
+              endTime: toTimeHHMM(end),
+              blockType: BLOCK_TYPE_CONFIG[blockType] ? blockType : 'other',
+              description:
+                row.summary_text || String(summary.description || 'Bloqueo agenda'),
+              responsibleName:
+                typeof summary.responsible_name === 'string'
+                  ? summary.responsible_name
+                  : undefined,
+              box: row.box_id ? boxMapById.get(row.box_id) || undefined : undefined,
+              recurrence:
+                summary.recurrence && typeof summary.recurrence === 'object'
+                  ? (summary.recurrence as RecurrencePattern)
+                  : undefined,
+              parentBlockId:
+                typeof summary.parent_block_id === 'string'
+                  ? summary.parent_block_id
+                  : undefined
+            }
+          })
+
+        if (isMounted) {
+          setAppointments(mappedAppointments)
+          setPayments(mappedPayments)
+          setBlocks(mappedBlocks)
+        }
+      } catch (error) {
+        console.warn('AppointmentsContext DB hydration failed, using local state', error)
+      }
+    }
+
+    void hydrateFromDb()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const persistAppointmentNote = useCallback(
+    async (
+      appointmentId: string,
+      patientId: string | undefined,
+      noteType: string,
+      content: string,
+      contentJson?: Record<string, unknown> | unknown[]
+    ) => {
+      const numericAppointmentId = Number(appointmentId)
+      const staffId = staffIdRef.current
+      if (!patientId || !staffId || Number.isNaN(numericAppointmentId)) return
+
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const { error } = await supabase.from('appointment_notes').insert({
+          appointment_id: numericAppointmentId,
+          patient_id: patientId,
+          staff_id: staffId,
+          note_type: noteType,
+          content,
+          content_json: contentJson ?? null
+        })
+
+        if (error) {
+          console.warn(`No se pudo persistir nota ${noteType} en DB`, error)
+        }
+      } catch (error) {
+        console.warn(`Error persistiendo nota ${noteType} en DB`, error)
+      }
+    },
+    []
+  )
+
+  const ensureInvoiceAndInsertPayment = useCallback(
+    async (data: RegisterPaymentData): Promise<string | null> => {
+      const clinicId = clinicIdRef.current
+      const staffId = staffIdRef.current
+      if (!clinicId || !staffId || !data.patientId) return null
+
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const { data: invoiceNumberData } = await supabase.rpc(
+          'get_next_invoice_number',
+          {
+            p_clinic_id: clinicId,
+            p_series_id: null
+          }
+        )
+
+        const payload = (invoiceNumberData || {}) as Record<string, unknown>
+        const invoiceNumber =
+          typeof payload.invoice_number === 'string'
+            ? payload.invoice_number
+            : `TMP-${Date.now()}`
+        const seriesId =
+          typeof payload.series_id === 'number' ? payload.series_id : null
+
+        const { data: invoiceRow, error: invoiceError } = await supabase
+          .from('invoices')
+          .insert({
+            patient_id: data.patientId,
+            clinic_id: clinicId,
+            invoice_number: invoiceNumber,
+            total_amount: data.amount,
+            amount_paid: data.amount,
+            status: 'open',
+            issue_timestamp: data.paymentDate.toISOString(),
+            series_id: seriesId
+          })
+          .select('id')
+          .single()
+
+        if (invoiceError || !invoiceRow) {
+          console.warn('No se pudo crear invoice para pago', invoiceError)
+          return null
+        }
+
+        const { error: paymentError } = await supabase.from('payments').insert({
+          invoice_id: invoiceRow.id,
+          clinic_id: clinicId,
+          staff_id: staffId,
+          payment_method: data.paymentMethod,
+          amount: data.amount,
+          transaction_date: data.paymentDate.toISOString(),
+          transaction_id: data.reference || null,
+          notes: data.treatment
+        })
+
+        if (paymentError) {
+          console.warn('No se pudo persistir payment en DB', paymentError)
+        }
+
+        return String(invoiceRow.id)
+      } catch (error) {
+        console.warn('Error persistiendo payment/invoice en DB', error)
+        return null
+      }
+    },
+    []
+  )
 
   // Agregar una nueva cita
   const addAppointment = useCallback(
     (appointmentData: Omit<Appointment, 'id'>) => {
+      const tempId = `apt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       const newAppointment: Appointment = {
         ...appointmentData,
-        id: `apt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        id: tempId
       }
       setAppointments((prev) => [...prev, newAppointment])
+
+      void (async () => {
+        const clinicId = clinicIdRef.current
+        if (!clinicId || !appointmentData.patientId) return
+
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const boxLabel = (appointmentData.box || '').trim().toLowerCase()
+          const normalizedBoxLabel = boxLabel.replace(/\s+/g, '')
+          const boxId =
+            boxIdByLabelRef.current[boxLabel] ||
+            boxIdByLabelRef.current[normalizedBoxLabel] ||
+            null
+
+          const { data: inserted, error } = await supabase
+            .from('appointments')
+            .insert({
+              clinic_id: clinicId,
+              patient_id: appointmentData.patientId,
+              box_id: boxId,
+              status: mapUiStatusToDb(appointmentData.status),
+              scheduled_start_time: buildLocalIso(
+                appointmentData.date,
+                appointmentData.startTime
+              ),
+              scheduled_end_time: buildLocalIso(
+                appointmentData.date,
+                appointmentData.endTime
+              ),
+              notes: appointmentData.notes || null,
+              source: appointmentData.createdByVoiceAgent ? 'call' : 'manual',
+              service_type: appointmentData.reason
+            })
+            .select('id')
+            .single()
+
+          if (error || !inserted) {
+            console.warn('No se pudo crear cita en DB', error)
+            return
+          }
+
+          const persistedId = String(inserted.id)
+          setAppointments((prev) =>
+            prev.map((apt) =>
+              apt.id === tempId
+                ? {
+                    ...apt,
+                    id: persistedId
+                  }
+                : apt
+            )
+          )
+
+          if (appointmentData.linkedTreatments?.length) {
+            await persistAppointmentNote(
+              persistedId,
+              appointmentData.patientId,
+              'linked_treatments',
+              'Linked treatments',
+              appointmentData.linkedTreatments as unknown as unknown[]
+            )
+          }
+        } catch (error) {
+          console.warn('Error creando cita en DB', error)
+        }
+      })()
     },
-    []
+    [persistAppointmentNote]
   )
 
   // Actualizar una cita existente
   const updateAppointment = useCallback(
     (id: string, updates: Partial<Appointment>) => {
+      const currentAppointment = appointments.find((apt) => apt.id === id)
       setAppointments((prev) => {
         const updatedAppointments = prev.map((apt) => {
           if (apt.id !== id) return apt
@@ -2804,13 +3412,111 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
 
         return updatedAppointments
       })
+
+      void (async () => {
+        const clinicId = clinicIdRef.current
+        if (!clinicId) return
+
+        const numericId = Number(id)
+        if (Number.isNaN(numericId)) return
+
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const dbUpdates: Record<string, unknown> = {
+            updated_at: new Date().toISOString()
+          }
+
+          if (updates.status !== undefined) {
+            dbUpdates.status = mapUiStatusToDb(updates.status)
+          }
+          if (updates.notes !== undefined) {
+            dbUpdates.notes = updates.notes || null
+          }
+
+          const nextDate = updates.date ?? currentAppointment?.date
+          const nextStart = updates.startTime ?? currentAppointment?.startTime
+          const nextEnd = updates.endTime ?? currentAppointment?.endTime
+
+          if (nextDate && nextStart) {
+            dbUpdates.scheduled_start_time = buildLocalIso(nextDate, nextStart)
+          }
+          if (nextDate && nextEnd) {
+            dbUpdates.scheduled_end_time = buildLocalIso(nextDate, nextEnd)
+          }
+          if (updates.reason !== undefined) {
+            dbUpdates.service_type = updates.reason
+          }
+          if (updates.box !== undefined) {
+            const boxLabel = updates.box.trim().toLowerCase()
+            const normalized = boxLabel.replace(/\s+/g, '')
+            dbUpdates.box_id =
+              boxIdByLabelRef.current[boxLabel] ||
+              boxIdByLabelRef.current[normalized] ||
+              null
+          }
+
+          const { error } = await supabase
+            .from('appointments')
+            .update(dbUpdates)
+            .eq('id', numericId)
+            .eq('clinic_id', clinicId)
+
+          if (error) {
+            console.warn('No se pudo actualizar cita en DB', error)
+          }
+
+          const notePatientId = updates.patientId ?? currentAppointment?.patientId
+
+          if (updates.soapNotes) {
+            await persistAppointmentNote(
+              id,
+              notePatientId,
+              'soap',
+              'SOAP note',
+              updates.soapNotes as unknown as Record<string, unknown>
+            )
+          }
+
+          if (updates.linkedTreatments) {
+            await persistAppointmentNote(
+              id,
+              notePatientId,
+              'linked_treatments',
+              'Linked treatments',
+              updates.linkedTreatments as unknown as unknown[]
+            )
+          }
+        } catch (error) {
+          console.warn('Error actualizando cita en DB', error)
+        }
+      })()
     },
-    []
+    [appointments, persistAppointmentNote]
   )
 
   // Eliminar una cita
   const deleteAppointment = useCallback((id: string) => {
     setAppointments((prev) => prev.filter((apt) => apt.id !== id))
+    void (async () => {
+      const clinicId = clinicIdRef.current
+      if (!clinicId) return
+      const numericId = Number(id)
+      if (Number.isNaN(numericId)) return
+
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const { error } = await supabase
+          .from('appointments')
+          .delete()
+          .eq('id', numericId)
+          .eq('clinic_id', clinicId)
+        if (error) {
+          console.warn('No se pudo eliminar cita en DB', error)
+        }
+      } catch (error) {
+        console.warn('Error eliminando cita en DB', error)
+      }
+    })()
   }, [])
 
   // Obtener citas por fecha
@@ -2900,7 +3606,8 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     )
 
     console.log('✅ Pago registrado en contexto:', paymentRecord)
-  }, [])
+    void ensureInvoiceAndInsertPayment(data)
+  }, [ensureInvoiceAndInsertPayment])
 
   // Obtener pagos por cita
   const getPaymentsByAppointment = useCallback(
@@ -2948,6 +3655,30 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
       setAppointments((prev) =>
         prev.map((apt) => (apt.id === id ? { ...apt, completed } : apt))
       )
+
+      void (async () => {
+        const clinicId = clinicIdRef.current
+        if (!clinicId) return
+        const numericId = Number(id)
+        if (Number.isNaN(numericId)) return
+
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const { error } = await supabase
+            .from('appointments')
+            .update({
+              status: completed ? 'completed' : 'scheduled',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', numericId)
+            .eq('clinic_id', clinicId)
+          if (error) {
+            console.warn('No se pudo actualizar completed en DB', error)
+          }
+        } catch (error) {
+          console.warn('Error actualizando completed en DB', error)
+        }
+      })()
     },
     []
   )
@@ -2959,6 +3690,30 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         prev.map((apt) => (apt.id === id ? { ...apt, confirmed } : apt))
       )
       console.log(`✅ Cita ${id} ${confirmed ? 'confirmada' : 'desconfirmada'}`)
+
+      void (async () => {
+        const clinicId = clinicIdRef.current
+        if (!clinicId) return
+        const numericId = Number(id)
+        if (Number.isNaN(numericId)) return
+
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const { error } = await supabase
+            .from('appointments')
+            .update({
+              status: confirmed ? 'confirmed' : 'scheduled',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', numericId)
+            .eq('clinic_id', clinicId)
+          if (error) {
+            console.warn('No se pudo actualizar confirmed en DB', error)
+          }
+        } catch (error) {
+          console.warn('Error actualizando confirmed en DB', error)
+        }
+      })()
     },
     []
   )
@@ -3024,6 +3779,31 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
           return apt
         })
       )
+
+      void (async () => {
+        const clinicId = clinicIdRef.current
+        if (!clinicId) return
+        const numericId = Number(appointmentId)
+        if (Number.isNaN(numericId)) return
+
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const dbStatus = mapVisitStatusToDb(newStatus)
+          const { error } = await supabase
+            .from('appointments')
+            .update({
+              status: dbStatus,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', numericId)
+            .eq('clinic_id', clinicId)
+          if (error) {
+            console.warn('No se pudo persistir visitStatus en DB', error)
+          }
+        } catch (error) {
+          console.warn('Error persistiendo visitStatus en DB', error)
+        }
+      })()
     },
     []
   )
@@ -3066,40 +3846,154 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
       ...blockData,
       id: newId
     }
-    setBlocks((prev) => [...prev, newBlock])
+    const generatedBlocks =
+      blockData.recurrence && blockData.recurrence.type !== 'none'
+        ? generateRecurringBlocks(newBlock)
+        : []
+    const allBlocks = [newBlock, ...generatedBlocks]
 
-    // Si tiene recurrencia, generar bloques recurrentes
-    if (blockData.recurrence && blockData.recurrence.type !== 'none') {
-      const generatedBlocks = generateRecurringBlocks(newBlock)
-      setBlocks((prev) => [...prev, ...generatedBlocks])
-    }
+    setBlocks((prev) => [...prev, ...allBlocks])
 
     console.log('✅ Bloqueo creado:', newBlock)
+
+    void (async () => {
+      const clinicId = clinicIdRef.current
+      if (!clinicId) return
+
+      try {
+        const supabase = createSupabaseBrowserClient()
+        for (const block of allBlocks) {
+          const boxLabel = (block.box || '').trim().toLowerCase()
+          const normalizedBoxLabel = boxLabel.replace(/\s+/g, '')
+          const boxId =
+            boxIdByLabelRef.current[boxLabel] ||
+            boxIdByLabelRef.current[normalizedBoxLabel] ||
+            null
+
+          const { data: inserted, error } = await supabase
+            .from('appointment_holds')
+            .insert({
+              clinic_id: clinicId,
+              box_id: boxId,
+              start_time: buildLocalIso(block.date, block.startTime),
+              end_time: buildLocalIso(block.date, block.endTime),
+              status: 'held',
+              hold_expires_at: buildLocalIso(block.date, block.endTime),
+              notes: block.description || null,
+              summary_text: block.description || null,
+              summary_json: {
+                kind: 'ui_block',
+                block_type: block.blockType,
+                description: block.description,
+                responsible_name: block.responsibleName || null,
+                recurrence: block.recurrence || null,
+                parent_block_id: block.parentBlockId || null
+              }
+            })
+            .select('id')
+            .single()
+
+          if (error || !inserted) {
+            console.warn('No se pudo persistir bloqueo en DB', error)
+            continue
+          }
+
+          setBlocks((prev) =>
+            prev.map((item) =>
+              item.id === block.id ? { ...item, id: String(inserted.id) } : item
+            )
+          )
+        }
+      } catch (error) {
+        console.warn('Error creando bloqueo en DB', error)
+      }
+    })()
+
     return newId
   }, [])
 
   // Actualizar un bloqueo existente
   const updateBlock = useCallback(
     (id: string, updates: Partial<AgendaBlock>) => {
+      const currentBlock = blocks.find((block) => block.id === id)
       setBlocks((prev) =>
-        prev.map((block) =>
-          block.id === id ? { ...block, ...updates } : block
-        )
+        prev.map((block) => {
+          if (block.id !== id) return block
+          return { ...block, ...updates }
+        })
       )
       console.log(`✅ Bloqueo ${id} actualizado`)
+
+      void (async () => {
+        const clinicId = clinicIdRef.current
+        if (!clinicId || !currentBlock) return
+
+        const numericId = Number(id)
+        if (Number.isNaN(numericId)) return
+
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const mergedBlock = { ...currentBlock, ...updates }
+          const boxLabel = (mergedBlock.box || '').trim().toLowerCase()
+          const normalizedBoxLabel = boxLabel.replace(/\s+/g, '')
+          const boxId =
+            boxIdByLabelRef.current[boxLabel] ||
+            boxIdByLabelRef.current[normalizedBoxLabel] ||
+            null
+
+          const { error } = await supabase
+            .from('appointment_holds')
+            .update({
+              box_id: boxId,
+              start_time: buildLocalIso(mergedBlock.date, mergedBlock.startTime),
+              end_time: buildLocalIso(mergedBlock.date, mergedBlock.endTime),
+              hold_expires_at: buildLocalIso(
+                mergedBlock.date,
+                mergedBlock.endTime
+              ),
+              summary_text: mergedBlock.description || null,
+              notes: mergedBlock.description || null,
+              summary_json: {
+                kind: 'ui_block',
+                block_type: mergedBlock.blockType,
+                description: mergedBlock.description,
+                responsible_name: mergedBlock.responsibleName || null,
+                recurrence: mergedBlock.recurrence || null,
+                parent_block_id: mergedBlock.parentBlockId || null
+              }
+            })
+            .eq('id', numericId)
+            .eq('clinic_id', clinicId)
+
+          if (error) {
+            console.warn('No se pudo actualizar bloqueo en DB', error)
+          }
+        } catch (error) {
+          console.warn('Error actualizando bloqueo en DB', error)
+        }
+      })()
     },
-    []
+    [blocks]
   )
 
   // Eliminar un bloqueo (opcionalmente eliminar toda la recurrencia)
   const deleteBlock = useCallback(
     (id: string, deleteRecurrence: boolean = false) => {
+      let idsToCancel: string[] = []
       setBlocks((prev) => {
         const blockToDelete = prev.find((b) => b.id === id)
         if (!blockToDelete) return prev
 
         if (deleteRecurrence && blockToDelete.parentBlockId) {
           // Eliminar todos los bloques con el mismo parentBlockId
+          idsToCancel = prev
+            .filter(
+              (b) =>
+                b.id === id ||
+                b.parentBlockId === blockToDelete.parentBlockId ||
+                b.id === blockToDelete.parentBlockId
+            )
+            .map((b) => b.id)
           return prev.filter(
             (b) =>
               b.id !== id &&
@@ -3108,10 +4002,14 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
           )
         } else if (deleteRecurrence && !blockToDelete.parentBlockId) {
           // Este es el bloque padre, eliminar todos los hijos
+          idsToCancel = prev
+            .filter((b) => b.id === id || b.parentBlockId === id)
+            .map((b) => b.id)
           return prev.filter((b) => b.id !== id && b.parentBlockId !== id)
         }
 
         // Solo eliminar este bloqueo
+        idsToCancel = [id]
         return prev.filter((b) => b.id !== id)
       })
       console.log(
@@ -3119,6 +4017,30 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
           deleteRecurrence ? ' (con recurrencia)' : ''
         }`
       )
+
+      void (async () => {
+        const clinicId = clinicIdRef.current
+        if (!clinicId || idsToCancel.length === 0) return
+
+        const numericIds = idsToCancel
+          .map((value) => Number(value))
+          .filter((value) => !Number.isNaN(value))
+        if (numericIds.length === 0) return
+
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const { error } = await supabase
+            .from('appointment_holds')
+            .update({ status: 'cancelled' })
+            .eq('clinic_id', clinicId)
+            .in('id', numericIds)
+          if (error) {
+            console.warn('No se pudo cancelar bloqueo en DB', error)
+          }
+        } catch (error) {
+          console.warn('Error cancelando bloqueo en DB', error)
+        }
+      })()
     },
     []
   )
@@ -3201,23 +4123,32 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
   // Actualizar notas SOAP de una cita
   const updateSOAPNotes = useCallback(
     (appointmentId: string, notes: VisitSOAPNotes) => {
-      setAppointments((prev) =>
-        prev.map((apt) =>
-          apt.id === appointmentId
-            ? {
-                ...apt,
-                soapNotes: {
-                  ...apt.soapNotes,
-                  ...notes,
-                  updatedAt: new Date().toISOString()
-                }
-              }
-            : apt
-        )
-      )
+      let patientId: string | undefined
+      setAppointments((prev) => {
+        return prev.map((apt) => {
+          if (apt.id !== appointmentId) return apt
+          patientId = apt.patientId
+          return {
+            ...apt,
+            soapNotes: {
+              ...apt.soapNotes,
+              ...notes,
+              updatedAt: new Date().toISOString()
+            }
+          }
+        })
+      })
       console.log(`✅ Notas SOAP actualizadas para cita ${appointmentId}`)
+
+      void persistAppointmentNote(
+        appointmentId,
+        patientId,
+        'soap',
+        'SOAP note',
+        notes as unknown as Record<string, unknown>
+      )
     },
-    []
+    [persistAppointmentNote]
   )
 
   // Actualizar estado de un tratamiento vinculado
@@ -3228,6 +4159,8 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
       status: LinkedTreatmentStatus,
       completedBy?: string
     ) => {
+      let patientId: string | undefined
+      let nextTreatments: LinkedTreatment[] | undefined
       setAppointments((prev) =>
         prev.map((apt) => {
           if (apt.id !== appointmentId) return apt
@@ -3247,35 +4180,99 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
               : t
           )
 
+          patientId = apt.patientId
+          nextTreatments = updatedTreatments
           return { ...apt, linkedTreatments: updatedTreatments }
         })
       )
       console.log(
         `✅ Estado de tratamiento ${treatmentId} actualizado a ${status}`
       )
+
+      if (nextTreatments) {
+        void persistAppointmentNote(
+          appointmentId,
+          patientId,
+          'linked_treatments',
+          'Linked treatments',
+          nextTreatments as unknown as unknown[]
+        )
+      }
     },
-    []
+    [persistAppointmentNote]
   )
 
   // Añadir archivo adjunto a una cita
   const addAttachment = useCallback(
     (appointmentId: string, attachment: Omit<VisitAttachment, 'id'>) => {
+      let patientId: string | undefined
       const newAttachment: VisitAttachment = {
         ...attachment,
         id: `att-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       }
 
-      setAppointments((prev) =>
-        prev.map((apt) =>
-          apt.id === appointmentId
-            ? {
-                ...apt,
-                attachments: [...(apt.attachments || []), newAttachment]
-              }
-            : apt
-        )
-      )
+      setAppointments((prev) => {
+        return prev.map((apt) => {
+          if (apt.id !== appointmentId) return apt
+          patientId = apt.patientId
+          return {
+            ...apt,
+            attachments: [...(apt.attachments || []), newAttachment]
+          }
+        })
+      })
       console.log(`✅ Archivo adjunto añadido a cita ${appointmentId}`)
+
+      void (async () => {
+        const staffId = staffIdRef.current
+        const numericAppointmentId = Number(appointmentId)
+        if (!patientId || !staffId || Number.isNaN(numericAppointmentId)) return
+
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const fileType =
+            attachment.type === 'image'
+              ? 'image/jpeg'
+              : attachment.type === 'xray'
+              ? 'image/xray'
+              : 'application/octet-stream'
+
+          const { data: inserted, error } = await supabase
+            .from('clinical_attachments')
+            .insert({
+              patient_id: patientId,
+              appointment_id: numericAppointmentId,
+              staff_id: staffId,
+              file_name: attachment.name,
+              file_type: fileType,
+              storage_path: attachment.url
+            })
+            .select('id')
+            .single()
+
+          if (error || !inserted) {
+            console.warn('No se pudo persistir attachment en DB', error)
+            return
+          }
+
+          setAppointments((prev) =>
+            prev.map((apt) =>
+              apt.id === appointmentId
+                ? {
+                    ...apt,
+                    attachments: (apt.attachments || []).map((item) =>
+                      item.id === newAttachment.id
+                        ? { ...item, id: String(inserted.id) }
+                        : item
+                    )
+                  }
+                : apt
+            )
+          )
+        } catch (error) {
+          console.warn('Error persistiendo attachment en DB', error)
+        }
+      })()
     },
     []
   )
@@ -3298,6 +4295,23 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
       console.log(
         `✅ Archivo adjunto ${attachmentId} eliminado de cita ${appointmentId}`
       )
+
+      void (async () => {
+        const numericAttachmentId = Number(attachmentId)
+        if (Number.isNaN(numericAttachmentId)) return
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const { error } = await supabase
+            .from('clinical_attachments')
+            .delete()
+            .eq('id', numericAttachmentId)
+          if (error) {
+            console.warn('No se pudo eliminar attachment en DB', error)
+          }
+        } catch (error) {
+          console.warn('Error eliminando attachment en DB', error)
+        }
+      })()
     },
     []
   )

@@ -1,6 +1,7 @@
 'use client'
 
 import Portal from '@/components/ui/Portal'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
@@ -95,7 +96,9 @@ interface VoiceAgentPendingWidgetProps {
 export default function VoiceAgentPendingWidget({
   calls = MOCK_PENDING_CALLS
 }: VoiceAgentPendingWidgetProps) {
+  const supabase = useRef(createSupabaseBrowserClient())
   const router = useRouter()
+  const [liveCalls, setLiveCalls] = useState<PendingCall[]>(calls)
   const [isOpen, setIsOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -104,8 +107,58 @@ export default function VoiceAgentPendingWidget({
     left: number
   } | null>(null)
 
+  useEffect(() => {
+    let isMounted = true
+    async function hydrateCalls() {
+      try {
+        const { data: clinics } = await supabase.current.rpc('get_my_clinics')
+        const clinicId = Array.isArray(clinics) && clinics.length > 0 ? String(clinics[0]) : null
+        if (!clinicId) return
+
+        const { data: callRows, error } = await supabase.current
+          .from('calls')
+          .select('id, status, started_at, from_number, is_urgent, call_outcome')
+          .eq('clinic_id', clinicId)
+          .order('started_at', { ascending: false })
+          .limit(30)
+        if (error) throw error
+
+        const mapped: PendingCall[] = (callRows || []).map((row) => {
+          const rawStatus = String(row.status || '').toLowerCase()
+          const status: PendingCallStatus = row.is_urgent
+            ? 'urgente'
+            : rawStatus.includes('new')
+            ? 'nueva'
+            : rawStatus.includes('pending') || rawStatus.includes('queue')
+            ? 'pendiente'
+            : rawStatus.includes('in_progress')
+            ? 'en_curso'
+            : 'pendiente'
+          const at = row.started_at ? new Date(row.started_at) : new Date()
+          return {
+            id: String(row.id),
+            status,
+            time: at.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+            patient: null,
+            phone: row.from_number || '—',
+            summary: row.call_outcome || 'Llamada pendiente de gestión'
+          }
+        })
+
+        if (isMounted && mapped.length > 0) setLiveCalls(mapped)
+      } catch (error) {
+        console.warn('VoiceAgentPendingWidget hydration failed, using fallback calls', error)
+      }
+    }
+
+    void hydrateCalls()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   // Filter for actionable calls (nueva, pendiente, urgente)
-  const actionableCalls = calls.filter(
+  const actionableCalls = liveCalls.filter(
     (c) =>
       c.status === 'nueva' || c.status === 'pendiente' || c.status === 'urgente'
   )

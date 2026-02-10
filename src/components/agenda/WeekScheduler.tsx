@@ -11,7 +11,7 @@ import type {
   ReactElement,
   MouseEvent as ReactMouseEvent
 } from 'react'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import type {
   AppointmentFormData,
@@ -86,6 +86,16 @@ const WEEKDAY_ORDER: Weekday[] = [
   'thursday',
   'friday'
 ]
+
+const JS_DAY_TO_WEEKDAY: Record<number, Weekday | null> = {
+  0: null,
+  1: 'monday',
+  2: 'tuesday',
+  3: 'wednesday',
+  4: 'thursday',
+  5: 'friday',
+  6: null
+}
 
 const normalizeTimeLabel = (label: string): string => {
   const [hoursPart = '00', minutesPart = '00'] = label.split(':')
@@ -2173,31 +2183,31 @@ const INITIAL_DAY_COLUMNS: DayColumn[] = [
     id: 'monday',
     leftVar: '--scheduler-day-left-mon',
     widthVar: '--scheduler-day-width-first',
-    events: EVENT_DATA.monday
+    events: []
   },
   {
     id: 'tuesday',
     leftVar: '--scheduler-day-left-tue',
     widthVar: '--scheduler-day-width',
-    events: EVENT_DATA.tuesday
+    events: []
   },
   {
     id: 'wednesday',
     leftVar: '--scheduler-day-left-wed',
     widthVar: '--scheduler-day-width',
-    events: EVENT_DATA.wednesday
+    events: []
   },
   {
     id: 'thursday',
     leftVar: '--scheduler-day-left-thu',
     widthVar: '--scheduler-day-width',
-    events: EVENT_DATA.thursday
+    events: []
   },
   {
     id: 'friday',
     leftVar: '--scheduler-day-left-fri',
     widthVar: '--scheduler-day-width',
-    events: EVENT_DATA.friday
+    events: []
   }
 ]
 
@@ -4336,6 +4346,155 @@ export default function WeekScheduler() {
     }
   }, [openDropdown])
 
+  // Hydrate weekly columns from appointments context (no mock bootstrap)
+  useEffect(() => {
+    const weekStart = new Date(currentWeekStart)
+    weekStart.setHours(0, 0, 0, 0)
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekStart.getDate() + 4)
+
+    const startIso = weekStart.toLocaleDateString('en-CA')
+    const endIso = weekEnd.toLocaleDateString('en-CA')
+    const weekAppointments = getAppointmentsByDateRange(startIso, endIso)
+
+    const toMinutes = (time: string): number => {
+      const [hh = '09', mm = '00'] = time.split(':')
+      return Number(hh) * 60 + Number(mm)
+    }
+
+    const toSlotIndex = (time: string): number => {
+      const mins = toMinutes(time)
+      const clamped = Math.max(START_HOUR * 60, Math.min(mins, END_HOUR * 60))
+      return Math.floor((clamped - START_HOUR * 60) / MINUTES_STEP)
+    }
+
+    const toBackgroundClass = (
+      bgColor?: string,
+      createdByVoiceAgent?: boolean
+    ): string => {
+      if (createdByVoiceAgent) return 'bg-[var(--color-event-ai-bg)]'
+      if (!bgColor) return 'bg-[var(--color-brand-100)]'
+      if (bgColor.includes('coral')) return 'bg-[var(--color-event-coral)]'
+      if (bgColor.includes('teal')) return 'bg-[var(--color-event-teal)]'
+      if (bgColor.includes('purple')) return 'bg-[var(--color-event-purple)]'
+      if (bgColor.includes('ai')) return 'bg-[var(--color-event-ai-bg)]'
+      if (bgColor.includes('brand')) return 'bg-[var(--color-brand-100)]'
+      return 'bg-[var(--color-brand-100)]'
+    }
+
+    const professionalIdByName = new Map(
+      effectiveProfessionalOptions.map((opt) => [opt.label.toLowerCase(), opt.id])
+    )
+    const fallbackBox = effectiveBoxOptions[0]?.label || 'Box 1'
+
+    const freshColumns: DayColumn[] = INITIAL_DAY_COLUMNS.map((col) => ({
+      ...col,
+      events: []
+    }))
+
+    for (const apt of weekAppointments) {
+      const jsDay = new Date(`${apt.date}T00:00:00`).getDay()
+      const weekday = JS_DAY_TO_WEEKDAY[jsDay]
+      if (!weekday) continue
+
+      const column = freshColumns.find((col) => col.id === weekday)
+      if (!column) continue
+
+      const startSlot = toSlotIndex(apt.startTime)
+      const durationMinutes = Math.max(
+        MINUTES_STEP,
+        toMinutes(apt.endTime) - toMinutes(apt.startTime)
+      )
+      const heightSlots = Math.max(1, Math.ceil(durationMinutes / MINUTES_STEP))
+
+      const linkedLabel = apt.linkedTreatments
+        ?.map((t) => t.description)
+        .filter(Boolean)
+        .join(', ')
+      const eventTitle = linkedLabel || apt.reason || 'Consulta'
+      const economicStatus =
+        apt.paymentInfo && apt.paymentInfo.pendingAmount > 0
+          ? 'Pago parcial'
+          : apt.charge === 'Si'
+          ? 'Pendiente de pago'
+          : 'Pagado'
+      const economicAmount = apt.paymentInfo
+        ? `${apt.paymentInfo.pendingAmount.toLocaleString('es-ES', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          })} € pendiente`
+        : apt.charge === 'Si'
+        ? 'Pendiente'
+        : '0 €'
+
+      const agendaEvent: AgendaEvent = {
+        id: apt.id,
+        top: `${startSlot * SLOT_REM}rem`,
+        height: `${heightSlots * SLOT_REM}rem`,
+        title: eventTitle,
+        patient: apt.patientName || 'Paciente',
+        box: apt.box || fallbackBox,
+        timeRange: `${apt.startTime} - ${apt.endTime}`,
+        backgroundClass: toBackgroundClass(apt.bgColor, apt.createdByVoiceAgent),
+        detail: {
+          title: eventTitle,
+          date: apt.date,
+          duration: `${apt.startTime} - ${apt.endTime} (${durationMinutes} minutos)`,
+          patientFull: apt.patientName || 'Paciente',
+          patientPhone: apt.patientPhone || DEFAULT_PATIENT_PHONE,
+          professional: apt.professional || DEFAULT_PROFESSIONAL,
+          economicAmount,
+          economicStatus,
+          notes: apt.notes || DEFAULT_NOTES,
+          locationLabel: LOCATION_LABEL,
+          patientLabel: PATIENT_LABEL,
+          professionalLabel: PROFESSIONAL_LABEL,
+          economicLabel: ECONOMIC_LABEL,
+          notesLabel: NOTES_LABEL,
+          patientId: apt.patientId,
+          appointmentId: apt.id,
+          treatmentDescription: apt.reason,
+          paymentInfo: apt.paymentInfo,
+          installmentPlan: apt.installmentPlan
+        },
+        professionalId: professionalIdByName.get(
+          (apt.professional || '').toLowerCase()
+        ),
+        completed: apt.completed,
+        confirmed: apt.confirmed,
+        visitStatus: apt.visitStatus,
+        visitStatusHistory: apt.visitStatusHistory,
+        waitingDuration: apt.waitingDuration,
+        consultationDuration: apt.consultationDuration,
+        linkedTreatments: apt.linkedTreatments?.map((t) => ({
+          id: t.id,
+          description: t.description,
+          amount: t.amount
+        })),
+        createdByVoiceAgent: apt.createdByVoiceAgent,
+        voiceAgentCallId: apt.voiceAgentCallId,
+        voiceAgentData: apt.voiceAgentData
+      }
+
+      column.events.push(agendaEvent)
+    }
+
+    freshColumns.forEach((col) => {
+      col.events.sort((a, b) => {
+        const aStart = a.timeRange.split('-')[0]?.trim() || '09:00'
+        const bStart = b.timeRange.split('-')[0]?.trim() || '09:00'
+        return toMinutes(aStart) - toMinutes(bStart)
+      })
+    })
+
+    setDayColumnsState(freshColumns)
+  }, [
+    currentWeekStart,
+    effectiveBoxOptions,
+    effectiveProfessionalOptions,
+    getAppointmentsByDateRange
+  ])
+
   // Sync day view appointments whenever we are in day view or data changes
   // Usa MONTH_EVENTS_EXTENDED directamente para obtener los eventos del día seleccionado
   useEffect(() => {
@@ -4343,8 +4502,7 @@ export default function WeekScheduler() {
     const targetDate = selectedDate ?? currentWeekStart
     const appointments = getAppointmentsForDate(targetDate)
     setSelectedDayAppointments(appointments)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewOption, selectedDate, currentWeekStart])
+  }, [viewOption, selectedDate, currentWeekStart, dayColumnsState])
 
   // Only show overlay on click (active), not on hover
   // IMPORTANTE: Buscar el evento actualizado en dayColumnsState para obtener datos frescos
@@ -5145,6 +5303,42 @@ export default function WeekScheduler() {
     const year = date.getFullYear()
     return `${day} ${month} ${year}`
   }
+
+  const monthEvents = useMemo(() => {
+    const monthStart = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth(),
+      1
+    )
+    const monthEnd = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth() + 1,
+      0
+    )
+
+    const startIso = monthStart.toLocaleDateString('en-CA')
+    const endIso = monthEnd.toLocaleDateString('en-CA')
+    const appointmentsForMonth = getAppointmentsByDateRange(startIso, endIso)
+
+    return appointmentsForMonth.map((apt) => {
+      const linkedLabel = apt.linkedTreatments
+        ?.map((t) => t.description)
+        .filter(Boolean)
+        .join(', ')
+      const title = linkedLabel || apt.reason || 'Consulta'
+      return {
+        id: apt.id,
+        date: apt.date,
+        title,
+        patient: apt.patientName || 'Paciente',
+        timeRange: `${apt.startTime} - ${apt.endTime}`,
+        box: apt.box || 'Box 1',
+        bgColor: apt.createdByVoiceAgent
+          ? 'var(--color-event-ai-bg)'
+          : apt.bgColor || 'var(--color-event-teal)'
+      }
+    })
+  }, [currentMonth, getAppointmentsByDateRange])
 
   const capitalize = (value: string): string =>
     value ? value.charAt(0).toUpperCase() + value.slice(1) : value
@@ -6135,6 +6329,8 @@ export default function WeekScheduler() {
           <MonthCalendar
             currentMonth={currentMonth}
             currentWeekStart={currentWeekStart}
+            monthEvents={monthEvents}
+            disableMockFallback
             weekEvents={dayColumnsState.flatMap((col) =>
               col.events.map((ev) => ({
                 id: ev.id,

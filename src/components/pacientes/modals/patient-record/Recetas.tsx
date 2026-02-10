@@ -10,6 +10,8 @@ import {
   VisibilityRounded
 } from '@/components/icons/md3'
 import { useConfiguration } from '@/context/ConfigurationContext'
+import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import {
   downloadPrescriptionPDF,
   type PrescriptionData
@@ -81,6 +83,7 @@ type RecetasProps = {
   onClose?: () => void
   openPrescriptionCreation?: boolean
   onPrescriptionCreationOpened?: () => void
+  patientId?: string
   patientName?: string
 }
 
@@ -88,8 +91,10 @@ export default function Recetas({
   onClose,
   openPrescriptionCreation = false,
   onPrescriptionCreationOpened,
+  patientId,
   patientName
 }: RecetasProps) {
+  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
   // Get clinic data from configuration context
   const { clinicInfo } = useConfiguration()
 
@@ -123,7 +128,7 @@ export default function Recetas({
     duracion?: string
     administracion?: string
   } | null>(null)
-  const [rows, setRows] = React.useState<PrescriptionRow[]>(MOCK_ROWS)
+  const [rows, setRows] = React.useState<PrescriptionRow[]>([])
 
   // Action menu state
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null)
@@ -151,6 +156,48 @@ export default function Recetas({
     document.addEventListener('mousedown', handleGlobalClick)
     return () => document.removeEventListener('mousedown', handleGlobalClick)
   }, [openMenuRowId])
+
+  React.useEffect(() => {
+    let isMounted = true
+    async function hydratePrescriptions() {
+      if (!patientId) {
+        setRows(MOCK_ROWS)
+        return
+      }
+      try {
+        const { data: notes, error } = await supabase
+          .from('clinical_notes')
+          .select('id, note_type, content, created_at')
+          .eq('patient_id', patientId)
+          .eq('note_type', 'prescription')
+          .order('created_at', { ascending: false })
+
+        if (error) {
+          throw error
+        }
+        if (!isMounted) return
+        setRows(
+          (notes || []).map((n) => ({
+            id: String(n.id),
+            name: `Receta - ${String(n.content || 'Medicamento').slice(0, 30)}.pdf`,
+            sentAt: new Date(String(n.created_at)).toLocaleDateString(DEFAULT_LOCALE, {
+              timeZone: DEFAULT_TIMEZONE
+            }),
+            status: 'Enviado',
+            medicamento: String(n.content || '')
+          }))
+        )
+      } catch (err) {
+        console.warn('Recetas hydration failed, using mock rows', err)
+        if (isMounted) setRows(MOCK_ROWS)
+      }
+    }
+
+    void hydratePrescriptions()
+    return () => {
+      isMounted = false
+    }
+  }, [patientId, supabase])
 
   // Action handlers
   const handleViewPrescription = (row: PrescriptionRow) => {
@@ -363,7 +410,7 @@ export default function Recetas({
       <PrescriptionCreationModal
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        onContinue={(data) => {
+        onContinue={async (data) => {
           // Create new prescription row
           const d = new Date()
           const dd = String(d.getDate()).padStart(2, '0')
@@ -375,6 +422,33 @@ export default function Recetas({
             sentAt: `${dd}/${mm}/${yyyy}`,
             status: 'Enviado',
             ...data
+          }
+          if (patientId) {
+            try {
+              const { data: authData } = await supabase.auth.getUser()
+              const staffId = authData.user?.id
+              if (staffId) {
+                const { data: inserted } = await supabase
+                  .from('clinical_notes')
+                  .insert({
+                    patient_id: patientId,
+                    staff_id: staffId,
+                    note_type: 'prescription',
+                    content: data.medicamento || 'Receta'
+                  })
+                  .select('id, created_at')
+                  .single()
+                if (inserted) {
+                  newRow.id = String(inserted.id)
+                  newRow.sentAt = new Date(inserted.created_at).toLocaleDateString(
+                    DEFAULT_LOCALE,
+                    { timeZone: DEFAULT_TIMEZONE }
+                  )
+                }
+              }
+            } catch (error) {
+              console.warn('Could not persist prescription note', error)
+            }
           }
           setRows((prev) => [newRow, ...prev])
           setPdfData(data)

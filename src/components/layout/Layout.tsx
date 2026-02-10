@@ -7,6 +7,8 @@ import { LayoutProps } from '@/types/layout'
 import BadgeRounded from '@mui/icons-material/BadgeRounded'
 import BarChartRounded from '@mui/icons-material/BarChartRounded'
 import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
+import RecordVoiceOverRounded from '@mui/icons-material/RecordVoiceOverRounded'
+import SettingsRounded from '@mui/icons-material/SettingsRounded'
 import SellRounded from '@mui/icons-material/SellRounded'
 import type { User } from '@supabase/supabase-js'
 import React from 'react'
@@ -38,7 +40,7 @@ type RoleInfoResponse = {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const itemsTop = [
+  const baseItemsTop = [
     {
       id: 'agenda',
       label: 'Agenda',
@@ -54,12 +56,24 @@ export default function Layout({ children }: LayoutProps) {
     }
   ]
 
-  const itemsBottom = [
+  const baseItemsBottom = [
     {
       id: 'gestion',
       label: 'Gestión',
       href: '/gestion',
       icon: <BarChartRounded />
+    },
+    {
+      id: 'agente-voz',
+      label: 'Agente de Voz',
+      href: '/agente-voz',
+      icon: <RecordVoiceOverRounded />
+    },
+    {
+      id: 'configuracion',
+      label: 'Configuración',
+      href: '/configuracion',
+      icon: <SettingsRounded />
     }
   ]
 
@@ -279,6 +293,23 @@ export default function Layout({ children }: LayoutProps) {
   )
 
   const showCta = roleContextValue.canManageAppointments
+  const itemsTop = React.useMemo(() => {
+    return baseItemsTop.filter((item) => {
+      if (item.id === 'agenda') return can('appointments', 'view')
+      if (item.id === 'caja') return can('payments', 'view') || can('invoices', 'view')
+      if (item.id === 'pacientes') return can('patients', 'view')
+      return true
+    })
+  }, [baseItemsTop, can])
+
+  const itemsBottom = React.useMemo(() => {
+    return baseItemsBottom.filter((item) => {
+      if (item.id === 'gestion') return can('reports', 'view')
+      if (item.id === 'agente-voz') return can('calls', 'view')
+      if (item.id === 'configuracion') return can('settings', 'view')
+      return true
+    })
+  }, [baseItemsBottom, can])
 
   return (
     <div className='bg-[var(--color-brand-0)] h-dvh overflow-hidden'>

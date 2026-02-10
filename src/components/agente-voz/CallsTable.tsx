@@ -1,6 +1,7 @@
 'use client'
 
 import Portal from '@/components/ui/Portal'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import AssignProfessionalModal from './AssignProfessionalModal'
@@ -360,9 +361,10 @@ function CallQuickActionsMenu({
 export type ViewMode = 'table' | 'cards'
 
 export default function CallsTable({
-  data = MOCK_DATA,
+  data,
   voiceAgentTier = 'advanced'
 }: CallsTableProps) {
+  const supabase = useRef(createSupabaseBrowserClient())
   const router = useRouter()
   const searchParams = useSearchParams()
   const [filter, setFilter] = useState<CallFilter>('todos')
@@ -371,11 +373,72 @@ export default function CallsTable({
   const [viewMode, setViewMode] = useState<ViewMode>('table')
 
   // Local state for call records (to allow status updates from appointment sync)
-  const [localCalls, setLocalCalls] = useState<CallRecord[]>(data)
+  const [localCalls, setLocalCalls] = useState<CallRecord[]>(data ?? MOCK_DATA)
 
   // Sync local calls when data prop changes
   useEffect(() => {
-    setLocalCalls(data)
+    if (data) setLocalCalls(data)
+  }, [data])
+
+  useEffect(() => {
+    let isMounted = true
+    async function hydrateCalls() {
+      if (data) return
+      try {
+        const { data: clinics } = await supabase.current.rpc('get_my_clinics')
+        const clinicId =
+          Array.isArray(clinics) && clinics.length > 0 ? String(clinics[0]) : null
+        if (!clinicId) return
+
+        const { data: callRows, error } = await supabase.current
+          .from('calls')
+          .select('id, status, from_number, started_at, duration_seconds, call_outcome, is_urgent')
+          .eq('clinic_id', clinicId)
+          .order('started_at', { ascending: false })
+          .limit(200)
+        if (error) throw error
+
+        const mapStatus = (raw: string, urgent: boolean): CallRecord['status'] => {
+          const v = raw.toLowerCase()
+          if (urgent) return 'urgente'
+          if (v.includes('new')) return 'nueva'
+          if (v.includes('pending') || v.includes('queue')) return 'pendiente'
+          if (v.includes('in_progress')) return 'en_curso'
+          if (v.includes('resolved') || v.includes('completed')) return 'resuelta'
+          return 'pendiente'
+        }
+
+        const hydrated: CallRecord[] = (callRows || []).map((row) => {
+          const startedAt = row.started_at ? new Date(row.started_at) : new Date()
+          const seconds = Number(row.duration_seconds || 0)
+          const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
+          const ss = String(seconds % 60).padStart(2, '0')
+          return {
+            id: String(row.id),
+            status: mapStatus(String(row.status || ''), Boolean(row.is_urgent)),
+            time: startedAt.toLocaleTimeString('es-ES', {
+              hour: '2-digit',
+              minute: '2-digit'
+            }),
+            patient: null,
+            phone: String(row.from_number || '—'),
+            intent: 'consulta_general',
+            duration: `${mm}:${ss}`,
+            summary: String(row.call_outcome || 'Llamada de voz'),
+            sentiment: 'contento'
+          }
+        })
+        if (isMounted && hydrated.length > 0) {
+          setLocalCalls(hydrated)
+        }
+      } catch (error) {
+        console.warn('CallsTable hydration failed, using fallback data', error)
+      }
+    }
+    void hydrateCalls()
+    return () => {
+      isMounted = false
+    }
   }, [data])
 
   // Listen for appointment status changes to sync call status (ADVANCED MODE ONLY)
