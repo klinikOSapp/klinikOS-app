@@ -9,25 +9,25 @@ import {
   VisibilityRounded
 } from '@/components/icons/md3'
 
-type ConsentsProps = {
+type DocumentsProps = {
   onClose?: () => void
 }
 
-type ConsentRow = {
+type DocumentRow = {
   id: string
   name: string
   sentAt: string
   status: 'Firmado' | 'Enviado'
 }
 
-const MOCK_ROWS: ConsentRow[] = [
+const MOCK_ROWS: DocumentRow[] = [
   { id: 'c1', name: 'Tratamiento de datos.pdf', sentAt: '19/08/2024', status: 'Firmado' },
   { id: 'c2', name: 'Tratamiento de datos.pdf', sentAt: '19/08/2024', status: 'Enviado' },
   { id: 'c3', name: 'Tratamiento de datos.pdf', sentAt: '19/08/2024', status: 'Enviado' },
   { id: 'c4', name: 'Tratamiento de datos.pdf', sentAt: '19/08/2024', status: 'Enviado' }
 ]
 
-function StatusBadge({ status }: { status: ConsentRow['status'] }) {
+function StatusBadge({ status }: { status: DocumentRow['status'] }) {
   const isSigned = status === 'Firmado'
   return (
     <span
@@ -43,7 +43,7 @@ function StatusBadge({ status }: { status: ConsentRow['status'] }) {
   )
 }
 
-export default function Consents({ onClose }: ConsentsProps) {
+export default function Documents({ onClose }: DocumentsProps) {
   return (
     <div className='relative w-[74.75rem] h-[56.25rem] bg-neutral-50'>
       {/* Close */}
@@ -62,10 +62,10 @@ export default function Consents({ onClose }: ConsentsProps) {
           className='text-neutral-900'
           style={{ fontSize: '1.75rem', lineHeight: '2.25rem' }}
         >
-          Consentimientos
+          Documentos
         </p>
         <p className='text-body-sm text-neutral-900 mt-2'>
-          Gestiona todos los consentimientos de los pacientes.
+          Gestiona todos los documentos de los pacientes.
         </p>
       </div>
 
@@ -75,13 +75,13 @@ export default function Consents({ onClose }: ConsentsProps) {
           {/* Add button */}
           <button className='absolute top-4 right-4 flex items-center gap-2 rounded-[136px] px-4 py-2 text-body-md text-neutral-900 bg-neutral-50 border border-neutral-300 hover:bg-brand-100 hover:border-brand-300 active:bg-brand-900 active:text-neutral-50 active:border-brand-900 transition-colors cursor-pointer'>
             <AddRounded className='size-5' />
-            <span className='font-medium'>Subir consentimiento</span>
+            <span className='font-medium'>Añadir documento</span>
           </button>
 
           {/* Column headers */}
           <div className='absolute top-28 left-[33px] w-[588px] border-b border-neutral-300'>
             <div className='px-2 py-1'>
-              <p className='text-body-md text-neutral-700'>Consentimiento</p>
+              <p className='text-body-md text-neutral-700'>Documento</p>
             </div>
           </div>
           <div className='absolute top-28 left-[calc(40%+171.4px)] w-[154px] border-b border-neutral-300'>
@@ -136,5 +136,3 @@ export default function Consents({ onClose }: ConsentsProps) {
     </div>
   )
 }
-
-

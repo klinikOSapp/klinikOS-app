@@ -46,7 +46,7 @@ type VisitDetailPanelProps = {
   ) => void
   onUploadAttachment: () => void
   onRemoveAttachment: (attachmentId: string) => void
-  onUploadOdontogram: () => void
+  onUploadImage: () => void
 }
 
 export default function VisitDetailPanel({
@@ -61,7 +61,7 @@ export default function VisitDetailPanel({
   onTreatmentStatusChange,
   onUploadAttachment,
   onRemoveAttachment,
-  onUploadOdontogram
+  onUploadImage
 }: VisitDetailPanelProps) {
   // State for showing immutability warning
   const [showImmutabilityWarning, setShowImmutabilityWarning] =
@@ -430,27 +430,27 @@ export default function VisitDetailPanel({
         )}
       </div>
 
-      {/* Odontogram placeholder */}
+      {/* Images section */}
       <div>
         <div className='flex items-center justify-between mb-3'>
           <h4 className="font-['Inter:Medium',_sans-serif] text-[var(--color-neutral-900)] text-body-md">
-            Odontograma
+            Imágenes
           </h4>
           <button
             type='button'
-            onClick={onUploadOdontogram}
+            onClick={onUploadImage}
             className='flex items-center gap-1 cursor-pointer hover:opacity-70 transition-opacity'
           >
             <AddRounded className='size-5 text-[var(--color-brand-500)]' />
             <span className="font-['Inter:Regular',_sans-serif] text-[var(--color-brand-500)] text-body-sm">
-              Subir odontograma
+              Subir imagen
             </span>
           </button>
         </div>
 
         {appointment.odontogramSnapshot ? (
           <div className='border border-[var(--color-neutral-200)] rounded-lg overflow-hidden'>
-            {/* Placeholder for odontogram image */}
+            {/* Placeholder for image */}
             <div className='h-44 bg-[var(--color-neutral-50)] flex items-center justify-center'>
               <ImageRounded className='size-12 text-[var(--color-neutral-300)]' />
             </div>
@@ -460,7 +460,7 @@ export default function VisitDetailPanel({
             <div className='text-center'>
               <ImageRounded className='size-10 text-[var(--color-neutral-300)] mx-auto mb-2' />
               <p className="font-['Inter:Regular',_sans-serif] text-[var(--color-neutral-400)] text-body-sm">
-                Sin odontograma registrado
+                Sin imágenes
               </p>
             </div>
           </div>

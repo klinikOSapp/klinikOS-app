@@ -1237,7 +1237,7 @@ export default function Treatments({
 
           {/* Tabla Tratamientos Pendientes */}
           <div className='bg-white rounded-[0.5rem] overflow-hidden'>
-            <div className='overflow-x-auto'>
+            <div className='table-scroll-x'>
               <table className='w-full border-collapse min-w-[106rem]'>
                 <thead>
                   <tr className='bg-[#F8FAFB]'>
@@ -1351,7 +1351,7 @@ export default function Treatments({
 
           {/* Tabla Historial */}
           <div className='bg-white rounded-[0.5rem] overflow-hidden'>
-            <div className='overflow-x-auto'>
+            <div className='table-scroll-x'>
               <table className='w-full border-collapse min-w-[120rem]'>
                 <thead>
                   <tr className='bg-[#F8FAFB]'>

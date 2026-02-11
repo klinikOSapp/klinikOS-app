@@ -1,9 +1,9 @@
 'use client'
 
-import React from 'react'
-import Image from 'next/image'
 import { SettingsRounded } from '@/components/icons/md3'
 import { TopBarProps } from '@/types/layout'
+import Image from 'next/image'
+import { useMemo } from 'react'
 
 function initialsFromName(name?: string) {
   if (!name) return '—'
@@ -14,7 +14,7 @@ function initialsFromName(name?: string) {
 }
 
 export default function TopBar({ userName, userAvatarUrl, onAccountClick }: TopBarProps) {
-  const initials = React.useMemo(() => initialsFromName(userName), [userName])
+  const initials = useMemo(() => initialsFromName(userName), [userName])
   return (
     <header className='bg-[var(--color-brand-0)] h-[var(--spacing-topbar)] w-full flex items-center justify-between px-6'>
       <div className='flex items-center gap-4'>

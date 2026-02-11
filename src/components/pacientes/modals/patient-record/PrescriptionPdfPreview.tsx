@@ -11,7 +11,7 @@ import { useConfiguration } from '@/context/ConfigurationContext'
 import {
   downloadBlob,
   formatPrescriptionFilename,
-  generatePrescriptionPDF,
+  generatePrescriptionPDFFromTemplate,
   type PrescriptionData
 } from '@/utils/exportUtils'
 import React from 'react'
@@ -50,8 +50,14 @@ export default function PrescriptionPdfPreview({
   const [document, setDocument] = React.useState<GeneratedDocument | null>(null)
   const [isGenerating, setIsGenerating] = React.useState(false)
 
-  // Get clinic data from configuration context
-  const { clinicInfo } = useConfiguration()
+  // Get clinic data and templates from configuration context
+  const { clinicInfo, getDocumentTemplatesByType } = useConfiguration()
+
+  // Get the receta template
+  const recetaTemplate = React.useMemo(() => {
+    const templates = getDocumentTemplatesByType('receta')
+    return templates[0]?.content || null
+  }, [getDocumentTemplatesByType])
 
   // Build full clinic address from configuration
   const fullClinicAddress = [
@@ -96,6 +102,12 @@ export default function PrescriptionPdfPreview({
       return
     }
 
+    // Don't generate if no template available
+    if (!recetaTemplate) {
+      console.error('No receta template found')
+      return
+    }
+
     setIsGenerating(true)
 
     // Build prescription data using clinic info from configuration context
@@ -114,21 +126,28 @@ export default function PrescriptionPdfPreview({
       medications
     }
 
-    // Generate PDF
-    try {
-      const blob = generatePrescriptionPDF(prescriptionData)
-      const url = URL.createObjectURL(blob)
-      const filename = formatPrescriptionFilename(
-        patientName,
-        medications[0]?.medicamento
-      )
+    // Generate PDF from template (async)
+    const generatePdf = async () => {
+      try {
+        const blob = await generatePrescriptionPDFFromTemplate(
+          recetaTemplate,
+          prescriptionData
+        )
+        const url = URL.createObjectURL(blob)
+        const filename = formatPrescriptionFilename(
+          patientName,
+          medications[0]?.medicamento
+        )
 
-      setDocument({ filename, blob, url })
-    } catch (error) {
-      console.error('Error generating prescription PDF:', error)
-    } finally {
-      setIsGenerating(false)
+        setDocument({ filename, blob, url })
+      } catch (error) {
+        console.error('Error generating prescription PDF:', error)
+      } finally {
+        setIsGenerating(false)
+      }
     }
+
+    generatePdf()
 
     // Cleanup on unmount
     return () => {
@@ -137,7 +156,7 @@ export default function PrescriptionPdfPreview({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, data, patientName, medications])
+  }, [open, data, patientName, medications, recetaTemplate])
 
   const handleDownload = React.useCallback(() => {
     if (!document) return

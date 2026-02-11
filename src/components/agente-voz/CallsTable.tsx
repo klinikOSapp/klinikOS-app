@@ -8,6 +8,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import AssignProfessionalModal from './AssignProfessionalModal'
 import CallCardsView from './CallCardsView'
 import CallDetailModal from './CallDetailModal'
+import CallModal from './CallModal'
 import CallStatusBadge from './CallStatusBadge'
 import ListenCallModal from './ListenCallModal'
 import TranscriptionModal from './TranscriptionModal'
@@ -574,6 +575,9 @@ export default function CallsTable({
   // State for call detail modal
   const [detailRow, setDetailRow] = useState<CallRecord | null>(null)
 
+  // State for call modal (devolver llamada)
+  const [callModalRow, setCallModalRow] = useState<CallRecord | null>(null)
+
   // State for summary tooltip
   const [summaryTooltip, setSummaryTooltip] = useState<{
     text: string
@@ -682,10 +686,22 @@ export default function CallsTable({
     setActiveMenuRow(row)
   }
 
-  // Quick action handlers (placeholders - to be implemented)
+  // Quick action handlers
   const handleCall = (row: CallRecord) => {
-    console.log('Llamar:', row.phone)
-    // TODO: Implement call functionality
+    setCallModalRow(row)
+  }
+
+  // Handler para marcar llamada como resuelta (desde el modal de devolver llamada)
+  const handleCallModalResolved = (row: CallRecord) => {
+    setLocalCalls((prevCalls) =>
+      prevCalls.map((call) =>
+        call.id === row.id ? { ...call, status: 'resuelta' } : call
+      )
+    )
+    setCallModalRow(null)
+    console.log(
+      `📞 Voice Agent [${voiceAgentTier}]: Call ${row.id} marked as resolved after callback`
+    )
   }
 
   const handleViewAppointment = (row: CallRecord) => {
@@ -883,7 +899,7 @@ export default function CallsTable({
             voiceAgentTier={voiceAgentTier}
           />
         ) : (
-          <div className='w-full overflow-x-auto flex-1 flex flex-col'>
+          <div className='w-full table-scroll-x flex-1 flex flex-col'>
             <table className='w-full min-w-[80rem] table-fixed'>
               {/* Header - Sticky vertical and horizontal for key columns */}
               <thead className='sticky top-0 z-20 bg-surface-app'>
@@ -1184,15 +1200,21 @@ export default function CallsTable({
         />
       )}
 
+      {/* Call Modal (Devolver llamada) */}
+      {callModalRow && (
+        <CallModal
+          call={callModalRow}
+          onClose={() => setCallModalRow(null)}
+          onMarkResolved={() => handleCallModalResolved(callModalRow)}
+        />
+      )}
+
       {/* Call Detail Modal */}
       {detailRow && (
         <CallDetailModal
           call={detailRow}
           onClose={() => setDetailRow(null)}
-          onCall={() => {
-            console.log('Llamar a:', detailRow.phone)
-            // TODO: Implement call functionality
-          }}
+          onCall={() => handleCall(detailRow)}
           onCreateAppointment={(prefill) => {
             // Navigate to agenda to create appointment with pre-filled data
             // Encode the prefill data as URL parameters

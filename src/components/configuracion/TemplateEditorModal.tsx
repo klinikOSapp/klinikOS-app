@@ -7,9 +7,15 @@ import {
   VisibilityRounded
 } from '@/components/icons/md3'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
-import { useConfiguration } from '@/context/ConfigurationContext'
+import {
+  useConfiguration,
+  type DocumentTemplate
+} from '@/context/ConfigurationContext'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+
+// Re-export DocumentTemplate for backward compatibility
+export type { DocumentTemplate } from '@/context/ConfigurationContext'
 
 // Template variable categories and their available variables
 const TEMPLATE_VARIABLES = {
@@ -120,23 +126,6 @@ const COLORS = [
   { value: '#B91C1C', label: 'Rojo' },
   { value: '#7C3AED', label: 'Morado' }
 ]
-
-export type DocumentTemplate = {
-  id: string
-  title: string
-  type:
-    | 'factura'
-    | 'receta'
-    | 'justificante'
-    | 'consentimiento'
-    | 'presupuesto'
-    | 'informe'
-  content: string
-  logoUrl?: string
-  logoPosition?: { x: number; y: number }
-  isDefault: boolean
-  lastModified?: string
-}
 
 type Props = {
   open: boolean

@@ -15,6 +15,7 @@ import {
   MODAL_SCALE_FORMULA,
   MODAL_WIDTH_REM
 } from './modalDimensions'
+import MedicamentoAutocomplete, { mapViaToOption } from '@/components/ui/MedicamentoAutocomplete'
 
 // HU-021: Type for a single medication entry
 export type MedicationEntry = {
@@ -438,17 +439,20 @@ export default function PrescriptionCreationModal({
                             )}
                           </div>
                           
-                          {/* Medication name */}
+                          {/* Medication name - with CIMA vademecum autocomplete */}
                           <div className='mb-3'>
                             <p className='text-body-sm text-neutral-700 mb-1'>Nombre del medicamento</p>
-                            <TextInput
-                              placeholder='Buscar medicamento'
-                              top={0}
-                              width={INPUT_WIDTH_REM}
-                              left={0}
-                              absolute={false}
+                            <MedicamentoAutocomplete
                               value={med.medicamento}
                               onChange={(val) => updateMedication(med.id, 'medicamento', val)}
+                              onSelect={(medicamento) => {
+                                updateMedication(med.id, 'medicamento', medicamento.nombre)
+                                // Auto-fill administration route based on selected medication
+                                if (medicamento.viaAdministracion) {
+                                  updateMedication(med.id, 'administracion', mapViaToOption(medicamento.viaAdministracion))
+                                }
+                              }}
+                              width={INPUT_WIDTH_REM}
                             />
                           </div>
                           

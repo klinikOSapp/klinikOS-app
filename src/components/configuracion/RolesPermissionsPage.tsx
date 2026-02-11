@@ -5,6 +5,7 @@ import {
   FilterAltRounded,
   SearchRounded
 } from '@/components/icons/md3'
+import Portal from '@/components/ui/Portal'
 import { useCallback, useMemo, useState } from 'react'
 import SpecialistListModal from './SpecialistListModal'
 
@@ -377,10 +378,11 @@ export default function RolesPermissionsPage() {
 
       {/* Add Role Modal */}
       {showAddRoleModal && (
-        <div
-          className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'
-          onClick={() => setShowAddRoleModal(false)}
-        >
+        <Portal>
+          <div
+            className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'
+            onClick={() => setShowAddRoleModal(false)}
+          >
           <div
             className='w-[min(24rem,95vw)] bg-white rounded-xl shadow-xl overflow-hidden'
             onClick={(e) => e.stopPropagation()}
@@ -440,6 +442,7 @@ export default function RolesPermissionsPage() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </>
   )

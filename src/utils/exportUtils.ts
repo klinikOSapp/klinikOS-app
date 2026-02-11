@@ -1766,3 +1766,567 @@ export function downloadPrescriptionPDF(
   const filename = formatPrescriptionFilename(data.patientName, medicationName)
   downloadBlob(blob, filename)
 }
+
+// ============================================
+// PRESCRIPTION PDF FROM TEMPLATE
+// ============================================
+
+/**
+ * Data structure for template variable replacement
+ */
+export type TemplateVariableData = {
+  receta: {
+    medicamento: string
+    dosis?: string
+    frecuencia: string
+    duracion: string
+    via: string
+    notas?: string
+  }
+  paciente: {
+    nombre: string
+    dni?: string
+    edad?: number | string
+    sexo?: string
+    email?: string
+    telefono?: string
+    direccion?: string
+    fecha_nacimiento?: string
+  }
+  clinica: {
+    nombre: string
+    razon_social?: string
+    nif?: string
+    direccion?: string
+    telefono?: string
+    email?: string
+    web?: string
+    iban?: string
+    email_facturacion?: string
+  }
+  profesional: {
+    nombre: string
+    especialidad?: string
+    num_colegiado?: string
+    firma?: string
+  }
+  documento: {
+    fecha: string
+    numero?: string
+    tipo?: string
+  }
+}
+
+/**
+ * Replace template variables {{category.field}} with actual data
+ */
+export function replaceTemplateVariables(
+  template: string,
+  data: Partial<TemplateVariableData>
+): string {
+  let result = template
+
+  // Replace each variable {{category.field}}
+  Object.entries(data).forEach(([category, fields]) => {
+    if (fields && typeof fields === 'object') {
+      Object.entries(fields).forEach(([key, value]) => {
+        const regex = new RegExp(`\\{\\{${category}\\.${key}\\}\\}`, 'g')
+        result = result.replace(regex, String(value ?? ''))
+      })
+    }
+  })
+
+  // Clean up any remaining unreplaced variables
+  result = result.replace(/\{\{[^}]+\}\}/g, '')
+
+  return result
+}
+
+/**
+ * Format date for display in templates
+ */
+function formatDateForTemplate(date?: Date): string {
+  if (!date) return new Date().toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+  
+  return date.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+}
+
+/**
+ * Build medication string from multiple medications
+ */
+function buildMedicationString(medications: PrescriptionMedication[]): string {
+  if (medications.length === 0) return ''
+  
+  if (medications.length === 1) {
+    return medications[0].medicamento
+  }
+  
+  // Multiple medications: create a formatted list
+  return medications
+    .map((med, index) => `${index + 1}. ${med.medicamento}`)
+    .join('<br/>')
+}
+
+/**
+ * Build combined info string for multiple medications
+ */
+function buildMedicationDetails(medications: PrescriptionMedication[]): {
+  dosis: string
+  frecuencia: string
+  duracion: string
+  via: string
+} {
+  if (medications.length === 0) {
+    return { dosis: '', frecuencia: '', duracion: '', via: '' }
+  }
+  
+  if (medications.length === 1) {
+    const med = medications[0]
+    return {
+      dosis: med.dosis || '',
+      frecuencia: med.frecuencia,
+      duracion: med.duracion,
+      via: med.administracion
+    }
+  }
+  
+  // Multiple medications: combine the details
+  return {
+    dosis: medications.map((m, i) => `${i + 1}. ${m.dosis || '-'}`).join('<br/>'),
+    frecuencia: medications.map((m, i) => `${i + 1}. ${m.frecuencia}`).join('<br/>'),
+    duracion: medications.map((m, i) => `${i + 1}. ${m.duracion}`).join('<br/>'),
+    via: medications.map((m, i) => `${i + 1}. ${m.administracion}`).join('<br/>')
+  }
+}
+
+/**
+ * Generate PDF from HTML template using html2pdf.js
+ */
+export async function generatePrescriptionPDFFromTemplate(
+  templateHtml: string,
+  data: PrescriptionData
+): Promise<Blob> {
+  // Dynamically import html2pdf.js (client-side only)
+  const html2pdf = (await import('html2pdf.js')).default
+
+  // Build medication info
+  const medicationDetails = buildMedicationDetails(data.medications)
+
+  // Prepare template data
+  const templateData: Partial<TemplateVariableData> = {
+    receta: {
+      medicamento: buildMedicationString(data.medications),
+      dosis: medicationDetails.dosis,
+      frecuencia: medicationDetails.frecuencia,
+      duracion: medicationDetails.duracion,
+      via: medicationDetails.via,
+      notas: data.caseNotes || ''
+    },
+    paciente: {
+      nombre: data.patientName,
+      dni: data.patientDni,
+      edad: data.patientAge,
+      sexo: data.patientSex
+    },
+    clinica: {
+      nombre: data.clinicName || '',
+      direccion: data.clinicAddress,
+      telefono: data.clinicPhone
+    },
+    profesional: {
+      nombre: data.doctorName || '',
+      num_colegiado: data.doctorLicense
+    },
+    documento: {
+      fecha: formatDateForTemplate(data.prescriptionDate),
+      numero: ''
+    }
+  }
+
+  // Replace variables in the template
+  const html = replaceTemplateVariables(templateHtml, templateData)
+
+  // Create a container for the PDF content
+  const container = document.createElement('div')
+  container.id = 'pdf-render-container'
+  container.innerHTML = `
+    <div style="
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      padding: 40px;
+      width: 794px;
+      min-height: 1123px;
+      background-color: #ffffff;
+      color: #24282C;
+      box-sizing: border-box;
+    ">
+      ${html}
+    </div>
+  `
+  
+  // Style the container to be off-screen but fully rendered
+  // Using position:fixed with large negative top keeps it in rendering context
+  container.style.cssText = `
+    position: fixed;
+    left: 0;
+    top: -2000px;
+    width: 794px;
+    height: auto;
+    z-index: 99999;
+    background: white;
+    pointer-events: none;
+  `
+  
+  document.body.appendChild(container)
+
+  // Force a layout/paint
+  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+  container.offsetHeight
+
+  // Wait for styles to apply and any images to load
+  await new Promise(resolve => setTimeout(resolve, 100))
+
+  try {
+    // Get the content div
+    const contentElement = container.firstElementChild as HTMLElement
+    
+    if (!contentElement) {
+      throw new Error('PDF content element not found')
+    }
+
+    // Generate PDF using html2pdf
+    const options = {
+      margin: 0,
+      filename: 'receta.pdf',
+      image: { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas: { 
+        scale: 2,
+        useCORS: true,
+        logging: true, // Enable logging for debugging
+        backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: 0
+      },
+      jsPDF: { 
+        unit: 'mm' as const, 
+        format: 'a4' as const,
+        orientation: 'portrait' as const
+      }
+    }
+    
+    const blob = await html2pdf()
+      .set(options)
+      .from(contentElement)
+      .outputPdf('blob')
+    
+    return blob
+  } finally {
+    // Clean up
+    if (document.body.contains(container)) {
+      document.body.removeChild(container)
+    }
+  }
+}
+
+/**
+ * Download prescription PDF generated from template
+ */
+export async function downloadPrescriptionPDFFromTemplate(
+  templateHtml: string,
+  data: PrescriptionData,
+  medicationName?: string
+): Promise<void> {
+  const blob = await generatePrescriptionPDFFromTemplate(templateHtml, data)
+  const filename = formatPrescriptionFilename(data.patientName, medicationName)
+  downloadBlob(blob, filename)
+}
+
+// ============================================
+// DOCUMENT PDF GENERATION (from HTML templates)
+// ============================================
+
+export type DocumentPdfData = {
+  title: string
+  content: string // HTML content
+  patientName?: string
+  documentDate?: Date
+  clinicName?: string
+  clinicAddress?: string
+  clinicPhone?: string
+  clinicCif?: string
+}
+
+/**
+ * Parse HTML content and extract text with basic formatting
+ */
+function parseHtmlToText(html: string): string[] {
+  // Create a temporary div to parse HTML
+  const tempDiv = document.createElement('div')
+  tempDiv.innerHTML = html
+
+  const lines: string[] = []
+
+  function processNode(node: Node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent?.trim()
+      if (text) {
+        lines.push(text)
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const element = node as HTMLElement
+      const tagName = element.tagName.toLowerCase()
+
+      // Add line breaks for block elements
+      if (['p', 'div', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li'].includes(tagName)) {
+        if (lines.length > 0 && lines[lines.length - 1] !== '') {
+          // Don't add empty line if last line is already empty
+        }
+      }
+
+      // Process children
+      node.childNodes.forEach(processNode)
+
+      // Add line break after block elements
+      if (['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'tr'].includes(tagName)) {
+        lines.push('')
+      }
+    }
+  }
+
+  processNode(tempDiv)
+
+  // Clean up empty lines
+  return lines.filter((line, index, arr) => {
+    // Remove consecutive empty lines
+    if (line === '' && index > 0 && arr[index - 1] === '') {
+      return false
+    }
+    return true
+  })
+}
+
+/**
+ * Generate a PDF document from HTML content
+ */
+export function generateDocumentPDF(data: DocumentPdfData): Blob {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  })
+
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 20
+  const contentWidth = pageWidth - margin * 2
+
+  // ============================================
+  // HEADER
+  // ============================================
+
+  // Clinic name
+  doc.setFontSize(20)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(30, 73, 71) // Brand color #1E4947
+  doc.text(data.clinicName || 'klinikOS', margin, 20)
+
+  // Document title
+  doc.setFontSize(14)
+  doc.setTextColor(36, 40, 44) // #24282C
+  doc.text(data.title, pageWidth - margin, 20, { align: 'right' })
+
+  // Horizontal line
+  doc.setDrawColor(203, 211, 217) // #CBD3D9
+  doc.setLineWidth(0.5)
+  doc.line(margin, 26, pageWidth - margin, 26)
+
+  // ============================================
+  // DOCUMENT INFO
+  // ============================================
+
+  const documentDate = data.documentDate || new Date()
+  const dateStr = documentDate.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric'
+  })
+
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(83, 92, 102) // #535C66
+
+  if (data.patientName) {
+    doc.text(`Paciente: ${data.patientName}`, margin, 34)
+  }
+  doc.text(`Fecha: ${dateStr}`, pageWidth - margin, 34, { align: 'right' })
+
+  // ============================================
+  // CONTENT
+  // ============================================
+
+  let currentY = 44
+
+  // Parse HTML content to text lines
+  const textLines = parseHtmlToText(data.content)
+
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(36, 40, 44)
+
+  for (const line of textLines) {
+    if (line === '') {
+      currentY += 4 // Empty line spacing
+      continue
+    }
+
+    // Check if we need a new page
+    if (currentY > pageHeight - 30) {
+      doc.addPage()
+      currentY = 20
+    }
+
+    // Check if it's a heading (starts with uppercase and is short)
+    const isHeading = line.length < 60 && /^[A-ZÁÉÍÓÚÑ]/.test(line) && line === line.toUpperCase()
+    
+    if (isHeading) {
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      currentY += 2
+    } else {
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+    }
+
+    // Split text to fit page width
+    const splitText = doc.splitTextToSize(line, contentWidth)
+    
+    for (const textLine of splitText) {
+      if (currentY > pageHeight - 30) {
+        doc.addPage()
+        currentY = 20
+      }
+      doc.text(textLine, margin, currentY)
+      currentY += 5
+    }
+
+    if (isHeading) {
+      currentY += 2
+    }
+  }
+
+  // ============================================
+  // SIGNATURE AREA
+  // ============================================
+
+  // Add signature area if there's space, otherwise new page
+  if (currentY > pageHeight - 60) {
+    doc.addPage()
+    currentY = 40
+  } else {
+    currentY += 15
+  }
+
+  // Separator line
+  doc.setDrawColor(203, 211, 217)
+  doc.line(margin, currentY, pageWidth - margin, currentY)
+  currentY += 15
+
+  // Signature lines
+  doc.setFontSize(9)
+  doc.setTextColor(83, 92, 102)
+
+  // Patient signature
+  doc.text('Firma del paciente:', margin, currentY)
+  doc.line(margin + 35, currentY, margin + 85, currentY)
+
+  // Date
+  doc.text('Fecha:', pageWidth - margin - 60, currentY)
+  doc.line(pageWidth - margin - 45, currentY, pageWidth - margin, currentY)
+
+  currentY += 20
+
+  // Professional signature (if space)
+  if (currentY < pageHeight - 30) {
+    doc.text('Firma del profesional:', margin, currentY)
+    doc.line(margin + 40, currentY, margin + 90, currentY)
+  }
+
+  // ============================================
+  // FOOTER
+  // ============================================
+
+  const pageCount = doc.getNumberOfPages()
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    
+    // Clinic info footer
+    doc.setFontSize(8)
+    doc.setTextColor(142, 149, 161) // #8E95A1
+    
+    const footerY = pageHeight - 15
+    
+    if (data.clinicAddress) {
+      doc.text(data.clinicAddress, margin, footerY)
+    }
+    if (data.clinicPhone) {
+      doc.text(`Tel: ${data.clinicPhone}`, margin, footerY + 4)
+    }
+    if (data.clinicCif) {
+      doc.text(`CIF: ${data.clinicCif}`, margin, footerY + 8)
+    }
+
+    // Page number and timestamp
+    doc.setFontSize(7)
+    doc.setTextColor(174, 184, 194) // #AEB8C2
+    const timestamp = new Date().toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+    doc.text(
+      `Página ${i} de ${pageCount} | Generado el ${timestamp}`,
+      pageWidth - margin,
+      pageHeight - 8,
+      { align: 'right' }
+    )
+  }
+
+  return doc.output('blob')
+}
+
+/**
+ * Generate filename for document PDF
+ */
+export function formatDocumentFilename(
+  documentTitle: string,
+  patientName?: string
+): string {
+  const sanitizedTitle = documentTitle
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ_0-9]/g, '')
+    .slice(0, 40)
+
+  const today = new Date()
+  const dateStr = `${today.getFullYear()}${String(
+    today.getMonth() + 1
+  ).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
+
+  if (patientName) {
+    const sanitizedPatientName = patientName
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ_]/g, '')
+      .slice(0, 30)
+    return `${sanitizedTitle}_${sanitizedPatientName}_${dateStr}.pdf`
+  }
+
+  return `${sanitizedTitle}_${dateStr}.pdf`
+}

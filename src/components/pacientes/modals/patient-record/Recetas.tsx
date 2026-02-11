@@ -13,7 +13,7 @@ import { useConfiguration } from '@/context/ConfigurationContext'
 import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import {
-  downloadPrescriptionPDF,
+  downloadPrescriptionPDFFromTemplate,
   type PrescriptionData
 } from '@/utils/exportUtils'
 import React from 'react'
@@ -68,8 +68,14 @@ export default function Recetas({
   patientName
 }: RecetasProps) {
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
-  // Get clinic data from configuration context
-  const { clinicInfo } = useConfiguration()
+  // Get clinic data and templates from configuration context
+  const { clinicInfo, getDocumentTemplatesByType } = useConfiguration()
+
+  // Get the receta template
+  const recetaTemplate = React.useMemo(() => {
+    const templates = getDocumentTemplatesByType('receta')
+    return templates[0]?.content || null
+  }, [getDocumentTemplatesByType])
 
   // Build full clinic address from configuration
   const fullClinicAddress = [
@@ -191,7 +197,13 @@ export default function Recetas({
     setOpenMenuRowId(null)
   }
 
-  const handleDownloadPrescription = (row: PrescriptionRow) => {
+  const handleDownloadPrescription = async (row: PrescriptionRow) => {
+    if (!recetaTemplate) {
+      setToast({ message: 'No se encontró la plantilla de receta', variant: 'error' })
+      window.setTimeout(() => setToast(null), 3000)
+      return
+    }
+
     // Build prescription data for PDF generation using clinic info from configuration
     const prescriptionData: PrescriptionData = {
       patientName: displayPatientName,
@@ -226,9 +238,14 @@ export default function Recetas({
           ]
     }
 
-    // Generate and download PDF
-    downloadPrescriptionPDF(prescriptionData, row.medicamento)
-    setToast({ message: `Descargando ${row.name}...`, variant: 'success' })
+    // Generate and download PDF from template
+    try {
+      await downloadPrescriptionPDFFromTemplate(recetaTemplate, prescriptionData, row.medicamento)
+      setToast({ message: `Descargando ${row.name}...`, variant: 'success' })
+    } catch (error) {
+      console.error('Error downloading prescription PDF:', error)
+      setToast({ message: 'Error al generar el PDF', variant: 'error' })
+    }
     setOpenMenuRowId(null)
     window.setTimeout(() => setToast(null), 3000)
   }

@@ -19,6 +19,7 @@
     "@mui/material": "^7.3.3",
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.45.4",
+    "html2pdf.js": "^0.14.0",
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.7",
     "next": "15.5.9",

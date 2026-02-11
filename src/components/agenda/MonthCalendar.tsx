@@ -4,6 +4,7 @@
 
 import { useState } from 'react'
 
+import { professionalColorStyles, useConfiguration } from '@/context/ConfigurationContext'
 import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
 import AppointmentHoverOverlay from './modals/AppointmentHoverOverlay'
 import type { EventDetail } from './types'
@@ -234,27 +235,7 @@ const TIME_SLOTS_6 = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30']
 const TIME_SLOTS_5 = ['10:00', '10:30', '11:00', '11:30', '12:00']
 const TIME_SLOTS_3 = ['12:00', '12:30', '13:00']
 
-// Sample specialist availability (Figma: 14px dot, 16px title, 12px time)
-const SAMPLE_SPECIALISTS: SpecialistAvailability[] = [
-  {
-    id: 'sp1',
-    name: 'Odontólogo',
-    timeRange: '10:00 - 16:00',
-    color: 'var(--color-info-200)'
-  },
-  {
-    id: 'sp2',
-    name: 'Higienista dental',
-    timeRange: '09:00 - 14:00',
-    color: 'var(--color-event-teal)'
-  },
-  {
-    id: 'sp3',
-    name: 'Pediatra',
-    timeRange: '11:00 - 18:00',
-    color: 'var(--color-event-purple)'
-  }
-]
+// Note: Specialist availability is now fetched dynamically from ConfigurationContext
 
 type DayCell = {
   day: number | string
@@ -677,6 +658,13 @@ export default function MonthCalendar({
   const [hovered, setHovered] = useState<MonthEventSelection>(null)
   const [active, setActive] = useState<MonthEventSelection>(null)
 
+  // Configuration context for dynamic specialist availability
+  const {
+    getAvailableProfessionalsForDate,
+    getProfessionalScheduleForDate,
+    professionalOptions
+  } = useConfiguration()
+
   // Use prop if provided, otherwise use internal state
   const [internalMonth] = useState<Date>(() => {
     const today = new Date()
@@ -1024,18 +1012,26 @@ export default function MonthCalendar({
         }
       }
 
-      // Specialist availability samples (several days), skip Sundays
+      // Get dynamic specialist availability for this date
       let specialists: SpecialistAvailability[] = []
-      if (!isSunday && !disableMockFallback) {
-        if (day === 5) {
-          specialists = [SAMPLE_SPECIALISTS[0]]
-        } else if (day === 12) {
-          specialists = [SAMPLE_SPECIALISTS[1], SAMPLE_SPECIALISTS[0]]
-        } else if (day === 15) {
-          specialists = [SAMPLE_SPECIALISTS[2]]
-        } else if (day === 21) {
-          specialists = [SAMPLE_SPECIALISTS[0], SAMPLE_SPECIALISTS[2]]
-        }
+      if (!isSunday && cellDate) {
+        const availableProfessionals = getAvailableProfessionalsForDate(cellDate)
+        specialists = availableProfessionals.map((prof) => {
+          const daySchedule = getProfessionalScheduleForDate(prof.id, cellDate)
+          const timeRange =
+            daySchedule?.isWorking && daySchedule.shifts.length > 0
+              ? daySchedule.shifts
+                  .map((shift) => `${shift.start} - ${shift.end}`)
+                  .join(', ')
+              : ''
+          const profOption = professionalOptions.find((p) => p.id === prof.id)
+          return {
+            id: prof.id,
+            name: prof.name,
+            timeRange,
+            color: profOption?.color || 'var(--color-neutral-400)'
+          }
+        })
       }
 
       currentWeekArr.push({

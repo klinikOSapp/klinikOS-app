@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  AccessTimeFilledRounded,
   AddRounded,
   CheckCircleRounded,
   ChevronLeftRounded,
@@ -20,10 +21,12 @@ import {
   PhoneRounded,
   SearchRounded
 } from '@/components/icons/md3'
+import { Professional, useConfiguration } from '@/context/ConfigurationContext'
 import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import AddProfessionalModal, {
   ProfessionalFormData
 } from './AddProfessionalModal'
+import ProfessionalScheduleModal from './ProfessionalScheduleModal'
 
 type StatusFilter = 'all' | 'active' | 'inactive'
 type SpecialtyFilter = string | null
@@ -408,6 +411,13 @@ export default function SpecialistsListPage() {
   const [showFilterDropdown, setShowFilterDropdown] = React.useState(false)
   const filterDropdownRef = useRef<HTMLDivElement>(null)
 
+  // Schedule modal state
+  const [showScheduleModal, setShowScheduleModal] = React.useState(false)
+  const [scheduleEditingId, setScheduleEditingId] = React.useState<string | null>(null)
+
+  // Get configuration context for professionals
+  const { professionals } = useConfiguration()
+
   // Get unique specialties from data
   const uniqueSpecialties = useMemo(() => {
     const roles = new Set(data.map((s) => s.role))
@@ -662,6 +672,22 @@ export default function SpecialistsListPage() {
                 disabled={selectionCount !== 1}
               >
                 <span className='text-body-sm'>Editar</span>
+              </button>
+              <button
+                type='button'
+                title='Gestionar horarios del especialista'
+                className='flex items-center gap-1 bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-2 py-1 border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+                onClick={() => {
+                  if (selectionCount === 1) {
+                    const onlyId = Array.from(selectedIds)[0]
+                    setScheduleEditingId(onlyId)
+                    setShowScheduleModal(true)
+                  }
+                }}
+                disabled={selectionCount !== 1}
+              >
+                <AccessTimeFilledRounded className='size-4' />
+                <span className='text-body-sm'>Horarios</span>
               </button>
               <button
                 type='button'
@@ -934,6 +960,38 @@ export default function SpecialistsListPage() {
         title={editingId ? 'Editar especialista' : 'Nuevo profesional'}
         submitLabel={editingId ? 'Guardar cambios' : 'Añadir profesional'}
         initialData={modalInitialData}
+      />
+
+      <ProfessionalScheduleModal
+        open={showScheduleModal}
+        onClose={() => {
+          setShowScheduleModal(false)
+          setScheduleEditingId(null)
+        }}
+        professional={(() => {
+          if (!scheduleEditingId) return null
+          // Try to find in context professionals first
+          const fromContext = professionals.find((p) => p.id === scheduleEditingId) ||
+            professionals.find((p) => p.name === data.find((s) => s.id === scheduleEditingId)?.name)
+          if (fromContext) return fromContext
+          // If not found, create a Professional from the local Specialist data
+          const specialist = data.find((s) => s.id === scheduleEditingId)
+          if (!specialist) return null
+          // Map specialist to a Professional object with default values for missing fields
+          const colorTones: Array<'morado' | 'naranja' | 'verde' | 'azul' | 'rojo'> = ['morado', 'naranja', 'verde', 'azul', 'rojo']
+          const colorIndex = data.findIndex((s) => s.id === scheduleEditingId) % colorTones.length
+          return {
+            id: specialist.id,
+            name: specialist.name,
+            role: specialist.role,
+            phone: specialist.phone,
+            email: specialist.email,
+            colorLabel: 'Auto',
+            colorTone: colorTones[colorIndex],
+            commission: '0%',
+            status: specialist.status
+          } as Professional
+        })()}
       />
     </>
   )
