@@ -3,7 +3,7 @@
 import { ChevronLeftRounded, ChevronRightRounded } from '@/components/icons/md3'
 import { SidebarProps } from '@/types/layout'
 import { usePathname } from 'next/navigation'
-import ClinicSwitcher from './ClinicSwitcher'
+import ClinicCard from './ClinicCard'
 import CTANav from './CTANav'
 import NavElement from './NavElement'
 
@@ -175,7 +175,7 @@ export default function Sidebar({
           </div>
         )}
       </div>
-      <ClinicSwitcher collapsed={collapsed} />
+      <ClinicCard collapsed={collapsed} />
     </aside>
   )
 }
