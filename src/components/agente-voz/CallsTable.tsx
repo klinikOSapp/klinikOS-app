@@ -1,6 +1,7 @@
 'use client'
 
 import Portal from '@/components/ui/Portal'
+import { useClinic } from '@/context/ClinicContext'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
@@ -23,126 +24,6 @@ type CallsTableProps = {
   /** Voice agent tier - determines available actions */
   voiceAgentTier?: VoiceAgentTier
 }
-
-// Mock data from Figma design - vinculado con citas en la agenda
-const MOCK_DATA: CallRecord[] = [
-  {
-    id: '1',
-    status: 'nueva',
-    time: '09:00',
-    patient: 'Carlos Martínez Pérez',
-    phone: '+34 667 890 111',
-    intent: 'pedir_cita_higiene',
-    duration: '12:42',
-    summary:
-      'Paciente solicita cita para limpieza dental rutinaria. Última limpieza hace 8 meses.',
-    sentiment: 'aliviado',
-    appointmentId: 'apt-ai-001'
-  },
-  {
-    id: '2',
-    status: 'nueva',
-    time: '09:30',
-    patient: 'Nacho Nieto Iniesta',
-    phone: '+34 658 478 512',
-    intent: 'consulta_financiacion',
-    duration: '09:12',
-    summary:
-      'Paciente consulta opciones de financiación para tratamiento de ortodoncia. Interesado en conocer cuotas.',
-    sentiment: 'nervioso'
-    // Sin appointmentId - consulta_financiacion no crea cita automáticamente
-  },
-  {
-    id: '3',
-    status: 'pendiente',
-    time: '10:00',
-    patient: 'Sofia Rodríguez López',
-    phone: '+34 667 890 111',
-    intent: 'urgencia_dolor',
-    duration: '02:32',
-    summary:
-      'Paciente reporta dolor intenso en molar inferior derecho desde ayer. Posible infección urgente.',
-    sentiment: 'enfadado',
-    appointmentId: 'apt-ai-003'
-  },
-  {
-    id: '4',
-    status: 'en_curso',
-    time: '10:30',
-    patient: null,
-    phone: '+34 658 478 512',
-    intent: 'consulta_financiacion',
-    duration: '05:47',
-    summary:
-      'Paciente nuevo interesado en consulta de ortodoncia. No proporcionó todos los datos personales.',
-    sentiment: 'contento'
-    // Sin appointmentId - consulta_financiacion no crea cita automáticamente
-  },
-  {
-    id: '5',
-    status: 'resuelta',
-    time: '11:00',
-    patient: 'Javier Fernández Torres',
-    phone: '+34 658 478 512',
-    intent: 'pedir_cita_higiene',
-    duration: '03:52',
-    summary:
-      'Paciente solicita cita de revisión semestral. Paciente habitual, sin problemas reportados.',
-    sentiment: 'preocupado',
-    appointmentId: 'apt-ai-005'
-  },
-  {
-    id: '6',
-    status: 'resuelta',
-    time: '11:30',
-    patient: 'Lucía Pérez Gómez',
-    phone: '+34 667 890 111',
-    intent: 'consulta_general',
-    duration: '03:12',
-    summary:
-      'Paciente interesada en tratamiento de blanqueamiento dental. Solicita presupuesto previo.',
-    sentiment: 'contento',
-    appointmentId: 'apt-ai-006'
-  },
-  {
-    id: '7',
-    status: 'pendiente',
-    time: '12:00',
-    patient: null,
-    phone: '+34 658 478 512',
-    intent: 'consulta_financiacion',
-    duration: '05:47',
-    summary:
-      'Consulta sobre opciones de financiación para implantes dentales. Paciente nuevo pendiente ficha.',
-    sentiment: 'aliviado'
-    // Sin appointmentId - consulta_financiacion no crea cita automáticamente
-  },
-  {
-    id: '8',
-    status: 'en_curso',
-    time: '12:30',
-    patient: null,
-    phone: '+34 667 890 111',
-    intent: 'consulta_financiacion',
-    duration: '09:12',
-    summary:
-      'Llamada en curso - paciente consultando información general sobre tratamientos estéticos.',
-    sentiment: 'nervioso'
-  },
-  {
-    id: '9',
-    status: 'urgente',
-    time: '13:00',
-    patient: 'Pablo Sánchez Delgado',
-    phone: '+34 667 890 111',
-    intent: 'pedir_cita_higiene',
-    duration: '05:47',
-    summary:
-      'Paciente reporta molestia en prótesis dental. Necesita ajuste urgente. Dolor al masticar.',
-    sentiment: 'contento',
-    appointmentId: 'apt-ai-008'
-  }
-]
 
 const ITEMS_PER_PAGE = 9
 
@@ -365,6 +246,7 @@ export default function CallsTable({
   voiceAgentTier = 'advanced'
 }: CallsTableProps) {
   const supabase = useRef(createSupabaseBrowserClient())
+  const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [filter, setFilter] = useState<CallFilter>('todos')
@@ -373,7 +255,7 @@ export default function CallsTable({
   const [viewMode, setViewMode] = useState<ViewMode>('table')
 
   // Local state for call records (to allow status updates from appointment sync)
-  const [localCalls, setLocalCalls] = useState<CallRecord[]>(data ?? MOCK_DATA)
+  const [localCalls, setLocalCalls] = useState<CallRecord[]>(data ?? [])
 
   // Sync local calls when data prop changes
   useEffect(() => {
@@ -384,19 +266,67 @@ export default function CallsTable({
     let isMounted = true
     async function hydrateCalls() {
       if (data) return
+      if (!isClinicInitialized) return
       try {
-        const { data: clinics } = await supabase.current.rpc('get_my_clinics')
-        const clinicId =
-          Array.isArray(clinics) && clinics.length > 0 ? String(clinics[0]) : null
-        if (!clinicId) return
+        if (!activeClinicId) {
+          if (isMounted) setLocalCalls([])
+          return
+        }
 
         const { data: callRows, error } = await supabase.current
           .from('calls')
-          .select('id, status, from_number, started_at, duration_seconds, call_outcome, is_urgent')
-          .eq('clinic_id', clinicId)
+          .select(
+            'id, status, from_number, started_at, duration_seconds, call_outcome, is_urgent, patient_id, caller_contact_id, metadata, initial_clinic_id'
+          )
+          .or(`clinic_id.eq.${activeClinicId},initial_clinic_id.eq.${activeClinicId}`)
           .order('started_at', { ascending: false })
           .limit(200)
         if (error) throw error
+
+        const patientIds = Array.from(
+          new Set((callRows || []).map((row) => row.patient_id).filter(Boolean))
+        )
+        const contactIds = Array.from(
+          new Set((callRows || []).map((row) => row.caller_contact_id).filter(Boolean))
+        )
+
+        const [patientsRes, contactsRes] = await Promise.all([
+          patientIds.length
+            ? supabase.current
+                .from('patients')
+                .select('id, first_name, last_name, phone_number')
+                .in('id', patientIds)
+            : Promise.resolve({ data: [], error: null }),
+          contactIds.length
+            ? supabase.current
+                .from('contacts')
+                .select('id, full_name, phone_primary')
+                .in('id', contactIds)
+            : Promise.resolve({ data: [], error: null })
+        ])
+        if (patientsRes.error) throw patientsRes.error
+        if (contactsRes.error) throw contactsRes.error
+
+        const patientsById = new Map(
+          (patientsRes.data || []).map((row) => [
+            String(row.id),
+            {
+              fullName: [String(row.first_name || ''), String(row.last_name || '')]
+                .join(' ')
+                .trim(),
+              phone: String(row.phone_number || '')
+            }
+          ])
+        )
+        const contactsById = new Map(
+          (contactsRes.data || []).map((row) => [
+            String(row.id),
+            {
+              fullName: String(row.full_name || '').trim(),
+              phone: String(row.phone_primary || '')
+            }
+          ])
+        )
 
         const mapStatus = (raw: string, urgent: boolean): CallRecord['status'] => {
           const v = raw.toLowerCase()
@@ -413,6 +343,29 @@ export default function CallsTable({
           const seconds = Number(row.duration_seconds || 0)
           const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
           const ss = String(seconds % 60).padStart(2, '0')
+          const patient =
+            (row.patient_id ? patientsById.get(String(row.patient_id)) : null) ||
+            (row.caller_contact_id
+              ? contactsById.get(String(row.caller_contact_id))
+              : null) ||
+            null
+          const metadata =
+            row.metadata && typeof row.metadata === 'object'
+              ? (row.metadata as Record<string, unknown>)
+              : null
+          const metadataPatientName =
+            (typeof metadata?.patient_name === 'string' && metadata.patient_name.trim()) ||
+            (typeof metadata?.patient_full_name === 'string' &&
+              metadata.patient_full_name.trim()) ||
+            (typeof metadata?.caller_name === 'string' && metadata.caller_name.trim()) ||
+            null
+          const patientName =
+            (patient?.fullName && patient.fullName.trim()) || metadataPatientName || null
+          const phone =
+            String(row.from_number || '').trim() ||
+            patient?.phone ||
+            (typeof metadata?.caller_phone === 'string' ? metadata.caller_phone.trim() : '') ||
+            '—'
           return {
             id: String(row.id),
             status: mapStatus(String(row.status || ''), Boolean(row.is_urgent)),
@@ -420,26 +373,25 @@ export default function CallsTable({
               hour: '2-digit',
               minute: '2-digit'
             }),
-            patient: null,
-            phone: String(row.from_number || '—'),
+            patient: patientName,
+            phone,
             intent: 'consulta_general',
             duration: `${mm}:${ss}`,
             summary: String(row.call_outcome || 'Llamada de voz'),
             sentiment: 'contento'
           }
         })
-        if (isMounted && hydrated.length > 0) {
-          setLocalCalls(hydrated)
-        }
+        if (isMounted) setLocalCalls(hydrated)
       } catch (error) {
-        console.warn('CallsTable hydration failed, using fallback data', error)
+        console.warn('CallsTable hydration failed', error)
+        if (isMounted) setLocalCalls([])
       }
     }
     void hydrateCalls()
     return () => {
       isMounted = false
     }
-  }, [data])
+  }, [activeClinicId, data, isClinicInitialized])
 
   // Listen for appointment status changes to sync call status (ADVANCED MODE ONLY)
   useEffect(() => {

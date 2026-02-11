@@ -1,7 +1,9 @@
 'use client'
 
+import { useClinic } from '@/context/ClinicContext'
 import { useSubscription } from '@/context/SubscriptionContext'
-import { Suspense, useState } from 'react'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import CallDistributionDonut from './CallDistributionDonut'
 import CallVolumeChart from './CallVolumeChart'
 import CallsTable from './CallsTable'
@@ -49,114 +51,127 @@ function isSameWeek(date1: Date, date2: Date): boolean {
   return week1.getTime() === week2.getTime()
 }
 
-// KPI data from Figma design - Advanced mode (with auto-appointment creation)
-const KPI_DATA_ADVANCED: VoiceAgentKPI[] = [
-  {
-    label: 'Citas creadas',
-    value: '456',
-    changePercent: '+ 12%',
-    changeDirection: 'up',
-    comparisonValue: '430',
-    comparisonLabel: 'hace una semana'
-  },
-  {
-    label: 'Llamadas recibidas',
-    value: '456',
-    changePercent: '+ 12%',
-    changeDirection: 'up',
-    comparisonValue: '430',
-    comparisonLabel: 'hace una semana'
-  },
-  {
-    label: 'Tiempo medio llamada',
-    value: '456',
-    changePercent: '+ 12%',
-    changeDirection: 'up',
-    comparisonValue: '430',
-    comparisonLabel: 'hace una semana'
-  },
-  {
-    label: 'Llamadas resueltas',
-    value: '456',
-    changePercent: '+ 12%',
-    changeDirection: 'up',
-    comparisonValue: '430',
-    comparisonLabel: 'hace una semana'
-  },
-  {
-    label: 'Créditos usados',
-    value: '456',
-    changePercent: '+ 12%',
-    changeDirection: 'up',
-    comparisonValue: '430',
-    comparisonLabel: 'hace una semana'
-  },
-  {
-    label: 'Tiempo de espera medio',
-    value: '456',
-    changePercent: '+ 12%',
-    changeDirection: 'up',
-    comparisonValue: '430',
-    comparisonLabel: 'hace una semana'
-  }
-]
+type VoiceKpiStats = {
+  appointmentsCreated: number
+  callsReceived: number
+  avgDurationSeconds: number
+  resolvedCalls: number
+  pendingCalls: number
+  creditsUsed: number
+  avgWaitSeconds: number | null
+}
 
-// KPI data for Basic mode (receptionist - no auto-appointment creation)
-// Replaces "Citas creadas" with "Llamadas pendientes"
-const KPI_DATA_BASIC: VoiceAgentKPI[] = [
-  {
-    label: 'Llamadas pendientes',
-    value: '12',
-    changePercent: '- 8%',
-    changeDirection: 'down',
-    comparisonValue: '13',
-    comparisonLabel: 'hace una semana'
-  },
-  {
-    label: 'Llamadas recibidas',
-    value: '456',
-    changePercent: '+ 12%',
-    changeDirection: 'up',
-    comparisonValue: '430',
-    comparisonLabel: 'hace una semana'
-  },
-  {
-    label: 'Tiempo medio llamada',
-    value: '456',
-    changePercent: '+ 12%',
-    changeDirection: 'up',
-    comparisonValue: '430',
-    comparisonLabel: 'hace una semana'
-  },
-  {
-    label: 'Llamadas resueltas',
-    value: '456',
-    changePercent: '+ 12%',
-    changeDirection: 'up',
-    comparisonValue: '430',
-    comparisonLabel: 'hace una semana'
-  },
-  {
-    label: 'Créditos usados',
-    value: '456',
-    changePercent: '+ 12%',
-    changeDirection: 'up',
-    comparisonValue: '430',
-    comparisonLabel: 'hace una semana'
-  },
-  {
-    label: 'Tiempo de espera medio',
-    value: '456',
-    changePercent: '+ 12%',
-    changeDirection: 'up',
-    comparisonValue: '430',
-    comparisonLabel: 'hace una semana'
-  }
-]
+const EMPTY_STATS: VoiceKpiStats = {
+  appointmentsCreated: 0,
+  callsReceived: 0,
+  avgDurationSeconds: 0,
+  resolvedCalls: 0,
+  pendingCalls: 0,
+  creditsUsed: 0,
+  avgWaitSeconds: null
+}
 
-// Get KPI data based on voice agent tier
-function getKPIData(tier: VoiceAgentTier): VoiceAgentKPI[] {
-  return tier === 'basic' ? KPI_DATA_BASIC : KPI_DATA_ADVANCED
+function formatDurationShort(seconds: number): string {
+  const safe = Math.max(0, Math.round(seconds))
+  const minutes = Math.floor(safe / 60)
+  const remainingSeconds = safe % 60
+  if (minutes > 0) return `${minutes}m ${remainingSeconds}s`
+  return `${remainingSeconds}s`
+}
+
+function getDelta(current: number, previous: number) {
+  if (previous <= 0) {
+    if (current <= 0) return { changePercent: '0%', changeDirection: 'up' as const }
+    return { changePercent: '+100%', changeDirection: 'up' as const }
+  }
+  const pct = Math.round(((current - previous) / previous) * 100)
+  return {
+    changePercent: `${pct >= 0 ? '+' : ''}${pct}%`,
+    changeDirection: pct >= 0 ? ('up' as const) : ('down' as const)
+  }
+}
+
+async function fetchVoiceStats(
+  supabase: ReturnType<typeof createSupabaseBrowserClient>,
+  clinicId: string,
+  rangeStart: Date,
+  rangeEndExclusive: Date
+): Promise<VoiceKpiStats> {
+  const { data: calls, error: callsError } = await supabase
+    .from('calls')
+    .select('id, status, duration_seconds, metadata')
+    .or(`clinic_id.eq.${clinicId},initial_clinic_id.eq.${clinicId}`)
+    .gte('started_at', rangeStart.toISOString())
+    .lt('started_at', rangeEndExclusive.toISOString())
+
+  if (callsError) throw callsError
+
+  const callRows = calls || []
+  const callIds = callRows
+    .map((row) => Number(row.id))
+    .filter((id) => Number.isFinite(id))
+
+  const { count: appointmentsCreatedCount, error: apptError } =
+    callIds.length > 0
+      ? await supabase
+          .from('appointments')
+          .select('id', { count: 'exact', head: true })
+          .in('created_by_call_id', callIds)
+      : { count: 0, error: null }
+
+  if (apptError) throw apptError
+
+  let resolvedCalls = 0
+  let pendingCalls = 0
+  let totalDurationSeconds = 0
+  const waitTimes: number[] = []
+
+  for (const row of callRows) {
+    const status = String(row.status || '').toLowerCase()
+    if (status.includes('resolved') || status.includes('completed')) {
+      resolvedCalls += 1
+    }
+    if (status.includes('new') || status.includes('pending') || status.includes('queue')) {
+      pendingCalls += 1
+    }
+    totalDurationSeconds += Number(row.duration_seconds || 0)
+
+    const metadata =
+      row.metadata && typeof row.metadata === 'object'
+        ? (row.metadata as Record<string, unknown>)
+        : null
+    const waitCandidate =
+      metadata?.wait_time_seconds ??
+      metadata?.queue_wait_seconds ??
+      metadata?.wait_seconds
+    const parsedWait =
+      typeof waitCandidate === 'number'
+        ? waitCandidate
+        : typeof waitCandidate === 'string'
+        ? Number(waitCandidate)
+        : NaN
+    if (Number.isFinite(parsedWait) && parsedWait >= 0) {
+      waitTimes.push(parsedWait)
+    }
+  }
+
+  const callsReceived = callRows.length
+  const avgDurationSeconds =
+    callsReceived > 0 ? totalDurationSeconds / callsReceived : 0
+  const avgWaitSeconds =
+    waitTimes.length > 0
+      ? waitTimes.reduce((sum, current) => sum + current, 0) / waitTimes.length
+      : null
+
+  return {
+    appointmentsCreated: appointmentsCreatedCount || 0,
+    callsReceived,
+    avgDurationSeconds,
+    resolvedCalls,
+    pendingCalls,
+    creditsUsed: callsReceived,
+    avgWaitSeconds
+  }
 }
 
 /**
@@ -171,14 +186,15 @@ function getKPIData(tier: VoiceAgentTier): VoiceAgentKPI[] {
 export default function VoiceAgentPage() {
   // Get subscription tier (basic/advanced) and setter for testing toggle
   const { voiceAgentTier, setVoiceAgentTier } = useSubscription()
-
-  // Get KPI data based on tier
-  const kpiData = getKPIData(voiceAgentTier)
+  const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
+  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 
   // State for selected week (defaults to current week)
   const [selectedWeekStart, setSelectedWeekStart] = useState<Date>(() =>
     getWeekStart(new Date())
   )
+  const [currentStats, setCurrentStats] = useState<VoiceKpiStats>(EMPTY_STATS)
+  const [previousStats, setPreviousStats] = useState<VoiceKpiStats>(EMPTY_STATS)
 
   // Check if we're viewing the current week
   const isCurrentWeek = isSameWeek(selectedWeekStart, new Date())
@@ -205,6 +221,126 @@ export default function VoiceAgentPage() {
   const goToCurrentWeek = () => {
     setSelectedWeekStart(getWeekStart(new Date()))
   }
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadWeeklyStats() {
+      if (!isClinicInitialized) return
+      if (!activeClinicId) {
+        if (isMounted) {
+          setCurrentStats(EMPTY_STATS)
+          setPreviousStats(EMPTY_STATS)
+        }
+        return
+      }
+
+      try {
+        const currentStart = new Date(selectedWeekStart)
+        const currentEnd = new Date(selectedWeekStart)
+        currentEnd.setDate(currentEnd.getDate() + 7)
+
+        const previousStart = new Date(selectedWeekStart)
+        previousStart.setDate(previousStart.getDate() - 7)
+        const previousEnd = new Date(selectedWeekStart)
+
+        const [current, previous] = await Promise.all([
+          fetchVoiceStats(supabase, activeClinicId, currentStart, currentEnd),
+          fetchVoiceStats(supabase, activeClinicId, previousStart, previousEnd)
+        ])
+
+        if (!isMounted) return
+        setCurrentStats(current)
+        setPreviousStats(previous)
+      } catch (error) {
+        console.warn('VoiceAgent KPI hydration failed', error)
+        if (!isMounted) return
+        setCurrentStats(EMPTY_STATS)
+        setPreviousStats(EMPTY_STATS)
+      }
+    }
+
+    void loadWeeklyStats()
+    return () => {
+      isMounted = false
+    }
+  }, [activeClinicId, isClinicInitialized, selectedWeekStart, supabase])
+
+  const kpiData = useMemo<VoiceAgentKPI[]>(() => {
+    const commonComparisonLabel = 'semana anterior'
+    const buildCountCard = (
+      label: string,
+      currentValue: number,
+      previousValue: number
+    ): VoiceAgentKPI => ({
+      label,
+      value: currentValue,
+      ...getDelta(currentValue, previousValue),
+      comparisonValue: previousValue,
+      comparisonLabel: commonComparisonLabel
+    })
+
+    const durationDelta = getDelta(
+      currentStats.avgDurationSeconds,
+      previousStats.avgDurationSeconds
+    )
+    const waitDelta = getDelta(
+      currentStats.avgWaitSeconds ?? 0,
+      previousStats.avgWaitSeconds ?? 0
+    )
+
+    const tierLeadCard =
+      voiceAgentTier === 'basic'
+        ? buildCountCard(
+            'Llamadas pendientes',
+            currentStats.pendingCalls,
+            previousStats.pendingCalls
+          )
+        : buildCountCard(
+            'Citas creadas',
+            currentStats.appointmentsCreated,
+            previousStats.appointmentsCreated
+          )
+
+    return [
+      tierLeadCard,
+      buildCountCard(
+        'Llamadas recibidas',
+        currentStats.callsReceived,
+        previousStats.callsReceived
+      ),
+      {
+        label: 'Tiempo medio llamada',
+        value: formatDurationShort(currentStats.avgDurationSeconds),
+        ...durationDelta,
+        comparisonValue: formatDurationShort(previousStats.avgDurationSeconds),
+        comparisonLabel: commonComparisonLabel
+      },
+      buildCountCard(
+        'Llamadas resueltas',
+        currentStats.resolvedCalls,
+        previousStats.resolvedCalls
+      ),
+      buildCountCard(
+        'Créditos usados',
+        currentStats.creditsUsed,
+        previousStats.creditsUsed
+      ),
+      {
+        label: 'Tiempo de espera medio',
+        value:
+          currentStats.avgWaitSeconds == null
+            ? '—'
+            : formatDurationShort(currentStats.avgWaitSeconds),
+        ...waitDelta,
+        comparisonValue:
+          previousStats.avgWaitSeconds == null
+            ? '—'
+            : formatDurationShort(previousStats.avgWaitSeconds),
+        comparisonLabel: commonComparisonLabel
+      }
+    ]
+  }, [currentStats, previousStats, voiceAgentTier])
 
   return (
     <div className='flex flex-col gap-[min(1rem,2vw)] p-[min(1rem,2vw)] w-full h-full overflow-hidden'>

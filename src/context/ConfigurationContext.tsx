@@ -10,6 +10,7 @@ import {
   useState
 } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { useClinic } from './ClinicContext'
 
 // ============================================
 // TIPOS PARA CONFIGURACIÓN DE CLÍNICA
@@ -348,13 +349,15 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const [boxes, setBoxes] = useState<Box[]>([])
   const [workingHours, setWorkingHours] =
     useState<WorkingHoursConfig>(initialWorkingHours)
-  const [activeClinicId, setActiveClinicId] = useState<string | null>(null)
+  const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
 
   useEffect(() => {
     let isMounted = true
 
     async function hydrateConfigurationFromDb() {
       try {
+        if (!isClinicInitialized || !activeClinicId) return
+
         const supabase = createSupabaseBrowserClient()
         const {
           data: { session }
@@ -373,11 +376,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         }
 
         const clinicIds = myClinicIds.map((id) => String(id))
-        const selectedClinicId = clinicIds[0]
-
-        if (isMounted) {
-          setActiveClinicId(selectedClinicId)
-        }
+        const selectedClinicId = clinicIds.includes(activeClinicId)
+          ? activeClinicId
+          : clinicIds[0]
 
         const [{ data: clinicRows }, { data: boxRows }, { data: workingRows }, { data: staffLiteRows }] =
           await Promise.all([
@@ -585,7 +586,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [activeClinicId, isClinicInitialized])
 
   // ====== CLINIC INFO ======
   const updateClinicInfo = useCallback((updates: Partial<ClinicInfo>) => {

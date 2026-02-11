@@ -11,6 +11,7 @@ import {
 } from 'react'
 
 import type { VisitStatus, VisitStatusLog } from '@/components/agenda/types'
+import { useClinic } from '@/context/ClinicContext'
 import { calculateFinalDurations } from '@/hooks/useWaitTimer'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
@@ -2867,6 +2868,7 @@ const AppointmentsContext = createContext<AppointmentsContextType | undefined>(
 // ============================================
 
 export function AppointmentsProvider({ children }: { children: ReactNode }) {
+  const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [payments, setPayments] = useState<PaymentRecord[]>([])
   const [blocks, setBlocks] = useState<AgendaBlock[]>([])
@@ -2879,21 +2881,23 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
 
     async function hydrateFromDb() {
       try {
+        if (!isClinicInitialized) return
+
         const supabase = createSupabaseBrowserClient()
         const {
           data: { session }
         } = await supabase.auth.getSession()
-        if (!session) return
-
-        staffIdRef.current = session.user.id
-
-        const { data: clinics, error: clinicsError } =
-          await supabase.rpc('get_my_clinics')
-        if (clinicsError || !Array.isArray(clinics) || clinics.length === 0) {
+        if (!session || !activeClinicId) {
+          if (isMounted) {
+            setAppointments([])
+            setPayments([])
+            setBlocks([])
+          }
           return
         }
 
-        const clinicId = String(clinics[0])
+        staffIdRef.current = session.user.id
+        const clinicId = activeClinicId
         clinicIdRef.current = clinicId
 
         const startDate = new Date()
@@ -3163,6 +3167,11 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.warn('AppointmentsContext DB hydration failed, using local state', error)
+        if (isMounted) {
+          setAppointments([])
+          setPayments([])
+          setBlocks([])
+        }
       }
     }
 
@@ -3171,7 +3180,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [activeClinicId, isClinicInitialized])
 
   const persistAppointmentNote = useCallback(
     async (

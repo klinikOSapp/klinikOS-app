@@ -23,34 +23,8 @@ type ConsentRow = {
   name: string
   sentAt: string
   status: 'Firmado' | 'Enviado'
+  documentPath?: string | null
 }
-
-const MOCK_ROWS: ConsentRow[] = [
-  {
-    id: 'c1',
-    name: 'Tratamiento de datos.pdf',
-    sentAt: '19/08/2024',
-    status: 'Firmado'
-  },
-  {
-    id: 'c2',
-    name: 'Tratamiento de datos.pdf',
-    sentAt: '19/08/2024',
-    status: 'Enviado'
-  },
-  {
-    id: 'c3',
-    name: 'Tratamiento de datos.pdf',
-    sentAt: '19/08/2024',
-    status: 'Enviado'
-  },
-  {
-    id: 'c4',
-    name: 'Tratamiento de datos.pdf',
-    sentAt: '19/08/2024',
-    status: 'Enviado'
-  }
-]
 
 function StatusBadge({ status }: { status: ConsentRow['status'] }) {
   const isSigned = status === 'Firmado'
@@ -74,7 +48,7 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null)
   const [isUploadOpen, setIsUploadOpen] = React.useState(false)
-  const [rows, setRows] = React.useState<ConsentRow[]>(MOCK_ROWS)
+  const [rows, setRows] = React.useState<ConsentRow[]>([])
   const [toast, setToast] = React.useState<{
     message: string
     variant: ToastVariant
@@ -82,7 +56,10 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
 
   React.useEffect(() => {
     async function loadConsents() {
-      if (!patientId) return
+      if (!patientId) {
+        setRows([])
+        return
+      }
       const { data, error } = await supabase
         .from('patient_consents')
         .select('id, consent_type, status, signed_at, created_at, document_url')
@@ -92,9 +69,7 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
       const mapped: ConsentRow[] =
         (data ?? []).map((c: any) => ({
           id: String(c.id),
-          name: c.document_url
-            ? String(c.document_url).split('/').pop() ?? c.consent_type
-            : c.consent_type,
+          name: c.document_url ? String(c.document_url).split('/').pop() || c.consent_type : c.consent_type,
           sentAt: (c.signed_at || c.created_at
             ? new Date(c.signed_at || c.created_at).toLocaleDateString(
                 DEFAULT_LOCALE,
@@ -103,7 +78,8 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
             : '—') as string,
           status: (c.status === 'signed' ? 'Firmado' : 'Enviado') as
             | 'Firmado'
-            | 'Enviado'
+            | 'Enviado',
+          documentPath: c.document_url || null
         })) ?? []
       setRows(mapped)
     }
@@ -191,7 +167,7 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
                     </div>
                     <div className='flex flex-col justify-between h-full py-1 text-neutral-900'>
                       <p className='text-body-md'>{row.name}</p>
-                      <p className='text-label-sm'>{'12/05/2024'}</p>
+                      <p className='text-label-sm'>{row.sentAt}</p>
                     </div>
                   </div>
 
@@ -265,7 +241,8 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
                             // If we saved a storage path, try to get a signed URL and open
                             ;(async () => {
                               try {
-                                const url = await getSignedUrl(row.name)
+                                if (!row.documentPath) return
+                                const url = await getSignedUrl(row.documentPath)
                                 window.open(url, '_blank', 'noopener,noreferrer')
                               } catch {
                                 // fallback no-op
@@ -322,9 +299,10 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
             const yyyy = d.getFullYear()
             const newRow: ConsentRow = {
               id: `new-${Date.now()}`,
-              name: path, // store path to allow download
+              name: f.name,
               sentAt: `${dd}/${mm}/${yyyy}`,
-              status: 'Enviado'
+              status: 'Enviado',
+              documentPath: path
             }
             setRows((prev) => [newRow, ...prev])
             setToast({ message: 'Consentimiento subido', variant: 'success' })

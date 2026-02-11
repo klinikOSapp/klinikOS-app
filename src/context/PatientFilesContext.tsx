@@ -8,6 +8,7 @@ import {
   useEffect,
   useState
 } from 'react'
+import { useClinic } from '@/context/ClinicContext'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 // ============================================
@@ -189,6 +190,7 @@ const PatientFilesContext = createContext<PatientFilesContextType | undefined>(
 // ============================================
 
 export function PatientFilesProvider({ children }: { children: ReactNode }) {
+  const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
   const [files, setFiles] = useState<PatientFile[]>([])
 
   useEffect(() => {
@@ -196,25 +198,25 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
 
     async function hydrateFilesFromDb() {
       try {
+        if (!isClinicInitialized) return
+
         const supabase = createSupabaseBrowserClient()
         const {
           data: { session }
         } = await supabase.auth.getSession()
-        if (!session) return
-
-        const { data: clinics, error: clinicsError } =
-          await supabase.rpc('get_my_clinics')
-        if (clinicsError || !Array.isArray(clinics) || clinics.length === 0) {
+        if (!session || !activeClinicId) {
+          if (isMounted) setFiles([])
           return
         }
 
-        const clinicId = String(clinics[0])
+        const clinicId = activeClinicId
         const { data: patientRows, error: patientsError } = await supabase
           .from('patients')
           .select('id')
           .eq('clinic_id', clinicId)
 
         if (patientsError || !patientRows || patientRows.length === 0) {
+          if (isMounted) setFiles([])
           return
         }
 
@@ -272,6 +274,7 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.warn('PatientFilesContext DB hydration failed, using local state', error)
+        if (isMounted) setFiles([])
       }
     }
 
@@ -280,7 +283,7 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [activeClinicId, isClinicInitialized])
 
   // Add a new file
   const addFile = useCallback((fileData: Omit<PatientFile, 'id'>): string => {

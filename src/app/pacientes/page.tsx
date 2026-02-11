@@ -3,6 +3,7 @@
 import ClientLayout from '@/app/client-layout'
 import AddPatientModal from '@/components/pacientes/modals/add-patient/AddPatientModal'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
+import { useClinic } from '@/context/ClinicContext'
 import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
@@ -194,6 +195,7 @@ type PatientRow = {
 
 function PacientesPageInner() {
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
+  const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
   type FilterKey = 'deuda' | 'activos' | 'recall'
@@ -204,9 +206,6 @@ function PacientesPageInner() {
   const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(true)
   const [rows, setRows] = React.useState<PatientRow[]>([])
-  const [selectedClinicId, setSelectedClinicId] = React.useState<string | null>(
-    null
-  )
   const [kpi, setKpi] = React.useState<{
     today: number
     week: number
@@ -221,6 +220,8 @@ function PacientesPageInner() {
 
   React.useEffect(() => {
     async function init() {
+      if (!isClinicInitialized) return
+
       const { data: sessionData } = await supabase.auth.getSession()
       if (!sessionData.session) {
         router.replace('/login')
@@ -243,15 +244,13 @@ function PacientesPageInner() {
             { onConflict: 'id' }
           )
       }
-      // Determine clinic context
-      let clinicId: string | null = null
-      try {
-        const { data: clinics } = await supabase.rpc('get_my_clinics')
-        clinicId = Array.isArray(clinics) && clinics.length > 0 ? clinics[0] : null
-      } catch {
-        clinicId = null
+      const clinicId = activeClinicId
+      if (!clinicId) {
+        setRows([])
+        setKpi({ today: 0, week: 0, received: 0, confirmed: 0 })
+        setIsLoading(false)
+        return
       }
-      setSelectedClinicId(clinicId)
 
       // Fetch patients with primary contact info
       type DbPatient = {
@@ -445,7 +444,7 @@ function PacientesPageInner() {
     }
     void init()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [activeClinicId, isClinicInitialized])
 
   // Allow deep-linking into Pacientes from other modules (e.g., Caja actions menu).
   React.useEffect(() => {
@@ -816,5 +815,4 @@ function PacientesPageInner() {
     </ClientLayout>
   )
 }
-
 

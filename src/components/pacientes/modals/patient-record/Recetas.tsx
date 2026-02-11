@@ -36,33 +36,6 @@ type PrescriptionRow = {
 
 type ToastVariant = 'success' | 'error'
 
-const MOCK_ROWS: PrescriptionRow[] = [
-  {
-    id: 'r1',
-    name: 'Tratamiento de datos.pdf',
-    sentAt: '19/08/2024',
-    status: 'Firmado'
-  },
-  {
-    id: 'r2',
-    name: 'Tratamiento de datos.pdf',
-    sentAt: '19/08/2024',
-    status: 'Enviado'
-  },
-  {
-    id: 'r3',
-    name: 'Tratamiento de datos.pdf',
-    sentAt: '19/08/2024',
-    status: 'Enviado'
-  },
-  {
-    id: 'r4',
-    name: 'Tratamiento de datos.pdf',
-    sentAt: '19/08/2024',
-    status: 'Enviado'
-  }
-]
-
 function StatusBadge({ status }: { status: PrescriptionRow['status'] }) {
   const isSigned = status === 'Firmado'
   return (
@@ -108,7 +81,7 @@ export default function Recetas({
     .join(', ')
 
   // Nombre del paciente para mostrar (usa prop o mock)
-  const displayPatientName = patientName || 'María García López'
+  const displayPatientName = patientName || 'Paciente'
   const [isCreateOpen, setIsCreateOpen] = React.useState(
     openPrescriptionCreation
   )
@@ -161,7 +134,7 @@ export default function Recetas({
     let isMounted = true
     async function hydratePrescriptions() {
       if (!patientId) {
-        setRows(MOCK_ROWS)
+        setRows([])
         return
       }
       try {
@@ -188,8 +161,8 @@ export default function Recetas({
           }))
         )
       } catch (err) {
-        console.warn('Recetas hydration failed, using mock rows', err)
-        if (isMounted) setRows(MOCK_ROWS)
+        console.warn('Recetas hydration failed', err)
+        if (isMounted) setRows([])
       }
     }
 

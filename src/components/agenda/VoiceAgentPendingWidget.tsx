@@ -1,6 +1,7 @@
 'use client'
 
 import Portal from '@/components/ui/Portal'
+import { useClinic } from '@/context/ClinicContext'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
@@ -16,50 +17,6 @@ export type PendingCall = {
   phone: string
   summary: string
 }
-
-// Mock data - in production this would come from a shared context/API
-const MOCK_PENDING_CALLS: PendingCall[] = [
-  {
-    id: '1',
-    status: 'nueva',
-    time: '09:00',
-    patient: 'Carlos Martínez Pérez',
-    phone: '+34 667 890 111',
-    summary: 'Solicita cita para limpieza dental'
-  },
-  {
-    id: '2',
-    status: 'nueva',
-    time: '09:30',
-    patient: 'Nacho Nieto Iniesta',
-    phone: '+34 658 478 512',
-    summary: 'Consulta opciones de financiación'
-  },
-  {
-    id: '3',
-    status: 'pendiente',
-    time: '10:00',
-    patient: 'Sofia Rodríguez López',
-    phone: '+34 667 890 111',
-    summary: 'Dolor intenso en molar - URGENTE'
-  },
-  {
-    id: '7',
-    status: 'pendiente',
-    time: '12:00',
-    patient: null,
-    phone: '+34 658 478 512',
-    summary: 'Consulta financiación implantes'
-  },
-  {
-    id: '9',
-    status: 'urgente',
-    time: '13:00',
-    patient: 'Pablo Sánchez Delgado',
-    phone: '+34 667 890 111',
-    summary: 'Molestia en prótesis - URGENTE'
-  }
-]
 
 // Status color configuration
 const STATUS_CONFIG: Record<
@@ -94,11 +51,12 @@ interface VoiceAgentPendingWidgetProps {
 }
 
 export default function VoiceAgentPendingWidget({
-  calls = MOCK_PENDING_CALLS
+  calls
 }: VoiceAgentPendingWidgetProps) {
   const supabase = useRef(createSupabaseBrowserClient())
+  const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
   const router = useRouter()
-  const [liveCalls, setLiveCalls] = useState<PendingCall[]>(calls)
+  const [liveCalls, setLiveCalls] = useState<PendingCall[]>(calls ?? [])
   const [isOpen, setIsOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -108,17 +66,26 @@ export default function VoiceAgentPendingWidget({
   } | null>(null)
 
   useEffect(() => {
+    if (calls) {
+      setLiveCalls(calls)
+    }
+  }, [calls])
+
+  useEffect(() => {
     let isMounted = true
     async function hydrateCalls() {
+      if (!isClinicInitialized) return
+      if (calls) return
       try {
-        const { data: clinics } = await supabase.current.rpc('get_my_clinics')
-        const clinicId = Array.isArray(clinics) && clinics.length > 0 ? String(clinics[0]) : null
-        if (!clinicId) return
+        if (!activeClinicId) {
+          if (isMounted) setLiveCalls([])
+          return
+        }
 
         const { data: callRows, error } = await supabase.current
           .from('calls')
           .select('id, status, started_at, from_number, is_urgent, call_outcome')
-          .eq('clinic_id', clinicId)
+          .eq('clinic_id', activeClinicId)
           .order('started_at', { ascending: false })
           .limit(30)
         if (error) throw error
@@ -145,9 +112,10 @@ export default function VoiceAgentPendingWidget({
           }
         })
 
-        if (isMounted && mapped.length > 0) setLiveCalls(mapped)
+        if (isMounted) setLiveCalls(mapped)
       } catch (error) {
-        console.warn('VoiceAgentPendingWidget hydration failed, using fallback calls', error)
+        console.warn('VoiceAgentPendingWidget hydration failed', error)
+        if (isMounted) setLiveCalls([])
       }
     }
 
@@ -155,7 +123,7 @@ export default function VoiceAgentPendingWidget({
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [activeClinicId, calls, isClinicInitialized])
 
   // Filter for actionable calls (nueva, pendiente, urgente)
   const actionableCalls = liveCalls.filter(

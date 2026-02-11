@@ -8,6 +8,7 @@ import {
   useEffect,
   useState
 } from 'react'
+import { useClinic } from '@/context/ClinicContext'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 // ============================================
@@ -1655,24 +1656,29 @@ const PatientsContext = createContext<PatientsContextType | undefined>(undefined
 // ============================================
 
 export function PatientsProvider({ children }: { children: ReactNode }) {
-  const [patients, setPatients] = useState<Patient[]>(INITIAL_PATIENTS)
+  const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
+  const [patients, setPatients] = useState<Patient[]>(
+    () => INITIAL_PATIENTS.slice(0, 0)
+  )
 
   useEffect(() => {
     let isMounted = true
 
     async function hydratePatientsFromDb() {
       try {
+        if (!isClinicInitialized) return
+
         const supabase = createSupabaseBrowserClient()
         const {
           data: { session }
         } = await supabase.auth.getSession()
 
-        if (!session) return
+        if (!session || !activeClinicId) {
+          if (isMounted) setPatients([])
+          return
+        }
 
-        const { data: clinics, error: clinicsError } = await supabase.rpc('get_my_clinics')
-        if (clinicsError || !Array.isArray(clinics) || clinics.length === 0) return
-
-        const clinicId = String(clinics[0])
+        const clinicId = activeClinicId
 
         const [{ data: patientRows, error: patientsError }, { data: treatmentRows, error: treatmentsError }] =
           await Promise.all([
@@ -1692,7 +1698,7 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
               .order('created_at', { ascending: false })
           ])
 
-        if (patientsError || !patientRows || patientRows.length === 0) return
+        if (patientsError || !patientRows) return
         if (treatmentsError) {
           console.warn('No se pudieron cargar patient_treatments, se cargan pacientes sin tratamientos DB', treatmentsError)
         }
@@ -1780,11 +1786,10 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
           } as Patient
         })
 
-        if (isMounted && mappedPatients.length > 0) {
-          setPatients(mappedPatients)
-        }
+        if (isMounted) setPatients(mappedPatients)
       } catch (error) {
-        console.warn('PatientsContext DB hydration failed, using mock data', error)
+        console.warn('PatientsContext DB hydration failed, using empty state', error)
+        if (isMounted) setPatients([])
       }
     }
 
@@ -1793,7 +1798,7 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [activeClinicId, isClinicInitialized])
 
   // ============================================
   // FUNCIONES CRUD

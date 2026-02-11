@@ -2,6 +2,7 @@
 
 import { uploadPatientFile } from '@/lib/storage'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { useClinic } from '@/context/ClinicContext'
 import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import RadioButtonCheckedRounded from '@mui/icons-material/RadioButtonCheckedRounded'
@@ -29,6 +30,7 @@ export default function AddPatientModal({
   onContinue
 }: AddPatientModalProps) {
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
+  const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
   const [step, setStep] = React.useState<
     | 'paciente'
     | 'contacto'
@@ -273,10 +275,9 @@ export default function AddPatientModal({
     let active = true
     async function loadClinicContext() {
       try {
-        const { data: clinics } = await supabase.rpc('get_my_clinics')
+        if (!isClinicInitialized) return
+        const firstClinic = activeClinicId
         if (!active) return
-        const firstClinic =
-          Array.isArray(clinics) && clinics.length > 0 ? (clinics[0] as string) : null
         setClinicId(firstClinic)
         if (firstClinic) {
           const { data: staffRows } = await supabase.rpc('get_clinic_staff', {
@@ -301,7 +302,7 @@ export default function AddPatientModal({
     return () => {
       active = false
     }
-  }, [open, supabase])
+  }, [activeClinicId, isClinicInitialized, open, supabase])
 
   // Type helper for Salud component props (workaround for JSX inference)
   const SaludComp = AddPatientStepSalud as unknown as React.ComponentType<{
@@ -326,13 +327,7 @@ export default function AddPatientModal({
   if (!open) return null
 
   async function handleCreatePatient() {
-    let clinicForPatient = clinicId
-    if (!clinicForPatient) {
-      const { data: clinics } = await supabase.rpc('get_my_clinics')
-      clinicForPatient =
-        Array.isArray(clinics) && clinics.length > 0 ? (clinics[0] as string) : null
-      setClinicId(clinicForPatient)
-    }
+    const clinicForPatient = clinicId || activeClinicId
     if (!clinicForPatient) {
       alert('No se encontró una clínica asociada. Contacta con administración.')
       return

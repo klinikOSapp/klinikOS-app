@@ -27,48 +27,79 @@ type ResumenProps = {
   onNavigateToPrescriptions?: () => void
 }
 
-const DEFAULT_PATIENT_DATA = {
-  nombre: 'Lucia López Cano',
-  edad: '33 años',
-  email: 'Emailexample@gmail.com',
-  telefono: '+34 666 777 888',
+type PendingTreatment = {
+  nombre: string
+  fecha: string
+  doctora: string
+  precio: string
+  estado: string
+}
+
+type PendingDocument = {
+  tipo: string
+  descripcion: string
+}
+
+type OverdueInvoice = {
+  numero: string
+  descripcion: string
+  importe: string
+}
+
+type RecentHistoryItem = {
+  descripcion: string
+}
+
+type ResumenPatientData = {
+  nombre: string
+  edad: string
+  email: string
+  telefono: string
   proximaCita: {
-    tipo: 'Limpieza dental',
-    fecha: '28/02/26',
-    hora: '12:00 h',
-    doctora: 'Dra. Andrea',
-    duracion: '45 minutos',
-    estado: 'Aprobado'
+    tipo: string
+    fecha: string
+    hora: string
+    doctora: string
+    duracion: string
+    estado: string
+  }
+  informacionCritica: {
+    alergias: string[]
+    enfermedades: string[]
+    medicacion: string[]
+    notas: string
+  }
+  tratamientosPendientes: PendingTreatment[]
+  saldoPendiente: string
+  documentosPendientes: PendingDocument[]
+  facturasVencidas: OverdueInvoice[]
+  historialReciente: RecentHistoryItem[]
+}
+
+const DEFAULT_PATIENT_DATA: ResumenPatientData = {
+  nombre: '—',
+  edad: '—',
+  email: '—',
+  telefono: '—',
+  proximaCita: {
+    tipo: 'Sin próxima cita',
+    fecha: '—',
+    hora: '—',
+    doctora: '—',
+    duracion: '—',
+    estado: 'Pendiente'
   },
   informacionCritica: {
-    alergias: ['Latex', 'Penicilina'],
-    enfermedades: ['Hipotiroidismo'],
-    medicacion: ['Acenocumarol (Sintrom®)', 'Eutirox, 112 mg'],
-    notas: 'No hay notas'
+    alergias: [],
+    enfermedades: [],
+    medicacion: [],
+    notas: '—'
   },
-  tratamientosPendientes: [
-    {
-      nombre: 'Blanqueamiento dental',
-      fecha: '28/03/26',
-      doctora: 'Dra. Andrea',
-      precio: '200€',
-      estado: 'Pendiente'
-    }
-  ],
-  saldoPendiente: '702,90 €',
-  documentosPendientes: [
-    { tipo: 'Consentimiento', descripcion: 'Protección de datos (RGPD)' },
-    { tipo: 'Consentimiento', descripcion: 'Tratamiento con sedación' },
-    { tipo: 'Receta', descripcion: 'Antiinflamatorios' },
-    { tipo: 'Solicitado', descripcion: 'Copia del historial clínico' }
-  ],
-  facturasVencidas: [
-    { numero: 'F-001', descripcion: 'Limpieza dental', importe: '72€' },
-    { numero: 'F-002', descripcion: 'Limpieza dental', importe: '620€' }
-  ],
-  historialReciente: [
-    { descripcion: 'Implante del 34' }
-  ]
+  tratamientosPendientes: [],
+  saldoPendiente: '0,00 €',
+  documentosPendientes: [],
+  facturasVencidas: [],
+  historialReciente: []
 }
 
 export default function Resumen({
@@ -83,7 +114,7 @@ export default function Resumen({
   onNavigateToPrescriptions
 }: ResumenProps) {
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
-  const [patientData, setPatientData] = React.useState(() => ({
+  const [patientData, setPatientData] = React.useState<ResumenPatientData>(() => ({
     ...DEFAULT_PATIENT_DATA,
     nombre: patientName || DEFAULT_PATIENT_DATA.nombre
   }))
@@ -266,7 +297,7 @@ export default function Resumen({
               })) || prev.facturasVencidas
         }))
       } catch (error) {
-        console.warn('Resumen hydration failed, keeping fallback data', error)
+        console.warn('Resumen hydration failed', error)
       }
     }
 

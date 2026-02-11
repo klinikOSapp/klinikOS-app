@@ -1,6 +1,7 @@
 'use client'
 
 import Portal from '@/components/ui/Portal'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useEffect, useRef, useState } from 'react'
 import type { CallRecord } from './voiceAgentTypes'
 import { CALL_INTENT_LABELS } from './voiceAgentTypes'
@@ -17,39 +18,6 @@ type TranscriptionMessage = {
   text: string
 }
 
-const MOCK_TRANSCRIPTION: TranscriptionMessage[] = [
-  { id: '1', sender: 'agent', text: 'Hola Buenos días, Clínica Belén.' },
-  { id: '2', sender: 'agent', text: '¿En qué puedo ayudarle?' },
-  {
-    id: '3',
-    sender: 'patient',
-    text: 'Hola Buenos días, llamo porque desde hace unos días siento muchas molestias en la muela.'
-  },
-  { id: '4', sender: 'patient', text: 'Creo que puedo tenerlo infectado' },
-  {
-    id: '5',
-    sender: 'agent',
-    text: 'Entiendo, lamento escuchar eso. ¿Podría darme su nombre completo para buscar su historial?'
-  },
-  { id: '6', sender: 'patient', text: 'Sí, soy Carlos Martínez Pérez' },
-  {
-    id: '7',
-    sender: 'agent',
-    text: 'Perfecto, Carlos. He encontrado su historial. Veo que hace tiempo que no nos visita.'
-  },
-  {
-    id: '8',
-    sender: 'agent',
-    text: '¿Le parece bien si le agendo una cita de urgencia para hoy a las 17:00?'
-  },
-  { id: '9', sender: 'patient', text: 'Sí, perfecto. Muchas gracias.' },
-  {
-    id: '10',
-    sender: 'agent',
-    text: 'Listo, le he agendado la cita. Le llegará un SMS de confirmación. ¡Que se mejore!'
-  }
-]
-
 // Waveform bar heights for visual representation
 const WAVEFORM_HEIGHTS = [
   2, 8, 14, 4, 16, 14, 10, 10, 10, 10, 14, 10, 16, 10, 16, 16, 16, 10, 10, 16,
@@ -65,7 +33,9 @@ export default function TranscriptionModal({
   call,
   onClose
 }: TranscriptionModalProps) {
+  const supabase = useRef(createSupabaseBrowserClient())
   const modalRef = useRef<HTMLDivElement>(null)
+  const [messages, setMessages] = useState<TranscriptionMessage[]>([])
   const [isPlaying, setIsPlaying] = useState(false)
   const [playbackSpeed, setPlaybackSpeed] = useState<1 | 1.5 | 2>(1)
   const [currentTime, setCurrentTime] = useState(0)
@@ -75,6 +45,102 @@ export default function TranscriptionModal({
   const durationParts = call.duration.split(':')
   const totalSeconds =
     parseInt(durationParts[0]) * 60 + parseInt(durationParts[1])
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function hydrateTranscript() {
+      try {
+        const callId = Number(call.id)
+        const fallbackMessages: TranscriptionMessage[] = [
+          {
+            id: 'fallback-agent',
+            sender: 'agent',
+            text: 'No hay transcripción completa disponible para esta llamada.'
+          },
+          {
+            id: 'fallback-patient',
+            sender: 'patient',
+            text: call.summary || 'Sin resumen de llamada.'
+          }
+        ]
+
+        if (Number.isNaN(callId)) {
+          if (isMounted) setMessages(fallbackMessages)
+          return
+        }
+
+        const { data, error } = await supabase.current
+          .from('call_logs')
+          .select('transcript_text, call_summary')
+          .eq('call_id', callId)
+          .maybeSingle()
+
+        if (error) throw error
+
+        const transcriptText =
+          typeof data?.transcript_text === 'string'
+            ? data.transcript_text.trim()
+            : ''
+
+        if (!transcriptText) {
+          if (isMounted) setMessages(fallbackMessages)
+          return
+        }
+
+        const parsed = transcriptText
+          .split(/\n+/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line, index) => {
+            const agentPrefix = /^(agent|ia|assistant|agente|operador)\s*:\s*/i
+            const patientPrefix = /^(patient|paciente|user|usuario)\s*:\s*/i
+            const isAgentLine = agentPrefix.test(line)
+            const isPatientLine = patientPrefix.test(line)
+            const cleanText = line
+              .replace(agentPrefix, '')
+              .replace(patientPrefix, '')
+              .trim()
+            return {
+              id: `line-${index + 1}`,
+              sender: (isAgentLine
+                ? 'agent'
+                : isPatientLine
+                ? 'patient'
+                : index % 2 === 0
+                ? 'agent'
+                : 'patient') as TranscriptionMessage['sender'],
+              text: cleanText || line
+            }
+          })
+
+        if (isMounted) {
+          setMessages(parsed.length > 0 ? parsed : fallbackMessages)
+        }
+      } catch (error) {
+        console.warn('TranscriptionModal hydration failed', error)
+        if (isMounted) {
+          setMessages([
+            {
+              id: 'fallback-agent',
+              sender: 'agent',
+              text: 'No hay transcripción disponible.'
+            },
+            {
+              id: 'fallback-patient',
+              sender: 'patient',
+              text: call.summary || 'Sin resumen de llamada.'
+            }
+          ])
+        }
+      }
+    }
+
+    void hydrateTranscript()
+    return () => {
+      isMounted = false
+    }
+  }, [call.id, call.summary])
 
   // Handle escape key and click outside
   useEffect(() => {
@@ -233,11 +299,11 @@ export default function TranscriptionModal({
           {/* Chat Transcription - Scrollable */}
           <div className='flex-1 overflow-y-auto px-8 pb-4 min-h-0'>
             <div className='flex flex-col gap-4'>
-              {MOCK_TRANSCRIPTION.map((message, index) => {
+              {messages.map((message, index) => {
                 const isAgent = message.sender === 'agent'
 
                 // Group consecutive messages from same sender
-                const prevMessage = MOCK_TRANSCRIPTION[index - 1]
+                const prevMessage = messages[index - 1]
                 const showSenderLabel =
                   !prevMessage || prevMessage.sender !== message.sender
 

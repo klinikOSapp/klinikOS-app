@@ -1026,7 +1026,7 @@ export default function MonthCalendar({
 
       // Specialist availability samples (several days), skip Sundays
       let specialists: SpecialistAvailability[] = []
-      if (!isSunday) {
+      if (!isSunday && !disableMockFallback) {
         if (day === 5) {
           specialists = [SAMPLE_SPECIALISTS[0]]
         } else if (day === 12) {

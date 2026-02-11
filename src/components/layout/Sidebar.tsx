@@ -3,6 +3,7 @@
 import { ChevronLeftRounded, ChevronRightRounded } from '@/components/icons/md3'
 import { SidebarProps } from '@/types/layout'
 import { usePathname } from 'next/navigation'
+import ClinicSwitcher from './ClinicSwitcher'
 import CTANav from './CTANav'
 import NavElement from './NavElement'
 
@@ -38,6 +39,7 @@ export default function Sidebar({
         'pt-6',
         'relative',
         'z-30',
+        'flex flex-col',
         isHydrated ? 'transition-[width] duration-300 ease-in-out opacity-100' : 'opacity-0'
       ].join(' ')}
       aria-label='Sidebar navigation'
@@ -70,7 +72,7 @@ export default function Sidebar({
         )}
       </div>
 
-      <div className='px-6'>
+      <div className='px-6 flex-1 overflow-y-auto'>
         <div className='mt-8'>
           <p
             className={[
@@ -173,6 +175,7 @@ export default function Sidebar({
           </div>
         )}
       </div>
+      <ClinicSwitcher collapsed={collapsed} />
     </aside>
   )
 }

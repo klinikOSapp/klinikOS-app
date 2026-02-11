@@ -16,6 +16,7 @@ import type {
   PaymentMethod
 } from '@/types/payments'
 import { generateReceiptNumber } from '@/types/payments'
+import { useClinic } from '@/context/ClinicContext'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 // ─────────────────────────────────────────────────────────────
@@ -1144,6 +1145,7 @@ export function CashClosingProvider({
 }: {
   children: React.ReactNode
 }) {
+  const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
   const [closings, setClosings] = useState<CashClosing[]>([])
   const [transactions, setTransactions] = useState<CashTransaction[]>([])
   const [receipts, setReceipts] = useState<Receipt[]>([])
@@ -1155,21 +1157,22 @@ export function CashClosingProvider({
 
     async function hydrateCashData() {
       try {
+        if (!isClinicInitialized) return
+
         const supabase = createSupabaseBrowserClient()
         const {
           data: { session }
         } = await supabase.auth.getSession()
-        if (!session) return
-
-        staffIdRef.current = session.user.id
-
-        const { data: clinics, error: clinicsError } =
-          await supabase.rpc('get_my_clinics')
-        if (clinicsError || !Array.isArray(clinics) || clinics.length === 0) {
+        if (!session || !activeClinicId) {
+          if (isMounted) {
+            setClosings([])
+            setTransactions([])
+          }
           return
         }
 
-        const clinicId = String(clinics[0])
+        staffIdRef.current = session.user.id
+        const clinicId = activeClinicId
         clinicIdRef.current = clinicId
 
         const start = new Date()
@@ -1292,6 +1295,10 @@ export function CashClosingProvider({
         }
       } catch (error) {
         console.warn('CashClosingContext DB hydration failed, using local state', error)
+        if (isMounted) {
+          setClosings([])
+          setTransactions([])
+        }
       }
     }
 
@@ -1300,7 +1307,7 @@ export function CashClosingProvider({
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [activeClinicId, isClinicInitialized])
 
   const createInvoiceAndPayment = useCallback(
     async (input: {
@@ -1444,8 +1451,11 @@ export function CashClosingProvider({
     (date: string, cashOutflow: number, notes?: string): CashClosing => {
       const summary = getDaySummary(date)
       const existingClosing = getClosingByDate(date)
-      const clinicId = clinicIdRef.current || existingClosing?.clinic_id || MOCK_CLINIC_ID
-      const staffId = staffIdRef.current || existingClosing?.closed_by || MOCK_USER_ID
+      const clinicId = clinicIdRef.current || existingClosing?.clinic_id
+      const staffId = staffIdRef.current || existingClosing?.closed_by
+      if (!clinicId || !staffId) {
+        throw new Error('No clinic/staff context available to close day')
+      }
 
       const newClosing: CashClosing = {
         id: existingClosing?.id ?? `closing-${Date.now()}`,
@@ -1548,9 +1558,13 @@ export function CashClosingProvider({
   const registerBudgetPayment = useCallback(
     (data: RegisterBudgetPaymentInput): CashTransaction => {
       const today = new Date().toISOString().split('T')[0]
+      const clinicId = clinicIdRef.current
+      if (!clinicId) {
+        throw new Error('No clinic context available')
+      }
       const newTransaction: CashTransaction = {
         id: `tx-budget-${Date.now()}`,
-        clinic_id: clinicIdRef.current || MOCK_CLINIC_ID,
+        clinic_id: clinicId,
         closing_id: null,
         transaction_date: today,
         created_at: new Date().toISOString(),
@@ -1596,9 +1610,13 @@ export function CashClosingProvider({
   const registerSimplePayment = useCallback(
     (data: RegisterSimplePaymentData): CashTransaction => {
       const today = new Date().toISOString().split('T')[0]
+      const clinicId = clinicIdRef.current
+      if (!clinicId) {
+        throw new Error('No clinic context available')
+      }
       const newTransaction: CashTransaction = {
         id: `tx-payment-${Date.now()}`,
-        clinic_id: clinicIdRef.current || MOCK_CLINIC_ID,
+        clinic_id: clinicId,
         closing_id: null,
         transaction_date: today,
         created_at: new Date().toISOString(),

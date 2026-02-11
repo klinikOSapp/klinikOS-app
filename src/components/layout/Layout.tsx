@@ -1,5 +1,6 @@
 'use client'
 
+import { useClinic } from '@/context/ClinicContext'
 import { AllPermissions, PermissionAction, RoleContext, UserRole } from '@/context/role-context'
 import { getSignedUrl } from '@/lib/storage'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
@@ -78,6 +79,7 @@ export default function Layout({ children }: LayoutProps) {
   ]
 
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
+  const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
   const [user, setUser] = React.useState<User | null>(null)
   const [staffProfile, setStaffProfile] = React.useState<StaffProfile | null>(null)
   const [displayName, setDisplayName] = React.useState('Usuario')
@@ -97,86 +99,6 @@ export default function Layout({ children }: LayoutProps) {
 
   React.useEffect(() => {
     let active = true
-    
-    async function fetchRoleInfo(clinicId: string) {
-      try {
-        // Use new get_my_role_info RPC
-        const { data, error } = await supabase
-          .rpc('get_my_role_info', { p_clinic_id: clinicId })
-          .single<RoleInfoResponse>()
-
-        if (!active) return
-        
-        if (error) {
-          console.error('Error fetching role info:', error)
-          // Fallback to old method
-          const { data: legacyRole } = await supabase.rpc('get_my_role_in_clinic', {
-            p_clinic_id: clinicId
-          })
-          if (legacyRole) {
-            const fallbackPerms = getFallbackPermissions(legacyRole as UserRole)
-            setRoleInfo({
-              roleId: null,
-              roleName: legacyRole as string,
-              roleDisplayName: legacyRole as string,
-              isSystemRole: true,
-              permissions: fallbackPerms
-            })
-            // Only show /manager entry points if user can view Settings.
-            setIsManager(Boolean((fallbackPerms as any)?.settings?.view))
-          }
-          return
-        }
-
-        if (data) {
-          setRoleInfo({
-            roleId: data.role_id,
-            roleName: data.role_name,
-            roleDisplayName: data.role_display_name,
-            isSystemRole: data.is_system_role,
-            permissions: data.permissions || {}
-          })
-          // Only show /manager entry points if user can view Settings.
-          setIsManager(Boolean((data.permissions as any)?.settings?.view))
-        }
-      } catch (error) {
-        console.error('Error in fetchRoleInfo:', error)
-      }
-    }
-    
-    async function determineRoleAccess() {
-      try {
-        const { data: clinics, error } = await supabase.rpc('get_my_clinics')
-        if (!active) return
-        if (error || !Array.isArray(clinics) || clinics.length === 0) {
-          setIsManager(false)
-          setRoleInfo({
-            roleId: null,
-            roleName: null,
-            roleDisplayName: null,
-            isSystemRole: false,
-            permissions: {}
-          })
-          return
-        }
-        
-        // Get role info for first clinic
-        const firstClinicId = clinics[0] as string
-        if (firstClinicId) {
-          await fetchRoleInfo(firstClinicId)
-        }
-      } catch (error) {
-        if (active) {
-          console.error('Error determining role access', error)
-          setIsManager(false)
-        }
-      } finally {
-        if (active) {
-          setIsLoading(false)
-        }
-      }
-    }
-
     async function loadProfile() {
       const {
         data: { user }
@@ -234,13 +156,97 @@ export default function Layout({ children }: LayoutProps) {
         setStaffProfile(null)
         setAvatarUrl(undefined)
       }
-      await determineRoleAccess()
     }
     void loadProfile()
     return () => {
       active = false
     }
   }, [supabase])
+
+  React.useEffect(() => {
+    let active = true
+
+    async function loadRoleInfo() {
+      if (!isClinicInitialized) return
+      if (!user) return
+
+      if (!activeClinicId) {
+        if (!active) return
+        setRoleInfo({
+          roleId: null,
+          roleName: null,
+          roleDisplayName: null,
+          isSystemRole: false,
+          permissions: {}
+        })
+        setIsManager(false)
+        setIsLoading(false)
+        return
+      }
+
+      setIsLoading(true)
+      try {
+        const { data, error } = await supabase
+          .rpc('get_my_role_info', { p_clinic_id: activeClinicId })
+          .single<RoleInfoResponse>()
+
+        if (!active) return
+
+        if (error) {
+          console.error('Error fetching role info:', error)
+          const { data: legacyRole } = await supabase.rpc('get_my_role_in_clinic', {
+            p_clinic_id: activeClinicId
+          })
+          if (!active) return
+
+          if (legacyRole) {
+            const fallbackPerms = getFallbackPermissions(legacyRole as UserRole)
+            setRoleInfo({
+              roleId: null,
+              roleName: legacyRole as string,
+              roleDisplayName: legacyRole as string,
+              isSystemRole: true,
+              permissions: fallbackPerms
+            })
+            setIsManager(Boolean((fallbackPerms as any)?.settings?.view))
+          } else {
+            setRoleInfo({
+              roleId: null,
+              roleName: null,
+              roleDisplayName: null,
+              isSystemRole: false,
+              permissions: {}
+            })
+            setIsManager(false)
+          }
+          return
+        }
+
+        setRoleInfo({
+          roleId: data.role_id,
+          roleName: data.role_name,
+          roleDisplayName: data.role_display_name,
+          isSystemRole: data.is_system_role,
+          permissions: data.permissions || {}
+        })
+        setIsManager(Boolean((data.permissions as any)?.settings?.view))
+      } catch (error) {
+        if (active) {
+          console.error('Error loading role info:', error)
+          setIsManager(false)
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void loadRoleInfo()
+    return () => {
+      active = false
+    }
+  }, [activeClinicId, isClinicInitialized, supabase, user])
 
   const handleProfileUpdated = React.useCallback(
     async ({ fullName, avatarUrl: path }: { fullName: string; avatarUrl?: string | null }) => {

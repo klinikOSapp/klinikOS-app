@@ -164,18 +164,17 @@ const BOX_COLUMN_LAYOUT: Record<string, { left: string; width: string }> = {
   'box 2': { left: '52%', width: '46%' }
 }
 
-// Helper to convert box id to box name (e.g., 'box-1' -> 'box 1')
-const boxIdToName = (boxId: string): string => boxId.replace('-', ' ')
+const normalizeBoxLabel = (value: string): string =>
+  value.trim().toLowerCase().replace(/\s+/g, ' ')
 
 // Function to calculate dynamic box layout based on selected boxes
 const getBoxLayout = (
   selectedBoxes: string[],
   boxOptions: Array<{ id: string; label: string }> = DEFAULT_BOX_OPTIONS
 ): Record<string, { left: string; width: string }> => {
-  // Filter to only include boxes that exist in boxOptions
-  const validBoxes = selectedBoxes.filter((id) =>
-    boxOptions.some((opt) => opt.id === id)
-  )
+  const validBoxes = selectedBoxes
+    .map((id) => boxOptions.find((opt) => opt.id === id))
+    .filter((opt): opt is { id: string; label: string } => Boolean(opt))
 
   if (validBoxes.length === 0) {
     return BOX_COLUMN_LAYOUT // fallback to default
@@ -188,8 +187,8 @@ const getBoxLayout = (
 
   const layout: Record<string, { left: string; width: string }> = {}
 
-  validBoxes.forEach((boxId, index) => {
-    const boxName = boxIdToName(boxId)
+  validBoxes.forEach((box, index) => {
+    const boxName = normalizeBoxLabel(box.label)
     const left = 2 + index * (boxWidth + gap)
     layout[boxName] = {
       left: `${left}%`,
@@ -2487,10 +2486,12 @@ function ToolbarAction({
 
 function HeaderLabels({
   cells,
-  selectedBoxes
+  selectedBoxes,
+  boxOptions
 }: {
   cells: typeof HEADER_CELLS
   selectedBoxes: string[]
+  boxOptions: Array<{ id: string; label: string }>
 }) {
   const [activeSpecId, setActiveSpecId] = useState<string | null>(null)
   const [activeDay, setActiveDay] = useState<Weekday | null>(null)
@@ -2522,10 +2523,7 @@ function HeaderLabels({
     }
   }, [activeSpecId])
 
-  // Get visible boxes sorted by their original order
-  const visibleBoxes = DEFAULT_BOX_OPTIONS.filter((opt) =>
-    selectedBoxes.includes(opt.id)
-  )
+  const visibleBoxes = boxOptions.filter((opt) => selectedBoxes.includes(opt.id))
   const boxCount = visibleBoxes.length || 1
 
   return (
@@ -2721,6 +2719,7 @@ function DayGrid({
   draggingEventId,
   onClearSelection,
   selectedBoxes,
+  boxOptions,
   selectedProfessionals,
   completedEvents,
   onToggleComplete,
@@ -2765,6 +2764,7 @@ function DayGrid({
   draggingEventId?: string | null
   onClearSelection: () => void
   selectedBoxes: string[]
+  boxOptions: Array<{ id: string; label: string }>
   selectedProfessionals: string[]
   completedEvents?: Record<string, boolean>
   onToggleComplete?: (eventId: string, completed: boolean) => void
@@ -2808,14 +2808,19 @@ function DayGrid({
   onSlotDragEnd?: () => void
 }) {
   // Calculate dynamic box layout based on selected boxes
-  const boxLayout = getBoxLayout(selectedBoxes)
+  const boxLayout = getBoxLayout(selectedBoxes, boxOptions)
+  const selectedBoxLabels = new Set(
+    boxOptions
+      .filter((opt) => selectedBoxes.includes(opt.id))
+      .map((opt) => normalizeBoxLabel(opt.label))
+  )
 
   // Filter events to only show those in selected boxes AND selected professionals AND confirmed (if filter active)
   const filteredEvents = column.events.filter((event) => {
     // Filter by box
-    const boxName = event.box?.toLowerCase() ?? ''
-    const boxId = boxName.replace(' ', '-')
-    const boxMatch = selectedBoxes.includes(boxId)
+    const boxName = normalizeBoxLabel(event.box || '')
+    const boxMatch =
+      selectedBoxLabels.size === 0 ? true : selectedBoxLabels.has(boxName)
 
     // Filter by professional (if event has professionalId)
     const professionalMatch =
@@ -4147,10 +4152,29 @@ export default function WeekScheduler() {
 
   // Use configuration context for professional and box options
   // Fallback to hardcoded PROFESSIONAL_OPTIONS for backwards compatibility with existing data
-  const effectiveProfessionalOptions =
-    professionalOptions.length > 0 ? professionalOptions : PROFESSIONAL_OPTIONS
-  const effectiveBoxOptions =
-    boxOptions.length > 0 ? boxOptions : DEFAULT_BOX_OPTIONS
+  const effectiveProfessionalOptions = useMemo(
+    () =>
+      professionalOptions.length > 0
+        ? professionalOptions
+        : PROFESSIONAL_OPTIONS,
+    [professionalOptions]
+  )
+  const effectiveBoxOptions = useMemo(
+    () =>
+      (boxOptions.length > 0 ? boxOptions : DEFAULT_BOX_OPTIONS).map((opt) => ({
+        id: normalizeBoxLabel(opt.label),
+        label: opt.label
+      })),
+    [boxOptions]
+  )
+  const professionalOptionIds = useMemo(
+    () => effectiveProfessionalOptions.map((opt) => opt.id),
+    [effectiveProfessionalOptions]
+  )
+  const boxOptionIds = useMemo(
+    () => effectiveBoxOptions.map((opt) => opt.id),
+    [effectiveBoxOptions]
+  )
 
   const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>(
     () => effectiveProfessionalOptions.map((opt) => opt.id) // All professionals selected by default
@@ -4160,6 +4184,46 @@ export default function WeekScheduler() {
   )
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(false)
   const [showAIOnly, setShowAIOnly] = useState(false) // Filter for AI-created appointments
+
+  useEffect(() => {
+    setSelectedProfessionals((previous) => {
+      const kept = previous.filter((id) => professionalOptionIds.includes(id))
+      const next = kept.length > 0 ? kept : professionalOptionIds
+      if (
+        previous.length === next.length &&
+        previous.every((id, index) => id === next[index])
+      ) {
+        return previous
+      }
+      return next
+    })
+  }, [professionalOptionIds])
+
+  useEffect(() => {
+    setSelectedBoxes((previous) => {
+      const kept = previous.filter((id) => boxOptionIds.includes(id))
+      const next = kept.length > 0 ? kept : boxOptionIds
+      if (
+        previous.length === next.length &&
+        previous.every((id, index) => id === next[index])
+      ) {
+        return previous
+      }
+      return next
+    })
+  }, [boxOptionIds])
+
+  const resolveBoxLabel = useCallback(
+    (value?: string | null): string => {
+      if (!value) return effectiveBoxOptions[0]?.label || 'Box 1'
+      const key = normalizeBoxLabel(value)
+      const matched =
+        effectiveBoxOptions.find((opt) => opt.id === key) ||
+        effectiveBoxOptions.find((opt) => normalizeBoxLabel(opt.label) === key)
+      return matched?.label || value
+    },
+    [effectiveBoxOptions]
+  )
 
   // Estado para filtro de estado de visita (null = mostrar todos)
   const [activeVisitStatusFilter, setActiveVisitStatusFilter] = useState<
@@ -4412,6 +4476,7 @@ export default function WeekScheduler() {
         .filter(Boolean)
         .join(', ')
       const eventTitle = linkedLabel || apt.reason || 'Consulta'
+      const eventBoxLabel = resolveBoxLabel(apt.box || fallbackBox)
       const economicStatus =
         apt.paymentInfo && apt.paymentInfo.pendingAmount > 0
           ? 'Pago parcial'
@@ -4433,7 +4498,7 @@ export default function WeekScheduler() {
         height: `${heightSlots * SLOT_REM}rem`,
         title: eventTitle,
         patient: apt.patientName || 'Paciente',
-        box: apt.box || fallbackBox,
+        box: eventBoxLabel,
         timeRange: `${apt.startTime} - ${apt.endTime}`,
         backgroundClass: toBackgroundClass(apt.bgColor, apt.createdByVoiceAgent),
         detail: {
@@ -4492,7 +4557,8 @@ export default function WeekScheduler() {
     currentWeekStart,
     effectiveBoxOptions,
     effectiveProfessionalOptions,
-    getAppointmentsByDateRange
+    getAppointmentsByDateRange,
+    resolveBoxLabel
   ])
 
   // Sync day view appointments whenever we are in day view or data changes
@@ -4987,7 +5053,7 @@ export default function WeekScheduler() {
     if (weekday) {
       const dayColumn = dayColumnsState.find((c) => c.id === weekday)
       if (dayColumn && dayColumn.events.length > 0) {
-        return mapColumnToDayAppointments(dayColumn, false)
+        return mapColumnToDayAppointments(dayColumn)
       }
     }
 
@@ -5049,12 +5115,9 @@ export default function WeekScheduler() {
     return []
   }
 
-  const mapColumnToDayAppointments = (
-    column?: DayColumn,
-    useFallback = true
-  ) => {
+  const mapColumnToDayAppointments = (column?: DayColumn) => {
     if (!column || column.events.length === 0) {
-      return useFallback ? DAY_VIEW_FALLBACK_APPOINTMENTS : []
+      return DAY_VIEW_FALLBACK_APPOINTMENTS.slice(0, 0)
     }
     return column.events.map((ev, idx) => {
       const [startRaw, endRaw] = (ev.timeRange ?? '').split('-')
@@ -5117,7 +5180,7 @@ export default function WeekScheduler() {
         const dayColumn = dayColumnsState.find((c) => c.id === weekday)
         if (dayColumn && dayColumn.events.length > 0) {
           setSelectedDayAppointments(
-            mapColumnToDayAppointments(dayColumn, false)
+            mapColumnToDayAppointments(dayColumn)
           )
           return
         }
@@ -5388,8 +5451,17 @@ export default function WeekScheduler() {
       .filter((block) => {
         // Filter by selected boxes
         if (block.box) {
-          const boxFilterId = block.box.replace(' ', '-')
-          if (!selectedBoxes.includes(boxFilterId)) return false
+          const selectedBoxLabels = new Set(
+            effectiveBoxOptions
+              .filter((opt) => selectedBoxes.includes(opt.id))
+              .map((opt) => normalizeBoxLabel(opt.label))
+          )
+          if (
+            selectedBoxLabels.size > 0 &&
+            !selectedBoxLabels.has(normalizeBoxLabel(block.box))
+          ) {
+            return false
+          }
         }
         return true
       })
@@ -5418,8 +5490,8 @@ export default function WeekScheduler() {
         const height = `${heightSlots * SLOT_REM}rem`
 
         // Calculate left/width based on box layout
-        const boxLayout = getBoxLayout(selectedBoxes)
-        const boxName = block.box?.toLowerCase() ?? ''
+        const boxLayout = getBoxLayout(selectedBoxes, effectiveBoxOptions)
+        const boxName = normalizeBoxLabel(block.box ?? '')
         const layout = boxLayout[boxName]
 
         return {
@@ -5655,9 +5727,9 @@ export default function WeekScheduler() {
             : dragState.startHeightSlots
 
         // Calcular el box objetivo dinámicamente basándose en los boxes seleccionados
-        const validBoxes = selectedBoxes
-          .filter((id) => DEFAULT_BOX_OPTIONS.some((opt) => opt.id === id))
-          .sort() // Ordenar para mantener consistencia (box-1, box-2, box-3)
+        const validBoxes = effectiveBoxOptions.filter((opt) =>
+          selectedBoxes.includes(opt.id)
+        )
         const numBoxes = validBoxes.length || 1
         const boxWidthPx = rect.width / numBoxes
         const relX = x - rect.left
@@ -5665,9 +5737,8 @@ export default function WeekScheduler() {
           numBoxes - 1,
           Math.max(0, Math.floor(relX / boxWidthPx))
         )
-        const targetBoxId = validBoxes[boxIndex] ?? 'box-1'
-        // Convertir 'box-1' a 'Box 1' (formato usado en los eventos)
-        const targetBox = targetBoxId.replace('box-', 'Box ')
+        const targetBox =
+          validBoxes[boxIndex]?.label || effectiveBoxOptions[0]?.label || 'Box 1'
 
         const startTime = slotToTime(newSlot)
         const endTime = slotToTime(newSlot + newHeightSlots)
@@ -5738,7 +5809,7 @@ export default function WeekScheduler() {
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
     }
-  }, [dragState, getDateFromWeekday, selectedBoxes])
+  }, [dragState, effectiveBoxOptions, getDateFromWeekday, selectedBoxes])
 
   const getSlotIndexFromTime = (time: string): number => {
     const [h = '09', m = '00'] = time.split(':')
@@ -5809,6 +5880,7 @@ export default function WeekScheduler() {
       ?.map((t) => t.description)
       .join(', ')
     const eventTitle = eventTreatments || data.servicio || 'Nueva cita'
+    const eventBoxLabel = resolveBoxLabel(data.box)
 
     // Check for voice agent prefill data from URL navigation
     const voiceAgentPrefill = (window as unknown as Record<string, unknown>)
@@ -5831,7 +5903,7 @@ export default function WeekScheduler() {
       height: `${heightRem}rem`,
       title: eventTitle,
       patient: data.paciente || 'Paciente',
-      box: data.box || 'Box 1',
+      box: eventBoxLabel,
       timeRange: `${data.hora} - ${endTime}`,
       backgroundClass: voiceAgentPrefill?.createdByVoiceAgent
         ? 'bg-[var(--color-event-ai-bg)]'
@@ -5880,7 +5952,7 @@ export default function WeekScheduler() {
       status: voiceAgentPrefill?.createdByVoiceAgent
         ? 'Pendiente IA'
         : 'No confirmada',
-      box: data.box || 'box 1',
+      box: normalizeBoxLabel(eventBoxLabel),
       charge: 'No',
       bgColor: voiceAgentPrefill?.createdByVoiceAgent
         ? 'var(--color-event-ai-bg)'
@@ -6380,6 +6452,7 @@ export default function WeekScheduler() {
           <HeaderLabels
             cells={getHeaderCells()}
             selectedBoxes={selectedBoxes}
+            boxOptions={effectiveBoxOptions}
           />
 
           {/* Scrollable Content Area */}
@@ -6409,6 +6482,7 @@ export default function WeekScheduler() {
                     setActive(null)
                   }}
                   selectedBoxes={selectedBoxes}
+                  boxOptions={effectiveBoxOptions}
                   selectedProfessionals={selectedProfessionals}
                   completedEvents={completedEvents}
                   onToggleComplete={handleToggleComplete}

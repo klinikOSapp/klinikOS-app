@@ -1,7 +1,7 @@
 'use client'
 
 import Portal from '@/components/ui/Portal'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { CallRecord, VoiceAgentTier } from './voiceAgentTypes'
 import {
   CALL_INTENT_LABELS,
@@ -29,51 +29,12 @@ type CallDetailModalProps = {
   onMarkResolved?: () => void
 }
 
-// Timeline steps for the call process
 type TimelineStep = {
   id: string
   label: string
   timestamp: string
   completed: boolean
 }
-
-const MOCK_TIMELINE: TimelineStep[] = [
-  { id: '1', label: 'Llamada recibida', timestamp: '21:00', completed: true },
-  {
-    id: '2',
-    label: 'Intención detectada',
-    timestamp: '21:03',
-    completed: true
-  },
-  {
-    id: '3',
-    label: 'Paciente identificado',
-    timestamp: '21:04',
-    completed: true
-  },
-  {
-    id: '4',
-    label: 'Preferencias capturadas',
-    timestamp: '21:05',
-    completed: true
-  },
-  { id: '5', label: 'Huecos verificados', timestamp: '21:06', completed: true },
-  {
-    id: '6',
-    label: 'Cita propuesta y aceptada',
-    timestamp: '21:08',
-    completed: true
-  },
-  {
-    id: '7',
-    label: 'Confirmación enviada',
-    timestamp: '21:09',
-    completed: true
-  },
-  { id: '8', label: 'Llamada finalizada', timestamp: '21:12', completed: true }
-]
-
-// Communication checkboxes
 type CommunicationItem = {
   id: string
   label: string
@@ -81,26 +42,15 @@ type CommunicationItem = {
   checked: boolean
 }
 
-const MOCK_COMMUNICATIONS: CommunicationItem[] = [
-  {
-    id: '1',
-    label: 'SMS confirmación enviado',
-    timestamp: '21:10',
-    checked: true
-  },
-  {
-    id: '2',
-    label: 'Email confirmación enviado',
-    timestamp: '21:10',
-    checked: true
-  },
-  {
-    id: '3',
-    label: 'SMS recordatorio programado',
-    timestamp: 'Mañana 9:00',
-    checked: true
-  }
-]
+function addMinutes(time: string, deltaMinutes: number): string {
+  const [h, m] = time.split(':').map((v) => Number(v))
+  if (Number.isNaN(h) || Number.isNaN(m) || Number.isNaN(deltaMinutes)) return time
+  const total = h * 60 + deltaMinutes + m
+  const normalized = ((total % (24 * 60)) + 24 * 60) % (24 * 60)
+  const hh = Math.floor(normalized / 60)
+  const mm = normalized % 60
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
+}
 
 /**
  * Call Detail Modal
@@ -128,6 +78,69 @@ export default function CallDetailModal({
   // - Si es false: intenciones cancelar_cita, confirmar_cita, consulta_financiacion → mostrar "Crear cita"
   // Only relevant in advanced mode
   const canCreateAppointment = !isBasicMode && isAppointmentIntent(call.intent)
+
+  const timeline = useMemo<TimelineStep[]>(() => {
+    const resolved = call.status === 'resuelta'
+    const inProgress = call.status === 'en_curso'
+    const appointmentCreated = Boolean(call.appointmentId)
+    const hasPatient = Boolean(call.patient)
+    const durationParts = call.duration.split(':')
+    const durationMins = Number(durationParts[0] || 0)
+
+    return [
+      { id: '1', label: 'Llamada recibida', timestamp: call.time, completed: true },
+      {
+        id: '2',
+        label: 'Intención detectada',
+        timestamp: addMinutes(call.time, 1),
+        completed: true
+      },
+      {
+        id: '3',
+        label: hasPatient ? 'Paciente identificado' : 'Paciente por identificar',
+        timestamp: addMinutes(call.time, 2),
+        completed: hasPatient
+      },
+      {
+        id: '4',
+        label: appointmentCreated ? 'Cita vinculada' : 'Gestión registrada',
+        timestamp: addMinutes(call.time, 3),
+        completed: appointmentCreated || resolved || inProgress
+      },
+      {
+        id: '5',
+        label: resolved ? 'Llamada finalizada' : 'Seguimiento pendiente',
+        timestamp: addMinutes(call.time, Math.max(durationMins, 1)),
+        completed: resolved
+      }
+    ]
+  }, [call.appointmentId, call.duration, call.patient, call.status, call.time])
+
+  const communications = useMemo<CommunicationItem[]>(() => {
+    const resolved = call.status === 'resuelta'
+    const urgent = call.status === 'urgente'
+    const appointmentCreated = Boolean(call.appointmentId)
+    return [
+      {
+        id: '1',
+        label: 'Resumen de llamada generado',
+        timestamp: addMinutes(call.time, 1),
+        checked: Boolean(call.summary)
+      },
+      {
+        id: '2',
+        label: appointmentCreated ? 'Cita enviada a agenda' : 'Sin cita vinculada',
+        timestamp: addMinutes(call.time, 3),
+        checked: appointmentCreated
+      },
+      {
+        id: '3',
+        label: urgent ? 'Marcada como urgente' : 'Sin alerta urgente',
+        timestamp: resolved ? addMinutes(call.time, 4) : 'Pendiente',
+        checked: urgent
+      }
+    ]
+  }, [call.appointmentId, call.status, call.summary, call.time])
 
   // Build reason/notes from call intent and summary
   const appointmentReason = `${CALL_INTENT_LABELS[call.intent]}${
@@ -255,7 +268,7 @@ export default function CallDetailModal({
                   Proceso de la llamada
                 </h4>
                 <div className='flex flex-col'>
-                  {MOCK_TIMELINE.map((step, index) => (
+                  {timeline.map((step, index) => (
                     <div key={step.id} className='flex gap-3'>
                       {/* Timeline indicator */}
                       <div className='flex flex-col items-center'>
@@ -270,7 +283,7 @@ export default function CallDetailModal({
                             {step.completed ? 'check' : 'circle'}
                           </span>
                         </div>
-                        {index < MOCK_TIMELINE.length - 1 && (
+                        {index < timeline.length - 1 && (
                           <div
                             className={`w-0.5 h-5 ${
                               step.completed ? 'bg-brand-300' : 'bg-neutral-300'
@@ -534,7 +547,7 @@ export default function CallDetailModal({
                     Comunicaciones enviadas
                   </h4>
                   <div className='space-y-2'>
-                    {MOCK_COMMUNICATIONS.map((comm) => (
+                    {communications.map((comm) => (
                       <div
                         key={comm.id}
                         className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
