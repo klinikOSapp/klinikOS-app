@@ -131,7 +131,7 @@ export const BLOCK_TYPE_CONFIG: Record<
   break: { label: 'Descanso', icon: 'FreeBreakfastRounded' },
   meeting: { label: 'Reunión', icon: 'GroupsRounded' },
   maintenance: { label: 'Mantenimiento', icon: 'EngineeringRounded' },
-  other: { label: 'Otro', icon: 'BlockRounded' }
+  other: { label: 'Bloqueo agenda', icon: 'BlockRounded' }
 }
 
 export type RecurrencePattern = {
@@ -153,6 +153,9 @@ export type AgendaBlock = {
   box?: string // "box 1", "box 2", etc.
   recurrence?: RecurrencePattern
   parentBlockId?: string // para bloques generados por recurrencia
+  patientId?: string
+  patientName?: string
+  sourcePublicRef?: string
 }
 
 // ============================================
@@ -240,6 +243,8 @@ export type Appointment = {
   createdByVoiceAgent?: boolean // Marca que fue creada por IA
   voiceAgentCallId?: string // ID de la llamada vinculada
   voiceAgentData?: VoiceAgentData // Datos de la llamada
+  sourceHoldId?: string
+  sourceHoldPublicRef?: string
 }
 
 
@@ -275,6 +280,9 @@ type DbAppointmentHoldRow = {
   status: string
   summary_text: string | null
   summary_json: Record<string, unknown> | null
+  patient_id?: string | null
+  patient_name?: string | null
+  public_ref?: string | null
 }
 
 type DbClinicalAttachmentRow = {
@@ -288,6 +296,12 @@ type DbClinicalAttachmentRow = {
 }
 
 const AGENDA_TIMEZONE = 'Europe/Madrid'
+
+const normalizeBoxLookupKey = (value: string): string =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
 
 const parseShortOffsetToMinutes = (value: string): number => {
   const normalized = value.replace('UTC', 'GMT')
@@ -316,13 +330,17 @@ const formatDateInTimezone = (
 ): string => {
   const date = dateValue instanceof Date ? dateValue : new Date(dateValue)
   if (Number.isNaN(date.getTime())) return ''
-  const formatter = new Intl.DateTimeFormat('en-CA', {
+  const formatter = new Intl.DateTimeFormat('en-GB', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
   })
-  return formatter.format(date)
+  const parts = formatter.formatToParts(date)
+  const year = parts.find((part) => part.type === 'year')?.value ?? '1970'
+  const month = parts.find((part) => part.type === 'month')?.value ?? '01'
+  const day = parts.find((part) => part.type === 'day')?.value ?? '01'
+  return `${year}-${month}-${day}`
 }
 
 const formatTimeInTimezone = (
@@ -602,7 +620,9 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
               .eq('clinic_id', clinicId),
             supabase
               .from('appointment_holds')
-              .select('id, start_time, end_time, box_id, status, summary_text, summary_json')
+              .select(
+                'id, start_time, end_time, box_id, status, summary_text, summary_json, patient_id, patient_name, public_ref'
+              )
               .eq('clinic_id', clinicId)
               .neq('status', 'cancelled')
               .order('start_time', { ascending: true }),
@@ -622,6 +642,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
           boxMapById.set(id, label)
           boxMapByLabel.set(label.toLowerCase(), id)
           boxMapByLabel.set(label.replace(/\s+/g, '').toLowerCase(), id)
+          boxMapByLabel.set(normalizeBoxLookupKey(label), id)
         }
         boxIdByLabelRef.current = Object.fromEntries(boxMapByLabel.entries())
 
@@ -835,7 +856,22 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
               parentBlockId:
                 typeof summary.parent_block_id === 'string'
                   ? summary.parent_block_id
-                  : undefined
+                  : undefined,
+              patientId:
+                row.patient_id ||
+                (typeof summary.patient_id === 'string'
+                  ? summary.patient_id
+                  : undefined),
+              patientName:
+                row.patient_name ||
+                (typeof summary.patient_name === 'string'
+                  ? summary.patient_name
+                  : undefined),
+              sourcePublicRef:
+                row.public_ref ||
+                (typeof summary.public_ref === 'string'
+                  ? summary.public_ref
+                  : undefined)
             }
           })
 
@@ -980,9 +1016,11 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
           const supabase = createSupabaseBrowserClient()
           const boxLabel = (appointmentData.box || '').trim().toLowerCase()
           const normalizedBoxLabel = boxLabel.replace(/\s+/g, '')
+          const lookupBoxLabel = normalizeBoxLookupKey(appointmentData.box || '')
           const boxId =
             boxIdByLabelRef.current[boxLabel] ||
             boxIdByLabelRef.current[normalizedBoxLabel] ||
+            boxIdByLabelRef.current[lookupBoxLabel] ||
             null
 
           const { data: inserted, error } = await supabase
@@ -1002,7 +1040,12 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
               ),
               notes: appointmentData.notes || null,
               source: appointmentData.createdByVoiceAgent ? 'call' : 'manual',
-              service_type: appointmentData.reason
+              service_type: appointmentData.reason,
+              source_hold_id:
+                appointmentData.sourceHoldId &&
+                Number.isFinite(Number(appointmentData.sourceHoldId))
+                  ? Number(appointmentData.sourceHoldId)
+                  : null
             })
             .select('id')
             .single()
@@ -1137,9 +1180,11 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
           if (updates.box !== undefined) {
             const boxLabel = updates.box.trim().toLowerCase()
             const normalized = boxLabel.replace(/\s+/g, '')
+            const lookupBoxLabel = normalizeBoxLookupKey(updates.box)
             dbUpdates.box_id =
               boxIdByLabelRef.current[boxLabel] ||
               boxIdByLabelRef.current[normalized] ||
+              boxIdByLabelRef.current[lookupBoxLabel] ||
               null
           }
 
@@ -1151,6 +1196,14 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
 
           if (error) {
             console.warn('No se pudo actualizar cita en DB', error)
+            if (currentAppointment) {
+              setAppointments((prev) =>
+                prev.map((apt) =>
+                  apt.id === id ? currentAppointment : apt
+                )
+              )
+            }
+            return
           }
 
           const notePatientId = updates.patientId ?? currentAppointment?.patientId
@@ -1553,9 +1606,11 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         for (const block of allBlocks) {
           const boxLabel = (block.box || '').trim().toLowerCase()
           const normalizedBoxLabel = boxLabel.replace(/\s+/g, '')
+          const lookupBoxLabel = normalizeBoxLookupKey(block.box || '')
           const boxId =
             boxIdByLabelRef.current[boxLabel] ||
             boxIdByLabelRef.current[normalizedBoxLabel] ||
+            boxIdByLabelRef.current[lookupBoxLabel] ||
             null
 
           const { data: inserted, error } = await supabase
@@ -1624,9 +1679,11 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
           const mergedBlock = { ...currentBlock, ...updates }
           const boxLabel = (mergedBlock.box || '').trim().toLowerCase()
           const normalizedBoxLabel = boxLabel.replace(/\s+/g, '')
+          const lookupBoxLabel = normalizeBoxLookupKey(mergedBlock.box || '')
           const boxId =
             boxIdByLabelRef.current[boxLabel] ||
             boxIdByLabelRef.current[normalizedBoxLabel] ||
+            boxIdByLabelRef.current[lookupBoxLabel] ||
             null
 
           const { error } = await supabase

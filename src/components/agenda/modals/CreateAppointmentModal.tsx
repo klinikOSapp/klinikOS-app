@@ -37,6 +37,8 @@ export type AppointmentFormData = {
   hora: string
   duracion: string
   box: string
+  sourceHoldId?: string
+  sourceHoldPublicRef?: string
   linkedTreatments?: {
     id: string
     description: string
@@ -66,6 +68,8 @@ const getEmptyFormData = (): AppointmentFormData => ({
   hora: '',
   duracion: '',
   box: '',
+  sourceHoldId: '',
+  sourceHoldPublicRef: '',
   linkedTreatments: []
 })
 

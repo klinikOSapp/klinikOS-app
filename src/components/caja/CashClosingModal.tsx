@@ -3,198 +3,118 @@
 import React from 'react'
 import { createPortal } from 'react-dom'
 
-const pxToRem = (value: number) => value / 16
+import {
+  useCashClosing,
+  type CashTransaction,
+  type DaySummary
+} from '@/context/CashClosingContext'
+import {
+  downloadCashClosingExcel,
+  type CashClosingTransaction,
+  type CashClosingSummary
+} from '@/utils/exportUtils'
 
-const MODAL_WIDTH_REM = pxToRem(1200) // 75rem
-const MODAL_HEIGHT_REM = pxToRem(892) // 55.75rem
-const MODAL_SCALE_FORMULA = `min(1, calc(95vw / ${MODAL_WIDTH_REM}rem), calc(90vh / ${MODAL_HEIGHT_REM}rem))`
-const RECOUNT_MODAL_WIDTH_REM = pxToRem(602) // 37.625rem
-const RECOUNT_MODAL_SCALE_FORMULA = `min(1, calc(95vw / ${RECOUNT_MODAL_WIDTH_REM}rem), calc(90vh / ${MODAL_HEIGHT_REM}rem))`
+// ─────────────────────────────────────────────────────────────
+// Types & Constants
+// ─────────────────────────────────────────────────────────────
 
-const SECTION_LEFT_REM = pxToRem(32) // 2rem
-const HEADER_TOP_REM = pxToRem(88) // 5.5rem
-const HEADER_WIDTH_REM = pxToRem(568) // 35.5rem
-const FORM_TOP_REM = pxToRem(232) // 14.5rem
-const FORM_WIDTH_REM = pxToRem(1136) // 71rem
-const FORM_GAP_REM = pxToRem(64) // 4rem
-const TABLE_TOP_REM = pxToRem(372) // 23.25rem
-const TABLE_HEIGHT_REM = pxToRem(392) // 24.5rem
-const ROW_HEIGHT_REM = pxToRem(40) // 2.5rem
-const CTA_TOP_REM = pxToRem(820) // 51.25rem
-const CTA_LEFT_REM = pxToRem(1049) // 65.5625rem
-const CTA_WIDTH_REM = pxToRem(119) // 7.4375rem
-const CTA_HEIGHT_REM = pxToRem(40) // 2.5rem
-const RECOUNT_HEADER_TOP_REM = pxToRem(104) // 6.5rem
-const RECOUNT_LABEL_LEFT_REM = pxToRem(32) // 2rem
-const RECOUNT_LABEL_TOP_START_REM = pxToRem(176) // 11rem
-const RECOUNT_LABEL_ROW_GAP_REM = pxToRem(100) // 6.25rem
-const RECOUNT_INPUT_LEFT_REM = pxToRem(266) // 16.625rem
-const RECOUNT_INPUT_WIDTH_REM = pxToRem(304) // 19rem
-const RECOUNT_INPUT_HEIGHT_REM = pxToRem(48) // 3rem
-const RECOUNT_CTA_LEFT_REM = pxToRem(451) // 28.1875rem
+type PaymentMethodFilter = 'all' | 'efectivo' | 'tpv' | 'transferencia' | 'financiacion'
 
-const TABLE_COLUMN_WIDTHS_REM = [
-  pxToRem(95),
-  pxToRem(287),
-  pxToRem(348),
-  pxToRem(166),
-  pxToRem(200)
-]
-
-const TABLE_GRID_TEMPLATE = TABLE_COLUMN_WIDTHS_REM.map((width) => `${width}rem`).join(' ')
-
-const CASH_TOTAL_FIELDS = [
-  { id: 'initial', label: 'Caja inicial', placeholder: '0,00 €', required: false },
-  { id: 'day', label: 'Caja del día', placeholder: '0,00 €', required: false },
-  { id: 'outflow', label: 'Salida de caja', placeholder: '0,00 €', required: true },
-  { id: 'rest', label: 'Resto de caja', placeholder: '0,00 €', required: false }
-] as const
-
-type CashTotalFieldId = (typeof CASH_TOTAL_FIELDS)[number]['id']
-
-const INITIAL_TOTAL_VALUES: Record<CashTotalFieldId, string> = {
-  initial: '0.00 €',
-  day: '0.00 €',
-  rest: '0.00 €',
-  outflow: '0.00 €' // Default to 0 as requested
-}
-
-type RecountFieldId = 'cash' | 'tpv' | 'transfer' | 'cheque'
-
-const INITIAL_RECOUNT_VALUES: Record<RecountFieldId, string> = {
-  cash: '',
-  tpv: '',
-  transfer: '',
-  cheque: ''
-}
-
-const CASH_CLOSING_ROWS = [
-  {
-    time: '09:00',
-    patient: 'Carlos Martínez Pérez',
-    concept: 'Operación mandíbula',
-    amount: '2.300 €',
-    method: 'Financiado'
+const PAYMENT_METHOD_CONFIG: Record<
+  string,
+  { label: string; color: string; bgColor: string; icon: string }
+> = {
+  efectivo: {
+    label: 'Efectivo',
+    color: 'text-success-700',
+    bgColor: 'bg-success-50',
+    icon: 'payments'
   },
-  {
-    time: '09:30',
-    patient: 'Nacho Nieto Iniesta',
-    concept: 'Consulta inicial',
-    amount: '150 €',
-    method: 'TPV'
+  tpv: {
+    label: 'TPV',
+    color: 'text-brand-700',
+    bgColor: 'bg-brand-50',
+    icon: 'credit_card'
   },
-  {
-    time: '10:00',
-    patient: 'Sofía Rodríguez López',
-    concept: 'Radiografía',
-    amount: '100 €',
-    method: 'Efectivo'
+  transferencia: {
+    label: 'Transferencia',
+    color: 'text-info-700',
+    bgColor: 'bg-info-50',
+    icon: 'account_balance'
   },
-  {
-    time: '10:30',
-    patient: 'Elena García Santos',
-    concept: 'Extracción de muela',
-    amount: '500 €',
-    method: 'Tarjeta de crédito'
+  financiacion: {
+    label: 'Financiación',
+    color: 'text-warning-700',
+    bgColor: 'bg-warning-50',
+    icon: 'schedule'
   },
-  {
-    time: '11:00',
-    patient: 'Javier Fernández Torres',
-    concept: 'Implante dental',
-    amount: '1.200 €',
-    method: 'Transferencia bancaria'
-  },
-  {
-    time: '11:30',
-    patient: 'Lucía Pérez Gómez',
-    concept: 'Férula de descarga',
-    amount: '300 €',
-    method: 'Billetera digital'
-  },
-  {
-    time: '12:00',
-    patient: 'Andrés Jiménez Ortega',
-    concept: 'Tratamiento de ortodoncia',
-    amount: '1.800 €',
-    method: 'Criptomonedas'
-  },
-  {
-    time: '12:30',
-    patient: 'María del Mar Ruiz',
-    concept: 'Consulta de seguimiento',
-    amount: '100 €',
-    method: 'Cheque'
-  },
-  {
-    time: '13:00',
-    patient: 'Pablo Sánchez Delgado',
-    concept: 'Blanqueamiento dental',
-    amount: '400 €',
-    method: 'Pago a plazos'
+  otros: {
+    label: 'Otros',
+    color: 'text-neutral-700',
+    bgColor: 'bg-neutral-100',
+    icon: 'more_horiz'
   }
-] as const
+}
+
+const FILTER_OPTIONS: { id: PaymentMethodFilter; label: string }[] = [
+  { id: 'all', label: 'Todos' },
+  { id: 'efectivo', label: 'Efectivo' },
+  { id: 'tpv', label: 'TPV' },
+  { id: 'transferencia', label: 'Transferencia' },
+  { id: 'financiacion', label: 'Financiación' }
+]
 
 type CashClosingModalProps = {
   open: boolean
   onClose: () => void
-  date?: Date // Date for which to close cash
+  initialDate?: string // ISO date string YYYY-MM-DD
 }
 
-type ModalStep = 'select' | 'totals' | 'summary' | 'recount' | 'confirmation'
+// ─────────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────────
 
-type DailyMovement = {
-  time: string
-  patient: string
-  concept: string
-  amount: string
-  method: string
-}
-
-type PaymentMethodBreakdown = {
-  cash: number
-  card: number
-  transfer: number
-  check: number
-  [key: string]: number
-}
-
-type StaffMember = {
-  id: string
-  name: string
-  email: string
-}
-
-// Helper function to format date in local timezone (YYYY-MM-DD)
-const formatDateForAPI = (date: Date): string => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-// Helper function to create date in local timezone (avoiding timezone issues)
-const createLocalDate = (year: number, month: number, day: number): Date => {
-  return new Date(year, month, day, 12, 0, 0) // Use noon to avoid timezone edge cases
-}
-
-export function CashClosingModal({ open, onClose, date = new Date() }: CashClosingModalProps) {
+export function CashClosingModal({
+  open,
+  onClose,
+  initialDate
+}: CashClosingModalProps) {
   const [mounted, setMounted] = React.useState(false)
-  const [totalValues, setTotalValues] = React.useState(INITIAL_TOTAL_VALUES)
-  const [recountValues, setRecountValues] = React.useState(INITIAL_RECOUNT_VALUES)
-  const [step, setStep] = React.useState<ModalStep>('select')
-  const [selectedDate, setSelectedDate] = React.useState<Date>(date)
-  const [selectedStaffId, setSelectedStaffId] = React.useState<string>('')
-  const [staffList, setStaffList] = React.useState<StaffMember[]>([])
-  const [dailyMovements, setDailyMovements] = React.useState<DailyMovement[]>([])
-  const [isLoading, setIsLoading] = React.useState(false)
-  const [paymentMethodBreakdown, setPaymentMethodBreakdown] = React.useState<PaymentMethodBreakdown>({
-    cash: 0,
-    card: 0,
-    transfer: 0,
-    check: 0
-  })
-  const [totalDayAmount, setTotalDayAmount] = React.useState<number>(0)
-  const [existingClosing, setExistingClosing] = React.useState<any>(null)
+  const [selectedDate, setSelectedDate] = React.useState<string>('')
+  const [cashOutflow, setCashOutflow] = React.useState('')
+  const [isConfirming, setIsConfirming] = React.useState(false)
+  const [searchQuery, setSearchQuery] = React.useState('')
+  const [methodFilter, setMethodFilter] = React.useState<PaymentMethodFilter>('all')
+  const [showDatePicker, setShowDatePicker] = React.useState(false)
+
+  const {
+    getAvailableDates,
+    getDaySummary,
+    isDayClosed,
+    closeDay,
+    reopenDay
+  } = useCashClosing()
+
+  const availableDates = React.useMemo(() => getAvailableDates(), [getAvailableDates])
+
+  // Initialize modal state only when opening
+  React.useEffect(() => {
+    if (!open) return
+
+    const dateToSelect = initialDate ?? availableDates[0] ?? ''
+    setSelectedDate(dateToSelect)
+    setCashOutflow('')
+    setIsConfirming(false)
+    setSearchQuery('')
+    setMethodFilter('all')
+  }, [open, initialDate])
+
+  React.useEffect(() => {
+    if (!open) return
+    if (selectedDate) return
+    if (availableDates.length === 0) return
+    setSelectedDate(availableDates[0])
+  }, [open, selectedDate, availableDates])
 
   React.useEffect(() => {
     setMounted(true)
@@ -204,535 +124,586 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
     if (!open) return undefined
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') {
+        if (showDatePicker) {
+          setShowDatePicker(false)
+        } else if (!isConfirming) {
+          onClose()
+        }
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose, open])
+  }, [onClose, open, isConfirming, showDatePicker])
 
-  // Reset modal state when opening (only when open changes, not date)
+  // Close date picker when clicking outside
+  const datePickerRef = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
-    if (open) {
-      setStep('select')
-      // Ensure date is in local timezone (create new date at noon to avoid timezone issues)
-      const initialDate = date instanceof Date 
-        ? createLocalDate(date.getFullYear(), date.getMonth(), date.getDate())
-        : new Date()
-      console.log(`[CashClosingModal] Opening modal, initial date:`, initialDate, `Formatted:`, formatDateForAPI(initialDate))
-      setSelectedDate(initialDate)
-      setSelectedStaffId('')
-      setStaffList([]) // Reset staff list to show loading state
-      setRecountValues(INITIAL_RECOUNT_VALUES) // Reset recount values to empty - humans must manually enter
-      setTotalValues(INITIAL_TOTAL_VALUES) // Reset total values to defaults
-      setPaymentMethodBreakdown({ cash: 0, card: 0, transfer: 0, check: 0 }) // Reset breakdown
-      setExistingClosing(null) // Reset existing closing
+    if (!showDatePicker) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
+        setShowDatePicker(false)
+      }
     }
-  }, [open]) // Removed 'date' from dependencies to prevent infinite loop
 
-  // Fetch staff list when modal opens
-  React.useEffect(() => {
-    if (!open || step !== 'select') return
+    // Use mousedown instead of click to fire before other handlers
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showDatePicker])
 
-    let cancelled = false
-    fetch('/api/caja/closing/staff')
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled) return
-        if (data.staff && Array.isArray(data.staff)) {
-          setStaffList(data.staff)
-        } else {
-          console.warn('No staff data received:', data)
-          setStaffList([])
-        }
-      })
-      .catch((error) => {
-        if (cancelled) return
-        console.error('Error fetching staff:', error)
-        setStaffList([])
-      })
+  // Get summary for selected date
+  const daySummary = React.useMemo(() => {
+    if (!selectedDate) return null
+    return getDaySummary(selectedDate)
+  }, [selectedDate, getDaySummary])
 
-    return () => {
-      cancelled = true
-    }
-  }, [open, step])
+  const dayIsClosed = selectedDate ? isDayClosed(selectedDate) : false
 
-  // Fetch daily movements, calculated totals, and existing closing data when entering Totals (Step 2A)
-  React.useEffect(() => {
-    if (!open || step !== 'totals') return
+  // Filter transactions
+  const filteredTransactions = React.useMemo(() => {
+    if (!daySummary) return []
 
-    setIsLoading(true)
-    // Format date in local timezone to avoid UTC conversion issues
-    const dateStr = formatDateForAPI(selectedDate)
-    
-    console.log(`[CashClosingModal] Fetching data for date:`, selectedDate, `Formatted:`, dateStr)
-
-    // Fetch calculated totals (starter_box_amount + expected breakdown), daily movements, and existing closing.
-    Promise.all([
-      fetch(`/api/caja/closing/calculate-totals?date=${dateStr}`).then((res) => res.json()),
-      fetch(`/api/caja/closing/daily-movements?date=${dateStr}`).then((res) => res.json()),
-      fetch(`/api/caja/closing?date=${dateStr}`).then((res) => res.json())
-    ])
-      .then(([totalsData, movementsData, closingData]) => {
-        // Calculate values from API responses
-        const initialValue = closingData.closing?.starter_box_amount !== null && closingData.closing?.starter_box_amount !== undefined
-          ? Number(closingData.closing.starter_box_amount)
-          : totalsData.starterBoxAmount !== undefined
-            ? Number(totalsData.starterBoxAmount)
-            : 0
-
-        // v2: "Caja del día" is the CASH expected amount (readonly).
-        const dayValue = closingData.closing?.daily_box_amount !== null && closingData.closing?.daily_box_amount !== undefined
-          ? Number(closingData.closing.daily_box_amount)
-          : totalsData.dailyBoxAmount !== undefined
-            ? Number(totalsData.dailyBoxAmount)
-            : 0
-
-        // Outflow defaults to 0 if no existing closing
-        const outflowValue = closingData.closing?.cash_withdrawals !== null && closingData.closing?.cash_withdrawals !== undefined
-          ? Number(closingData.closing.cash_withdrawals)
-          : 0
-
-        // Calculate rest: Caja inicial + Caja del día - Salida de caja
-        const restValue = initialValue + dayValue - outflowValue
-
-        // Set all values at once to ensure rest is calculated correctly
-        setTotalValues({
-          initial: `${initialValue.toFixed(2)} €`,
-          day: `${dayValue.toFixed(2)} €`,
-          outflow: `${outflowValue.toFixed(2)} €`,
-          rest: `${restValue.toFixed(2)} €`
-        })
-
-        // Set daily movements and calculate payment method breakdown
-        if (movementsData.movements) {
-          setDailyMovements(movementsData.movements)
-        }
-
-        // v2: expected breakdown comes from payments (calculate-totals) so it matches system records.
-        if (totalsData.expectedBreakdown) {
-          setPaymentMethodBreakdown({
-            cash: Number(totalsData.expectedBreakdown.cash || 0),
-            card: Number(totalsData.expectedBreakdown.card || 0),
-            transfer: Number(totalsData.expectedBreakdown.transfer || 0),
-            check: Number(totalsData.expectedBreakdown.check || 0)
-          })
-        }
-        setTotalDayAmount(Number(totalsData.totalDayAmount || 0))
-
-        // Load existing closing data if exists
-        // Only populate recount values if there's an existing closing (user is editing/reviewing)
-        // For new closings, fields should be empty so humans can manually enter values
-        if (closingData.closing) {
-          setExistingClosing(closingData.closing)
-
-          // Populate payment method breakdown if exists (support both English and Spanish keys)
-          // This only happens when editing an existing closing
-          if (closingData.closing.payment_method_breakdown) {
-            const breakdown = closingData.closing.payment_method_breakdown
-            setRecountValues({
-              cash: breakdown.cash ? `${breakdown.cash.toFixed(2)} €` : breakdown.efectivo ? `${breakdown.efectivo.toFixed(2)} €` : '',
-              tpv: breakdown.card ? `${breakdown.card.toFixed(2)} €` : breakdown.tpv ? `${breakdown.tpv.toFixed(2)} €` : '',
-              transfer: breakdown.transfer ? `${breakdown.transfer.toFixed(2)} €` : breakdown.transferencia ? `${breakdown.transferencia.toFixed(2)} €` : '',
-              cheque: breakdown.check ? `${breakdown.check.toFixed(2)} €` : breakdown.cheque ? `${breakdown.cheque.toFixed(2)} €` : ''
-            })
-            console.log(`[CashClosingModal] Loaded recount values from existing closing`)
-          }
-        }
-        // For new closings, recount values remain empty (INITIAL_RECOUNT_VALUES) so humans can manually enter
-
-        setIsLoading(false)
-      })
-      .catch((error) => {
-        console.error('Error fetching data:', error)
-        setIsLoading(false)
-      })
-  }, [open, step, selectedDate])
-
-  const handleInputChange = (fieldId: CashTotalFieldId, value: string) => {
-    setTotalValues((prev) => {
-      const updated = { ...prev, [fieldId]: value }
-
-      // Auto-calculate cash balance when starter, day, or outflow changes
-      if (fieldId === 'initial' || fieldId === 'day' || fieldId === 'outflow') {
-        const initial = parseFloat(updated.initial.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
-        const day = parseFloat(updated.day.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
-        const outflow = parseFloat(updated.outflow.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
-        const balance = initial + day - outflow
-        updated.rest = `${balance.toFixed(2)} €`
+    return daySummary.transactions.filter((t) => {
+      // Method filter
+      if (methodFilter !== 'all' && t.payment_method !== methodFilter) {
+        return false
       }
 
-      return updated
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase()
+        const matchesPatient = t.patient_name.toLowerCase().includes(query)
+        const matchesConcept = t.concept.toLowerCase().includes(query)
+        if (!matchesPatient && !matchesConcept) {
+          return false
+        }
+      }
+
+      return true
     })
-  }
+  }, [daySummary, methodFilter, searchQuery])
 
-  const handleRecountInputChange = (fieldId: RecountFieldId, value: string) => {
-    setRecountValues((prev) => ({ ...prev, [fieldId]: value }))
-  }
+  // Calculate filtered totals
+  const filteredTotals = React.useMemo(() => {
+    let total = 0
+    const byMethod = {
+      efectivo: 0,
+      tpv: 0,
+      transferencia: 0,
+      financiacion: 0,
+      otros: 0
+    }
 
-  const handleClose = () => {
-    setStep('select')
+    filteredTransactions.forEach((t) => {
+      if (t.payment_status === 'cobrado') {
+        total += t.amount
+        byMethod[t.payment_method] += t.amount
+      }
+    })
+
+    return { total, byMethod }
+  }, [filteredTransactions])
+
+  const handleConfirm = () => {
+    if (!selectedDate || !daySummary) return
+
+    if (dayIsClosed && !isConfirming) {
+      // Show warning for reopening
+      setIsConfirming(true)
+      return
+    }
+
+    if (!isConfirming) {
+      setIsConfirming(true)
+      return
+    }
+
+    // Actually close or reopen
+    if (dayIsClosed) {
+      reopenDay(selectedDate)
+    } else {
+      const outflowValue = parseFloat(cashOutflow.replace(',', '.')) || 0
+      closeDay(selectedDate, outflowValue)
+    }
+
     onClose()
   }
 
-  const handleBack = () => {
-    setStep((prev) => {
-      if (prev === 'recount') return 'summary'
-      if (prev === 'summary') return 'totals'
-      if (prev === 'totals') return 'select'
-      return prev
+  const handleCancel = () => {
+    if (isConfirming) {
+      setIsConfirming(false)
+      return
+    }
+    onClose()
+  }
+
+  const handleExport = () => {
+    if (!daySummary) return
+
+    const transactions: CashClosingTransaction[] = filteredTransactions.map((t) => ({
+      date: t.transaction_date,
+      patientName: t.patient_name,
+      concept: t.concept,
+      amount: t.amount,
+      paymentMethod: t.payment_method,
+      paymentStatus: t.payment_status,
+      productionStatus: t.production_status
+    }))
+
+    const summary: CashClosingSummary = {
+      closingDate: selectedDate,
+      initialCash: daySummary.initialCash,
+      totalIncome: daySummary.totalIncome,
+      totalExpenses: daySummary.totalExpenses,
+      cashOutflow: parseFloat(cashOutflow.replace(',', '.')) || 0,
+      finalBalance: daySummary.finalBalance,
+      incomeByMethod: daySummary.incomeByMethod,
+      transactionCount: filteredTransactions.length
+    }
+
+    downloadCashClosingExcel(transactions, summary)
+  }
+
+  const formatDateLabel = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00')
+    return date.toLocaleDateString('es-ES', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
     })
   }
 
-  const handleContinue = async () => {
-    if (step === 'select') {
-      // Validate professional and date selection
-      if (!selectedStaffId) {
-        alert('Por favor, selecciona un profesional')
-        return
-      }
-      if (!selectedDate) {
-        alert('Por favor, selecciona una fecha')
-        return
-      }
-      setStep('totals')
-      return
-    }
-
-    if (step === 'totals') {
-      // v2: user reviews totals first, then proceeds to cash counting.
-      setStep('summary')
-      return
-    }
-
-    if (step === 'summary') {
-      // Validate required field - allow 0 as valid value (default)
-      if (!totalValues.outflow || totalValues.outflow.trim() === '') {
-        alert('Por favor, ingresa la salida de caja (requerido)')
-        return
-      }
-
-      const starterBoxAmount = parseFloat(
-        totalValues.initial.replace(/[^\d,.-]/g, '').replace(',', '.')
-      )
-      const cashWithdrawals = parseFloat(
-        totalValues.outflow.replace(/[^\d,.-]/g, '').replace(',', '.')
-      )
-      if ((Number.isFinite(starterBoxAmount) && starterBoxAmount < 0) || (!Number.isFinite(starterBoxAmount) && totalValues.initial.trim() !== '')) {
-        alert('⚠️ Caja inicial inválida: debe ser un número mayor o igual a 0.')
-        return
-      }
-      if ((Number.isFinite(cashWithdrawals) && cashWithdrawals < 0) || (!Number.isFinite(cashWithdrawals) && totalValues.outflow.trim() !== '')) {
-        alert('⚠️ Salida de caja inválida: debe ser un número mayor o igual a 0.')
-        return
-      }
-      
-      // Note: We do NOT pre-populate recount values - humans must manually enter them
-      // The "Debería haber..." text in RecountStep will show the expected amount from paymentMethodBreakdown
-      setStep('recount')
-      return
-    }
-
-    if (step === 'recount') {
-      // VALIDATION: All payment methods must be validated
-      // Critical: Efectivo (Cash) must match - blocks closure
-      // Warning: Other payment methods - flags discrepancy but allows continuation
-      
-      const discrepancies: Array<{ method: string; expected: number; actual: number }> = []
-      
-      // Validate Efectivo (Cash) - CRITICAL: Blocks closure if doesn't match
-      const expectedCash = paymentMethodBreakdown.cash
-      const actualCash = parseFloat(recountValues.cash.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
-      const actualTPV = parseFloat(recountValues.tpv.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
-      const actualTransfer = parseFloat(recountValues.transfer.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
-      const actualCheque = parseFloat(recountValues.cheque.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
-
-      // Disallow negative values (physical amounts cannot be negative).
-      if (actualCash < 0 || actualTPV < 0 || actualTransfer < 0 || actualCheque < 0) {
-        alert(
-          '⚠️ Valores inválidos: no puedes introducir cantidades negativas en el recuento. ' +
-            'Si falta dinero, introduce el importe contado (>= 0) y el sistema registrará la diferencia.'
-        )
-        return
-      }
-      
-      if (expectedCash > 0) {
-        // System expects cash - must match exactly (allow 0.01€ rounding)
-        if (Math.abs(actualCash - expectedCash) > 0.01) {
-          alert(`⚠️ Validación crítica: El efectivo físico (${actualCash.toFixed(2)} €) no coincide con los registros del sistema (${expectedCash.toFixed(2)} €).\n\nNo se puede completar el cierre si el efectivo no coincide. Por favor, verifica el recuento de efectivo antes de continuar.`)
-          return
-        }
-      } else if (actualCash > 0 && expectedCash === 0) {
-        // User entered cash but system shows no cash transactions - CRITICAL: blocks closure
-        alert(`⚠️ Validación crítica: Has ingresado ${actualCash.toFixed(2)} € en efectivo, pero el sistema no registra transacciones en efectivo para este día.\n\nNo se puede completar el cierre si el efectivo no coincide. Por favor, verifica el recuento de efectivo antes de continuar.`)
-        return
-      }
-      
-      // Validate TPV (Card) - WARNING: Flags discrepancy but allows continuation
-      const expectedTPV = paymentMethodBreakdown.card
-      if (expectedTPV > 0 && Math.abs(actualTPV - expectedTPV) > 0.01) {
-        discrepancies.push({ method: 'TPV', expected: expectedTPV, actual: actualTPV })
-      } else if (actualTPV > 0 && expectedTPV === 0) {
-        discrepancies.push({ method: 'TPV', expected: expectedTPV, actual: actualTPV })
-      }
-      
-      // Validate Transferencia (Transfer) - WARNING: Flags discrepancy but allows continuation
-      const expectedTransfer = paymentMethodBreakdown.transfer
-      if (expectedTransfer > 0 && Math.abs(actualTransfer - expectedTransfer) > 0.01) {
-        discrepancies.push({ method: 'Transferencia', expected: expectedTransfer, actual: actualTransfer })
-      } else if (actualTransfer > 0 && expectedTransfer === 0) {
-        discrepancies.push({ method: 'Transferencia', expected: expectedTransfer, actual: actualTransfer })
-      }
-      
-      // Validate Cheque (Check) - WARNING: Flags discrepancy but allows continuation
-      const expectedCheque = paymentMethodBreakdown.check
-      if (expectedCheque > 0 && Math.abs(actualCheque - expectedCheque) > 0.01) {
-        discrepancies.push({ method: 'Cheque', expected: expectedCheque, actual: actualCheque })
-      } else if (actualCheque > 0 && expectedCheque === 0) {
-        discrepancies.push({ method: 'Cheque', expected: expectedCheque, actual: actualCheque })
-      }
-      
-      // Calculate reconciliation discrepancies for all payment methods (including cash, even if it matches)
-      // This allows tracking all reconciliation data for audit purposes
-      const reconciliationDiscrepancies: Record<string, { expected: number; actual: number; difference: number }> = {
-        cash: {
-          expected: expectedCash,
-          actual: actualCash,
-          difference: actualCash - expectedCash
-        },
-        card: {
-          expected: expectedTPV,
-          actual: actualTPV,
-          difference: actualTPV - expectedTPV
-        },
-        transfer: {
-          expected: expectedTransfer,
-          actual: actualTransfer,
-          difference: actualTransfer - expectedTransfer
-        },
-        check: {
-          expected: expectedCheque,
-          actual: actualCheque,
-          difference: actualCheque - expectedCheque
-        }
-      }
-
-      // If there are discrepancies in non-cash payment methods, warn but allow continuation
-      if (discrepancies.length > 0) {
-        const discrepancyList = discrepancies
-          .map(d => `  • ${d.method}: Esperado ${d.expected.toFixed(2)} €, Ingresado ${d.actual.toFixed(2)} €`)
-          .join('\n')
-        
-        const confirm = window.confirm(
-          `⚠️ Advertencia: Se detectaron discrepancias en los siguientes métodos de pago:\n\n${discrepancyList}\n\nEstas discrepancias se registrarán para revisión. ¿Deseas continuar con el cierre?`
-        )
-        if (!confirm) {
-          return
-        }
-      }
-
-      // Save closing data
-      setIsLoading(true)
-      // Format date in local timezone to avoid UTC conversion issues
-      const dateStr = formatDateForAPI(selectedDate)
-      console.log(`[CashClosingModal] Saving closing for date:`, selectedDate, `Formatted:`, dateStr)
-
-      // Parse values
-      const starterBoxAmount = parseFloat(totalValues.initial.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
-      const dailyBoxAmount = parseFloat(totalValues.day.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
-      const cashWithdrawals = parseFloat(totalValues.outflow.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
-      const cashBalance = parseFloat(totalValues.rest.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
-
-      // Parse payment method breakdown (using English keys)
-      const breakdown: PaymentMethodBreakdown = {
-        cash: actualCash,
-        card: parseFloat(recountValues.tpv.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
-        transfer: parseFloat(recountValues.transfer.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
-        check: parseFloat(recountValues.cheque.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
-      }
-
-      console.log(`[CashClosingModal] Saving with reconciliation discrepancies:`, reconciliationDiscrepancies)
-
-      try {
-        const response = await fetch('/api/caja/closing', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            date: dateStr,
-            staffId: selectedStaffId,
-            starterBoxAmount,
-            dailyBoxAmount,
-            cashWithdrawals,
-            cashBalance,
-            paymentMethodBreakdown: breakdown,
-            reconciliationDiscrepancies // Send discrepancies to API for storage
-          })
-        })
-
-        const data = await response.json()
-        if (response.ok) {
-          setStep('confirmation')
-          // Auto-close after 2 seconds
-          setTimeout(() => {
-            handleClose()
-          }, 2000)
-        } else {
-          alert(`Error al guardar: ${data.error || 'Error desconocido'}`)
-          setIsLoading(false)
-        }
-      } catch (error) {
-        console.error('Error saving closing:', error)
-        alert('Error al guardar el cierre de caja')
-        setIsLoading(false)
-      }
-      return
-    }
-
-    // Step 3: Confirmation - already handled above
-    handleClose()
+  const formatShortDate = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00')
+    return date.toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    })
   }
 
   if (!open || !mounted) return null
 
-  const modalWidthRem =
-    step === 'summary'
-      ? MODAL_WIDTH_REM
-      : step === 'totals'
-        ? MODAL_WIDTH_REM
-        : step === 'recount'
-          ? RECOUNT_MODAL_WIDTH_REM
-          : step === 'select'
-            ? MODAL_WIDTH_REM
-            : RECOUNT_MODAL_WIDTH_REM
-  const modalScaleFormula =
-    step === 'summary'
-      ? MODAL_SCALE_FORMULA
-      : step === 'totals'
-        ? MODAL_SCALE_FORMULA
-        : step === 'select'
-          ? MODAL_SCALE_FORMULA
-          : RECOUNT_MODAL_SCALE_FORMULA
-
-  const modalFrameStyle = {
-    '--modal-scale': modalScaleFormula,
-    width: `min(95vw, calc(${modalWidthRem}rem * var(--modal-scale)))`,
-    height: `min(90vh, calc(${MODAL_HEIGHT_REM}rem * var(--modal-scale)))`
-  } as React.CSSProperties
-
-  const modalContentStyle = {
-    width: `${modalWidthRem}rem`,
-    height: `${MODAL_HEIGHT_REM}rem`,
-    transform: 'scale(var(--modal-scale))',
-    transformOrigin: 'top left'
-  } as React.CSSProperties
-
-  const tableGridStyles = {
-    gridTemplateColumns: TABLE_GRID_TEMPLATE,
-    minHeight: `${ROW_HEIGHT_REM}rem`
-  } as React.CSSProperties
-
-  const descriptionId =
-    step === 'select'
-      ? 'cash-close-select-description'
-      : step === 'totals'
-        ? 'cash-close-totals-description'
-      : step === 'summary'
-        ? 'cash-close-dialog-description'
-        : step === 'recount'
-          ? 'cash-close-recount-description'
-          : 'cash-close-confirmation-description'
-
   const content = (
     <div
-      className='fixed inset-0 z-[80] bg-black/30 backdrop-blur-[1px]'
-      onClick={handleClose}
+      className='fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-[2px]'
+      onClick={handleCancel}
+      aria-hidden='true'
     >
-      <div className='absolute inset-0 flex items-center justify-center px-[2rem] py-[2rem]'>
-        <div
-          className='relative flex shrink-0 items-start justify-center rounded-xl bg-neutral-0 shadow-elevation-popover'
-          style={modalFrameStyle}
-        >
-          <div
-            className='relative h-full w-full overflow-hidden rounded-xl bg-neutral-50'
-            onClick={(event) => event.stopPropagation()}
-            role='dialog'
-            aria-modal='true'
-            aria-labelledby='cash-close-dialog-title'
-            aria-describedby={descriptionId}
-          >
-            <div className='relative' style={modalContentStyle}>
-              <header className='absolute left-0 top-0 flex h-[3.5rem] w-full items-center justify-between border-b border-border px-[2rem]'>
-                <div className='flex items-center gap-[0.75rem]'>
-                  {step !== 'select' && step !== 'confirmation' && (
-                    <button
-                      type='button'
-                      className='flex h-[2rem] items-center justify-center rounded-full border border-border bg-neutral-0 px-[0.75rem] text-label-md text-fg transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50'
-                      onClick={handleBack}
-                      aria-label='Volver'
-                    >
-                      <span className='material-symbols-rounded mr-[0.25rem] text-[1rem] leading-none'>
-                        arrow_back
-                      </span>
-                      Volver
-                    </button>
-                  )}
-                  <p id='cash-close-dialog-title' className='text-title-md font-medium text-fg'>
-                    Cierre de caja
-                  </p>
-                </div>
-                <button
-                  type='button'
-                  className='flex size-[0.875rem] items-center justify-center text-neutral-600 transition-colors hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50'
-                  onClick={handleClose}
-                  aria-label='Cerrar cierre de caja'
-                >
-                  <span className='material-symbols-rounded text-[1rem] leading-none'>close</span>
-                </button>
-              </header>
-
-              {step === 'select' ? (
-                <SelectStep
-                  descriptionId={descriptionId}
-                  selectedDate={selectedDate}
-                  onDateChange={setSelectedDate}
-                  selectedStaffId={selectedStaffId}
-                  onStaffChange={setSelectedStaffId}
-                  staffList={staffList}
-                  onContinue={handleContinue}
-                />
-              ) : step === 'totals' ? (
-                <TotalsStep
-                  descriptionId={descriptionId}
-                  isLoading={isLoading}
-                  totalDayAmount={totalDayAmount}
-                  paymentMethodBreakdown={paymentMethodBreakdown}
-                  onContinue={handleContinue}
-                />
-              ) : step === 'summary' ? (
-                <SummaryStep
-                  descriptionId={descriptionId}
-                  totalValues={totalValues}
-                  onChange={handleInputChange}
-                  tableGridStyles={tableGridStyles}
-                  onContinue={handleContinue}
-                  dailyMovements={dailyMovements}
-                  isLoading={isLoading}
-                />
-              ) : step === 'recount' ? (
-                <RecountStep
-                  descriptionId={descriptionId}
-                  values={recountValues}
-                  onChange={handleRecountInputChange}
-                  onContinue={handleContinue}
-                  paymentMethodBreakdown={paymentMethodBreakdown}
-                  isLoading={isLoading}
-                />
-              ) : (
-                <ConfirmationStep descriptionId={descriptionId} />
+      <div
+        className='relative flex h-[min(55rem,90vh)] w-[min(75rem,95vw)] flex-col overflow-hidden rounded-2xl bg-neutral-0 shadow-elevation-popover'
+        onClick={(e) => e.stopPropagation()}
+        role='dialog'
+        aria-modal='true'
+        aria-labelledby='cash-close-title'
+      >
+        {/* Header */}
+        <header className='flex h-[4rem] shrink-0 items-center justify-between border-b border-border bg-neutral-0 px-8'>
+          <div className='flex items-center gap-3'>
+            <div className='flex size-10 items-center justify-center rounded-xl bg-brand-100'>
+              <span className='material-symbols-rounded text-[1.25rem] text-brand-600'>
+                point_of_sale
+              </span>
+            </div>
+            <div>
+              <h2
+                id='cash-close-title'
+                className='text-title-md font-semibold text-fg'
+              >
+                Cierre de caja
+              </h2>
+              {selectedDate && (
+                <p className='text-label-sm text-neutral-500'>
+                  {formatDateLabel(selectedDate)}
+                </p>
               )}
             </div>
           </div>
+
+          <div className='flex items-center gap-3'>
+            {/* Date Selector */}
+            <div className='relative' ref={datePickerRef}>
+              <button
+                type='button'
+                onClick={() => setShowDatePicker(!showDatePicker)}
+                className='flex items-center gap-2 rounded-lg border border-border bg-neutral-0 px-3 py-2 text-label-md text-fg transition-colors hover:bg-neutral-50'
+              >
+                <span className='material-symbols-rounded text-[1rem]'>
+                  calendar_today
+                </span>
+                {selectedDate ? formatShortDate(selectedDate) : 'Seleccionar día'}
+                <span className='material-symbols-rounded text-[1rem]'>
+                  expand_more
+                </span>
+              </button>
+
+              {showDatePicker && (
+                <div className='absolute right-0 top-[calc(100%+0.5rem)] z-[100] max-h-[20rem] min-w-[14rem] overflow-y-auto rounded-xl border border-border bg-neutral-0 py-2 shadow-elevation-popover'>
+                  {availableDates.map((date) => {
+                    const isClosed = isDayClosed(date)
+                    const isSelected = date === selectedDate
+                    return (
+                      <button
+                        key={date}
+                        type='button'
+                        onClick={() => {
+                          setSelectedDate(date)
+                          setShowDatePicker(false)
+                          setIsConfirming(false)
+                        }}
+                        className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-body-sm transition-colors hover:bg-neutral-50 ${
+                          isSelected ? 'bg-brand-50' : ''
+                        }`}
+                      >
+                        <span className={isSelected ? 'font-medium text-brand-700' : 'text-fg'}>
+                          {formatShortDate(date)}
+                        </span>
+                        {isClosed && (
+                          <span className='rounded-full bg-success-100 px-2 py-0.5 text-label-xs font-medium text-success-700'>
+                            Cerrado
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {dayIsClosed && (
+              <span className='flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1.5 text-label-sm font-medium text-success-700'>
+                <span className='material-symbols-rounded text-[1rem]'>
+                  check_circle
+                </span>
+                Cerrado
+              </span>
+            )}
+
+            <button
+              type='button'
+              className='flex size-9 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700'
+              onClick={handleCancel}
+              aria-label='Cerrar'
+            >
+              <span className='material-symbols-rounded text-[1.25rem]'>
+                close
+              </span>
+            </button>
+          </div>
+        </header>
+
+        {/* Content */}
+        <div className='flex flex-1 overflow-hidden'>
+          {/* Left Panel - Summary */}
+          <div className='flex w-[22rem] shrink-0 flex-col gap-6 overflow-y-auto border-r border-border bg-neutral-50/50 p-6'>
+            {daySummary ? (
+              <>
+                {/* Summary Cards */}
+                <section>
+                  <h3 className='mb-4 text-title-sm font-medium text-fg'>
+                    Resumen del día
+                  </h3>
+                  <div className='flex flex-col gap-3'>
+                    <SummaryCard
+                      icon='account_balance_wallet'
+                      iconColor='text-neutral-600'
+                      iconBg='bg-neutral-100'
+                      label='Caja inicial'
+                      value={`${daySummary.initialCash.toFixed(2)} €`}
+                    />
+                    <SummaryCard
+                      icon='trending_up'
+                      iconColor='text-success-600'
+                      iconBg='bg-success-50'
+                      label='Ingresos del día'
+                      value={`+${daySummary.totalIncome.toFixed(2)} €`}
+                      valueColor='text-success-600'
+                    />
+                    <SummaryCard
+                      icon='trending_down'
+                      iconColor='text-error-600'
+                      iconBg='bg-error-50'
+                      label='Gastos del día'
+                      value={`-${daySummary.totalExpenses.toFixed(2)} €`}
+                      valueColor='text-error-600'
+                    />
+                    <div className='my-1 border-t border-dashed border-neutral-300' />
+                    <SummaryCard
+                      icon='savings'
+                      iconColor='text-brand-600'
+                      iconBg='bg-brand-100'
+                      label='Balance final'
+                      value={`${daySummary.finalBalance.toFixed(2)} €`}
+                      valueColor='text-brand-600'
+                      highlight
+                    />
+                  </div>
+                </section>
+
+                {/* By Payment Method */}
+                <section>
+                  <h3 className='mb-4 text-title-sm font-medium text-fg'>
+                    Desglose por método
+                  </h3>
+                  <div className='flex flex-col gap-2'>
+                    {Object.entries(daySummary.incomeByMethod).map(
+                      ([method, amount]) => (
+                        <div
+                          key={method}
+                          className='flex items-center justify-between rounded-lg bg-neutral-0 px-3 py-2.5 shadow-sm'
+                        >
+                          <div className='flex items-center gap-2'>
+                            <span
+                              className={`material-symbols-rounded text-[1rem] ${
+                                PAYMENT_METHOD_CONFIG[method]?.color ||
+                                'text-neutral-600'
+                              }`}
+                            >
+                              {PAYMENT_METHOD_CONFIG[method]?.icon || 'payments'}
+                            </span>
+                            <span className='text-body-sm text-fg'>
+                              {PAYMENT_METHOD_CONFIG[method]?.label || method}
+                            </span>
+                          </div>
+                          <span className='text-body-sm font-medium text-fg'>
+                            {amount.toFixed(2)} €
+                          </span>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </section>
+
+                {/* Cash Outflow Input */}
+                {!dayIsClosed && (
+                  <section>
+                    <h3 className='mb-3 text-title-sm font-medium text-fg'>
+                      Salida de caja
+                    </h3>
+                    <p className='mb-3 text-label-sm text-neutral-500'>
+                      Indica el efectivo que retiras de caja al finalizar el día.
+                    </p>
+                    <div className='relative'>
+                      <input
+                        type='text'
+                        value={cashOutflow}
+                        onChange={(e) => setCashOutflow(e.target.value)}
+                        placeholder='0,00'
+                        className='h-12 w-full rounded-xl border border-border bg-neutral-0 pl-4 pr-10 text-body-md text-fg placeholder:text-neutral-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20'
+                      />
+                      <span className='absolute right-4 top-1/2 -translate-y-1/2 text-body-md text-neutral-500'>
+                        €
+                      </span>
+                    </div>
+                  </section>
+                )}
+
+                {/* Closed info */}
+                {dayIsClosed && daySummary.closing && (
+                  <section className='rounded-xl bg-success-50 p-4'>
+                    <div className='flex items-center gap-2 text-success-700'>
+                      <span className='material-symbols-rounded text-[1.25rem]'>
+                        verified
+                      </span>
+                      <span className='text-title-sm font-medium'>
+                        Día cerrado
+                      </span>
+                    </div>
+                    <p className='mt-2 text-label-sm text-success-600'>
+                      Salida de caja: {daySummary.closing.cash_outflow.toFixed(2)} €
+                    </p>
+                    <p className='text-label-sm text-success-600'>
+                      Cerrado el{' '}
+                      {new Date(daySummary.closing.created_at).toLocaleDateString(
+                        'es-ES',
+                        {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }
+                      )}
+                    </p>
+                  </section>
+                )}
+              </>
+            ) : (
+              <div className='flex flex-1 items-center justify-center text-neutral-500'>
+                Selecciona un día para ver el resumen
+              </div>
+            )}
+          </div>
+
+          {/* Right Panel - Transactions Table */}
+          <div className='flex flex-1 flex-col overflow-hidden'>
+            <div className='flex flex-wrap items-center justify-between gap-3 border-b border-border bg-neutral-0 px-6 py-4'>
+              <div>
+                <h3 className='text-title-sm font-medium text-fg'>
+                  Movimientos del día
+                </h3>
+                <p className='text-label-sm text-neutral-500'>
+                  {filteredTransactions.length} transacciones
+                  {methodFilter !== 'all' && ` (filtrado)`}
+                </p>
+              </div>
+
+              <div className='flex flex-wrap items-center gap-2'>
+                {/* Search */}
+                <div className='flex items-center gap-2 rounded-lg border border-border bg-neutral-0 px-3 py-2'>
+                  <span className='material-symbols-rounded text-[1rem] text-neutral-500'>
+                    search
+                  </span>
+                  <input
+                    type='text'
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder='Buscar paciente...'
+                    className='w-[10rem] bg-transparent text-body-sm text-fg placeholder:text-neutral-400 focus:outline-none'
+                  />
+                </div>
+
+                {/* Filter Chips */}
+                <FilterChips
+                  activeFilter={methodFilter}
+                  onFilterChange={setMethodFilter}
+                />
+
+                {/* Export Button */}
+                <button
+                  type='button'
+                  onClick={handleExport}
+                  disabled={!daySummary || filteredTransactions.length === 0}
+                  className='flex items-center gap-1.5 rounded-lg border border-border bg-neutral-0 px-3 py-2 text-label-md text-fg transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50'
+                >
+                  <span className='material-symbols-rounded text-[1rem]'>
+                    download
+                  </span>
+                  Exportar
+                </button>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className='flex-1 overflow-auto'>
+              <table className='w-full'>
+                <thead className='sticky top-0 z-10 bg-neutral-50'>
+                  <tr className='border-b border-border'>
+                    <th className='px-6 py-3 text-left text-label-sm font-medium text-neutral-500'>
+                      Paciente
+                    </th>
+                    <th className='px-4 py-3 text-left text-label-sm font-medium text-neutral-500'>
+                      Concepto
+                    </th>
+                    <th className='px-4 py-3 text-right text-label-sm font-medium text-neutral-500'>
+                      Importe
+                    </th>
+                    <th className='px-4 py-3 text-left text-label-sm font-medium text-neutral-500'>
+                      Método
+                    </th>
+                    <th className='px-6 py-3 text-left text-label-sm font-medium text-neutral-500'>
+                      Estado
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className='divide-y divide-border bg-neutral-0'>
+                  {filteredTransactions.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className='px-6 py-12 text-center text-body-sm text-neutral-500'
+                      >
+                        {searchQuery || methodFilter !== 'all'
+                          ? 'No hay transacciones que coincidan con los filtros'
+                          : 'No hay transacciones para este día'}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredTransactions.map((transaction) => (
+                      <TransactionRow
+                        key={transaction.id}
+                        transaction={transaction}
+                      />
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Table Footer with Total */}
+            <div className='flex items-center justify-between border-t border-border bg-neutral-50 px-6 py-3'>
+              <span className='text-body-sm text-neutral-500'>
+                Total de {filteredTransactions.length} movimientos
+              </span>
+              <div className='flex items-center gap-2'>
+                <span className='text-body-sm text-neutral-500'>
+                  Total cobrado:
+                </span>
+                <span className='text-title-sm font-semibold text-brand-600'>
+                  {filteredTotals.total.toFixed(2)} €
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Footer */}
+        <footer className='flex h-[4.5rem] shrink-0 items-center justify-between border-t border-border bg-neutral-0 px-8'>
+          <div className='flex items-center gap-2 text-label-sm text-neutral-500'>
+            <span className='material-symbols-rounded text-[1rem]'>info</span>
+            {isConfirming
+              ? dayIsClosed
+                ? 'Vas a reabrir el cierre de caja. Podrás volver a cerrarlo después.'
+                : 'Confirma el cierre de caja. Esta acción se puede deshacer.'
+              : 'Revisa los datos antes de confirmar el cierre.'}
+          </div>
+          <div className='flex items-center gap-3'>
+            <button
+              type='button'
+              onClick={handleCancel}
+              className='h-10 rounded-xl border border-border bg-neutral-0 px-5 text-title-sm font-medium text-fg transition-colors hover:bg-neutral-50'
+            >
+              {isConfirming ? 'Volver' : 'Cancelar'}
+            </button>
+            <button
+              type='button'
+              onClick={handleConfirm}
+              disabled={!selectedDate}
+              className={`flex h-10 items-center gap-2 rounded-xl px-5 text-title-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                dayIsClosed
+                  ? 'bg-warning-500 text-neutral-0 hover:bg-warning-600'
+                  : isConfirming
+                    ? 'bg-success-500 text-neutral-0 hover:bg-success-600'
+                    : 'bg-brand-500 text-brand-900 hover:bg-brand-400'
+              }`}
+            >
+              {dayIsClosed ? (
+                <>
+                  <span className='material-symbols-rounded text-[1.125rem]'>
+                    lock_open
+                  </span>
+                  {isConfirming ? 'Confirmar reapertura' : 'Reabrir cierre'}
+                </>
+              ) : isConfirming ? (
+                <>
+                  <span className='material-symbols-rounded text-[1.125rem]'>
+                    check_circle
+                  </span>
+                  Confirmar cierre
+                </>
+              ) : (
+                <>
+                  <span className='material-symbols-rounded text-[1.125rem]'>
+                    lock
+                  </span>
+                  Cerrar caja
+                </>
+              )}
+            </button>
+          </div>
+        </footer>
       </div>
     </div>
   )
@@ -740,736 +711,129 @@ export function CashClosingModal({ open, onClose, date = new Date() }: CashClosi
   return createPortal(content, document.body)
 }
 
-function Cell({
-  children,
-  border = true
-}: {
-  children: React.ReactNode
-  border?: boolean
-}) {
+// ─────────────────────────────────────────────────────────────
+// Sub-components
+// ─────────────────────────────────────────────────────────────
+
+type SummaryCardProps = {
+  icon: string
+  iconColor: string
+  iconBg: string
+  label: string
+  value: string
+  valueColor?: string
+  highlight?: boolean
+}
+
+function SummaryCard({
+  icon,
+  iconColor,
+  iconBg,
+  label,
+  value,
+  valueColor = 'text-fg',
+  highlight = false
+}: SummaryCardProps) {
   return (
     <div
-      className={`flex items-center px-[0.5rem] py-[0.5rem] ${
-        border ? 'border-r border-border' : ''
+      className={`flex items-center gap-3 rounded-xl p-3 ${
+        highlight
+          ? 'bg-brand-50 ring-1 ring-brand-200'
+          : 'bg-neutral-0 shadow-sm'
       }`}
     >
-      {children}
-    </div>
-  )
-}
-
-type SelectStepProps = {
-  descriptionId: string
-  selectedDate: Date
-  onDateChange: (date: Date) => void
-  selectedStaffId: string
-  onStaffChange: (staffId: string) => void
-  staffList: StaffMember[]
-  onContinue: () => void
-}
-
-function SelectStep({
-  descriptionId,
-  selectedDate,
-  onDateChange,
-  selectedStaffId,
-  onStaffChange,
-  staffList,
-  onContinue
-}: SelectStepProps) {
-  // Use year-month string as key to avoid Date object comparison issues
-  const selectedYearMonth = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}`
-  const [calendarMonth, setCalendarMonth] = React.useState(() =>
-    new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
-  )
-  const [isCalendarOpen, setIsCalendarOpen] = React.useState(false)
-  const [calendarPosition, setCalendarPosition] = React.useState<{ top: number; left: number; width: number } | null>(null)
-  const dateInputRef = React.useRef<HTMLButtonElement>(null)
-  const calendarPopupRef = React.useRef<HTMLDivElement>(null)
-
-  // Update calendar month when selectedDate's year/month changes
-  React.useEffect(() => {
-    setCalendarMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1))
-  }, [selectedYearMonth]) // Only depend on year-month string
-
-  // Calculate calendar position when opening
-  React.useEffect(() => {
-    if (!isCalendarOpen || !dateInputRef.current) {
-      setCalendarPosition(null)
-      return
-    }
-
-    const updatePosition = () => {
-      if (dateInputRef.current) {
-        const rect = dateInputRef.current.getBoundingClientRect()
-        setCalendarPosition({
-          top: rect.bottom + window.scrollY + 8, // 8px gap
-          left: rect.left + window.scrollX,
-          width: Math.max(rect.width, 320) // Minimum 20rem
-        })
-      }
-    }
-
-    updatePosition()
-    window.addEventListener('resize', updatePosition)
-    window.addEventListener('scroll', updatePosition, true)
-
-    return () => {
-      window.removeEventListener('resize', updatePosition)
-      window.removeEventListener('scroll', updatePosition, true)
-    }
-  }, [isCalendarOpen])
-
-  // Close calendar when clicking outside
-  React.useEffect(() => {
-    if (!isCalendarOpen) return
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dateInputRef.current &&
-        calendarPopupRef.current &&
-        !dateInputRef.current.contains(event.target as Node) &&
-        !calendarPopupRef.current.contains(event.target as Node)
-      ) {
-        setIsCalendarOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isCalendarOpen])
-
-  // Calendar helper functions
-  const getDaysInMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
-  }
-
-  const getFirstDayOfMonth = (date: Date) => {
-    const firstDay = new Date(date.getFullYear(), date.getMonth(), 1)
-    return firstDay.getDay() === 0 ? 7 : firstDay.getDay() // Monday = 1, Sunday = 7
-  }
-
-  const navigateMonth = (direction: 1 | -1) => {
-    setCalendarMonth((prev) => {
-      const newDate = new Date(prev)
-      newDate.setMonth(prev.getMonth() + direction)
-      return newDate
-    })
-  }
-
-  const handleDateClick = (day: number) => {
-    // Create date in local timezone using helper function
-    const newDate = createLocalDate(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
-    console.log(`[Calendar] Date clicked: day=${day}, month=${calendarMonth.getMonth() + 1}, year=${calendarMonth.getFullYear()}, created date:`, newDate, `Formatted:`, formatDateForAPI(newDate))
-    onDateChange(newDate)
-    setIsCalendarOpen(false) // Close calendar after selection
-  }
-
-  const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    })
-  }
-
-  const isSelectedDate = (day: number) => {
-    return (
-      selectedDate.getDate() === day &&
-      selectedDate.getMonth() === calendarMonth.getMonth() &&
-      selectedDate.getFullYear() === calendarMonth.getFullYear()
-    )
-  }
-
-  const isToday = (day: number) => {
-    const today = new Date()
-    return (
-      today.getDate() === day &&
-      today.getMonth() === calendarMonth.getMonth() &&
-      today.getFullYear() === calendarMonth.getFullYear()
-    )
-  }
-
-  const monthName = calendarMonth.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
-  const daysInMonth = getDaysInMonth(calendarMonth)
-  const firstDay = getFirstDayOfMonth(calendarMonth)
-  const daysBeforeMonth = firstDay - 1
-  const prevMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 0)
-  const daysInPrevMonth = prevMonth.getDate()
-
-  // Build calendar grid
-  const calendarDays: Array<{ day: number; isCurrentMonth: boolean; date: Date }> = []
-
-  // Previous month days
-  for (let i = daysBeforeMonth - 1; i >= 0; i--) {
-    const day = daysInPrevMonth - i
-    calendarDays.push({
-      day,
-      isCurrentMonth: false,
-      date: new Date(prevMonth.getFullYear(), prevMonth.getMonth(), day)
-    })
-  }
-
-  // Current month days
-  for (let day = 1; day <= daysInMonth; day++) {
-    calendarDays.push({
-      day,
-      isCurrentMonth: true,
-      date: new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
-    })
-  }
-
-  // Next month days to fill grid (6 rows × 7 days = 42 cells)
-  const remainingCells = 42 - calendarDays.length
-  for (let day = 1; day <= remainingCells; day++) {
-    calendarDays.push({
-      day,
-      isCurrentMonth: false,
-      date: new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, day)
-    })
-  }
-
-  const weekDays = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do']
-
-  return (
-    <>
-      <section
-        className='absolute flex flex-col gap-[0.5rem]'
-        style={{
-          left: `${SECTION_LEFT_REM}rem`,
-          top: `${HEADER_TOP_REM}rem`,
-          width: `${HEADER_WIDTH_REM}rem`
-        }}
+      <div
+        className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${iconBg}`}
       >
-        <p className='text-headline-sm text-fg'>Seleccionar profesional y fecha</p>
-        <p id={descriptionId} className='text-body-sm text-fg'>
-          Selecciona el profesional que realiza el cierre y la fecha del cierre.
-        </p>
-      </section>
-
-      <section
-        className='absolute flex flex-col gap-[1.5rem]'
-        style={{
-          left: `${SECTION_LEFT_REM}rem`,
-          top: `${FORM_TOP_REM}rem`,
-          width: `${FORM_WIDTH_REM}rem`,
-          maxWidth: '100%'
-        }}
-      >
-        {/* Professional Selection */}
-        <div className='flex flex-col gap-[0.5rem]'>
-          <p className='text-body-sm text-fg'>Profesional</p>
-          <label className='flex h-[3rem] items-center rounded-lg border border-border bg-neutral-50 px-[0.625rem] focus-within:ring-2 focus-within:ring-brandSemantic'>
-            <select
-              value={selectedStaffId}
-              onChange={(e) => onStaffChange(e.target.value)}
-              className='w-full bg-transparent text-body-md text-fg focus:outline-none'
-            >
-              {staffList.length === 0 ? (
-                <option value=''>Cargando...</option>
-              ) : (
-                <>
-                  <option value=''>Selecciona un profesional</option>
-                  {staffList.map((staff) => (
-                    <option key={staff.id} value={staff.id}>
-                      {staff.name}
-                    </option>
-                  ))}
-                </>
-              )}
-            </select>
-          </label>
-        </div>
-
-        {/* Date and Period Selection - Side by Side */}
-        <div className='flex items-start gap-[1.5rem]'>
-          {/* Fecha del cierre - Left */}
-          <div className='relative flex flex-1 flex-col gap-[0.5rem]'>
-            <p className='text-body-sm text-fg'>Fecha del cierre</p>
-            <button
-              ref={dateInputRef}
-              type='button'
-              onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-              className='flex h-[3rem] items-center justify-between rounded-lg border border-border bg-neutral-50 px-[0.625rem] text-left text-body-md text-fg transition-colors hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-brandSemantic'
-            >
-              <span>{formatDate(selectedDate)}</span>
-              <svg
-                width='20'
-                height='20'
-                viewBox='0 0 24 24'
-                fill='none'
-                xmlns='http://www.w3.org/2000/svg'
-                className={`transition-transform ${isCalendarOpen ? 'rotate-180' : ''}`}
-              >
-                <path
-                  d='M6 9L12 15L18 9'
-                  stroke='currentColor'
-                  strokeWidth='2'
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                />
-              </svg>
-            </button>
-          </div>
-
-          {/* Calendar Popup - Rendered via Portal */}
-          {isCalendarOpen && calendarPosition && createPortal(
-            <div
-              ref={calendarPopupRef}
-              className='fixed z-[100] flex flex-col rounded-lg border border-border bg-neutral-0 p-[1rem] shadow-elevation-popover'
-              style={{
-                top: `${calendarPosition.top}px`,
-                left: `${calendarPosition.left}px`,
-                width: `${calendarPosition.width}px`
-              }}
-            >
-              {/* Month Navigation */}
-              <div className='mb-[1rem] flex items-center justify-between'>
-                <button
-                  type='button'
-                  onClick={() => navigateMonth(-1)}
-                  className='flex items-center justify-center rounded-lg p-[0.5rem] text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900'
-                  aria-label='Mes anterior'
-                >
-                  <svg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'>
-                    <path d='M15 18L9 12L15 6' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' />
-                  </svg>
-                </button>
-                <h3 className='text-title-md font-medium text-fg capitalize'>{monthName}</h3>
-                <button
-                  type='button'
-                  onClick={() => navigateMonth(1)}
-                  className='flex items-center justify-center rounded-lg p-[0.5rem] text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900'
-                  aria-label='Mes siguiente'
-                >
-                  <svg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'>
-                    <path d='M9 18L15 12L9 6' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Week Days Header */}
-              <div className='mb-[0.5rem] grid grid-cols-7 gap-[0.25rem]'>
-                {weekDays.map((day) => (
-                  <div key={day} className='flex items-center justify-center py-[0.5rem] text-label-md font-medium text-neutral-600'>
-                    {day}
-                  </div>
-                ))}
-              </div>
-
-              {/* Calendar Grid */}
-              <div className='grid w-full grid-cols-7 gap-[0.25rem]'>
-                {calendarDays.map(({ day, isCurrentMonth, date }, index) => {
-                  const selected = isSelectedDate(day) && isCurrentMonth
-                  const today = isToday(day) && isCurrentMonth
-
-                  return (
-                    <button
-                      key={`${date.getTime()}-${index}`}
-                      type='button'
-                      onClick={() => isCurrentMonth && handleDateClick(day)}
-                      disabled={!isCurrentMonth}
-                      className={`flex h-[2.5rem] min-w-0 items-center justify-center rounded-lg text-body-md transition-colors ${
-                        !isCurrentMonth
-                          ? 'cursor-not-allowed text-neutral-400'
-                          : selected
-                            ? 'bg-brand-500 font-bold text-brand-900'
-                            : today
-                              ? 'border-2 border-brand-500 font-medium text-brand-500'
-                              : 'text-neutral-600 hover:bg-neutral-100'
-                      }`}
-                    >
-                      {day}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>,
-            document.body
-          )}
-
-          {/* Periodo - Right */}
-          <div className='flex flex-1 flex-col gap-[0.5rem]'>
-            <p className='text-body-sm text-fg'>Periodo</p>
-            <label className='flex h-[3rem] items-center rounded-lg border border-border bg-neutral-50 px-[0.625rem] focus-within:ring-2 focus-within:ring-brandSemantic'>
-              <select
-                defaultValue='custom'
-                className='w-full bg-transparent text-body-md text-fg focus:outline-none'
-              >
-                <option value='custom'>Personalizado</option>
-              </select>
-            </label>
-          </div>
-        </div>
-      </section>
-
-      <button
-        type='button'
-        onClick={onContinue}
-        className='absolute flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-brand-900 shadow-cta transition-colors hover:bg-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50'
-        style={{
-          left: `${CTA_LEFT_REM}rem`,
-          top: `${CTA_TOP_REM}rem`,
-          width: `${CTA_WIDTH_REM}rem`,
-          minHeight: `${CTA_HEIGHT_REM}rem`
-        }}
-      >
-        Continuar
-      </button>
-    </>
-  )
-}
-
-type SummaryStepProps = {
-  descriptionId: string
-  totalValues: Record<CashTotalFieldId, string>
-  onChange: (fieldId: CashTotalFieldId, value: string) => void
-  tableGridStyles: React.CSSProperties
-  onContinue: () => void
-  dailyMovements: DailyMovement[]
-  isLoading: boolean
-}
-
-type TotalsStepProps = {
-  descriptionId: string
-  isLoading: boolean
-  totalDayAmount: number
-  paymentMethodBreakdown: PaymentMethodBreakdown
-  onContinue: () => void
-}
-
-function TotalsStep({
-  descriptionId,
-  isLoading,
-  totalDayAmount,
-  paymentMethodBreakdown,
-  onContinue
-}: TotalsStepProps) {
-  const row = (label: string, value: number) => (
-    <div className='flex items-center justify-between rounded-lg border border-border bg-neutral-0 px-[1rem] py-[0.75rem]'>
-      <p className='text-body-md text-fg'>{label}</p>
-      <p className='text-body-md font-medium text-fg'>
-        {value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-      </p>
-    </div>
-  )
-
-  return (
-    <>
-      <section
-        className='absolute flex flex-col gap-[0.5rem]'
-        style={{
-          left: `${SECTION_LEFT_REM}rem`,
-          top: `${HEADER_TOP_REM}rem`,
-          width: `${HEADER_WIDTH_REM}rem`
-        }}
-      >
-        <p className='text-headline-sm text-fg'>Totales del día</p>
-        <p id={descriptionId} className='text-body-sm text-fg'>
-          Revisa los totales esperados antes de contar el efectivo.
-        </p>
-      </section>
-
-      <section
-        className='absolute flex flex-col gap-[1rem]'
-        style={{
-          left: `${SECTION_LEFT_REM}rem`,
-          top: `${FORM_TOP_REM}rem`,
-          width: `${FORM_WIDTH_REM}rem`,
-          maxWidth: '100%'
-        }}
-      >
-        {isLoading ? (
-          <div className='flex h-[8rem] items-center justify-center text-body-md text-neutral-600'>
-            Calculando totales...
-          </div>
-        ) : (
-          <>
-            {row('Total del día', totalDayAmount)}
-            <div className='mt-[0.5rem] flex flex-col gap-[0.5rem]'>
-              <p className='text-body-sm text-neutral-600'>Desglose por método</p>
-              {row('Efectivo', paymentMethodBreakdown.cash)}
-              {row('TPV', paymentMethodBreakdown.card)}
-              {row('Transferencia', paymentMethodBreakdown.transfer)}
-              {row('Financiación', paymentMethodBreakdown.check)}
-            </div>
-          </>
-        )}
-      </section>
-
-      <button
-        type='button'
-        onClick={onContinue}
-        disabled={isLoading}
-        className='absolute flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-brand-900 shadow-cta transition-colors hover:bg-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed'
-        style={{
-          left: `${CTA_LEFT_REM}rem`,
-          top: `${CTA_TOP_REM}rem`,
-          width: `${CTA_WIDTH_REM}rem`,
-          minHeight: `${CTA_HEIGHT_REM}rem`
-        }}
-      >
-        Continuar
-      </button>
-    </>
-  )
-}
-
-function SummaryStep({
-  descriptionId,
-  totalValues,
-  onChange,
-  tableGridStyles,
-  onContinue,
-  dailyMovements,
-  isLoading
-}: SummaryStepProps) {
-  return (
-    <>
-      <section
-        className='absolute flex flex-col gap-[0.5rem]'
-        style={{
-          left: `${SECTION_LEFT_REM}rem`,
-          top: `${HEADER_TOP_REM}rem`,
-          width: `${HEADER_WIDTH_REM}rem`
-        }}
-      >
-        <p className='text-headline-sm text-fg'>Conteo de efectivo</p>
-        <p id={descriptionId} className='text-body-sm text-fg'>
-          Comprueba que todos los datos del resumen son correctos y anota la salida de caja.
-        </p>
-      </section>
-
-      <section
-        className='absolute flex w-full items-start'
-        style={{
-          left: `${SECTION_LEFT_REM}rem`,
-          top: `${FORM_TOP_REM}rem`,
-          width: `${FORM_WIDTH_REM}rem`,
-          gap: `${FORM_GAP_REM}rem`
-        }}
-      >
-        {CASH_TOTAL_FIELDS.map((field) => {
-          // v2: Caja inicial editable; Caja del día and Resto are readonly.
-          const isReadOnly = field.id === 'day' || field.id === 'rest'
-          return (
-            <div key={field.id} className='flex flex-1 flex-col gap-[0.5rem]'>
-              <p className='text-body-sm text-fg'>{field.label}</p>
-              <label
-                className={`flex h-[3rem] items-center justify-between rounded-lg border border-border bg-neutral-50 px-[0.625rem] ${
-                  isReadOnly ? '' : 'focus-within:ring-2 focus-within:ring-brandSemantic'
-                }`}
-              >
-                <input
-                  type='text'
-                  value={totalValues[field.id]}
-                  onChange={(event) => onChange(field.id, event.target.value)}
-                  placeholder={field.placeholder}
-                  readOnly={isReadOnly}
-                  className='w-full bg-transparent text-body-md text-fg placeholder:text-neutral-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-75'
-                  aria-required={field.required}
-                  disabled={isReadOnly}
-                />
-                {field.required && (
-                  <span className='text-body-lg font-medium leading-none text-error-600'>*</span>
-                )}
-              </label>
-            </div>
-          )
-        })}
-      </section>
-
-      <section
-        className='absolute rounded-lg bg-neutral-50'
-        style={{
-          left: `${SECTION_LEFT_REM}rem`,
-          top: `${TABLE_TOP_REM}rem`,
-          width: `${FORM_WIDTH_REM}rem`,
-          height: `${TABLE_HEIGHT_REM}rem`
-        }}
-      >
-        <div className='h-full w-full'>
-          <div
-            className='grid border-b border-border text-body-md font-medium text-neutral-600'
-            style={tableGridStyles}
-          >
-            {['Hora', 'Paciente', 'Concepto', 'Cantidad', 'Método'].map((header, index) => (
-              <div
-                key={`${header}-${index}`}
-                className={`flex items-center px-[0.5rem] py-[0.25rem] ${
-                  index < 4 ? 'border-r border-border' : ''
-                }`}
-              >
-                {header}
-              </div>
-            ))}
-          </div>
-
-          <div>
-            {isLoading ? (
-              <div className='flex h-full items-center justify-center text-body-md text-neutral-600'>
-                Cargando movimientos...
-              </div>
-            ) : dailyMovements.length === 0 ? (
-              <div className='flex h-full items-center justify-center text-body-md text-neutral-600'>
-                No hay movimientos para este día
-              </div>
-            ) : (
-              dailyMovements.map((row, index) => (
-                <div
-                  key={`${row.time}-${row.patient}-${index}`}
-                  className='grid border-b border-border text-body-md text-neutral-900'
-                  style={tableGridStyles}
-                >
-                  <Cell>{row.time}</Cell>
-                  <Cell>{row.patient}</Cell>
-                  <Cell>{row.concept}</Cell>
-                  <Cell>{row.amount}</Cell>
-                  <Cell border={false}>{row.method}</Cell>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </section>
-
-      <button
-        type='button'
-        onClick={onContinue}
-        disabled={isLoading}
-        className='absolute flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-brand-900 shadow-cta transition-colors hover:bg-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed'
-        style={{
-          left: `${CTA_LEFT_REM}rem`,
-          top: `${CTA_TOP_REM}rem`,
-          width: `${CTA_WIDTH_REM}rem`,
-          minHeight: `${CTA_HEIGHT_REM}rem`
-        }}
-      >
-        Continuar
-      </button>
-    </>
-  )
-}
-
-type RecountStepProps = {
-  descriptionId: string
-  values: Record<RecountFieldId, string>
-  onChange: (fieldId: RecountFieldId, value: string) => void
-  onContinue: () => void
-  paymentMethodBreakdown: PaymentMethodBreakdown
-  isLoading: boolean
-}
-
-function RecountStep({
-  descriptionId,
-  values,
-  onChange,
-  onContinue,
-  paymentMethodBreakdown,
-  isLoading
-}: RecountStepProps) {
-  return (
-    <>
-      <section
-        className='absolute'
-        style={{
-          left: `${RECOUNT_LABEL_LEFT_REM}rem`,
-          top: `${RECOUNT_HEADER_TOP_REM}rem`,
-          width: `${RECOUNT_INPUT_LEFT_REM + RECOUNT_INPUT_WIDTH_REM - RECOUNT_LABEL_LEFT_REM}rem`
-        }}
-      >
-        <p id={descriptionId} className='text-title-sm font-medium text-fg'>
-          Recuento de ingresos y gastos
-        </p>
-      </section>
-
-      {(() => {
-        console.log(`[RecountStep] Payment method breakdown:`, paymentMethodBreakdown)
-        // Show ALL payment methods for reconciliation (even if amount is 0)
-        // This allows users to verify all payment methods, not just the ones with transactions
-        const fields = [
-          { id: 'cash' as const, label: 'Efectivo', should: paymentMethodBreakdown.cash },
-          { id: 'tpv' as const, label: 'TPV', should: paymentMethodBreakdown.card },
-          { id: 'transfer' as const, label: 'Transferencia', should: paymentMethodBreakdown.transfer },
-          { id: 'cheque' as const, label: 'Financiación', should: paymentMethodBreakdown.check }
-        ]
-        console.log(`[RecountStep] Showing ${fields.length} payment methods:`, fields.map(f => `${f.label} (${f.should})`))
-        return fields
-      })().map((field, index) => {
-          console.log(`[RecountStep] Rendering ${field.label} with amount: ${field.should}`)
-          const top = RECOUNT_LABEL_TOP_START_REM + index * RECOUNT_LABEL_ROW_GAP_REM
-          const shouldAmount = `${field.should.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
-          return (
-            <React.Fragment key={field.id}>
-              <p
-                className='absolute text-body-md text-fg'
-                style={{ left: `${RECOUNT_LABEL_LEFT_REM}rem`, top: `${top}rem` }}
-              >
-                {field.label}
-              </p>
-
-              <div
-                className='absolute flex flex-col gap-[0.25rem]'
-                style={{
-                  left: `${RECOUNT_INPUT_LEFT_REM}rem`,
-                  top: `${top}rem`,
-                  width: `${RECOUNT_INPUT_WIDTH_REM}rem`
-                }}
-              >
-                <label className='flex h-[3rem] items-center rounded-lg border border-border bg-neutral-50 px-[0.625rem] focus-within:ring-2 focus-within:ring-brandSemantic'>
-                  <input
-                    type='text'
-                    value={values[field.id]}
-                    onChange={(event) => onChange(field.id, event.target.value)}
-                    placeholder='Value'
-                    className='w-full bg-transparent text-body-md text-fg placeholder:text-neutral-400 focus:outline-none'
-                    disabled={isLoading}
-                  />
-                </label>
-                <p className='text-label-sm font-medium text-neutral-600'>
-                  Debería haber <span className='font-bold text-fg'>{shouldAmount}</span>
-                </p>
-              </div>
-            </React.Fragment>
-          )
-        })}
-
-      <button
-        type='button'
-        onClick={onContinue}
-        disabled={isLoading}
-        className='absolute flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-brand-900 shadow-cta transition-colors hover:bg-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed'
-        style={{
-          left: `${RECOUNT_CTA_LEFT_REM}rem`,
-          top: `${CTA_TOP_REM}rem`,
-          width: `${CTA_WIDTH_REM}rem`,
-          minHeight: `${CTA_HEIGHT_REM}rem`
-        }}
-      >
-        {isLoading ? 'Guardando...' : 'Continuar'}
-      </button>
-    </>
-  )
-}
-
-type ConfirmationStepProps = {
-  descriptionId: string
-}
-
-function ConfirmationStep({ descriptionId }: ConfirmationStepProps) {
-  return (
-    <div className='absolute inset-0 flex items-center justify-center'>
-      <div className='flex flex-col items-center gap-[1rem] text-center'>
-        <div className='flex size-[4rem] items-center justify-center rounded-full bg-brand-100'>
-          <span className='material-symbols-rounded text-[2.5rem] text-brand-600'>check_circle</span>
-        </div>
-        <p id={descriptionId} className='text-title-md font-medium text-fg'>
-          Cierre de caja guardado correctamente
-        </p>
-        <p className='text-body-sm text-neutral-600'>El cierre se ha registrado en el sistema</p>
+        <span className={`material-symbols-rounded text-[1.25rem] ${iconColor}`}>
+          {icon}
+        </span>
+      </div>
+      <div className='flex flex-1 flex-col'>
+        <span className='text-label-sm text-neutral-500'>{label}</span>
+        <span className={`text-title-sm font-semibold ${valueColor}`}>
+          {value}
+        </span>
       </div>
     </div>
   )
 }
 
+function FilterChips({
+  activeFilter,
+  onFilterChange
+}: {
+  activeFilter: PaymentMethodFilter
+  onFilterChange: (filter: PaymentMethodFilter) => void
+}) {
+  return (
+    <div className='flex items-center gap-1'>
+      {FILTER_OPTIONS.map((option) => {
+        const isActive = activeFilter === option.id
+        return (
+          <button
+            key={option.id}
+            type='button'
+            onMouseDown={(e) => {
+              e.preventDefault()
+              onFilterChange(option.id)
+            }}
+            className={`cursor-pointer rounded-full px-3 py-1.5 text-label-sm font-medium transition-colors ${
+              isActive
+                ? 'bg-brand-500 text-brand-900'
+                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+            }`}
+          >
+            {option.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
+function TransactionRow({ transaction }: { transaction: CashTransaction }) {
+  const config = PAYMENT_METHOD_CONFIG[transaction.payment_method] || {
+    label: transaction.payment_method,
+    color: 'text-neutral-700',
+    bgColor: 'bg-neutral-100',
+    icon: 'payments'
+  }
+
+  return (
+    <tr className='transition-colors hover:bg-neutral-50/50'>
+      <td className='px-6 py-3.5'>
+        <span className='text-body-sm font-medium text-fg'>
+          {transaction.patient_name}
+        </span>
+      </td>
+      <td className='px-4 py-3.5 text-body-sm text-neutral-600'>
+        {transaction.concept}
+      </td>
+      <td className='whitespace-nowrap px-4 py-3.5 text-right text-body-sm font-medium text-fg'>
+        {transaction.amount.toFixed(2)} €
+      </td>
+      <td className='px-4 py-3.5'>
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-label-sm font-medium ${config.bgColor} ${config.color}`}
+        >
+          <span className='material-symbols-rounded text-[0.875rem]'>
+            {config.icon}
+          </span>
+          {config.label}
+        </span>
+      </td>
+      <td className='px-6 py-3.5'>
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-label-sm font-medium ${
+            transaction.payment_status === 'cobrado'
+              ? 'bg-success-100 text-success-700'
+              : 'bg-warning-100 text-warning-700'
+          }`}
+        >
+          {transaction.payment_status === 'cobrado' ? 'Cobrado' : 'Pendiente'}
+        </span>
+      </td>
+    </tr>
+  )
+}

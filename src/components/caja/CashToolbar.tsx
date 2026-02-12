@@ -249,7 +249,7 @@ export default function CashToolbar({
           <CashClosingModal
             open={isClosingModalOpen}
             onClose={handleCloseModal}
-            date={selectedClosingDate ? new Date(selectedClosingDate) : undefined}
+            initialDate={selectedClosingDate}
           />
         </div>
       ) : null}

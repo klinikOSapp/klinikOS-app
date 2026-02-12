@@ -1433,6 +1433,7 @@ export default function WeekScheduler() {
     updateAppointment,
     getAppointmentsByDateRange,
     getBlocksByDateRange,
+    getBlockById,
     deleteBlock,
     addBlock,
     updateVisitStatus,
@@ -1586,13 +1587,6 @@ export default function WeekScheduler() {
       voiceAgentCallId?: string
     }[]
   >([])
-  const selectedDayBoxIds = useMemo(
-    () =>
-      effectiveBoxOptions.flatMap((option, index) =>
-        selectedBoxes.includes(option.id) ? [`box-${index + 1}`] : []
-      ),
-    [effectiveBoxOptions, selectedBoxes]
-  )
 
   // Payment modal state for quick actions
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -2307,6 +2301,33 @@ export default function WeekScheduler() {
       setIsCreateAppointmentModalOpen(true)
     },
     []
+  )
+
+  const handleEditBlock = useCallback(
+    (blockId: string) => {
+      const block = getBlockById(blockId)
+      if (!block) return
+
+      const [startH = '09', startM = '00'] = block.startTime.split(':')
+      const [endH = startH, endM = startM] = block.endTime.split(':')
+      const startMinutes = Number(startH) * 60 + Number(startM)
+      const endMinutes = Number(endH) * 60 + Number(endM)
+      const duration = Math.max(MINUTES_STEP, endMinutes - startMinutes)
+      const sourceRef = block.sourcePublicRef || `HOLD-${block.id}`
+
+      openCreateAppointmentModal({
+        paciente: block.patientName || '',
+        pacienteId: block.patientId || '',
+        observaciones: block.description || '',
+        fecha: block.date,
+        hora: block.startTime,
+        duracion: String(duration),
+        box: block.box ? resolveBoxLabel(block.box) : undefined,
+        sourceHoldId: block.id,
+        sourceHoldPublicRef: sourceRef
+      })
+    },
+    [getBlockById, openCreateAppointmentModal, resolveBoxLabel]
   )
 
   // Handle action=create from URL to open CreateAppointmentModal with pre-filled data (from Voice Agent)
@@ -3094,6 +3115,13 @@ export default function WeekScheduler() {
   const [dragState, setDragState] = useState<DragState>(null)
   const dragPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const dragRafRef = useRef<number | null>(null)
+  const dragPersistRef = useRef<{
+    eventId: string
+    date: string
+    startTime: string
+    endTime: string
+    box: string
+  } | null>(null)
 
   const toSlots = (value: string | undefined): number => {
     const num = value ? parseFloat(value) : 0
@@ -3137,6 +3165,7 @@ export default function WeekScheduler() {
   ) => {
     // Oculta overlays/hover mientras se inicia el drag para no tapar el evento.
     isDraggingRef.current = true
+    dragPersistRef.current = null
     setHovered(null)
     setActive(null)
     setDragState({
@@ -3217,6 +3246,13 @@ export default function WeekScheduler() {
         const endTime = slotToTime(newSlot + newHeightSlots)
         const durationMinutes = newHeightSlots * MINUTES_STEP
         const targetDate = getDateFromWeekday(targetColumnId)
+        dragPersistRef.current = {
+          eventId: dragState.eventId,
+          date: targetDate,
+          startTime,
+          endTime,
+          box: normalizeBoxLabel(targetBox)
+        }
 
         setDayColumnsState((prev: DayColumn[]) => {
           const found = findEventById(prev, dragState.eventId)
@@ -3269,6 +3305,16 @@ export default function WeekScheduler() {
 
     const handleUp = () => {
       isDraggingRef.current = false
+      const pendingPersist = dragPersistRef.current
+      if (pendingPersist) {
+        updateAppointment(pendingPersist.eventId, {
+          date: pendingPersist.date,
+          startTime: pendingPersist.startTime,
+          endTime: pendingPersist.endTime,
+          box: pendingPersist.box
+        })
+      }
+      dragPersistRef.current = null
       setDragState(null)
       if (dragRafRef.current !== null) {
         cancelAnimationFrame(dragRafRef.current)
@@ -3282,7 +3328,13 @@ export default function WeekScheduler() {
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
     }
-  }, [dragState, effectiveBoxOptions, getDateFromWeekday, selectedBoxes])
+  }, [
+    dragState,
+    effectiveBoxOptions,
+    getDateFromWeekday,
+    selectedBoxes,
+    updateAppointment
+  ])
 
   const getSlotIndexFromTime = (time: string): number => {
     const [h = '09', m = '00'] = time.split(':')
@@ -3412,6 +3464,10 @@ export default function WeekScheduler() {
       ?.map((t) => t.description)
       .join(', ')
     const reason = treatmentDescriptions || data.servicio || 'Nueva cita'
+    const sourceHoldRef = data.sourceHoldPublicRef?.trim()
+    const mergedNotes = [data.observaciones?.trim(), sourceHoldRef ? `Origen: ${sourceHoldRef}` : null]
+      .filter((value): value is string => Boolean(value))
+      .join('\n')
 
     addAppointment({
       date: data.fecha, // formato ISO: "2026-01-08"
@@ -3430,15 +3486,21 @@ export default function WeekScheduler() {
       bgColor: voiceAgentPrefill?.createdByVoiceAgent
         ? 'var(--color-event-ai-bg)'
         : 'var(--color-brand-100)',
-      notes: data.observaciones || '',
+      notes: mergedNotes,
       linkedTreatments: data.linkedTreatments?.map((t) => ({
         ...t,
         status: 'pending' as const
       })),
       // Voice agent fields
       createdByVoiceAgent: voiceAgentPrefill?.createdByVoiceAgent,
-      voiceAgentCallId: voiceAgentPrefill?.voiceAgentCallId
+      voiceAgentCallId: voiceAgentPrefill?.voiceAgentCallId,
+      sourceHoldId: data.sourceHoldId || undefined,
+      sourceHoldPublicRef: sourceHoldRef || undefined
     })
+
+    if (data.sourceHoldId) {
+      deleteBlock(data.sourceHoldId, false)
+    }
 
     handleCreateModalClose()
   }
@@ -3909,11 +3971,13 @@ export default function WeekScheduler() {
             }
             bands={getDayBands(selectedDate ?? currentWeekStart)}
             onAppointmentMove={handleDayAppointmentMove}
-            selectedBoxes={selectedDayBoxIds}
+            selectedBoxes={selectedBoxes}
             selectedProfessionals={selectedProfessionals}
             onOpenCreateAppointment={(prefill) =>
               openCreateAppointmentModal(prefill)
             }
+            onEditBlock={handleEditBlock}
+            onDeleteBlock={handleDeleteBlock}
             showConfirmedOnly={showConfirmedOnly}
             showAIOnly={showAIOnly}
           />
@@ -3973,6 +4037,7 @@ export default function WeekScheduler() {
                   hoveredBlockId={hoveredBlockId}
                   onBlockHover={setHoveredBlockId}
                   onBlockActivate={setActiveBlockId}
+                  onEditBlock={handleEditBlock}
                   onDeleteBlock={handleDeleteBlock}
                   // Quick appointment creation props
                   hoverSlotIndex={

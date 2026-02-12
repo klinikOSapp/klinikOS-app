@@ -267,6 +267,8 @@ const DEFAULT_BOX_HEADERS = [
 
 // Helper to convert box id to box name (e.g., 'box-1' -> 'box 1')
 const boxIdToName = (boxId: string): string => boxId.replace('-', ' ')
+const normalizeBoxFilterValue = (value: string): string =>
+  value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '')
 
 // Function to calculate dynamic box layout based on selected boxes
 const getBoxLayout = (
@@ -277,12 +279,12 @@ const getBoxLayout = (
     tone: string
   }> = DEFAULT_BOX_HEADERS
 ): Record<string, { left: string; width: string }> => {
-  // Filter to only include boxes that exist in boxHeaders
-  const validBoxes = selectedBoxes.filter((id) =>
-    boxHeaders.some((opt) => opt.id === id)
-  )
+  // Keep original box position, but render only selected boxes.
+  const selectedHeaders = boxHeaders
+    .map((box, originalIndex) => ({ ...box, originalIndex }))
+    .filter((box) => selectedBoxes.includes(box.id))
 
-  if (validBoxes.length === 0) {
+  if (selectedHeaders.length === 0) {
     // Default 3-box layout
     return {
       'box 1': { left: '0%', width: '33.33%' },
@@ -291,17 +293,21 @@ const getBoxLayout = (
     }
   }
 
-  const boxWidth = 100 / validBoxes.length
+  const boxWidth = 100 / selectedHeaders.length
 
   const layout: Record<string, { left: string; width: string }> = {}
 
-  validBoxes.forEach((boxId, index) => {
-    const boxName = boxIdToName(boxId)
+  selectedHeaders.forEach((box, index) => {
+    const boxName = `box ${box.originalIndex + 1}`
     const left = index * boxWidth
-    layout[boxName] = {
+    const entry = {
       left: `${left}%`,
       width: `${boxWidth}%`
     }
+    layout[boxName] = entry
+    layout[boxIdToName(box.id)] = entry
+    layout[box.label.toLowerCase().replace(/\s+/g, ' ')] = entry
+    layout[normalizeBoxFilterValue(box.label)] = entry
   })
 
   return layout
@@ -1279,6 +1285,7 @@ function DayGrid({
   gridRef,
   boxRefs,
   selectedBoxes,
+  visibleSlotBoxIds,
   boxLayout,
   boxCount,
   visibleSlotCount,
@@ -1325,6 +1332,7 @@ function DayGrid({
   gridRef?: React.Ref<HTMLDivElement>
   boxRefs?: React.MutableRefObject<Record<BoxId, HTMLDivElement | null>>
   selectedBoxes: string[]
+  visibleSlotBoxIds: BoxId[]
   boxLayout: Record<string, { left: string; width: string }>
   boxCount: number
   visibleSlotCount: number // Número de slots de 30 min visibles según el período
@@ -1406,9 +1414,7 @@ function DayGrid({
   const allEvents: { event: DayEvent; boxId: BoxId }[] = []
   sourceSlots.forEach((slot) => {
     slot.boxes.forEach((box) => {
-      // Convert box id (box1, box2, box3) to filter format (box-1, box-2, box-3)
-      const boxFilterId = box.id.replace('box', 'box-')
-      if (selectedBoxes.includes(boxFilterId)) {
+      if (visibleSlotBoxIds.includes(box.id as BoxId)) {
         box.events.forEach((event) => {
           // Filter by period (time range)
           if (!isEventInPeriod(event)) return
@@ -1659,8 +1665,16 @@ function DayGrid({
       <div className='absolute inset-0 z-[1]'>
         {blocks.map((block) => {
           // Get box layout for block positioning
-          const boxName = block.box || ''
-          const blockLayout = boxLayout[boxName]
+          const rawBoxName = block.box || ''
+          const normalizedBoxName = rawBoxName
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+          const compactBoxName = normalizeBoxFilterValue(rawBoxName)
+          const numberToken = rawBoxName.match(/\d+/)?.[0]
+          const blockLayout =
+            boxLayout[normalizedBoxName] ||
+            boxLayout[compactBoxName] ||
+            (numberToken ? boxLayout[`box ${numberToken}`] : undefined)
           if (!blockLayout && block.box) return null // Skip if box not visible
 
           return (
@@ -1954,13 +1968,37 @@ export default function DayCalendar({
   // Use prop if provided, otherwise default to all boxes from config
   const selectedBoxes =
     selectedBoxesProp ?? effectiveBoxHeaders.map((b) => b.id)
+  const selectedBoxLookup = useMemo(
+    () => new Set(selectedBoxes.map((value) => normalizeBoxFilterValue(value))),
+    [selectedBoxes]
+  )
+  const resolvedSelectedBoxIds = useMemo(
+    () =>
+      effectiveBoxHeaders
+        .filter((box) => {
+          const idKey = normalizeBoxFilterValue(box.id)
+          const labelKey = normalizeBoxFilterValue(box.label)
+          return selectedBoxLookup.has(idKey) || selectedBoxLookup.has(labelKey)
+        })
+        .map((box) => box.id),
+    [effectiveBoxHeaders, selectedBoxLookup]
+  )
 
   // Get visible boxes based on filter
   const visibleBoxes = effectiveBoxHeaders.filter((box) =>
-    selectedBoxes.includes(box.id)
+    resolvedSelectedBoxIds.includes(box.id)
   )
   const boxCount = visibleBoxes.length || 1
-  const boxLayout = getBoxLayout(selectedBoxes, effectiveBoxHeaders)
+  const boxLayout = getBoxLayout(resolvedSelectedBoxIds, effectiveBoxHeaders)
+  const visibleSlotBoxIds = useMemo<BoxId[]>(
+    () =>
+      effectiveBoxHeaders.flatMap((box, index) =>
+        resolvedSelectedBoxIds.includes(box.id)
+          ? ([`box${index + 1}`] as BoxId[])
+          : []
+      ),
+    [effectiveBoxHeaders, resolvedSelectedBoxIds]
+  )
   const [hovered, setHovered] = useState<DayEventSelection>(null)
   const [active, setActive] = useState<DayEventSelection>(null)
   const [localEvents, setLocalEvents] = useState<TimeSlot[]>([])
@@ -2429,27 +2467,32 @@ export default function DayCalendar({
   }
 
   const filteredEvents = getFilteredEvents()
-  const normalizedSelectedBoxes = useMemo(
-    () => selectedBoxes.map((value) => value.toLowerCase().replace(/\s+/g, '-')),
-    [selectedBoxes]
+  const normalizedVisibleBoxLabels = useMemo(
+    () =>
+      new Set(visibleBoxes.map((box) => normalizeBoxFilterValue(box.label))),
+    [visibleBoxes]
   )
 
   const isBlockVisibleForSelection = useCallback(
     (boxLabel?: string) => {
       if (!boxLabel) return true
+      if (visibleBoxes.length === 0) return true
 
-      const normalizedLabel = boxLabel.toLowerCase().replace(/\s+/g, '-')
+      const normalizedLabel = normalizeBoxFilterValue(boxLabel)
       const numberMatch = boxLabel.match(/\d+/)
-      const candidateIds = [normalizedLabel]
+      const labelMatch = normalizedVisibleBoxLabels.has(normalizedLabel)
+      if (labelMatch) return true
+
+      const candidateSlotIds: string[] = []
       if (numberMatch) {
-        candidateIds.push(`box-${numberMatch[0]}`)
+        candidateSlotIds.push(`box${numberMatch[0]}`)
       }
 
-      return candidateIds.some((candidate) =>
-        normalizedSelectedBoxes.includes(candidate)
+      return candidateSlotIds.some((candidate) =>
+        visibleSlotBoxIds.includes(candidate as BoxId)
       )
     },
-    [normalizedSelectedBoxes]
+    [normalizedVisibleBoxLabels, visibleBoxes.length, visibleSlotBoxIds]
   )
 
   // Get blocks for the current date and convert to visual format
@@ -2482,7 +2525,7 @@ export default function DayCalendar({
         return true
       })
       .map((block) => {
-        // Calculate position based on time
+        // Calculate position based on time.
         const startMinutes = timeToMinutes(block.startTime)
         const endMinutes = timeToMinutes(block.endTime)
         const durationMinutes = endMinutes - startMinutes
@@ -2889,7 +2932,8 @@ export default function DayCalendar({
         onEventDragStart={handleEventDragStart}
         gridRef={gridRef}
         boxRefs={boxRefs}
-        selectedBoxes={selectedBoxes}
+        selectedBoxes={resolvedSelectedBoxIds}
+        visibleSlotBoxIds={visibleSlotBoxIds}
         boxLayout={boxLayout}
         boxCount={boxCount}
         visibleSlotCount={visibleSlotCount}
