@@ -877,6 +877,12 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       }}
     >
       <div className='flex flex-wrap items-center gap-gapsm'>
+        <div className='text-body-sm text-[var(--color-neutral-700)]'>
+          Desde&nbsp;&nbsp;DD/MM/AAAA
+        </div>
+        <div className='text-body-sm text-[var(--color-neutral-700)]'>
+          Hasta&nbsp;&nbsp;DD/MM/AAAA
+        </div>
         <SearchInput
           value={query}
           onChange={setQuery}
@@ -884,39 +890,32 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
           loading={isSuggesting}
           onPickSuggestion={(name) => setQuery(name)}
         />
-        <div className='flex flex-wrap items-center gap-gapsm'>
-          <DateField label='Desde' value={fromDate} onChange={setFromDate} />
-          <DateField label='Hasta' value={toDate} onChange={setToDate} />
-        </div>
         <div className='ml-auto flex flex-wrap items-center gap-gapsm'>
-          <SelectField
-            label='Método'
-            value={paymentMethod}
-            options={[
-              { value: '', label: 'Todos' },
-              ...PAYMENT_FILTERS.map((v) => ({ value: v, label: v }))
-            ]}
-            onChange={(v) => setPaymentMethod(v as any)}
-          />
-          <SelectField
-            label='Estado'
-            value={paymentStatus}
-            options={[
-              { value: '', label: 'Todos' },
-              ...COLLECTION_STATUS_FILTERS.map((v) => ({ value: v, label: v }))
-            ]}
-            onChange={(v) => setPaymentStatus(v as any)}
-          />
-          <SelectField
-            label='Filas'
-            value={String(pageSize)}
-            options={[
-              { value: '20', label: '20' },
-              { value: '50', label: '50' },
-              { value: '100', label: '100' }
-            ]}
-            onChange={(v) => setPageSize(Number(v))}
-          />
+          {[
+            { id: '', label: 'Todos' },
+            { id: 'Efectivo', label: 'Efectivo' },
+            { id: 'TPV', label: 'TPV' },
+            { id: 'Financiación', label: 'Financiación' }
+          ].map((option) => {
+            const isActive = paymentMethod === option.id
+            return (
+              <button
+                key={option.label}
+                type='button'
+                onClick={() =>
+                  setPaymentMethod(option.id as '' | PaymentCategory)
+                }
+                className={[
+                  'px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors',
+                  isActive
+                    ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
+                    : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)] hover:bg-[#D3F7F3] hover:border-[#7DE7DC]'
+                ].join(' ')}
+              >
+                {option.label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -1886,6 +1885,5 @@ function PaginationIcon({
     </button>
   )
 }
-
 
 

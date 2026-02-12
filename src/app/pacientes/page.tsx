@@ -8,15 +8,13 @@ import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded'
 import AddRounded from '@mui/icons-material/AddRounded'
-import CheckRounded from '@mui/icons-material/CheckRounded'
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
-import DeleteRounded from '@mui/icons-material/DeleteRounded'
 import FilterListRounded from '@mui/icons-material/FilterListRounded'
 import FirstPageRounded from '@mui/icons-material/FirstPageRounded'
 import LastPageRounded from '@mui/icons-material/LastPageRounded'
-import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded'
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
+import PhoneRounded from '@mui/icons-material/PhoneRounded'
 import SearchRounded from '@mui/icons-material/SearchRounded'
 import { useRouter, useSearchParams } from 'next/navigation'
 import React from 'react'
@@ -33,28 +31,6 @@ export default function PacientesPage() {
     >
       <PacientesPageInner />
     </React.Suspense>
-  )
-}
-
-function KpiCard({
-  title,
-  value,
-  badge
-}: {
-  title: string
-  value: string
-  badge?: React.ReactNode
-}) {
-  return (
-    <div className='bg-white rounded-[8px] p-[min(1rem,1.5vw)] h-[min(8rem,12vw)] flex flex-col justify-between shadow-[1px_1px_2px_0_rgba(0,0,0,0.05)] border border-[var(--color-neutral-200)]'>
-      <p className='text-title-sm font-medium text-[var(--color-neutral-600)]'>
-        {title}
-      </p>
-      <div className='flex items-baseline justify-between'>
-        <p className='text-kpi text-[var(--color-neutral-900)]'>{value}</p>
-        {badge}
-      </div>
-    </div>
   )
 }
 
@@ -90,21 +66,12 @@ function Chip({
   )
 }
 
-function StatusPill({ type }: { type: 'Activo' | 'Inactivo' | 'Hecho' }) {
+function StatusPill({ type }: { type: 'Activo' | 'Inactivo' }) {
   if (type === 'Activo') {
     return (
       <span className='inline-flex items-center'>
         <Chip color='sky' size='md'>
           Activo
-        </Chip>
-      </span>
-    )
-  }
-  if (type === 'Hecho') {
-    return (
-      <span className='inline-flex items-center'>
-        <Chip color='green' size='md'>
-          Hecho
         </Chip>
       </span>
     )
@@ -120,15 +87,19 @@ function StatusPill({ type }: { type: 'Activo' | 'Inactivo' | 'Hecho' }) {
 
 function TableHeaderCell({
   children,
-  className
+  className,
+  align = 'left'
 }: {
   children: React.ReactNode
   className?: string
+  align?: 'left' | 'right'
 }) {
   return (
     <th
+      scope='col'
       className={[
-        'text-body-md font-normal text-[var(--color-neutral-600)] text-left',
+        'border-hairline-b border-hairline-r last:border-hairline-b last:border-r-0 py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-body-md font-normal text-[var(--color-neutral-600)]',
+        align === 'right' ? 'text-right' : 'text-left',
         className
       ].join(' ')}
     >
@@ -137,60 +108,16 @@ function TableHeaderCell({
   )
 }
 
-function Row() {
-  const router = useRouter()
-  return (
-    <tr
-      className='cursor-pointer hover:bg-[var(--color-neutral-50)]'
-      onClick={() => router.push('/pacientes/ficha')}
-    >
-      <td className='py-1 pr-2 w-[240px]'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
-          Laura Rivas
-        </p>
-      </td>
-      <td className='py-1 pr-2 w-[191px]'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
-          DD/MM/AAAA
-        </p>
-      </td>
-      <td className='py-1 pr-2 w-[154px]'>
-        <StatusPill type='Activo' />
-      </td>
-      <td className='py-1 pr-2 w-[196px]'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
-          888 888 888
-        </p>
-      </td>
-      <td className='py-1 pr-2 w-[151px]'>
-        <StatusPill type='Hecho' />
-      </td>
-      <td className='py-1 pr-2 w-[120px]'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>No</p>
-      </td>
-      <td className='py-1 pr-2 w-[120px]'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>380€</p>
-      </td>
-      <td className='py-1 pr-2 w-[204px]'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
-          DD/MM/AAAA
-        </p>
-      </td>
-    </tr>
-  )
-}
-
 type PatientRow = {
   id: string
   name: string
   nextDate: string
-  status: 'Activo' | 'Inactivo' | 'Hecho'
+  status: 'Activo' | 'Inactivo'
   phone: string
-  checkin: 'Hecho' | 'Pendiente'
   financing: 'Sí' | 'No'
   debt: string
-  lastContact: string
-  tags?: Array<'deuda' | 'activo' | 'recall'>
+  debtAmount: number
+  tags: Array<'deuda' | 'activo' | 'financiacion'>
 }
 
 function PacientesPageInner() {
@@ -198,20 +125,11 @@ function PacientesPageInner() {
   const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
-  type FilterKey = 'deuda' | 'activos' | 'recall'
+  type FilterKey = 'deuda' | 'activos' | 'financiacion'
   const [selectedFilters, setSelectedFilters] = React.useState<FilterKey[]>([])
-  const [selectedPatientIds, setSelectedPatientIds] = React.useState<string[]>(
-    []
-  )
   const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(true)
   const [rows, setRows] = React.useState<PatientRow[]>([])
-  const [kpi, setKpi] = React.useState<{
-    today: number
-    week: number
-    received: number
-    confirmed: number
-  }>({ today: 0, week: 0, received: 0, confirmed: 0 })
   const [activePatientId, setActivePatientId] = React.useState<string | null>(
     null
   )
@@ -247,7 +165,6 @@ function PacientesPageInner() {
       const clinicId = activeClinicId
       if (!clinicId) {
         setRows([])
-        setKpi({ today: 0, week: 0, received: 0, confirmed: 0 })
         setIsLoading(false)
         return
       }
@@ -290,8 +207,6 @@ function PacientesPageInner() {
           .order('scheduled_start_time', { ascending: true })
 
         const nextByPatient = new Map<string, string>()
-        const checkinByPatient = new Map<string, 'Hecho' | 'Pendiente'>()
-        const statusByPatient = new Map<string, 'Activo' | 'Hecho'>()
         if (Array.isArray(appts)) {
           for (const a of appts) {
             if (!nextByPatient.has(a.patient_id)) {
@@ -301,13 +216,6 @@ function PacientesPageInner() {
                   timeZone: DEFAULT_TIMEZONE
                 })
               )
-            }
-            // mark check-in if any appointment has check-in time
-            if (a.actual_check_in_time) {
-              checkinByPatient.set(a.patient_id, 'Hecho')
-            }
-            if (a.status === 'confirmed') {
-              statusByPatient.set(a.patient_id, 'Activo')
             }
           }
         }
@@ -347,41 +255,23 @@ function PacientesPageInner() {
           }
         }
 
-        // Last contact per patient (communications)
-        const { data: comms } = await supabase
-          .from('communications')
-          .select('patient_id, sent_at')
-          .in('patient_id', patientIds)
-
-        const lastContactByPatient = new Map<string, string>()
-        if (Array.isArray(comms)) {
-          for (const c of comms) {
-            const d = new Date(c.sent_at)
-            const prev = lastContactByPatient.get(c.patient_id)
-            if (!prev || d > new Date(prev)) {
-              lastContactByPatient.set(
-                c.patient_id,
-                d.toLocaleDateString(DEFAULT_LOCALE, { timeZone: DEFAULT_TIMEZONE })
-              )
-            }
-          }
-        }
-
         // Map rows - prefer contact phone over patient phone (new schema)
         const mapped: PatientRow[] = patients.map((p) => {
           const debt = debtByPatient.get(p.id)
           const hasDebt = typeof debt === 'number' && debt > 0
-          const hasUpcoming = nextByPatient.has(p.id)
           const lastVisit = lastVisitByPatient.get(p.id)
           const isActive =
             lastVisit !== undefined ? lastVisit.getTime() >= oneYearAgo.getTime() : false
           const status: 'Activo' | 'Inactivo' = isActive ? 'Activo' : 'Inactivo'
-          const tags: PatientRow['tags'] = []
+          const tags: PatientRow['tags'] = ['deuda', 'activo', 'financiacion'].filter(
+            (tag) => {
+              if (tag === 'deuda') return hasDebt
+              if (tag === 'activo') return status === 'Activo'
+              return false
+            }
+          ) as PatientRow['tags']
 
-          if (hasDebt) tags.push('deuda')
-          if (status === 'Activo') tags.push('activo')
-          // Treat patients without an upcoming appointment as recall candidates
-          if (!hasUpcoming) tags.push('recall')
+          const debtAmount = hasDebt ? Number(debt!.toFixed(2)) : 0
 
           return {
             id: p.id,
@@ -389,56 +279,13 @@ function PacientesPageInner() {
             phone: (p.contacts as any)?.phone_primary ?? p.phone_number ?? '—',
             nextDate: nextByPatient.get(p.id) ?? '—',
             status,
-            checkin: checkinByPatient.get(p.id) ?? 'Pendiente',
             financing: 'No',
-            debt: hasDebt ? `${debt!.toFixed(2)}€` : '—',
-            lastContact: lastContactByPatient.get(p.id) ?? '—',
-            tags: tags.length > 0 ? tags : undefined
+            debt: hasDebt ? `${debtAmount.toFixed(0)} €` : '0 €',
+            debtAmount,
+            tags
           }
         })
         setRows(mapped)
-
-        // KPIs
-        if (clinicId) {
-          const startOfDay = new Date()
-          startOfDay.setHours(0, 0, 0, 0)
-          const endOfDay = new Date()
-          endOfDay.setHours(23, 59, 59, 999)
-          const startOfWeek = new Date()
-          const day = startOfWeek.getDay() || 7
-          startOfWeek.setHours(0, 0, 0, 0)
-          startOfWeek.setDate(startOfWeek.getDate() - (day - 1))
-          const endOfWeek = new Date(startOfWeek)
-          endOfWeek.setDate(startOfWeek.getDate() + 6)
-          endOfWeek.setHours(23, 59, 59, 999)
-
-          const { data: apptsClinic } = await supabase
-            .from('appointments')
-            .select('status, actual_check_in_time, scheduled_start_time')
-            .eq('clinic_id', clinicId)
-            .gte('scheduled_start_time', startOfWeek.toISOString())
-            .lte('scheduled_start_time', endOfWeek.toISOString())
-
-          const todayCount =
-            apptsClinic?.filter((a) => {
-              const t = new Date(a.scheduled_start_time).getTime()
-              return (
-                t >= startOfDay.getTime() && t <= endOfDay.getTime()
-              )
-            }).length ?? 0
-          const weekCount = apptsClinic?.length ?? 0
-          const receivedCount =
-            apptsClinic?.filter((a) => Boolean(a.actual_check_in_time))
-              .length ?? 0
-          const confirmedCount =
-            apptsClinic?.filter((a) => a.status === 'confirmed').length ?? 0
-          setKpi({
-            today: todayCount,
-            week: weekCount,
-            received: receivedCount,
-            confirmed: confirmedCount
-          })
-        }
       }
       setIsLoading(false)
     }
@@ -457,17 +304,6 @@ function PacientesPageInner() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
-
-  const isPatientSelected = (patientId: string) =>
-    selectedPatientIds.includes(patientId)
-
-  const togglePatientSelection = (patientId: string) => {
-    setSelectedPatientIds((prevSelected) =>
-      prevSelected.includes(patientId)
-        ? prevSelected.filter((id) => id !== patientId)
-        : [...prevSelected, patientId]
-    )
-  }
 
   const isFilterActive = (key: FilterKey) => selectedFilters.includes(key)
   const toggleFilter = (key: FilterKey) => {
@@ -523,75 +359,16 @@ function PacientesPageInner() {
         </p>
       </div>
 
-      <div
-        className='flex-shrink-0 grid gap-[min(1rem,1.5vw)] mt-8'
-        style={{
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(min(15.5rem, 100%), 1fr))'
-        }}
-      >
-        <KpiCard
-          title='Pacientes hoy'
-          value={String(kpi.today)}
-          badge={
-            <span className='text-body-md text-[var(--color-success-600)]'>
-              {/* placeholder trend */}
-              —
-            </span>
-          }
-        />
-        <KpiCard
-          title='Pacientes semana'
-          value={String(kpi.week)}
-          badge={
-            <span className='text-body-md text-[var(--color-success-600)]'>
-              —
-            </span>
-          }
-        />
-        <KpiCard
-          title='Pacientes recibidos'
-          value={`${kpi.received}/${kpi.week}`}
-          badge={<span className='text-body-md text-[#d97706]'>25%</span>}
-        />
-        <KpiCard
-          title='Citas confirmadas'
-          value={`${kpi.confirmed}/${kpi.week}`}
-          badge={
-            <span className='text-body-md text-[var(--color-success-600)]'>
-              —
-            </span>
-          }
-        />
-      </div>
-
       {/* Table Section - Flexible container */}
       <div className='flex-1 flex flex-col mt-8 overflow-hidden'>
-        <div className='flex-shrink-0 mb-6 flex items-center justify-between'>
-          <div className='flex items-center gap-2'>
-            {selectedPatientIds.length > 0 && (
-              <Chip color='teal'>{selectedPatientIds.length} selected</Chip>
-            )}
-            <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-body-sm text-[var(--color-neutral-700)] cursor-pointer'>
-              Estado
-            </button>
-            <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2 py-1 text-body-sm text-[var(--color-neutral-700)] cursor-pointer'>
-              Check-in
-            </button>
-            <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
-              <DeleteRounded className='size-5' />
-            </button>
-            <button className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer'>
-              <MoreHorizRounded className='size-5' />
-            </button>
-          </div>
-          <div className='flex items-center gap-2'>
+        <div className='flex-shrink-0 mb-4 flex items-center justify-end'>
+          <div className='flex items-center gap-2 flex-wrap'>
             <div className='flex items-center gap-2 border-b border-[var(--color-neutral-900)] px-2 py-1'>
               <SearchRounded className='text-[var(--color-neutral-900)]' />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder='Buscar por nombre, email, teléfono,...'
+                placeholder='Buscar por nombre, email'
                 className='bg-transparent outline-none text-body-sm text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-900)]'
               />
             </div>
@@ -630,52 +407,42 @@ function PacientesPageInner() {
               Activos
             </button>
             <button
-              onClick={() => toggleFilter('recall')}
+              onClick={() => toggleFilter('financiacion')}
               className={[
-                'px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active-border-[#1E4947]',
-                isFilterActive('recall')
+                'px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]',
+                isFilterActive('financiacion')
                   ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
                   : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)]'
               ].join(' ')}
             >
-              Recall
+              Financiación
             </button>
           </div>
         </div>
 
-        <div className='flex-1 rounded-[8px] overflow-auto'>
-          <table className='w-full table-fixed'>
+        <div className='flex-1 rounded-[8px] overflow-auto border border-[var(--color-neutral-200)]'>
+          <table className='w-full table-fixed border-collapse'>
             <thead>
               <tr>
-                <TableHeaderCell className='py-1 pr-2 w-[40px]'>
-                  <span className='sr-only'>Seleccionar fila</span>
-                </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[200px]'>
+                <TableHeaderCell className='w-[30%]'>
                   <div className='flex items-center gap-2'>
                     <AccountCircleRounded className='size-4 text-[var(--color-neutral-700)]' />
                     <span>Paciente</span>
                   </div>
                 </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[140px]'>
-                  Próxima cita
+                <TableHeaderCell className='w-[14%]'>
+                  <div className='flex items-center gap-2'>
+                    <PhoneRounded className='size-4 text-[var(--color-neutral-700)]' />
+                    <span>Teléfono</span>
+                  </div>
                 </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[120px]'>
-                  Estado
-                </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[140px]'>
-                  Teléfono
-                </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[100px]'>
-                  Check-in
-                </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[100px]'>
-                  Financiación
-                </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[100px]'>
+                <TableHeaderCell className='w-[14%]'>Próxima cita</TableHeaderCell>
+                <TableHeaderCell className='w-[11%]'>Estado</TableHeaderCell>
+                <TableHeaderCell className='w-[11%]' align='right'>
                   Deuda
                 </TableHeaderCell>
-                <TableHeaderCell className='py-1 pr-2 w-[140px]'>
-                  Último contacto
+                <TableHeaderCell className='w-[4%] text-right'>
+                  <span className='sr-only'>Acciones</span>
                 </TableHeaderCell>
               </tr>
             </thead>
@@ -688,103 +455,58 @@ function PacientesPageInner() {
                   : true
                 const matchesFilter = (() => {
                   if (selectedFilters.length === 0) return true
-                  const tagMap: Record<
-                    FilterKey,
-                    'deuda' | 'activo' | 'recall'
-                  > = {
-                    deuda: 'deuda',
-                    activos: 'activo',
-                    recall: 'recall'
-                  }
-                  // Require that the patient has ALL active filters (overlap of buttons)
-                  return selectedFilters.every((k) =>
-                    p.tags?.includes(tagMap[k])
-                  )
+                  return selectedFilters.some((key) => {
+                    if (key === 'deuda') return p.debtAmount > 0
+                    if (key === 'activos') return p.status === 'Activo'
+                    return p.financing === 'Sí'
+                  })
                 })()
                 return Boolean(matchesQuery && matchesFilter)
               }).map((row, i) => (
                 <tr
                   key={row.id}
-                  className='group hover:bg-[var(--color-neutral-50)] cursor-pointer'
+                  className='group hover:bg-[var(--color-neutral-50)]'
                   onClick={() => {
                     setActivePatientId(row.id)
                     setIsFichaModalOpen(true)
                   }}
                 >
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[40px]'>
-                    <button
-                      type='button'
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        togglePatientSelection(row.id)
-                      }}
-                      aria-pressed={isPatientSelected(row.id)}
-                      className='relative size-6 inline-flex items-center justify-center cursor-pointer'
-                    >
-                      {/* Outline box on hover */}
-                      <span className='absolute inset-0 rounded-[4px] border border-[var(--color-neutral-300)] bg-white opacity-0 group-hover:opacity-100 transition-opacity' />
-                      {/* Selected border */}
-                      <span
-                        className={[
-                          'absolute inset-0 rounded-[4px] border-2 transition-opacity',
-                          isPatientSelected(row.id)
-                            ? 'border-[#1E4947] opacity-100'
-                            : 'opacity-0'
-                        ].join(' ')}
-                      />
-                      {/* Check icon when selected */}
-                      <CheckRounded
-                        aria-hidden='true'
-                        className={[
-                          'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
-                          'size-4 text-[#1E4947] transition-opacity',
-                          isPatientSelected(row.id)
-                            ? 'opacity-100'
-                            : 'opacity-0'
-                        ].join(' ')}
-                      />
-                      <span className='sr-only'>Seleccionar fila</span>
-                    </button>
-                  </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[200px]'>
+                  <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
                     <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
                       {row.name}
                     </p>
                   </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[140px]'>
-                    <p className='text-body-md text-[var(--color-neutral-900)]'>
-                      {row.nextDate}
-                    </p>
-                  </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[120px]'>
-                    <StatusPill type={row.status} />
-                  </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[140px]'>
+                  <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
                     <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
                       {row.phone}
                     </p>
                   </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[100px]'>
-                    <span className='inline-flex items-center'>
-                      <Chip color='green' rounded='full'>
-                        {row.checkin}
-                      </Chip>
-                    </span>
-                  </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[100px]'>
+                  <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
                     <p className='text-body-md text-[var(--color-neutral-900)]'>
-                      {row.financing}
+                      {row.nextDate}
                     </p>
                   </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[100px]'>
+                  <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem]'>
+                    <StatusPill type={row.status} />
+                  </td>
+                  <td className='border-hairline-b border-hairline-r py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] text-right'>
                     <p className='text-body-md text-[var(--color-neutral-900)]'>
                       {row.debt}
                     </p>
                   </td>
-                  <td className='py-[calc(var(--spacing-gapsm)/2)] pr-2 w-[140px]'>
-                    <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
-                      {row.lastContact}
-                    </p>
+                  <td className='border-hairline-b py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] text-right'>
+                    <button
+                      type='button'
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setActivePatientId(row.id)
+                        setIsFichaModalOpen(true)
+                      }}
+                      className='inline-flex size-8 items-center justify-center rounded-full hover:bg-[var(--color-neutral-100)]'
+                      aria-label='Abrir acciones'
+                    >
+                      <MoreVertRounded className='size-5 text-[var(--color-neutral-700)]' />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -815,4 +537,3 @@ function PacientesPageInner() {
     </ClientLayout>
   )
 }
-

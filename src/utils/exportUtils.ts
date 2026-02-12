@@ -1910,12 +1910,72 @@ function buildMedicationDetails(medications: PrescriptionMedication[]): {
 /**
  * Generate PDF from HTML template using html2pdf.js
  */
+function htmlToPlainText(html: string): string[] {
+  if (typeof window !== 'undefined') {
+    const div = document.createElement('div')
+    div.innerHTML = html
+    return (div.textContent || '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+  }
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+function generatePrescriptionPdfFallback(html: string): Blob {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  })
+
+  const marginLeft = 14
+  const maxWidth = 182
+  let y = 14
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  const lines = htmlToPlainText(html)
+
+  for (const line of lines) {
+    const wrapped = doc.splitTextToSize(line, maxWidth)
+    for (const wrappedLine of wrapped) {
+      if (y > 282) {
+        doc.addPage()
+        y = 14
+      }
+      doc.text(wrappedLine, marginLeft, y)
+      y += 5
+    }
+  }
+
+  return doc.output('blob')
+}
+
 export async function generatePrescriptionPDFFromTemplate(
   templateHtml: string,
   data: PrescriptionData
 ): Promise<Blob> {
-  // Dynamically import html2pdf.js (client-side only)
-  const html2pdf = (await import('html2pdf.js')).default
+  // Dynamically import html2pdf.js at runtime without static bundle dependency.
+  // This keeps /caja working when npm registry is unavailable locally.
+  let html2pdf: any = null
+  try {
+    if (typeof window !== 'undefined') {
+      const dynamicImport = new Function(
+        'moduleName',
+        'return import(moduleName)'
+      ) as (moduleName: string) => Promise<{ default: any }>
+      const mod = await dynamicImport('html2pdf.js')
+      html2pdf = mod.default
+    }
+  } catch (error) {
+    console.warn('html2pdf.js unavailable, using jsPDF fallback', error)
+  }
 
   // Build medication info
   const medicationDetails = buildMedicationDetails(data.medications)
@@ -1953,6 +2013,10 @@ export async function generatePrescriptionPDFFromTemplate(
 
   // Replace variables in the template
   const html = replaceTemplateVariables(templateHtml, templateData)
+
+  if (!html2pdf) {
+    return generatePrescriptionPdfFallback(html)
+  }
 
   // Create a container for the PDF content
   const container = document.createElement('div')
