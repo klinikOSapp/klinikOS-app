@@ -653,7 +653,7 @@ export default function MonthCalendar({
   currentWeekStart,
   weekEvents = [],
   monthEvents = [],
-  disableMockFallback = false
+  disableMockFallback = true
 }: MonthCalendarProps) {
   const [hovered, setHovered] = useState<MonthEventSelection>(null)
   const [active, setActive] = useState<MonthEventSelection>(null)

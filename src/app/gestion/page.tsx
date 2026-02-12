@@ -5,14 +5,17 @@ import type { CashTimeScale } from '@/components/caja/cajaTypes'
 import CashToolbar from '@/components/caja/CashToolbar'
 import AccountingPanel from '@/components/gestion/AccountingPanel'
 import BillingLineChart from '@/components/gestion/BillingLineChart'
-import type { SpecialtyFilter } from '@/components/gestion/gestionTypes'
+import type {
+  GestionOverviewResponse,
+  SpecialtyFilter
+} from '@/components/gestion/gestionTypes'
 import IncomeTypes from '@/components/gestion/IncomeTypes'
 import PatientsSummary from '@/components/gestion/PatientsSummary'
 import ProductionTotalCard from '@/components/gestion/ProductionTotalCard'
 import ProfessionalBars from '@/components/gestion/ProfessionalBars'
 import SpecialtyDonut from '@/components/gestion/SpecialtyDonut'
 import type { CSSProperties } from 'react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 const secondRowStyles = {
   '--height-card-chart-fluid': '100%',
@@ -32,6 +35,7 @@ export default function GestionPage() {
   const [anchorDate, setAnchorDate] = useState(() => new Date())
   const [selectedSpecialty, setSelectedSpecialty] =
     useState<SpecialtyFilter>(null)
+  const [overview, setOverview] = useState<GestionOverviewResponse | null>(null)
 
   const dateLabel = useMemo(
     () => formatToolbarLabel(anchorDate, timeScale),
@@ -52,6 +56,37 @@ export default function GestionPage() {
     setTimeScale(scale)
     setAnchorDate(new Date())
   }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    const loadOverview = async () => {
+      try {
+        const params = new URLSearchParams({
+          timeScale,
+          date: toDateParam(anchorDate)
+        })
+        const res = await fetch(`/api/gestion/overview?${params.toString()}`, {
+          signal: controller.signal,
+          cache: 'no-store'
+        })
+        if (!res.ok) {
+          setOverview(null)
+          return
+        }
+        const payload = (await res.json()) as GestionOverviewResponse
+        setOverview(payload)
+      } catch {
+        if (!controller.signal.aborted) {
+          setOverview(null)
+        }
+      }
+    }
+
+    void loadOverview()
+
+    return () => controller.abort()
+  }, [anchorDate, timeScale])
 
   return (
     <ClientLayout>
@@ -97,14 +132,18 @@ export default function GestionPage() {
               <div className='dashboard-stats-row flex-none min-w-0'>
                 <IncomeTypes
                   timeScale={timeScale}
+                  items={overview?.incomeMethods}
                   selectedSpecialty={selectedSpecialty}
                 />
                 <PatientsSummary
                   timeScale={timeScale}
+                  summary={overview?.patients}
                   selectedSpecialty={selectedSpecialty}
                 />
                 <ProductionTotalCard
                   timeScale={timeScale}
+                  summary={overview?.summary}
+                  specialties={overview?.specialties}
                   selectedSpecialty={selectedSpecialty}
                 />
               </div>
@@ -117,10 +156,14 @@ export default function GestionPage() {
                 <BillingLineChart
                   timeScale={timeScale}
                   anchorDate={anchorDate}
+                  points={overview?.billing.points}
+                  specialties={overview?.specialties}
                   selectedSpecialty={selectedSpecialty}
                 />
                 <SpecialtyDonut
                   timeScale={timeScale}
+                  summary={overview?.summary}
+                  specialties={overview?.specialties}
                   selectedSpecialty={selectedSpecialty}
                   onSpecialtySelect={setSelectedSpecialty}
                 />
@@ -133,10 +176,16 @@ export default function GestionPage() {
               >
                 <AccountingPanel
                   timeScale={timeScale}
+                  summary={overview?.summary}
+                  specialties={overview?.specialties}
+                  fixedCosts={overview?.accounting.fixedCosts}
+                  fixedCostRatio={overview?.accounting.fixedCostRatio}
                   selectedSpecialty={selectedSpecialty}
                 />
                 <ProfessionalBars
                   timeScale={timeScale}
+                  professionals={overview?.professionals}
+                  specialties={overview?.specialties}
                   selectedSpecialty={selectedSpecialty}
                 />
               </div>
@@ -146,6 +195,14 @@ export default function GestionPage() {
       </div>
     </ClientLayout>
   )
+}
+
+function toDateParam(date: Date) {
+  return new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+  )
+    .toISOString()
+    .split('T')[0]
 }
 
 function formatToolbarLabel(date: Date, scale: CashTimeScale) {

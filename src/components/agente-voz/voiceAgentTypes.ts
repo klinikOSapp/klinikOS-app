@@ -62,6 +62,15 @@ export interface CallVolumeDataPoint {
   urgentes: number
 }
 
+export interface VoiceAgentAnalyticsResponse {
+  weekStart: string
+  distribution: {
+    advanced: CallDistribution[]
+    basic: CallDistribution[]
+  }
+  volume: CallVolumeDataPoint[]
+}
+
 export type CallFilter = 'todos' | 'pendientes' | 'urgentes'
 
 /**

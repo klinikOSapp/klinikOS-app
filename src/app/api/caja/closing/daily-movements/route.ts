@@ -1,3 +1,4 @@
+import { resolveClinicIdForUser } from '@/lib/caja/permissions'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -23,12 +24,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: clinics } = await supabase.rpc('get_my_clinics')
-    if (!clinics || clinics.length === 0) {
+    const clinicId = await resolveClinicIdForUser(supabase)
+    if (!clinicId) {
       return NextResponse.json({ movements: [] })
     }
-
-    const clinicId = clinics[0] as string
 
     // Get all payments for the day (handle timezone properly)
     // Use date range that covers the entire day in UTC
@@ -144,7 +143,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error?.message ?? 'Unexpected error' }, { status: 500 })
   }
 }
-
 
 
 

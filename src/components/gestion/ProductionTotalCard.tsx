@@ -1,5 +1,9 @@
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
-import type { Specialty, SpecialtyFilter } from './gestionTypes'
+import type {
+  GestionSpecialtyMetric,
+  GestionSummaryKpis,
+  SpecialtyFilter
+} from './gestionTypes'
 
 type ProductionTotalCardProps = {
   produced?: string
@@ -8,63 +12,19 @@ type ProductionTotalCardProps = {
   invoicedDelta?: string
   timeScale?: CashTimeScale
   selectedSpecialty?: SpecialtyFilter
-}
-
-// Datos por especialidad - Semana
-const SPECIALTY_DATA_WEEK: Record<Specialty, { produced: number; invoiced: number; producedDelta: string; invoicedDelta: string }> = {
-  Conservadora: { produced: 3360, invoiced: 2880, producedDelta: '+15%', invoicedDelta: '+12%' },
-  Ortodoncia: { produced: 2520, invoiced: 2160, producedDelta: '+10%', invoicedDelta: '+8%' },
-  Implantes: { produced: 1680, invoiced: 1440, producedDelta: '+14%', invoicedDelta: '+11%' },
-  Estética: { produced: 840, invoiced: 720, producedDelta: '+8%', invoicedDelta: '+7%' }
-}
-
-// Datos por especialidad - Mes
-const SPECIALTY_DATA_MONTH: Record<Specialty, { produced: number; invoiced: number; producedDelta: string; invoicedDelta: string }> = {
-  Conservadora: { produced: 15120, invoiced: 12960, producedDelta: '+20%', invoicedDelta: '+17%' },
-  Ortodoncia: { produced: 11340, invoiced: 9720, producedDelta: '+16%', invoicedDelta: '+13%' },
-  Implantes: { produced: 7560, invoiced: 6480, producedDelta: '+19%', invoicedDelta: '+16%' },
-  Estética: { produced: 3780, invoiced: 3240, producedDelta: '+12%', invoicedDelta: '+10%' }
-}
-
-function getCardData(timeScale: CashTimeScale, specialty?: SpecialtyFilter) {
-  const periodLabel = timeScale === 'month' ? 'Mes' : 'Semana'
-  
-  if (specialty) {
-    const source = timeScale === 'month' ? SPECIALTY_DATA_MONTH : SPECIALTY_DATA_WEEK
-    const data = source[specialty]
-    return {
-      periodLabel: `${periodLabel} · ${specialty}`,
-      produced: data.produced,
-      invoiced: data.invoiced,
-      producedDelta: data.producedDelta,
-      invoicedDelta: data.invoicedDelta
-    }
-  }
-
-  if (timeScale === 'month') {
-    return {
-      periodLabel,
-      produced: 37800.0,
-      invoiced: 32400.0,
-      producedDelta: '+18%',
-      invoicedDelta: '+15%'
-    }
-  }
-
-  return {
-    periodLabel,
-    produced: 8400.0,
-    invoiced: 7200.0,
-    producedDelta: '+12%',
-    invoicedDelta: '+10%'
-  }
+  summary?: GestionSummaryKpis
+  specialties?: GestionSpecialtyMetric[]
 }
 
 function formatCompactCurrency(value: number): string {
   if (value >= 1000) {
     return `${(value / 1000).toFixed(1)}K`
   }
-  return `€${value.toFixed(0)}`
+  return `${value.toFixed(0)}`
+}
+
+function formatDelta(value: number) {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`
 }
 
 export default function ProductionTotalCard({
@@ -73,39 +33,43 @@ export default function ProductionTotalCard({
   producedDelta,
   invoicedDelta,
   timeScale = 'week',
-  selectedSpecialty
+  selectedSpecialty,
+  summary,
+  specialties
 }: ProductionTotalCardProps) {
-  const data = getCardData(timeScale, selectedSpecialty)
+  const periodLabel =
+    timeScale === 'month' ? 'Mes' : timeScale === 'day' ? 'Día' : 'Semana'
+
+  const specialtyData = specialties?.find((item) => item.label === selectedSpecialty)
 
   const producedValue = produced
     ? parseFloat(produced.replace(/[^0-9,.]/g, '').replace(',', '.'))
-    : data.produced
+    : specialtyData?.produced ?? Number(summary?.produced || 0)
   const invoicedValue = invoiced
     ? parseFloat(invoiced.replace(/[^0-9,.]/g, '').replace(',', '.'))
-    : data.invoiced
+    : specialtyData?.invoiced ?? Number(summary?.invoiced || 0)
 
-  // Calculate the billing ratio (what % of produced has been invoiced)
-  const billingRatio = Math.min((invoicedValue / producedValue) * 100, 100)
-  const pendingAmount = producedValue - invoicedValue
+  const defaultProducedDelta = Number(summary?.producedDelta || 0)
+  const defaultInvoicedDelta = Number(summary?.invoicedDelta || 0)
+
+  const billingRatio =
+    producedValue > 0 ? Math.min((invoicedValue / producedValue) * 100, 100) : 0
+  const pendingAmount = Math.max(producedValue - invoicedValue, 0)
 
   return (
     <section className='bg-brand-900 text-[var(--color-text-inverse)] rounded-lg shadow-elevation-card h-card-stat-fluid overflow-hidden min-w-0'>
       <div className='flex h-full flex-col p-3 lg:p-[0.875rem] overflow-hidden'>
-        {/* Header */}
         <header className='flex shrink-0 items-center justify-between mb-[0.5rem] gap-[0.5rem]'>
           <h3 className='text-title-sm font-medium text-[var(--color-text-inverse)] truncate'>
             Producido vs Facturado
           </h3>
           <span className='text-label-sm text-[var(--color-brand-400)] shrink-0'>
-            {data.periodLabel}
+            {selectedSpecialty ? `${periodLabel} · ${selectedSpecialty}` : periodLabel}
           </span>
         </header>
 
-        {/* Main content */}
         <div className='flex-1 flex flex-col justify-center min-w-0'>
-          {/* Two value boxes side by side */}
           <div className='grid grid-cols-2 gap-[0.5rem] min-w-0'>
-            {/* Produced */}
             <div className='flex flex-col min-w-0 overflow-hidden'>
               <div className='flex items-center gap-[0.25rem] mb-[0.125rem]'>
                 <span className='w-[6px] h-[6px] rounded-full bg-[var(--color-brand-300)] shrink-0' />
@@ -118,12 +82,11 @@ export default function ProductionTotalCard({
                   €{formatCompactCurrency(producedValue)}
                 </span>
                 <span className='text-label-sm text-[var(--color-brand-400)]'>
-                  {producedDelta ?? data.producedDelta}
+                  {producedDelta ?? formatDelta(defaultProducedDelta)}
                 </span>
               </div>
             </div>
 
-            {/* Invoiced */}
             <div className='flex flex-col min-w-0 overflow-hidden'>
               <div className='flex items-center gap-[0.25rem] mb-[0.125rem]'>
                 <span className='w-[6px] h-[6px] rounded-full bg-[var(--color-brand-500)] shrink-0' />
@@ -136,16 +99,14 @@ export default function ProductionTotalCard({
                   €{formatCompactCurrency(invoicedValue)}
                 </span>
                 <span className='text-label-sm text-[var(--color-brand-500)]'>
-                  {invoicedDelta ?? data.invoicedDelta}
+                  {invoicedDelta ?? formatDelta(defaultInvoicedDelta)}
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Progress section */}
         <div className='mt-auto pt-[0.5rem]'>
-          {/* Progress bar */}
           <div className='relative w-full h-[6px] bg-[var(--color-brand-800)] rounded-full overflow-hidden'>
             <div className='absolute inset-0 bg-[var(--color-brand-700)] rounded-full opacity-40' />
             <div
@@ -154,7 +115,6 @@ export default function ProductionTotalCard({
             />
           </div>
 
-          {/* Bottom row */}
           <div className='flex items-center justify-between mt-[0.375rem] gap-2 flex-wrap'>
             <span className='text-label-sm font-medium text-[var(--color-brand-300)] truncate'>
               {billingRatio.toFixed(0)}% facturado

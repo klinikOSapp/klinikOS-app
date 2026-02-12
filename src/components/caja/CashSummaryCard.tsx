@@ -1,6 +1,7 @@
 'use client'
 
 import { PendingCollectionsModal } from '@/components/caja/PendingCollectionsModal'
+import { useClinic } from '@/context/ClinicContext'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 
@@ -16,7 +17,6 @@ type SummaryCard = {
 // SUMMARY_CARDS removed - now fetched from API
 
 const CARD_HEIGHT_REM = 21.375 // 342px
-const CARD_HEIGHT_PX = 342
 const INCOME_CARD_WIDTH_REM = 66.8125 // 1069px
 const INCOME_CARD_WIDTH_PX = 1069
 const SUMMARY_CARD_WIDTH_REM = 12.375 // 198px
@@ -27,7 +27,6 @@ const SUMMARY_GRID_WIDTH_REM =
   SUMMARY_CARD_WIDTH_REM * 2 + SUMMARY_CARD_COLUMN_GAP_REM // 26.125rem
 const DONUT_CARD_WIDTH_REM = 36.8125 // 589px
 const DONUT_CARD_HEIGHT_REM = 15.5 // 248px
-const DONUT_CARD_MIN_HEIGHT_REM = DONUT_CARD_HEIGHT_REM
 const DONUT_MAX_WIDTH_PX = 480 // 30rem
 const DONUT_MIN_WIDTH_PX = 240 // 15rem
 const DONUT_HEIGHT_RATIO = 186 / 307
@@ -48,6 +47,7 @@ export default function CashSummaryCard({
   timeScale,
   onHeightChange
 }: CashSummaryCardProps) {
+  const { activeClinicId } = useClinic()
   const cardRef = useRef<HTMLDivElement | null>(null)
   const [scale, setScale] = useState(1)
   const [summaryCards, setSummaryCards] = useState<SummaryCard[]>([])
@@ -68,10 +68,19 @@ export default function CashSummaryCard({
 
   // v2.0: KPI cards are filterable and change with temporal selection
   useEffect(() => {
+    if (!activeClinicId) {
+      setSummaryCards([])
+      setIsLoading(false)
+      return
+    }
     const controller = new AbortController()
     setIsLoading(true)
     const dateStr = formatMadridDate(date)
-    fetch(`/api/caja/summary?date=${dateStr}&timeScale=${timeScale}`)
+    fetch(
+      `/api/caja/summary?date=${dateStr}&timeScale=${timeScale}&clinicId=${encodeURIComponent(
+        activeClinicId
+      )}`
+    )
       .then((res) => res.json())
       .then((data) => {
         if (controller.signal.aborted) return
@@ -90,7 +99,7 @@ export default function CashSummaryCard({
         setIsLoading(false)
       })
     return () => controller.abort()
-  }, [date, timeScale])
+  }, [date, timeScale, activeClinicId])
 
   useEffect(() => {
     const node = cardRef.current
@@ -163,9 +172,8 @@ export default function CashSummaryCard({
                 <SummaryInsightCard
                   key={card.id}
                   card={card}
-                  yearLabel={yearLabel}
                   onClick={
-                    card.id === 'toCollect'
+                    card.id === 'toCollect' || card.id === 'pending'
                       ? () => setPendingModalOpen(true)
                       : undefined
                   }
@@ -191,11 +199,9 @@ export default function CashSummaryCard({
 
 function SummaryInsightCard({
   card,
-  yearLabel,
   onClick
 }: {
   card: SummaryCard
-  yearLabel: string
   onClick?: () => void
 }) {
   const cardStyles: CSSProperties = {
@@ -208,14 +214,13 @@ function SummaryInsightCard({
 
   const content = (
       <div className='flex h-full flex-col gap-[1.5rem]'>
-        <div className='flex items-center justify-between text-[0.6875rem] font-medium leading-[1rem] text-neutral-600'>
+        <div className='flex items-center text-[0.6875rem] font-medium leading-[1rem] text-neutral-600'>
           <span
             className='material-symbols-rounded text-[1rem] leading-4 text-neutral-600'
             aria-hidden
           >
             {card.accessory}
           </span>
-          <span>{yearLabel}</span>
         </div>
         <div className='flex flex-col gap-[0.25rem] text-neutral-600'>
           <div className='font-medium text-[0.6875rem] leading-[1rem]'>
@@ -225,11 +230,17 @@ function SummaryInsightCard({
             <p className='text-[1.75rem] leading-[2.25rem] text-neutral-600 whitespace-nowrap'>
               {card.value}
             </p>
-            <div className='flex items-center gap-[0.25rem] text-[0.75rem] font-medium text-brand-500 whitespace-nowrap'>
+            <div
+              className={`flex items-center gap-[0.25rem] text-[0.75rem] font-medium whitespace-nowrap ${
+                card.delta.startsWith('-') ? 'text-red-500' : 'text-brand-500'
+              }`}
+            >
               {card.delta}
-              <span className='material-symbols-rounded text-[1rem] leading-4'>
-                arrow_outward
-              </span>
+              {card.delta !== '—' && (
+                <span className='material-symbols-rounded text-[1rem] leading-4'>
+                  arrow_outward
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -346,7 +357,7 @@ function CashDonutGauge({ value, target }: CashDonutGaugeProps) {
           top: `${DONUT_LABEL_OFFSET_REM}rem`
         }}
       >
-        Cobrado
+        Cobrado vs Facturado
       </p>
 
       <div className='absolute' style={chartWrapperStyles} aria-hidden='true'>
@@ -390,6 +401,14 @@ function CashDonutGauge({ value, target }: CashDonutGaugeProps) {
             €
           </span>
         </div>
+        {target - value > 0 && (
+          <p className='text-label-sm font-medium text-warning-600'>
+            {(target - value).toLocaleString('es-ES', {
+              minimumFractionDigits: 0
+            })}{' '}
+            € pdte cobrar
+          </p>
+        )}
       </div>
     </div>
   )

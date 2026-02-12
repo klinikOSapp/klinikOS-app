@@ -1,6 +1,7 @@
 'use client'
 
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
+import { useClinic } from '@/context/ClinicContext'
 import { useUserRole } from '@/context/role-context'
 import { useRouter } from 'next/navigation'
 import type { FormEvent } from 'react'
@@ -8,7 +9,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 type InvoiceStatus = 'Aceptado' | 'Enviado'
 type ProductionState = 'Hecho' | 'Pendiente'
-type PaymentCategory = 'Efectivo' | 'TPV' | 'Transferencia' | 'Financiación'
+type PaymentCategory =
+  | 'Efectivo'
+  | 'TPV'
+  | 'Transferencia'
+  | 'Financiación'
+  | 'Pendiente'
 type CollectionStatus = 'Cobrado' | 'Por cobrar'
 
 type CashMovement = {
@@ -148,7 +154,7 @@ const getBodyCellClasses = (index: number, align: 'left' | 'right' = 'left') => 
   return `${borders} py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] text-body-md text-neutral-900 ${textAlign}`
 }
 
-const PAYMENT_FILTERS: PaymentCategory[] = [
+const PAYMENT_FILTERS: Array<Exclude<PaymentCategory, 'Pendiente'>> = [
   'Efectivo',
   'TPV',
   'Transferencia',
@@ -164,6 +170,7 @@ type CashMovementsTableProps = {
 
 export default function CashMovementsTable({ date, timeScale }: CashMovementsTableProps) {
   const router = useRouter()
+  const { activeClinicId } = useClinic()
   const { role } = useUserRole()
   const [query, setQuery] = useState('')
   const [patientSuggestions, setPatientSuggestions] = useState<Array<{ id: string; name: string }>>(
@@ -365,7 +372,10 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
     const controller = new AbortController()
     setIsSuggesting(true)
     const t = window.setTimeout(() => {
-      fetch(`/api/caja/patients-search?q=${encodeURIComponent(q)}`, {
+      const clinicQuery = activeClinicId
+        ? `&clinicId=${encodeURIComponent(activeClinicId)}`
+        : ''
+      fetch(`/api/caja/patients-search?q=${encodeURIComponent(q)}${clinicQuery}`, {
         signal: controller.signal
       })
         .then((res) => res.json())
@@ -385,7 +395,7 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       controller.abort()
       window.clearTimeout(t)
     }
-  }, [query])
+  }, [query, activeClinicId])
 
   useEffect(() => {
     const handler = (e: any) => {
@@ -492,6 +502,7 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
     if (query.trim()) params.set('patient', query.trim())
     if (paymentMethod) params.set('paymentMethod', paymentMethod)
     if (paymentStatus) params.set('paymentStatus', paymentStatus)
+    if (activeClinicId) params.set('clinicId', activeClinicId)
 
     fetch(`/api/caja/movements?${params.toString()}`)
       .then((res) => res.json())
@@ -515,7 +526,7 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
     setCurrentPage(1)
     fetchMovements({ silent: false })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, timeScale, fromDate, toDate, paymentMethod, paymentStatus])
+  }, [date, timeScale, fromDate, toDate, paymentMethod, paymentStatus, activeClinicId])
 
   // Real-time polling (simple + robust): refresh every 15s and on window focus
   useEffect(() => {
@@ -531,7 +542,7 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       window.removeEventListener('focus', onFocus)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, timeScale, fromDate, toDate, paymentMethod, paymentStatus, query])
+  }, [date, timeScale, fromDate, toDate, paymentMethod, paymentStatus, query, activeClinicId])
 
   useEffect(() => {
     const container = tableContainerRef.current
@@ -710,11 +721,13 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
   }
 
   const openRegisterPaymentModal = (movement: CashMovement) => {
+    const defaultMethod: Exclude<PaymentCategory, 'Pendiente'> =
+      movement.paymentCategory === 'Pendiente' ? 'TPV' : movement.paymentCategory
     setRegisterPaymentModal({
       open: true,
       movement,
       amount: '',
-      method: movement.paymentCategory || 'TPV',
+      method: defaultMethod,
       notes: '',
       isSaving: false,
       error: null
@@ -1885,5 +1898,3 @@ function PaginationIcon({
     </button>
   )
 }
-
-

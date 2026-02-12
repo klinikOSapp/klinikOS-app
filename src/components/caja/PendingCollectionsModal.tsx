@@ -1,5 +1,6 @@
 'use client'
 
+import { useClinic } from '@/context/ClinicContext'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -33,6 +34,7 @@ function toWhatsAppLink(phoneE164: string) {
 }
 
 export function PendingCollectionsModal({ open, onClose, dateStr, timeScale }: Props) {
+  const { activeClinicId } = useClinic()
   const [mounted, setMounted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [items, setItems] = useState<PendingPatient[]>([])
@@ -42,9 +44,18 @@ export function PendingCollectionsModal({ open, onClose, dateStr, timeScale }: P
 
   useEffect(() => {
     if (!open) return
+    if (!activeClinicId) {
+      setItems([])
+      setIsLoading(false)
+      return
+    }
     setIsLoading(true)
     setNotesByPatientId({})
-    fetch(`/api/caja/pending-collections?date=${encodeURIComponent(dateStr)}&timeScale=${timeScale}`)
+    fetch(
+      `/api/caja/pending-collections?date=${encodeURIComponent(dateStr)}&timeScale=${timeScale}&clinicId=${encodeURIComponent(
+        activeClinicId
+      )}`
+    )
       .then((res) => res.json())
       .then((data) => {
         setItems(Array.isArray(data.patients) ? data.patients : [])
@@ -54,7 +65,7 @@ export function PendingCollectionsModal({ open, onClose, dateStr, timeScale }: P
         console.error('Failed to fetch pending collections', e)
         setIsLoading(false)
       })
-  }, [open, dateStr, timeScale])
+  }, [open, dateStr, timeScale, activeClinicId])
 
   const totalOutstanding = useMemo(
     () => items.reduce((sum, p) => sum + Number(p.outstandingTotal || 0), 0),
@@ -227,5 +238,4 @@ export function PendingCollectionsModal({ open, onClose, dateStr, timeScale }: P
 
   return createPortal(content, document.body)
 }
-
 

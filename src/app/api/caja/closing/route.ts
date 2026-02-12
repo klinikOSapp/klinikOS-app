@@ -1,3 +1,4 @@
+import { resolveClinicIdForUser } from '@/lib/caja/permissions'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -14,12 +15,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: clinics } = await supabase.rpc('get_my_clinics')
-    if (!clinics || clinics.length === 0) {
+    const clinicId = await resolveClinicIdForUser(supabase)
+    if (!clinicId) {
       return NextResponse.json({ closing: null })
     }
-
-    const clinicId = clinics[0] as string
 
     // Get existing closing for the date
     const { data: closing, error } = await supabase
@@ -119,12 +118,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: clinics } = await supabase.rpc('get_my_clinics')
-    if (!clinics || clinics.length === 0) {
+    const clinicId = await resolveClinicIdForUser(supabase)
+    if (!clinicId) {
       return NextResponse.json({ error: 'No clinic found' }, { status: 400 })
     }
-
-    const clinicId = clinics[0] as string
 
     // Calculate discrepancy (if legacy fields provided)
     const discrepancy = expectedCash !== undefined && actualCash !== undefined 
@@ -203,7 +200,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error?.message ?? 'Unexpected error' }, { status: 500 })
   }
 }
-
 
 
 

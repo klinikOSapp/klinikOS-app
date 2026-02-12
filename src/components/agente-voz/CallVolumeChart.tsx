@@ -18,57 +18,14 @@ type CallVolumeChartProps = {
   tier?: VoiceAgentTier
 }
 
-// Default data - Daily call volumes (last 7 days)
-const DEFAULT_DATA: CallVolumeDataPoint[] = [
-  {
-    day: 'Lun',
-    volumeTotal: 45,
-    citasPropuestas: 32,
-    citasAceptadas: 28,
-    urgentes: 5
-  },
-  {
-    day: 'Mar',
-    volumeTotal: 52,
-    citasPropuestas: 38,
-    citasAceptadas: 31,
-    urgentes: 7
-  },
-  {
-    day: 'Mié',
-    volumeTotal: 48,
-    citasPropuestas: 35,
-    citasAceptadas: 29,
-    urgentes: 4
-  },
-  {
-    day: 'Jue',
-    volumeTotal: 61,
-    citasPropuestas: 45,
-    citasAceptadas: 38,
-    urgentes: 9
-  },
-  {
-    day: 'Vie',
-    volumeTotal: 58,
-    citasPropuestas: 42,
-    citasAceptadas: 35,
-    urgentes: 6
-  },
-  {
-    day: 'Sáb',
-    volumeTotal: 35,
-    citasPropuestas: 25,
-    citasAceptadas: 20,
-    urgentes: 3
-  },
-  {
-    day: 'Dom',
-    volumeTotal: 18,
-    citasPropuestas: 12,
-    citasAceptadas: 8,
-    urgentes: 2
-  }
+const EMPTY_DATA: CallVolumeDataPoint[] = [
+  { day: 'Lun', volumeTotal: 0, citasPropuestas: 0, citasAceptadas: 0, urgentes: 0 },
+  { day: 'Mar', volumeTotal: 0, citasPropuestas: 0, citasAceptadas: 0, urgentes: 0 },
+  { day: 'Mie', volumeTotal: 0, citasPropuestas: 0, citasAceptadas: 0, urgentes: 0 },
+  { day: 'Jue', volumeTotal: 0, citasPropuestas: 0, citasAceptadas: 0, urgentes: 0 },
+  { day: 'Vie', volumeTotal: 0, citasPropuestas: 0, citasAceptadas: 0, urgentes: 0 },
+  { day: 'Sab', volumeTotal: 0, citasPropuestas: 0, citasAceptadas: 0, urgentes: 0 },
+  { day: 'Dom', volumeTotal: 0, citasPropuestas: 0, citasAceptadas: 0, urgentes: 0 }
 ]
 
 // Chart colors from Figma
@@ -79,11 +36,6 @@ const COLORS = {
   urgentes: '#FF6B6B' // error-400 (red)
 }
 
-const Y_CONFIG = {
-  domain: [0, 100] as [number, number],
-  labels: ['100', '80', '60', '40', '20', '0']
-}
-
 /**
  * Call Volume Line Chart
  * Compact version: 54.75rem × 17rem
@@ -92,11 +44,23 @@ const Y_CONFIG = {
  * - Advanced: Volumen total, Citas propuestas, Citas aceptadas
  */
 export default function CallVolumeChart({
-  data = DEFAULT_DATA,
+  data,
   tier = 'advanced'
 }: CallVolumeChartProps) {
   const isBasic = tier === 'basic'
   const [isMounted, setIsMounted] = useState(false)
+  const chartData = data && data.length > 0 ? data : EMPTY_DATA
+
+  const maxSeriesValue = chartData.reduce((max, point) => {
+    const values = isBasic
+      ? [point.volumeTotal, point.urgentes]
+      : [point.volumeTotal, point.citasPropuestas, point.citasAceptadas]
+    return Math.max(max, ...values)
+  }, 0)
+  const domainMax = Math.max(20, Math.ceil(maxSeriesValue / 20) * 20)
+  const yLabels = Array.from({ length: 6 }, (_, index) =>
+    String(Math.round(domainMax - (domainMax / 5) * index))
+  )
 
   useEffect(() => setIsMounted(true), [])
 
@@ -162,7 +126,7 @@ export default function CallVolumeChart({
           <div className='flex flex-1'>
             {/* Y-axis labels */}
             <div className='flex w-8 shrink-0 flex-col justify-between py-1 text-label-sm font-normal text-neutral-400'>
-              {Y_CONFIG.labels.map((value) => (
+              {yLabels.map((value) => (
                 <span key={value}>{value}</span>
               ))}
             </div>
@@ -185,11 +149,11 @@ export default function CallVolumeChart({
                 {isMounted && (
                   <ResponsiveContainer width='100%' height='100%'>
                     <LineChart
-                      data={data}
+                      data={chartData}
                       margin={{ top: 8, right: 8, bottom: 8, left: 0 }}
                     >
                       <XAxis dataKey='day' hide />
-                      <YAxis domain={Y_CONFIG.domain} hide />
+                      <YAxis domain={[0, domainMax]} hide />
 
                       {/* Volumen total line */}
                       <Line
@@ -272,32 +236,12 @@ export default function CallVolumeChart({
                   </ResponsiveContainer>
                 )}
               </div>
-
-              {/* Highlight badge example - positioned at Thursday (highest day) */}
-              <div
-                className='pointer-events-none absolute rounded-full border border-brand-500 bg-brand-50 px-2 py-1 text-label-md font-normal text-brand-500'
-                style={{
-                  left: 'calc(50% - 1rem)',
-                  top: 'calc(39% - 1.5rem)'
-                }}
-              >
-                61
-              </div>
-
-              {/* Highlight dot */}
-              <div
-                className='pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-500 border-2 border-white shadow-elevation-card'
-                style={{
-                  left: '50%',
-                  top: '39%'
-                }}
-              />
             </div>
           </div>
 
           {/* X-axis labels */}
           <div className='mt-0.5 flex shrink-0 justify-between pl-8 text-label-sm font-normal text-neutral-400'>
-            {data.map((point) => (
+            {chartData.map((point) => (
               <span key={point.day}>{point.day}</span>
             ))}
           </div>

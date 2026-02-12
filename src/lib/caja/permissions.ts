@@ -1,4 +1,6 @@
+import { CLINIC_SELECTION_COOKIE_NAME } from '@/lib/clinicSelection'
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers'
 
 export type CajaPermission =
   | { type: 'module'; module: string; action: 'view' | 'create' | 'edit' | 'delete' }
@@ -6,8 +8,19 @@ export type CajaPermission =
 
 export async function resolveClinicIdForUser(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>) {
   const { data: clinics } = await supabase.rpc('get_my_clinics')
-  const clinicId = Array.isArray(clinics) && clinics.length > 0 ? (clinics[0] as string) : null
-  return clinicId
+  const clinicIds = Array.isArray(clinics)
+    ? clinics
+        .map((value) => String(value))
+        .filter((value) => value.length > 0)
+    : []
+
+  if (clinicIds.length === 0) return null
+
+  const cookieStore = await cookies()
+  const selectedClinicId = cookieStore.get(CLINIC_SELECTION_COOKIE_NAME)?.value || null
+  if (selectedClinicId && clinicIds.includes(selectedClinicId)) return selectedClinicId
+
+  return clinicIds[0] || null
 }
 
 export async function requireCajaPermission(
@@ -32,5 +45,4 @@ export async function requireCajaPermission(
   const custom = row?.permissions?.[permission.module]?.custom
   return { ok: Boolean(custom?.[permission.key]), error: null as string | null }
 }
-
 

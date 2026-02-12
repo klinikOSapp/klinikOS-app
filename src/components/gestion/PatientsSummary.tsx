@@ -1,47 +1,53 @@
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
-import type { SpecialtyFilter } from './gestionTypes'
+import type { GestionPatientsSummary, SpecialtyFilter } from './gestionTypes'
 
 type PatientItem = {
   label: string
   value: string
   percent: string
-  change?: string
   kpi?: boolean
 }
+
 type PatientsSummaryProps = {
   yearLabel?: string
-  items?: PatientItem[]
+  summary?: GestionPatientsSummary
   timeScale?: CashTimeScale
   selectedSpecialty?: SpecialtyFilter
 }
 
-function getItems(timeScale: CashTimeScale): PatientItem[] {
-  // Datos realistas para clínica dental pequeña (4 profesionales)
-  if (timeScale === 'month') {
-    return [
-      { label: 'Activos', value: '186', percent: '85%', change: '+ 8%' },
-      { label: 'Nuevos', value: '32', percent: '15%', change: '+ 12%' },
-      { label: 'Crecimiento', value: '+ 10%', percent: '', kpi: true }
-    ]
-  }
-
-  // Semana: ~47 pacientes activos, 8 nuevos
-  return [
-    { label: 'Activos', value: '47', percent: '85%', change: '+ 6%' },
-    { label: 'Nuevos', value: '8', percent: '15%', change: '+ 14%' },
-    { label: 'Crecimiento', value: '+ 8%', percent: '', kpi: true }
-  ]
-}
-
 export default function PatientsSummary({
   yearLabel = '2024',
-  items,
-  timeScale = 'week',
+  summary,
   selectedSpecialty
 }: PatientsSummaryProps) {
   void yearLabel
-  void selectedSpecialty // Will be used for filtering when connected to real data
-  const data = items ?? getItems(timeScale)
+  void selectedSpecialty
+
+  const active = Math.max(0, Number(summary?.active || 0))
+  const fresh = Math.max(0, Number(summary?.nextDate || 0))
+  const total = active + fresh
+  const activePercent = total > 0 ? Math.round((active / total) * 100) : 0
+  const newPercent = total > 0 ? Math.round((fresh / total) * 100) : 0
+  const growth = Number(summary?.growthPercent || 0)
+
+  const data: PatientItem[] = [
+    {
+      label: 'Activos',
+      value: active.toLocaleString('es-ES'),
+      percent: `${activePercent}%`
+    },
+    {
+      label: 'Nuevos',
+      value: fresh.toLocaleString('es-ES'),
+      percent: `${newPercent}%`
+    },
+    {
+      label: 'Crecimiento',
+      value: `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`,
+      percent: '',
+      kpi: true
+    }
+  ]
 
   return (
     <section className='bg-surface rounded-lg shadow-elevation-card h-card-stat-fluid overflow-hidden min-w-0 px-[0.5rem] pt-0 pb-card-inner'>

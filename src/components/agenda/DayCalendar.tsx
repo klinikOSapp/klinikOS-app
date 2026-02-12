@@ -33,6 +33,7 @@ import { VISIT_STATUS_CONFIG } from './types'
 import VisitStatusMenu from './VisitStatusMenu'
 
 const OVERLAY_GUTTER = '1rem'
+const AGENDA_TIMEZONE = 'Europe/Madrid'
 
 // ==========================================
 // CURRENT TIME INDICATOR COMPONENT
@@ -53,6 +54,21 @@ function CurrentTimeIndicator({
   timeColumnWidth?: string
 }) {
   const [currentTime, setCurrentTime] = useState<Date>(new Date())
+  const getMadridHourMinute = useCallback((value: Date) => {
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: AGENDA_TIMEZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+    const [hoursRaw = '00', minutesRaw = '00'] = formatter
+      .format(value)
+      .split(':')
+    return {
+      hours: Number(hoursRaw),
+      minutes: Number(minutesRaw)
+    }
+  }, [])
 
   // Actualizar cada minuto
   useEffect(() => {
@@ -74,8 +90,7 @@ function CurrentTimeIndicator({
     return () => clearTimeout(initialTimeout)
   }, [])
 
-  const hours = currentTime.getHours()
-  const minutes = currentTime.getMinutes()
+  const { hours, minutes } = getMadridHourMinute(currentTime)
 
   // Solo mostrar si estamos dentro del rango de horas (9:00 - 20:00)
   const totalMinutes = hours * 60 + minutes
@@ -314,6 +329,7 @@ type DayEvent = {
   height?: string
   detail?: EventDetail
   box?: string
+  professionalId?: string
   completed?: boolean // Indica si la cita ya se ha realizado
   confirmed?: boolean // Indica si el paciente confirmó la cita
   visitStatus?: VisitStatus // Estado de visita del paciente
@@ -334,6 +350,17 @@ type BoxColumn = {
 type TimeSlot = {
   time: string
   boxes: BoxColumn[]
+}
+
+function createEmptyTimeSlots(): TimeSlot[] {
+  return TIME_LABELS.map((time) => ({
+    time,
+    boxes: [
+      { id: 'box1', events: [] },
+      { id: 'box2', events: [] },
+      { id: 'box3', events: [] }
+    ]
+  }))
 }
 
 // Helper function to create event details
@@ -1389,14 +1416,8 @@ function DayGrid({
           // Filter by professional if selectedProfessionals is not empty
           const professionalMatch =
             selectedProfessionals.length === 0 ||
-            !event.detail?.professional ||
-            selectedProfessionals.some((profId) =>
-              event.detail?.professional
-                ?.toLowerCase()
-                .includes(
-                  profId.toLowerCase().replace('dr', '').replace('dra', '')
-                )
-            )
+            !event.professionalId ||
+            selectedProfessionals.includes(event.professionalId)
 
           // Filter by confirmed status (if showConfirmedOnly is true)
           const isConfirmed =
@@ -1742,6 +1763,8 @@ type ExternalAppointment = {
   box?: string
   bgColor?: string
   detail?: EventDetail // Incluye notas y otra información del evento
+  professionalId?: string
+  confirmed?: boolean
   createdByVoiceAgent?: boolean // Indica si fue creada por el agente de voz (IA)
   voiceAgentCallId?: string // ID de la llamada vinculada
 }
@@ -1794,7 +1817,7 @@ function timeToMinutes(time: string): number {
 function buildEventsFromAppointments(
   appointments: ExternalAppointment[]
 ): TimeSlot[] {
-  if (!appointments.length) return TIME_SLOTS
+  if (!appointments.length) return createEmptyTimeSlots()
 
   // Helper to map appointment box to internal boxId
   const getBoxId = (apptBox: string | undefined, index: number): string => {
@@ -1870,6 +1893,8 @@ function buildEventsFromAppointments(
         createEventDetail(`${appt.start} ${title}`, appt.box ?? 'Box 1'),
       box: appt.box ?? boxId,
       height,
+      professionalId: appt.professionalId,
+      confirmed: appt.confirmed,
       // Propiedades del agente de voz (IA)
       createdByVoiceAgent: appt.createdByVoiceAgent,
       voiceAgentCallId: appt.voiceAgentCallId
@@ -2041,7 +2066,7 @@ export default function DayCalendar({
     if (appointments.length) {
       setLocalEvents(buildEventsFromAppointments(appointments))
     } else {
-      setLocalEvents(TIME_SLOTS)
+      setLocalEvents(createEmptyTimeSlots())
     }
   }, [appointments])
 
@@ -2390,10 +2415,11 @@ export default function DayCalendar({
 
   const filteredTimeLabels = getFilteredTimeLabels()
   const visibleSlotCount = filteredTimeLabels.length
+  const periodConfig = getPeriodConfig(period)
 
   // Filtrar eventos según el período seleccionado
   const getFilteredEvents = (): TimeSlot[] => {
-    if (!localEvents.length) return TIME_SLOTS
+    if (!localEvents.length) return createEmptyTimeSlots()
 
     // Crear un Set con las horas visibles para filtrado rápido
     const visibleTimes = new Set(filteredTimeLabels)
@@ -2403,6 +2429,28 @@ export default function DayCalendar({
   }
 
   const filteredEvents = getFilteredEvents()
+  const normalizedSelectedBoxes = useMemo(
+    () => selectedBoxes.map((value) => value.toLowerCase().replace(/\s+/g, '-')),
+    [selectedBoxes]
+  )
+
+  const isBlockVisibleForSelection = useCallback(
+    (boxLabel?: string) => {
+      if (!boxLabel) return true
+
+      const normalizedLabel = boxLabel.toLowerCase().replace(/\s+/g, '-')
+      const numberMatch = boxLabel.match(/\d+/)
+      const candidateIds = [normalizedLabel]
+      if (numberMatch) {
+        candidateIds.push(`box-${numberMatch[0]}`)
+      }
+
+      return candidateIds.some((candidate) =>
+        normalizedSelectedBoxes.includes(candidate)
+      )
+    },
+    [normalizedSelectedBoxes]
+  )
 
   // Get blocks for the current date and convert to visual format
   const visualBlocks: DayBlock[] = (() => {
@@ -2413,10 +2461,7 @@ export default function DayCalendar({
     return blocksForDate
       .filter((block) => {
         // Filter by selected boxes
-        if (block.box) {
-          const boxFilterId = block.box.replace(' ', '-')
-          if (!selectedBoxes.includes(boxFilterId)) return false
-        }
+        if (!isBlockVisibleForSelection(block.box)) return false
 
         // Filter by period - check if block overlaps with period time range
         if (period !== 'full') {
@@ -2778,8 +2823,6 @@ export default function DayCalendar({
     }
   }, [dragState, onAppointmentMove])
 
-  // Obtener configuración del período actual
-  const periodConfig = getPeriodConfig(period)
   const periodTotalSlots = periodConfig.totalSlots
 
   // Altura basada en slots del período seleccionado

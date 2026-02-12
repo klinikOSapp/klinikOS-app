@@ -9,20 +9,18 @@ type CallDistributionDonutProps = {
   tier?: VoiceAgentTier
 }
 
-// Default data for Advanced mode - Distribution by type
-const DEFAULT_DATA_ADVANCED: CallDistribution[] = [
-  { name: 'Pendientes', value: 40, color: '#E9FBF9' }, // brand-50
-  { name: 'Confirmadas', value: 30, color: '#A8EFE7' }, // brand-200
-  { name: 'Aceptadas', value: 20, color: '#51D6C7' }, // brand-500
-  { name: 'Estética', value: 10, color: '#2A6B67' } // brand-800
+const EMPTY_DATA_ADVANCED: CallDistribution[] = [
+  { name: 'Pendientes', value: 0, color: '#E9FBF9' },
+  { name: 'Confirmadas', value: 0, color: '#A8EFE7' },
+  { name: 'Aceptadas', value: 0, color: '#51D6C7' },
+  { name: 'Estética', value: 0, color: '#2A6B67' }
 ]
 
-// Default data for Basic mode - Distribution by intent
-const DEFAULT_DATA_BASIC: CallDistribution[] = [
-  { name: 'Pedir cita', value: 45, color: '#51D6C7' }, // brand-500
-  { name: 'Consultas', value: 25, color: '#A8EFE7' }, // brand-200
-  { name: 'Cancelaciones', value: 15, color: '#FFD188' }, // warning-200
-  { name: 'Urgencias', value: 15, color: '#FF6B6B' } // error-400
+const EMPTY_DATA_BASIC: CallDistribution[] = [
+  { name: 'Pedir cita', value: 0, color: '#51D6C7' },
+  { name: 'Consultas', value: 0, color: '#A8EFE7' },
+  { name: 'Cancelaciones', value: 0, color: '#FFD188' },
+  { name: 'Urgencias', value: 0, color: '#FF6B6B' }
 ]
 
 /**
@@ -37,7 +35,11 @@ export default function CallDistributionDonut({
 }: CallDistributionDonutProps) {
   const isBasic = tier === 'basic'
   const chartData =
-    data ?? (isBasic ? DEFAULT_DATA_BASIC : DEFAULT_DATA_ADVANCED)
+    data && data.length > 0
+      ? data
+      : isBasic
+        ? EMPTY_DATA_BASIC
+        : EMPTY_DATA_ADVANCED
   const title = isBasic ? 'Distribución por intención' : 'Distribución por tipo'
   const sectionStyles: CSSProperties = {
     width: '100%',

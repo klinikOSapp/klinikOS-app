@@ -1,9 +1,19 @@
 'use client'
 
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import {
+  CLINIC_SELECTION_COOKIE_NAME,
+  CLINIC_SELECTION_STORAGE_KEY
+} from '@/lib/clinicSelection'
 import React from 'react'
 
-const STORAGE_KEY = 'klinikos-selected-clinic-id'
+const STORAGE_KEY = CLINIC_SELECTION_STORAGE_KEY
+
+function syncClinicSelectionCookie(clinicId: string) {
+  if (typeof document === 'undefined') return
+  const encoded = encodeURIComponent(clinicId)
+  document.cookie = `${CLINIC_SELECTION_COOKIE_NAME}=${encoded}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
+}
 
 export type ClinicOption = {
   id: string
@@ -92,6 +102,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
       } catch {
         // Ignore localStorage failures (private mode / blocked storage).
       }
+      syncClinicSelectionCookie(clinicId)
     },
     [clinics]
   )
@@ -181,6 +192,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         } catch {
           // Ignore localStorage failures.
         }
+        syncClinicSelectionCookie(resolvedClinicId)
       }
     } finally {
       setIsLoading(false)

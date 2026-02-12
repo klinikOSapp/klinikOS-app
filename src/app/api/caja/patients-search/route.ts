@@ -1,3 +1,4 @@
+import { resolveClinicIdForUser } from '@/lib/caja/permissions'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -12,9 +13,8 @@ export async function GET(req: Request) {
     } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: clinics } = await supabase.rpc('get_my_clinics')
-    if (!clinics || clinics.length === 0) return NextResponse.json({ patients: [] })
-    const clinicId = clinics[0] as string
+    const clinicId = await resolveClinicIdForUser(supabase)
+    if (!clinicId) return NextResponse.json({ patients: [] })
 
     if (q.length < 2) return NextResponse.json({ patients: [] })
 
@@ -43,6 +43,5 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error?.message ?? 'Unexpected error' }, { status: 500 })
   }
 }
-
 
 

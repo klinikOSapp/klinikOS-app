@@ -117,6 +117,7 @@ export async function GET(req: Request) {
     let collected = 0
     let toCollect = 0
     let prevProduced = 0
+    let prevInvoiced = 0
     let prevCollected = 0
     let prevToCollect: number | null = null
 
@@ -135,6 +136,7 @@ export async function GET(req: Request) {
       collected = Number(resumenRow.collected || 0)
       toCollect = Number(resumenRow.to_collect || 0)
       prevProduced = Number(resumenRow.prev_produced || 0)
+      prevInvoiced = Number(resumenRow.prev_invoiced || resumenRow.prev_produced || 0)
       prevCollected = Number(resumenRow.prev_collected || 0)
       // Optional (future): if DB RPC is extended to return prev_to_collect, use it.
       const maybePrevToCollect = (resumenRow as any).prev_to_collect
@@ -223,6 +225,7 @@ export async function GET(req: Request) {
         (sum: number, inv: any) => sum + Number(inv.total_amount || 0),
         0
       )
+      prevInvoiced = prevProduced
       prevCollected = prevPeriodPayments.reduce(
         (sum: number, p: any) => sum + Number(p.amount || 0),
         0
@@ -244,13 +247,13 @@ export async function GET(req: Request) {
         value: `${produced.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
         delta: calculateDelta(produced, prevProduced),
         color: 'var(--color-info-50)',
-        accessory: 'money_bag'
+        accessory: 'attach_money'
       },
       {
         id: 'invoiced',
         title: 'Facturado',
         value: `${invoiced.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
-        delta: calculateDelta(invoiced, prevProduced),
+        delta: calculateDelta(invoiced, prevInvoiced),
         color: '#e9f6fb',
         accessory: 'receipt_long'
       },
@@ -260,10 +263,10 @@ export async function GET(req: Request) {
         value: `${collected.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
         delta: calculateDelta(collected, prevCollected),
         color: 'var(--color-brand-50)',
-        accessory: 'check'
+        accessory: 'check_circle'
       },
       {
-        id: 'toCollect',
+        id: 'pending',
         title: 'Por cobrar',
         value: `${toCollect.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
         // If we don't have "prev_to_collect" (not yet returned by DB RPC), avoid misleading +100%.
@@ -272,13 +275,13 @@ export async function GET(req: Request) {
             ? '—'
             : calculateDelta(toCollect, Number.isFinite(prevToCollect) ? prevToCollect : 0),
         color: 'var(--color-warning-50)',
-        accessory: 'money_bag'
+        accessory: 'hourglass_top'
       }
     ]
 
-    // Donut gauge for selected period: Cobrado vs Producido
+    // Donut gauge for selected period: Cobrado vs Facturado
     const donutValue = collected
-    const donutTarget = produced
+    const donutTarget = invoiced
 
     return NextResponse.json({
       summary,
@@ -292,6 +295,4 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error?.message ?? 'Unexpected error' }, { status: 500 })
   }
 }
-
-
 

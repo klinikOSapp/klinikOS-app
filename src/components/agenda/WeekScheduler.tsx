@@ -104,6 +104,21 @@ const normalizeTimeLabel = (label: string): string => {
   return `${hours}:${minutes}`
 }
 
+const formatDateInAgendaTimezone = (date: Date): string => {
+  // Date keys in agenda are day-based identifiers (not absolute instants).
+  // Using local date components avoids timezone-shift bugs when comparing YYYY-MM-DD.
+  const year = String(date.getFullYear())
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const parseIsoDateLocal = (isoDate: string): Date => {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  if (!year || !month || !day) return new Date(isoDate)
+  return new Date(year, month - 1, day, 0, 0, 0, 0)
+}
+
 const HEADER_CELLS: HeaderCell[] = [
   {
     id: 'monday',
@@ -150,8 +165,8 @@ const VIEW_OPTIONS: { id: ViewOption; label: string }[] = [
   { id: 'mes', label: 'Mes' }
 ]
 
-// BOX_OPTIONS and PROFESSIONAL_OPTIONS are now provided via ConfigurationContext
-// These constants are kept for backwards compatibility but should be replaced with context values
+// Box options are primarily provided via ConfigurationContext.
+// Keep this as a safety fallback when configuration has not hydrated yet.
 
 const DEFAULT_BOX_OPTIONS = [
   { id: 'box-1', label: 'Box 1' },
@@ -166,6 +181,13 @@ const BOX_COLUMN_LAYOUT: Record<string, { left: string; width: string }> = {
 
 const normalizeBoxLabel = (value: string): string =>
   value.trim().toLowerCase().replace(/\s+/g, ' ')
+
+const toProfessionalOptionId = (name: string): string =>
+  `prof-${name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')}`
 
 // Function to calculate dynamic box layout based on selected boxes
 const getBoxLayout = (
@@ -199,50 +221,8 @@ const getBoxLayout = (
   return layout
 }
 
-// Specialist availability for week view (same style as MonthCalendar)
-const SAMPLE_SPECIALISTS: SpecialistAvailability[] = [
-  {
-    id: 'sp1',
-    name: 'Odontólogo',
-    timeRange: '10:00 - 16:00',
-    color: 'var(--color-info-200)'
-  },
-  {
-    id: 'sp2',
-    name: 'Higienista dental',
-    timeRange: '09:00 - 14:00',
-    color: 'var(--color-event-teal)'
-  },
-  {
-    id: 'sp3',
-    name: 'Pediatra',
-    timeRange: '11:00 - 18:00',
-    color: 'var(--color-event-purple)'
-  }
-]
-
-// Specialists by weekday
-const SPECIALISTS_BY_WEEKDAY: Record<Weekday, SpecialistAvailability[]> = {
-  monday: [SAMPLE_SPECIALISTS[0]],
-  tuesday: [SAMPLE_SPECIALISTS[1], SAMPLE_SPECIALISTS[0]],
-  wednesday: [SAMPLE_SPECIALISTS[2]],
-  thursday: [],
-  friday: [SAMPLE_SPECIALISTS[0], SAMPLE_SPECIALISTS[2]],
-  saturday: [],
-  sunday: []
-}
-
-const DATE_BY_DAY: Record<Weekday, string> = {
-  monday: 'Lunes, 5 de Enero 2026',
-  tuesday: 'Martes, 6 de Enero 2026',
-  wednesday: 'Miércoles, 7 de Enero 2026',
-  thursday: 'Jueves, 8 de Enero 2026',
-  friday: 'Viernes, 9 de Enero 2026',
-  saturday: 'Sábado, 10 de Enero 2026',
-  sunday: 'Domingo, 11 de Enero 2026'
-}
-
 const OVERLAY_GUTTER = '0.75rem' // 12px - gap between event card and overlay
+const AGENDA_TIMEZONE = 'Europe/Madrid'
 
 // ==========================================
 // CURRENT TIME INDICATOR COMPONENT
@@ -263,6 +243,21 @@ function CurrentTimeIndicator({
   timeColumnWidth?: string
 }) {
   const [currentTime, setCurrentTime] = useState<Date>(new Date())
+  const getMadridHourMinute = useCallback((value: Date) => {
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: AGENDA_TIMEZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+    const [hoursRaw = '00', minutesRaw = '00'] = formatter
+      .format(value)
+      .split(':')
+    return {
+      hours: Number(hoursRaw),
+      minutes: Number(minutesRaw)
+    }
+  }, [])
 
   // Actualizar cada minuto
   useEffect(() => {
@@ -284,8 +279,7 @@ function CurrentTimeIndicator({
     return () => clearTimeout(initialTimeout)
   }, [])
 
-  const hours = currentTime.getHours()
-  const minutes = currentTime.getMinutes()
+  const { hours, minutes } = getMadridHourMinute(currentTime)
 
   // Solo mostrar si estamos dentro del rango de horas (9:00 - 20:00)
   const totalMinutes = hours * 60 + minutes
@@ -332,243 +326,9 @@ function CurrentTimeIndicator({
 }
 
 // ============================================
-// DATOS REALISTAS DE CLÍNICA DENTAL
+// AGENDA DEFAULTS (runtime fallbacks only)
 // ============================================
 
-// Profesionales de la clínica
-const PROFESSIONALS = {
-  antonioRuiz: 'Dr. Antonio Ruiz García',
-  elenaNava: 'Dra. Elena Navarro Pérez',
-  miguelTorres: 'Dr. Miguel Á. Torres',
-  lauraSanchez: 'Laura Sánchez (Higienista)',
-  franciscoMoreno: 'Dr. Francisco Moreno',
-  carmenDiaz: 'Dra. Carmen Díaz López'
-}
-
-// Pacientes con datos realistas
-const PATIENTS = {
-  mariaGarcia: {
-    name: 'María García López',
-    phone: '+34 612 345 678',
-    email: 'maria.garcia@gmail.com'
-  },
-  carlosRodriguez: {
-    name: 'Carlos Rodríguez Fernández',
-    phone: '+34 623 456 789',
-    email: 'carlos.rodriguez@hotmail.com'
-  },
-  anaMartinez: {
-    name: 'Ana Martínez Sánchez',
-    phone: '+34 634 567 890',
-    email: 'ana.martinez@yahoo.es'
-  },
-  pabloLopez: {
-    name: 'Pablo López García',
-    phone: '+34 645 678 901',
-    email: 'pablo.lopez@gmail.com'
-  },
-  lauraFernandez: {
-    name: 'Laura Fernández Ruiz',
-    phone: '+34 656 789 012',
-    email: 'laura.fernandez@outlook.com'
-  },
-  javierMoreno: {
-    name: 'Javier Moreno Torres',
-    phone: '+34 667 890 123',
-    email: 'javier.moreno@gmail.com'
-  },
-  sofiaNavarro: {
-    name: 'Sofía Navarro Díaz',
-    phone: '+34 678 901 234',
-    email: 'sofia.navarro@icloud.com'
-  },
-  davidSanchez: {
-    name: 'David Sánchez Martín',
-    phone: '+34 689 012 345',
-    email: 'david.sanchez@gmail.com'
-  },
-  carmenRuiz: {
-    name: 'Carmen Ruiz Jiménez',
-    phone: '+34 690 123 456',
-    email: 'carmen.ruiz@hotmail.com'
-  },
-  miguelGomez: {
-    name: 'Miguel Gómez Hernández',
-    phone: '+34 601 234 567',
-    email: 'miguel.gomez@gmail.com'
-  },
-  elenaVega: {
-    name: 'Elena Vega Castillo',
-    phone: '+34 612 345 678',
-    email: 'elena.vega@yahoo.es'
-  },
-  antonioPerez: {
-    name: 'Antonio Pérez Molina',
-    phone: '+34 623 456 789',
-    email: 'antonio.perez@gmail.com'
-  },
-  martaAlonso: {
-    name: 'Marta Alonso Blanco',
-    phone: '+34 634 567 890',
-    email: 'marta.alonso@outlook.com'
-  },
-  fernandoDiaz: {
-    name: 'Fernando Díaz Ortega',
-    phone: '+34 645 678 901',
-    email: 'fernando.diaz@gmail.com'
-  },
-  beatrizMuñoz: {
-    name: 'Beatriz Muñoz Serrano',
-    phone: '+34 656 789 012',
-    email: 'beatriz.munoz@icloud.com'
-  },
-  ramonCastro: {
-    name: 'Ramón Castro Vidal',
-    phone: '+34 667 890 123',
-    email: 'ramon.castro@hotmail.com'
-  },
-  patriciaRomero: {
-    name: 'Patricia Romero Nieto',
-    phone: '+34 678 901 234',
-    email: 'patricia.romero@gmail.com'
-  },
-  albertoGil: {
-    name: 'Alberto Gil Ramos',
-    phone: '+34 689 012 345',
-    email: 'alberto.gil@yahoo.es'
-  }
-}
-
-// Profesionales de la clínica dental (para bandas dinámicas)
-export const CLINIC_PROFESSIONALS = {
-  drRuiz: {
-    id: 'drRuiz',
-    name: 'Dr. Antonio Ruiz García',
-    specialty: 'Odontólogo General',
-    bandLabel: 'Dr. Ruiz (Odontología)',
-    bandColor: '#f0fafa',
-    scheduleStart: '09:00',
-    scheduleEnd: '14:00'
-  },
-  draLopez: {
-    id: 'draLopez',
-    name: 'Dra. María López Fernández',
-    specialty: 'Endodoncista',
-    bandLabel: 'Dra. López (Endodoncia)',
-    bandColor: '#fbe9fb',
-    scheduleStart: '09:00',
-    scheduleEnd: '14:00'
-  },
-  drMartinez: {
-    id: 'drMartinez',
-    name: 'Dr. Carlos Martínez Soto',
-    specialty: 'Cirujano Oral',
-    bandLabel: 'Dr. Martínez (Cirugía)',
-    bandColor: '#fff4e6',
-    scheduleStart: '10:00',
-    scheduleEnd: '18:00'
-  },
-  draGarcia: {
-    id: 'draGarcia',
-    name: 'Dra. Laura García Vidal',
-    specialty: 'Ortodoncista',
-    bandLabel: 'Dra. García (Ortodoncia)',
-    bandColor: '#e6f4ff',
-    scheduleStart: '15:00',
-    scheduleEnd: '20:00'
-  },
-  drSanchez: {
-    id: 'drSanchez',
-    name: 'Dr. Pedro Sánchez Ruiz',
-    specialty: 'Periodoncista',
-    bandLabel: 'Dr. Sánchez (Periodoncia)',
-    bandColor: '#e6ffe6',
-    scheduleStart: '09:00',
-    scheduleEnd: '13:00'
-  },
-  draPeña: {
-    id: 'draPeña',
-    name: 'Dra. Ana Peña Moreno',
-    specialty: 'Odontopediatra',
-    bandLabel: 'Dra. Peña (Pediatría)',
-    bandColor: '#ffe6f0',
-    scheduleStart: '16:00',
-    scheduleEnd: '20:00'
-  },
-  anestesistaJimenez: {
-    id: 'anestesistaJimenez',
-    name: 'Dr. Roberto Jiménez Blanco',
-    specialty: 'Anestesista',
-    bandLabel: 'Dr. Jiménez (Anestesia)',
-    bandColor: '#f5e6ff',
-    scheduleStart: '10:00',
-    scheduleEnd: '16:00'
-  }
-} as const
-
-export type ProfessionalId = keyof typeof CLINIC_PROFESSIONALS
-
-// Professional options derived from CLINIC_PROFESSIONALS
-const PROFESSIONAL_OPTIONS = Object.entries(CLINIC_PROFESSIONALS).map(
-  ([key, prof]) => ({
-    id: key,
-    label: prof.name
-  })
-)
-
-// Función para obtener las bandas de profesionales de un día específico
-export function getBandsForDate(
-  date: Date,
-  events: typeof MONTH_EVENTS_EXTENDED
-): { id: string; label: string; background: string }[] {
-  const dayEvents = events.filter(
-    (e) => e.date.toDateString() === date.toDateString()
-  )
-
-  // Obtener profesionales únicos del día
-  const professionalIds = new Set<ProfessionalId>()
-  dayEvents.forEach((e) => {
-    if (e.professionalId) {
-      professionalIds.add(e.professionalId)
-    }
-  })
-
-  // Convertir a bandas
-  return Array.from(professionalIds).map((profId) => {
-    const prof = CLINIC_PROFESSIONALS[profId]
-    return {
-      id: prof.id,
-      label: `${prof.bandLabel} ${prof.scheduleStart} - ${prof.scheduleEnd}`,
-      background: prof.bandColor
-    }
-  })
-}
-
-// Tratamientos dentales
-const TREATMENTS = {
-  limpieza: 'Limpieza dental',
-  revision: 'Revisión general',
-  empaste: 'Empaste / Obturación',
-  endodoncia: 'Endodoncia',
-  extraccion: 'Extracción dental',
-  corona: 'Corona dental',
-  implante: 'Implante dental',
-  ortodoncia: 'Revisión ortodoncia',
-  blanqueamiento: 'Blanqueamiento',
-  ferula: 'Férula de descarga',
-  cordales: 'Cirugía cordales',
-  periodoncia: 'Tratamiento periodontal',
-  protesis: 'Ajuste prótesis',
-  carillas: 'Carillas estéticas',
-  radiografia: 'Radiografía panorámica',
-  urgencia: 'Urgencia dental',
-  sensibilidad: 'Tratamiento sensibilidad',
-  brackets: 'Colocación brackets',
-  invisalign: 'Revisión Invisalign',
-  sellador: 'Sellador de fisuras'
-}
-
-const DEFAULT_PATIENT_FULL = 'Juan Pérez González'
 const DEFAULT_PATIENT_PHONE = '+34 666 777 888'
 const DEFAULT_PATIENT_EMAIL = 'juan.perez@gmail.com'
 const DEFAULT_REFERRED_BY = 'Recomendación familiar'
@@ -581,40 +341,6 @@ const PATIENT_LABEL = 'Paciente'
 const PROFESSIONAL_LABEL = 'Profesional'
 const ECONOMIC_LABEL = 'Económico'
 const NOTES_LABEL = 'Notas'
-
-function createDetail(
-  day: Weekday,
-  title: string,
-  startTime: string,
-  overrides?: Partial<EventDetail>
-): EventDetail {
-  return {
-    title: `${title} ${startTime}`,
-    date: DATE_BY_DAY[day],
-    duration: '12:30 - 13:00 (30 minutos)',
-    patientFull: DEFAULT_PATIENT_FULL,
-    patientPhone: DEFAULT_PATIENT_PHONE,
-    patientEmail: DEFAULT_PATIENT_EMAIL,
-    referredBy: DEFAULT_REFERRED_BY,
-    professional: DEFAULT_PROFESSIONAL,
-    economicAmount: DEFAULT_ECONOMIC_AMOUNT,
-    economicStatus: DEFAULT_ECONOMIC_STATUS,
-    notes: DEFAULT_NOTES,
-    locationLabel: LOCATION_LABEL,
-    patientLabel: PATIENT_LABEL,
-    professionalLabel: PROFESSIONAL_LABEL,
-    economicLabel: ECONOMIC_LABEL,
-    notesLabel: NOTES_LABEL,
-    ...overrides
-  }
-}
-
-const parsePercent = (value?: string | number): number => {
-  if (typeof value === 'number') return value
-  if (!value) return 0
-  const num = parseFloat(value)
-  return Number.isFinite(num) ? num : 0
-}
 
 function getOverlayTop(
   relativeTop: string,
@@ -681,1500 +407,6 @@ function getSmartOverlayPosition(
     left: baseLeft,
     maxHeight: `min(${overlayHeight}, calc(100vh - var(--spacing-topbar) - var(--scheduler-toolbar-height) - var(--scheduler-day-header-height) - 2rem))`
   }
-}
-
-// Helper para calcular top basado en hora (9:00 = 0rem, cada 15min = 2.5rem)
-const timeToTop = (hour: number, minutes: number): string => {
-  const slotsFromStart = (hour - 9) * 4 + Math.floor(minutes / 15)
-  return `${slotsFromStart * 2.5}rem`
-}
-
-// Helper para calcular altura basada en duración en minutos
-const durationToHeight = (minutes: number): string => {
-  const slots = Math.ceil(minutes / 15)
-  return `${slots * 2.5}rem`
-}
-
-const EVENT_DATA: Record<Weekday, AgendaEvent[]> = {
-  monday: [
-    // LUNES - Día ocupado con muchas limpiezas y revisiones
-    {
-      id: 'mon-1',
-      top: timeToTop(9, 0),
-      height: durationToHeight(30),
-      title: TREATMENTS.limpieza,
-      patient: PATIENTS.mariaGarcia.name,
-      box: 'Box 1',
-      timeRange: '09:00 - 09:30',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('monday', TREATMENTS.limpieza, '09:00', {
-        patientFull: PATIENTS.mariaGarcia.name,
-        patientPhone: PATIENTS.mariaGarcia.phone,
-        patientEmail: PATIENTS.mariaGarcia.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '65 €',
-        economicStatus: 'Pagado',
-        notes: 'Limpieza rutinaria semestral. Sin problemas previos.',
-        duration: '09:00 - 09:30 (30 minutos)'
-      })
-    },
-    {
-      id: 'mon-2',
-      top: timeToTop(9, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.empaste,
-      patient: PATIENTS.carlosRodriguez.name,
-      box: 'Box 2',
-      timeRange: '09:30 - 10:15',
-      backgroundClass: 'bg-[#fbe9f0]',
-      detail: createDetail('monday', TREATMENTS.empaste, '09:30', {
-        patientFull: PATIENTS.carlosRodriguez.name,
-        patientPhone: PATIENTS.carlosRodriguez.phone,
-        patientEmail: PATIENTS.carlosRodriguez.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '95 €',
-        economicStatus: 'Pendiente de pago',
-        notes: 'Caries en molar inferior derecho (36). Empaste composite.',
-        duration: '09:30 - 10:15 (45 minutos)'
-      })
-    },
-    {
-      id: 'mon-3',
-      top: timeToTop(10, 0),
-      height: durationToHeight(60),
-      title: TREATMENTS.endodoncia,
-      patient: PATIENTS.anaMartinez.name,
-      box: 'Box 1',
-      timeRange: '10:00 - 11:00',
-      backgroundClass: 'bg-[#fbf3e9]',
-      detail: createDetail('monday', TREATMENTS.endodoncia, '10:00', {
-        patientFull: PATIENTS.anaMartinez.name,
-        patientPhone: PATIENTS.anaMartinez.phone,
-        patientEmail: PATIENTS.anaMartinez.email,
-        professional: PROFESSIONALS.franciscoMoreno,
-        economicAmount: '320 €',
-        economicStatus: 'Financiado (3 pagos)',
-        notes:
-          'Endodoncia pieza 15. Segunda sesión. Paciente con ansiedad leve.',
-        duration: '10:00 - 11:00 (60 minutos)',
-        // Pagos parciales: 1 de 3 cuotas pagadas
-        paymentInfo: {
-          totalAmount: 320,
-          paidAmount: 106.67,
-          pendingAmount: 213.33,
-          currency: '€'
-        },
-        installmentPlan: {
-          totalInstallments: 3,
-          currentInstallment: 2,
-          amountPerInstallment: 106.67
-        }
-      })
-    },
-    {
-      id: 'mon-4',
-      top: timeToTop(10, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.revision,
-      patient: PATIENTS.pabloLopez.name,
-      box: 'Box 2',
-      timeRange: '10:30 - 11:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('monday', TREATMENTS.revision, '10:30', {
-        patientFull: PATIENTS.pabloLopez.name,
-        patientPhone: PATIENTS.pabloLopez.phone,
-        patientEmail: PATIENTS.pabloLopez.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '45 €',
-        economicStatus: 'Pagado',
-        notes: 'Revisión anual. Última visita hace 11 meses.',
-        duration: '10:30 - 11:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'mon-5',
-      top: timeToTop(11, 0),
-      height: durationToHeight(45),
-      title: TREATMENTS.ortodoncia,
-      patient: PATIENTS.lauraFernandez.name,
-      box: 'Box 2',
-      timeRange: '11:00 - 11:45',
-      backgroundClass: 'bg-[#e9fbf9]',
-      detail: createDetail('monday', TREATMENTS.ortodoncia, '11:00', {
-        patientFull: PATIENTS.lauraFernandez.name,
-        patientPhone: PATIENTS.lauraFernandez.phone,
-        patientEmail: PATIENTS.lauraFernandez.email,
-        professional: PROFESSIONALS.elenaNava,
-        economicAmount: '0 € (incluido en tratamiento)',
-        economicStatus: 'Plan activo',
-        notes: 'Revisión mensual Invisalign. Cambio de alineadores semana 18.',
-        duration: '11:00 - 11:45 (45 minutos)'
-      })
-    },
-    {
-      id: 'mon-6',
-      top: timeToTop(11, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.limpieza,
-      patient: PATIENTS.javierMoreno.name,
-      box: 'Box 1',
-      timeRange: '11:30 - 12:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('monday', TREATMENTS.limpieza, '11:30', {
-        patientFull: PATIENTS.javierMoreno.name,
-        patientPhone: PATIENTS.javierMoreno.phone,
-        patientEmail: PATIENTS.javierMoreno.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '65 €',
-        economicStatus: 'Pagado',
-        notes: 'Limpieza profunda. Acumulación de sarro zona inferior.',
-        duration: '11:30 - 12:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'mon-7',
-      top: timeToTop(12, 0),
-      height: durationToHeight(30),
-      title: TREATMENTS.radiografia,
-      patient: PATIENTS.sofiaNavarro.name,
-      box: 'Box 1',
-      timeRange: '12:00 - 12:30',
-      backgroundClass: 'bg-[#f0e9fb]',
-      detail: createDetail('monday', TREATMENTS.radiografia, '12:00', {
-        patientFull: PATIENTS.sofiaNavarro.name,
-        patientPhone: PATIENTS.sofiaNavarro.phone,
-        patientEmail: PATIENTS.sofiaNavarro.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '35 €',
-        economicStatus: 'Pagado',
-        notes: 'Radiografía panorámica previa a valoración de implantes.',
-        duration: '12:00 - 12:30 (30 minutos)'
-      })
-    },
-    {
-      id: 'mon-8',
-      top: timeToTop(12, 0),
-      height: durationToHeight(45),
-      title: TREATMENTS.periodoncia,
-      patient: PATIENTS.davidSanchez.name,
-      box: 'Box 2',
-      timeRange: '12:00 - 12:45',
-      backgroundClass: 'bg-[#fbe9f0]',
-      detail: createDetail('monday', TREATMENTS.periodoncia, '12:00', {
-        patientFull: PATIENTS.davidSanchez.name,
-        patientPhone: PATIENTS.davidSanchez.phone,
-        patientEmail: PATIENTS.davidSanchez.email,
-        professional: PROFESSIONALS.carmenDiaz,
-        economicAmount: '180 €',
-        economicStatus: 'Pendiente de pago',
-        notes:
-          'Tratamiento periodontal cuadrante superior derecho. Gingivitis avanzada.',
-        duration: '12:00 - 12:45 (45 minutos)',
-        // Pago parcial SIN plan de cuotas (flexible)
-        paymentInfo: {
-          totalAmount: 180,
-          paidAmount: 50,
-          pendingAmount: 130,
-          currency: '€'
-        }
-        // Sin installmentPlan - el paciente paga lo que puede
-      })
-    },
-    {
-      id: 'mon-9',
-      top: timeToTop(13, 0),
-      height: durationToHeight(30),
-      title: TREATMENTS.revision,
-      patient: PATIENTS.carmenRuiz.name,
-      box: 'Box 1',
-      timeRange: '13:00 - 13:30',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('monday', TREATMENTS.revision, '13:00', {
-        patientFull: PATIENTS.carmenRuiz.name,
-        patientPhone: PATIENTS.carmenRuiz.phone,
-        patientEmail: PATIENTS.carmenRuiz.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '45 €',
-        economicStatus: 'Pagado',
-        notes: 'Revisión post-tratamiento endodoncia. Evolución favorable.',
-        duration: '13:00 - 13:30 (30 minutos)'
-      })
-    },
-    // Tarde
-    {
-      id: 'mon-10',
-      top: timeToTop(16, 0),
-      height: durationToHeight(90),
-      title: TREATMENTS.implante,
-      patient: PATIENTS.miguelGomez.name,
-      box: 'Box 1',
-      timeRange: '16:00 - 17:30',
-      backgroundClass: 'bg-[#fbf3e9]',
-      detail: createDetail('monday', TREATMENTS.implante, '16:00', {
-        patientFull: PATIENTS.miguelGomez.name,
-        patientPhone: PATIENTS.miguelGomez.phone,
-        patientEmail: PATIENTS.miguelGomez.email,
-        professional: PROFESSIONALS.miguelTorres,
-        economicAmount: '1.200 €',
-        economicStatus: 'Financiado (12 pagos)',
-        notes:
-          'Colocación implante pieza 46. Paciente sin patologías previas. Antibiótico preventivo.',
-        duration: '16:00 - 17:30 (90 minutos)',
-        // Pagos parciales: 5 de 12 cuotas pagadas
-        paymentInfo: {
-          totalAmount: 1200,
-          paidAmount: 500,
-          pendingAmount: 700,
-          currency: '€'
-        },
-        installmentPlan: {
-          totalInstallments: 12,
-          currentInstallment: 6,
-          amountPerInstallment: 100
-        }
-      })
-    },
-    {
-      id: 'mon-11',
-      top: timeToTop(16, 30),
-      height: durationToHeight(60),
-      title: TREATMENTS.blanqueamiento,
-      patient: PATIENTS.elenaVega.name,
-      box: 'Box 2',
-      timeRange: '16:30 - 17:30',
-      backgroundClass: 'bg-[#e9fbf9]',
-      detail: createDetail('monday', TREATMENTS.blanqueamiento, '16:30', {
-        patientFull: PATIENTS.elenaVega.name,
-        patientPhone: PATIENTS.elenaVega.phone,
-        patientEmail: PATIENTS.elenaVega.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '250 €',
-        economicStatus: 'Pagado',
-        notes: 'Blanqueamiento LED segunda sesión. Evitar café y vino 48h.',
-        duration: '16:30 - 17:30 (60 minutos)'
-      })
-    },
-    {
-      id: 'mon-12',
-      top: timeToTop(17, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.limpieza,
-      patient: PATIENTS.antonioPerez.name,
-      box: 'Box 2',
-      timeRange: '17:30 - 18:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('monday', TREATMENTS.limpieza, '17:30', {
-        patientFull: PATIENTS.antonioPerez.name,
-        patientPhone: PATIENTS.antonioPerez.phone,
-        patientEmail: PATIENTS.antonioPerez.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '65 €',
-        economicStatus: 'Pendiente de pago',
-        notes: 'Primera visita. Derivado por médico de cabecera.',
-        duration: '17:30 - 18:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'mon-13',
-      top: timeToTop(18, 0),
-      height: durationToHeight(45),
-      title: TREATMENTS.empaste,
-      patient: PATIENTS.martaAlonso.name,
-      box: 'Box 1',
-      timeRange: '18:00 - 18:45',
-      backgroundClass: 'bg-[#fbe9f0]',
-      detail: createDetail('monday', TREATMENTS.empaste, '18:00', {
-        patientFull: PATIENTS.martaAlonso.name,
-        patientPhone: PATIENTS.martaAlonso.phone,
-        patientEmail: PATIENTS.martaAlonso.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '85 €',
-        economicStatus: 'Pagado',
-        notes:
-          'Empaste molar 16. Caries interproximal detectada en radiografía.',
-        duration: '18:00 - 18:45 (45 minutos)'
-      })
-    },
-    {
-      id: 'mon-14',
-      top: timeToTop(18, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.ferula,
-      patient: PATIENTS.fernandoDiaz.name,
-      box: 'Box 2',
-      timeRange: '18:30 - 19:15',
-      backgroundClass: 'bg-[#f0e9fb]',
-      detail: createDetail('monday', TREATMENTS.ferula, '18:30', {
-        patientFull: PATIENTS.fernandoDiaz.name,
-        patientPhone: PATIENTS.fernandoDiaz.phone,
-        patientEmail: PATIENTS.fernandoDiaz.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '180 €',
-        economicStatus: 'Pagado',
-        notes: 'Entrega férula de descarga. Bruxismo nocturno severo.',
-        duration: '18:30 - 19:15 (45 minutos)'
-      })
-    },
-    {
-      id: 'mon-15',
-      top: timeToTop(19, 0),
-      height: durationToHeight(30),
-      title: TREATMENTS.revision,
-      patient: PATIENTS.beatrizMuñoz.name,
-      box: 'Box 1',
-      timeRange: '19:00 - 19:30',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('monday', TREATMENTS.revision, '19:00', {
-        patientFull: PATIENTS.beatrizMuñoz.name,
-        patientPhone: PATIENTS.beatrizMuñoz.phone,
-        patientEmail: PATIENTS.beatrizMuñoz.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '45 €',
-        economicStatus: 'Pagado',
-        notes: 'Revisión anual. Paciente con implante hace 3 años.',
-        duration: '19:00 - 19:30 (30 minutos)'
-      })
-    },
-    // ============================================
-    // CITAS CREADAS POR AGENTE DE VOZ (IA)
-    // Estas citas tienen borde rosa y badge "IA"
-    // El color de fondo depende del tipo de tratamiento
-    // ============================================
-    {
-      id: 'apt-ai-001',
-      top: timeToTop(10, 0),
-      height: durationToHeight(30),
-      title: 'Limpieza dental',
-      patient: 'Carlos Martínez Pérez',
-      box: 'Box 3',
-      timeRange: '10:00 - 10:30',
-      backgroundClass: 'bg-[var(--color-brand-100)]', // Color de limpieza
-      createdByVoiceAgent: true,
-      voiceAgentCallId: '1',
-      detail: createDetail('monday', 'Limpieza dental', '10:00', {
-        patientFull: 'Carlos Martínez Pérez',
-        patientPhone: '+34 667 890 111',
-        patientEmail: 'carlos.martinez@email.com',
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '65 €',
-        economicStatus: 'Pendiente IA',
-        notes:
-          'Cita creada por agente de voz. Paciente solicita limpieza dental rutinaria.',
-        duration: '10:00 - 10:30 (30 minutos)'
-      })
-    },
-    {
-      id: 'apt-ai-002',
-      top: timeToTop(11, 30),
-      height: durationToHeight(30),
-      title: 'Consulta financiación',
-      patient: 'Nacho Nieto Iniesta',
-      box: 'Box 2',
-      timeRange: '11:30 - 12:00',
-      backgroundClass: 'bg-[#fbe9fb]', // Color de consulta
-      createdByVoiceAgent: true,
-      voiceAgentCallId: '2',
-      detail: createDetail('monday', 'Consulta financiación', '11:30', {
-        patientFull: 'Nacho Nieto Iniesta',
-        patientPhone: '+34 658 478 512',
-        patientEmail: 'nacho.nieto@email.com',
-        professional: PROFESSIONALS.elenaNava,
-        economicAmount: '0 €',
-        economicStatus: 'Pendiente IA',
-        notes:
-          'Cita creada por agente de voz. Consulta opciones de financiación para ortodoncia.',
-        duration: '11:30 - 12:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'apt-ai-003',
-      top: timeToTop(14, 0),
-      height: durationToHeight(30),
-      title: 'Urgencia dolor molar',
-      patient: 'Sofia Rodríguez López',
-      box: 'Box 1',
-      timeRange: '14:00 - 14:30',
-      backgroundClass: 'bg-[#fbf3e9]', // Color de urgencia
-      createdByVoiceAgent: true,
-      voiceAgentCallId: '3',
-      detail: createDetail('monday', 'Urgencia dolor molar', '14:00', {
-        patientFull: 'Sofia Rodríguez López',
-        patientPhone: '+34 667 890 111',
-        patientEmail: 'sofia.rodriguez@email.com',
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '0 €',
-        economicStatus: 'Pendiente IA',
-        notes:
-          'URGENTE. Cita creada por agente de voz. Dolor intenso en molar inferior derecho.',
-        duration: '14:00 - 14:30 (30 minutos)'
-      })
-    }
-  ],
-  tuesday: [
-    // MARTES - Día de ortodoncia y cirugía
-    {
-      id: 'tue-1',
-      top: timeToTop(9, 0),
-      height: durationToHeight(60),
-      title: TREATMENTS.brackets,
-      patient: PATIENTS.ramonCastro.name,
-      box: 'Box 1',
-      timeRange: '09:00 - 10:00',
-      backgroundClass: 'bg-[#e9fbf9]',
-      detail: createDetail('tuesday', TREATMENTS.brackets, '09:00', {
-        patientFull: PATIENTS.ramonCastro.name,
-        patientPhone: PATIENTS.ramonCastro.phone,
-        patientEmail: PATIENTS.ramonCastro.email,
-        professional: PROFESSIONALS.elenaNava,
-        economicAmount: '2.800 € (total tratamiento)',
-        economicStatus: 'Financiado (24 pagos)',
-        notes:
-          'Colocación brackets metálicos arcada superior. Clase II división 1.',
-        duration: '09:00 - 10:00 (60 minutos)',
-        // Pagos parciales: 3 de 24 cuotas pagadas (inicio del tratamiento)
-        paymentInfo: {
-          totalAmount: 2800,
-          paidAmount: 350,
-          pendingAmount: 2450,
-          currency: '€'
-        },
-        installmentPlan: {
-          totalInstallments: 24,
-          currentInstallment: 4,
-          amountPerInstallment: 116.67
-        }
-      })
-    },
-    {
-      id: 'tue-2',
-      top: timeToTop(9, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.limpieza,
-      patient: PATIENTS.patriciaRomero.name,
-      box: 'Box 2',
-      timeRange: '09:30 - 10:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('tuesday', TREATMENTS.limpieza, '09:30', {
-        patientFull: PATIENTS.patriciaRomero.name,
-        patientPhone: PATIENTS.patriciaRomero.phone,
-        patientEmail: PATIENTS.patriciaRomero.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '65 €',
-        economicStatus: 'Pagado',
-        notes: 'Limpieza trimestral. Paciente con ortodoncia.',
-        duration: '09:30 - 10:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'tue-3',
-      top: timeToTop(10, 0),
-      height: durationToHeight(45),
-      title: TREATMENTS.ortodoncia,
-      patient: PATIENTS.albertoGil.name,
-      box: 'Box 2',
-      timeRange: '10:00 - 10:45',
-      backgroundClass: 'bg-[#e9fbf9]',
-      detail: createDetail('tuesday', TREATMENTS.ortodoncia, '10:00', {
-        patientFull: PATIENTS.albertoGil.name,
-        patientPhone: PATIENTS.albertoGil.phone,
-        patientEmail: PATIENTS.albertoGil.email,
-        professional: PROFESSIONALS.elenaNava,
-        economicAmount: '0 € (incluido)',
-        economicStatus: 'Plan activo',
-        notes: 'Ajuste de arcos. Mes 8 de tratamiento.',
-        duration: '10:00 - 10:45 (45 minutos)'
-      })
-    },
-    {
-      id: 'tue-4',
-      top: timeToTop(10, 30),
-      height: durationToHeight(90),
-      title: TREATMENTS.cordales,
-      patient: PATIENTS.mariaGarcia.name,
-      box: 'Box 1',
-      timeRange: '10:30 - 12:00',
-      backgroundClass: 'bg-[#fbf3e9]',
-      detail: createDetail('tuesday', TREATMENTS.cordales, '10:30', {
-        patientFull: PATIENTS.mariaGarcia.name,
-        patientPhone: PATIENTS.mariaGarcia.phone,
-        patientEmail: PATIENTS.mariaGarcia.email,
-        professional: PROFESSIONALS.miguelTorres,
-        economicAmount: '380 €',
-        economicStatus: 'Pendiente de pago',
-        notes:
-          'Extracción cordales inferiores (38 y 48). Impactados. Sedación consciente.',
-        duration: '10:30 - 12:00 (90 minutos)'
-      })
-    },
-    {
-      id: 'tue-5',
-      top: timeToTop(11, 0),
-      height: durationToHeight(30),
-      title: TREATMENTS.revision,
-      patient: PATIENTS.carlosRodriguez.name,
-      box: 'Box 2',
-      timeRange: '11:00 - 11:30',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('tuesday', TREATMENTS.revision, '11:00', {
-        patientFull: PATIENTS.carlosRodriguez.name,
-        patientPhone: PATIENTS.carlosRodriguez.phone,
-        patientEmail: PATIENTS.carlosRodriguez.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '45 €',
-        economicStatus: 'Pagado',
-        notes: 'Revisión empaste realizado la semana pasada.',
-        duration: '11:00 - 11:30 (30 minutos)'
-      })
-    },
-    {
-      id: 'tue-6',
-      top: timeToTop(11, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.invisalign,
-      patient: PATIENTS.sofiaNavarro.name,
-      box: 'Box 2',
-      timeRange: '11:30 - 12:15',
-      backgroundClass: 'bg-[#e9fbf9]',
-      detail: createDetail('tuesday', TREATMENTS.invisalign, '11:30', {
-        patientFull: PATIENTS.sofiaNavarro.name,
-        patientPhone: PATIENTS.sofiaNavarro.phone,
-        patientEmail: PATIENTS.sofiaNavarro.email,
-        professional: PROFESSIONALS.elenaNava,
-        economicAmount: '0 € (incluido)',
-        economicStatus: 'Plan activo',
-        notes: 'Revisión Invisalign semana 24. Refinamiento fase 2.',
-        duration: '11:30 - 12:15 (45 minutos)'
-      })
-    },
-    {
-      id: 'tue-7',
-      top: timeToTop(12, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.limpieza,
-      patient: PATIENTS.javierMoreno.name,
-      box: 'Box 1',
-      timeRange: '12:30 - 13:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('tuesday', TREATMENTS.limpieza, '12:30', {
-        patientFull: PATIENTS.javierMoreno.name,
-        patientPhone: PATIENTS.javierMoreno.phone,
-        patientEmail: PATIENTS.javierMoreno.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '65 €',
-        economicStatus: 'Pagado',
-        notes: 'Limpieza de mantenimiento.',
-        duration: '12:30 - 13:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'tue-8',
-      top: timeToTop(12, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.ortodoncia,
-      patient: PATIENTS.lauraFernandez.name,
-      box: 'Box 2',
-      timeRange: '12:30 - 13:15',
-      backgroundClass: 'bg-[#e9fbf9]',
-      detail: createDetail('tuesday', TREATMENTS.ortodoncia, '12:30', {
-        patientFull: PATIENTS.lauraFernandez.name,
-        patientPhone: PATIENTS.lauraFernandez.phone,
-        patientEmail: PATIENTS.lauraFernandez.email,
-        professional: PROFESSIONALS.elenaNava,
-        economicAmount: '0 € (incluido)',
-        economicStatus: 'Plan activo',
-        notes: 'Activación brackets. Colocación elásticos clase II.',
-        duration: '12:30 - 13:15 (45 minutos)'
-      })
-    },
-    // Tarde
-    {
-      id: 'tue-9',
-      top: timeToTop(16, 0),
-      height: durationToHeight(45),
-      title: TREATMENTS.empaste,
-      patient: PATIENTS.davidSanchez.name,
-      box: 'Box 1',
-      timeRange: '16:00 - 16:45',
-      backgroundClass: 'bg-[#fbe9f0]',
-      detail: createDetail('tuesday', TREATMENTS.empaste, '16:00', {
-        patientFull: PATIENTS.davidSanchez.name,
-        patientPhone: PATIENTS.davidSanchez.phone,
-        patientEmail: PATIENTS.davidSanchez.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '95 €',
-        economicStatus: 'Pagado',
-        notes: 'Empaste premolar 24. Caries oclusal.',
-        duration: '16:00 - 16:45 (45 minutos)'
-      })
-    },
-    {
-      id: 'tue-10',
-      top: timeToTop(16, 30),
-      height: durationToHeight(60),
-      title: TREATMENTS.endodoncia,
-      patient: PATIENTS.miguelGomez.name,
-      box: 'Box 2',
-      timeRange: '16:30 - 17:30',
-      backgroundClass: 'bg-[#fbf3e9]',
-      detail: createDetail('tuesday', TREATMENTS.endodoncia, '16:30', {
-        patientFull: PATIENTS.miguelGomez.name,
-        patientPhone: PATIENTS.miguelGomez.phone,
-        patientEmail: PATIENTS.miguelGomez.email,
-        professional: PROFESSIONALS.franciscoMoreno,
-        economicAmount: '280 €',
-        economicStatus: 'Financiado (2 pagos)',
-        notes: 'Endodoncia molar 36. Necrosis pulpar.',
-        duration: '16:30 - 17:30 (60 minutos)'
-      })
-    },
-    {
-      id: 'tue-11',
-      top: timeToTop(17, 0),
-      height: durationToHeight(30),
-      title: TREATMENTS.revision,
-      patient: PATIENTS.elenaVega.name,
-      box: 'Box 1',
-      timeRange: '17:00 - 17:30',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('tuesday', TREATMENTS.revision, '17:00', {
-        patientFull: PATIENTS.elenaVega.name,
-        patientPhone: PATIENTS.elenaVega.phone,
-        patientEmail: PATIENTS.elenaVega.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '0 € (control incluido)',
-        economicStatus: 'Incluido en blanqueamiento',
-        notes: 'Control post-blanqueamiento. Valorar sensibilidad.',
-        duration: '17:00 - 17:30 (30 minutos)'
-      })
-    },
-    {
-      id: 'tue-12',
-      top: timeToTop(17, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.ortodoncia,
-      patient: PATIENTS.carmenRuiz.name,
-      box: 'Box 1',
-      timeRange: '17:30 - 18:15',
-      backgroundClass: 'bg-[#e9fbf9]',
-      detail: createDetail('tuesday', TREATMENTS.ortodoncia, '17:30', {
-        patientFull: PATIENTS.carmenRuiz.name,
-        patientPhone: PATIENTS.carmenRuiz.phone,
-        patientEmail: PATIENTS.carmenRuiz.email,
-        professional: PROFESSIONALS.elenaNava,
-        economicAmount: '0 € (incluido)',
-        economicStatus: 'Plan activo',
-        notes: 'Revisión brackets mes 14. Cierre de espacios.',
-        duration: '17:30 - 18:15 (45 minutos)'
-      })
-    },
-    {
-      id: 'tue-13',
-      top: timeToTop(18, 0),
-      height: durationToHeight(30),
-      title: TREATMENTS.limpieza,
-      patient: PATIENTS.antonioPerez.name,
-      box: 'Box 2',
-      timeRange: '18:00 - 18:30',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('tuesday', TREATMENTS.limpieza, '18:00', {
-        patientFull: PATIENTS.antonioPerez.name,
-        patientPhone: PATIENTS.antonioPerez.phone,
-        patientEmail: PATIENTS.antonioPerez.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '65 €',
-        economicStatus: 'Pagado',
-        notes: 'Limpieza semestral.',
-        duration: '18:00 - 18:30 (30 minutos)'
-      })
-    },
-    {
-      id: 'tue-14',
-      top: timeToTop(18, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.carillas,
-      patient: PATIENTS.beatrizMuñoz.name,
-      box: 'Box 1',
-      timeRange: '18:30 - 19:15',
-      backgroundClass: 'bg-[#f0e9fb]',
-      detail: createDetail('tuesday', TREATMENTS.carillas, '18:30', {
-        patientFull: PATIENTS.beatrizMuñoz.name,
-        patientPhone: PATIENTS.beatrizMuñoz.phone,
-        patientEmail: PATIENTS.beatrizMuñoz.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '2.400 € (6 carillas)',
-        economicStatus: 'Financiado (12 pagos)',
-        notes: 'Cementado carillas definitivas 11, 12, 13, 21, 22, 23.',
-        duration: '18:30 - 19:15 (45 minutos)',
-        // Pagos parciales: 10 de 12 cuotas pagadas (casi terminado)
-        paymentInfo: {
-          totalAmount: 2400,
-          paidAmount: 2000,
-          pendingAmount: 400,
-          currency: '€'
-        },
-        installmentPlan: {
-          totalInstallments: 12,
-          currentInstallment: 11,
-          amountPerInstallment: 200
-        }
-      })
-    },
-    {
-      id: 'tue-15',
-      top: timeToTop(19, 0),
-      height: durationToHeight(30),
-      title: TREATMENTS.urgencia,
-      patient: PATIENTS.fernandoDiaz.name,
-      box: 'Box 2',
-      timeRange: '19:00 - 19:30',
-      backgroundClass: 'bg-[#fbe9f0]',
-      detail: createDetail('tuesday', TREATMENTS.urgencia, '19:00', {
-        patientFull: PATIENTS.fernandoDiaz.name,
-        patientPhone: PATIENTS.fernandoDiaz.phone,
-        patientEmail: PATIENTS.fernandoDiaz.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '60 €',
-        economicStatus: 'Pendiente de pago',
-        notes: 'Dolor agudo molar inferior. Valorar posible pulpitis.',
-        duration: '19:00 - 19:30 (30 minutos)'
-      })
-    }
-  ],
-  wednesday: [
-    // MIÉRCOLES - Día variado
-    {
-      id: 'wed-1',
-      top: timeToTop(9, 0),
-      height: durationToHeight(30),
-      title: TREATMENTS.limpieza,
-      patient: PATIENTS.martaAlonso.name,
-      box: 'Box 1',
-      timeRange: '09:00 - 09:30',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('wednesday', TREATMENTS.limpieza, '09:00', {
-        patientFull: PATIENTS.martaAlonso.name,
-        patientPhone: PATIENTS.martaAlonso.phone,
-        patientEmail: PATIENTS.martaAlonso.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '65 €',
-        economicStatus: 'Pagado',
-        notes: 'Limpieza rutinaria.',
-        duration: '09:00 - 09:30 (30 minutos)'
-      })
-    },
-    {
-      id: 'wed-2',
-      top: timeToTop(9, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.empaste,
-      patient: PATIENTS.pabloLopez.name,
-      box: 'Box 1',
-      timeRange: '09:30 - 10:15',
-      backgroundClass: 'bg-[#fbe9f0]',
-      detail: createDetail('wednesday', TREATMENTS.empaste, '09:30', {
-        patientFull: PATIENTS.pabloLopez.name,
-        patientPhone: PATIENTS.pabloLopez.phone,
-        patientEmail: PATIENTS.pabloLopez.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '95 €',
-        economicStatus: 'Pagado',
-        notes: 'Empaste composite estético 11.',
-        duration: '09:30 - 10:15 (45 minutos)'
-      })
-    },
-    {
-      id: 'wed-3',
-      top: timeToTop(9, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.revision,
-      patient: PATIENTS.anaMartinez.name,
-      box: 'Box 2',
-      timeRange: '09:30 - 10:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('wednesday', TREATMENTS.revision, '09:30', {
-        patientFull: PATIENTS.anaMartinez.name,
-        patientPhone: PATIENTS.anaMartinez.phone,
-        patientEmail: PATIENTS.anaMartinez.email,
-        professional: PROFESSIONALS.franciscoMoreno,
-        economicAmount: '0 € (control incluido)',
-        economicStatus: 'Incluido en endodoncia',
-        notes: 'Control post-endodoncia 2 semanas.',
-        duration: '09:30 - 10:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'wed-4',
-      top: timeToTop(10, 30),
-      height: durationToHeight(60),
-      title: TREATMENTS.corona,
-      patient: PATIENTS.ramonCastro.name,
-      box: 'Box 1',
-      timeRange: '10:30 - 11:30',
-      backgroundClass: 'bg-[#fbf3e9]',
-      detail: createDetail('wednesday', TREATMENTS.corona, '10:30', {
-        patientFull: PATIENTS.ramonCastro.name,
-        patientPhone: PATIENTS.ramonCastro.phone,
-        patientEmail: PATIENTS.ramonCastro.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '450 €',
-        economicStatus: 'Financiado (4 pagos)',
-        notes: 'Cementado corona zirconio pieza 36.',
-        duration: '10:30 - 11:30 (60 minutos)'
-      })
-    },
-    {
-      id: 'wed-5',
-      top: timeToTop(10, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.limpieza,
-      patient: PATIENTS.patriciaRomero.name,
-      box: 'Box 2',
-      timeRange: '10:30 - 11:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('wednesday', TREATMENTS.limpieza, '10:30', {
-        patientFull: PATIENTS.patriciaRomero.name,
-        patientPhone: PATIENTS.patriciaRomero.phone,
-        patientEmail: PATIENTS.patriciaRomero.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '65 €',
-        economicStatus: 'Pagado',
-        notes: 'Limpieza con ultrasonidos.',
-        duration: '10:30 - 11:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'wed-6',
-      top: timeToTop(11, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.periodoncia,
-      patient: PATIENTS.albertoGil.name,
-      box: 'Box 2',
-      timeRange: '11:30 - 12:15',
-      backgroundClass: 'bg-[#fbe9f0]',
-      detail: createDetail('wednesday', TREATMENTS.periodoncia, '11:30', {
-        patientFull: PATIENTS.albertoGil.name,
-        patientPhone: PATIENTS.albertoGil.phone,
-        patientEmail: PATIENTS.albertoGil.email,
-        professional: PROFESSIONALS.carmenDiaz,
-        economicAmount: '180 €',
-        economicStatus: 'Pendiente de pago',
-        notes: 'Curetaje cuadrante inferior izquierdo.',
-        duration: '11:30 - 12:15 (45 minutos)'
-      })
-    },
-    {
-      id: 'wed-7',
-      top: timeToTop(12, 0),
-      height: durationToHeight(30),
-      title: TREATMENTS.sellador,
-      patient: 'Lucía Martín (8 años)',
-      box: 'Box 1',
-      timeRange: '12:00 - 12:30',
-      backgroundClass: 'bg-[#e9fbf9]',
-      detail: createDetail('wednesday', TREATMENTS.sellador, '12:00', {
-        patientFull: 'Lucía Martín Vega',
-        patientPhone: '+34 612 987 654',
-        patientEmail: 'padres.lucia@gmail.com',
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '40 € (por molar)',
-        economicStatus: 'Pagado',
-        notes:
-          'Selladores en primeros molares definitivos. Paciente pediátrico.',
-        duration: '12:00 - 12:30 (30 minutos)'
-      })
-    },
-    {
-      id: 'wed-8',
-      top: timeToTop(12, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.revision,
-      patient: PATIENTS.mariaGarcia.name,
-      box: 'Box 1',
-      timeRange: '12:30 - 13:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('wednesday', TREATMENTS.revision, '12:30', {
-        patientFull: PATIENTS.mariaGarcia.name,
-        patientPhone: PATIENTS.mariaGarcia.phone,
-        patientEmail: PATIENTS.mariaGarcia.email,
-        professional: PROFESSIONALS.miguelTorres,
-        economicAmount: '0 € (control incluido)',
-        economicStatus: 'Incluido en cirugía',
-        notes: 'Control post-extracción cordales. Verificar cicatrización.',
-        duration: '12:30 - 13:00 (30 minutos)'
-      })
-    },
-    // Tarde
-    {
-      id: 'wed-9',
-      top: timeToTop(16, 0),
-      height: durationToHeight(90),
-      title: TREATMENTS.implante,
-      patient: PATIENTS.sofiaNavarro.name,
-      box: 'Box 1',
-      timeRange: '16:00 - 17:30',
-      backgroundClass: 'bg-[#fbf3e9]',
-      detail: createDetail('wednesday', TREATMENTS.implante, '16:00', {
-        patientFull: PATIENTS.sofiaNavarro.name,
-        patientPhone: PATIENTS.sofiaNavarro.phone,
-        patientEmail: PATIENTS.sofiaNavarro.email,
-        professional: PROFESSIONALS.miguelTorres,
-        economicAmount: '1.200 €',
-        economicStatus: 'Financiado (12 pagos)',
-        notes: 'Colocación implante pieza 14. Elevación de seno leve.',
-        duration: '16:00 - 17:30 (90 minutos)'
-      })
-    },
-    {
-      id: 'wed-10',
-      top: timeToTop(16, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.limpieza,
-      patient: PATIENTS.carlosRodriguez.name,
-      box: 'Box 2',
-      timeRange: '16:30 - 17:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('wednesday', TREATMENTS.limpieza, '16:30', {
-        patientFull: PATIENTS.carlosRodriguez.name,
-        patientPhone: PATIENTS.carlosRodriguez.phone,
-        patientEmail: PATIENTS.carlosRodriguez.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '65 €',
-        economicStatus: 'Pagado',
-        notes: 'Limpieza semestral.',
-        duration: '16:30 - 17:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'wed-11',
-      top: timeToTop(17, 30),
-      height: durationToHeight(60),
-      title: TREATMENTS.endodoncia,
-      patient: PATIENTS.fernandoDiaz.name,
-      box: 'Box 1',
-      timeRange: '17:30 - 18:30',
-      backgroundClass: 'bg-[#fbf3e9]',
-      detail: createDetail('wednesday', TREATMENTS.endodoncia, '17:30', {
-        patientFull: PATIENTS.fernandoDiaz.name,
-        patientPhone: PATIENTS.fernandoDiaz.phone,
-        patientEmail: PATIENTS.fernandoDiaz.email,
-        professional: PROFESSIONALS.franciscoMoreno,
-        economicAmount: '280 €',
-        economicStatus: 'Pendiente de pago',
-        notes: 'Endodoncia urgente molar 46. Pulpitis irreversible.',
-        duration: '17:30 - 18:30 (60 minutos)'
-      })
-    },
-    {
-      id: 'wed-12',
-      top: timeToTop(17, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.ortodoncia,
-      patient: PATIENTS.lauraFernandez.name,
-      box: 'Box 2',
-      timeRange: '17:30 - 18:15',
-      backgroundClass: 'bg-[#e9fbf9]',
-      detail: createDetail('wednesday', TREATMENTS.ortodoncia, '17:30', {
-        patientFull: PATIENTS.lauraFernandez.name,
-        patientPhone: PATIENTS.lauraFernandez.phone,
-        patientEmail: PATIENTS.lauraFernandez.email,
-        professional: PROFESSIONALS.elenaNava,
-        economicAmount: '0 € (incluido)',
-        economicStatus: 'Plan activo',
-        notes: 'Emergencia: bracket despegado. Recementar 23.',
-        duration: '17:30 - 18:15 (45 minutos)'
-      })
-    },
-    {
-      id: 'wed-13',
-      top: timeToTop(18, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.revision,
-      patient: PATIENTS.javierMoreno.name,
-      box: 'Box 1',
-      timeRange: '18:30 - 19:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('wednesday', TREATMENTS.revision, '18:30', {
-        patientFull: PATIENTS.javierMoreno.name,
-        patientPhone: PATIENTS.javierMoreno.phone,
-        patientEmail: PATIENTS.javierMoreno.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '45 €',
-        economicStatus: 'Pagado',
-        notes: 'Revisión general anual.',
-        duration: '18:30 - 19:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'wed-14',
-      top: timeToTop(18, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.protesis,
-      patient: PATIENTS.carmenRuiz.name,
-      box: 'Box 2',
-      timeRange: '18:30 - 19:15',
-      backgroundClass: 'bg-[#f0e9fb]',
-      detail: createDetail('wednesday', TREATMENTS.protesis, '18:30', {
-        patientFull: PATIENTS.carmenRuiz.name,
-        patientPhone: PATIENTS.carmenRuiz.phone,
-        patientEmail: PATIENTS.carmenRuiz.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '80 €',
-        economicStatus: 'Pagado',
-        notes: 'Ajuste prótesis removible inferior. Molestias en zona 35.',
-        duration: '18:30 - 19:15 (45 minutos)'
-      })
-    }
-  ],
-  thursday: [
-    // JUEVES - Día de estética y periodoncia
-    {
-      id: 'thu-1',
-      top: timeToTop(9, 0),
-      height: durationToHeight(60),
-      title: TREATMENTS.blanqueamiento,
-      patient: PATIENTS.elenaVega.name,
-      box: 'Box 1',
-      timeRange: '09:00 - 10:00',
-      backgroundClass: 'bg-[#e9fbf9]',
-      detail: createDetail('thursday', TREATMENTS.blanqueamiento, '09:00', {
-        patientFull: PATIENTS.elenaVega.name,
-        patientPhone: PATIENTS.elenaVega.phone,
-        patientEmail: PATIENTS.elenaVega.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '250 €',
-        economicStatus: 'Pagado',
-        notes: 'Blanqueamiento LED. Primera sesión.',
-        duration: '09:00 - 10:00 (60 minutos)'
-      })
-    },
-    {
-      id: 'thu-2',
-      top: timeToTop(9, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.periodoncia,
-      patient: PATIENTS.davidSanchez.name,
-      box: 'Box 2',
-      timeRange: '09:30 - 10:15',
-      backgroundClass: 'bg-[#fbe9f0]',
-      detail: createDetail('thursday', TREATMENTS.periodoncia, '09:30', {
-        patientFull: PATIENTS.davidSanchez.name,
-        patientPhone: PATIENTS.davidSanchez.phone,
-        patientEmail: PATIENTS.davidSanchez.email,
-        professional: PROFESSIONALS.carmenDiaz,
-        economicAmount: '180 €',
-        economicStatus: 'Pagado',
-        notes: 'Mantenimiento periodontal. Bolsas estables.',
-        duration: '09:30 - 10:15 (45 minutos)'
-      })
-    },
-    {
-      id: 'thu-3',
-      top: timeToTop(10, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.limpieza,
-      patient: PATIENTS.miguelGomez.name,
-      box: 'Box 1',
-      timeRange: '10:30 - 11:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('thursday', TREATMENTS.limpieza, '10:30', {
-        patientFull: PATIENTS.miguelGomez.name,
-        patientPhone: PATIENTS.miguelGomez.phone,
-        patientEmail: PATIENTS.miguelGomez.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '65 €',
-        economicStatus: 'Pagado',
-        notes: 'Limpieza previa a cirugía de implante.',
-        duration: '10:30 - 11:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'thu-4',
-      top: timeToTop(10, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.empaste,
-      patient: PATIENTS.antonioPerez.name,
-      box: 'Box 2',
-      timeRange: '10:30 - 11:15',
-      backgroundClass: 'bg-[#fbe9f0]',
-      detail: createDetail('thursday', TREATMENTS.empaste, '10:30', {
-        patientFull: PATIENTS.antonioPerez.name,
-        patientPhone: PATIENTS.antonioPerez.phone,
-        patientEmail: PATIENTS.antonioPerez.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '95 €',
-        economicStatus: 'Pagado',
-        notes: 'Empaste premolar 25.',
-        duration: '10:30 - 11:15 (45 minutos)'
-      })
-    },
-    {
-      id: 'thu-5',
-      top: timeToTop(11, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.revision,
-      patient: PATIENTS.martaAlonso.name,
-      box: 'Box 1',
-      timeRange: '11:30 - 12:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('thursday', TREATMENTS.revision, '11:30', {
-        patientFull: PATIENTS.martaAlonso.name,
-        patientPhone: PATIENTS.martaAlonso.phone,
-        patientEmail: PATIENTS.martaAlonso.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '45 €',
-        economicStatus: 'Pagado',
-        notes: 'Revisión semestral.',
-        duration: '11:30 - 12:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'thu-6',
-      top: timeToTop(11, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.sensibilidad,
-      patient: PATIENTS.beatrizMuñoz.name,
-      box: 'Box 2',
-      timeRange: '11:30 - 12:15',
-      backgroundClass: 'bg-[#fbf3e9]',
-      detail: createDetail('thursday', TREATMENTS.sensibilidad, '11:30', {
-        patientFull: PATIENTS.beatrizMuñoz.name,
-        patientPhone: PATIENTS.beatrizMuñoz.phone,
-        patientEmail: PATIENTS.beatrizMuñoz.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '60 €',
-        economicStatus: 'Pagado',
-        notes:
-          'Aplicación barniz desensibilizante. Hipersensibilidad generalizada.',
-        duration: '11:30 - 12:15 (45 minutos)'
-      })
-    },
-    {
-      id: 'thu-7',
-      top: timeToTop(12, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.limpieza,
-      patient: PATIENTS.pabloLopez.name,
-      box: 'Box 1',
-      timeRange: '12:30 - 13:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('thursday', TREATMENTS.limpieza, '12:30', {
-        patientFull: PATIENTS.pabloLopez.name,
-        patientPhone: PATIENTS.pabloLopez.phone,
-        patientEmail: PATIENTS.pabloLopez.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '65 €',
-        economicStatus: 'Pagado',
-        notes: 'Limpieza de mantenimiento.',
-        duration: '12:30 - 13:00 (30 minutos)'
-      })
-    },
-    // Tarde
-    {
-      id: 'thu-8',
-      top: timeToTop(16, 0),
-      height: durationToHeight(60),
-      title: TREATMENTS.carillas,
-      patient: PATIENTS.sofiaNavarro.name,
-      box: 'Box 1',
-      timeRange: '16:00 - 17:00',
-      backgroundClass: 'bg-[#f0e9fb]',
-      detail: createDetail('thursday', TREATMENTS.carillas, '16:00', {
-        patientFull: PATIENTS.sofiaNavarro.name,
-        patientPhone: PATIENTS.sofiaNavarro.phone,
-        patientEmail: PATIENTS.sofiaNavarro.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '1.600 € (4 carillas)',
-        economicStatus: 'Financiado (8 pagos)',
-        notes: 'Preparación carillas 11, 12, 21, 22. Toma de impresiones.',
-        duration: '16:00 - 17:00 (60 minutos)'
-      })
-    },
-    {
-      id: 'thu-9',
-      top: timeToTop(16, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.ortodoncia,
-      patient: PATIENTS.ramonCastro.name,
-      box: 'Box 2',
-      timeRange: '16:30 - 17:15',
-      backgroundClass: 'bg-[#e9fbf9]',
-      detail: createDetail('thursday', TREATMENTS.ortodoncia, '16:30', {
-        patientFull: PATIENTS.ramonCastro.name,
-        patientPhone: PATIENTS.ramonCastro.phone,
-        patientEmail: PATIENTS.ramonCastro.email,
-        professional: PROFESSIONALS.elenaNava,
-        economicAmount: '0 € (incluido)',
-        economicStatus: 'Plan activo',
-        notes: 'Revisión mensual brackets. Mes 2.',
-        duration: '16:30 - 17:15 (45 minutos)'
-      })
-    },
-    {
-      id: 'thu-10',
-      top: timeToTop(17, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.revision,
-      patient: PATIENTS.anaMartinez.name,
-      box: 'Box 1',
-      timeRange: '17:30 - 18:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('thursday', TREATMENTS.revision, '17:30', {
-        patientFull: PATIENTS.anaMartinez.name,
-        patientPhone: PATIENTS.anaMartinez.phone,
-        patientEmail: PATIENTS.anaMartinez.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '45 €',
-        economicStatus: 'Pagado',
-        notes: 'Revisión general.',
-        duration: '17:30 - 18:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'thu-11',
-      top: timeToTop(17, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.invisalign,
-      patient: PATIENTS.patriciaRomero.name,
-      box: 'Box 2',
-      timeRange: '17:30 - 18:15',
-      backgroundClass: 'bg-[#e9fbf9]',
-      detail: createDetail('thursday', TREATMENTS.invisalign, '17:30', {
-        patientFull: PATIENTS.patriciaRomero.name,
-        patientPhone: PATIENTS.patriciaRomero.phone,
-        patientEmail: PATIENTS.patriciaRomero.email,
-        professional: PROFESSIONALS.elenaNava,
-        economicAmount: '0 € (incluido)',
-        economicStatus: 'Plan activo',
-        notes: 'Inicio tratamiento Invisalign. Entrega primeros alineadores.',
-        duration: '17:30 - 18:15 (45 minutos)'
-      })
-    },
-    {
-      id: 'thu-12',
-      top: timeToTop(18, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.limpieza,
-      patient: PATIENTS.albertoGil.name,
-      box: 'Box 1',
-      timeRange: '18:30 - 19:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('thursday', TREATMENTS.limpieza, '18:30', {
-        patientFull: PATIENTS.albertoGil.name,
-        patientPhone: PATIENTS.albertoGil.phone,
-        patientEmail: PATIENTS.albertoGil.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '65 €',
-        economicStatus: 'Pagado',
-        notes: 'Limpieza post-tratamiento periodontal.',
-        duration: '18:30 - 19:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'thu-13',
-      top: timeToTop(18, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.empaste,
-      patient: PATIENTS.carmenRuiz.name,
-      box: 'Box 2',
-      timeRange: '18:30 - 19:15',
-      backgroundClass: 'bg-[#fbe9f0]',
-      detail: createDetail('thursday', TREATMENTS.empaste, '18:30', {
-        patientFull: PATIENTS.carmenRuiz.name,
-        patientPhone: PATIENTS.carmenRuiz.phone,
-        patientEmail: PATIENTS.carmenRuiz.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '85 €',
-        economicStatus: 'Pagado',
-        notes: 'Empaste incisivo 21. Fractura de borde incisal.',
-        duration: '18:30 - 19:15 (45 minutos)'
-      })
-    }
-  ],
-  friday: [
-    // VIERNES - Día más relajado
-    {
-      id: 'fri-1',
-      top: timeToTop(9, 0),
-      height: durationToHeight(30),
-      title: TREATMENTS.limpieza,
-      patient: PATIENTS.lauraFernandez.name,
-      box: 'Box 1',
-      timeRange: '09:00 - 09:30',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('friday', TREATMENTS.limpieza, '09:00', {
-        patientFull: PATIENTS.lauraFernandez.name,
-        patientPhone: PATIENTS.lauraFernandez.phone,
-        patientEmail: PATIENTS.lauraFernandez.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '65 €',
-        economicStatus: 'Pagado',
-        notes: 'Limpieza trimestral (paciente con brackets).',
-        duration: '09:00 - 09:30 (30 minutos)'
-      })
-    },
-    {
-      id: 'fri-2',
-      top: timeToTop(9, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.revision,
-      patient: PATIENTS.javierMoreno.name,
-      box: 'Box 1',
-      timeRange: '09:30 - 10:15',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('friday', TREATMENTS.revision, '09:30', {
-        patientFull: PATIENTS.javierMoreno.name,
-        patientPhone: PATIENTS.javierMoreno.phone,
-        patientEmail: PATIENTS.javierMoreno.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '45 €',
-        economicStatus: 'Pagado',
-        notes: 'Primera visita. Evaluación general y plan de tratamiento.',
-        duration: '09:30 - 10:15 (45 minutos)'
-      })
-    },
-    {
-      id: 'fri-3',
-      top: timeToTop(9, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.limpieza,
-      patient: PATIENTS.fernandoDiaz.name,
-      box: 'Box 2',
-      timeRange: '09:30 - 10:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('friday', TREATMENTS.limpieza, '09:30', {
-        patientFull: PATIENTS.fernandoDiaz.name,
-        patientPhone: PATIENTS.fernandoDiaz.phone,
-        patientEmail: PATIENTS.fernandoDiaz.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '65 €',
-        economicStatus: 'Pagado',
-        notes: 'Limpieza semestral.',
-        duration: '09:30 - 10:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'fri-4',
-      top: timeToTop(10, 30),
-      height: durationToHeight(60),
-      title: TREATMENTS.extraccion,
-      patient: PATIENTS.miguelGomez.name,
-      box: 'Box 1',
-      timeRange: '10:30 - 11:30',
-      backgroundClass: 'bg-[#fbf3e9]',
-      detail: createDetail('friday', TREATMENTS.extraccion, '10:30', {
-        patientFull: PATIENTS.miguelGomez.name,
-        patientPhone: PATIENTS.miguelGomez.phone,
-        patientEmail: PATIENTS.miguelGomez.email,
-        professional: PROFESSIONALS.miguelTorres,
-        economicAmount: '120 €',
-        economicStatus: 'Pagado',
-        notes: 'Extracción resto radicular 26. Preparación para implante.',
-        duration: '10:30 - 11:30 (60 minutos)'
-      })
-    },
-    {
-      id: 'fri-5',
-      top: timeToTop(10, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.ortodoncia,
-      patient: PATIENTS.sofiaNavarro.name,
-      box: 'Box 2',
-      timeRange: '10:30 - 11:15',
-      backgroundClass: 'bg-[#e9fbf9]',
-      detail: createDetail('friday', TREATMENTS.ortodoncia, '10:30', {
-        patientFull: PATIENTS.sofiaNavarro.name,
-        patientPhone: PATIENTS.sofiaNavarro.phone,
-        patientEmail: PATIENTS.sofiaNavarro.email,
-        professional: PROFESSIONALS.elenaNava,
-        economicAmount: '0 € (incluido)',
-        economicStatus: 'Plan activo',
-        notes: 'Revisión Invisalign. Última fase de tratamiento.',
-        duration: '10:30 - 11:15 (45 minutos)'
-      })
-    },
-    {
-      id: 'fri-6',
-      top: timeToTop(11, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.revision,
-      patient: PATIENTS.elenaVega.name,
-      box: 'Box 2',
-      timeRange: '11:30 - 12:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('friday', TREATMENTS.revision, '11:30', {
-        patientFull: PATIENTS.elenaVega.name,
-        patientPhone: PATIENTS.elenaVega.phone,
-        patientEmail: PATIENTS.elenaVega.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '45 €',
-        economicStatus: 'Pagado',
-        notes: 'Revisión post-blanqueamiento final.',
-        duration: '11:30 - 12:00 (30 minutos)'
-      })
-    },
-    {
-      id: 'fri-7',
-      top: timeToTop(12, 0),
-      height: durationToHeight(30),
-      title: TREATMENTS.limpieza,
-      patient: PATIENTS.davidSanchez.name,
-      box: 'Box 1',
-      timeRange: '12:00 - 12:30',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('friday', TREATMENTS.limpieza, '12:00', {
-        patientFull: PATIENTS.davidSanchez.name,
-        patientPhone: PATIENTS.davidSanchez.phone,
-        patientEmail: PATIENTS.davidSanchez.email,
-        professional: PROFESSIONALS.lauraSanchez,
-        economicAmount: '65 €',
-        economicStatus: 'Pagado',
-        notes: 'Mantenimiento periodontal.',
-        duration: '12:00 - 12:30 (30 minutos)'
-      })
-    },
-    {
-      id: 'fri-8',
-      top: timeToTop(12, 30),
-      height: durationToHeight(45),
-      title: TREATMENTS.empaste,
-      patient: PATIENTS.beatrizMuñoz.name,
-      box: 'Box 1',
-      timeRange: '12:30 - 13:15',
-      backgroundClass: 'bg-[#fbe9f0]',
-      detail: createDetail('friday', TREATMENTS.empaste, '12:30', {
-        patientFull: PATIENTS.beatrizMuñoz.name,
-        patientPhone: PATIENTS.beatrizMuñoz.phone,
-        patientEmail: PATIENTS.beatrizMuñoz.email,
-        professional: PROFESSIONALS.antonioRuiz,
-        economicAmount: '95 €',
-        economicStatus: 'Pagado',
-        notes: 'Empaste molar 47.',
-        duration: '12:30 - 13:15 (45 minutos)'
-      })
-    },
-    {
-      id: 'fri-9',
-      top: timeToTop(12, 30),
-      height: durationToHeight(30),
-      title: TREATMENTS.revision,
-      patient: PATIENTS.anaMartinez.name,
-      box: 'Box 2',
-      timeRange: '12:30 - 13:00',
-      backgroundClass: 'bg-[var(--color-brand-100)]',
-      detail: createDetail('friday', TREATMENTS.revision, '12:30', {
-        patientFull: PATIENTS.anaMartinez.name,
-        patientPhone: PATIENTS.anaMartinez.phone,
-        patientEmail: PATIENTS.anaMartinez.email,
-        professional: PROFESSIONALS.franciscoMoreno,
-        economicAmount: '0 € (control incluido)',
-        economicStatus: 'Incluido',
-        notes: 'Control final endodoncia. Alta.',
-        duration: '12:30 - 13:00 (30 minutos)'
-      })
-    }
-  ],
-  saturday: [],
-  sunday: []
 }
 
 const INITIAL_DAY_COLUMNS: DayColumn[] = [
@@ -2721,6 +953,7 @@ function DayGrid({
   selectedBoxes,
   boxOptions,
   selectedProfessionals,
+  activeVisitStatusFilter,
   completedEvents,
   onToggleComplete,
   onEventContextMenu,
@@ -2766,6 +999,7 @@ function DayGrid({
   selectedBoxes: string[]
   boxOptions: Array<{ id: string; label: string }>
   selectedProfessionals: string[]
+  activeVisitStatusFilter?: VisitStatus[] | null
   completedEvents?: Record<string, boolean>
   onToggleComplete?: (eventId: string, completed: boolean) => void
   onEventContextMenu?: (
@@ -2815,7 +1049,7 @@ function DayGrid({
       .map((opt) => normalizeBoxLabel(opt.label))
   )
 
-  // Filter events to only show those in selected boxes AND selected professionals AND confirmed (if filter active)
+  // Filter events to only show those in selected boxes, professionals and active status filters.
   const filteredEvents = column.events.filter((event) => {
     // Filter by box
     const boxName = normalizeBoxLabel(event.box || '')
@@ -2835,7 +1069,20 @@ function DayGrid({
     const isAICreated = event.createdByVoiceAgent === true
     const aiMatch = !showAIOnly || isAICreated
 
-    return boxMatch && professionalMatch && confirmedMatch && aiMatch
+    // Filter by visit status (if active)
+    const currentVisitStatus =
+      visitStatusMap?.[event.id] ?? event.visitStatus ?? 'scheduled'
+    const visitStatusMatch =
+      !activeVisitStatusFilter ||
+      activeVisitStatusFilter.includes(currentVisitStatus)
+
+    return (
+      boxMatch &&
+      professionalMatch &&
+      confirmedMatch &&
+      aiMatch &&
+      visitStatusMatch
+    )
   })
   // Domingo con patrón de puntos SVG
   const isSunday = column.id === 'sunday'
@@ -3167,966 +1414,17 @@ function DayGrid({
   )
 }
 
-// Eventos del calendario mensual - Enero 2026 con info completa
-// Incluye professionalId para generar bandas dinámicas por día
-const MONTH_EVENTS_EXTENDED = [
-  // === SEMANA 1 (5-10 Enero) ===
-  // Lunes 5
-  {
-    id: 'm1',
-    date: new Date(2026, 0, 5),
-    start: '09:00',
-    end: '09:30',
-    title: 'Limpieza dental',
-    patient: PATIENTS.mariaGarcia.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm2',
-    date: new Date(2026, 0, 5),
-    start: '10:00',
-    end: '11:00',
-    title: 'Endodoncia',
-    patient: PATIENTS.anaMartinez.name,
-    professionalId: 'draLopez' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm3',
-    date: new Date(2026, 0, 5),
-    start: '11:30',
-    end: '12:00',
-    title: 'Revisión ortodoncia',
-    patient: PATIENTS.lauraFernandez.name,
-    professionalId: 'draGarcia' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm4',
-    date: new Date(2026, 0, 5),
-    start: '16:00',
-    end: '17:30',
-    title: 'Implante dental',
-    patient: PATIENTS.miguelGomez.name,
-    professionalId: 'drMartinez' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 3'
-  },
-  // Martes 6
-  {
-    id: 'm5',
-    date: new Date(2026, 0, 6),
-    start: '09:00',
-    end: '10:00',
-    title: 'Colocación brackets',
-    patient: PATIENTS.ramonCastro.name,
-    professionalId: 'draGarcia' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm6',
-    date: new Date(2026, 0, 6),
-    start: '10:30',
-    end: '12:00',
-    title: 'Cirugía cordales',
-    patient: PATIENTS.mariaGarcia.name,
-    professionalId: 'drMartinez' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm7',
-    date: new Date(2026, 0, 6),
-    start: '10:30',
-    end: '11:00',
-    title: 'Anestesia cirugía',
-    patient: PATIENTS.mariaGarcia.name,
-    professionalId: 'anestesistaJimenez' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm8',
-    date: new Date(2026, 0, 6),
-    start: '18:00',
-    end: '19:00',
-    title: 'Carillas estéticas',
-    patient: PATIENTS.beatrizMuñoz.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  // Miércoles 7
-  {
-    id: 'm9',
-    date: new Date(2026, 0, 7),
-    start: '09:00',
-    end: '09:30',
-    title: 'Limpieza dental',
-    patient: PATIENTS.martaAlonso.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm10',
-    date: new Date(2026, 0, 7),
-    start: '10:30',
-    end: '11:30',
-    title: 'Corona dental',
-    patient: PATIENTS.ramonCastro.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm11',
-    date: new Date(2026, 0, 7),
-    start: '12:00',
-    end: '12:30',
-    title: 'Periodoncia',
-    patient: PATIENTS.davidSanchez.name,
-    professionalId: 'drSanchez' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm12',
-    date: new Date(2026, 0, 7),
-    start: '16:00',
-    end: '17:30',
-    title: 'Implante dental',
-    patient: PATIENTS.sofiaNavarro.name,
-    professionalId: 'drMartinez' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 3'
-  },
-  // Jueves 8
-  {
-    id: 'm13',
-    date: new Date(2026, 0, 8),
-    start: '09:00',
-    end: '10:00',
-    title: 'Blanqueamiento',
-    patient: PATIENTS.elenaVega.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm14',
-    date: new Date(2026, 0, 8),
-    start: '11:30',
-    end: '12:00',
-    title: 'Sensibilidad dental',
-    patient: PATIENTS.beatrizMuñoz.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm15',
-    date: new Date(2026, 0, 8),
-    start: '16:00',
-    end: '17:00',
-    title: 'Carillas estéticas',
-    patient: PATIENTS.sofiaNavarro.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm16',
-    date: new Date(2026, 0, 8),
-    start: '17:00',
-    end: '17:30',
-    title: 'Revisión infantil',
-    patient: 'Lucas (8 años)',
-    professionalId: 'draPeña' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 3'
-  },
-  // Viernes 9
-  {
-    id: 'm17',
-    date: new Date(2026, 0, 9),
-    start: '09:00',
-    end: '09:30',
-    title: 'Limpieza dental',
-    patient: PATIENTS.lauraFernandez.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm18',
-    date: new Date(2026, 0, 9),
-    start: '10:30',
-    end: '11:30',
-    title: 'Extracción dental',
-    patient: PATIENTS.miguelGomez.name,
-    professionalId: 'drMartinez' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm19',
-    date: new Date(2026, 0, 9),
-    start: '12:00',
-    end: '12:30',
-    title: 'Periodoncia',
-    patient: PATIENTS.davidSanchez.name,
-    professionalId: 'drSanchez' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 1'
-  },
-  // Sábado 10
-  {
-    id: 'm20',
-    date: new Date(2026, 0, 10),
-    start: '10:00',
-    end: '10:30',
-    title: 'Urgencia dental',
-    patient: PATIENTS.antonioPerez.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm21',
-    date: new Date(2026, 0, 10),
-    start: '11:30',
-    end: '12:30',
-    title: 'Periodoncia profunda',
-    patient: PATIENTS.davidSanchez.name,
-    professionalId: 'drSanchez' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-
-  // === SEMANA 2 (12-17 Enero) ===
-  // Lunes 12
-  {
-    id: 'm22',
-    date: new Date(2026, 0, 12),
-    start: '09:00',
-    end: '09:30',
-    title: 'Revisión general',
-    patient: PATIENTS.pabloLopez.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm23',
-    date: new Date(2026, 0, 12),
-    start: '10:00',
-    end: '10:45',
-    title: 'Endodoncia',
-    patient: PATIENTS.carmenRuiz.name,
-    professionalId: 'draLopez' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm24',
-    date: new Date(2026, 0, 12),
-    start: '11:00',
-    end: '12:00',
-    title: 'Ortodoncia revisión',
-    patient: PATIENTS.lauraFernandez.name,
-    professionalId: 'draGarcia' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm25',
-    date: new Date(2026, 0, 12),
-    start: '17:00',
-    end: '17:45',
-    title: 'Empaste',
-    patient: PATIENTS.martaAlonso.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 1'
-  },
-  // Martes 13
-  {
-    id: 'm26',
-    date: new Date(2026, 0, 13),
-    start: '09:30',
-    end: '10:00',
-    title: 'Limpieza dental',
-    patient: PATIENTS.carlosRodriguez.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm27',
-    date: new Date(2026, 0, 13),
-    start: '12:00',
-    end: '13:00',
-    title: 'Periodoncia',
-    patient: PATIENTS.albertoGil.name,
-    professionalId: 'drSanchez' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm28',
-    date: new Date(2026, 0, 13),
-    start: '16:30',
-    end: '17:30',
-    title: 'Endodoncia',
-    patient: PATIENTS.miguelGomez.name,
-    professionalId: 'draLopez' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 1'
-  },
-  // Miércoles 14
-  {
-    id: 'm29',
-    date: new Date(2026, 0, 14),
-    start: '10:00',
-    end: '10:30',
-    title: 'Invisalign revisión',
-    patient: PATIENTS.sofiaNavarro.name,
-    professionalId: 'draGarcia' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm30',
-    date: new Date(2026, 0, 14),
-    start: '11:00',
-    end: '11:45',
-    title: 'Empaste',
-    patient: PATIENTS.javierMoreno.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm31',
-    date: new Date(2026, 0, 14),
-    start: '16:00',
-    end: '17:00',
-    title: 'Corona dental',
-    patient: PATIENTS.carmenRuiz.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 1'
-  },
-  // Jueves 15 - DÍA CON PEDIATRA
-  {
-    id: 'm32',
-    date: new Date(2026, 0, 15),
-    start: '09:00',
-    end: '09:30',
-    title: 'Limpieza dental',
-    patient: PATIENTS.javierMoreno.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm33',
-    date: new Date(2026, 0, 15),
-    start: '10:00',
-    end: '10:45',
-    title: 'Endodoncia',
-    patient: PATIENTS.elenaVega.name,
-    professionalId: 'draLopez' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm34',
-    date: new Date(2026, 0, 15),
-    start: '11:30',
-    end: '12:00',
-    title: 'Revisión general',
-    patient: PATIENTS.antonioPerez.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm35',
-    date: new Date(2026, 0, 15),
-    start: '16:00',
-    end: '16:30',
-    title: 'Revisión infantil',
-    patient: 'María (6 años)',
-    professionalId: 'draPeña' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 3'
-  },
-  {
-    id: 'm36',
-    date: new Date(2026, 0, 15),
-    start: '17:00',
-    end: '17:30',
-    title: 'Selladores infantil',
-    patient: 'Pablo (9 años)',
-    professionalId: 'draPeña' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 3'
-  },
-  {
-    id: 'm37',
-    date: new Date(2026, 0, 15),
-    start: '17:30',
-    end: '18:30',
-    title: 'Férula descarga',
-    patient: PATIENTS.fernandoDiaz.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 1'
-  },
-  // Viernes 16
-  {
-    id: 'm38',
-    date: new Date(2026, 0, 16),
-    start: '09:30',
-    end: '10:00',
-    title: 'Limpieza dental',
-    patient: PATIENTS.patriciaRomero.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm39',
-    date: new Date(2026, 0, 16),
-    start: '10:30',
-    end: '11:15',
-    title: 'Empaste',
-    patient: PATIENTS.anaMartinez.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm40',
-    date: new Date(2026, 0, 16),
-    start: '12:00',
-    end: '12:30',
-    title: 'Selladores',
-    patient: 'Sara (7 años)',
-    professionalId: 'draPeña' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 3'
-  },
-
-  // === SEMANA 3 (19-24 Enero) ===
-  // Lunes 19
-  {
-    id: 'm41',
-    date: new Date(2026, 0, 19),
-    start: '09:00',
-    end: '09:30',
-    title: 'Limpieza dental',
-    patient: PATIENTS.mariaGarcia.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm42',
-    date: new Date(2026, 0, 19),
-    start: '10:30',
-    end: '11:30',
-    title: 'Ortodoncia ajuste',
-    patient: PATIENTS.ramonCastro.name,
-    professionalId: 'draGarcia' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm43',
-    date: new Date(2026, 0, 19),
-    start: '16:00',
-    end: '16:30',
-    title: 'Implante control',
-    patient: PATIENTS.miguelGomez.name,
-    professionalId: 'drMartinez' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 1'
-  },
-  // Martes 20
-  {
-    id: 'm44',
-    date: new Date(2026, 0, 20),
-    start: '09:30',
-    end: '10:30',
-    title: 'Brackets ajuste',
-    patient: PATIENTS.ramonCastro.name,
-    professionalId: 'draGarcia' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm45',
-    date: new Date(2026, 0, 20),
-    start: '11:00',
-    end: '11:30',
-    title: 'Revisión general',
-    patient: PATIENTS.carlosRodriguez.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm46',
-    date: new Date(2026, 0, 20),
-    start: '17:00',
-    end: '18:00',
-    title: 'Blanqueamiento',
-    patient: PATIENTS.elenaVega.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 1'
-  },
-  // Miércoles 21
-  {
-    id: 'm47',
-    date: new Date(2026, 0, 21),
-    start: '09:00',
-    end: '10:00',
-    title: 'Periodoncia profunda',
-    patient: PATIENTS.davidSanchez.name,
-    professionalId: 'drSanchez' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm48',
-    date: new Date(2026, 0, 21),
-    start: '10:30',
-    end: '11:30',
-    title: 'Endodoncia',
-    patient: PATIENTS.fernandoDiaz.name,
-    professionalId: 'draLopez' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm49',
-    date: new Date(2026, 0, 21),
-    start: '12:30',
-    end: '13:00',
-    title: 'Revisión general',
-    patient: PATIENTS.mariaGarcia.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 1'
-  },
-  // Jueves 22
-  {
-    id: 'm50',
-    date: new Date(2026, 0, 22),
-    start: '10:00',
-    end: '10:45',
-    title: 'Empaste',
-    patient: PATIENTS.pabloLopez.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm51',
-    date: new Date(2026, 0, 22),
-    start: '11:00',
-    end: '12:00',
-    title: 'Cirugía menor',
-    patient: PATIENTS.albertoGil.name,
-    professionalId: 'drMartinez' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm52',
-    date: new Date(2026, 0, 22),
-    start: '16:30',
-    end: '17:00',
-    title: 'Invisalign revisión',
-    patient: PATIENTS.patriciaRomero.name,
-    professionalId: 'draGarcia' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 1'
-  },
-  // Viernes 23
-  {
-    id: 'm53',
-    date: new Date(2026, 0, 23),
-    start: '09:00',
-    end: '09:30',
-    title: 'Limpieza dental',
-    patient: PATIENTS.beatrizMuñoz.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm54',
-    date: new Date(2026, 0, 23),
-    start: '10:00',
-    end: '10:45',
-    title: 'Endodoncia',
-    patient: PATIENTS.javierMoreno.name,
-    professionalId: 'draLopez' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm55',
-    date: new Date(2026, 0, 23),
-    start: '11:00',
-    end: '12:00',
-    title: 'Prótesis ajuste',
-    patient: PATIENTS.carmenRuiz.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 1'
-  },
-
-  // === SEMANA 4 (26-31 Enero) ===
-  // Lunes 26
-  {
-    id: 'm56',
-    date: new Date(2026, 0, 26),
-    start: '09:30',
-    end: '10:00',
-    title: 'Revisión general',
-    patient: PATIENTS.anaMartinez.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm57',
-    date: new Date(2026, 0, 26),
-    start: '11:00',
-    end: '11:30',
-    title: 'Limpieza dental',
-    patient: PATIENTS.sofiaNavarro.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm58',
-    date: new Date(2026, 0, 26),
-    start: '16:00',
-    end: '17:30',
-    title: 'Carillas cementado',
-    patient: PATIENTS.beatrizMuñoz.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 1'
-  },
-  // Martes 27
-  {
-    id: 'm59',
-    date: new Date(2026, 0, 27),
-    start: '09:00',
-    end: '10:00',
-    title: 'Endodoncia',
-    patient: PATIENTS.fernandoDiaz.name,
-    professionalId: 'draLopez' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm60',
-    date: new Date(2026, 0, 27),
-    start: '10:30',
-    end: '11:00',
-    title: 'Periodoncia',
-    patient: PATIENTS.albertoGil.name,
-    professionalId: 'drSanchez' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm61',
-    date: new Date(2026, 0, 27),
-    start: '12:00',
-    end: '13:00',
-    title: 'Ortodoncia revisión',
-    patient: PATIENTS.lauraFernandez.name,
-    professionalId: 'draGarcia' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 1'
-  },
-  // Miércoles 28
-  {
-    id: 'm62',
-    date: new Date(2026, 0, 28),
-    start: '10:30',
-    end: '12:00',
-    title: 'Implante 2ª fase',
-    patient: PATIENTS.sofiaNavarro.name,
-    professionalId: 'drMartinez' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm63',
-    date: new Date(2026, 0, 28),
-    start: '10:30',
-    end: '11:00',
-    title: 'Anestesia implante',
-    patient: PATIENTS.sofiaNavarro.name,
-    professionalId: 'anestesistaJimenez' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm64',
-    date: new Date(2026, 0, 28),
-    start: '16:00',
-    end: '16:30',
-    title: 'Limpieza dental',
-    patient: PATIENTS.albertoGil.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 2'
-  },
-  // Jueves 29
-  {
-    id: 'm65',
-    date: new Date(2026, 0, 29),
-    start: '09:00',
-    end: '09:30',
-    title: 'Revisión general',
-    patient: PATIENTS.javierMoreno.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm66',
-    date: new Date(2026, 0, 29),
-    start: '10:00',
-    end: '10:45',
-    title: 'Empaste',
-    patient: PATIENTS.pabloLopez.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm67',
-    date: new Date(2026, 0, 29),
-    start: '11:30',
-    end: '12:15',
-    title: 'Empaste',
-    patient: PATIENTS.elenaVega.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  // Viernes 30
-  {
-    id: 'm68',
-    date: new Date(2026, 0, 30),
-    start: '10:00',
-    end: '10:30',
-    title: 'Limpieza dental',
-    patient: PATIENTS.martaAlonso.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-teal)',
-    box: 'BOX 1'
-  },
-  {
-    id: 'm69',
-    date: new Date(2026, 0, 30),
-    start: '11:00',
-    end: '11:45',
-    title: 'Endodoncia',
-    patient: PATIENTS.carmenRuiz.name,
-    professionalId: 'draLopez' as ProfessionalId,
-    bgColor: 'var(--color-event-purple)',
-    box: 'BOX 2'
-  },
-  {
-    id: 'm70',
-    date: new Date(2026, 0, 30),
-    start: '16:30',
-    end: '17:30',
-    title: 'Corona cementado',
-    patient: PATIENTS.ramonCastro.name,
-    professionalId: 'drRuiz' as ProfessionalId,
-    bgColor: 'var(--color-event-coral)',
-    box: 'BOX 1'
-  }
-]
-
-// Alias para compatibilidad (vista mensual solo necesita date, title, bgColor)
-const MONTH_EVENTS = MONTH_EVENTS_EXTENDED.map((e) => ({
-  id: e.id,
-  date: e.date,
-  title: `${e.start} ${e.title} - ${e.patient.split(' ')[0].charAt(0)}. ${
-    e.patient.split(' ').slice(-1)[0]
-  }`,
-  bgColor: e.bgColor
-}))
-
-// Datos de ejemplo para la vista diaria con casos realistas de clínica dental
-const DAY_VIEW_FALLBACK_APPOINTMENTS = [
-  // MAÑANA
-  {
-    id: 'day-fallback-1',
-    start: '09:00',
-    end: '09:30',
-    title: TREATMENTS.limpieza,
-    patient: PATIENTS.mariaGarcia.name,
-    box: 'BOX 1',
-    bgColor: 'var(--color-event-teal)'
-  },
-  {
-    id: 'day-fallback-2',
-    start: '09:30',
-    end: '10:15',
-    title: TREATMENTS.empaste,
-    patient: PATIENTS.carlosRodriguez.name,
-    box: 'BOX 2',
-    bgColor: 'var(--color-event-coral)'
-  },
-  {
-    id: 'day-fallback-3',
-    start: '10:00',
-    end: '11:00',
-    title: TREATMENTS.endodoncia,
-    patient: PATIENTS.anaMartinez.name,
-    box: 'BOX 1',
-    bgColor: 'var(--color-event-purple)'
-  },
-  {
-    id: 'day-fallback-4',
-    start: '10:30',
-    end: '11:00',
-    title: TREATMENTS.revision,
-    patient: PATIENTS.pabloLopez.name,
-    box: 'BOX 2',
-    bgColor: 'var(--color-event-teal)'
-  },
-  {
-    id: 'day-fallback-5',
-    start: '11:00',
-    end: '11:45',
-    title: TREATMENTS.ortodoncia,
-    patient: PATIENTS.lauraFernandez.name,
-    box: 'BOX 1',
-    bgColor: 'var(--color-event-purple)'
-  },
-  {
-    id: 'day-fallback-6',
-    start: '11:30',
-    end: '12:00',
-    title: TREATMENTS.limpieza,
-    patient: PATIENTS.javierMoreno.name,
-    box: 'BOX 2',
-    bgColor: 'var(--color-event-teal)'
-  },
-  {
-    id: 'day-fallback-7',
-    start: '12:00',
-    end: '12:30',
-    title: TREATMENTS.radiografia,
-    patient: PATIENTS.sofiaNavarro.name,
-    box: 'BOX 1',
-    bgColor: 'var(--color-event-coral)'
-  },
-  {
-    id: 'day-fallback-8',
-    start: '12:00',
-    end: '12:45',
-    title: TREATMENTS.periodoncia,
-    patient: PATIENTS.davidSanchez.name,
-    box: 'BOX 2',
-    bgColor: 'var(--color-event-purple)'
-  },
-  {
-    id: 'day-fallback-9',
-    start: '13:00',
-    end: '13:30',
-    title: TREATMENTS.revision,
-    patient: PATIENTS.carmenRuiz.name,
-    box: 'BOX 1',
-    bgColor: 'var(--color-event-teal)'
-  },
-  // TARDE
-  {
-    id: 'day-fallback-10',
-    start: '16:00',
-    end: '17:30',
-    title: TREATMENTS.implante,
-    patient: PATIENTS.miguelGomez.name,
-    box: 'BOX 1',
-    bgColor: 'var(--color-event-purple)'
-  },
-  {
-    id: 'day-fallback-11',
-    start: '16:30',
-    end: '17:30',
-    title: TREATMENTS.blanqueamiento,
-    patient: PATIENTS.elenaVega.name,
-    box: 'BOX 2',
-    bgColor: 'var(--color-event-teal)'
-  },
-  {
-    id: 'day-fallback-12',
-    start: '17:30',
-    end: '18:00',
-    title: TREATMENTS.limpieza,
-    patient: PATIENTS.antonioPerez.name,
-    box: 'BOX 2',
-    bgColor: 'var(--color-event-teal)'
-  },
-  {
-    id: 'day-fallback-13',
-    start: '18:00',
-    end: '18:45',
-    title: TREATMENTS.empaste,
-    patient: PATIENTS.martaAlonso.name,
-    box: 'BOX 1',
-    bgColor: 'var(--color-event-coral)'
-  },
-  {
-    id: 'day-fallback-14',
-    start: '18:30',
-    end: '19:15',
-    title: TREATMENTS.ferula,
-    patient: PATIENTS.fernandoDiaz.name,
-    box: 'BOX 2',
-    bgColor: 'var(--color-event-purple)'
-  },
-  {
-    id: 'day-fallback-15',
-    start: '19:00',
-    end: '19:30',
-    title: TREATMENTS.revision,
-    patient: PATIENTS.beatrizMuñoz.name,
-    box: 'BOX 1',
-    bgColor: 'var(--color-event-teal)'
-  }
-]
-
 export default function WeekScheduler() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
   // Configuration context for professionals and boxes
-  const { professionalOptions, boxOptions } = useConfiguration()
+  const {
+    professionalOptions,
+    boxOptions,
+    getAvailableProfessionalsForDate,
+    getProfessionalScheduleForDate
+  } = useConfiguration()
 
   // Hook del contexto de citas compartido para sincronización con Parte Diario
   const {
@@ -4149,15 +1447,21 @@ export default function WeekScheduler() {
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
   const [viewOption, setViewOption] = useState<ViewOption>('semana')
   const [dayPeriod, setDayPeriod] = useState<DayPeriod>('full')
+  const [inferredProfessionalOptions, setInferredProfessionalOptions] = useState<
+    Array<{ id: string; label: string; color: string }>
+  >([])
 
   // Use configuration context for professional and box options
-  // Fallback to hardcoded PROFESSIONAL_OPTIONS for backwards compatibility with existing data
   const effectiveProfessionalOptions = useMemo(
-    () =>
-      professionalOptions.length > 0
-        ? professionalOptions
-        : PROFESSIONAL_OPTIONS,
-    [professionalOptions]
+    () => {
+      const byId = new Map<string, { id: string; label: string; color: string }>()
+      for (const option of professionalOptions) byId.set(option.id, option)
+      for (const option of inferredProfessionalOptions) {
+        if (!byId.has(option.id)) byId.set(option.id, option)
+      }
+      return Array.from(byId.values())
+    },
+    [inferredProfessionalOptions, professionalOptions]
   )
   const effectiveBoxOptions = useMemo(
     () =>
@@ -4184,11 +1488,27 @@ export default function WeekScheduler() {
   )
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(false)
   const [showAIOnly, setShowAIOnly] = useState(false) // Filter for AI-created appointments
+  const previousProfessionalOptionIdsRef = useRef<string[]>([])
+  const initializedDefaultFiltersRef = useRef(false)
 
   useEffect(() => {
     setSelectedProfessionals((previous) => {
+      const previousOptionIds = previousProfessionalOptionIdsRef.current
       const kept = previous.filter((id) => professionalOptionIds.includes(id))
-      const next = kept.length > 0 ? kept : professionalOptionIds
+      const hadAllPreviousSelected =
+        previousOptionIds.length > 0 &&
+        previousOptionIds.every((id) => previous.includes(id))
+
+      let next = kept.length > 0 ? kept : professionalOptionIds
+      if (hadAllPreviousSelected) {
+        const addedIds = professionalOptionIds.filter(
+          (id) => !previousOptionIds.includes(id)
+        )
+        if (addedIds.length > 0) {
+          next = [...kept, ...addedIds]
+        }
+      }
+
       if (
         previous.length === next.length &&
         previous.every((id, index) => id === next[index])
@@ -4197,6 +1517,7 @@ export default function WeekScheduler() {
       }
       return next
     })
+    previousProfessionalOptionIdsRef.current = professionalOptionIds
   }, [professionalOptionIds])
 
   useEffect(() => {
@@ -4212,6 +1533,15 @@ export default function WeekScheduler() {
       return next
     })
   }, [boxOptionIds])
+
+  // Ensure first render defaults to "all professionals" and "all boxes".
+  useEffect(() => {
+    if (initializedDefaultFiltersRef.current) return
+    if (professionalOptionIds.length === 0 || boxOptionIds.length === 0) return
+    setSelectedProfessionals(professionalOptionIds)
+    setSelectedBoxes(boxOptionIds)
+    initializedDefaultFiltersRef.current = true
+  }, [boxOptionIds, professionalOptionIds])
 
   const resolveBoxLabel = useCallback(
     (value?: string | null): string => {
@@ -4250,8 +1580,19 @@ export default function WeekScheduler() {
       title?: string
       box?: string
       bgColor?: string
+      professionalId?: string
+      confirmed?: boolean
+      createdByVoiceAgent?: boolean
+      voiceAgentCallId?: string
     }[]
   >([])
+  const selectedDayBoxIds = useMemo(
+    () =>
+      effectiveBoxOptions.flatMap((option, index) =>
+        selectedBoxes.includes(option.id) ? [`box-${index + 1}`] : []
+      ),
+    [effectiveBoxOptions, selectedBoxes]
+  )
 
   // Payment modal state for quick actions
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -4417,9 +1758,19 @@ export default function WeekScheduler() {
     const weekEnd = new Date(weekStart)
     weekEnd.setDate(weekStart.getDate() + 4)
 
-    const startIso = weekStart.toLocaleDateString('en-CA')
-    const endIso = weekEnd.toLocaleDateString('en-CA')
+    const startIso = formatDateInAgendaTimezone(weekStart)
+    const endIso = formatDateInAgendaTimezone(weekEnd)
     const weekAppointments = getAppointmentsByDateRange(startIso, endIso)
+    const optionsStart = new Date(weekStart)
+    optionsStart.setDate(optionsStart.getDate() - 180)
+    const optionsEnd = new Date(weekEnd)
+    optionsEnd.setDate(optionsEnd.getDate() + 180)
+    const optionsStartIso = formatDateInAgendaTimezone(optionsStart)
+    const optionsEndIso = formatDateInAgendaTimezone(optionsEnd)
+    const appointmentsForOptions = getAppointmentsByDateRange(
+      optionsStartIso,
+      optionsEndIso
+    )
 
     const toMinutes = (time: string): number => {
       const [hh = '09', mm = '00'] = time.split(':')
@@ -4445,6 +1796,42 @@ export default function WeekScheduler() {
       if (bgColor.includes('brand')) return 'bg-[var(--color-brand-100)]'
       return 'bg-[var(--color-brand-100)]'
     }
+
+    const configuredProfessionalByName = new Map(
+      professionalOptions.map((opt) => [opt.label.toLowerCase(), opt])
+    )
+    const inferredByName = new Map<
+      string,
+      { id: string; label: string; color: string }
+    >()
+    for (const apt of appointmentsForOptions) {
+      const professionalName = (apt.professional || '').trim()
+      if (!professionalName) continue
+      const key = professionalName.toLowerCase()
+      if (configuredProfessionalByName.has(key) || inferredByName.has(key)) continue
+      inferredByName.set(key, {
+        id: toProfessionalOptionId(professionalName),
+        label: professionalName,
+        color: 'var(--color-neutral-400)'
+      })
+    }
+    const nextInferredOptions = Array.from(inferredByName.values())
+    setInferredProfessionalOptions((previous) => {
+      if (
+        previous.length === nextInferredOptions.length &&
+        previous.every((option, index) => {
+          const next = nextInferredOptions[index]
+          return (
+            option.id === next.id &&
+            option.label === next.label &&
+            option.color === next.color
+          )
+        })
+      ) {
+        return previous
+      }
+      return nextInferredOptions
+    })
 
     const professionalIdByName = new Map(
       effectiveProfessionalOptions.map((opt) => [opt.label.toLowerCase(), opt.id])
@@ -4476,6 +1863,11 @@ export default function WeekScheduler() {
         .filter(Boolean)
         .join(', ')
       const eventTitle = linkedLabel || apt.reason || 'Consulta'
+      const professionalName = (apt.professional || DEFAULT_PROFESSIONAL).trim()
+      const professionalNameKey = professionalName.toLowerCase()
+      const eventProfessionalId =
+        professionalIdByName.get(professionalNameKey) ||
+        toProfessionalOptionId(professionalName)
       const eventBoxLabel = resolveBoxLabel(apt.box || fallbackBox)
       const economicStatus =
         apt.paymentInfo && apt.paymentInfo.pendingAmount > 0
@@ -4507,7 +1899,7 @@ export default function WeekScheduler() {
           duration: `${apt.startTime} - ${apt.endTime} (${durationMinutes} minutos)`,
           patientFull: apt.patientName || 'Paciente',
           patientPhone: apt.patientPhone || DEFAULT_PATIENT_PHONE,
-          professional: apt.professional || DEFAULT_PROFESSIONAL,
+          professional: professionalName,
           economicAmount,
           economicStatus,
           notes: apt.notes || DEFAULT_NOTES,
@@ -4522,9 +1914,7 @@ export default function WeekScheduler() {
           paymentInfo: apt.paymentInfo,
           installmentPlan: apt.installmentPlan
         },
-        professionalId: professionalIdByName.get(
-          (apt.professional || '').toLowerCase()
-        ),
+        professionalId: eventProfessionalId,
         completed: apt.completed,
         confirmed: apt.confirmed,
         visitStatus: apt.visitStatus,
@@ -4556,19 +1946,10 @@ export default function WeekScheduler() {
   }, [
     currentWeekStart,
     effectiveBoxOptions,
-    effectiveProfessionalOptions,
     getAppointmentsByDateRange,
+    professionalOptions,
     resolveBoxLabel
   ])
-
-  // Sync day view appointments whenever we are in day view or data changes
-  // Usa MONTH_EVENTS_EXTENDED directamente para obtener los eventos del día seleccionado
-  useEffect(() => {
-    if (viewOption !== 'dia') return
-    const targetDate = selectedDate ?? currentWeekStart
-    const appointments = getAppointmentsForDate(targetDate)
-    setSelectedDayAppointments(appointments)
-  }, [viewOption, selectedDate, currentWeekStart, dayColumnsState])
 
   // Only show overlay on click (active), not on hover
   // IMPORTANTE: Buscar el evento actualizado en dayColumnsState para obtener datos frescos
@@ -4640,9 +2021,22 @@ export default function WeekScheduler() {
   const handleViewSelect = (value: ViewOption) => {
     setViewOption(value)
     setOpenDropdown(null)
-    // Initialize selectedDate to today when switching to day view
+    // Preserve week context when switching to day view.
     if (value === 'dia' && !selectedDate) {
-      setSelectedDate(new Date())
+      const weekDates = WEEKDAY_ORDER.map((_, index) => {
+        const date = new Date(currentWeekStart)
+        date.setDate(currentWeekStart.getDate() + index)
+        date.setHours(0, 0, 0, 0)
+        return date
+      })
+      const firstDateWithVisibleAppointments = weekDates.find((date) =>
+        getAppointmentsForDate(date).some((apt) => {
+          if (selectedProfessionals.length === 0) return true
+          if (!apt.professionalId) return true
+          return selectedProfessionals.includes(apt.professionalId)
+        })
+      )
+      setSelectedDate(firstDateWithVisibleAppointments ?? currentWeekStart)
     }
   }
 
@@ -5032,116 +2426,172 @@ export default function WeekScheduler() {
     return Number(hh) * 60 + Number(mm)
   }
 
-  // Obtener appointments para una fecha específica
-  // Siempre usa dayColumnsState basándose en el día de la semana para mostrar los mismos datos que la vista semanal
-  const getAppointmentsForDate = (date: Date | null) => {
-    if (!date) return []
-
-    const dayOfWeek = date.getDay() // 0=Sunday, 1=Monday, ...
-    const weekdayMapping: Record<number, Weekday | null> = {
-      0: null, // Sunday - no hay citas
-      1: 'monday',
-      2: 'tuesday',
-      3: 'wednesday',
-      4: 'thursday',
-      5: 'friday',
-      6: null // Saturday - no hay citas
-    }
-    const weekday = weekdayMapping[dayOfWeek]
-
-    // Si es un día laboral (lunes-viernes), usar los datos de dayColumnsState
-    if (weekday) {
-      const dayColumn = dayColumnsState.find((c) => c.id === weekday)
-      if (dayColumn && dayColumn.events.length > 0) {
-        return mapColumnToDayAppointments(dayColumn)
+  const mapAppointmentToDayView = useCallback(
+    (apt: {
+      id: string
+      startTime: string
+      endTime: string
+      patientName: string
+      reason: string
+      linkedTreatments?: Array<{ description: string }>
+      box?: string
+      bgColor?: string
+      date: string
+      patientPhone: string
+      professional: string
+      notes?: string
+      patientId?: string
+      confirmed?: boolean
+      createdByVoiceAgent?: boolean
+      voiceAgentCallId?: string
+      paymentInfo?: {
+        totalAmount: number
+        paidAmount: number
+        pendingAmount: number
+        currency: string
       }
-    }
-
-    // Si es fin de semana o no hay eventos, retornar array vacío
-    return []
-  }
-
-  // Obtener bandas de profesionales para una fecha específica
-  // Siempre usa dayColumnsState basándose en el día de la semana
-  // Limitado a 2 especialistas como máximo
-  const getDayBands = (date: Date | null) => {
-    if (!date) return []
-
-    const dayOfWeek = date.getDay()
-    const weekdayMapping: Record<number, Weekday | null> = {
-      0: null,
-      1: 'monday',
-      2: 'tuesday',
-      3: 'wednesday',
-      4: 'thursday',
-      5: 'friday',
-      6: null
-    }
-    const weekday = weekdayMapping[dayOfWeek]
-
-    if (weekday) {
-      const dayColumn = dayColumnsState.find((c) => c.id === weekday)
-      if (dayColumn && dayColumn.events.length > 0) {
-        // Extraer profesionales únicos de los eventos del día
-        const professionals = new Set<string>()
-        dayColumn.events.forEach((ev) => {
-          if (ev.detail?.professional) {
-            professionals.add(ev.detail.professional)
-          }
-        })
-
-        // Generar bandas para cada profesional con colores asignados
-        const profColors: Record<string, string> = {
-          'Laura Sánchez (Higienista)': '#f0fafa',
-          'Dr. Antonio Ruiz García': '#fbe9fb',
-          'Dr. Francisco Moreno': '#fff4e6',
-          'Dra. Elena Navarro Pérez': '#e6f4ff',
-          'Dr. Miguel Á. Torres': '#ffe6f0',
-          'Dra. Carmen Díaz López': '#e6ffe6'
-        }
-
-        // Solo mostrar 2 especialistas como máximo
-        return Array.from(professionals)
-          .slice(0, 2)
-          .map((prof, idx) => ({
-            id: `band-${idx}`,
-            label: prof,
-            background: profColors[prof] || '#f0fafa'
-          }))
+      installmentPlan?: {
+        totalInstallments: number
+        currentInstallment: number
+        amountPerInstallment: number
       }
-    }
-
-    // Si es fin de semana, retornar array vacío
-    return []
-  }
-
-  const mapColumnToDayAppointments = (column?: DayColumn) => {
-    if (!column || column.events.length === 0) {
-      return DAY_VIEW_FALLBACK_APPOINTMENTS.slice(0, 0)
-    }
-    return column.events.map((ev, idx) => {
-      const [startRaw, endRaw] = (ev.timeRange ?? '').split('-')
-      const start = startRaw?.trim() || '09:00'
-      const end = endRaw?.trim() || '09:30'
-      const bgColor = ev.backgroundClass?.includes('coral')
+    }) => {
+      const linkedLabel = apt.linkedTreatments
+        ?.map((t) => t.description)
+        .filter(Boolean)
+        .join(', ')
+      const title = linkedLabel || apt.reason || 'Consulta'
+      const bgColor = apt.createdByVoiceAgent
+        ? 'var(--color-event-ai-bg)'
+        : apt.bgColor?.includes('coral')
         ? 'var(--color-event-coral)'
-        : ev.backgroundClass?.includes('brand')
+        : apt.bgColor?.includes('brand') || apt.bgColor?.includes('purple')
         ? 'var(--color-event-purple)'
         : 'var(--color-event-teal)'
+      const durationMinutes = Math.max(
+        MINUTES_STEP,
+        timeToMinutes(apt.endTime) - timeToMinutes(apt.startTime)
+      )
+      const economicStatus =
+        apt.paymentInfo && apt.paymentInfo.pendingAmount > 0
+          ? 'Pago parcial'
+          : 'Pendiente de pago'
+      const economicAmount = apt.paymentInfo
+        ? `${apt.paymentInfo.pendingAmount.toLocaleString('es-ES', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          })} € pendiente`
+        : 'Pendiente'
+      const professionalName = (apt.professional || DEFAULT_PROFESSIONAL).trim()
+      const professionalKey = professionalName.toLowerCase()
+      const professionalId =
+        effectiveProfessionalOptions.find(
+          (option) => option.label.toLowerCase() === professionalKey
+        )?.id ?? toProfessionalOptionId(professionalName)
 
       return {
-        id: ev.id ?? `day-${column.id}-${idx}`,
-        start,
-        end,
-        patient: ev.patient,
-        title: ev.title,
-        box: ev.box,
+        id: apt.id,
+        start: apt.startTime,
+        end: apt.endTime,
+        patient: apt.patientName || 'Paciente',
+        title,
+        box: resolveBoxLabel(apt.box),
         bgColor,
-        // Pasar el detail completo con notas para la vista diaria
-        detail: ev.detail
+        professionalId,
+        confirmed: apt.confirmed,
+        createdByVoiceAgent: apt.createdByVoiceAgent,
+        voiceAgentCallId: apt.voiceAgentCallId,
+        detail: {
+          title,
+          date: apt.date,
+          duration: `${apt.startTime} - ${apt.endTime} (${durationMinutes} minutos)`,
+          patientFull: apt.patientName || 'Paciente',
+          patientPhone: apt.patientPhone || DEFAULT_PATIENT_PHONE,
+          professional: professionalName,
+          economicAmount,
+          economicStatus,
+          notes: apt.notes || DEFAULT_NOTES,
+          locationLabel: LOCATION_LABEL,
+          patientLabel: PATIENT_LABEL,
+          professionalLabel: PROFESSIONAL_LABEL,
+          economicLabel: ECONOMIC_LABEL,
+          notesLabel: NOTES_LABEL,
+          patientId: apt.patientId,
+          appointmentId: apt.id,
+          treatmentDescription: apt.reason,
+          paymentInfo: apt.paymentInfo,
+          installmentPlan: apt.installmentPlan
+        }
+      }
+    },
+    [effectiveProfessionalOptions, resolveBoxLabel]
+  )
+
+  // Obtener appointments para una fecha específica usando fecha absoluta (DB/context).
+  const getAppointmentsForDate = useCallback((date: Date | null) => {
+    if (!date) return []
+
+    const dateIso = formatDateInAgendaTimezone(date)
+    const dayAppointments = getAppointmentsByDateRange(dateIso, dateIso)
+
+    return dayAppointments
+      .map((apt) => mapAppointmentToDayView(apt))
+      .sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start))
+  }, [getAppointmentsByDateRange, mapAppointmentToDayView])
+
+  // Obtener bandas de profesionales para una fecha específica
+  // Basado en citas reales de la fecha y colores de opciones dinámicas.
+  const getDayBands = useCallback((date: Date | null) => {
+    if (!date) return []
+
+    const dateIso = formatDateInAgendaTimezone(date)
+    const dayAppointments = getAppointmentsByDateRange(dateIso, dateIso)
+    if (dayAppointments.length === 0) return []
+
+    const optionsByLabel = new Map(
+      effectiveProfessionalOptions.map((opt) => [opt.label.toLowerCase(), opt])
+    )
+    const selectedSet = new Set(selectedProfessionals)
+    const uniqueProfessionalNames: string[] = []
+
+    for (const apt of dayAppointments) {
+      const professionalName = (apt.professional || '').trim()
+      if (!professionalName) continue
+      if (uniqueProfessionalNames.includes(professionalName)) continue
+
+      const option =
+        optionsByLabel.get(professionalName.toLowerCase()) ||
+        ({
+          id: toProfessionalOptionId(professionalName),
+          label: professionalName,
+          color: 'var(--color-neutral-400)'
+        } as const)
+
+      if (selectedSet.size > 0 && !selectedSet.has(option.id)) continue
+      uniqueProfessionalNames.push(professionalName)
+    }
+
+    return uniqueProfessionalNames.slice(0, 2).map((name, idx) => {
+      const option = optionsByLabel.get(name.toLowerCase())
+      return {
+        id: `band-${idx}-${toProfessionalOptionId(name)}`,
+        label: name,
+        background: option?.color || 'var(--color-neutral-400)'
       }
     })
-  }
+  }, [
+    effectiveProfessionalOptions,
+    getAppointmentsByDateRange,
+    selectedProfessionals
+  ])
+
+  // Sync day view appointments whenever we are in day view or data changes.
+  useEffect(() => {
+    if (viewOption !== 'dia') return
+    const targetDate = selectedDate ?? currentWeekStart
+    const appointments = getAppointmentsForDate(targetDate)
+    setSelectedDayAppointments(appointments)
+  }, [currentWeekStart, getAppointmentsForDate, selectedDate, viewOption])
 
   // Listen for month -> day navigation
   useEffect(() => {
@@ -5149,7 +2599,7 @@ export default function WeekScheduler() {
       const custom = event as CustomEvent<{ date?: string }>
       const isoDate = custom.detail?.date
       if (!isoDate) return
-      const target = new Date(isoDate)
+      const target = parseIsoDateLocal(isoDate)
       if (Number.isNaN(target.getTime())) return
 
       // Set week anchored to Monday of target date
@@ -5164,35 +2614,13 @@ export default function WeekScheduler() {
       setViewOption('dia')
       setDayPeriod('full')
 
-      // Obtener appointments basándose en el día de la semana (mismos datos que vista semanal)
-      const weekdayMap: Record<number, Weekday | null> = {
-        0: null,
-        1: 'monday',
-        2: 'tuesday',
-        3: 'wednesday',
-        4: 'thursday',
-        5: 'friday',
-        6: null
-      }
-      const weekday = weekdayMap[dayOfWeekNum]
-
-      if (weekday) {
-        const dayColumn = dayColumnsState.find((c) => c.id === weekday)
-        if (dayColumn && dayColumn.events.length > 0) {
-          setSelectedDayAppointments(
-            mapColumnToDayAppointments(dayColumn)
-          )
-          return
-        }
-      }
-
-      // Si es fin de semana o no hay datos, mostrar array vacío
-      setSelectedDayAppointments([])
+      // Load day appointments by absolute date.
+      setSelectedDayAppointments(getAppointmentsForDate(target))
     }
 
     window.addEventListener('agenda:open-day-view', handler)
     return () => window.removeEventListener('agenda:open-day-view', handler)
-  }, [dayColumnsState])
+  }, [getAppointmentsForDate])
 
   const handleDayAppointmentMove = ({
     id,
@@ -5206,8 +2634,8 @@ export default function WeekScheduler() {
     box: string
   }) => {
     const targetDate =
-      selectedDate?.toLocaleDateString('en-CA') ??
-      currentWeekStart.toLocaleDateString('en-CA')
+      (selectedDate && formatDateInAgendaTimezone(selectedDate)) ||
+      formatDateInAgendaTimezone(currentWeekStart)
     const targetWeekday = getWeekdayFromDate(targetDate)
 
     const startSlot = getSlotIndexFromTime(start)
@@ -5265,6 +2693,13 @@ export default function WeekScheduler() {
     setSelectedDayAppointments((prev) =>
       prev.map((appt) => (appt.id === id ? { ...appt, start, end, box } : appt))
     )
+
+    updateAppointment(id, {
+      date: targetDate,
+      startTime: start,
+      endTime: end,
+      box
+    })
   }
 
   const handleProfessionalToggle = (value: string) => {
@@ -5379,8 +2814,8 @@ export default function WeekScheduler() {
       0
     )
 
-    const startIso = monthStart.toLocaleDateString('en-CA')
-    const endIso = monthEnd.toLocaleDateString('en-CA')
+    const startIso = formatDateInAgendaTimezone(monthStart)
+    const endIso = formatDateInAgendaTimezone(monthEnd)
     const appointmentsForMonth = getAppointmentsByDateRange(startIso, endIso)
 
     return appointmentsForMonth.map((apt) => {
@@ -5426,6 +2861,44 @@ export default function WeekScheduler() {
 
     return `${capitalize(weekday)} ${day} ${formattedMonth} ${year}`.trim()
   }
+
+  const getSpecialistsForDate = useCallback(
+    (date: Date): SpecialistAvailability[] => {
+      const availableProfessionals = getAvailableProfessionalsForDate(date)
+      const visibleProfessionals =
+        selectedProfessionals.length > 0
+          ? availableProfessionals.filter((professional) =>
+              selectedProfessionals.includes(professional.id)
+            )
+          : availableProfessionals
+
+      return visibleProfessionals.slice(0, 2).map((professional) => {
+        const daySchedule = getProfessionalScheduleForDate(professional.id, date)
+        const timeRange =
+          daySchedule?.isWorking && daySchedule.shifts.length > 0
+            ? daySchedule.shifts
+                .map((shift) => `${shift.start} - ${shift.end}`)
+                .join(', ')
+            : ''
+        const color =
+          effectiveProfessionalOptions.find((opt) => opt.id === professional.id)
+            ?.color || 'var(--color-neutral-400)'
+
+        return {
+          id: professional.id,
+          name: professional.name,
+          timeRange,
+          color
+        }
+      })
+    },
+    [
+      effectiveProfessionalOptions,
+      getAvailableProfessionalsForDate,
+      getProfessionalScheduleForDate,
+      selectedProfessionals
+    ]
+  )
 
   // Helper to get ISO date string for a weekday
   const getDateForWeekday = (weekdayIndex: number): string => {
@@ -5549,7 +3022,7 @@ export default function WeekScheduler() {
         label: formatHeaderLabel(date),
         id: weekdayId,
         tone,
-        specialists: SPECIALISTS_BY_WEEKDAY[weekdayId] || []
+        specialists: getSpecialistsForDate(date)
       }
     })
   }
@@ -5650,7 +3123,7 @@ export default function WeekScheduler() {
       const idx = WEEKDAY_ORDER.indexOf(weekday)
       const date = new Date(currentWeekStart)
       date.setDate(currentWeekStart.getDate() + Math.max(0, idx))
-      return date.toLocaleDateString('en-CA')
+      return formatDateInAgendaTimezone(date)
     },
     [currentWeekStart]
   )
@@ -6022,7 +3495,7 @@ export default function WeekScheduler() {
       slotDate.setDate(currentWeekStart.getDate() + safeOffset)
 
       openCreateAppointmentModal({
-        fecha: slotDate.toLocaleDateString('en-CA'),
+        fecha: formatDateInAgendaTimezone(slotDate),
         hora: normalizedTime
       })
     },
@@ -6102,7 +3575,7 @@ export default function WeekScheduler() {
 
     // Open modal with pre-filled data including box
     openCreateAppointmentModal({
-      fecha: slotDate.toLocaleDateString('en-CA'),
+      fecha: formatDateInAgendaTimezone(slotDate),
       hora: startTime,
       duracion: durationMinutes.toString(),
       box: boxId || undefined
@@ -6432,11 +3905,11 @@ export default function WeekScheduler() {
             period={dayPeriod}
             appointments={selectedDayAppointments}
             currentDate={
-              (selectedDate ?? currentWeekStart).toISOString().split('T')[0]
+              formatDateInAgendaTimezone(selectedDate ?? currentWeekStart)
             }
             bands={getDayBands(selectedDate ?? currentWeekStart)}
             onAppointmentMove={handleDayAppointmentMove}
-            selectedBoxes={selectedBoxes}
+            selectedBoxes={selectedDayBoxIds}
             selectedProfessionals={selectedProfessionals}
             onOpenCreateAppointment={(prefill) =>
               openCreateAppointmentModal(prefill)
@@ -6484,6 +3957,7 @@ export default function WeekScheduler() {
                   selectedBoxes={selectedBoxes}
                   boxOptions={effectiveBoxOptions}
                   selectedProfessionals={selectedProfessionals}
+                  activeVisitStatusFilter={activeVisitStatusFilter}
                   completedEvents={completedEvents}
                   onToggleComplete={handleToggleComplete}
                   onEventContextMenu={handleEventContextMenu}

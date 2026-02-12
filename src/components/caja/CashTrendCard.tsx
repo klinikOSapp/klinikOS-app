@@ -1,16 +1,14 @@
 'use client'
 
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
+import { useClinic } from '@/context/ClinicContext'
 import type { CSSProperties } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Area, AreaChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
-const Y_AXIS_LABELS = ['50K', '40K', '30K', '20K', '10K', 'º']
-
 const CARD_WIDTH_PX = 523
 const CARD_HEIGHT_PX = 342
 const CARD_HEIGHT_REM = CARD_HEIGHT_PX / 16
-const TREND_CARD_WIDTH_REM = 32.6875 // 523px
 const GRID_WIDTH_PX = 451
 const GRID_HEIGHT_PX = 228
 const GRID_LEFT_PX = 56
@@ -22,12 +20,9 @@ const X_AXIS_TOP_PX = 302
 const CHIP_LEFT_PX = 64
 const CHIP_FACT_TOP_PX = 66
 const CHIP_OBJ_TOP_PX = 98
-const DEFAULT_TARGET_VALUE_EUR = 30000 // Fallback if no monthly goal set
 
 const percentOfWidth = (px: number) => `${(px / CARD_WIDTH_PX) * 100}%`
 const percentOfHeight = (px: number) => `${(px / CARD_HEIGHT_PX) * 100}%`
-const percentOfGridWidth = (px: number) => `${(px / GRID_WIDTH_PX) * 100}%`
-const percentOfGridHeight = (px: number) => `${(px / GRID_HEIGHT_PX) * 100}%`
 
 const rectToStyle = ({
   left,
@@ -46,7 +41,6 @@ const rectToStyle = ({
   height: percentOfHeight(height)
 })
 
-const horizontalLinesPx = [0, 41.2, 82.4, 123.6, 164.8, 206]
 const verticalLinesPx = Array.from(
   { length: 12 },
   (_, index) => index * (GRID_WIDTH_PX / 11)
@@ -94,8 +88,6 @@ const GRID_RECT = {
   width: GRID_WIDTH_PX,
   height: GRID_HEIGHT_PX
 }
-const GRID_FILL_RECT = { left: 0, top: 160, width: GRID_WIDTH_PX, height: 68 }
-// TARGET_RATIO will be calculated dynamically based on targetValue from API
 
 type SeriesPoint = {
   label: string
@@ -126,6 +118,7 @@ export default function CashTrendCard({
   anchorDate,
   targetHeightRem
 }: CashTrendCardProps) {
+  const { activeClinicId } = useClinic()
   const [series, setSeries] = useState<SeriesResult>({
     labels: [],
     dataPoints: [],
@@ -150,9 +143,18 @@ export default function CashTrendCard({
 
   // Fetch trend data from API
   useEffect(() => {
+    if (!activeClinicId) {
+      setSeries({ labels: [], dataPoints: [], highlightIndex: 0 })
+      setIsLoading(false)
+      return
+    }
     setIsLoading(true)
     const dateStr = formatDateMadrid(anchorDate)
-    fetch(`/api/caja/trend?date=${dateStr}&timeScale=${timeScale}`)
+    fetch(
+      `/api/caja/trend?date=${dateStr}&timeScale=${timeScale}&clinicId=${encodeURIComponent(
+        activeClinicId
+      )}`
+    )
       .then((res) => res.json())
       .then((data) => {
         // For day view: API returns raw invoices, calculate cumulative on frontend
@@ -216,7 +218,6 @@ export default function CashTrendCard({
           
           const dataPoints: SeriesPoint[] = []
           let facturadoTotal = 0
-          let cobradoTotal = 0
 
           // Calculate cumulative for each hour
           for (const hour of allHours) {
@@ -291,10 +292,6 @@ export default function CashTrendCard({
           facturadoTotal = data.invoices.reduce((sum: number, inv: any) => {
             return sum + Number(inv.total_amount || 0)
           }, 0)
-          cobradoTotal = (Array.isArray(data.payments) ? data.payments : []).reduce(
-            (sum: number, p: any) => sum + Number(p.amount || 0),
-            0
-          )
 
           // Calculate highlightIndex (current hour if today, otherwise last hour)
           const now = new Date()
@@ -356,7 +353,7 @@ export default function CashTrendCard({
         console.error('Error fetching trend:', error)
         setIsLoading(false)
       })
-  }, [timeScale, anchorDate])
+  }, [timeScale, anchorDate, activeClinicId])
 
   // Calculate dynamic max value based on data and target
   const dynamicMaxValue = useMemo(() => {
@@ -397,14 +394,6 @@ export default function CashTrendCard({
     }
     return labels
   }, [dynamicMaxValue])
-
-  // Calculate target ratio dynamically
-  const targetRatio = useMemo(() => {
-    if (!targetValue || targetValue <= 0 || dynamicMaxValue <= 0) return 0
-    const ratio = targetValue / dynamicMaxValue
-    // Ensure ratio is between 0 and 1
-    return Math.max(0, Math.min(1, ratio))
-  }, [targetValue, dynamicMaxValue])
 
   // All views now use cumulative data
   const isDayView = timeScale === 'day'
@@ -547,7 +536,7 @@ export default function CashTrendCard({
 
     if (timeScale === 'year') {
       const [ay] = anchorDateStr.split('-').map((v) => Number(v))
-      const [ny, nm, nd] = nowDateStr.split('-').map((v) => Number(v))
+      const [ny] = nowDateStr.split('-').map((v) => Number(v))
       if (ny !== ay) return null
       const daysInYear = new Date(Date.UTC(ay + 1, 0, 0)).getUTCDate()
       const startOfYear = new Date(Date.UTC(ay, 0, 1))
@@ -885,107 +874,3 @@ function TrendTooltip({ active, payload, label }: any) {
     </div>
   )
 }
-
-function buildSeries(scale: CashTimeScale, anchorDate: Date): SeriesResult {
-  switch (scale) {
-    case 'week':
-      return buildWeeklySeries(anchorDate)
-    case 'month':
-      return buildMonthlySeries(anchorDate)
-    case 'day':
-    default:
-      return buildDailySeries(anchorDate)
-  }
-}
-
-function buildDailySeries(anchorDate: Date): SeriesResult {
-  const formatter = new Intl.DateTimeFormat('es-ES', {
-    weekday: 'short',
-    day: 'numeric'
-  })
-  const dataPoints: SeriesPoint[] = []
-  for (let delta = 6; delta >= 0; delta--) {
-    const date = addDays(anchorDate, -delta)
-    dataPoints.push({
-      label: formatter.format(date),
-      actual: generateValue(date, 1.4, 12)
-    })
-  }
-  return {
-    labels: dataPoints.map((point) => point.label),
-    dataPoints,
-    highlightIndex: dataPoints.length - 1
-  }
-}
-
-function buildWeeklySeries(anchorDate: Date): SeriesResult {
-  const dataPoints: SeriesPoint[] = []
-  for (let delta = 3; delta >= 0; delta--) {
-    const start = startOfWeek(addDays(anchorDate, -7 * delta))
-    const weekNumber = getWeekOfYear(start)
-    dataPoints.push({
-      label: `Sem ${weekNumber}`,
-      actual: generateValue(start, 2.2, 18)
-    })
-  }
-  return {
-    labels: dataPoints.map((point) => point.label),
-    dataPoints,
-    highlightIndex: dataPoints.length - 1
-  }
-}
-
-function buildMonthlySeries(anchorDate: Date): SeriesResult {
-  const formatter = new Intl.DateTimeFormat('es-ES', { month: 'short' })
-  const dataPoints: SeriesPoint[] = []
-  for (let delta = 5; delta >= 0; delta--) {
-    const date = addMonths(anchorDate, -delta)
-    dataPoints.push({
-      label: formatter.format(date),
-      actual: generateValue(date, 2.5, 20)
-    })
-  }
-  return {
-    labels: dataPoints.map((point) => point.label),
-    dataPoints,
-    highlightIndex: dataPoints.length - 1
-  }
-}
-
-function addDays(date: Date, amount: number) {
-  const copy = new Date(date)
-  copy.setDate(copy.getDate() + amount)
-  return copy
-}
-
-function addMonths(date: Date, amount: number) {
-  const copy = new Date(date)
-  copy.setMonth(copy.getMonth() + amount)
-  return copy
-}
-
-function startOfWeek(date: Date) {
-  const copy = new Date(date)
-  const day = copy.getDay() || 7
-  if (day !== 1) {
-    copy.setDate(copy.getDate() - (day - 1))
-  }
-  return copy
-}
-
-function getWeekOfYear(date: Date) {
-  const firstDayOfYear = new Date(date.getFullYear(), 0, 1)
-  const pastDaysOfYear = Math.floor(
-    (Number(date) - Number(firstDayOfYear)) / 86400000
-  )
-  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)
-}
-
-function generateValue(date: Date, slope: number, base: number) {
-  const seed = date.getDate() + date.getMonth() * 31
-  const noise = ((seed * 11) % 7) * 0.6
-  const trend = ((date.getMonth() % 6) + 1) * slope
-  const value = Math.min(48, Math.max(8, base + trend + noise))
-  return Math.round((value + Number.EPSILON) * 10) / 10
-}
-

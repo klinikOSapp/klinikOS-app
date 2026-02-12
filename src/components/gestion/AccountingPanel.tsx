@@ -3,308 +3,28 @@
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
-import type { SpecialtyFilter } from './gestionTypes'
+import type {
+  GestionSpecialtyMetric,
+  GestionSummaryKpis,
+  SpecialtyFilter
+} from './gestionTypes'
 
 const CARD_WIDTH = 'var(--width-card-chart-lg-fluid)'
 const CARD_HEIGHT_CLAMP = 'clamp(17rem, 34vh, 21.375rem)'
 const CARD_WIDTH_LIMIT = 'var(--accounting-width-limit)'
 const CARD_HEIGHT_LIMIT = 'var(--accounting-height-limit)'
 
+const DONUT_CARD_HEIGHT = 248
+const BASE_ROOT_FONT_SIZE_PX = 16
+const DONUT_HEIGHT_RATIO = 186.093 / 307
+const DONUT_SCALE = 1.55
+const DONUT_MAX_WIDTH_REM = 25
+const DONUT_MIN_WIDTH_REM = 10
+const FIXED_COST_RATIO_DEFAULT = 0.6
+
 const toWidth = (px: number) => {
   const ratio = (px / 1069).toFixed(6)
   return `min(calc(${CARD_WIDTH} * ${ratio}), calc(${CARD_WIDTH_LIMIT} * ${ratio}))`
-}
-
-// Data by specialty for week
-const SPECIALTY_DATA_WEEK = {
-  Conservadora: {
-    produced: '3.360 €',
-    invoiced: '2.880 €',
-    collected: '2.400 €',
-    pending: '480 €',
-    deltas: {
-      produced: '+ 15%',
-      invoiced: '+ 12%',
-      collected: '+ 10%',
-      pending: '- 8%'
-    }
-  },
-  Ortodoncia: {
-    produced: '2.520 €',
-    invoiced: '2.160 €',
-    collected: '1.800 €',
-    pending: '360 €',
-    deltas: {
-      produced: '+ 10%',
-      invoiced: '+ 8%',
-      collected: '+ 6%',
-      pending: '- 4%'
-    }
-  },
-  Implantes: {
-    produced: '1.680 €',
-    invoiced: '1.440 €',
-    collected: '1.200 €',
-    pending: '240 €',
-    deltas: {
-      produced: '+ 14%',
-      invoiced: '+ 11%',
-      collected: '+ 9%',
-      pending: '- 6%'
-    }
-  },
-  Estética: {
-    produced: '840 €',
-    invoiced: '720 €',
-    collected: '600 €',
-    pending: '120 €',
-    deltas: {
-      produced: '+ 8%',
-      invoiced: '+ 7%',
-      collected: '+ 5%',
-      pending: '- 3%'
-    }
-  }
-} as const
-
-// Data by specialty for month
-const SPECIALTY_DATA_MONTH = {
-  Conservadora: {
-    produced: '15.120 €',
-    invoiced: '12.960 €',
-    collected: '10.800 €',
-    pending: '2.160 €',
-    deltas: {
-      produced: '+ 20%',
-      invoiced: '+ 17%',
-      collected: '+ 14%',
-      pending: '- 5%'
-    }
-  },
-  Ortodoncia: {
-    produced: '11.340 €',
-    invoiced: '9.720 €',
-    collected: '8.100 €',
-    pending: '1.620 €',
-    deltas: {
-      produced: '+ 16%',
-      invoiced: '+ 13%',
-      collected: '+ 11%',
-      pending: '- 3%'
-    }
-  },
-  Implantes: {
-    produced: '7.560 €',
-    invoiced: '6.480 €',
-    collected: '5.400 €',
-    pending: '1.080 €',
-    deltas: {
-      produced: '+ 19%',
-      invoiced: '+ 16%',
-      collected: '+ 13%',
-      pending: '- 4%'
-    }
-  },
-  Estética: {
-    produced: '3.780 €',
-    invoiced: '3.240 €',
-    collected: '2.700 €',
-    pending: '540 €',
-    deltas: {
-      produced: '+ 12%',
-      invoiced: '+ 10%',
-      collected: '+ 8%',
-      pending: '- 2%'
-    }
-  }
-} as const
-
-function getKpiCards(timeScale: CashTimeScale, specialty?: SpecialtyFilter) {
-  const baseCards = [
-    {
-      title: 'Producido',
-      bg: 'var(--color-info-50)',
-      icon: 'attach_money',
-      left: 16,
-      top: 64,
-      width: 198
-    },
-    {
-      title: 'Facturado',
-      bg: '#e9f6fb',
-      icon: 'receipt_long',
-      left: 236,
-      top: 64,
-      width: 198
-    },
-    {
-      title: 'Cobrado',
-      bg: 'var(--color-brand-50)',
-      icon: 'check_circle',
-      left: 16,
-      top: 196,
-      width: 198
-    },
-    {
-      title: 'Por cobrar',
-      bg: 'var(--color-warning-50)',
-      icon: 'hourglass_top',
-      left: 236,
-      top: 196,
-      width: 204
-    }
-  ] as const
-
-  // If specialty is selected, use specialty-specific data
-  if (specialty) {
-    const dataSource =
-      timeScale === 'month' ? SPECIALTY_DATA_MONTH : SPECIALTY_DATA_WEEK
-    const specialtyData = dataSource[specialty]
-    return baseCards.map((card, index) => ({
-      ...card,
-      value:
-        index === 0
-          ? specialtyData.produced
-          : index === 1
-          ? specialtyData.invoiced
-          : index === 2
-          ? specialtyData.collected
-          : specialtyData.pending,
-      delta:
-        index === 0
-          ? specialtyData.deltas.produced
-          : index === 1
-          ? specialtyData.deltas.invoiced
-          : index === 2
-          ? specialtyData.deltas.collected
-          : specialtyData.deltas.pending
-    }))
-  }
-
-  // Default totals (no filter)
-  if (timeScale === 'week') {
-    return baseCards.map((card, index) => ({
-      ...card,
-      value: ['8.400 €', '7.200 €', '6.000 €', '1.200 €'][index],
-      delta: ['+ 12%', '+ 10%', '+ 8%', '- 5%'][index]
-    }))
-  }
-
-  return baseCards.map((card, index) => ({
-    ...card,
-    value: ['37.800 €', '32.400 €', '27.000 €', '5.400 €'][index],
-    delta: ['+ 18%', '+ 15%', '+ 12%', '- 3%'][index]
-  }))
-}
-
-function getDonut(timeScale: CashTimeScale, specialty?: SpecialtyFilter) {
-  // Specialty-specific values
-  const specialtyValuesWeek = {
-    Conservadora: { value: 2400, target: 2880 },
-    Ortodoncia: { value: 1800, target: 2160 },
-    Implantes: { value: 1200, target: 1440 },
-    Estética: { value: 600, target: 720 }
-  }
-
-  const specialtyValuesMonth = {
-    Conservadora: { value: 10800, target: 12960 },
-    Ortodoncia: { value: 8100, target: 9720 },
-    Implantes: { value: 5400, target: 6480 },
-    Estética: { value: 2700, target: 3240 }
-  }
-
-  let value: number
-  let target: number
-
-  if (specialty) {
-    const source =
-      timeScale === 'month' ? specialtyValuesMonth : specialtyValuesWeek
-    value = source[specialty].value
-    target = source[specialty].target
-  } else if (timeScale === 'week') {
-    value = 6000
-    target = 7200
-  } else {
-    value = 27000
-    target = 32400
-  }
-
-  const pending = Math.max(target - value, 0)
-
-  return {
-    data: [
-      { name: 'actual', value, color: 'var(--color-brand-500)' },
-      {
-        name: 'remaining',
-        value: pending,
-        color: 'var(--color-brand-50)'
-      }
-    ],
-    progress: value / target,
-    valueLabel: value.toLocaleString('es-ES') + ' €',
-    targetLabel: target.toLocaleString('es-ES') + ' €',
-    pendingValue: pending,
-    pendingLabel: pending.toLocaleString('es-ES') + ' €'
-  }
-}
-
-function getSideStack(timeScale: CashTimeScale, specialty?: SpecialtyFilter) {
-  const baseStack = [
-    {
-      title: specialty ? `Facturación ${specialty}` : 'Total facturación',
-      top: 64,
-      height: 248,
-      bg: 'var(--color-brand-50)',
-      percent: undefined,
-      textClass: 'text-fg-secondary'
-    },
-    {
-      title: 'Gastos fijos',
-      top: 160,
-      height: 177,
-      bg: 'var(--color-brand-200)',
-      percent: '60%',
-      textClass: 'text-fg-secondary'
-    }
-  ] as const
-
-  // Specialty-specific invoiced values
-  const specialtyInvoicedWeek = {
-    Conservadora: 2880,
-    Ortodoncia: 2160,
-    Implantes: 1440,
-    Estética: 720
-  }
-
-  const specialtyInvoicedMonth = {
-    Conservadora: 12960,
-    Ortodoncia: 9720,
-    Implantes: 6480,
-    Estética: 3240
-  }
-
-  let invoiced: number
-  if (specialty) {
-    invoiced =
-      timeScale === 'month'
-        ? specialtyInvoicedMonth[specialty]
-        : specialtyInvoicedWeek[specialty]
-  } else {
-    invoiced = timeScale === 'month' ? 32400 : 7200
-  }
-
-  const fixedCosts = Math.round(invoiced * 0.6) // 60% fixed costs ratio
-
-  return [
-    {
-      ...baseStack[0],
-      value: invoiced.toLocaleString('es-ES') + ' €'
-    },
-    {
-      ...baseStack[1],
-      value: fixedCosts.toLocaleString('es-ES') + ' €'
-    }
-  ]
 }
 
 const toHeight = (px: number) => {
@@ -314,16 +34,6 @@ const toHeight = (px: number) => {
 
 type AccountingStyle = CSSProperties &
   Record<'--accounting-height-current' | '--stack-scale-y', string>
-
-const DONUT_CARD_WIDTH = 400
-const DONUT_CARD_HEIGHT = 248
-
-// Constantes para el donut responsive (misma lógica que CashSummaryCard)
-const BASE_ROOT_FONT_SIZE_PX = 16
-const DONUT_HEIGHT_RATIO = 186.093 / 307 // mantener proporción real del semi-donut
-const DONUT_SCALE = 1.55
-const DONUT_MAX_WIDTH_REM = 25 // máximo ancho del donut
-const DONUT_MIN_WIDTH_REM = 10 // mínimo ancho del donut
 
 const getRootFontSize = (allowWindow = false) => {
   if (!allowWindow || typeof window === 'undefined') return BASE_ROOT_FONT_SIZE_PX
@@ -339,30 +49,210 @@ const remToPx = (rem: number, rootFontSize = BASE_ROOT_FONT_SIZE_PX) =>
 
 const pxToRem = (px: number, rootFontSize = BASE_ROOT_FONT_SIZE_PX) =>
   px / rootFontSize
-// Altura total del stack lateral (desde el top de la primera card hasta el bottom de la segunda) en Figma: top1=64, height1=248, top2=160, height2=177 → span=273px
+
 const STACK_TOTAL_SPAN_PX = 273
-const STACK_SCALE = Number((DONUT_CARD_HEIGHT / STACK_TOTAL_SPAN_PX).toFixed(6)) // ≈0.908058, iguala la altura total del stack al alto del donut
-// Posicionamiento horizontal (ajustado para igualar gaps KPI↔donut↔stack en 1920px)
-const DONUT_LEFT = 457 // px
+const STACK_SCALE = Number((DONUT_CARD_HEIGHT / STACK_TOTAL_SPAN_PX).toFixed(6))
+
+function formatAmount(value: number) {
+  return `${Math.round(value).toLocaleString('es-ES')} €`
+}
+
+function formatDelta(value: number | null) {
+  if (value == null || !Number.isFinite(value)) return '—'
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`
+}
+
+function resolveScopedValues(
+  summary: GestionSummaryKpis,
+  specialty: SpecialtyFilter,
+  specialties: GestionSpecialtyMetric[]
+) {
+  if (!specialty) {
+    return {
+      produced: summary.produced,
+      invoiced: summary.invoiced,
+      collected: summary.collected,
+      pending: summary.pending
+    }
+  }
+
+  const metric = specialties.find((item) => item.label === specialty)
+  if (!metric) {
+    return {
+      produced: 0,
+      invoiced: 0,
+      collected: 0,
+      pending: 0
+    }
+  }
+
+  return {
+    produced: metric.produced,
+    invoiced: metric.invoiced,
+    collected: metric.collected,
+    pending: metric.pending
+  }
+}
+
+function getKpiCards(
+  summary: GestionSummaryKpis,
+  specialty: SpecialtyFilter,
+  specialties: GestionSpecialtyMetric[]
+) {
+  const scoped = resolveScopedValues(summary, specialty, specialties)
+  return [
+    {
+      title: 'Producido',
+      bg: 'var(--color-info-50)',
+      icon: 'attach_money',
+      left: 16,
+      top: 64,
+      width: 198,
+      value: formatAmount(scoped.produced),
+      delta: formatDelta(summary.producedDelta)
+    },
+    {
+      title: 'Facturado',
+      bg: '#e9f6fb',
+      icon: 'receipt_long',
+      left: 236,
+      top: 64,
+      width: 198,
+      value: formatAmount(scoped.invoiced),
+      delta: formatDelta(summary.invoicedDelta)
+    },
+    {
+      title: 'Cobrado',
+      bg: 'var(--color-brand-50)',
+      icon: 'check_circle',
+      left: 16,
+      top: 196,
+      width: 198,
+      value: formatAmount(scoped.collected),
+      delta: formatDelta(summary.collectedDelta)
+    },
+    {
+      title: 'Por cobrar',
+      bg: 'var(--color-warning-50)',
+      icon: 'hourglass_top',
+      left: 236,
+      top: 196,
+      width: 204,
+      value: formatAmount(scoped.pending),
+      delta: formatDelta(summary.pendingDelta)
+    }
+  ]
+}
+
+function getDonut(
+  summary: GestionSummaryKpis,
+  specialty: SpecialtyFilter,
+  specialties: GestionSpecialtyMetric[]
+) {
+  const scoped = resolveScopedValues(summary, specialty, specialties)
+  const value = scoped.collected
+  const target = Math.max(scoped.invoiced, 0)
+  const pending = Math.max(target - value, 0)
+
+  return {
+    data: [
+      { name: 'actual', value, color: 'var(--color-brand-500)' },
+      {
+        name: 'remaining',
+        value: pending,
+        color: 'var(--color-brand-50)'
+      }
+    ],
+    valueLabel: formatAmount(value),
+    targetLabel: formatAmount(target),
+    pendingValue: pending,
+    pendingLabel: formatAmount(pending)
+  }
+}
+
+function getSideStack(
+  summary: GestionSummaryKpis,
+  specialty: SpecialtyFilter,
+  specialties: GestionSpecialtyMetric[],
+  fixedCostRatio: number,
+  fixedCostsOverride?: number
+) {
+  const scoped = resolveScopedValues(summary, specialty, specialties)
+  const invoiced = scoped.invoiced
+  const fixedCosts =
+    specialty || fixedCostsOverride == null
+      ? Math.round(invoiced * fixedCostRatio)
+      : Math.round(fixedCostsOverride)
+
+  return [
+    {
+      title: specialty ? `Facturación ${specialty}` : 'Total facturación',
+      top: 64,
+      height: 248,
+      bg: 'var(--color-brand-50)',
+      value: formatAmount(invoiced),
+      percent: undefined,
+      textClass: 'text-fg-secondary'
+    },
+    {
+      title: 'Gastos fijos',
+      top: 160,
+      height: 177,
+      bg: 'var(--color-brand-200)',
+      value: formatAmount(fixedCosts),
+      percent: `${Math.round(fixedCostRatio * 100)}%`,
+      textClass: 'text-fg-secondary'
+    }
+  ]
+}
 
 export default function AccountingPanel({
   timeScale,
-  selectedSpecialty
+  selectedSpecialty,
+  summary,
+  specialties,
+  fixedCosts,
+  fixedCostRatio
 }: {
   timeScale: CashTimeScale
   selectedSpecialty?: SpecialtyFilter
+  summary?: GestionSummaryKpis
+  specialties?: GestionSpecialtyMetric[]
+  fixedCosts?: number
+  fixedCostRatio?: number
 }) {
-  const kpis = getKpiCards(timeScale, selectedSpecialty)
-  const sideStack = getSideStack(timeScale, selectedSpecialty)
-  const donut = getDonut(timeScale, selectedSpecialty)
+  void timeScale
+
+  const safeSummary: GestionSummaryKpis =
+    summary || {
+      produced: 0,
+      invoiced: 0,
+      collected: 0,
+      pending: 0,
+      producedDelta: 0,
+      invoicedDelta: 0,
+      collectedDelta: 0,
+      pendingDelta: null
+    }
+  const safeSpecialties = specialties || []
+  const ratio =
+    typeof fixedCostRatio === 'number' ? fixedCostRatio : FIXED_COST_RATIO_DEFAULT
+
+  const kpis = getKpiCards(safeSummary, selectedSpecialty || null, safeSpecialties)
+  const sideStack = getSideStack(
+    safeSummary,
+    selectedSpecialty || null,
+    safeSpecialties,
+    ratio,
+    fixedCosts
+  )
+  const donut = getDonut(safeSummary, selectedSpecialty || null, safeSpecialties)
 
   const sectionStyle: AccountingStyle = {
     width: '100%',
     maxWidth: '100%',
     height: `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`,
-    // Altura efectiva de la tarjeta (se reutiliza para escalar el stack lateral en viewports bajos)
     '--accounting-height-current': `min(${CARD_HEIGHT_CLAMP}, ${CARD_HEIGHT_LIMIT})`,
-    // Escalamos el stack para que su span total (273px) iguale la altura del donut (248px) en todos los viewports.
     '--stack-scale-y': STACK_SCALE.toString()
   }
 
@@ -402,15 +292,12 @@ export default function AccountingPanel({
             backgroundColor: card.bg
           }}
         >
-          {/* Icon - fixed size */}
           <span className='material-symbols-rounded text-base leading-none text-neutral-600 shrink-0'>
             {card.icon}
           </span>
-          {/* Title */}
           <p className='text-label-sm text-neutral-600 mt-1 truncate shrink-0'>
             {card.title}
           </p>
-          {/* Value + Delta - pushed to bottom */}
           <div className='mt-auto flex items-baseline justify-between gap-1 min-w-0 overflow-hidden'>
             <p className='text-neutral-600 text-lg lg:text-xl font-normal truncate min-w-0'>
               {card.value}
@@ -439,7 +326,7 @@ export default function AccountingPanel({
       <div
         className='absolute'
         style={{
-          right: toWidth(16), // margen derecho igual al padding izquierdo Figma (16px)
+          right: toWidth(16),
           top: 0,
           width: toWidth(173),
           height: '100%'
@@ -486,7 +373,6 @@ export default function AccountingPanel({
   )
 }
 
-// Componente del donut con ResizeObserver (misma lógica que CashSummaryCard)
 function AccountingDonut({
   donut,
   style

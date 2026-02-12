@@ -1,7 +1,8 @@
+import { resolveClinicIdForUser } from '@/lib/caja/permissions'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
     const supabase = await createSupabaseServerClient()
     const {
@@ -11,12 +12,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: clinics } = await supabase.rpc('get_my_clinics')
-    if (!clinics || clinics.length === 0) {
+    const clinicId = await resolveClinicIdForUser(supabase)
+    if (!clinicId) {
       return NextResponse.json({ staff: [] })
     }
-
-    const clinicId = clinics[0] as string
 
     // Fetch staff members using RPC function (bypasses RLS, same as appointment_hold)
     const { data: staffData, error } = await supabase.rpc('get_clinic_staff', { clinic: clinicId })
@@ -41,7 +40,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error?.message ?? 'Unexpected error' }, { status: 500 })
   }
 }
-
 
 
 

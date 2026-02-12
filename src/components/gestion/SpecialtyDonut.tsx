@@ -3,7 +3,12 @@
 import type { CashTimeScale } from '@/components/caja/cajaTypes'
 import type { CSSProperties } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
-import type { Specialty, SpecialtyFilter } from './gestionTypes'
+import type {
+  GestionSpecialtyMetric,
+  GestionSummaryKpis,
+  Specialty,
+  SpecialtyFilter
+} from './gestionTypes'
 
 type SpecialtyShare = {
   label: Specialty
@@ -11,79 +16,58 @@ type SpecialtyShare = {
   colorToken: string
 }
 
-type ProductionTotalCardProps = {
+type SpecialtyDonutProps = {
   year?: string
   value?: string
   delta?: string
   view?: 'barras' | 'circular'
-  specialties?: SpecialtyShare[]
+  specialties?: GestionSpecialtyMetric[]
   timeScale?: CashTimeScale
   selectedSpecialty?: SpecialtyFilter
   onSpecialtySelect?: (specialty: SpecialtyFilter) => void
+  summary?: GestionSummaryKpis
 }
 
-// Brand colors from design system (hex values for Recharts compatibility)
-const BRAND_COLORS = {
-  brand50: '#E3F5F2',
-  brand200: '#80D6C9',
-  brand500: '#00A991',
-  brand800: '#004D42'
+const BRAND_COLORS = ['#E3F5F2', '#80D6C9', '#00A991', '#004D42']
+const SELECTED_RING_COLOR = '#00A991'
+
+function formatCompactCurrency(value: number) {
+  if (value >= 1000) {
+    return `€ ${(value / 1000).toFixed(1)} K`
+  }
+  return `€ ${value.toFixed(0)}`
 }
 
-// Color activo cuando está seleccionado
-const SELECTED_RING_COLOR = '#00A991' // brand-500
+function formatDelta(value: number) {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`
+}
 
-// Desglose del FACTURADO por especialidad
-const DEFAULT_SPECIALTIES: SpecialtyShare[] = [
-  // Semana: Total Facturado = 7.200 €
-  {
-    label: 'Conservadora',
-    percentage: 40, // 2.880 €
-    colorToken: BRAND_COLORS.brand50
-  },
-  { label: 'Ortodoncia', percentage: 30, colorToken: BRAND_COLORS.brand200 }, // 2.160 €
-  { label: 'Implantes', percentage: 20, colorToken: BRAND_COLORS.brand500 }, // 1.440 €
-  { label: 'Estética', percentage: 10, colorToken: BRAND_COLORS.brand800 } // 720 €
-]
-
-const MONTH_SPECIALTIES: SpecialtyShare[] = [
-  // Mes: Total Facturado = 32.400 €
-  {
-    label: 'Conservadora',
-    percentage: 40, // 12.960 €
-    colorToken: BRAND_COLORS.brand50
-  },
-  { label: 'Ortodoncia', percentage: 30, colorToken: BRAND_COLORS.brand200 }, // 9.720 €
-  { label: 'Implantes', percentage: 20, colorToken: BRAND_COLORS.brand500 }, // 6.480 €
-  { label: 'Estética', percentage: 10, colorToken: BRAND_COLORS.brand800 } // 3.240 €
-]
-
-const CARD_HEIGHT = 'var(--height-card-chart-fluid)'
-
-export default function ProductionTotalCard({
+export default function SpecialtyDonut({
   year = '2024',
   value,
   delta,
   view: _view = 'circular',
   specialties,
-  timeScale = 'week',
   selectedSpecialty,
-  onSpecialtySelect
-}: ProductionTotalCardProps) {
+  onSpecialtySelect,
+  summary
+}: SpecialtyDonutProps) {
   void year
   void _view
-  const resolvedSpecialties =
-    specialties ??
-    (timeScale === 'month' ? MONTH_SPECIALTIES : DEFAULT_SPECIALTIES)
-  // Valor central = Total Facturado
-  const resolvedValue =
-    value ?? (timeScale === 'month' ? '€ 32,4 K' : '€ 7,2 K')
-  const resolvedDelta = delta ?? (timeScale === 'month' ? '+ 15%' : '+ 10%')
 
-  // Handler para clic en especialidad
+  const normalized: SpecialtyShare[] = (specialties || []).map((item, index) => ({
+    label: item.label,
+    percentage: item.sharePercent,
+    colorToken: BRAND_COLORS[index % BRAND_COLORS.length]
+  }))
+
+  const resolvedValue =
+    value ?? formatCompactCurrency(Number(summary?.invoiced || 0))
+  const resolvedDelta =
+    delta ?? formatDelta(Number(summary?.invoicedDelta || 0))
+
   const handleSpecialtyClick = (label: Specialty) => {
     if (!onSpecialtySelect) return
-    // Si ya está seleccionada, deseleccionar (toggle)
     if (selectedSpecialty === label) {
       onSpecialtySelect(null)
     } else {
@@ -102,13 +86,11 @@ export default function ProductionTotalCard({
       className='relative overflow-hidden rounded-lg bg-surface text-fg shadow-elevation-card flex flex-col min-w-0'
       style={sectionStyles}
     >
-      {/* Header */}
       <header className='px-3 lg:px-4 pt-3 lg:pt-4 shrink-0 flex items-center gap-2 justify-between'>
         <h3 className='text-title-sm font-medium text-fg truncate'>
           Facturación por especialidad
         </h3>
-        {/* Hint for filtering - only show when not filtered */}
-        {onSpecialtySelect && !selectedSpecialty && (
+        {onSpecialtySelect && !selectedSpecialty && normalized.length > 0 && (
           <p className='text-label-sm text-neutral-400 flex items-center gap-1 shrink-0'>
             <span className='material-symbols-rounded text-sm'>touch_app</span>
             <span className='hidden lg:inline'>Clic para filtrar el dashboard</span>
@@ -116,13 +98,11 @@ export default function ProductionTotalCard({
         )}
       </header>
 
-      {/* Content - responsive layout: column on tablet, row on desktop */}
       <div className='flex-1 flex flex-col lg:flex-row items-center px-3 lg:px-4 pt-2 pb-3 lg:pb-4 gap-2 lg:gap-4 min-w-0 overflow-hidden'>
-        {/* Donut - responsive size, can shrink */}
         <div
           className='relative outline-none shrink-0'
-          style={{ 
-            width: 'min(11rem, 40vw)', 
+          style={{
+            width: 'min(11rem, 40vw)',
             height: 'min(11rem, 40vw)',
             minWidth: '7rem',
             minHeight: '7rem'
@@ -135,7 +115,7 @@ export default function ProductionTotalCard({
               style={{ outline: 'none' }}
             >
               <Pie
-                data={resolvedSpecialties}
+                data={normalized}
                 dataKey='percentage'
                 startAngle={90}
                 endAngle={-270}
@@ -146,11 +126,11 @@ export default function ProductionTotalCard({
                 isAnimationActive
                 style={{ cursor: onSpecialtySelect ? 'pointer' : 'default' }}
                 onClick={(_, index) => {
-                  const specialty = resolvedSpecialties[index]
+                  const specialty = normalized[index]
                   if (specialty) handleSpecialtyClick(specialty.label)
                 }}
               >
-                {resolvedSpecialties.map(({ label, colorToken }) => {
+                {normalized.map(({ label, colorToken }) => {
                   const isSelected = selectedSpecialty === label
                   const isOtherSelected =
                     selectedSpecialty && selectedSpecialty !== label
@@ -167,7 +147,6 @@ export default function ProductionTotalCard({
               </Pie>
             </PieChart>
           </ResponsiveContainer>
-          {/* Center content */}
           <div className='pointer-events-none absolute inset-0 flex flex-col items-center justify-center'>
             <p className='text-base lg:text-title-md font-bold text-neutral-900 whitespace-nowrap'>
               {resolvedValue}
@@ -178,9 +157,8 @@ export default function ProductionTotalCard({
           </div>
         </div>
 
-        {/* Legend - vertical list */}
         <dl className='flex flex-col gap-1 lg:gap-1.5 text-sm text-neutral-800 justify-center min-w-0 overflow-visible'>
-          {resolvedSpecialties.map(({ label, percentage, colorToken }) => {
+          {normalized.map(({ label, percentage, colorToken }) => {
             const isSelected = selectedSpecialty === label
             const isOtherSelected =
               selectedSpecialty && selectedSpecialty !== label

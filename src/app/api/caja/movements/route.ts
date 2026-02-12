@@ -1,4 +1,4 @@
-import { requireCajaPermission } from '@/lib/caja/permissions'
+import { requireCajaPermission, resolveClinicIdForUser } from '@/lib/caja/permissions'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -17,7 +17,12 @@ type CashMovement = {
   produced: 'Hecho' | 'Pendiente'
   method: string
   insurer: string
-  paymentCategory: 'Efectivo' | 'TPV' | 'Transferencia' | 'Financiación'
+  paymentCategory:
+    | 'Efectivo'
+    | 'TPV'
+    | 'Transferencia'
+    | 'Financiación'
+    | 'Pendiente'
   quoteId?: string | null
   productionStatus?: 'Done' | 'Pending' | null
   productionDate?: string | null
@@ -116,13 +121,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user's clinics
-    const { data: clinics } = await supabase.rpc('get_my_clinics')
-    if (!clinics || clinics.length === 0) {
+    const clinicId = await resolveClinicIdForUser(supabase)
+    if (!clinicId) {
       return NextResponse.json({ movements: [] })
     }
-
-    const clinicId = clinics[0] as string
 
     const perm = await requireCajaPermission(supabase, clinicId, {
       type: 'module',
@@ -221,7 +223,7 @@ export async function GET(req: Request) {
         const method = row.last_payment_method ? String(row.last_payment_method) : 'Pendiente'
         const paymentCategory = row.last_payment_method
           ? getPaymentCategory(String(row.last_payment_method))
-          : 'Financiación'
+          : 'Pendiente'
 
         const patientName = `${row.patient_first_name || ''} ${row.patient_last_name || ''}`.trim()
 
@@ -390,7 +392,7 @@ export async function GET(req: Request) {
         const method = lastPayment?.method ? lastPayment.method : 'Pendiente'
         const paymentCategory = lastPayment?.method
           ? getPaymentCategory(lastPayment.method)
-          : 'Financiación'
+          : 'Pendiente'
 
         const total = Number(invoice.total_amount || 0)
         const paid = paymentSumByInvoice.get(String(invoice.id)) || 0
@@ -454,6 +456,5 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error?.message ?? 'Unexpected error' }, { status: 500 })
   }
 }
-
 
 

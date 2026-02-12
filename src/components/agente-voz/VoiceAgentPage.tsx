@@ -8,7 +8,13 @@ import CallDistributionDonut from './CallDistributionDonut'
 import CallVolumeChart from './CallVolumeChart'
 import CallsTable from './CallsTable'
 import VoiceAgentKPICard from './VoiceAgentKPICard'
-import type { VoiceAgentKPI, VoiceAgentTier } from './voiceAgentTypes'
+import type {
+  CallDistribution,
+  CallVolumeDataPoint,
+  VoiceAgentAnalyticsResponse,
+  VoiceAgentKPI,
+  VoiceAgentTier
+} from './voiceAgentTypes'
 
 // Helper: Get the start of the week (Monday) for a given date
 function getWeekStart(date: Date): Date {
@@ -71,12 +77,43 @@ const EMPTY_STATS: VoiceKpiStats = {
   avgWaitSeconds: null
 }
 
+const EMPTY_DISTRIBUTION_ADVANCED: CallDistribution[] = [
+  { name: 'Pendientes', value: 0, color: '#E9FBF9' },
+  { name: 'Confirmadas', value: 0, color: '#A8EFE7' },
+  { name: 'Aceptadas', value: 0, color: '#51D6C7' },
+  { name: 'Estética', value: 0, color: '#2A6B67' }
+]
+
+const EMPTY_DISTRIBUTION_BASIC: CallDistribution[] = [
+  { name: 'Pedir cita', value: 0, color: '#51D6C7' },
+  { name: 'Consultas', value: 0, color: '#A8EFE7' },
+  { name: 'Cancelaciones', value: 0, color: '#FFD188' },
+  { name: 'Urgencias', value: 0, color: '#FF6B6B' }
+]
+
+const EMPTY_VOLUME_DATA: CallVolumeDataPoint[] = [
+  { day: 'Lun', volumeTotal: 0, citasPropuestas: 0, citasAceptadas: 0, urgentes: 0 },
+  { day: 'Mar', volumeTotal: 0, citasPropuestas: 0, citasAceptadas: 0, urgentes: 0 },
+  { day: 'Mie', volumeTotal: 0, citasPropuestas: 0, citasAceptadas: 0, urgentes: 0 },
+  { day: 'Jue', volumeTotal: 0, citasPropuestas: 0, citasAceptadas: 0, urgentes: 0 },
+  { day: 'Vie', volumeTotal: 0, citasPropuestas: 0, citasAceptadas: 0, urgentes: 0 },
+  { day: 'Sab', volumeTotal: 0, citasPropuestas: 0, citasAceptadas: 0, urgentes: 0 },
+  { day: 'Dom', volumeTotal: 0, citasPropuestas: 0, citasAceptadas: 0, urgentes: 0 }
+]
+
 function formatDurationShort(seconds: number): string {
   const safe = Math.max(0, Math.round(seconds))
   const minutes = Math.floor(safe / 60)
   const remainingSeconds = safe % 60
   if (minutes > 0) return `${minutes}m ${remainingSeconds}s`
   return `${remainingSeconds}s`
+}
+
+function formatDateParam(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function getDelta(current: number, previous: number) {
@@ -195,6 +232,13 @@ export default function VoiceAgentPage() {
   )
   const [currentStats, setCurrentStats] = useState<VoiceKpiStats>(EMPTY_STATS)
   const [previousStats, setPreviousStats] = useState<VoiceKpiStats>(EMPTY_STATS)
+  const [advancedDistribution, setAdvancedDistribution] = useState<CallDistribution[]>(
+    EMPTY_DISTRIBUTION_ADVANCED
+  )
+  const [basicDistribution, setBasicDistribution] = useState<CallDistribution[]>(
+    EMPTY_DISTRIBUTION_BASIC
+  )
+  const [volumeData, setVolumeData] = useState<CallVolumeDataPoint[]>(EMPTY_VOLUME_DATA)
 
   // Check if we're viewing the current week
   const isCurrentWeek = isSameWeek(selectedWeekStart, new Date())
@@ -265,6 +309,55 @@ export default function VoiceAgentPage() {
       isMounted = false
     }
   }, [activeClinicId, isClinicInitialized, selectedWeekStart, supabase])
+
+  useEffect(() => {
+    let isMounted = true
+    async function loadWeeklyAnalytics() {
+      if (!isClinicInitialized) return
+      if (!activeClinicId) {
+        if (!isMounted) return
+        setAdvancedDistribution(EMPTY_DISTRIBUTION_ADVANCED)
+        setBasicDistribution(EMPTY_DISTRIBUTION_BASIC)
+        setVolumeData(EMPTY_VOLUME_DATA)
+        return
+      }
+
+      try {
+        const weekStartParam = formatDateParam(selectedWeekStart)
+        const response = await fetch(
+          `/api/agente-voz/analytics?weekStart=${encodeURIComponent(weekStartParam)}`,
+          { cache: 'no-store' }
+        )
+        if (!response.ok) throw new Error(`Analytics request failed: ${response.status}`)
+
+        const payload = (await response.json()) as VoiceAgentAnalyticsResponse
+        if (!isMounted) return
+
+        setAdvancedDistribution(
+          payload.distribution?.advanced?.length
+            ? payload.distribution.advanced
+            : EMPTY_DISTRIBUTION_ADVANCED
+        )
+        setBasicDistribution(
+          payload.distribution?.basic?.length
+            ? payload.distribution.basic
+            : EMPTY_DISTRIBUTION_BASIC
+        )
+        setVolumeData(payload.volume?.length ? payload.volume : EMPTY_VOLUME_DATA)
+      } catch (error) {
+        console.warn('VoiceAgent analytics hydration failed', error)
+        if (!isMounted) return
+        setAdvancedDistribution(EMPTY_DISTRIBUTION_ADVANCED)
+        setBasicDistribution(EMPTY_DISTRIBUTION_BASIC)
+        setVolumeData(EMPTY_VOLUME_DATA)
+      }
+    }
+
+    void loadWeeklyAnalytics()
+    return () => {
+      isMounted = false
+    }
+  }, [activeClinicId, isClinicInitialized, selectedWeekStart])
 
   const kpiData = useMemo<VoiceAgentKPI[]>(() => {
     const commonComparisonLabel = 'semana anterior'
@@ -470,12 +563,19 @@ export default function VoiceAgentPage() {
 
         {/* Donut Chart */}
         <div className='w-[min(16rem,22vw)] shrink-0'>
-          <CallDistributionDonut tier={voiceAgentTier} />
+          <CallDistributionDonut
+            tier={voiceAgentTier}
+            data={
+              voiceAgentTier === 'basic'
+                ? basicDistribution
+                : advancedDistribution
+            }
+          />
         </div>
 
         {/* Line Chart - Takes remaining space */}
         <div className='flex-1 min-w-[min(30rem,40vw)]'>
-          <CallVolumeChart tier={voiceAgentTier} />
+          <CallVolumeChart tier={voiceAgentTier} data={volumeData} />
         </div>
       </div>
 
