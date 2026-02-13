@@ -27,15 +27,19 @@ export default function ListenCallModal({
   onClose
 }: ListenCallModalProps) {
   const modalRef = useRef<HTMLDivElement>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [playbackSpeed, setPlaybackSpeed] = useState<1 | 1.5 | 2>(1)
   const [currentTime, setCurrentTime] = useState(0)
+  const [audioDuration, setAudioDuration] = useState(0)
   const [isMuted, setIsMuted] = useState(false)
+  const hasRecording = Boolean(call.recordingUrl)
 
-  // Mock duration in seconds (from call.duration MM:SS format)
+  // Duration fallback from call.duration (MM:SS)
   const durationParts = call.duration.split(':')
-  const totalSeconds =
+  const fallbackDurationSeconds =
     parseInt(durationParts[0]) * 60 + parseInt(durationParts[1])
+  const totalSeconds = audioDuration > 0 ? audioDuration : fallbackDurationSeconds
 
   // Handle escape key and click outside
   useEffect(() => {
@@ -63,6 +67,22 @@ export default function ListenCallModal({
     }
   }, [onClose])
 
+  useEffect(() => {
+    if (!audioRef.current) return
+    audioRef.current.playbackRate = playbackSpeed
+  }, [playbackSpeed])
+
+  useEffect(() => {
+    if (!audioRef.current) return
+    audioRef.current.muted = isMuted
+  }, [isMuted])
+
+  useEffect(() => {
+    setIsPlaying(false)
+    setCurrentTime(0)
+    setAudioDuration(0)
+  }, [call.id, call.recordingUrl])
+
   // Format time as M:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -71,9 +91,20 @@ export default function ListenCallModal({
   }
 
   // Toggle play/pause
-  const togglePlay = () => {
-    setIsPlaying(!isPlaying)
-    // TODO: Implement actual audio playback
+  const togglePlay = async () => {
+    if (!audioRef.current || !hasRecording) return
+    if (isPlaying) {
+      audioRef.current.pause()
+      setIsPlaying(false)
+      return
+    }
+    try {
+      await audioRef.current.play()
+      setIsPlaying(true)
+    } catch (error) {
+      console.warn('ListenCallModal playback failed', error)
+      setIsPlaying(false)
+    }
   }
 
   // Cycle playback speed
@@ -178,11 +209,26 @@ export default function ListenCallModal({
 
             {/* Audio Player */}
             <div className='mt-6 bg-neutral-100 rounded-3xl px-3 py-2 flex items-center gap-3'>
+              <audio
+                ref={audioRef}
+                src={call.recordingUrl ?? undefined}
+                preload='metadata'
+                onTimeUpdate={() =>
+                  setCurrentTime(audioRef.current?.currentTime || 0)
+                }
+                onLoadedMetadata={() =>
+                  setAudioDuration(audioRef.current?.duration || 0)
+                }
+                onEnded={() => setIsPlaying(false)}
+                className='hidden'
+              />
+
               {/* Play/Pause Button */}
               <button
                 type='button'
                 onClick={togglePlay}
-                className='w-8 h-8 flex items-center justify-center rounded-full bg-brand-500 text-white hover:bg-brand-600 transition-colors'
+                disabled={!hasRecording}
+                className='w-8 h-8 flex items-center justify-center rounded-full bg-brand-500 text-white hover:bg-brand-600 transition-colors disabled:cursor-not-allowed disabled:opacity-40'
                 aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
               >
                 <span className='material-symbols-rounded text-xl'>
@@ -194,7 +240,8 @@ export default function ListenCallModal({
               <button
                 type='button'
                 onClick={cycleSpeed}
-                className='w-[2.125rem] h-8 flex items-center justify-center rounded-lg bg-brand-100 text-sm font-bold text-black/60 hover:bg-brand-200 transition-colors'
+                disabled={!hasRecording}
+                className='w-[2.125rem] h-8 flex items-center justify-center rounded-lg bg-brand-100 text-sm font-bold text-black/60 hover:bg-brand-200 transition-colors disabled:cursor-not-allowed disabled:opacity-40'
                 aria-label={`Velocidad ${playbackSpeed}x`}
               >
                 {playbackSpeed}x
@@ -204,7 +251,8 @@ export default function ListenCallModal({
               <div className='flex-1 flex items-center gap-1 h-8 px-2'>
                 {WAVEFORM_HEIGHTS.map((height, index) => {
                   // Calculate if this bar should be "played"
-                  const progress = currentTime / totalSeconds
+                  const progress =
+                    totalSeconds > 0 ? currentTime / totalSeconds : 0
                   const barProgress = index / WAVEFORM_HEIGHTS.length
                   const isPlayed = barProgress <= progress
 
@@ -229,7 +277,8 @@ export default function ListenCallModal({
               <button
                 type='button'
                 onClick={toggleMute}
-                className='w-6 h-6 flex items-center justify-center text-black/60 hover:text-black transition-colors'
+                disabled={!hasRecording}
+                className='w-6 h-6 flex items-center justify-center text-black/60 hover:text-black transition-colors disabled:cursor-not-allowed disabled:opacity-40'
                 aria-label={isMuted ? 'Activar sonido' : 'Silenciar'}
               >
                 <span className='material-symbols-rounded text-xl'>
@@ -237,6 +286,11 @@ export default function ListenCallModal({
                 </span>
               </button>
             </div>
+            {!hasRecording && (
+              <p className='mt-2 text-label-sm text-neutral-500'>
+                Esta llamada no tiene audio disponible.
+              </p>
+            )}
           </div>
         </div>
       </div>

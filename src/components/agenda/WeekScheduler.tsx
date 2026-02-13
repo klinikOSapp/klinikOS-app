@@ -182,6 +182,29 @@ const BOX_COLUMN_LAYOUT: Record<string, { left: string; width: string }> = {
 const normalizeBoxLabel = (value: string): string =>
   value.trim().toLowerCase().replace(/\s+/g, ' ')
 
+const extractBoxNumber = (value?: string | null): string | null => {
+  if (!value) return null
+  const match = value.match(/\b(\d+)\b/)
+  return match ? match[1] : null
+}
+
+const resolveBoxLayoutKey = (
+  value: string | undefined,
+  layoutKeys: string[]
+): string | null => {
+  if (!value || layoutKeys.length === 0) return null
+  const normalized = normalizeBoxLabel(value)
+  if (layoutKeys.includes(normalized)) return normalized
+
+  const valueNumber = extractBoxNumber(value)
+  if (!valueNumber) return null
+
+  const byNumber = layoutKeys.find(
+    (key) => extractBoxNumber(key) === valueNumber
+  )
+  return byNumber || null
+}
+
 const toProfessionalOptionId = (name: string): string =>
   `prof-${name
     .trim()
@@ -2945,14 +2968,23 @@ export default function WeekScheduler() {
       .filter((block) => {
         // Filter by selected boxes
         if (block.box) {
-          const selectedBoxLabels = new Set(
+          const selectedBoxLabels = new Set<string>(
             effectiveBoxOptions
               .filter((opt) => selectedBoxes.includes(opt.id))
               .map((opt) => normalizeBoxLabel(opt.label))
           )
+          const selectedBoxNumbers = new Set<string>(
+            Array.from(selectedBoxLabels)
+              .map((label) => extractBoxNumber(label))
+              .filter((value): value is string => Boolean(value))
+          )
+          const blockBoxLabel = normalizeBoxLabel(block.box)
+          const blockBoxNumber = extractBoxNumber(block.box)
+
           if (
             selectedBoxLabels.size > 0 &&
-            !selectedBoxLabels.has(normalizeBoxLabel(block.box))
+            !selectedBoxLabels.has(blockBoxLabel) &&
+            (!blockBoxNumber || !selectedBoxNumbers.has(blockBoxNumber))
           ) {
             return false
           }
@@ -2985,8 +3017,10 @@ export default function WeekScheduler() {
 
         // Calculate left/width based on box layout
         const boxLayout = getBoxLayout(selectedBoxes, effectiveBoxOptions)
-        const boxName = normalizeBoxLabel(block.box ?? '')
-        const layout = boxLayout[boxName]
+        const layoutKeys = Object.keys(boxLayout)
+        const layoutKey =
+          resolveBoxLayoutKey(block.box, layoutKeys) || layoutKeys[0] || null
+        const layout = layoutKey ? boxLayout[layoutKey] : undefined
 
         return {
           id: block.id,

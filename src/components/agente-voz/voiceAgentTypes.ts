@@ -27,13 +27,17 @@ export type Sentiment =
 
 export interface CallRecord {
   id: string
+  externalCallId?: string | null
   status: CallStatus
   time: string
+  startedAt?: string | null
   patient: string | null // null = "Pendiente de asignar"
   phone: string
   intent: CallIntent
   duration: string // Format: "MM:SS"
   summary: string
+  transcript?: string | null
+  recordingUrl?: string | null
   sentiment: Sentiment
   appointmentId?: string // ID de la cita vinculada en la agenda (si se creó)
 }

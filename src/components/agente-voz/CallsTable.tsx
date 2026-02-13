@@ -12,7 +12,13 @@ import CallModal from './CallModal'
 import CallStatusBadge from './CallStatusBadge'
 import ListenCallModal from './ListenCallModal'
 import TranscriptionModal from './TranscriptionModal'
-import type { CallFilter, CallRecord, VoiceAgentTier } from './voiceAgentTypes'
+import type {
+  CallFilter,
+  CallIntent,
+  CallRecord,
+  Sentiment,
+  VoiceAgentTier
+} from './voiceAgentTypes'
 import {
   AUTO_PENDING_HOURS,
   CALL_INTENT_LABELS,
@@ -27,6 +33,201 @@ type CallsTableProps = {
 }
 
 const ITEMS_PER_PAGE = 9
+const CALLS_FETCH_LIMIT = 500
+
+function safeJson(value: unknown): Record<string, unknown> | null {
+  if (!value) return null
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as unknown
+      return parsed && typeof parsed === 'object'
+        ? (parsed as Record<string, unknown>)
+        : null
+    } catch {
+      return null
+    }
+  }
+  return typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function normalizeText(value: unknown): string {
+  return asString(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
+function extractSummary(payload: Record<string, unknown> | null): string {
+  const call = safeJson(payload?.call)
+  const analysis = safeJson(call?.analysis)
+  const callAnalysis = safeJson(call?.call_analysis)
+  const customAnalysis = safeJson(callAnalysis?.custom_analysis_data)
+  const candidates = [
+    asString(analysis?.summary),
+    asString(call?.call_summary),
+    asString(callAnalysis?.call_summary),
+    asString(customAnalysis?.call_summary),
+    asString(call?.summary)
+  ].map((value) => value.trim())
+  return candidates.find(Boolean) || ''
+}
+
+function extractTranscript(payload: Record<string, unknown> | null): string {
+  const call = safeJson(payload?.call)
+  const candidates = [
+    asString(call?.transcript),
+    asString(call?.full_transcript),
+    asString(payload?.transcript)
+  ].map((value) => value.trim())
+  return candidates.find(Boolean) || ''
+}
+
+function extractRecordingUrl(payload: Record<string, unknown> | null): string {
+  const call = safeJson(payload?.call)
+  const candidates = [asString(call?.recording_url), asString(payload?.recording_url)].map(
+    (value) => value.trim()
+  )
+  return candidates.find(Boolean) || ''
+}
+
+function mapIntent(intentSource: string): CallIntent {
+  const source = normalizeText(intentSource)
+  if (!source) return 'consulta_general'
+  if (source.includes('cancel')) return 'cancelar_cita'
+  if (source.includes('confirm')) return 'confirmar_cita'
+  if (source.includes('urgenc') || source.includes('dolor')) return 'urgencia_dolor'
+  if (
+    source.includes('financ') ||
+    source.includes('presup') ||
+    source.includes('coste') ||
+    source.includes('precio')
+  ) {
+    return 'consulta_financiacion'
+  }
+  if (source.includes('cita') || source.includes('agenda') || source.includes('book')) {
+    return 'pedir_cita_higiene'
+  }
+  return 'consulta_general'
+}
+
+function mapSentiment(sentimentSource: string): Sentiment {
+  const source = normalizeText(sentimentSource)
+  if (!source) return 'contento'
+  if (source.includes('enfad') || source.includes('angry')) return 'enfadado'
+  if (source.includes('nerv')) return 'nervioso'
+  if (source.includes('preocup') || source.includes('worr')) return 'preocupado'
+  if (source.includes('alivi') || source.includes('relief')) return 'aliviado'
+  return 'contento'
+}
+
+function isPlaceholderSummary(value: string): boolean {
+  const normalized = normalizeText(value)
+  return (
+    !normalized ||
+    normalized === 'voice call' ||
+    normalized === 'llamada de voz' ||
+    normalized === 'no summary available' ||
+    normalized === 'sin resumen disponible' ||
+    normalized === 'n/a'
+  )
+}
+
+function parseDurationSeconds(value: unknown): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed < 0) return 0
+  return Math.round(parsed)
+}
+
+function parseDurationFromPayload(payload: Record<string, unknown> | null): number {
+  const call = safeJson(payload?.call)
+  const fromMs = parseDurationSeconds(call?.duration_ms) / 1000
+  const fromCost = parseDurationSeconds(safeJson(call?.call_cost)?.total_duration_seconds)
+  const fromTop = parseDurationSeconds(payload?.duration_seconds || payload?.duration)
+  const candidates = [fromCost, fromTop, fromMs]
+  for (const candidate of candidates) {
+    if (candidate > 0) return Math.round(candidate)
+  }
+  return 0
+}
+
+function parseStartedAtFromPayload(payload: Record<string, unknown> | null): string | null {
+  const call = safeJson(payload?.call)
+  const startTimestamp = asString(call?.start_timestamp).trim()
+  if (startTimestamp) {
+    const parsed = new Date(startTimestamp)
+    if (Number.isFinite(parsed.getTime())) return parsed.toISOString()
+  }
+  const candidates = [
+    asString(payload?.started_at),
+    asString(payload?.start_time),
+    asString(payload?.received_at)
+  ]
+    .map((value) => value.trim())
+    .filter(Boolean)
+  for (const candidate of candidates) {
+    const parsed = new Date(candidate)
+    if (Number.isFinite(parsed.getTime())) return parsed.toISOString()
+  }
+  return null
+}
+
+function durationTextFromSeconds(seconds: number): string {
+  const safe = Math.max(0, Math.round(seconds))
+  const mm = String(Math.floor(safe / 60)).padStart(2, '0')
+  const ss = String(safe % 60).padStart(2, '0')
+  return `${mm}:${ss}`
+}
+
+function hasMedia(call: CallRecord): boolean {
+  return Boolean(call.recordingUrl && call.recordingUrl.trim() && call.transcript && call.transcript.trim())
+}
+
+function getCallTimestamp(call: CallRecord): number {
+  const source = call.startedAt || ''
+  const parsed = source ? new Date(source).getTime() : NaN
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function dedupeAndFilterCalls(calls: CallRecord[]): CallRecord[] {
+  const filtered = calls.filter(hasMedia)
+  const deduped = new Map<string, CallRecord>()
+
+  for (const call of filtered) {
+    const key =
+      (call.externalCallId && call.externalCallId.trim()) ||
+      (call.recordingUrl && call.recordingUrl.trim()) ||
+      `${call.phone}|${call.startedAt || call.time}`
+    const existing = deduped.get(key)
+    if (!existing) {
+      deduped.set(key, call)
+      continue
+    }
+    const currentScore =
+      (call.transcript?.length || 0) +
+      (call.summary?.length || 0) +
+      (call.duration !== '00:00' ? 15 : 0) +
+      (call.startedAt ? 10 : 0)
+    const existingScore =
+      (existing.transcript?.length || 0) +
+      (existing.summary?.length || 0) +
+      (existing.duration !== '00:00' ? 15 : 0) +
+      (existing.startedAt ? 10 : 0)
+    const shouldReplace =
+      currentScore > existingScore || getCallTimestamp(call) > getCallTimestamp(existing)
+    if (shouldReplace) {
+      deduped.set(key, call)
+    }
+  }
+
+  return Array.from(deduped.values()).sort(
+    (a, b) => getCallTimestamp(b) - getCallTimestamp(a)
+  )
+}
 
 // Quick Actions Menu Item
 type QuickActionItem = {
@@ -257,10 +458,17 @@ export default function CallsTable({
 
   // Local state for call records (to allow status updates from appointment sync)
   const [localCalls, setLocalCalls] = useState<CallRecord[]>(data ?? [])
+  const [totalCallsAvailable, setTotalCallsAvailable] = useState<number>(
+    data?.length ?? 0
+  )
 
   // Sync local calls when data prop changes
   useEffect(() => {
-    if (data) setLocalCalls(data)
+    if (data) {
+      const normalized = dedupeAndFilterCalls(data)
+      setLocalCalls(normalized)
+      setTotalCallsAvailable(normalized.length)
+    }
   }, [data])
 
   useEffect(() => {
@@ -270,28 +478,65 @@ export default function CallsTable({
       if (!isClinicInitialized) return
       try {
         if (!activeClinicId) {
-          if (isMounted) setLocalCalls([])
+          if (isMounted) {
+            setLocalCalls([])
+            setTotalCallsAvailable(0)
+          }
           return
         }
 
-        const { data: callRows, error } = await supabase.current
-          .from('calls')
-          .select(
-            'id, status, from_number, started_at, duration_seconds, call_outcome, is_urgent, patient_id, caller_contact_id, metadata, initial_clinic_id'
-          )
-          .or(`clinic_id.eq.${activeClinicId},initial_clinic_id.eq.${activeClinicId}`)
-          .order('started_at', { ascending: false })
-          .limit(200)
+        const clinicFilter = `clinic_id.eq.${activeClinicId},initial_clinic_id.eq.${activeClinicId}`
+        const [{ data: callRows, error }, { count }] = await Promise.all([
+          supabase.current
+            .from('calls')
+            .select(
+              'id, external_call_id, status, from_number, started_at, duration_seconds, call_outcome, is_urgent, patient_id, caller_contact_id, metadata, initial_clinic_id, recording_url, intent_summary'
+            )
+            .or(clinicFilter)
+            .order('started_at', { ascending: false })
+            .limit(CALLS_FETCH_LIMIT),
+          supabase.current
+            .from('calls')
+            .select('id', { count: 'exact', head: true })
+            .or(clinicFilter)
+        ])
         if (error) throw error
 
+        const normalizedCount = Number(count || 0)
+
+        let allCallRows = callRows || []
+        if (normalizedCount > allCallRows.length) {
+          for (
+            let offset = allCallRows.length;
+            offset < normalizedCount;
+            offset += CALLS_FETCH_LIMIT
+          ) {
+            const { data: nextRows, error: nextError } = await supabase.current
+              .from('calls')
+              .select(
+                'id, external_call_id, status, from_number, started_at, duration_seconds, call_outcome, is_urgent, patient_id, caller_contact_id, metadata, initial_clinic_id, recording_url, intent_summary'
+              )
+              .or(clinicFilter)
+              .order('started_at', { ascending: false })
+              .range(offset, offset + CALLS_FETCH_LIMIT - 1)
+            if (nextError) throw nextError
+            if (!nextRows || nextRows.length === 0) break
+            allCallRows = [...allCallRows, ...nextRows]
+          }
+        }
+
         const patientIds = Array.from(
-          new Set((callRows || []).map((row) => row.patient_id).filter(Boolean))
+          new Set(allCallRows.map((row) => row.patient_id).filter(Boolean))
         )
         const contactIds = Array.from(
-          new Set((callRows || []).map((row) => row.caller_contact_id).filter(Boolean))
+          new Set(allCallRows.map((row) => row.caller_contact_id).filter(Boolean))
         )
+        const callIds = allCallRows
+          .map((row) => Number(row.id))
+          .filter((value) => Number.isFinite(value))
 
-        const [patientsRes, contactsRes] = await Promise.all([
+        const [patientsRes, contactsRes, callLogsRes, webhookEventsRes, appointmentsRes] =
+          await Promise.all([
           patientIds.length
             ? supabase.current
                 .from('patients')
@@ -303,10 +548,32 @@ export default function CallsTable({
                 .from('contacts')
                 .select('id, full_name, phone_primary')
                 .in('id', contactIds)
+            : Promise.resolve({ data: [], error: null }),
+          callIds.length
+            ? supabase.current
+                .from('call_logs')
+                .select('call_id, transcript_text, call_summary, duration_seconds, started_at')
+                .in('call_id', callIds)
+            : Promise.resolve({ data: [], error: null }),
+          callIds.length
+            ? supabase.current
+                .from('webhook_events')
+                .select('related_call_id, payload, received_at')
+                .in('related_call_id', callIds)
+                .order('received_at', { ascending: false })
+            : Promise.resolve({ data: [], error: null }),
+          callIds.length
+            ? supabase.current
+                .from('appointments')
+                .select('id, created_by_call_id')
+                .in('created_by_call_id', callIds)
             : Promise.resolve({ data: [], error: null })
-        ])
+          ])
         if (patientsRes.error) throw patientsRes.error
         if (contactsRes.error) throw contactsRes.error
+        if (callLogsRes.error) throw callLogsRes.error
+        if (webhookEventsRes.error) throw webhookEventsRes.error
+        if (appointmentsRes.error) throw appointmentsRes.error
 
         const patientsById = new Map(
           (patientsRes.data || []).map((row) => [
@@ -317,6 +584,24 @@ export default function CallsTable({
                 .trim(),
               phone: String(row.phone_number || '')
             }
+          ])
+        )
+        const callLogsByCallId = new Map(
+          (callLogsRes.data || []).map((row) => [String(row.call_id), row])
+        )
+        const payloadByCallId = new Map<string, Record<string, unknown>>()
+        for (const row of webhookEventsRes.data || []) {
+          const callId = row.related_call_id ? String(row.related_call_id) : ''
+          if (!callId || payloadByCallId.has(callId)) continue
+          const payload = safeJson(row.payload)
+          if (payload) {
+            payloadByCallId.set(callId, payload)
+          }
+        }
+        const appointmentByCallId = new Map(
+          (appointmentsRes.data || []).map((row) => [
+            String(row.created_by_call_id),
+            String(row.id)
           ])
         )
         const contactsById = new Map(
@@ -339,11 +624,23 @@ export default function CallsTable({
           return 'pendiente'
         }
 
-        const hydrated: CallRecord[] = (callRows || []).map((row) => {
-          const startedAt = row.started_at ? new Date(row.started_at) : new Date()
-          const seconds = Number(row.duration_seconds || 0)
-          const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
-          const ss = String(seconds % 60).padStart(2, '0')
+        const hydrated: CallRecord[] = allCallRows.map((row) => {
+          const callId = String(row.id)
+          const webhookPayload = payloadByCallId.get(callId) || null
+          const callLog = callLogsByCallId.get(callId) || null
+          const payloadStartedAt = parseStartedAtFromPayload(webhookPayload)
+          const startedAtRaw =
+            asString(row.started_at).trim() ||
+            asString(callLog?.started_at).trim() ||
+            payloadStartedAt ||
+            null
+          const startedAt = startedAtRaw ? new Date(startedAtRaw) : new Date()
+          const payloadDuration = parseDurationFromPayload(webhookPayload)
+          const durationSeconds = Math.max(
+            parseDurationSeconds(row.duration_seconds),
+            parseDurationSeconds(callLog?.duration_seconds),
+            payloadDuration
+          )
           const patient =
             (row.patient_id ? patientsById.get(String(row.patient_id)) : null) ||
             (row.caller_contact_id
@@ -354,21 +651,72 @@ export default function CallsTable({
             row.metadata && typeof row.metadata === 'object'
               ? (row.metadata as Record<string, unknown>)
               : null
+          const payloadCall = safeJson(webhookPayload?.call)
+          const payloadCustomAnalysis = safeJson(
+            safeJson(payloadCall?.call_analysis)?.custom_analysis_data
+          )
           const metadataPatientName =
             (typeof metadata?.patient_name === 'string' && metadata.patient_name.trim()) ||
             (typeof metadata?.patient_full_name === 'string' &&
               metadata.patient_full_name.trim()) ||
             (typeof metadata?.caller_name === 'string' && metadata.caller_name.trim()) ||
             null
+          const payloadPatientName =
+            asString(payloadCustomAnalysis?.full_name).trim() ||
+            asString(payloadCustomAnalysis?.patient_name).trim() ||
+            asString(safeJson(payloadCall?.retell_llm_dynamic_variables)?.name).trim() ||
+            asString(safeJson(payloadCall?.collected_dynamic_variables)?.patient_name).trim() ||
+            null
           const patientName =
-            (patient?.fullName && patient.fullName.trim()) || metadataPatientName || null
+            (patient?.fullName && patient.fullName.trim()) ||
+            metadataPatientName ||
+            payloadPatientName ||
+            null
           const phone =
             String(row.from_number || '').trim() ||
             patient?.phone ||
             (typeof metadata?.caller_phone === 'string' ? metadata.caller_phone.trim() : '') ||
+            asString(safeJson(payloadCall?.retell_llm_dynamic_variables)?.from_number).trim() ||
             '—'
+          const extractedSummary = extractSummary(webhookPayload)
+          const callLogSummary = asString(callLog?.call_summary).trim()
+          const rowSummaryRaw = String(row.call_outcome || '').trim()
+          const rowSummary = isPlaceholderSummary(rowSummaryRaw) ? '' : rowSummaryRaw
+          const summaryRaw = rowSummary || callLogSummary || extractedSummary
+          const summary = isPlaceholderSummary(summaryRaw)
+            ? 'Sin resumen disponible.'
+            : summaryRaw
+          const callLogTranscript = asString(callLog?.transcript_text).trim()
+          const payloadTranscript = extractTranscript(webhookPayload)
+          const transcript = callLogTranscript || payloadTranscript || null
+          const recordingUrl =
+            asString(row.recording_url).trim() ||
+            asString(metadata?.recording_url).trim() ||
+            extractRecordingUrl(webhookPayload) ||
+            null
+          const intentSource = [
+            asString(metadata?.intent),
+            asString(metadata?.call_intent),
+            asString(metadata?.reason),
+            asString(row.intent_summary),
+            asString(row.call_outcome),
+            asString(payloadCustomAnalysis?.call_reason),
+            asString(payloadCall?.call_reason)
+          ]
+            .map((value) => value.trim())
+            .find(Boolean)
+          const sentimentSource = [
+            asString(metadata?.sentiment),
+            asString(metadata?.emotion),
+            asString(payloadCustomAnalysis?.sentiment),
+            asString(payloadCustomAnalysis?.emotion)
+          ]
+            .map((value) => value.trim())
+            .find(Boolean)
           return {
-            id: String(row.id),
+            id: callId,
+            externalCallId: asString(row.external_call_id).trim() || null,
+            startedAt: startedAtRaw,
             status: mapStatus(String(row.status || ''), Boolean(row.is_urgent)),
             time: startedAt.toLocaleTimeString('es-ES', {
               hour: '2-digit',
@@ -376,16 +724,26 @@ export default function CallsTable({
             }),
             patient: patientName,
             phone,
-            intent: 'consulta_general',
-            duration: `${mm}:${ss}`,
-            summary: String(row.call_outcome || 'Llamada de voz'),
-            sentiment: 'contento'
+            intent: mapIntent(intentSource || ''),
+            duration: durationTextFromSeconds(durationSeconds),
+            summary,
+            transcript,
+            recordingUrl,
+            sentiment: mapSentiment(sentimentSource || ''),
+            appointmentId: appointmentByCallId.get(callId)
           }
         })
-        if (isMounted) setLocalCalls(hydrated)
+        const normalizedCalls = dedupeAndFilterCalls(hydrated)
+        if (isMounted) {
+          setLocalCalls(normalizedCalls)
+          setTotalCallsAvailable(normalizedCalls.length)
+        }
       } catch (error) {
         console.warn('CallsTable hydration failed', error)
-        if (isMounted) setLocalCalls([])
+        if (isMounted) {
+          setLocalCalls([])
+          setTotalCallsAvailable(0)
+        }
       }
     }
     void hydrateCalls()
@@ -790,6 +1148,10 @@ export default function CallsTable({
               splitscreen
             </span>
           </button>
+          <span className='ml-2 text-label-sm text-neutral-500'>
+            Mostrando {filteredData.length.toLocaleString('es-ES')} de{' '}
+            {totalCallsAvailable.toLocaleString('es-ES')} llamadas
+          </span>
         </div>
 
         {/* Filters */}

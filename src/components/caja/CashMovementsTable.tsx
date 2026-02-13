@@ -1,11 +1,16 @@
 'use client'
 
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
+import InvoiceDetailsModal from '@/components/pacientes/modals/patient-record/InvoiceDetailsModal'
+import Portal from '@/components/ui/Portal'
 import { useClinic } from '@/context/ClinicContext'
 import { useUserRole } from '@/context/role-context'
 import { useRouter } from 'next/navigation'
 import type { FormEvent } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { PaymentMethod } from '@/types/payments'
+
+import ReceiptPreviewModal from './ReceiptPreviewModal'
 
 type InvoiceStatus = 'Aceptado' | 'Enviado'
 type ProductionState = 'Hecho' | 'Pendiente'
@@ -293,6 +298,10 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
     isSaving: false,
     error: null
   })
+  const [receiptModal, setReceiptModal] = useState<{
+    open: boolean
+    movement: CashMovement | null
+  }>({ open: false, movement: null })
 
   const formatMadridDate = (d: Date) =>
     new Intl.DateTimeFormat('en-CA', {
@@ -326,6 +335,18 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       from: start.toISOString().split('T')[0],
       to: end.toISOString().split('T')[0]
     }
+  }
+
+  const mapMovementMethodToReceiptMethod = (
+    method: string,
+    paymentCategory: PaymentCategory
+  ): PaymentMethod => {
+    const value = `${method} ${paymentCategory}`.toLowerCase()
+    if (value.includes('efectivo') || value.includes('cash')) return 'efectivo'
+    if (value.includes('tpv') || value.includes('tarjeta') || value.includes('card')) return 'tarjeta'
+    if (value.includes('transfer')) return 'transferencia'
+    if (value.includes('finan')) return 'financiacion'
+    return 'otros'
   }
 
   // Reset date-range when toolbar changes (v2 Phase 1 default behavior)
@@ -415,6 +436,18 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       if (!invoiceId) return
       const movement = movements.find((m) => m.invoiceId === invoiceId) || null
       if (!movement) return
+      setReceiptModal({ open: true, movement })
+    }
+    window.addEventListener('caja:print-receipt', handler as EventListener)
+    return () => window.removeEventListener('caja:print-receipt', handler as EventListener)
+  }, [movements])
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      const invoiceId = e?.detail?.invoiceId as string | undefined
+      if (!invoiceId) return
+      const movement = movements.find((m) => m.invoiceId === invoiceId) || null
+      if (!movement) return
       openInvoiceModal(movement)
     }
     window.addEventListener('caja:open-invoice', handler as EventListener)
@@ -424,10 +457,13 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
   useEffect(() => {
     const handler = (e: any) => {
       const invoiceId = e?.detail?.invoiceId as string | undefined
+      const preferredMethod = e?.detail?.method as
+        | Exclude<PaymentCategory, 'Pendiente'>
+        | undefined
       if (!invoiceId) return
       const movement = movements.find((m) => m.invoiceId === invoiceId) || null
       if (!movement) return
-      openModifyPaymentModal(movement)
+      openModifyPaymentModal(movement, preferredMethod)
     }
     window.addEventListener('caja:modify-transaction', handler as EventListener)
     return () => window.removeEventListener('caja:modify-transaction', handler as EventListener)
@@ -602,7 +638,10 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
     }
   }
 
-  const openModifyPaymentModal = async (movement: CashMovement) => {
+  const openModifyPaymentModal = async (
+    movement: CashMovement,
+    preferredMethod?: Exclude<PaymentCategory, 'Pendiente'>
+  ) => {
     setModifyPaymentModal((p) => ({
       ...p,
       open: true,
@@ -620,7 +659,7 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
         ...p,
         loading: false,
         paymentId: first?.id ? String(first.id) : '',
-        paymentMethod: first?.paymentMethod ? String(first.paymentMethod) : 'TPV'
+        paymentMethod: preferredMethod || (first?.paymentMethod ? String(first.paymentMethod) : 'TPV')
       }))
     } catch (e: any) {
       setModifyPaymentModal((p) => ({
@@ -1117,97 +1156,50 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
         </div>
       )}
 
-      {invoiceModal.open && (
+      {invoiceModal.open && invoiceModal.loading && (
         <div
           className='fixed inset-0 z-[60] flex items-center justify-center bg-black/30'
           role='dialog'
           aria-modal='true'
         >
-          <div className='w-[min(44rem,92vw)] rounded-lg bg-surface shadow-elevation-card p-6'>
-            <div className='flex items-center justify-between'>
-              <h3 className='text-title-sm font-medium text-fg'>Invoice</h3>
-              <button
-                type='button'
-                className='size-8 inline-flex items-center justify-center rounded-full hover:bg-neutral-100'
-                onClick={() => setInvoiceModal({ open: false, movement: null, loading: false })}
-                aria-label='Cerrar'
-              >
-                <span className='material-symbols-rounded text-[1.25rem]'>close</span>
-              </button>
-            </div>
-
-            {invoiceModal.loading ? (
-              <div className='py-6 text-neutral-600'>Loading…</div>
-            ) : (
-              <>
-                <div className='mt-4 grid grid-cols-3 gap-3 text-body-sm text-neutral-700'>
-                  <div className='rounded-md bg-neutral-50 p-3'>
-                    <div className='text-neutral-500'>Invoice #</div>
-                    <div className='font-medium'>{invoiceModal.invoice?.invoiceNumber ?? '—'}</div>
-                  </div>
-                  <div className='rounded-md bg-neutral-50 p-3'>
-                    <div className='text-neutral-500'>Total</div>
-                    <div className='font-medium'>
-                      {invoiceModal.invoice?.totalAmount?.toLocaleString('es-ES', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}{' '}
-                      €
-                    </div>
-                  </div>
-                  <div className='rounded-md bg-neutral-50 p-3'>
-                    <div className='text-neutral-500'>Outstanding</div>
-                    <div className='font-medium'>
-                      {invoiceModal.invoice?.outstandingAmount?.toLocaleString('es-ES', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}{' '}
-                      €
-                    </div>
-                  </div>
-                </div>
-
-                <div className='mt-4 rounded-md border border-border overflow-hidden'>
-                  <div className='grid grid-cols-3 bg-neutral-50 px-4 py-2 text-label-sm text-neutral-600'>
-                    <div>Date</div>
-                    <div>Method</div>
-                    <div className='text-right'>Amount</div>
-                  </div>
-                  {(invoiceModal.payments || []).length === 0 ? (
-                    <div className='px-4 py-4 text-neutral-600'>No payments for this invoice.</div>
-                  ) : (
-                    (invoiceModal.payments || []).map((p) => (
-                      <div
-                        key={p.id}
-                        className='grid grid-cols-3 px-4 py-2 border-t border-border text-body-sm text-neutral-800'
-                      >
-                        <div>
-                          {new Intl.DateTimeFormat('es-ES', {
-                            timeZone: 'Europe/Madrid',
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false
-                          }).format(new Date(p.transactionDate))}
-                        </div>
-                        <div>{p.paymentMethod}</div>
-                        <div className='text-right'>
-                          {Number(p.amount).toLocaleString('es-ES', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                          })}{' '}
-                          €
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </>
-            )}
+          <div className='rounded-lg bg-surface px-6 py-4 shadow-elevation-card text-neutral-700'>
+            Cargando factura...
           </div>
         </div>
+      )}
+
+      {invoiceModal.open && !invoiceModal.loading && (
+        <InvoiceDetailsModal
+          open={invoiceModal.open}
+          onClose={() => setInvoiceModal({ open: false, movement: null, loading: false })}
+          invoiceId={invoiceModal.invoice?.invoiceNumber || invoiceModal.movement?.invoiceId || '—'}
+          description={invoiceModal.movement?.concept || '—'}
+          amount={invoiceModal.movement?.amount || '0,00 €'}
+          date={
+            invoiceModal.movement?.day
+              ? new Date(`${invoiceModal.movement.day}T00:00:00`).toLocaleDateString('es-ES', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric'
+                })
+              : '—'
+          }
+          status={invoiceModal.movement?.collectionStatus === 'Cobrado' ? 'Cobrado' : 'Pendiente'}
+          paymentMethod={invoiceModal.payments?.[0]?.paymentMethod || invoiceModal.movement?.method || '-'}
+          insurer={invoiceModal.movement?.insurer || '-'}
+          patientName={invoiceModal.movement?.patient || undefined}
+          budgetId={invoiceModal.movement?.quoteId || undefined}
+          paymentDate={
+            invoiceModal.payments?.[0]?.transactionDate
+              ? new Date(invoiceModal.payments[0].transactionDate).toLocaleDateString('es-ES', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric'
+                })
+              : undefined
+          }
+          onDownloadPdf={() => window.print()}
+        />
       )}
 
       {modifyPaymentModal.open && (
@@ -1427,6 +1419,33 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
             </div>
           </div>
         </div>
+      )}
+
+      {receiptModal.open && (
+        <ReceiptPreviewModal
+          open={receiptModal.open}
+          onClose={() => setReceiptModal({ open: false, movement: null })}
+          receipt={null}
+          transactionData={
+            receiptModal.movement
+              ? {
+                  patientName: receiptModal.movement.patient,
+                  concept: receiptModal.movement.concept,
+                  amount: Number(
+                    String(receiptModal.movement.amount)
+                      .replace(/[^\d,.-]/g, '')
+                      .replace(/\./g, '')
+                      .replace(',', '.')
+                  ) || 0,
+                  paymentMethod: mapMovementMethodToReceiptMethod(
+                    receiptModal.movement.method,
+                    receiptModal.movement.paymentCategory
+                  ),
+                  date: `${receiptModal.movement.day}T12:00:00.000Z`
+                }
+              : undefined
+          }
+        />
       )}
 
       <PatientRecordModal
@@ -1739,137 +1758,338 @@ function ProductionBadge({ movement }: { movement: CashMovement }) {
 function ActionsMenu({ movement }: { movement: CashMovement }) {
   const { can } = useUserRole()
   const [open, setOpen] = useState(false)
+  const [showStatusSubmenu, setShowStatusSubmenu] = useState(false)
+  const [showProducedSubmenu, setShowProducedSubmenu] = useState(false)
+  const [showMethodSubmenu, setShowMethodSubmenu] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [menuPosition, setMenuPosition] = useState<{
+    top?: number
+    bottom?: number
+    right: number
+  }>({ right: 8, top: 0 })
 
   useEffect(() => {
     if (!open) return
-    const onDoc = () => setOpen(false)
-    document.addEventListener('click', onDoc)
-    return () => document.removeEventListener('click', onDoc)
+    const onDoc = (event: MouseEvent) => {
+      const target = event.target as Node | null
+      if (
+        (menuRef.current && target && menuRef.current.contains(target)) ||
+        (buttonRef.current && target && buttonRef.current.contains(target))
+      ) {
+        return
+      }
+      setOpen(false)
+      setShowStatusSubmenu(false)
+      setShowProducedSubmenu(false)
+      setShowMethodSubmenu(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  useEffect(() => {
+    if (!open || !buttonRef.current) return
+
+    const calculatePosition = () => {
+      if (!buttonRef.current) return
+      const buttonRect = buttonRef.current.getBoundingClientRect()
+      const menuHeight = 420
+      const viewportHeight = window.innerHeight
+      const viewportWidth = window.innerWidth
+      const margin = 8
+      const spaceBelow = viewportHeight - buttonRect.bottom
+      const spaceAbove = buttonRect.top
+      const right = Math.max(margin, viewportWidth - buttonRect.right)
+
+      if (spaceBelow >= menuHeight + margin) {
+        setMenuPosition({ top: buttonRect.bottom + margin, right })
+        return
+      }
+      if (spaceAbove >= menuHeight + margin) {
+        setMenuPosition({ bottom: viewportHeight - buttonRect.top + margin, right })
+        return
+      }
+      const centeredTop = Math.max(
+        margin,
+        Math.min(
+          viewportHeight - menuHeight - margin,
+          buttonRect.top + buttonRect.height / 2 - menuHeight / 2
+        )
+      )
+      setMenuPosition({ top: centeredTop, right })
+    }
+
+    calculatePosition()
+    window.addEventListener('scroll', calculatePosition, true)
+    window.addEventListener('resize', calculatePosition)
+    return () => {
+      window.removeEventListener('scroll', calculatePosition, true)
+      window.removeEventListener('resize', calculatePosition)
+    }
   }, [open])
 
   const canRegisterPayment = can('payments', 'create')
-  const canEditCash = can('cash', 'edit')
   const canDeleteCash = can('cash', 'delete')
-  const isPorCobrar = movement.collectionStatus === 'Por cobrar'
+  const canToggleProduced = can('clinical_notes', 'edit')
+  const statusOptions: CollectionStatus[] = ['Cobrado', 'Por cobrar']
+  const producedOptions: ProductionState[] = ['Hecho', 'Pendiente']
+
+  const closeMenu = () => {
+    setOpen(false)
+    setShowStatusSubmenu(false)
+    setShowProducedSubmenu(false)
+    setShowMethodSubmenu(false)
+  }
 
   return (
-    <div className='relative flex justify-end'>
+    <div className='relative inline-flex' data-actions-dropdown>
       <button
+        ref={buttonRef}
         type='button'
         aria-label='Acciones'
-        className='size-8 inline-flex items-center justify-center rounded-full text-neutral-700 transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic'
+        className='mx-auto flex size-12 items-center justify-center rounded-full border-[0.1875rem] border-neutral-700 text-neutral-900 transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic'
         onClick={(e) => {
           e.stopPropagation()
-          setOpen((v) => !v)
+          setOpen((v) => {
+            const next = !v
+            if (!next) {
+              setShowStatusSubmenu(false)
+              setShowProducedSubmenu(false)
+              setShowMethodSubmenu(false)
+            }
+            return next
+          })
         }}
       >
-        <span className='material-symbols-rounded text-[1.25rem] leading-5'>more_vert</span>
+        <span className='material-symbols-rounded text-[2rem] leading-none'>more_vert</span>
       </button>
 
       {open && (
-        <div
-          className='absolute right-0 top-[2.25rem] z-[50] w-[14rem] rounded-xl border border-border bg-surface shadow-elevation-popover overflow-hidden'
-          role='menu'
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            type='button'
-            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50'
-            onClick={() => {
-              setOpen(false)
-              window.dispatchEvent(
-                new CustomEvent('caja:open-invoice-payments', { detail: { invoiceId: movement.invoiceId } })
-              )
-            }}
+        <Portal>
+          <div
+            ref={menuRef}
+            className='fixed z-[9999] w-[18.75rem] overflow-hidden rounded-[1rem] border border-border bg-neutral-0 shadow-elevation-popover'
+            style={{ top: menuPosition.top, bottom: menuPosition.bottom, right: menuPosition.right }}
+            role='menu'
+            onClick={(e) => e.stopPropagation()}
+            data-actions-dropdown
           >
-            Payment history
-          </button>
+          <div className='py-1'>
+            <button
+              type='button'
+              className='flex w-full items-center gap-3 bg-neutral-100 px-4 py-3 text-left text-title-sm text-neutral-700 hover:bg-neutral-200'
+              onClick={() => {
+                closeMenu()
+                window.dispatchEvent(
+                  new CustomEvent('caja:open-patient-details', {
+                    detail: { patientId: movement.patientId ?? null, patientName: movement.patient }
+                  })
+                )
+              }}
+            >
+              <span className='material-symbols-rounded text-[1.4rem] text-neutral-500'>person</span>
+              <span>Ver paciente</span>
+            </button>
 
-          <button
-            type='button'
-            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50 disabled:opacity-40 disabled:hover:bg-transparent'
-            disabled={!canRegisterPayment || !isPorCobrar}
-            onClick={() => {
-              setOpen(false)
-              // bubble up via event to table component
-              window.dispatchEvent(new CustomEvent('caja:register-payment', { detail: { invoiceId: movement.invoiceId } }))
-            }}
-          >
-            Register payment
-          </button>
+            <button
+              type='button'
+              className='flex w-full items-center gap-3 px-4 py-3 text-left text-title-sm text-neutral-700 hover:bg-neutral-100'
+              onClick={() => {
+                closeMenu()
+                window.dispatchEvent(new CustomEvent('caja:open-invoice', { detail: { invoiceId: movement.invoiceId } }))
+              }}
+            >
+              <span className='material-symbols-rounded text-[1.4rem] text-neutral-500'>receipt_long</span>
+              <span>Ver factura</span>
+            </button>
 
-          <button
-            type='button'
-            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50'
-            onClick={() => {
-              setOpen(false)
-              window.dispatchEvent(new CustomEvent('caja:open-invoice', { detail: { invoiceId: movement.invoiceId } }))
-            }}
-          >
-            View invoice
-          </button>
+            <button
+              type='button'
+              disabled={!canRegisterPayment}
+              className='flex w-full items-center gap-3 px-4 py-3 text-left text-title-sm text-neutral-700 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent'
+              onClick={() => {
+                closeMenu()
+                window.dispatchEvent(new CustomEvent('caja:register-payment', { detail: { invoiceId: movement.invoiceId } }))
+              }}
+            >
+              <span className='material-symbols-rounded text-[1.4rem] text-neutral-500'>payments</span>
+              <span>Nuevo pago</span>
+            </button>
 
-          <button
-            type='button'
-            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50'
-            onClick={() => {
-              setOpen(false)
-              window.dispatchEvent(
-                new CustomEvent('caja:open-patient-details', {
-                  detail: { patientId: movement.patientId ?? null, patientName: movement.patient }
-                })
-              )
-            }}
-          >
-            View patient details
-          </button>
-
-          <button
-            type='button'
-            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50'
-            onClick={() => {
-              setOpen(false)
-              if (!movement.quoteId) return
-              window.dispatchEvent(
-                new CustomEvent('caja:open-treatment-details', {
-                  detail: { quoteId: movement.quoteId }
-                })
-              )
-            }}
-          >
-            View/edit treatment
-          </button>
+            <button
+              type='button'
+              className='flex w-full items-center gap-3 px-4 py-3 text-left text-title-sm text-neutral-700 hover:bg-neutral-100'
+              onClick={() => {
+                closeMenu()
+                window.dispatchEvent(new CustomEvent('caja:print-receipt', { detail: { invoiceId: movement.invoiceId } }))
+              }}
+            >
+              <span className='material-symbols-rounded text-[1.4rem] text-neutral-500'>print</span>
+              <span>Imprimir recibo</span>
+            </button>
+          </div>
 
           <div className='h-px bg-border' />
 
-          <button
-            type='button'
-            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-fg hover:bg-neutral-50 disabled:opacity-40 disabled:hover:bg-transparent'
-            disabled={!canEditCash}
-            onClick={() => {
-              setOpen(false)
-              window.dispatchEvent(
-                new CustomEvent('caja:modify-transaction', { detail: { invoiceId: movement.invoiceId } })
-              )
-            }}
-          >
-            Modificar transacción
-          </button>
+          <div className='py-1'>
+            <button
+              type='button'
+              className='flex w-full items-center justify-between px-4 py-3 text-left text-title-sm text-neutral-700 hover:bg-neutral-100'
+              onClick={() => setShowStatusSubmenu((v) => !v)}
+            >
+              <div className='flex items-center gap-3'>
+                <span
+                  className={`size-5 rounded-full ${
+                    movement.collectionStatus === 'Cobrado' ? 'bg-brandSemantic' : 'bg-warning-500'
+                  }`}
+                />
+                <span>Estado</span>
+              </div>
+              <span className='material-symbols-rounded text-[1.3rem] text-neutral-500'>
+                {showStatusSubmenu ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
+              </span>
+            </button>
+            {showStatusSubmenu && (
+              <div className='bg-neutral-50 py-1'>
+                {statusOptions.map((status) => {
+                  const selected = status === movement.collectionStatus
+                  return (
+                    <button
+                      key={status}
+                      type='button'
+                      disabled={
+                        (status === 'Cobrado' && !canRegisterPayment) ||
+                        (status === 'Por cobrar' && !canDeleteCash)
+                      }
+                      className={`flex w-full items-center gap-3 px-5 py-2 text-left text-body-sm ${
+                        selected
+                          ? 'bg-brand-0 font-medium text-brand-700'
+                          : 'text-neutral-800 hover:bg-neutral-100'
+                      }`}
+                      onClick={() => {
+                        if (selected) return
+                        closeMenu()
+                        if (status === 'Cobrado') {
+                          window.dispatchEvent(new CustomEvent('caja:register-payment', { detail: { invoiceId: movement.invoiceId } }))
+                          return
+                        }
+                        window.dispatchEvent(new CustomEvent('caja:delete-transaction', { detail: { invoiceId: movement.invoiceId } }))
+                      }}
+                    >
+                      <span
+                        className={`size-2.5 rounded-full ${
+                          status === 'Cobrado' ? 'bg-brandSemantic' : 'bg-warning-500'
+                        }`}
+                      />
+                      <span>{status}</span>
+                      {selected ? <span className='material-symbols-rounded ml-auto text-[1rem]'>check</span> : null}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
-          <button
-            type='button'
-            className='w-full px-[0.75rem] py-[0.625rem] text-left text-body-sm text-error-600 hover:bg-neutral-50 disabled:opacity-40 disabled:hover:bg-transparent'
-            disabled={!canDeleteCash}
-            onClick={() => {
-              setOpen(false)
-              window.dispatchEvent(
-                new CustomEvent('caja:delete-transaction', { detail: { invoiceId: movement.invoiceId } })
-              )
-            }}
-          >
-            Eliminar transacción
-          </button>
-        </div>
+          <div className='py-1'>
+            <button
+              type='button'
+              className='flex w-full items-center justify-between px-4 py-3 text-left text-title-sm text-neutral-700 hover:bg-neutral-100'
+              onClick={() => setShowProducedSubmenu((v) => !v)}
+            >
+              <div className='flex items-center gap-3'>
+                <span
+                  className={`size-5 rounded-full ${
+                    movement.produced === 'Hecho' ? 'bg-success-500' : 'bg-neutral-400'
+                  }`}
+                />
+                <span>Producido</span>
+              </div>
+              <span className='material-symbols-rounded text-[1.3rem] text-neutral-500'>
+                {showProducedSubmenu ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
+              </span>
+            </button>
+            {showProducedSubmenu && (
+              <div className='bg-neutral-50 py-1'>
+                {producedOptions.map((produced) => {
+                  const selected = produced === movement.produced
+                  return (
+                    <button
+                      key={produced}
+                      type='button'
+                      disabled={!canToggleProduced || !movement.quoteId}
+                      className={`flex w-full items-center gap-3 px-5 py-2 text-left text-body-sm disabled:cursor-not-allowed disabled:opacity-50 ${
+                        selected ? 'bg-brand-0 font-medium text-brand-700' : 'text-neutral-800 hover:bg-neutral-100'
+                      }`}
+                      onClick={() => {
+                        if (selected || !movement.quoteId) return
+                        closeMenu()
+                        window.dispatchEvent(
+                          new CustomEvent('caja:toggle-produced', {
+                            detail: { invoiceId: movement.invoiceId, quoteId: movement.quoteId, produced: movement.produced }
+                          })
+                        )
+                      }}
+                    >
+                      <span
+                        className={`size-2.5 rounded-full ${
+                          produced === 'Hecho' ? 'bg-success-500' : 'bg-neutral-400'
+                        }`}
+                      />
+                      <span>{produced}</span>
+                      {selected ? <span className='material-symbols-rounded ml-auto text-[1rem]'>check</span> : null}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className='py-1'>
+            <button
+              type='button'
+              className='flex w-full items-center justify-between px-4 py-3 text-left text-title-sm text-neutral-700 hover:bg-neutral-100'
+              onClick={() => setShowMethodSubmenu((v) => !v)}
+            >
+              <div className='flex items-center gap-3'>
+                <span className='material-symbols-rounded text-[1.2rem] text-neutral-600'>payments</span>
+                <span>Método</span>
+              </div>
+              <span className='material-symbols-rounded text-[1.3rem] text-neutral-500'>
+                {showMethodSubmenu ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
+              </span>
+            </button>
+            {showMethodSubmenu && (
+              <div className='bg-neutral-50 py-1'>
+                {PAYMENT_FILTERS.map((method) => {
+                  const selected = method === movement.paymentCategory
+                  return (
+                    <button
+                      key={method}
+                      type='button'
+                      disabled={selected}
+                      className={`flex w-full items-center gap-3 px-5 py-2 text-left text-body-sm ${
+                        selected ? 'bg-brand-0 font-medium text-brand-700' : 'text-neutral-800 hover:bg-neutral-100'
+                      }`}
+                      onClick={() => {
+                        closeMenu()
+                        window.dispatchEvent(
+                          new CustomEvent('caja:modify-transaction', {
+                            detail: { invoiceId: movement.invoiceId, method }
+                          })
+                        )
+                      }}
+                    >
+                      <span>{method}</span>
+                      {selected ? <span className='material-symbols-rounded ml-auto text-[1rem]'>check</span> : null}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+          </div>
+        </Portal>
       )}
     </div>
   )

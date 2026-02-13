@@ -18,6 +18,89 @@ type TranscriptionMessage = {
   text: string
 }
 
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function safeJson(value: unknown): Record<string, unknown> | null {
+  if (!value) return null
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as unknown
+      return parsed && typeof parsed === 'object'
+        ? (parsed as Record<string, unknown>)
+        : null
+    } catch {
+      return null
+    }
+  }
+  return typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
+function extractTranscriptFromPayload(payload: Record<string, unknown> | null): string {
+  const call = safeJson(payload?.call)
+  const candidates = [
+    asString(call?.transcript),
+    asString(call?.full_transcript),
+    asString(payload?.transcript)
+  ]
+    .map((value) => value.trim())
+    .filter(Boolean)
+  return candidates[0] || ''
+}
+
+function toMessages(
+  transcriptText: string,
+  fallbackSummary: string
+): TranscriptionMessage[] {
+  const fallbackMessages: TranscriptionMessage[] = [
+    {
+      id: 'fallback-agent',
+      sender: 'agent',
+      text: 'No hay transcripción completa disponible para esta llamada.'
+    },
+    {
+      id: 'fallback-patient',
+      sender: 'patient',
+      text: fallbackSummary || 'Sin resumen de llamada.'
+    }
+  ]
+
+  const normalized = transcriptText.trim()
+  if (!normalized) return fallbackMessages
+
+  const parsed = normalized
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      const agentPrefix = /^(agent|ia|assistant|agente|operador)\s*:\s*/i
+      const patientPrefix = /^(patient|paciente|user|usuario)\s*:\s*/i
+      const isAgentLine = agentPrefix.test(line)
+      const isPatientLine = patientPrefix.test(line)
+      const cleanText = line.replace(agentPrefix, '').replace(patientPrefix, '').trim()
+      return {
+        id: `line-${index + 1}`,
+        sender: (isAgentLine
+          ? 'agent'
+          : isPatientLine
+            ? 'patient'
+            : index % 2 === 0
+              ? 'agent'
+              : 'patient') as TranscriptionMessage['sender'],
+        text: cleanText || line
+      }
+    })
+
+  return parsed.length > 0 ? parsed : fallbackMessages
+}
+
+function parseDurationToSeconds(duration: string): number {
+  const [mm, ss] = duration.split(':').map((value) => Number(value))
+  if (!Number.isFinite(mm) || !Number.isFinite(ss)) return 0
+  return Math.max(0, mm * 60 + ss)
+}
+
 // Waveform bar heights for visual representation
 const WAVEFORM_HEIGHTS = [
   2, 8, 14, 4, 16, 14, 10, 10, 10, 10, 14, 10, 16, 10, 16, 16, 16, 10, 10, 16,
@@ -35,16 +118,20 @@ export default function TranscriptionModal({
 }: TranscriptionModalProps) {
   const supabase = useRef(createSupabaseBrowserClient())
   const modalRef = useRef<HTMLDivElement>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
   const [messages, setMessages] = useState<TranscriptionMessage[]>([])
   const [isPlaying, setIsPlaying] = useState(false)
   const [playbackSpeed, setPlaybackSpeed] = useState<1 | 1.5 | 2>(1)
   const [currentTime, setCurrentTime] = useState(0)
+  const [audioDuration, setAudioDuration] = useState(0)
   const [isMuted, setIsMuted] = useState(false)
+  const hasRecording = Boolean(call.recordingUrl)
 
   // Mock duration in seconds (from call.duration MM:SS format)
   const durationParts = call.duration.split(':')
-  const totalSeconds =
+  const fallbackDurationSeconds =
     parseInt(durationParts[0]) * 60 + parseInt(durationParts[1])
+  const totalSeconds = audioDuration > 0 ? audioDuration : fallbackDurationSeconds
 
   useEffect(() => {
     let isMounted = true
@@ -52,86 +139,46 @@ export default function TranscriptionModal({
     async function hydrateTranscript() {
       try {
         const callId = Number(call.id)
-        const fallbackMessages: TranscriptionMessage[] = [
-          {
-            id: 'fallback-agent',
-            sender: 'agent',
-            text: 'No hay transcripción completa disponible para esta llamada.'
-          },
-          {
-            id: 'fallback-patient',
-            sender: 'patient',
-            text: call.summary || 'Sin resumen de llamada.'
-          }
-        ]
+        const immediateTranscript = asString(call.transcript).trim()
+        if (immediateTranscript) {
+          if (isMounted) setMessages(toMessages(immediateTranscript, call.summary || ''))
+          return
+        }
 
         if (Number.isNaN(callId)) {
-          if (isMounted) setMessages(fallbackMessages)
+          if (isMounted) setMessages(toMessages('', call.summary || ''))
           return
         }
 
-        const { data, error } = await supabase.current
-          .from('call_logs')
-          .select('transcript_text, call_summary')
-          .eq('call_id', callId)
-          .maybeSingle()
+        const [{ data: logData, error: logError }, { data: webhookRows, error: webhookError }] =
+          await Promise.all([
+            supabase.current
+              .from('call_logs')
+              .select('transcript_text, call_summary')
+              .eq('call_id', callId)
+              .maybeSingle(),
+            supabase.current
+              .from('webhook_events')
+              .select('payload, received_at')
+              .eq('related_call_id', callId)
+              .order('received_at', { ascending: false })
+              .limit(1)
+          ])
 
-        if (error) throw error
+        if (logError) throw logError
+        if (webhookError) throw webhookError
 
-        const transcriptText =
-          typeof data?.transcript_text === 'string'
-            ? data.transcript_text.trim()
-            : ''
+        const logTranscript = asString(logData?.transcript_text).trim()
+        const webhookPayload = safeJson(webhookRows?.[0]?.payload)
+        const webhookTranscript = extractTranscriptFromPayload(webhookPayload)
+        const transcriptText = logTranscript || webhookTranscript
 
-        if (!transcriptText) {
-          if (isMounted) setMessages(fallbackMessages)
-          return
-        }
-
-        const parsed = transcriptText
-          .split(/\n+/)
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .map((line, index) => {
-            const agentPrefix = /^(agent|ia|assistant|agente|operador)\s*:\s*/i
-            const patientPrefix = /^(patient|paciente|user|usuario)\s*:\s*/i
-            const isAgentLine = agentPrefix.test(line)
-            const isPatientLine = patientPrefix.test(line)
-            const cleanText = line
-              .replace(agentPrefix, '')
-              .replace(patientPrefix, '')
-              .trim()
-            return {
-              id: `line-${index + 1}`,
-              sender: (isAgentLine
-                ? 'agent'
-                : isPatientLine
-                ? 'patient'
-                : index % 2 === 0
-                ? 'agent'
-                : 'patient') as TranscriptionMessage['sender'],
-              text: cleanText || line
-            }
-          })
-
-        if (isMounted) {
-          setMessages(parsed.length > 0 ? parsed : fallbackMessages)
-        }
+        if (!isMounted) return
+        setMessages(toMessages(transcriptText, call.summary || ''))
       } catch (error) {
         console.warn('TranscriptionModal hydration failed', error)
         if (isMounted) {
-          setMessages([
-            {
-              id: 'fallback-agent',
-              sender: 'agent',
-              text: 'No hay transcripción disponible.'
-            },
-            {
-              id: 'fallback-patient',
-              sender: 'patient',
-              text: call.summary || 'Sin resumen de llamada.'
-            }
-          ])
+          setMessages(toMessages('', call.summary || ''))
         }
       }
     }
@@ -140,7 +187,7 @@ export default function TranscriptionModal({
     return () => {
       isMounted = false
     }
-  }, [call.id, call.summary])
+  }, [call.id, call.summary, call.transcript])
 
   // Handle escape key and click outside
   useEffect(() => {
@@ -168,6 +215,22 @@ export default function TranscriptionModal({
     }
   }, [onClose])
 
+  useEffect(() => {
+    if (!audioRef.current) return
+    audioRef.current.playbackRate = playbackSpeed
+  }, [playbackSpeed])
+
+  useEffect(() => {
+    if (!audioRef.current) return
+    audioRef.current.muted = isMuted
+  }, [isMuted])
+
+  useEffect(() => {
+    setIsPlaying(false)
+    setCurrentTime(0)
+    setAudioDuration(0)
+  }, [call.id, call.recordingUrl])
+
   // Format time as M:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -176,8 +239,20 @@ export default function TranscriptionModal({
   }
 
   // Toggle play/pause
-  const togglePlay = () => {
-    setIsPlaying(!isPlaying)
+  const togglePlay = async () => {
+    if (!audioRef.current || !hasRecording) return
+    if (isPlaying) {
+      audioRef.current.pause()
+      setIsPlaying(false)
+      return
+    }
+    try {
+      await audioRef.current.play()
+      setIsPlaying(true)
+    } catch (error) {
+      console.warn('TranscriptionModal playback failed', error)
+      setIsPlaying(false)
+    }
   }
 
   // Cycle playback speed
@@ -194,8 +269,17 @@ export default function TranscriptionModal({
     setIsMuted(!isMuted)
   }
 
-  // Get current date formatted
-  const today = new Date()
+  // Get call date formatted
+  const callDate = call.startedAt ? new Date(call.startedAt) : new Date()
+  const durationSeconds = parseDurationToSeconds(call.duration)
+  const endDate = new Date(callDate.getTime() + durationSeconds * 1000)
+  const startTimeLabel = call.startedAt
+    ? callDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+    : call.time
+  const endTimeLabel = endDate.toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
   const dayNames = [
     'Domingo',
     'Lunes',
@@ -205,8 +289,8 @@ export default function TranscriptionModal({
     'Viernes',
     'Sábado'
   ]
-  const formattedDate = `${dayNames[today.getDay()]} ${today.getDate()}/${(
-    today.getMonth() + 1
+  const formattedDate = `${dayNames[callDate.getDay()]} ${callDate.getDate()}/${(
+    callDate.getMonth() + 1
   )
     .toString()
     .padStart(2, '0')}`
@@ -265,10 +349,7 @@ export default function TranscriptionModal({
                       more_time
                     </span>
                     <span className='text-body-sm text-neutral-900'>
-                      {call.time} - {call.time.split(':')[0]}:
-                      {(parseInt(call.time.split(':')[1]) + 30)
-                        .toString()
-                        .padStart(2, '0')}
+                      {startTimeLabel} - {endTimeLabel}
                     </span>
                   </div>
                 </div>
@@ -349,11 +430,26 @@ export default function TranscriptionModal({
           {/* Audio Player - Fixed at bottom */}
           <div className='px-8 pb-6 pt-2 shrink-0'>
             <div className='bg-neutral-100 rounded-3xl px-3 py-2 flex items-center gap-3'>
+              <audio
+                ref={audioRef}
+                src={call.recordingUrl ?? undefined}
+                preload='metadata'
+                onTimeUpdate={() =>
+                  setCurrentTime(audioRef.current?.currentTime || 0)
+                }
+                onLoadedMetadata={() =>
+                  setAudioDuration(audioRef.current?.duration || 0)
+                }
+                onEnded={() => setIsPlaying(false)}
+                className='hidden'
+              />
+
               {/* Play/Pause Button */}
               <button
                 type='button'
                 onClick={togglePlay}
-                className='w-8 h-8 flex items-center justify-center rounded-full bg-brand-500 text-white hover:bg-brand-400 transition-colors'
+                disabled={!hasRecording}
+                className='w-8 h-8 flex items-center justify-center rounded-full bg-brand-500 text-white hover:bg-brand-400 transition-colors disabled:cursor-not-allowed disabled:opacity-40'
                 aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
               >
                 <span className='material-symbols-rounded text-xl'>
@@ -365,7 +461,8 @@ export default function TranscriptionModal({
               <button
                 type='button'
                 onClick={cycleSpeed}
-                className='w-[2.125rem] h-8 flex items-center justify-center rounded-lg bg-brand-100 text-sm font-bold text-black/60 hover:bg-brand-200 transition-colors'
+                disabled={!hasRecording}
+                className='w-[2.125rem] h-8 flex items-center justify-center rounded-lg bg-brand-100 text-sm font-bold text-black/60 hover:bg-brand-200 transition-colors disabled:cursor-not-allowed disabled:opacity-40'
                 aria-label={`Velocidad ${playbackSpeed}x`}
               >
                 {playbackSpeed}x
@@ -374,7 +471,8 @@ export default function TranscriptionModal({
               {/* Waveform */}
               <div className='flex-1 flex items-center gap-1 h-8 px-2'>
                 {WAVEFORM_HEIGHTS.map((height, index) => {
-                  const progress = currentTime / totalSeconds
+                  const progress =
+                    totalSeconds > 0 ? currentTime / totalSeconds : 0
                   const barProgress = index / WAVEFORM_HEIGHTS.length
                   const isPlayed = barProgress <= progress
 
@@ -399,7 +497,8 @@ export default function TranscriptionModal({
               <button
                 type='button'
                 onClick={toggleMute}
-                className='w-6 h-6 flex items-center justify-center text-black/60 hover:text-black transition-colors'
+                disabled={!hasRecording}
+                className='w-6 h-6 flex items-center justify-center text-black/60 hover:text-black transition-colors disabled:cursor-not-allowed disabled:opacity-40'
                 aria-label={isMuted ? 'Activar sonido' : 'Silenciar'}
               >
                 <span className='material-symbols-rounded text-xl'>
@@ -407,6 +506,11 @@ export default function TranscriptionModal({
                 </span>
               </button>
             </div>
+            {!hasRecording && (
+              <p className='mt-2 text-label-sm text-neutral-500'>
+                Esta llamada no tiene audio disponible.
+              </p>
+            )}
           </div>
         </div>
       </div>

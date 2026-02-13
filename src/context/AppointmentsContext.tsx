@@ -324,11 +324,29 @@ const getTimezoneOffsetMinutes = (date: Date, timeZone: string): number => {
   return parseShortOffsetToMinutes(tzName)
 }
 
+const parseDbDateValue = (dateValue: string | Date): Date => {
+  if (dateValue instanceof Date) return dateValue
+  const raw = String(dateValue || '').trim()
+  if (!raw) return new Date(NaN)
+
+  let normalized = raw
+  // Normalize Postgres style timestamps: "2026-02-11 08:00:00+00"
+  if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/.test(normalized)) {
+    normalized = normalized.replace(' ', 'T')
+  }
+  // Normalize timezone offset "+00" -> "+00:00"
+  normalized = normalized.replace(/([+-]\d{2})$/, '$1:00')
+
+  const parsed = new Date(normalized)
+  if (!Number.isNaN(parsed.getTime())) return parsed
+  return new Date(raw)
+}
+
 const formatDateInTimezone = (
   dateValue: string | Date,
   timeZone: string
 ): string => {
-  const date = dateValue instanceof Date ? dateValue : new Date(dateValue)
+  const date = parseDbDateValue(dateValue)
   if (Number.isNaN(date.getTime())) return ''
   const formatter = new Intl.DateTimeFormat('en-GB', {
     timeZone,
@@ -347,7 +365,7 @@ const formatTimeInTimezone = (
   dateValue: string | Date,
   timeZone: string
 ): string => {
-  const date = dateValue instanceof Date ? dateValue : new Date(dateValue)
+  const date = parseDbDateValue(dateValue)
   if (Number.isNaN(date.getTime())) return '09:00'
   const formatter = new Intl.DateTimeFormat('en-GB', {
     timeZone,
@@ -621,7 +639,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
             supabase
               .from('appointment_holds')
               .select(
-                'id, start_time, end_time, box_id, status, summary_text, summary_json, patient_id, patient_name, public_ref'
+                'id, start_time, end_time, box_id, status, summary_text, summary_json, patient_id, public_ref'
               )
               .eq('clinic_id', clinicId)
               .neq('status', 'cancelled')
@@ -836,6 +854,17 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
             const start = new Date(row.start_time)
             const end = new Date(row.end_time)
             const blockType = String(summary.block_type || 'other') as BlockType
+            const summaryBox =
+              typeof summary.box === 'string'
+                ? summary.box
+                : typeof summary.box_name === 'string'
+                ? summary.box_name
+                : undefined
+            const fallbackBox = boxRows?.[0]?.name_or_number || undefined
+            const resolvedBox =
+              (row.box_id ? boxMapById.get(row.box_id) : undefined) ||
+              summaryBox ||
+              fallbackBox
             return {
               id: String(row.id),
               date: toIsoDate(start),
@@ -848,7 +877,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
                 typeof summary.responsible_name === 'string'
                   ? summary.responsible_name
                   : undefined,
-              box: row.box_id ? boxMapById.get(row.box_id) || undefined : undefined,
+              box: resolvedBox,
               recurrence:
                 summary.recurrence && typeof summary.recurrence === 'object'
                   ? (summary.recurrence as RecurrencePattern)
@@ -874,6 +903,22 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
                   : undefined)
             }
           })
+
+        if (process.env.NODE_ENV !== 'production') {
+          const sampleBlock = mappedBlocks[0]
+          console.debug('[Agenda][Hydrate] holds', {
+            count: mappedBlocks.length,
+            sample: sampleBlock
+              ? {
+                  id: sampleBlock.id,
+                  date: sampleBlock.date,
+                  startTime: sampleBlock.startTime,
+                  endTime: sampleBlock.endTime,
+                  box: sampleBlock.box
+                }
+              : null
+          })
+        }
 
         if (isMounted) {
           setAppointments(mappedAppointments)
