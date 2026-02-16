@@ -1,9 +1,9 @@
 'use client'
 
 import { KeyboardArrowDownRounded, SearchRounded } from '@/components/icons/md3'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import React from 'react'
 import {
-  PROFESSIONALS,
   TREATMENT_AREAS,
   TREATMENT_CATALOG,
   TREATMENT_FAMILIES,
@@ -113,6 +113,7 @@ export default function CatalogoTratamientos({
   selectedArea,
   compact = false
 }: CatalogoTratamientosProps) {
+  const { professionalNameOptions } = useConfiguration()
   const [searchTerm, setSearchTerm] = React.useState('')
   const [familyFilter, setFamilyFilter] = React.useState(selectedFamily || '')
   const [doctorFilter, setDoctorFilter] = React.useState(selectedDoctor || '')
@@ -157,7 +158,8 @@ export default function CatalogoTratamientos({
   const familyLabel =
     TREATMENT_FAMILIES.find((f) => f.value === familyFilter)?.label || 'Familia'
   const doctorLabel =
-    PROFESSIONALS.find((p) => p.value === doctorFilter)?.label || 'Doctor'
+    professionalNameOptions.find((p) => p.value === doctorFilter)?.label ||
+    'Doctor'
   const areaLabel =
     TREATMENT_AREAS.find((a) => a.value === areaFilter)?.label || 'Área'
 
@@ -228,7 +230,7 @@ export default function CatalogoTratamientos({
                 >
                   Todos
                 </button>
-                {PROFESSIONALS.map((doc) => (
+                {professionalNameOptions.map((doc) => (
                   <button
                     key={doc.value}
                     type='button'

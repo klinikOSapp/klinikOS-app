@@ -21,7 +21,7 @@ import {
   PhoneRounded,
   SearchRounded
 } from '@/components/icons/md3'
-import { Professional, useConfiguration } from '@/context/ConfigurationContext'
+import { Professional, type EmploymentType, type ProfessionalColorTone, useConfiguration } from '@/context/ConfigurationContext'
 import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import AddProfessionalModal, {
   ProfessionalFormData
@@ -38,8 +38,10 @@ export type Specialist = {
   phone: string
   email: string
   colorLabel: string
-  colorTone: 'morado' | 'naranja' | 'verde'
-  commission: string
+  colorTone: ProfessionalColorTone
+  employmentType: EmploymentType
+  commission?: string
+  salary?: string
   status: 'Activo' | 'Inactivo'
 }
 
@@ -51,6 +53,7 @@ export const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
     email: 'fernandino@gmail.com',
     colorLabel: 'Morado',
     colorTone: 'morado',
+    employmentType: 'autonomo',
     commission: '30%',
     status: 'Inactivo'
   },
@@ -61,6 +64,18 @@ export const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
     email: 'carlitosperez@gmail.com',
     colorLabel: 'Naranja',
     colorTone: 'naranja',
+    employmentType: 'nomina',
+    salary: '2.800',
+    status: 'Activo'
+  },
+  {
+    name: 'Fernandino Fernández',
+    role: 'Odontólogo',
+    phone: '608020203',
+    email: 'fernandino@gmail.com',
+    colorLabel: 'Morado',
+    colorTone: 'morado',
+    employmentType: 'autonomo',
     commission: '30%',
     status: 'Activo'
   },
@@ -71,16 +86,7 @@ export const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
     email: 'fernandino@gmail.com',
     colorLabel: 'Morado',
     colorTone: 'morado',
-    commission: '30%',
-    status: 'Activo'
-  },
-  {
-    name: 'Fernandino Fernández',
-    role: 'Odontólogo',
-    phone: '608020203',
-    email: 'fernandino@gmail.com',
-    colorLabel: 'Morado',
-    colorTone: 'morado',
+    employmentType: 'autonomo',
     commission: '30%',
     status: 'Activo'
   },
@@ -91,7 +97,8 @@ export const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
     email: 'javier_1890@gmail.com',
     colorLabel: 'Verde',
     colorTone: 'verde',
-    commission: '30%',
+    employmentType: 'nomina',
+    salary: '1.800',
     status: 'Activo'
   },
   {
@@ -101,6 +108,7 @@ export const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
     email: 'carlitosperez@gmail.com',
     colorLabel: 'Naranja',
     colorTone: 'naranja',
+    employmentType: 'autonomo',
     commission: '30%',
     status: 'Inactivo'
   },
@@ -111,7 +119,8 @@ export const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
     email: 'carlitosperez@gmail.com',
     colorLabel: 'Naranja',
     colorTone: 'naranja',
-    commission: '30%',
+    employmentType: 'nomina',
+    salary: '3.200',
     status: 'Activo'
   },
   {
@@ -121,7 +130,8 @@ export const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
     email: 'javier_1890@gmail.com',
     colorLabel: 'Verde',
     colorTone: 'verde',
-    commission: '30%',
+    employmentType: 'nomina',
+    salary: '1.800',
     status: 'Activo'
   },
   {
@@ -131,6 +141,7 @@ export const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
     email: 'fernandino@gmail.com',
     colorLabel: 'Morado',
     colorTone: 'morado',
+    employmentType: 'autonomo',
     commission: '30%',
     status: 'Activo'
   },
@@ -141,6 +152,7 @@ export const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
     email: 'carlitosperez@gmail.com',
     colorLabel: 'Naranja',
     colorTone: 'naranja',
+    employmentType: 'autonomo',
     commission: '30%',
     status: 'Activo'
   },
@@ -151,7 +163,8 @@ export const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
     email: 'carlitosperez@gmail.com',
     colorLabel: 'Naranja',
     colorTone: 'naranja',
-    commission: '30%',
+    employmentType: 'nomina',
+    salary: '2.800',
     status: 'Activo'
   },
   {
@@ -161,10 +174,11 @@ export const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
     email: 'fernandino@gmail.com',
     colorLabel: 'Morado',
     colorTone: 'morado',
+    employmentType: 'autonomo',
     commission: '30%',
     status: 'Activo'
   }
-] as const
+]
 
 const initialSpecialists: Specialist[] = initialSpecialistsData.map(
   (item, idx) => ({
@@ -179,7 +193,9 @@ const colorToneStyles: Record<
 > = {
   morado: { bg: 'bg-[#f3eaff]', text: 'text-[#7725eb]' },
   naranja: { bg: 'bg-[#fff7e8]', text: 'text-[#d97706]' },
-  verde: { bg: 'bg-[#e9f8f1]', text: 'text-[#2e7d5b]' }
+  verde: { bg: 'bg-[#e9f8f1]', text: 'text-[#2e7d5b]' },
+  azul: { bg: 'bg-[#e0f2fe]', text: 'text-[#0369a1]' },
+  rojo: { bg: 'bg-[#fee2e2]', text: 'text-[#dc2626]' }
 }
 
 const statusStyles: Record<Specialist['status'], { bg: string; text: string }> =
@@ -198,7 +214,7 @@ function TableHeader({
   onToggleAll: () => void
 }) {
   return (
-    <div className='grid grid-cols-[2.5rem_1fr_0.7fr_0.6fr_1fr_0.5fr_0.5fr_0.5fr] w-full sticky top-0 z-10 bg-[var(--color-surface)]'>
+    <div className='grid grid-cols-[2.5rem_1.5fr_0.65fr_0.55fr_1.1fr_0.65fr_0.55fr] w-full sticky top-0 z-10 bg-[var(--color-surface)]'>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
         <input
           type='checkbox'
@@ -216,7 +232,7 @@ function TableHeader({
           className='mr-1.5 size-4 flex-shrink-0 text-[var(--color-neutral-500)]'
           aria-hidden='true'
         />
-        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+        <p className='text-body-sm text-[var(--color-neutral-600)]'>
           Profesional
         </p>
       </div>
@@ -225,7 +241,7 @@ function TableHeader({
           className='mr-1.5 size-4 flex-shrink-0 text-[var(--color-neutral-500)]'
           aria-hidden='true'
         />
-        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+        <p className='text-body-sm text-[var(--color-neutral-600)]'>
           Especialidad
         </p>
       </div>
@@ -234,7 +250,7 @@ function TableHeader({
           className='mr-1.5 size-4 flex-shrink-0 text-[var(--color-neutral-500)]'
           aria-hidden='true'
         />
-        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+        <p className='text-body-sm text-[var(--color-neutral-600)]'>
           Teléfono
         </p>
       </div>
@@ -243,17 +259,8 @@ function TableHeader({
           className='mr-1.5 size-4 flex-shrink-0 text-[var(--color-neutral-500)]'
           aria-hidden='true'
         />
-        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+        <p className='text-body-sm text-[var(--color-neutral-600)]'>
           Email
-        </p>
-      </div>
-      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
-        <ContrastRounded
-          className='mr-1.5 size-4 flex-shrink-0 text-[var(--color-neutral-500)]'
-          aria-hidden='true'
-        />
-        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
-          Color
         </p>
       </div>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
@@ -261,8 +268,8 @@ function TableHeader({
           className='mr-1.5 size-4 flex-shrink-0 text-[var(--color-neutral-500)]'
           aria-hidden='true'
         />
-        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
-          % comisión
+        <p className='text-body-sm text-[var(--color-neutral-600)]'>
+          Compensación
         </p>
       </div>
       <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
@@ -270,7 +277,7 @@ function TableHeader({
           className='mr-1.5 size-4 flex-shrink-0 text-[var(--color-neutral-500)]'
           aria-hidden='true'
         />
-        <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+        <p className='text-body-sm text-[var(--color-neutral-600)]'>
           Estado
         </p>
       </div>
@@ -303,7 +310,7 @@ function TableRow({
 
   return (
     <div
-      className={`grid grid-cols-[2.5rem_1fr_0.7fr_0.6fr_1fr_0.5fr_0.5fr_0.5fr] w-full h-[3rem] cursor-pointer transition-colors ${
+      className={`grid grid-cols-[2.5rem_1.5fr_0.65fr_0.55fr_1.1fr_0.65fr_0.55fr] w-full min-h-[3.5rem] cursor-pointer transition-colors ${
         selected
           ? 'bg-[var(--color-brand-50)] border-l-2 border-l-[var(--color-brand-500)]'
           : 'hover:bg-[var(--color-neutral-50)] border-l-2 border-l-transparent'
@@ -316,7 +323,7 @@ function TableRow({
       }}
     >
       <div
-        className='flex items-center border-b border-neutral-300 px-2 py-2'
+        className='flex items-center border-b border-neutral-200 px-2 py-2'
         onClick={(e) => e.stopPropagation()}
       >
         <input
@@ -327,65 +334,61 @@ function TableRow({
           aria-label={`Seleccionar ${specialist.name}`}
         />
       </div>
-      <div className='flex items-center gap-2 border-b border-neutral-300 px-2 py-2 min-w-0'>
+      <div className='flex items-center gap-2.5 border-b border-neutral-200 px-2 py-2 min-w-0'>
         <div
-          className={`size-8 rounded-full flex-shrink-0 flex items-center justify-center text-body-sm font-medium ${
+          className={`size-9 rounded-full flex-shrink-0 flex items-center justify-center text-label-sm font-semibold ${
             colorToneStyles[specialist.colorTone].bg
           } ${colorToneStyles[specialist.colorTone].text}`}
         >
           {initials}
         </div>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
-          {specialist.name}
-        </p>
+        <div className='flex flex-col gap-0.5 min-w-0'>
+          <p className='text-body-sm font-medium text-[var(--color-neutral-900)] truncate'>
+            {specialist.name}
+          </p>
+          <span
+            className={`inline-flex items-center w-fit px-1.5 py-px rounded-sm text-[0.6875rem] leading-[1rem] font-medium ${
+              specialist.employmentType === 'autonomo'
+                ? 'bg-amber-50 text-amber-700'
+                : 'bg-blue-50 text-blue-700'
+            }`}
+          >
+            {specialist.employmentType === 'autonomo' ? 'Autónomo' : 'Empleado'}
+          </span>
+        </div>
       </div>
-      <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
+      <div className='flex items-center border-b border-neutral-200 px-2 py-2 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)] truncate'>
           {specialist.role}
         </p>
       </div>
-      <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
+      <div className='flex items-center border-b border-neutral-200 px-2 py-2 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)] truncate'>
           {specialist.phone}
         </p>
       </div>
-      <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
+      <div className='flex items-center border-b border-neutral-200 px-2 py-2 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)] truncate'>
           {specialist.email}
         </p>
       </div>
-      <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
-        <span
-          className={[
-            'inline-flex items-center justify-center px-2 py-0.5 rounded',
-            colorToneStyles[specialist.colorTone].bg
-          ].join(' ')}
-        >
-          <p
-            className={[
-              'text-body-md truncate',
-              colorToneStyles[specialist.colorTone].text
-            ].join(' ')}
-          >
-            {specialist.colorLabel}
-          </p>
-        </span>
-      </div>
-      <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
-          {specialist.commission}
+      <div className='flex items-center border-b border-neutral-200 px-2 py-2 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)] truncate'>
+          {specialist.employmentType === 'autonomo'
+            ? specialist.commission || '—'
+            : `${specialist.salary || '—'} €/mes`}
         </p>
       </div>
-      <div className='flex items-center border-b border-neutral-300 px-2 py-2 min-w-0'>
+      <div className='flex items-center border-b border-neutral-200 px-2 py-2 min-w-0'>
         <span
           className={[
-            'inline-flex items-center justify-center px-2 py-0.5 rounded',
+            'inline-flex items-center justify-center px-2 py-0.5 rounded-sm',
             statusStyles[specialist.status].bg
           ].join(' ')}
         >
           <p
             className={[
-              'text-body-md truncate',
+              'text-body-sm',
               statusStyles[specialist.status].text
             ].join(' ')}
           >
@@ -512,13 +515,17 @@ export default function SpecialistsListPage() {
     setShowAddModal(true)
   }, [])
 
+  const colorToneToLabel: Record<ProfessionalColorTone, string> = {
+    morado: 'Morado',
+    naranja: 'Naranja',
+    verde: 'Verde',
+    azul: 'Azul',
+    rojo: 'Rojo'
+  }
+
   const handleAddProfessional = (form: ProfessionalFormData) => {
-    const colorTone: Specialist['colorTone'] =
-      form.color === 'morado'
-        ? 'morado'
-        : form.color === 'naranja'
-        ? 'naranja'
-        : 'verde'
+    const colorTone = form.color
+    const empType = form.employmentType || 'autonomo'
 
     setData((prev) => [
       ...prev,
@@ -528,14 +535,11 @@ export default function SpecialistsListPage() {
         role: form.especialidad || 'Especialidad',
         phone: form.telefono || '—',
         email: form.email || '—',
-        colorLabel:
-          form.color === 'morado'
-            ? 'Morado'
-            : form.color === 'naranja'
-            ? 'Naranja'
-            : 'Verde',
+        colorLabel: colorToneToLabel[colorTone] || 'Verde',
         colorTone,
-        commission: form.comision && form.comision.trim() ? form.comision : '—',
+        employmentType: empType,
+        commission: empType === 'autonomo' && form.comision?.trim() ? form.comision : undefined,
+        salary: empType === 'nomina' && form.salary?.trim() ? form.salary : undefined,
         status: form.estado
       }
     ])
@@ -543,12 +547,8 @@ export default function SpecialistsListPage() {
   }
 
   const handleEditProfessional = (form: ProfessionalFormData) => {
-    const colorTone: Specialist['colorTone'] =
-      form.color === 'morado'
-        ? 'morado'
-        : form.color === 'naranja'
-        ? 'naranja'
-        : 'verde'
+    const colorTone = form.color
+    const empType = form.employmentType || 'autonomo'
     setData((prev) =>
       prev.map((s) =>
         s.id === editingId
@@ -558,17 +558,11 @@ export default function SpecialistsListPage() {
               role: form.especialidad || s.role,
               phone: form.telefono || s.phone,
               email: form.email || s.email,
-              colorLabel:
-                form.color === 'morado'
-                  ? 'Morado'
-                  : form.color === 'naranja'
-                  ? 'Naranja'
-                  : 'Verde',
+              colorLabel: colorToneToLabel[colorTone] || 'Verde',
               colorTone,
-              commission:
-                form.comision && form.comision.trim()
-                  ? form.comision
-                  : s.commission,
+              employmentType: empType,
+              commission: empType === 'autonomo' && form.comision?.trim() ? form.comision : undefined,
+              salary: empType === 'nomina' && form.salary?.trim() ? form.salary : undefined,
               status: form.estado
             }
           : s
@@ -625,14 +619,16 @@ export default function SpecialistsListPage() {
         especialidad: editingSpecialist.role,
         color: editingSpecialist.colorTone,
         estado: editingSpecialist.status,
-        comision: editingSpecialist.commission
+        employmentType: editingSpecialist.employmentType,
+        comision: editingSpecialist.commission,
+        salary: editingSpecialist.salary
       }
     : undefined
 
   return (
     <>
       {/* Section Header */}
-      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] h-[min(2.5rem,4vh)]'>
+      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] min-h-[min(2.5rem,4vh)]'>
         <p className='text-title-lg font-normal text-[var(--color-neutral-900)]'>
           Lista de especialistas
         </p>
@@ -879,7 +875,7 @@ export default function SpecialistsListPage() {
                 )}
               </div>
             ) : (
-              <div className='border border-neutral-300 rounded overflow-auto h-full'>
+              <div className='overflow-auto h-full'>
                 <TableHeader
                   allSelected={allSelected}
                   indeterminate={indeterminate}
@@ -988,7 +984,9 @@ export default function SpecialistsListPage() {
             email: specialist.email,
             colorLabel: 'Auto',
             colorTone: colorTones[colorIndex],
-            commission: '0%',
+            employmentType: specialist.employmentType,
+            commission: specialist.commission,
+            salary: specialist.salary,
             status: specialist.status
           } as Professional
         })()}

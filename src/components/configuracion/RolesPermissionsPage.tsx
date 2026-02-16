@@ -1,28 +1,17 @@
 'use client'
 
 import {
-  AddRounded,
-  FilterAltRounded,
+  CheckBoxOutlineBlankRounded,
+  CheckBoxRounded,
   SearchRounded
 } from '@/components/icons/md3'
-import Portal from '@/components/ui/Portal'
-import { useCallback, useMemo, useState } from 'react'
+import { useConfiguration } from '@/context/ConfigurationContext'
+import type { ConfigRole } from '@/types/configRoles'
+import { Fragment, useCallback, useMemo, useState } from 'react'
 import SpecialistListModal from './SpecialistListModal'
 
-// Types
-type Role = {
-  id: string
-  nombre: string
-  usuariosAsignados: number
-}
-
-type Permission = {
-  id: string
-  nombre: string
-  descripcion: string
-  modulo: string
-  activo: boolean
-}
+// Local aliases
+type Role = ConfigRole
 
 // Tab component
 function Tab({
@@ -49,99 +38,12 @@ function Tab({
   )
 }
 
-// Sample roles data
-const initialRoles: Role[] = [
-  {
-    id: 'r1',
-    nombre: 'Doctor',
-    usuariosAsignados: 32
-  },
-  {
-    id: 'r2',
-    nombre: 'Administrativo',
-    usuariosAsignados: 4
-  },
-  {
-    id: 'r3',
-    nombre: 'Higienista',
-    usuariosAsignados: 8
-  },
-  {
-    id: 'r4',
-    nombre: 'Auxiliar',
-    usuariosAsignados: 2
-  }
-]
-
-// Sample permissions data
-const initialPermissions: Permission[] = [
-  {
-    id: 'p1',
-    nombre: 'Gestión de pacientes',
-    descripcion: 'Crear, editar y eliminar pacientes',
-    modulo: 'Pacientes',
-    activo: true
-  },
-  {
-    id: 'p2',
-    nombre: 'Ver historial clínico',
-    descripcion: 'Acceso a historiales clínicos de pacientes',
-    modulo: 'Pacientes',
-    activo: true
-  },
-  {
-    id: 'p3',
-    nombre: 'Gestión de citas',
-    descripcion: 'Crear, modificar y cancelar citas',
-    modulo: 'Agenda',
-    activo: true
-  },
-  {
-    id: 'p4',
-    nombre: 'Ver agenda',
-    descripcion: 'Visualizar la agenda de citas',
-    modulo: 'Agenda',
-    activo: true
-  },
-  {
-    id: 'p5',
-    nombre: 'Gestión de facturación',
-    descripcion: 'Crear y gestionar facturas',
-    modulo: 'Facturación',
-    activo: true
-  },
-  {
-    id: 'p6',
-    nombre: 'Acceso a caja',
-    descripcion: 'Gestionar movimientos de caja',
-    modulo: 'Caja',
-    activo: false
-  },
-  {
-    id: 'p7',
-    nombre: 'Configuración',
-    descripcion: 'Acceso a configuración del sistema',
-    modulo: 'Sistema',
-    activo: false
-  },
-  {
-    id: 'p8',
-    nombre: 'Gestión de usuarios',
-    descripcion: 'Crear y gestionar usuarios del sistema',
-    modulo: 'Sistema',
-    activo: false
-  }
-]
-
 export default function RolesPermissionsPage() {
+  const { roles, permissions, toggleRolePermission } = useConfiguration()
   const [activeTab, setActiveTab] = useState<'roles' | 'permisos'>('roles')
-  const [roles, setRoles] = useState<Role[]>(initialRoles)
-  const [permissions] = useState<Permission[]>(initialPermissions)
   const [search, setSearch] = useState('')
   const [showSpecialistModal, setShowSpecialistModal] = useState(false)
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
-  const [showAddRoleModal, setShowAddRoleModal] = useState(false)
-  const [newRoleName, setNewRoleName] = useState('')
 
   // Filter roles
   const filteredRoles = useMemo(() => {
@@ -162,22 +64,15 @@ export default function RolesPermissionsPage() {
     )
   }, [permissions, search])
 
-  const handleAddRole = useCallback(() => {
-    setNewRoleName('')
-    setShowAddRoleModal(true)
-  }, [])
-
-  const handleSaveRole = useCallback(() => {
-    if (!newRoleName.trim()) return
-    const newRole: Role = {
-      id: `r${Date.now()}`,
-      nombre: newRoleName.trim(),
-      usuariosAsignados: 0
+  // Group permissions by module
+  const permissionsByModule = useMemo(() => {
+    const groups: Record<string, typeof permissions> = {}
+    for (const p of filteredPermissions) {
+      if (!groups[p.modulo]) groups[p.modulo] = []
+      groups[p.modulo].push(p)
     }
-    setRoles((prev) => [...prev, newRole])
-    setShowAddRoleModal(false)
-    setNewRoleName('')
-  }, [newRoleName])
+    return groups
+  }, [filteredPermissions])
 
   const handleViewUserList = useCallback((role: Role) => {
     setSelectedRole(role)
@@ -195,20 +90,10 @@ export default function RolesPermissionsPage() {
   return (
     <>
       {/* Section Header */}
-      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] h-[min(2.5rem,4vh)]'>
+      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] min-h-[min(2.5rem,4vh)]'>
         <p className='text-headline-sm font-normal text-[var(--color-neutral-900)]'>
           Roles y permisos
         </p>
-        <button
-          type='button'
-          className='flex items-center gap-2 px-4 py-2 rounded-full border border-neutral-300 bg-[var(--color-page-bg)] hover:bg-neutral-100 transition-colors cursor-pointer self-start sm:self-auto'
-          onClick={handleAddRole}
-        >
-          <AddRounded className='text-[var(--color-neutral-900)] size-6' />
-          <span className='text-body-md font-medium text-[var(--color-neutral-900)] whitespace-nowrap'>
-            Añadir rol
-          </span>
-        </button>
       </div>
 
       {/* Content Card */}
@@ -246,17 +131,6 @@ export default function RolesPermissionsPage() {
                     <SearchRounded className='size-6 text-[var(--color-neutral-700)]' />
                   </button>
                 </div>
-
-                {/* Filter */}
-                <button
-                  type='button'
-                  className='flex items-center gap-0.5 px-2 py-1 rounded-full border border-[var(--color-neutral-700)] hover:bg-neutral-100 transition-colors cursor-pointer'
-                >
-                  <FilterAltRounded className='size-6 text-[var(--color-neutral-700)]' />
-                  <span className='text-body-sm text-[var(--color-neutral-700)]'>
-                    Todos
-                  </span>
-                </button>
               </div>
             </div>
           </div>
@@ -268,13 +142,13 @@ export default function RolesPermissionsPage() {
               <table className='w-full border-collapse table-fixed'>
                 <thead className='sticky top-0 bg-[var(--color-surface)] z-10'>
                   <tr>
-                    <th className='w-[35%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                    <th className='w-[35%] h-10 text-left px-3 text-body-sm text-[var(--color-neutral-600)] border-b border-neutral-200'>
                       Nombre del rol
                     </th>
-                    <th className='w-[40%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                    <th className='w-[40%] h-10 text-left px-3 text-body-sm text-[var(--color-neutral-600)] border-b border-neutral-200'>
                       Nº de usuarios asignados
                     </th>
-                    <th className='w-[25%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                    <th className='w-[25%] h-10 text-left px-3 text-body-sm text-[var(--color-neutral-600)] border-b border-neutral-200'>
                       Lista usuarios asignados
                     </th>
                   </tr>
@@ -283,22 +157,22 @@ export default function RolesPermissionsPage() {
                   {filteredRoles.map((role) => (
                     <tr
                       key={role.id}
-                      className='h-10 bg-white hover:bg-[var(--color-neutral-50)] transition-colors cursor-pointer'
+                      className='h-10 hover:bg-[var(--color-neutral-50)] transition-colors'
                     >
-                      <td className='px-2 border-b border-r border-neutral-300'>
-                        <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                      <td className='px-3 border-b border-neutral-200'>
+                        <span className='text-body-sm font-medium text-[var(--color-neutral-900)] truncate block'>
                           {role.nombre}
                         </span>
                       </td>
-                      <td className='px-2 border-b border-r border-neutral-300'>
-                        <span className='text-body-md text-[var(--color-neutral-900)]'>
+                      <td className='px-3 border-b border-neutral-200'>
+                        <span className='text-body-sm text-[var(--color-neutral-900)]'>
                           {role.usuariosAsignados}
                         </span>
                       </td>
-                      <td className='px-2 border-b border-r border-neutral-300'>
+                      <td className='px-3 border-b border-neutral-200'>
                         <button
                           type='button'
-                          className='text-body-md font-medium text-[var(--color-brand-600)] hover:underline cursor-pointer'
+                          className='text-body-sm font-medium text-[var(--color-brand-600)] hover:underline cursor-pointer'
                           onClick={() => handleViewUserList(role)}
                         >
                           Ver lista
@@ -309,58 +183,91 @@ export default function RolesPermissionsPage() {
                 </tbody>
               </table>
             ) : (
-              /* Permissions Table */
-              <table className='w-full border-collapse table-fixed'>
+              /* Permissions Matrix: rows = permissions grouped by module, columns = roles */
+              <table className='w-full border-collapse'>
                 <thead className='sticky top-0 bg-[var(--color-surface)] z-10'>
                   <tr>
-                    <th className='w-[25%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
-                      Nombre del permiso
+                    <th className='min-w-[14rem] h-10 text-left px-3 text-body-sm text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                      Permiso
                     </th>
-                    <th className='w-[40%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
-                      Descripción
-                    </th>
-                    <th className='w-[17%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
-                      Módulo
-                    </th>
-                    <th className='w-[18%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
-                      Estado
-                    </th>
+                    {roles.map((role) => (
+                      <th
+                        key={role.id}
+                        className='h-10 text-center px-3 text-body-sm text-[var(--color-neutral-600)] border-b border-neutral-200 whitespace-nowrap'
+                      >
+                        {role.nombre}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPermissions.map((permission) => (
-                    <tr
-                      key={permission.id}
-                      className='h-10 bg-white hover:bg-[var(--color-neutral-50)] transition-colors cursor-pointer'
-                    >
-                      <td className='px-2 border-b border-r border-neutral-300'>
-                        <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
-                          {permission.nombre}
-                        </span>
-                      </td>
-                      <td className='px-2 border-b border-r border-neutral-300'>
-                        <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
-                          {permission.descripcion}
-                        </span>
-                      </td>
-                      <td className='px-2 border-b border-r border-neutral-300'>
-                        <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
-                          {permission.modulo}
-                        </span>
-                      </td>
-                      <td className='px-2 border-b border-r border-neutral-300'>
-                        <span
-                          className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-body-md ${
-                            permission.activo
-                              ? 'bg-[#e0f2fe] text-[#075985]'
-                              : 'bg-neutral-300 text-[var(--color-neutral-900)]'
-                          }`}
-                        >
-                          {permission.activo ? 'Activo' : 'Inactivo'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {Object.entries(permissionsByModule).map(
+                    ([moduleName, modulePermissions]) => (
+                      <Fragment key={moduleName}>
+                        {/* Module group header */}
+                        <tr>
+                          <td
+                            colSpan={1 + roles.length}
+                            className='px-3 pt-4 pb-2 border-b border-neutral-200'
+                          >
+                            <span className='text-body-sm font-semibold text-[var(--color-neutral-500)] uppercase tracking-wide'>
+                              {moduleName}
+                            </span>
+                          </td>
+                        </tr>
+                        {/* Permission rows */}
+                        {modulePermissions.map((permission) => (
+                          <tr
+                            key={permission.id}
+                            className='hover:bg-[var(--color-neutral-50)] transition-colors'
+                          >
+                            <td className='px-3 py-2.5 border-b border-neutral-200'>
+                              <div className='flex flex-col gap-0.5'>
+                                <span className='text-body-sm font-medium text-[var(--color-neutral-900)]'>
+                                  {permission.nombre}
+                                </span>
+                                <span className='text-[0.75rem] leading-[1rem] text-[var(--color-neutral-500)]'>
+                                  {permission.descripcion}
+                                </span>
+                              </div>
+                            </td>
+                            {roles.map((role) => {
+                              const hasPermission =
+                                role.permisos.includes(permission.id)
+                              return (
+                                <td
+                                  key={`${role.id}-${permission.id}`}
+                                  className='text-center border-b border-neutral-200'
+                                >
+                                  <button
+                                    type='button'
+                                    onClick={() =>
+                                      toggleRolePermission(
+                                        role.id,
+                                        permission.id
+                                      )
+                                    }
+                                    className={`inline-flex items-center justify-center cursor-pointer transition-colors ${
+                                      hasPermission
+                                        ? 'text-[var(--color-brand-500)] hover:text-[var(--color-brand-600)]'
+                                        : 'text-neutral-300 hover:text-neutral-400'
+                                    }`}
+                                    aria-label={`${hasPermission ? 'Desactivar' : 'Activar'} ${permission.nombre} para ${role.nombre}`}
+                                  >
+                                    {hasPermission ? (
+                                      <CheckBoxRounded className='size-5' />
+                                    ) : (
+                                      <CheckBoxOutlineBlankRounded className='size-5' />
+                                    )}
+                                  </button>
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        ))}
+                      </Fragment>
+                    )
+                  )}
                 </tbody>
               </table>
             )}
@@ -375,75 +282,6 @@ export default function RolesPermissionsPage() {
         roleName={selectedRole?.nombre ?? ''}
         specialists={[]}
       />
-
-      {/* Add Role Modal */}
-      {showAddRoleModal && (
-        <Portal>
-          <div
-            className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'
-            onClick={() => setShowAddRoleModal(false)}
-          >
-          <div
-            className='w-[min(24rem,95vw)] bg-white rounded-xl shadow-xl overflow-hidden'
-            onClick={(e) => e.stopPropagation()}
-            role='dialog'
-            aria-modal='true'
-            aria-labelledby='add-role-title'
-          >
-            <div className='flex items-center justify-between px-6 py-4 border-b border-neutral-200'>
-              <h2
-                id='add-role-title'
-                className='text-title-lg font-medium text-[var(--color-neutral-900)]'
-              >
-                Nuevo rol
-              </h2>
-              <button
-                type='button'
-                onClick={() => setShowAddRoleModal(false)}
-                className='text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-700)]'
-                aria-label='Cerrar'
-              >
-                ✕
-              </button>
-            </div>
-            <div className='p-6'>
-              <label
-                htmlFor='role-name'
-                className='block text-body-sm font-medium text-[var(--color-neutral-700)] mb-2'
-              >
-                Nombre del rol
-              </label>
-              <input
-                id='role-name'
-                type='text'
-                value={newRoleName}
-                onChange={(e) => setNewRoleName(e.target.value)}
-                placeholder='Ej: Recepcionista'
-                className='w-full h-11 px-3 rounded-lg border border-neutral-300 text-body-md text-[var(--color-neutral-900)] outline-none focus:border-[var(--color-brand-500)] focus:ring-2 focus:ring-[var(--color-brand-100)]'
-                autoFocus
-              />
-            </div>
-            <div className='flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-200 bg-neutral-50'>
-              <button
-                type='button'
-                onClick={() => setShowAddRoleModal(false)}
-                className='px-4 py-2 text-body-md font-medium text-[var(--color-neutral-700)] rounded-lg hover:bg-neutral-100 transition-colors'
-              >
-                Cancelar
-              </button>
-              <button
-                type='button'
-                onClick={handleSaveRole}
-                disabled={!newRoleName.trim()}
-                className='px-4 py-2 text-body-md font-medium text-white bg-[var(--color-brand-500)] rounded-lg hover:bg-[var(--color-brand-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-              >
-                Crear rol
-              </button>
-            </div>
-          </div>
-        </div>
-        </Portal>
-      )}
     </>
   )
 }

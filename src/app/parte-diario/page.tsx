@@ -1750,7 +1750,7 @@ export default function ParteDiarioPage() {
                       key={row.id}
                       className='group hover:bg-[var(--color-neutral-50)]'
                     >
-                      <TableBodyCell className='w-[40px] pr-2 sticky left-0 z-10 bg-white group-hover:bg-[var(--color-neutral-50)]'>
+                      <TableBodyCell className='w-[40px] pr-2 sticky left-0 z-10 bg-[var(--color-neutral-50)] group-hover:bg-[var(--color-neutral-100)]'>
                         <button
                           type='button'
                           onClick={(e) => {
@@ -1845,7 +1845,7 @@ export default function ParteDiarioPage() {
                           onClick={() => handleOpenPaymentModal(row)}
                         />
                       </TableBodyCell>
-                      <TableBodyCell className='w-[50px] pr-2 sticky right-0 z-10 bg-white group-hover:bg-[var(--color-neutral-50)]'>
+                      <TableBodyCell className='w-[50px] pr-2 sticky right-0 z-10 bg-[var(--color-neutral-50)] group-hover:bg-[var(--color-neutral-100)]'>
                         <button
                           type='button'
                           onClick={(e) => {

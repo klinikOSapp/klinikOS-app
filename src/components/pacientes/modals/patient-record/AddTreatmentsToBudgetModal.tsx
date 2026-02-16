@@ -23,10 +23,8 @@ import type {
   TreatmentCatalogEntry,
   TreatmentV2
 } from '@/components/pacientes/shared/treatmentTypes'
-import {
-  PROFESSIONALS,
-  TREATMENT_CATALOG
-} from '@/components/pacientes/shared/treatmentTypes'
+import { TREATMENT_CATALOG } from '@/components/pacientes/shared/treatmentTypes'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import {
   downloadDocument,
   formatBudgetFilename,
@@ -240,6 +238,7 @@ type TreatmentRowProps = {
   onUpdateMultipleFields?: (updates: Partial<TreatmentV2>) => void
   isNewRow?: boolean
   onNewRowMounted?: () => void
+  professionals: Array<{ value: string; label: string }>
 }
 
 function TreatmentRow({
@@ -249,7 +248,8 @@ function TreatmentRow({
   onUpdateField,
   onUpdateMultipleFields,
   isNewRow,
-  onNewRowMounted
+  onNewRowMounted,
+  professionals
 }: TreatmentRowProps) {
   const rowRef = React.useRef<HTMLTableRowElement>(null)
   const firstInputRef = React.useRef<HTMLInputElement>(null)
@@ -270,8 +270,8 @@ function TreatmentRow({
   const rowBg = treatment.selected
     ? 'bg-[#E9FBF9]'
     : isNewRow
-    ? 'bg-[#FEF9C3] animate-pulse'
-    : 'bg-white hover:bg-[var(--color-neutral-50)]'
+      ? 'bg-[#FEF9C3] animate-pulse'
+      : 'bg-white hover:bg-[var(--color-neutral-50)]'
 
   // Parsear precio para cálculos (remove € y espacios)
   const parsePrice = (price: string): number => {
@@ -450,7 +450,7 @@ function TreatmentRow({
           className='w-full bg-transparent border-none outline-none text-[0.6875rem] leading-[1rem] text-[#24282C] 
             focus:bg-[var(--color-neutral-50)] rounded px-1 py-0.5 cursor-pointer'
         >
-          {PROFESSIONALS.map((prof) => (
+          {professionals.map((prof) => (
             <option key={prof.value} value={prof.value}>
               {prof.label}
             </option>
@@ -588,6 +588,9 @@ export default function AddTreatmentsToBudgetModal({
   initialBudgetName = '',
   mode = 'budget'
 }: AddTreatmentsToBudgetModalProps) {
+  const { professionalNameOptions } = useConfiguration()
+  const defaultDoctor = professionalNameOptions[0]?.value || ''
+
   const [mounted, setMounted] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState('')
   const [showSearch, setShowSearch] = React.useState(false)
@@ -787,7 +790,7 @@ export default function AddTreatmentsToBudgetModal({
       importe: entry.amount,
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: PROFESSIONALS[0].value,
+      doctor: defaultDoctor,
       selected: true // Seleccionar automáticamente para el presupuesto
     }
 
@@ -819,7 +822,7 @@ export default function AddTreatmentsToBudgetModal({
       importe: entry.amount,
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: PROFESSIONALS[0].value,
+      doctor: defaultDoctor,
       selected: true // Seleccionar automáticamente los nuevos
     }))
 
@@ -879,7 +882,7 @@ export default function AddTreatmentsToBudgetModal({
       importe: '0 €',
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: PROFESSIONALS[0].value,
+      doctor: defaultDoctor,
       selected: false
     }
     setTreatments((prev) => [...prev, newTreatment])
@@ -1527,6 +1530,7 @@ export default function AddTreatmentsToBudgetModal({
                                   }
                                   isNewRow={treatment._internalId === newRowId}
                                   onNewRowMounted={() => setNewRowId(null)}
+                                  professionals={professionalNameOptions}
                                 />
                               ))
                             )}
@@ -1796,8 +1800,8 @@ export default function AddTreatmentsToBudgetModal({
                         {isGenerating
                           ? 'Generando...'
                           : mode === 'budgetType'
-                          ? 'Guardar presupuesto tipo'
-                          : 'Crear presupuesto'}
+                            ? 'Guardar presupuesto tipo'
+                            : 'Crear presupuesto'}
                       </button>
                     </div>
                   </div>

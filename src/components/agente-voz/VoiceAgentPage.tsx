@@ -49,107 +49,113 @@ function isSameWeek(date1: Date, date2: Date): boolean {
   return week1.getTime() === week2.getTime()
 }
 
-// KPI data from Figma design - Advanced mode (with auto-appointment creation)
+// KPI data for Advanced mode (with auto-appointment creation)
+// KPIs: AI Output → Demand → AI Effectiveness → Total Output → Escape Rate → Speed
 const KPI_DATA_ADVANCED: VoiceAgentKPI[] = [
   {
     label: 'Citas creadas',
-    value: '456',
+    value: '43',
     changePercent: '+ 12%',
     changeDirection: 'up',
-    comparisonValue: '430',
+    comparisonValue: '38',
     comparisonLabel: 'hace una semana'
   },
   {
     label: 'Llamadas recibidas',
-    value: '456',
-    changePercent: '+ 12%',
+    value: '47',
+    changePercent: '+ 8%',
     changeDirection: 'up',
-    comparisonValue: '430',
+    comparisonValue: '43',
     comparisonLabel: 'hace una semana'
   },
   {
-    label: 'Tiempo medio llamada',
-    value: '456',
-    changePercent: '+ 12%',
+    label: 'Tasa de automatización',
+    value: '92%',
+    changePercent: '+ 4%',
     changeDirection: 'up',
-    comparisonValue: '430',
+    comparisonValue: '88%',
     comparisonLabel: 'hace una semana'
   },
   {
     label: 'Llamadas resueltas',
-    value: '456',
-    changePercent: '+ 12%',
+    value: '45',
+    changePercent: '+ 10%',
     changeDirection: 'up',
-    comparisonValue: '430',
+    comparisonValue: '41',
     comparisonLabel: 'hace una semana'
   },
   {
-    label: 'Créditos usados',
-    value: '456',
-    changePercent: '+ 12%',
-    changeDirection: 'up',
-    comparisonValue: '430',
+    label: 'Pendientes de gestión',
+    value: '2',
+    changePercent: '- 33%',
+    changeDirection: 'down',
+    invertTrend: true,
+    comparisonValue: '3',
     comparisonLabel: 'hace una semana'
   },
   {
-    label: 'Tiempo de espera medio',
-    value: '456',
-    changePercent: '+ 12%',
-    changeDirection: 'up',
-    comparisonValue: '430',
+    label: 'Tiempo medio de respuesta',
+    value: '2 min',
+    changePercent: '- 20%',
+    changeDirection: 'down',
+    invertTrend: true,
+    comparisonValue: '2.5 min',
     comparisonLabel: 'hace una semana'
   }
 ]
 
 // KPI data for Basic mode (receptionist - no auto-appointment creation)
-// Replaces "Citas creadas" with "Llamadas pendientes"
+// KPIs: Backlog → Demand → Urgency → Output → Efficiency → Speed
 const KPI_DATA_BASIC: VoiceAgentKPI[] = [
   {
     label: 'Llamadas pendientes',
     value: '12',
     changePercent: '- 8%',
     changeDirection: 'down',
+    invertTrend: true,
     comparisonValue: '13',
     comparisonLabel: 'hace una semana'
   },
   {
     label: 'Llamadas recibidas',
-    value: '456',
+    value: '47',
     changePercent: '+ 12%',
     changeDirection: 'up',
-    comparisonValue: '430',
+    comparisonValue: '42',
     comparisonLabel: 'hace una semana'
   },
   {
-    label: 'Tiempo medio llamada',
-    value: '456',
-    changePercent: '+ 12%',
-    changeDirection: 'up',
-    comparisonValue: '430',
+    label: 'Llamadas urgentes',
+    value: '3',
+    changePercent: '- 25%',
+    changeDirection: 'down',
+    invertTrend: true,
+    comparisonValue: '4',
     comparisonLabel: 'hace una semana'
   },
   {
     label: 'Llamadas resueltas',
-    value: '456',
-    changePercent: '+ 12%',
+    value: '35',
+    changePercent: '+ 15%',
     changeDirection: 'up',
-    comparisonValue: '430',
+    comparisonValue: '30',
     comparisonLabel: 'hace una semana'
   },
   {
-    label: 'Créditos usados',
-    value: '456',
-    changePercent: '+ 12%',
+    label: 'Tasa de resolución',
+    value: '74%',
+    changePercent: '+ 5%',
     changeDirection: 'up',
-    comparisonValue: '430',
+    comparisonValue: '71%',
     comparisonLabel: 'hace una semana'
   },
   {
-    label: 'Tiempo de espera medio',
-    value: '456',
-    changePercent: '+ 12%',
-    changeDirection: 'up',
-    comparisonValue: '430',
+    label: 'Tiempo medio de respuesta',
+    value: '24 min',
+    changePercent: '- 18%',
+    changeDirection: 'down',
+    invertTrend: true,
+    comparisonValue: '29 min',
     comparisonLabel: 'hace una semana'
   }
 ]

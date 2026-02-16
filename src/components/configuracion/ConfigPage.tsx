@@ -351,7 +351,7 @@ export default function ConfigPage() {
   return (
     <>
       {/* Section Header */}
-      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] h-[min(2.5rem,4vh)]'>
+      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] min-h-[min(2.5rem,4vh)]'>
         <p className='text-title-lg font-normal text-[var(--color-neutral-900)]'>
           Datos de la clínica
         </p>

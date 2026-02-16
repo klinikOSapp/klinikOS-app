@@ -6,6 +6,7 @@ import {
   SelectInput,
   TextArea
 } from '@/components/pacientes/modals/add-patient/AddPatientInputs'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import React from 'react'
 import { createPortal } from 'react-dom'
 
@@ -25,12 +26,6 @@ type MarkAsProducedFormData = {
   notes: string
 }
 
-// Mock data for dropdowns
-const PROFESSIONALS = [
-  { value: 'dr-guillermo', label: 'Dr. Guillermo' },
-  { value: 'dra-andrea', label: 'Dra. Andrea' }
-]
-
 export default function MarkAsProducedModal({
   open,
   onClose,
@@ -39,6 +34,7 @@ export default function MarkAsProducedModal({
   treatment,
   amount
 }: MarkAsProducedModalProps) {
+  const { professionalNameOptions } = useConfiguration()
   const [formData, setFormData] = React.useState<MarkAsProducedFormData>({
     professional: '',
     productionDate: null,
@@ -159,7 +155,7 @@ export default function MarkAsProducedModal({
                     placeholder='Seleccionar profesional'
                     value={formData.professional}
                     onChange={(v) => handleChange('professional', v)}
-                    options={PROFESSIONALS}
+                    options={professionalNameOptions}
                   />
                 </div>
 

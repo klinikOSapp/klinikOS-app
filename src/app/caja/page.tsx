@@ -68,7 +68,7 @@ export default function CajaPage() {
 
               <div className='flex flex-col flex-1 overflow-hidden gap-gapmd min-w-0'>
                 <div
-                  className='flex flex-col gap-gapmd xl:grid xl:items-stretch min-w-0 w-full'
+                  className='flex flex-col gap-gapmd lg:grid lg:items-stretch min-w-0 w-full'
                   style={{
                     gridTemplateColumns: `minmax(0, ${SUMMARY_TO_TREND_RATIO}fr) minmax(0, 1fr)`
                   }}

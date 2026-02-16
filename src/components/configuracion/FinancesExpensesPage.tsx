@@ -16,30 +16,13 @@ import {
   VisibilityOutlined
 } from '@/components/icons/md3'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import { useConfiguration } from '@/context/ConfigurationContext'
+import type { ConfigExpense, ExpenseCategory, ExpenseStatus } from '@/types/configExpenses'
 import React, { useCallback, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-// Types
-type ExpenseStatus = 'activo' | 'inactivo'
-type ExpenseCategory =
-  | 'Servicios'
-  | 'Material'
-  | 'Nóminas'
-  | 'Alquiler'
-  | 'Suministros'
-  | 'Otros'
-
-type Expense = {
-  id: string
-  nombre: string
-  importe: number
-  frecuencia: string
-  categoria: ExpenseCategory
-  fechaInicio: string
-  fechaFin: string
-  notas: string
-  estado: ExpenseStatus
-}
+// Local alias
+type Expense = ConfigExpense
 
 // StatusBadge component
 function StatusBadge({ status }: { status: ExpenseStatus }) {
@@ -539,179 +522,12 @@ function EditExpenseModal({
   )
 }
 
-// Sample data
-const initialExpenses: Expense[] = [
-  {
-    id: 'e1',
-    nombre: 'KH7 Limpieza',
-    importe: 1265.0,
-    frecuencia: '3 días',
-    categoria: 'Servicios',
-    fechaInicio: '12/07/25',
-    fechaFin: '28/09/25',
-    notas: 'Contrato limpieza oficinas',
-    estado: 'activo'
-  },
-  {
-    id: 'e2',
-    nombre: 'Cubeta universal superior',
-    importe: 25329.0,
-    frecuencia: '28 días',
-    categoria: 'Material',
-    fechaInicio: '12/07/25',
-    fechaFin: '28/09/25',
-    notas: 'Material dental',
-    estado: 'activo'
-  },
-  {
-    id: 'e3',
-    nombre: 'Cubeta universal superior',
-    importe: 25329.0,
-    frecuencia: '28 días',
-    categoria: 'Material',
-    fechaInicio: '12/07/25',
-    fechaFin: '28/09/25',
-    notas: 'Material dental',
-    estado: 'activo'
-  },
-  {
-    id: 'e4',
-    nombre: 'KH7 Limpieza',
-    importe: 1265.0,
-    frecuencia: '3 días',
-    categoria: 'Servicios',
-    fechaInicio: '12/07/25',
-    fechaFin: '28/09/25',
-    notas: 'Contrato limpieza oficinas',
-    estado: 'activo'
-  },
-  {
-    id: 'e5',
-    nombre: 'KH7 Limpieza',
-    importe: 1265.0,
-    frecuencia: '3 días',
-    categoria: 'Servicios',
-    fechaInicio: '12/07/25',
-    fechaFin: '28/09/25',
-    notas: 'Contrato limpieza oficinas',
-    estado: 'activo'
-  },
-  {
-    id: 'e6',
-    nombre: 'Cubeta universal superior',
-    importe: 25329.0,
-    frecuencia: '28 días',
-    categoria: 'Material',
-    fechaInicio: '12/07/25',
-    fechaFin: '28/09/25',
-    notas: 'Material dental',
-    estado: 'activo'
-  },
-  {
-    id: 'e7',
-    nombre: 'KH7 Limpieza',
-    importe: 1265.0,
-    frecuencia: '3 días',
-    categoria: 'Servicios',
-    fechaInicio: '12/07/25',
-    fechaFin: '28/09/25',
-    notas: 'Contrato limpieza oficinas',
-    estado: 'activo'
-  },
-  {
-    id: 'e8',
-    nombre: 'Cubeta universal superior',
-    importe: 25329.0,
-    frecuencia: '28 días',
-    categoria: 'Material',
-    fechaInicio: '12/07/25',
-    fechaFin: '28/09/25',
-    notas: 'Material dental',
-    estado: 'inactivo'
-  },
-  {
-    id: 'e9',
-    nombre: 'KH7 Limpieza',
-    importe: 1265.0,
-    frecuencia: '3 días',
-    categoria: 'Servicios',
-    fechaInicio: '12/07/25',
-    fechaFin: '28/09/25',
-    notas: 'Contrato limpieza oficinas',
-    estado: 'activo'
-  },
-  {
-    id: 'e10',
-    nombre: 'Cubeta universal superior',
-    importe: 25329.0,
-    frecuencia: '28 días',
-    categoria: 'Material',
-    fechaInicio: '12/07/25',
-    fechaFin: '28/09/25',
-    notas: 'Material dental',
-    estado: 'activo'
-  },
-  {
-    id: 'e11',
-    nombre: 'Cubeta universal superior',
-    importe: 25329.0,
-    frecuencia: '28 días',
-    categoria: 'Material',
-    fechaInicio: '12/07/25',
-    fechaFin: '28/09/25',
-    notas: 'Material dental',
-    estado: 'activo'
-  },
-  {
-    id: 'e12',
-    nombre: 'KH7 Limpieza',
-    importe: 1265.0,
-    frecuencia: '3 días',
-    categoria: 'Servicios',
-    fechaInicio: '12/07/25',
-    fechaFin: '28/09/25',
-    notas: 'Contrato limpieza oficinas',
-    estado: 'activo'
-  },
-  {
-    id: 'e13',
-    nombre: 'Cubeta universal superior',
-    importe: 25329.0,
-    frecuencia: '28 días',
-    categoria: 'Material',
-    fechaInicio: '12/07/25',
-    fechaFin: '28/09/25',
-    notas: 'Material dental',
-    estado: 'activo'
-  },
-  {
-    id: 'e14',
-    nombre: 'Cubeta universal superior',
-    importe: 25329.0,
-    frecuencia: '28 días',
-    categoria: 'Material',
-    fechaInicio: '12/07/25',
-    fechaFin: '28/09/25',
-    notas: 'Material dental',
-    estado: 'activo'
-  },
-  {
-    id: 'e15',
-    nombre: 'Alquiler local',
-    importe: 2500.0,
-    frecuencia: 'Mensual',
-    categoria: 'Alquiler',
-    fechaInicio: '01/01/25',
-    fechaFin: '31/12/25',
-    notas: 'Alquiler mensual local comercial',
-    estado: 'activo'
-  }
-]
+// Sample data moved to src/data/expensesData.ts, loaded via ConfigurationContext
 
 const ITEMS_PER_PAGE = 15
 
 export default function FinancesExpensesPage() {
-  const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)
+  const { expenses, setExpenses } = useConfiguration()
   const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [showArchived, setShowArchived] = useState(false)
@@ -833,7 +649,7 @@ export default function FinancesExpensesPage() {
   return (
     <>
       {/* Section Header */}
-      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] h-[min(2.5rem,4vh)]'>
+      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] min-h-[min(2.5rem,4vh)]'>
         <p className='text-headline-sm font-normal text-[var(--color-neutral-900)]'>
           Finanzas, gastos fijos y nóminas
         </p>

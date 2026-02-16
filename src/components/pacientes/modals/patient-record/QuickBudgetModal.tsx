@@ -28,14 +28,14 @@ const ICON_REVISION =
 
 // DISCOUNT_OPTIONS removed - now sourced from ConfigurationContext.discountOptions
 
-export type BudgetTypeOption = {
+export type QuickBudgetOption = {
   id: string
   label: string
   amount: string
   icon: string
 }
 
-const OPTIONS: BudgetTypeOption[] = [
+const OPTIONS: QuickBudgetOption[] = [
   { id: 'limpieza', label: 'Limpieza', amount: '60€', icon: ICON_LIMPIEZA },
   {
     id: 'extraccion',
@@ -47,10 +47,10 @@ const OPTIONS: BudgetTypeOption[] = [
   { id: 'revision', label: 'Revisión', amount: 'GRATIS', icon: ICON_REVISION }
 ]
 
-type BudgetTypeModalProps = {
+type QuickBudgetModalProps = {
   open: boolean
   onClose: () => void
-  onContinue?: (selection: BudgetTypeOption) => void
+  onContinue?: (selection: QuickBudgetOption) => void
   patientName?: string
 }
 
@@ -66,12 +66,12 @@ type ComboBoxProps = {
   onChange: (val: string) => void
 }
 
-const BudgetTypeModal = ({
+const QuickBudgetModal = ({
   open,
   onClose,
   onContinue,
   patientName
-}: BudgetTypeModalProps) => {
+}: QuickBudgetModalProps) => {
   const { professionalNames, discountOptions } = useConfiguration()
   // Nombre del paciente para mostrar (usa prop o mock)
   const displayPatientName = patientName || 'María García López'
@@ -400,7 +400,7 @@ const BudgetTypeModal = ({
         <div
           role='dialog'
           aria-modal='true'
-          aria-label='Creación de presupuesto tipo'
+          aria-label='Creación de presupuesto rápido'
           onClick={(event) => event.stopPropagation()}
         >
           <div
@@ -414,12 +414,12 @@ const BudgetTypeModal = ({
               >
                 <header className='absolute left-0 top-0 flex h-[3.5rem] w-full items-center justify-between border-b border-neutral-300 px-[2rem]'>
                   <p className='text-title-md text-neutral-900'>
-                    Creación de presupuesto tipo
+                    Creación de presupuesto rápido
                   </p>
                   <button
                     type='button'
                     onClick={onClose}
-                    aria-label='Cerrar presupuesto tipo'
+                    aria-label='Cerrar presupuesto rápido'
                     className='flex size-[0.875rem] items-center justify-center text-neutral-900'
                   >
                     <CloseRounded fontSize='inherit' />
@@ -440,4 +440,4 @@ const BudgetTypeModal = ({
   return createPortal(content, document.body)
 }
 
-export { BudgetTypeModal }
+export { QuickBudgetModal }

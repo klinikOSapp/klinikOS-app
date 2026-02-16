@@ -27,11 +27,11 @@ import {
   VisibilityRounded
 } from '@/components/icons/md3'
 import {
-  addBudgetType,
   convertBudgetTypeToTreatmentsV2,
   type BudgetTypeData
 } from '@/components/pacientes/shared/budgetTypeData'
 import type { TreatmentV2 } from '@/components/pacientes/shared/treatmentTypes'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import type { BudgetInstallmentPlan, BudgetPayment } from '@/types/payments'
 import React from 'react'
 import { createPortal } from 'react-dom'
@@ -2034,6 +2034,7 @@ export default function BudgetsPayments({
   onAddBudget,
   onUpdateBudgetRows
 }: BudgetsPaymentsProps) {
+  const { addBudgetType } = useConfiguration()
   // Nombre del paciente para mostrar (usa prop o mock)
   const displayPatientName = patientName || 'María García López'
   type TabKey = 'Presupuestos' | 'Producción' | 'Facturas' | 'Cuotas'
@@ -2429,7 +2430,7 @@ export default function BudgetsPayments({
       addBudgetType(budgetType)
       setShowCreateBudgetTypeModal(false)
     },
-    []
+    [addBudgetType]
   )
 
   // Handler to update production row status
@@ -3939,8 +3940,8 @@ Aseguradora: ${invoice.insurer || '-'}
                                     isPaid
                                       ? 'bg-green-50 border-green-200'
                                       : isPartial
-                                      ? 'bg-blue-50 border-blue-200'
-                                      : 'bg-amber-50 border-amber-200'
+                                        ? 'bg-blue-50 border-blue-200'
+                                        : 'bg-amber-50 border-amber-200'
                                   ].join(' ')}
                                 >
                                   <p className='text-body-xs text-neutral-500'>
@@ -3952,8 +3953,8 @@ Aseguradora: ${invoice.insurer || '-'}
                                       isPaid
                                         ? 'text-green-700'
                                         : isPartial
-                                        ? 'text-blue-700'
-                                        : 'text-amber-700'
+                                          ? 'text-blue-700'
+                                          : 'text-amber-700'
                                     ].join(' ')}
                                   >
                                     {inst.amount.toLocaleString('es-ES', {
@@ -3967,17 +3968,17 @@ Aseguradora: ${invoice.insurer || '-'}
                                       isPaid
                                         ? 'text-green-600'
                                         : isPartial
-                                        ? 'text-blue-600'
-                                        : 'text-amber-600'
+                                          ? 'text-blue-600'
+                                          : 'text-amber-600'
                                     ].join(' ')}
                                   >
                                     {isPaid
                                       ? 'Pagada'
                                       : isPartial
-                                      ? `Parcial (${inst.paidAmount.toLocaleString(
-                                          'es-ES'
-                                        )} €)`
-                                      : 'Pendiente'}
+                                        ? `Parcial (${inst.paidAmount.toLocaleString(
+                                            'es-ES'
+                                          )} €)`
+                                        : 'Pendiente'}
                                   </p>
                                 </div>
                               )
@@ -4241,8 +4242,8 @@ Aseguradora: ${invoice.insurer || '-'}
                         data.professional === 'dr-guillermo'
                           ? 'Dr. Guillermo'
                           : data.professional === 'dra-andrea'
-                          ? 'Dra. Andrea'
-                          : row.professional
+                            ? 'Dra. Andrea'
+                            : row.professional
                     }
                   : row
               )
@@ -4319,10 +4320,10 @@ Aseguradora: ${invoice.insurer || '-'}
                         data.paymentMethod === 'efectivo'
                           ? 'Efectivo'
                           : data.paymentMethod === 'tarjeta'
-                          ? 'Tarjeta'
-                          : data.paymentMethod === 'transferencia'
-                          ? 'Transferencia'
-                          : row.paymentMethod
+                            ? 'Tarjeta'
+                            : data.paymentMethod === 'transferencia'
+                              ? 'Transferencia'
+                              : row.paymentMethod
                     }
                   : row
               )
@@ -4379,8 +4380,8 @@ Aseguradora: ${invoice.insurer || '-'}
                           newStatus === 'Aceptado'
                             ? 'Presupuesto aceptado'
                             : newStatus === 'Rechazado'
-                            ? 'Presupuesto rechazado'
-                            : 'Presupuesto reabierto',
+                              ? 'Presupuesto rechazado'
+                              : 'Presupuesto reabierto',
                         user: 'Sistema'
                       }
                     ]

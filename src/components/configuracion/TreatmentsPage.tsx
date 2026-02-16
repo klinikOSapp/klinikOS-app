@@ -15,50 +15,29 @@ import {
   SearchRounded
 } from '@/components/icons/md3'
 import {
-  BUDGET_TYPES_DATA,
-  addBudgetType,
-  deleteBudgetType,
-  updateBudgetType,
   type BudgetTypeData
 } from '@/components/pacientes/shared/budgetTypeData'
+import { useConfiguration } from '@/context/ConfigurationContext'
+import type { ConfigCategory, ConfigDiscount, ConfigTreatment } from '@/types/treatments'
 import { useCallback, useMemo, useState } from 'react'
 import BudgetTypeEditorModal from './BudgetTypeEditorModal'
+
+// Re-export types for consumers that still import from here
+export type { ConfigCategory, ConfigDiscount, ConfigTreatment, DiscountType } from '@/types/treatments'
 
 // ============================================
 // TYPES
 // ============================================
 
-type Treatment = {
-  id: string
-  name: string
-  code: string
-  basePrice: number
-  estimatedTime: string
-  iva: string
-  selected: boolean
-}
-
-type Category = {
-  id: string
-  name: string
-  treatments: Treatment[]
-}
-
-type TabKey = 'treatments' | 'budgetType' | 'discounts' | 'medications'
+type TabKey = 'treatments' | 'budgetType' | 'discounts'
 
 // Budget type row extends the shared BudgetTypeData with selected state
 type BudgetTypeRow = BudgetTypeData & { selected: boolean }
 
-type DiscountType = 'percentage' | 'fixed'
-
-type Discount = {
-  id: string
-  name: string
-  type: DiscountType
-  value: number
-  notes: string
-  isActive: boolean
-}
+// Keep local aliases for backward compat within this file
+type Treatment = ConfigTreatment
+type Category = ConfigCategory
+type Discount = ConfigDiscount
 
 // ============================================
 // DATA
@@ -69,78 +48,10 @@ type Discount = {
 // Structure: id, name, type (percentage/fixed), value, notes, isActive
 // ============================================
 
-const initialDiscounts: Discount[] = [
-  {
-    id: 'disc-001',
-    name: 'Descuento familiar',
-    type: 'percentage',
-    value: 15,
-    notes: 'Aplicable a familiares directos de pacientes existentes',
-    isActive: true
-  },
-  {
-    id: 'disc-002',
-    name: 'Convenio empresa ABC',
-    type: 'fixed',
-    value: 100,
-    notes: 'Precio fijo para empleados de empresa ABC',
-    isActive: false
-  },
-  {
-    id: 'disc-003',
-    name: 'Descuento estudiantes',
-    type: 'percentage',
-    value: 10,
-    notes: 'Para estudiantes universitarios con carnet vigente',
-    isActive: true
-  },
-  {
-    id: 'disc-004',
-    name: 'Descuento tercera edad',
-    type: 'percentage',
-    value: 20,
-    notes: 'Para mayores de 65 años',
-    isActive: true
-  },
-  {
-    id: 'disc-005',
-    name: 'Convenio Mutua Salud',
-    type: 'percentage',
-    value: 25,
-    notes: 'Aplicable a afiliados de Mutua Salud',
-    isActive: true
-  },
-  {
-    id: 'disc-006',
-    name: 'Pack tratamiento completo',
-    type: 'fixed',
-    value: 200,
-    notes: 'Descuento fijo al contratar tratamiento completo',
-    isActive: false
-  },
-  {
-    id: 'disc-007',
-    name: 'Primera visita gratis',
-    type: 'fixed',
-    value: 50,
-    notes: 'Descuento en primera visita para nuevos pacientes',
-    isActive: true
-  },
-  {
-    id: 'disc-008',
-    name: 'Referido por paciente',
-    type: 'percentage',
-    value: 10,
-    notes: 'Descuento para pacientes referidos',
-    isActive: true
-  }
-]
+// Discounts initial data imported from shared data file
+// (now managed via ConfigurationContext)
 
-// Convert BUDGET_TYPES_DATA to BudgetTypeRow format (add selected state)
-const initialBudgetTypes: BudgetTypeRow[] = BUDGET_TYPES_DATA.map((bt) => ({
-  ...bt,
-  selected: false
-}))
+// Budget types now come from ConfigurationContext
 
 // ============================================
 // MOCK DATA - Ready for database connection
@@ -148,7 +59,7 @@ const initialBudgetTypes: BudgetTypeRow[] = BUDGET_TYPES_DATA.map((bt) => ({
 // estimatedTime (minutes for DB), iva (percentage), categoryId (FK)
 // ============================================
 
-const initialCategories: Category[] = [
+export const initialCategories: Category[] = [
   {
     id: 'cirugia',
     name: 'Cirugía',
@@ -3802,8 +3713,7 @@ const initialCategories: Category[] = [
 const tabs: { key: TabKey; label: string }[] = [
   { key: 'treatments', label: 'Lista de tratamientos' },
   { key: 'budgetType', label: 'Presupuestos tipo' },
-  { key: 'discounts', label: 'Descuentos (convenios)' },
-  { key: 'medications', label: 'Medicamentos con autoguardado' }
+  { key: 'discounts', label: 'Descuentos (convenios)' }
 ]
 
 // ============================================
@@ -3852,13 +3762,13 @@ function BudgetTypeTableHeader() {
   ]
 
   return (
-    <div className={BUDGET_TYPE_GRID_CLASSES}>
+    <div className={`${BUDGET_TYPE_GRID_CLASSES} sticky top-0 z-10 bg-[var(--color-surface)]`}>
       {headers.map((label, i) => (
         <div
           key={`bt-header-${i}`}
-          className='flex items-center border-b border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'
+          className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'
         >
-          <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+          <p className='text-body-sm text-[var(--color-neutral-600)]'>
             {label}
           </p>
         </div>
@@ -3884,43 +3794,43 @@ function BudgetTypeTableRow({
       onClick={onToggleSelect}
     >
       {/* Name */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
         <p
-          className='text-body-md text-[var(--color-neutral-900)] truncate'
+          className='text-body-sm font-medium text-[var(--color-neutral-900)] truncate'
           title={budget.name}
         >
           {budget.name}
         </p>
       </div>
       {/* Description */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
         <p
-          className='text-body-md text-[var(--color-neutral-600)] truncate'
+          className='text-body-sm text-[var(--color-neutral-600)] truncate'
           title={budget.description}
         >
           {budget.description}
         </p>
       </div>
       {/* Treatments Count */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)]'>
           {budget.treatments.length}
         </p>
       </div>
       {/* Total Price */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)]'>
           {budget.totalPrice.toLocaleString('es-ES')} €
         </p>
       </div>
       {/* Status */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] px-2 py-1.5 h-[2.5rem] min-w-0'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
         {budget.isActive ? (
-          <span className='bg-[#D3F7F3] text-[#1E4947] px-2 py-0.5 rounded text-body-md'>
+          <span className='bg-[#D3F7F3] text-[#1E4947] px-2 py-0.5 rounded-sm text-body-sm'>
             Activo
           </span>
         ) : (
-          <span className='bg-[var(--color-neutral-200)] text-[var(--color-neutral-600)] px-2 py-0.5 rounded text-body-md'>
+          <span className='bg-[var(--color-neutral-200)] text-[var(--color-neutral-600)] px-2 py-0.5 rounded-sm text-body-sm'>
             Inactivo
           </span>
         )}
@@ -4108,13 +4018,13 @@ function DiscountsTableHeader() {
   ]
 
   return (
-    <div className={DISCOUNTS_GRID_CLASSES}>
+    <div className={`${DISCOUNTS_GRID_CLASSES} sticky top-0 z-10 bg-[var(--color-surface)]`}>
       {headers.map((label, i) => (
         <div
           key={`disc-header-${i}`}
-          className='flex items-center border-b border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'
+          className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'
         >
-          <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+          <p className='text-body-sm text-[var(--color-neutral-600)]'>
             {label}
           </p>
         </div>
@@ -4135,33 +4045,33 @@ function DiscountsTableRow({
       className={`${DISCOUNTS_GRID_CLASSES} hover:bg-[var(--color-neutral-50)] transition-colors`}
     >
       {/* Name */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
         <p
-          className='text-body-md text-[var(--color-neutral-900)] truncate'
+          className='text-body-sm font-medium text-[var(--color-neutral-900)] truncate'
           title={discount.name}
         >
           {discount.name}
         </p>
       </div>
       {/* Type */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)]'>
           {discount.type === 'percentage' ? '%' : 'Precio fijo'}
         </p>
       </div>
       {/* Value */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)]'>
           {discount.type === 'percentage'
             ? `${discount.value}%`
             : `${discount.value}€`}
         </p>
       </div>
       {/* Notes */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
         <button type='button' className='px-2 py-0.5' onClick={onOpenNotes}>
           <span
-            className='text-body-md text-[var(--color-neutral-900)] truncate'
+            className='text-body-sm text-[var(--color-neutral-900)] truncate'
             title={discount.notes}
           >
             {discount.notes.length > 40
@@ -4171,13 +4081,13 @@ function DiscountsTableRow({
         </button>
       </div>
       {/* Status */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] px-2 py-1.5 h-[2.5rem] min-w-0'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
         {discount.isActive ? (
-          <span className='bg-[#E0F2FE] text-[#075985] px-2 py-0.5 rounded text-body-md'>
+          <span className='bg-[#E0F2FE] text-[#075985] px-2 py-0.5 rounded-sm text-body-sm'>
             Activo
           </span>
         ) : (
-          <span className='bg-[var(--color-neutral-300)] text-[var(--color-neutral-900)] px-2 py-0.5 rounded text-body-md'>
+          <span className='bg-[var(--color-neutral-200)] text-[var(--color-neutral-600)] px-2 py-0.5 rounded-sm text-body-sm'>
             Inactivo
           </span>
         )}
@@ -4205,13 +4115,13 @@ function TableHeader() {
   ]
 
   return (
-    <div className={TABLE_GRID_CLASSES}>
+    <div className={`${TABLE_GRID_CLASSES} sticky top-0 z-10 bg-[var(--color-surface)]`}>
       {headers.map((label, i) => (
         <div
           key={`header-${i}`}
-          className='flex items-center border-b border-neutral-300 px-2 py-2 h-10 min-w-0'
+          className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'
         >
-          <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+          <p className='text-body-sm text-[var(--color-neutral-600)]'>
             {label}
           </p>
         </div>
@@ -4232,7 +4142,7 @@ function TableRow({
       className={`${TABLE_GRID_CLASSES} hover:bg-[var(--color-neutral-50)] transition-colors`}
     >
       {/* Checkbox */}
-      <div className='flex items-center border-b border-r border-neutral-300 px-2 py-2 h-10'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10'>
         <button
           type='button'
           onClick={onToggle}
@@ -4251,29 +4161,29 @@ function TableRow({
         </button>
       </div>
       {/* Code */}
-      <div className='flex items-center border-b border-r border-neutral-300 px-2 py-2 h-10 min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)] truncate'>
           {treatment.code}
         </p>
       </div>
       {/* Name */}
-      <div className='flex items-center border-b border-r border-neutral-300 px-2 py-2 h-10 min-w-0'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
         <p
-          className='text-body-md text-[var(--color-neutral-900)] truncate'
+          className='text-body-sm font-medium text-[var(--color-neutral-900)] truncate'
           title={treatment.name}
         >
           {treatment.name}
         </p>
       </div>
       {/* Price */}
-      <div className='flex items-center border-b border-r border-neutral-300 px-2 py-2 h-10 min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)] truncate'>
           {treatment.basePrice}€
         </p>
       </div>
       {/* Estimated Time */}
-      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-10 min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)] truncate'>
           {treatment.estimatedTime}
         </p>
       </div>
@@ -4286,16 +4196,40 @@ function TableRow({
 // ============================================
 
 export default function TreatmentsPage() {
+  // Use ConfigurationContext for shared state
+  const {
+    treatmentCategories: categories,
+    setTreatmentCategories: setCategories,
+    discounts,
+    setDiscounts,
+    budgetTypes: budgetTypesFromCtx,
+    setBudgetTypes: setBudgetTypesCtx,
+    addBudgetType: addBudgetTypeCtx,
+    updateBudgetType: updateBudgetTypeCtx,
+    deleteBudgetType: deleteBudgetTypeCtx
+  } = useConfiguration()
+
   const [activeTab, setActiveTab] = useState<TabKey>('treatments')
   const [selectedCategoryId, setSelectedCategoryId] =
     useState<string>('estetica')
-  const [categories, setCategories] = useState<Category[]>(initialCategories)
   const [searchVisible, setSearchVisible] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 
-  // Budget Types state
-  const [budgetTypes, setBudgetTypes] =
-    useState<BudgetTypeRow[]>(initialBudgetTypes)
+  // Budget Types state - derive from context, add local 'selected' state
+  const [budgetTypeSelections, setBudgetTypeSelections] = useState<Record<string, boolean>>({})
+  const budgetTypes: BudgetTypeRow[] = useMemo(
+    () => budgetTypesFromCtx.map((bt) => ({ ...bt, selected: budgetTypeSelections[bt.id] || false })),
+    [budgetTypesFromCtx, budgetTypeSelections]
+  )
+  const setBudgetTypes = useCallback((rows: BudgetTypeRow[]) => {
+    // Update context with core data (without 'selected')
+    setBudgetTypesCtx(rows.map(({ selected, ...rest }) => rest))
+    // Update local selection state
+    const selections: Record<string, boolean> = {}
+    rows.forEach((r) => { selections[r.id] = r.selected })
+    setBudgetTypeSelections(selections)
+  }, [setBudgetTypesCtx])
+
   const [qbSearchVisible, setQbSearchVisible] = useState(false)
   const [qbSearchTerm, setQbSearchTerm] = useState('')
   const [qbCurrentPage, setQbCurrentPage] = useState(1)
@@ -4305,9 +4239,6 @@ export default function TreatmentsPage() {
   const [showBudgetTypeEditor, setShowBudgetTypeEditor] = useState(false)
   const [editingBudgetType, setEditingBudgetType] =
     useState<BudgetTypeData | null>(null)
-
-  // Discounts state
-  const [discounts, setDiscounts] = useState<Discount[]>(initialDiscounts)
   const [discSearchVisible, setDiscSearchVisible] = useState(false)
   const [discSearchTerm, setDiscSearchTerm] = useState('')
   const [discCurrentPage, setDiscCurrentPage] = useState(1)
@@ -4391,13 +4322,12 @@ export default function TreatmentsPage() {
     return Math.ceil(filteredBudgetTypes.length / qbItemsPerPage)
   }, [filteredBudgetTypes.length, qbItemsPerPage])
 
-  // Toggle budget type selection
+  // Toggle budget type selection (only updates local selection state, not context)
   const toggleBudgetTypeSelect = useCallback((budgetId: string) => {
-    setBudgetTypes((prev) =>
-      prev.map((bt) =>
-        bt.id === budgetId ? { ...bt, selected: !bt.selected } : bt
-      )
-    )
+    setBudgetTypeSelections((prev) => ({
+      ...prev,
+      [budgetId]: !prev[budgetId]
+    }))
   }, [])
 
   // Budget type actions
@@ -4414,21 +4344,18 @@ export default function TreatmentsPage() {
   const handleBtDuplicate = useCallback(() => {
     selectedBudgetTypes.forEach((bt) => {
       const { id, selected, ...rest } = bt
-      const newBudget = addBudgetType({
+      addBudgetTypeCtx({
         ...rest,
         name: `${bt.name} (copia)`
       })
-      setBudgetTypes((prev) => [...prev, { ...newBudget, selected: false }])
     })
-  }, [selectedBudgetTypes])
+  }, [selectedBudgetTypes, addBudgetTypeCtx])
 
   const handleBtDelete = useCallback(() => {
     selectedBudgetTypes.forEach((bt) => {
-      deleteBudgetType(bt.id)
+      deleteBudgetTypeCtx(bt.id)
     })
-    const selectedIds = selectedBudgetTypes.map((bt) => bt.id)
-    setBudgetTypes((prev) => prev.filter((bt) => !selectedIds.includes(bt.id)))
-  }, [selectedBudgetTypes])
+  }, [selectedBudgetTypes, deleteBudgetTypeCtx])
 
   const handleBtMore = useCallback(() => {
     console.log(
@@ -4447,26 +4374,16 @@ export default function TreatmentsPage() {
   const handleSaveBudgetType = useCallback(
     (budgetTypeData: Omit<BudgetTypeData, 'id'> | BudgetTypeData) => {
       if ('id' in budgetTypeData && budgetTypeData.id) {
-        // Update existing
-        updateBudgetType(budgetTypeData.id, budgetTypeData)
-        setBudgetTypes((prev) =>
-          prev.map((bt) =>
-            bt.id === budgetTypeData.id
-              ? { ...(budgetTypeData as BudgetTypeData), selected: bt.selected }
-              : bt
-          )
-        )
+        // Update existing via context
+        updateBudgetTypeCtx(budgetTypeData.id, budgetTypeData)
       } else {
-        // Create new
-        const newBudget = addBudgetType(
-          budgetTypeData as Omit<BudgetTypeData, 'id'>
-        )
-        setBudgetTypes((prev) => [...prev, { ...newBudget, selected: false }])
+        // Create new via context
+        addBudgetTypeCtx(budgetTypeData as Omit<BudgetTypeData, 'id'>)
       }
       setShowBudgetTypeEditor(false)
       setEditingBudgetType(null)
     },
-    []
+    [addBudgetTypeCtx, updateBudgetTypeCtx]
   )
 
   // ============================================
@@ -4513,16 +4430,11 @@ export default function TreatmentsPage() {
     // TODO: Implement add discount modal
   }, [])
 
-  // Configure discount limits
-  const handleConfigureDiscountLimits = useCallback(() => {
-    console.log('Configure discount limits')
-    // TODO: Implement discount limits configuration modal
-  }, [])
 
   return (
     <>
       {/* Section Header */}
-      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] h-[min(2.5rem,4vh)]'>
+      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] min-h-[min(2.5rem,4vh)]'>
         <p className='text-title-lg font-normal text-[var(--color-neutral-900)]'>
           Tratamientos, precios, presupuestos y descuentos
         </p>
@@ -4530,9 +4442,9 @@ export default function TreatmentsPage() {
 
       {/* Content Card */}
       <div className='flex-1 mx-[min(2rem,3vw)] mt-[min(1.5rem,2vh)] mb-0 min-h-0'>
-        <div className='bg-[var(--color-surface)] border border-neutral-200 rounded-t-lg h-full overflow-auto'>
+        <div className='bg-[var(--color-surface)] border border-neutral-200 rounded-t-lg h-full overflow-hidden flex flex-col'>
           {/* Tabs */}
-          <div className='sticky top-0 z-10 bg-[var(--color-surface)] px-[min(2.5rem,3vw)] pt-[min(1.5rem,2vh)] pb-2 min-h-[min(4rem,6vh)]'>
+          <div className='flex-none bg-[var(--color-surface)] px-[min(2.5rem,3vw)] pt-[min(1.5rem,2vh)] pb-2 min-h-[min(4rem,6vh)]'>
             <div className='flex gap-6 items-center overflow-x-auto'>
               {tabs.map((tab) => (
                 <button
@@ -4561,9 +4473,9 @@ export default function TreatmentsPage() {
 
           {/* Tab Content */}
           {activeTab === 'treatments' ? (
-            <div className='flex min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)]'>
+            <div className='flex flex-1 min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)]'>
               {/* Categories Sidebar */}
-              <aside className='w-[min(11.5rem,18vw)] flex-none border border-neutral-200 rounded-lg ml-[min(2.5rem,3vw)] mr-[min(1.5rem,2vw)] overflow-hidden'>
+              <aside className='w-[min(11.5rem,18vw)] flex-none min-h-0 self-stretch border border-neutral-200 rounded-lg ml-[min(2.5rem,3vw)] mr-[min(1.5rem,2vw)] overflow-y-auto'>
                 <nav className='flex flex-col'>
                   {categories.map((category) => (
                     <button
@@ -4584,9 +4496,9 @@ export default function TreatmentsPage() {
               </aside>
 
               {/* Treatments Content */}
-              <div className='flex-1 flex flex-col min-w-0 pr-[min(2.5rem,3vw)] overflow-hidden'>
+              <div className='flex-1 flex flex-col min-w-0 min-h-0 pr-[min(2.5rem,3vw)] overflow-hidden'>
                 {/* Category Header */}
-                <div className='flex items-center justify-between mb-4'>
+                <div className='flex-none flex items-center justify-between mb-4'>
                   <p className='text-title-lg font-medium text-[var(--color-neutral-900)]'>
                     {currentCategory?.name || ''}
                   </p>
@@ -4649,7 +4561,7 @@ export default function TreatmentsPage() {
 
                 {/* Filter Tags */}
                 {selectedTreatments.length > 0 && (
-                  <div className='flex flex-wrap gap-2 mb-4'>
+                  <div className='flex-none flex flex-wrap gap-2 mb-4'>
                     {selectedTreatments.map((t) => (
                       <FilterTag
                         key={t.id}
@@ -4661,7 +4573,7 @@ export default function TreatmentsPage() {
                 )}
 
                 {/* Treatments Table */}
-                <div className='flex-1 overflow-y-auto overflow-x-hidden'>
+                <div className='flex-1 min-h-0 overflow-y-auto overflow-x-hidden'>
                   <TableHeader />
                   {filteredTreatments.map((treatment) => (
                     <TableRow
@@ -4674,9 +4586,9 @@ export default function TreatmentsPage() {
               </div>
             </div>
           ) : activeTab === 'budgetType' ? (
-            <div className='flex flex-col min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)] px-[min(2.5rem,3vw)]'>
+            <div className='flex-1 flex flex-col min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)] px-[min(2.5rem,3vw)]'>
               {/* Action Bar */}
-              <div className='flex items-end justify-between mb-6'>
+              <div className='flex-none flex items-end justify-between mb-6'>
                 {/* Selection Actions */}
                 {selectedBudgetTypes.length > 0 ? (
                   <SelectionActionBar
@@ -4738,17 +4650,6 @@ export default function TreatmentsPage() {
                       Todos
                     </span>
                   </button>
-                  {/* Configure Discount Limits */}
-                  <button
-                    type='button'
-                    onClick={handleConfigureDiscountLimits}
-                    className='flex items-center gap-2 h-8 px-4 rounded-full border border-neutral-300 bg-[var(--color-neutral-50)] hover:bg-neutral-100 transition-colors'
-                  >
-                    <AddRounded className='size-6 text-[var(--color-neutral-900)]' />
-                    <span className='text-body-md font-medium text-[var(--color-neutral-900)] whitespace-nowrap'>
-                      Configurar límites de descuento
-                    </span>
-                  </button>
                   {/* Add Template */}
                   <button
                     type='button'
@@ -4764,7 +4665,7 @@ export default function TreatmentsPage() {
               </div>
 
               {/* Budget Types Table */}
-              <div className='flex-1 overflow-y-auto overflow-x-hidden'>
+              <div className='flex-1 min-h-0 overflow-y-auto overflow-x-hidden'>
                 <BudgetTypeTableHeader />
                 {paginatedBudgetTypes.map((budget) => (
                   <BudgetTypeTableRow
@@ -4777,7 +4678,7 @@ export default function TreatmentsPage() {
 
               {/* Pagination */}
               {qbTotalPages > 1 && (
-                <div className='flex justify-end mt-6'>
+                <div className='flex-none flex justify-end mt-6'>
                   <Pagination
                     currentPage={qbCurrentPage}
                     totalPages={qbTotalPages}
@@ -4787,9 +4688,9 @@ export default function TreatmentsPage() {
               )}
             </div>
           ) : activeTab === 'discounts' ? (
-            <div className='flex flex-col min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)] px-[min(2.5rem,3vw)]'>
+            <div className='flex-1 flex flex-col min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)] px-[min(2.5rem,3vw)]'>
               {/* Action Bar */}
-              <div className='flex items-end justify-between mb-6'>
+              <div className='flex-none flex items-end justify-between mb-6'>
                 {/* Results Counter */}
                 <p className='text-label-sm text-[var(--color-neutral-500)]'>
                   {filteredDiscounts.length} Resultados totales
@@ -4858,7 +4759,7 @@ export default function TreatmentsPage() {
               </div>
 
               {/* Discounts Table */}
-              <div className='flex-1 overflow-y-auto overflow-x-hidden'>
+              <div className='flex-1 min-h-0 overflow-y-auto overflow-x-hidden'>
                 <DiscountsTableHeader />
                 {paginatedDiscounts.map((discount) => (
                   <DiscountsTableRow
@@ -4871,7 +4772,7 @@ export default function TreatmentsPage() {
 
               {/* Pagination */}
               {discTotalPages > 1 && (
-                <div className='flex justify-end mt-6'>
+                <div className='flex-none flex justify-end mt-6'>
                   <Pagination
                     currentPage={discCurrentPage}
                     totalPages={discTotalPages}
@@ -4880,14 +4781,7 @@ export default function TreatmentsPage() {
                 </div>
               )}
             </div>
-          ) : (
-            <div className='flex items-center justify-center py-20'>
-              <p className='text-body-md text-[var(--color-neutral-600)]'>
-                {activeTab === 'medications' &&
-                  'Contenido de Medicamentos con autoguardado - Por implementar'}
-              </p>
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
 

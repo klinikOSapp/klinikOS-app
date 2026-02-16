@@ -26,10 +26,18 @@ export type Treatment = {
 // ============================================
 
 // Estado del diente en el odontograma
-export type ToothStatus = 'normal' | 'pendiente' | 'finalizado' | 'ausente' | 'protesis'
+export type ToothStatus =
+  | 'normal'
+  | 'pendiente'
+  | 'finalizado'
+  | 'ausente'
+  | 'protesis'
 
 // Colores para cada estado del diente
-export const TOOTH_STATUS_COLORS: Record<ToothStatus, { fill: string; label: string }> = {
+export const TOOTH_STATUS_COLORS: Record<
+  ToothStatus,
+  { fill: string; label: string }
+> = {
   normal: { fill: '#CBD3D9', label: 'Normal' },
   pendiente: { fill: '#D97706', label: 'Pendiente' },
   finalizado: { fill: '#338F88', label: 'Finalizado' },
@@ -48,7 +56,11 @@ export type ToothFace =
   | 'Incisal'
 
 // Estado de tratamiento V2 (para historial)
-export type TreatmentV2Status = 'pendiente' | 'en_progreso' | 'completado' | 'cancelado'
+export type TreatmentV2Status =
+  | 'pendiente'
+  | 'en_progreso'
+  | 'completado'
+  | 'cancelado'
 
 // Tratamiento V2 - Nuevo diseño de Figma
 export type TreatmentV2 = {
@@ -65,7 +77,7 @@ export type TreatmentV2 = {
   descripcionAnotaciones?: string // Notas adicionales
   doctor: string // Nombre del profesional
   selected?: boolean // Selección para crear presupuesto
-  
+
   // HU-011: Campos para historial de tratamientos
   estado?: TreatmentV2Status // Estado del tratamiento
   fechaCreacion?: string // Fecha de creación (ISO)
@@ -214,11 +226,9 @@ export const TREATMENT_CATALOG: TreatmentCatalog = {
   }
 }
 
-// Lista de profesionales disponibles
-export const PROFESSIONALS = [
-  { value: 'Dr. Guillermo', label: 'Dr. Guillermo' },
-  { value: 'Dra. Andrea', label: 'Dra. Andrea' }
-]
+// PROFESSIONALS removed - now sourced from ConfigurationContext
+// Use useConfiguration().professionalNameOptions for {value, label} format
+// Use useConfiguration().professionalNames for string[] format
 
 // Helper function para calcular el monto final con descuento
 export function calculateFinalAmount(

@@ -8,6 +8,7 @@ import {
   KeyboardArrowDownRounded
 } from '@/components/icons/md3'
 import Portal from '@/components/ui/Portal'
+import type { EmploymentType, ProfessionalColorTone } from '@/context/ConfigurationContext'
 import React from 'react'
 
 export type ProfessionalFormData = {
@@ -15,9 +16,11 @@ export type ProfessionalFormData = {
   telefono: string
   email: string
   especialidad: string
-  color: 'morado' | 'naranja' | 'verde'
+  color: ProfessionalColorTone
   estado: 'Activo' | 'Inactivo'
+  employmentType: EmploymentType
   comision?: string
+  salary?: string
   fotoUrl?: string
 }
 
@@ -157,7 +160,9 @@ const inicialForm: ProfessionalFormData = {
   especialidad: 'Odontólogo',
   color: 'verde',
   estado: 'Activo',
+  employmentType: 'autonomo',
   comision: '',
+  salary: '',
   fotoUrl: undefined
 }
 
@@ -196,160 +201,186 @@ export default function AddProfessionalModal({
         onClick={onClose}
         role='presentation'
       >
-      <div
-        role='dialog'
-        aria-modal='true'
-        aria-label={title}
-        className='relative w-[min(53rem,95vw)] max-h-[90vh] overflow-hidden rounded-[0.5rem] bg-[var(--color-surface-modal,#fff)] shadow-xl'
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className='flex h-[3.5rem] items-center justify-between border-b border-[var(--color-neutral-300)] px-[2rem]'>
-          <p className='font-inter text-[1.125rem] leading-[1.75rem] font-medium text-neutral-900'>
-            {title}
-          </p>
-          <button
-            type='button'
-            onClick={onClose}
-            aria-label='Cerrar'
-            className='size-[0.875rem] text-neutral-900'
-          >
-            <CloseRounded />
-          </button>
-        </header>
-
-        <form
-          onSubmit={handleSubmit}
-          className='max-h-[calc(90vh-3.5rem)] overflow-y-auto'
+        <div
+          role='dialog'
+          aria-modal='true'
+          aria-label={title}
+          className='relative w-[min(53rem,95vw)] max-h-[90vh] overflow-hidden rounded-[0.5rem] bg-[var(--color-surface-modal,#fff)] shadow-xl'
+          onClick={(e) => e.stopPropagation()}
         >
-          <div className='mx-auto flex w-[min(49rem,calc(100%-2rem))] flex-col gap-[2.5rem] px-[2rem] py-[2.5rem]'>
-            <section className='flex flex-col gap-[1rem]'>
-              <p className='font-inter text-[1.125rem] leading-[1.75rem] font-medium text-neutral-900'>
-                Introduce los datos del nuevo especialista
-              </p>
-              <div className='flex flex-col gap-[0.5rem]'>
-                <p className='font-inter text-[0.875rem] leading-[1.25rem] text-neutral-900'>
-                  Foto del profesional
+          <header className='flex h-[3.5rem] items-center justify-between border-b border-[var(--color-neutral-300)] px-[2rem]'>
+            <p className='font-inter text-[1.125rem] leading-[1.75rem] font-medium text-neutral-900'>
+              {title}
+            </p>
+            <button
+              type='button'
+              onClick={onClose}
+              aria-label='Cerrar'
+              className='size-[0.875rem] text-neutral-900'
+            >
+              <CloseRounded />
+            </button>
+          </header>
+
+          <form
+            onSubmit={handleSubmit}
+            className='max-h-[calc(90vh-3.5rem)] overflow-y-auto'
+          >
+            <div className='mx-auto flex w-[min(49rem,calc(100%-2rem))] flex-col gap-[2.5rem] px-[2rem] py-[2.5rem]'>
+              <section className='flex flex-col gap-[1rem]'>
+                <p className='font-inter text-[1.125rem] leading-[1.75rem] font-medium text-neutral-900'>
+                  Introduce los datos del nuevo especialista
                 </p>
-                <div className='flex flex-wrap items-center gap-[1.5rem]'>
-                  <div className='relative size-[6.5625rem] overflow-hidden rounded-[0.5rem] bg-neutral-200'>
-                    {form.fotoUrl ? (
-                      <img
-                        src={form.fotoUrl}
-                        alt='Foto del profesional'
-                        className='size-full object-cover'
-                      />
-                    ) : null}
+                <div className='flex flex-col gap-[0.5rem]'>
+                  <p className='font-inter text-[0.875rem] leading-[1.25rem] text-neutral-900'>
+                    Foto del profesional
+                  </p>
+                  <div className='flex flex-wrap items-center gap-[1.5rem]'>
+                    <div className='relative size-[6.5625rem] overflow-hidden rounded-[0.5rem] bg-neutral-200'>
+                      {form.fotoUrl ? (
+                        <img
+                          src={form.fotoUrl}
+                          alt='Foto del profesional'
+                          className='size-full object-cover'
+                        />
+                      ) : null}
+                    </div>
+                    <button
+                      type='button'
+                      className='flex h-[2.5rem] items-center gap-[0.5rem] rounded-[8.5rem] border border-neutral-300 bg-[var(--color-neutral-50)] px-[1rem] py-[0.5rem] text-[1rem] leading-[1.5rem] font-medium text-neutral-900'
+                    >
+                      <AddRounded className='text-neutral-900' />
+                      Añadir foto
+                    </button>
                   </div>
-                  <button
-                    type='button'
-                    className='flex h-[2.5rem] items-center gap-[0.5rem] rounded-[8.5rem] border border-neutral-300 bg-[var(--color-neutral-50)] px-[1rem] py-[0.5rem] text-[1rem] leading-[1.5rem] font-medium text-neutral-900'
-                  >
-                    <AddRounded className='text-neutral-900' />
-                    Añadir foto
-                  </button>
                 </div>
-              </div>
-            </section>
+              </section>
 
-            <section className='flex flex-col gap-[1.5rem]'>
-              <Field
-                label='Nombre y apellidos'
-                required
-                value={form.nombre}
-                onChange={updateField('nombre')}
-                placeholder='Ej: María García López'
-                helperText='Nombre completo tal como aparecerá en la agenda'
-              />
+              <section className='flex flex-col gap-[1.5rem]'>
+                <Field
+                  label='Nombre y apellidos'
+                  required
+                  value={form.nombre}
+                  onChange={updateField('nombre')}
+                  placeholder='Ej: María García López'
+                  helperText='Nombre completo tal como aparecerá en la agenda'
+                />
 
-              <div className='flex flex-wrap gap-[1.5rem]'>
-                <Field
-                  label='Teléfono'
+                <div className='flex flex-wrap gap-[1.5rem]'>
+                  <Field
+                    label='Teléfono'
+                    required
+                    value={form.telefono}
+                    onChange={updateField('telefono')}
+                    placeholder='Ej: 612 345 678'
+                    helperText='Número de contacto del profesional'
+                    className='w-[min(23.75rem,100%)]'
+                  />
+                  <Field
+                    label='Email'
+                    required
+                    value={form.email}
+                    onChange={updateField('email')}
+                    placeholder='Ej: maria@clinica.es'
+                    helperText='Correo electrónico profesional'
+                    className='w-[min(23.75rem,100%)]'
+                  />
+                </div>
+
+                <SelectField
+                  label='Especialidad'
                   required
-                  value={form.telefono}
-                  onChange={updateField('telefono')}
-                  placeholder='Ej: 612 345 678'
-                  helperText='Número de contacto del profesional'
-                  className='w-[min(23.75rem,100%)]'
+                  value={form.especialidad}
+                  onChange={updateField('especialidad')}
+                  helperText='Área de especialización principal'
+                  options={[
+                    { label: 'Odontólogo', value: 'Odontólogo' },
+                    { label: 'Ortodoncista', value: 'Ortodoncista' },
+                    { label: 'Higienista', value: 'Higienista' },
+                    { label: 'Cirujano', value: 'Cirujano' },
+                    { label: 'Implantólogo', value: 'Implantólogo' }
+                  ]}
                 />
-                <Field
-                  label='Email'
-                  required
-                  value={form.email}
-                  onChange={updateField('email')}
-                  placeholder='Ej: maria@clinica.es'
-                  helperText='Correo electrónico profesional'
-                  className='w-[min(23.75rem,100%)]'
-                />
-              </div>
+
+                <div className='flex flex-wrap gap-[1.5rem]'>
+                  <SelectField
+                    label='Color'
+                    required
+                    value={form.color}
+                    onChange={(v) =>
+                      updateField('color')(v as ProfessionalFormData['color'])
+                    }
+                    helperText='Color identificativo en la agenda'
+                    options={[
+                      { label: 'Verde', value: 'verde' },
+                      { label: 'Morado', value: 'morado' },
+                      { label: 'Naranja', value: 'naranja' },
+                      { label: 'Azul', value: 'azul' },
+                      { label: 'Rojo', value: 'rojo' }
+                    ]}
+                    className='w-[min(23.75rem,100%)]'
+                  />
+                  <SelectField
+                    label='Estado'
+                    required
+                    value={form.estado}
+                    onChange={(v) =>
+                      updateField('estado')(v as ProfessionalFormData['estado'])
+                    }
+                    helperText='Profesionales inactivos no aparecen en la agenda'
+                    options={[
+                      { label: 'Activo', value: 'Activo' },
+                      { label: 'Inactivo', value: 'Inactivo' }
+                    ]}
+                    className='w-[min(23.75rem,100%)]'
+                  />
+                </div>
 
               <SelectField
-                label='Especialidad'
+                label='Tipo de contratación'
                 required
-                value={form.especialidad}
-                onChange={updateField('especialidad')}
-                helperText='Área de especialización principal'
+                value={form.employmentType}
+                onChange={(v) =>
+                  updateField('employmentType')(v as ProfessionalFormData['employmentType'])
+                }
+                helperText='Determina el tipo de compensación del profesional'
                 options={[
-                  { label: 'Odontólogo', value: 'Odontólogo' },
-                  { label: 'Ortodoncista', value: 'Ortodoncista' },
-                  { label: 'Higienista', value: 'Higienista' },
-                  { label: 'Cirujano', value: 'Cirujano' },
-                  { label: 'Implantólogo', value: 'Implantólogo' }
+                  { label: 'Autónomo (comisión)', value: 'autonomo' },
+                  { label: 'Empleado (salario fijo)', value: 'nomina' }
                 ]}
               />
 
-              <div className='flex flex-wrap gap-[1.5rem]'>
-                <SelectField
-                  label='Color'
-                  required
-                  value={form.color}
-                  onChange={(v) =>
-                    updateField('color')(v as ProfessionalFormData['color'])
-                  }
-                  helperText='Color identificativo en la agenda'
-                  options={[
-                    { label: 'Verde', value: 'verde' },
-                    { label: 'Morado', value: 'morado' },
-                    { label: 'Naranja', value: 'naranja' }
-                  ]}
-                  className='w-[min(23.75rem,100%)]'
+              {form.employmentType === 'autonomo' ? (
+                <Field
+                  label='% comisión'
+                  value={form.comision ?? ''}
+                  onChange={updateField('comision')}
+                  placeholder='Ej: 30'
+                  helperText='Porcentaje de comisión por servicios realizados'
                 />
-                <SelectField
-                  label='Estado'
-                  required
-                  value={form.estado}
-                  onChange={(v) =>
-                    updateField('estado')(v as ProfessionalFormData['estado'])
-                  }
-                  helperText='Profesionales inactivos no aparecen en la agenda'
-                  options={[
-                    { label: 'Activo', value: 'Activo' },
-                    { label: 'Inactivo', value: 'Inactivo' }
-                  ]}
-                  className='w-[min(23.75rem,100%)]'
+              ) : (
+                <Field
+                  label='Salario mensual (EUR)'
+                  value={form.salary ?? ''}
+                  onChange={updateField('salary')}
+                  placeholder='Ej: 2.500'
+                  helperText='Salario bruto mensual del profesional'
                 />
+              )}
+              </section>
+
+              <div className='flex justify-end'>
+                <button
+                  type='submit'
+                  className='flex h-[2.5rem] w-[min(12.1875rem,100%)] items-center justify-center rounded-[8.5rem] bg-[var(--color-brand-500)] px-[1rem] py-[0.5rem] text-[1rem] leading-[1.5rem] font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-400)]'
+                >
+                  {submitLabel}
+                </button>
               </div>
-
-              <Field
-                label='% comisión (opcional)'
-                value={form.comision ?? ''}
-                onChange={updateField('comision')}
-                placeholder='Ej: 15'
-                helperText='Porcentaje de comisión por servicios realizados'
-              />
-            </section>
-
-            <div className='flex justify-end'>
-              <button
-                type='submit'
-                className='flex h-[2.5rem] w-[min(12.1875rem,100%)] items-center justify-center rounded-[8.5rem] bg-[var(--color-brand-500)] px-[1rem] py-[0.5rem] text-[1rem] leading-[1.5rem] font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-400)]'
-              >
-              {submitLabel}
-            </button>
-          </div>
+            </div>
+          </form>
         </div>
-      </form>
-    </div>
-  </div>
+      </div>
     </Portal>
   )
 }

@@ -1,12 +1,28 @@
 'use client'
 
+import { initialCategories as defaultCategories } from '@/components/configuracion/TreatmentsPage'
 import {
-  createContext,
+  BUDGET_TYPES_DATA,
+  type BudgetTypeData
+} from '@/components/pacientes/shared/budgetTypeData'
+import { initialExpenses as defaultExpenses } from '@/data/expensesData'
+import {
+  initialPermissions as defaultPermissions,
+  initialRoles as defaultRoles
+} from '@/data/rolesData'
+import { initialDiscounts as defaultDiscounts } from '@/data/treatmentConfigData'
+import type { ConfigExpense } from '@/types/configExpenses'
+import type { ConfigPermission, ConfigRole } from '@/types/configRoles'
+import type { ConfigCategory, ConfigDiscount } from '@/types/treatments'
+import {
   ReactNode,
+  createContext,
   useCallback,
   useContext,
   useMemo,
-  useState
+  useState,
+  type Dispatch,
+  type SetStateAction
 } from 'react'
 
 // ============================================
@@ -73,6 +89,8 @@ export type ProfessionalColorTone =
   | 'azul'
   | 'rojo'
 
+export type EmploymentType = 'autonomo' | 'nomina'
+
 export type Professional = {
   id: string
   name: string
@@ -81,7 +99,9 @@ export type Professional = {
   email: string
   colorLabel: string
   colorTone: ProfessionalColorTone
-  commission: string
+  employmentType: EmploymentType
+  commission?: string // Solo para autónomos (ej: "30%")
+  salary?: string // Solo para nómina (mensual bruto, ej: "2.500")
   status: 'Activo' | 'Inactivo'
   photoUrl?: string
 }
@@ -177,7 +197,11 @@ export type WeeklySchedule = {
 }
 
 // Tipo de excepción de horario
-export type ScheduleExceptionType = 'vacation' | 'holiday' | 'absence' | 'special'
+export type ScheduleExceptionType =
+  | 'vacation'
+  | 'holiday'
+  | 'absence'
+  | 'special'
 
 // Excepción de horario (vacaciones, festivos, ausencias)
 export type ScheduleException = {
@@ -318,7 +342,8 @@ export const DEFAULT_SCHEDULE_TEMPLATES: ScheduleTemplate[] = [
   {
     id: 'full-day',
     name: 'Jornada completa 9-18h',
-    description: 'Lunes a viernes, 9:00-14:00 y 15:00-18:00 con pausa para comer',
+    description:
+      'Lunes a viernes, 9:00-14:00 y 15:00-18:00 con pausa para comer',
     isDefault: true,
     weeklySchedule: {
       monday: createFullDaySchedule(),
@@ -363,7 +388,8 @@ export const DEFAULT_SCHEDULE_TEMPLATES: ScheduleTemplate[] = [
   {
     id: 'clinic-default',
     name: 'Horario de clínica',
-    description: 'Lunes a viernes, según horario configurado de la clínica (9:00-20:00)',
+    description:
+      'Lunes a viernes, según horario configurado de la clínica (9:00-20:00)',
     isDefault: true,
     weeklySchedule: {
       monday: createClinicDaySchedule(),
@@ -449,6 +475,7 @@ const initialProfessionals: Professional[] = [
     email: 'antonio@clinicamorales.es',
     colorLabel: 'Morado',
     colorTone: 'morado',
+    employmentType: 'autonomo',
     commission: '30%',
     status: 'Activo'
   },
@@ -460,7 +487,8 @@ const initialProfessionals: Professional[] = [
     email: 'maria@clinicamorales.es',
     colorLabel: 'Naranja',
     colorTone: 'naranja',
-    commission: '30%',
+    employmentType: 'nomina',
+    salary: '3.200',
     status: 'Activo'
   },
   {
@@ -471,7 +499,8 @@ const initialProfessionals: Professional[] = [
     email: 'carlos@clinicamorales.es',
     colorLabel: 'Verde',
     colorTone: 'verde',
-    commission: '25%',
+    employmentType: 'nomina',
+    salary: '1.800',
     status: 'Activo'
   },
   {
@@ -482,6 +511,7 @@ const initialProfessionals: Professional[] = [
     email: 'laura@clinicamorales.es',
     colorLabel: 'Azul',
     colorTone: 'azul',
+    employmentType: 'autonomo',
     commission: '35%',
     status: 'Activo'
   },
@@ -493,6 +523,7 @@ const initialProfessionals: Professional[] = [
     email: 'javier@clinicamorales.es',
     colorLabel: 'Rojo',
     colorTone: 'rojo',
+    employmentType: 'autonomo',
     commission: '25%',
     status: 'Inactivo'
   }
@@ -591,8 +622,9 @@ const initialProfessionalSchedules: ProfessionalSchedule[] = [
 // PLANTILLAS DE DOCUMENTOS POR DEFECTO
 // ============================================
 
-export const DEFAULT_DOCUMENT_TEMPLATES: Record<DocumentTemplateType, string> = {
-  factura: `
+export const DEFAULT_DOCUMENT_TEMPLATES: Record<DocumentTemplateType, string> =
+  {
+    factura: `
     <div style="text-align: center; margin-bottom: 24px;">
       <h1 style="font-size: 24px; color: #1E4947; margin: 0;">FACTURA</h1>
       <p style="color: #535C66; margin: 4px 0 0 0;">Nº {{documento.numero}}</p>
@@ -640,7 +672,7 @@ export const DEFAULT_DOCUMENT_TEMPLATES: Record<DocumentTemplateType, string> = 
       <p>{{clinica.nombre}} • {{clinica.email}} • {{clinica.web}}</p>
     </div>
   `,
-  receta: `
+    receta: `
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
       <div>
         <h1 style="font-size: 20px; color: #1E4947; margin: 0;">RECETA MÉDICA</h1>
@@ -716,7 +748,7 @@ export const DEFAULT_DOCUMENT_TEMPLATES: Record<DocumentTemplateType, string> = 
       </div>
     </div>
   `,
-  presupuesto: `
+    presupuesto: `
     <div style="text-align: center; margin-bottom: 32px;">
       <h1 style="font-size: 24px; color: #1E4947; margin: 0;">PRESUPUESTO</h1>
       <p style="color: #535C66; margin: 4px 0 0 0;">Nº {{documento.numero}}</p>
@@ -788,7 +820,7 @@ export const DEFAULT_DOCUMENT_TEMPLATES: Record<DocumentTemplateType, string> = 
       <p>{{clinica.nombre}} • {{clinica.email}} • {{clinica.web}}</p>
     </div>
   `,
-  consentimiento: `
+    consentimiento: `
     <div style="text-align: center; margin-bottom: 32px;">
       <h1 style="font-size: 22px; color: #1E4947; margin: 0;">CONSENTIMIENTO INFORMADO</h1>
       <p style="color: #535C66; font-size: 14px; margin: 8px 0 0 0;">{{clinica.nombre}}</p>
@@ -846,7 +878,7 @@ export const DEFAULT_DOCUMENT_TEMPLATES: Record<DocumentTemplateType, string> = 
       <p style="color: #535C66; font-size: 12px;">En {{clinica.direccion}}, a {{documento.fecha}}</p>
     </div>
   `,
-  justificante: `
+    justificante: `
     <div style="text-align: center; margin-bottom: 32px;">
       <h1 style="font-size: 22px; color: #1E4947; margin: 0;">JUSTIFICANTE DE ASISTENCIA</h1>
       <p style="color: #535C66; margin: 8px 0 0 0;">{{clinica.nombre}}</p>
@@ -902,7 +934,7 @@ export const DEFAULT_DOCUMENT_TEMPLATES: Record<DocumentTemplateType, string> = 
       <p style="color: #535C66; font-size: 12px; margin: 4px 0 0 0;">Tel: {{clinica.telefono}} • {{clinica.email}}</p>
     </div>
   `,
-  informe: `
+    informe: `
     <div style="text-align: center; margin-bottom: 32px;">
       <h1 style="font-size: 22px; color: #1E4947; margin: 0;">INFORME CLÍNICO</h1>
       <p style="color: #535C66; margin: 8px 0 0 0;">{{clinica.nombre}}</p>
@@ -980,7 +1012,7 @@ export const DEFAULT_DOCUMENT_TEMPLATES: Record<DocumentTemplateType, string> = 
       </div>
     </div>
   `
-}
+  }
 
 // Initial document templates
 const initialDocumentTemplates: DocumentTemplate[] = [
@@ -1079,6 +1111,11 @@ type ConfigurationContextType = {
   // Professional options for dropdowns (agenda)
   professionalOptions: Array<{ id: string; label: string; color: string }>
 
+  // Professional options for patient module dropdowns (value/label format)
+  professionalNameOptions: Array<{ value: string; label: string }>
+  // Professional names as simple string array (for simple dropdowns)
+  professionalNames: string[]
+
   // Boxes
   boxes: Box[]
   activeBoxes: Box[]
@@ -1116,15 +1153,76 @@ type ConfigurationContextType = {
   // Professional Schedules
   professionalSchedules: ProfessionalSchedule[]
   scheduleTemplates: ScheduleTemplate[]
-  getProfessionalSchedule: (professionalId: string) => ProfessionalSchedule | undefined
-  updateProfessionalSchedule: (professionalId: string, schedule: WeeklySchedule) => void
-  applyTemplateToProfessional: (professionalId: string, templateId: string) => void
+  getProfessionalSchedule: (
+    professionalId: string
+  ) => ProfessionalSchedule | undefined
+  updateProfessionalSchedule: (
+    professionalId: string,
+    schedule: WeeklySchedule
+  ) => void
+  applyTemplateToProfessional: (
+    professionalId: string,
+    templateId: string
+  ) => void
   addScheduleException: (exception: Omit<ScheduleException, 'id'>) => void
   removeScheduleException: (exceptionId: string) => void
   copySchedule: (fromProfessionalId: string, toProfessionalId: string) => void
-  isProfessionalAvailable: (professionalId: string, date: Date, time: string) => boolean
-  getProfessionalScheduleForDate: (professionalId: string, date: Date) => DaySchedule | null
+  isProfessionalAvailable: (
+    professionalId: string,
+    date: Date,
+    time: string
+  ) => boolean
+  getProfessionalScheduleForDate: (
+    professionalId: string,
+    date: Date
+  ) => DaySchedule | null
   getAvailableProfessionalsForDate: (date: Date) => Professional[]
+
+  // Treatment Catalog (categories + treatments)
+  treatmentCategories: ConfigCategory[]
+  setTreatmentCategories: Dispatch<SetStateAction<ConfigCategory[]>>
+  addTreatmentCategory: (category: Omit<ConfigCategory, 'id'>) => void
+  updateTreatmentCategory: (
+    id: string,
+    updates: Partial<ConfigCategory>
+  ) => void
+  deleteTreatmentCategory: (id: string) => void
+
+  // Discounts
+  discounts: ConfigDiscount[]
+  setDiscounts: Dispatch<SetStateAction<ConfigDiscount[]>>
+  addDiscount: (discount: Omit<ConfigDiscount, 'id'>) => void
+  updateDiscount: (id: string, updates: Partial<ConfigDiscount>) => void
+  deleteDiscount: (id: string) => void
+  activeDiscounts: ConfigDiscount[]
+
+  // Discount options for dropdowns (formatted for patient module)
+  discountOptions: string[]
+
+  // Budget Types
+  budgetTypes: BudgetTypeData[]
+  setBudgetTypes: Dispatch<SetStateAction<BudgetTypeData[]>>
+  addBudgetType: (bt: Omit<BudgetTypeData, 'id'>) => void
+  updateBudgetType: (id: string, updates: Partial<BudgetTypeData>) => void
+  deleteBudgetType: (id: string) => void
+
+  // Expenses
+  expenses: ConfigExpense[]
+  setExpenses: Dispatch<SetStateAction<ConfigExpense[]>>
+  addExpense: (expense: Omit<ConfigExpense, 'id'>) => void
+  updateExpense: (id: string, updates: Partial<ConfigExpense>) => void
+  deleteExpense: (id: string) => void
+
+  // Roles & Permissions
+  roles: ConfigRole[]
+  setRoles: Dispatch<SetStateAction<ConfigRole[]>>
+  addRole: (role: Omit<ConfigRole, 'id'>) => void
+  updateRole: (id: string, updates: Partial<ConfigRole>) => void
+  deleteRole: (id: string) => void
+  toggleRolePermission: (roleId: string, permissionId: string) => void
+  permissions: ConfigPermission[]
+  setPermissions: Dispatch<SetStateAction<ConfigPermission[]>>
+  updatePermission: (id: string, updates: Partial<ConfigPermission>) => void
 }
 
 // ============================================
@@ -1148,13 +1246,30 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const [boxes, setBoxes] = useState<Box[]>(initialBoxes)
   const [workingHours, setWorkingHours] =
     useState<WorkingHoursConfig>(initialWorkingHours)
-  const [documentTemplates, setDocumentTemplates] = useState<DocumentTemplate[]>(
-    initialDocumentTemplates
+  const [documentTemplates, setDocumentTemplates] = useState<
+    DocumentTemplate[]
+  >(initialDocumentTemplates)
+  const [professionalSchedules, setProfessionalSchedules] = useState<
+    ProfessionalSchedule[]
+  >(initialProfessionalSchedules)
+  const [scheduleTemplates] = useState<ScheduleTemplate[]>(
+    DEFAULT_SCHEDULE_TEMPLATES
   )
-  const [professionalSchedules, setProfessionalSchedules] = useState<ProfessionalSchedule[]>(
-    initialProfessionalSchedules
-  )
-  const [scheduleTemplates] = useState<ScheduleTemplate[]>(DEFAULT_SCHEDULE_TEMPLATES)
+
+  // Treatment catalog, discounts, budget types
+  const [treatmentCategories, setTreatmentCategories] =
+    useState<ConfigCategory[]>(defaultCategories)
+  const [discounts, setDiscountsState] =
+    useState<ConfigDiscount[]>(defaultDiscounts)
+  const [budgetTypesState, setBudgetTypesState] =
+    useState<BudgetTypeData[]>(BUDGET_TYPES_DATA)
+
+  // Expenses, roles, permissions
+  const [expenses, setExpensesState] =
+    useState<ConfigExpense[]>(defaultExpenses)
+  const [roles, setRolesState] = useState<ConfigRole[]>(defaultRoles)
+  const [permissions, setPermissionsState] =
+    useState<ConfigPermission[]>(defaultPermissions)
 
   // ====== CLINIC INFO ======
   const updateClinicInfo = useCallback((updates: Partial<ClinicInfo>) => {
@@ -1228,6 +1343,22 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         label: p.name,
         color: professionalColorStyles[p.colorTone]?.hex || '#6b7280'
       })),
+    [activeProfessionals]
+  )
+
+  // Professional options for patient module dropdowns (value/label format)
+  const professionalNameOptions = useMemo(
+    () =>
+      activeProfessionals.map((p) => ({
+        value: p.name,
+        label: p.name
+      })),
+    [activeProfessionals]
+  )
+
+  // Professional names as simple string array
+  const professionalNames = useMemo(
+    () => activeProfessionals.map((p) => p.name),
     [activeProfessionals]
   )
 
@@ -1363,7 +1494,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const updateProfessionalSchedule = useCallback(
     (professionalId: string, schedule: WeeklySchedule) => {
       setProfessionalSchedules((prev) => {
-        const existingIndex = prev.findIndex((s) => s.professionalId === professionalId)
+        const existingIndex = prev.findIndex(
+          (s) => s.professionalId === professionalId
+        )
         if (existingIndex >= 0) {
           return prev.map((s) =>
             s.professionalId === professionalId
@@ -1392,11 +1525,17 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       if (!template) return
 
       setProfessionalSchedules((prev) => {
-        const existingIndex = prev.findIndex((s) => s.professionalId === professionalId)
+        const existingIndex = prev.findIndex(
+          (s) => s.professionalId === professionalId
+        )
         if (existingIndex >= 0) {
           return prev.map((s) =>
             s.professionalId === professionalId
-              ? { ...s, weeklySchedule: template.weeklySchedule, appliedTemplateId: templateId }
+              ? {
+                  ...s,
+                  weeklySchedule: template.weeklySchedule,
+                  appliedTemplateId: templateId
+                }
               : s
           )
         }
@@ -1448,7 +1587,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       if (!sourceSchedule) return
 
       setProfessionalSchedules((prev) => {
-        const existingIndex = prev.findIndex((s) => s.professionalId === toProfessionalId)
+        const existingIndex = prev.findIndex(
+          (s) => s.professionalId === toProfessionalId
+        )
         if (existingIndex >= 0) {
           return prev.map((s) =>
             s.professionalId === toProfessionalId
@@ -1476,7 +1617,15 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
 
   // Helper to get day of week from Date
   const getDayOfWeek = (date: Date): WeekDay => {
-    const days: WeekDay[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+    const days: WeekDay[] = [
+      'sunday',
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday'
+    ]
     return days[date.getDay()]
   }
 
@@ -1488,7 +1637,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
 
   const getProfessionalScheduleForDate = useCallback(
     (professionalId: string, date: Date): DaySchedule | null => {
-      const schedule = professionalSchedules.find((s) => s.professionalId === professionalId)
+      const schedule = professionalSchedules.find(
+        (s) => s.professionalId === professionalId
+      )
       if (!schedule) return null
 
       // Check for exceptions on this date
@@ -1542,11 +1693,203 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const getAvailableProfessionalsForDate = useCallback(
     (date: Date): Professional[] => {
       return activeProfessionals.filter((professional) => {
-        const daySchedule = getProfessionalScheduleForDate(professional.id, date)
+        const daySchedule = getProfessionalScheduleForDate(
+          professional.id,
+          date
+        )
         return daySchedule?.isWorking === true
       })
     },
     [activeProfessionals, getProfessionalScheduleForDate]
+  )
+
+  // ====== TREATMENT CATEGORIES ======
+  const addTreatmentCategory = useCallback(
+    (category: Omit<ConfigCategory, 'id'>) => {
+      const newCategory: ConfigCategory = {
+        ...category,
+        id: `cat-${Date.now()}`
+      }
+      setTreatmentCategories((prev) => [...prev, newCategory])
+    },
+    []
+  )
+
+  const updateTreatmentCategory = useCallback(
+    (id: string, updates: Partial<ConfigCategory>) => {
+      setTreatmentCategories((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+      )
+    },
+    []
+  )
+
+  const deleteTreatmentCategory = useCallback((id: string) => {
+    setTreatmentCategories((prev) => prev.filter((c) => c.id !== id))
+  }, [])
+
+  // ====== DISCOUNTS ======
+  const setDiscounts = useCallback(
+    (discountsOrUpdater: SetStateAction<ConfigDiscount[]>) => {
+      setDiscountsState(discountsOrUpdater)
+    },
+    []
+  )
+
+  const activeDiscounts = useMemo(
+    () => discounts.filter((d) => d.isActive),
+    [discounts]
+  )
+
+  const discountOptions = useMemo(
+    () => [
+      'Sin descuento',
+      ...activeDiscounts.map((d) =>
+        d.type === 'percentage'
+          ? `${d.value}% ${d.name}`
+          : `${d.value}€ ${d.name}`
+      )
+    ],
+    [activeDiscounts]
+  )
+
+  const addDiscount = useCallback((discount: Omit<ConfigDiscount, 'id'>) => {
+    const newDiscount: ConfigDiscount = {
+      ...discount,
+      id: `disc-${Date.now()}`
+    }
+    setDiscountsState((prev) => [...prev, newDiscount])
+  }, [])
+
+  const updateDiscount = useCallback(
+    (id: string, updates: Partial<ConfigDiscount>) => {
+      setDiscountsState((prev) =>
+        prev.map((d) => (d.id === id ? { ...d, ...updates } : d))
+      )
+    },
+    []
+  )
+
+  const deleteDiscount = useCallback((id: string) => {
+    setDiscountsState((prev) => prev.filter((d) => d.id !== id))
+  }, [])
+
+  // ====== BUDGET TYPES ======
+  const setBudgetTypes = useCallback(
+    (typesOrUpdater: SetStateAction<BudgetTypeData[]>) => {
+      setBudgetTypesState(typesOrUpdater)
+    },
+    []
+  )
+
+  const addBudgetTypeCtx = useCallback((bt: Omit<BudgetTypeData, 'id'>) => {
+    const newBt: BudgetTypeData = {
+      ...bt,
+      id: `bt-${Date.now()}`
+    }
+    setBudgetTypesState((prev) => [...prev, newBt])
+  }, [])
+
+  const updateBudgetTypeCtx = useCallback(
+    (id: string, updates: Partial<BudgetTypeData>) => {
+      setBudgetTypesState((prev) =>
+        prev.map((bt) => (bt.id === id ? { ...bt, ...updates } : bt))
+      )
+    },
+    []
+  )
+
+  const deleteBudgetTypeCtx = useCallback((id: string) => {
+    setBudgetTypesState((prev) => prev.filter((bt) => bt.id !== id))
+  }, [])
+
+  // ====== EXPENSES ======
+  const setExpenses = useCallback(
+    (expensesOrUpdater: SetStateAction<ConfigExpense[]>) => {
+      setExpensesState(expensesOrUpdater)
+    },
+    []
+  )
+
+  const addExpense = useCallback((expense: Omit<ConfigExpense, 'id'>) => {
+    const newExpense: ConfigExpense = {
+      ...expense,
+      id: `exp-${Date.now()}`
+    }
+    setExpensesState((prev) => [...prev, newExpense])
+  }, [])
+
+  const updateExpense = useCallback(
+    (id: string, updates: Partial<ConfigExpense>) => {
+      setExpensesState((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
+      )
+    },
+    []
+  )
+
+  const deleteExpense = useCallback((id: string) => {
+    setExpensesState((prev) => prev.filter((e) => e.id !== id))
+  }, [])
+
+  // ====== ROLES & PERMISSIONS ======
+  const setRoles = useCallback(
+    (rolesOrUpdater: SetStateAction<ConfigRole[]>) => {
+      setRolesState(rolesOrUpdater)
+    },
+    []
+  )
+
+  const addRole = useCallback((role: Omit<ConfigRole, 'id'>) => {
+    const newRole: ConfigRole = {
+      ...role,
+      id: `role-${Date.now()}`
+    }
+    setRolesState((prev) => [...prev, newRole])
+  }, [])
+
+  const updateRole = useCallback((id: string, updates: Partial<ConfigRole>) => {
+    setRolesState((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, ...updates } : r))
+    )
+  }, [])
+
+  const deleteRole = useCallback((id: string) => {
+    setRolesState((prev) => prev.filter((r) => r.id !== id))
+  }, [])
+
+  const toggleRolePermission = useCallback(
+    (roleId: string, permissionId: string) => {
+      setRolesState((prev) =>
+        prev.map((r) => {
+          if (r.id !== roleId) return r
+          const has = r.permisos.includes(permissionId)
+          return {
+            ...r,
+            permisos: has
+              ? r.permisos.filter((p) => p !== permissionId)
+              : [...r.permisos, permissionId]
+          }
+        })
+      )
+    },
+    []
+  )
+
+  const setPermissions = useCallback(
+    (permissionsOrUpdater: SetStateAction<ConfigPermission[]>) => {
+      setPermissionsState(permissionsOrUpdater)
+    },
+    []
+  )
+
+  const updatePermission = useCallback(
+    (id: string, updates: Partial<ConfigPermission>) => {
+      setPermissionsState((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
+      )
+    },
+    []
   )
 
   // ====== CONTEXT VALUE ======
@@ -1566,6 +1909,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       getProfessionalById,
       getProfessionalByName,
       professionalOptions,
+      professionalNameOptions,
+      professionalNames,
       boxes,
       activeBoxes,
       addBox,
@@ -1592,7 +1937,38 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       copySchedule,
       isProfessionalAvailable,
       getProfessionalScheduleForDate,
-      getAvailableProfessionalsForDate
+      getAvailableProfessionalsForDate,
+      treatmentCategories,
+      setTreatmentCategories,
+      addTreatmentCategory,
+      updateTreatmentCategory,
+      deleteTreatmentCategory,
+      discounts,
+      setDiscounts,
+      addDiscount,
+      updateDiscount,
+      deleteDiscount,
+      activeDiscounts,
+      discountOptions,
+      budgetTypes: budgetTypesState,
+      setBudgetTypes,
+      addBudgetType: addBudgetTypeCtx,
+      updateBudgetType: updateBudgetTypeCtx,
+      deleteBudgetType: deleteBudgetTypeCtx,
+      expenses,
+      setExpenses,
+      addExpense,
+      updateExpense,
+      deleteExpense,
+      roles,
+      setRoles,
+      addRole,
+      updateRole,
+      deleteRole,
+      toggleRolePermission,
+      permissions,
+      setPermissions,
+      updatePermission
     }),
     [
       clinicInfo,
@@ -1609,6 +1985,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       getProfessionalById,
       getProfessionalByName,
       professionalOptions,
+      professionalNameOptions,
+      professionalNames,
       boxes,
       activeBoxes,
       addBox,
@@ -1635,7 +2013,38 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       copySchedule,
       isProfessionalAvailable,
       getProfessionalScheduleForDate,
-      getAvailableProfessionalsForDate
+      getAvailableProfessionalsForDate,
+      treatmentCategories,
+      setTreatmentCategories,
+      addTreatmentCategory,
+      updateTreatmentCategory,
+      deleteTreatmentCategory,
+      discounts,
+      setDiscounts,
+      addDiscount,
+      updateDiscount,
+      deleteDiscount,
+      activeDiscounts,
+      discountOptions,
+      budgetTypesState,
+      setBudgetTypes,
+      addBudgetTypeCtx,
+      updateBudgetTypeCtx,
+      deleteBudgetTypeCtx,
+      expenses,
+      setExpenses,
+      addExpense,
+      updateExpense,
+      deleteExpense,
+      roles,
+      setRoles,
+      addRole,
+      updateRole,
+      deleteRole,
+      toggleRolePermission,
+      permissions,
+      setPermissions,
+      updatePermission
     ]
   )
 

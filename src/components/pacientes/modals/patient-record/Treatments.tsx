@@ -15,7 +15,6 @@ import ExpandedTextInput from '@/components/pacientes/shared/ExpandedTextInput'
 import OdontogramaCompacto from '@/components/pacientes/shared/OdontogramaCompacto'
 import { RowActionsMenu } from '@/components/pacientes/shared/RowActionsMenu'
 import {
-  addBudgetType,
   convertBudgetTypeToTreatmentsV2,
   type BudgetTypeData
 } from '@/components/pacientes/shared/budgetTypeData'
@@ -24,10 +23,8 @@ import type {
   TreatmentCatalogEntry,
   TreatmentV2
 } from '@/components/pacientes/shared/treatmentTypes'
-import {
-  PROFESSIONALS,
-  TREATMENT_CATALOG
-} from '@/components/pacientes/shared/treatmentTypes'
+import { TREATMENT_CATALOG } from '@/components/pacientes/shared/treatmentTypes'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import { usePatients, type PatientTreatment } from '@/context/PatientsContext'
 import { setPendingAppointmentData } from '@/utils/appointmentPrefill'
 import { useRouter } from 'next/navigation'
@@ -63,10 +60,10 @@ function convertPatientTreatmentToV2(
       treatment.status === 'Completado'
         ? 'completado'
         : treatment.status === 'En curso'
-        ? 'en_progreso'
-        : treatment.status === 'Cancelado'
-        ? 'cancelado'
-        : 'pendiente',
+          ? 'en_progreso'
+          : treatment.status === 'Cancelado'
+            ? 'cancelado'
+            : 'pendiente',
     fechaCreacion: treatment.createdAt,
     fechaRealizacion: treatment.completedDate
   }
@@ -304,6 +301,7 @@ type TreatmentRowProps = {
   isNewRow?: boolean
   onNewRowMounted?: () => void
   isHistoryTable?: boolean // HU-011: Flag to show history-specific columns (fechaRealizacion, facturado)
+  professionals: Array<{ value: string; label: string }>
 }
 
 function TreatmentRow({
@@ -314,7 +312,8 @@ function TreatmentRow({
   onUpdateMultipleFields,
   isNewRow,
   onNewRowMounted,
-  isHistoryTable = false
+  isHistoryTable = false,
+  professionals
 }: TreatmentRowProps) {
   const rowRef = React.useRef<HTMLTableRowElement>(null)
   const firstInputRef = React.useRef<HTMLInputElement>(null)
@@ -336,8 +335,8 @@ function TreatmentRow({
   const rowBg = treatment.selected
     ? 'bg-[#E9FBF9]'
     : isNewRow
-    ? 'bg-[#FEF9C3] animate-pulse'
-    : 'bg-white hover:bg-[var(--color-neutral-50)]'
+      ? 'bg-[#FEF9C3] animate-pulse'
+      : 'bg-white hover:bg-[var(--color-neutral-50)]'
 
   // Parsear precio para cálculos (remove € y espacios)
   const parsePrice = (price: string): number => {
@@ -557,7 +556,7 @@ function TreatmentRow({
           className='w-full bg-transparent border-none outline-none text-[0.875rem] leading-[1.25rem] text-[#24282C] 
             focus:bg-[var(--color-neutral-50)] rounded px-1 py-0.5 cursor-pointer'
         >
-          {PROFESSIONALS.map((prof) => (
+          {professionals.map((prof) => (
             <option key={prof.value} value={prof.value}>
               {prof.label}
             </option>
@@ -610,6 +609,10 @@ export default function Treatments({
   onAddTreatmentOpened
 }: TreatmentsProps) {
   const router = useRouter()
+
+  // Contexto de configuración
+  const { professionalNameOptions, addBudgetType } = useConfiguration()
+  const defaultDoctor = professionalNameOptions[0]?.value || ''
 
   // Contexto de pacientes
   const {
@@ -739,7 +742,7 @@ export default function Treatments({
       addBudgetType(budgetType)
       setShowCreateBudgetTypeModal(false)
     },
-    []
+    [addBudgetType]
   )
 
   // Handlers
@@ -780,7 +783,7 @@ export default function Treatments({
       tratamiento: entry.description,
       precio: entry.amount,
       importe: entry.amount,
-      doctor: PROFESSIONALS[0].value,
+      doctor: defaultDoctor,
       selected: false
     }))
 
@@ -838,7 +841,7 @@ export default function Treatments({
       importe: entry.amount,
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: PROFESSIONALS[0].value,
+      doctor: defaultDoctor,
       selected: false
     }
 
@@ -934,12 +937,12 @@ export default function Treatments({
       importe: '0 €',
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: PROFESSIONALS[0].value,
+      doctor: defaultDoctor,
       selected: false
     }
     setPendingTreatments((prev) => [...prev, newTreatment])
     setNewRowId(newId)
-  }, [])
+  }, [defaultDoctor])
 
   // Effect to auto-add empty row when navigating from Resumen with "add treatment" action
   React.useEffect(() => {
@@ -1296,6 +1299,7 @@ export default function Treatments({
                       }
                       isNewRow={treatment._internalId === newRowId}
                       onNewRowMounted={() => setNewRowId(null)}
+                      professionals={professionalNameOptions}
                     />
                   ))}
                 </tbody>
@@ -1408,6 +1412,7 @@ export default function Treatments({
                         )
                       }
                       isHistoryTable={true}
+                      professionals={professionalNameOptions}
                     />
                   ))}
                 </tbody>
