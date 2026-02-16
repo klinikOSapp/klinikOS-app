@@ -3,11 +3,25 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 type RawCallRow = {
+  id: number | string
+  external_call_id: string | null
   status: string | null
   started_at: string | null
+  recording_url: string | null
+  from_number: string | null
   is_urgent: boolean | null
   call_outcome: string | null
   metadata: unknown
+}
+
+type CallLogRow = {
+  call_id: number | string
+  transcript_text: string | null
+}
+
+type WebhookEventRow = {
+  related_call_id: number | string | null
+  payload: unknown
 }
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'] as const
@@ -51,7 +65,9 @@ export async function GET(req: Request) {
 
     const { data: calls, error: callsError } = await supabase
       .from('calls')
-      .select('status, started_at, is_urgent, call_outcome, metadata')
+      .select(
+        'id, external_call_id, status, started_at, recording_url, from_number, is_urgent, call_outcome, metadata'
+      )
       .or(`clinic_id.eq.${clinicId},initial_clinic_id.eq.${clinicId}`)
       .gte('started_at', weekStartUtc.toISOString())
       .lt('started_at', weekEndUtcExclusive.toISOString())
@@ -60,7 +76,53 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: callsError.message }, { status: 500 })
     }
 
-    const callRows = (calls || []) as RawCallRow[]
+    const rawCallRows = (calls || []) as RawCallRow[]
+    const callIds = rawCallRows
+      .map((row) => Number(row.id))
+      .filter((id) => Number.isFinite(id))
+
+    const [callLogsRes, webhookEventsRes] = await Promise.all([
+      callIds.length > 0
+        ? supabase
+            .from('call_logs')
+            .select('call_id, transcript_text')
+            .in('call_id', callIds)
+        : Promise.resolve({ data: [], error: null }),
+      callIds.length > 0
+        ? supabase
+            .from('webhook_events')
+            .select('related_call_id, payload')
+            .in('related_call_id', callIds)
+            .order('received_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null })
+    ])
+
+    if (callLogsRes.error) {
+      return NextResponse.json({ error: callLogsRes.error.message }, { status: 500 })
+    }
+    if (webhookEventsRes.error) {
+      return NextResponse.json({ error: webhookEventsRes.error.message }, { status: 500 })
+    }
+
+    const callLogsByCallId = new Map(
+      ((callLogsRes.data || []) as CallLogRow[]).map((row) => [
+        String(row.call_id),
+        row
+      ])
+    )
+    const payloadByCallId = new Map<string, Record<string, unknown>>()
+    for (const row of (webhookEventsRes.data || []) as WebhookEventRow[]) {
+      const key = row.related_call_id ? String(row.related_call_id) : ''
+      if (!key || payloadByCallId.has(key)) continue
+      const parsed = safeJson(row.payload)
+      if (parsed) payloadByCallId.set(key, parsed)
+    }
+
+    const callRows = dedupeAndFilterCallsWithMedia(
+      rawCallRows,
+      callLogsByCallId,
+      payloadByCallId
+    )
 
     const volume = DAY_LABELS.map((label) => ({
       day: label,
@@ -89,12 +151,16 @@ export async function GET(req: Request) {
 
       const dayIndex = (startedAt.getUTCDay() + 6) % 7
       const metadata = asObject(row.metadata)
+      const payload = payloadByCallId.get(String(row.id)) || null
+      const payloadCall = asObject(payload?.call)
       const status = normalizeText(row.status)
       const outcomeText = normalizeText(row.call_outcome)
       const intentText = normalizeText(
         asString(metadata?.intent) ||
           asString(metadata?.call_intent) ||
           asString(metadata?.reason) ||
+          asString(payloadCall?.call_reason) ||
+          asString(asObject(payloadCall?.call_analysis)?.call_reason) ||
           ''
       )
       const summaryText = `${outcomeText} ${intentText}`
@@ -205,6 +271,21 @@ function asObject(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
 }
 
+function safeJson(value: unknown): Record<string, unknown> | null {
+  if (!value) return null
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as unknown
+      return parsed && typeof parsed === 'object'
+        ? (parsed as Record<string, unknown>)
+        : null
+    } catch {
+      return null
+    }
+  }
+  return asObject(value)
+}
+
 function asString(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
@@ -215,6 +296,93 @@ function normalizeText(value: unknown): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
+}
+
+function hasMedia(
+  row: RawCallRow,
+  log: CallLogRow | null,
+  payload: Record<string, unknown> | null
+): boolean {
+  const payloadCall = asObject(payload?.call)
+  const transcript = [
+    asString(log?.transcript_text),
+    asString(payload?.transcript),
+    asString(payloadCall?.transcript),
+    asString(payloadCall?.full_transcript)
+  ]
+    .map((value) => value.trim())
+    .find(Boolean)
+  const recording = [
+    asString(row.recording_url),
+    asString(asObject(row.metadata)?.recording_url),
+    asString(payload?.recording_url),
+    asString(payloadCall?.recording_url)
+  ]
+    .map((value) => value.trim())
+    .find(Boolean)
+  return Boolean(transcript && recording)
+}
+
+function getRowScore(
+  row: RawCallRow,
+  log: CallLogRow | null,
+  payload: Record<string, unknown> | null
+): number {
+  const payloadCall = asObject(payload?.call)
+  const transcriptLen = [
+    asString(log?.transcript_text),
+    asString(payload?.transcript),
+    asString(payloadCall?.transcript),
+    asString(payloadCall?.full_transcript)
+  ]
+    .map((value) => value.trim())
+    .find(Boolean)?.length || 0
+  const summaryLen =
+    asString(row.call_outcome).trim().length +
+    asString(asObject(payloadCall?.call_analysis)?.call_summary).trim().length
+  return transcriptLen + summaryLen
+}
+
+function getStartedAtTs(value: string | null): number {
+  if (!value) return 0
+  const ts = new Date(value).getTime()
+  return Number.isFinite(ts) ? ts : 0
+}
+
+function dedupeAndFilterCallsWithMedia(
+  rows: RawCallRow[],
+  callLogsByCallId: Map<string, CallLogRow>,
+  payloadByCallId: Map<string, Record<string, unknown>>
+): RawCallRow[] {
+  const deduped = new Map<string, RawCallRow>()
+
+  for (const row of rows) {
+    const idKey = String(row.id)
+    const log = callLogsByCallId.get(idKey) || null
+    const payload = payloadByCallId.get(idKey) || null
+    if (!hasMedia(row, log, payload)) continue
+
+    const dedupeKey =
+      asString(row.external_call_id).trim() ||
+      asString(row.recording_url).trim() ||
+      `${asString(row.from_number).trim()}|${asString(row.started_at).trim()}`
+    const existing = deduped.get(dedupeKey)
+    if (!existing) {
+      deduped.set(dedupeKey, row)
+      continue
+    }
+    const existingIdKey = String(existing.id)
+    const existingLog = callLogsByCallId.get(existingIdKey) || null
+    const existingPayload = payloadByCallId.get(existingIdKey) || null
+    const currentScore = getRowScore(row, log, payload)
+    const existingScore = getRowScore(existing, existingLog, existingPayload)
+    const shouldReplace =
+      currentScore > existingScore ||
+      getStartedAtTs(row.started_at) > getStartedAtTs(existing.started_at)
+    if (shouldReplace) deduped.set(dedupeKey, row)
+  }
+
+  return Array.from(deduped.values())
 }
 
 function asBoolean(value: unknown): boolean {

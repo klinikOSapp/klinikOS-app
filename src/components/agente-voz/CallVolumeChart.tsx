@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import {
   Line,
   LineChart,
+  ReferenceDot,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -61,6 +62,12 @@ export default function CallVolumeChart({
   const yLabels = Array.from({ length: 6 }, (_, index) =>
     String(Math.round(domainMax - (domainMax / 5) * index))
   )
+  const peakPoint = chartData.reduce(
+    (best, current) =>
+      current.volumeTotal > best.volumeTotal ? current : best,
+    chartData[0]
+  )
+  const hasPeak = peakPoint.volumeTotal > 0
 
   useEffect(() => setIsMounted(true), [])
 
@@ -228,6 +235,23 @@ export default function CallVolumeChart({
                         />
                       )}
 
+                      {hasPeak && (
+                        <ReferenceDot
+                          x={peakPoint.day}
+                          y={peakPoint.volumeTotal}
+                          r={5}
+                          fill={COLORS.volumeTotal}
+                          stroke='#fff'
+                          strokeWidth={2}
+                          ifOverflow='extendDomain'
+                          label={
+                            <PeakBubbleLabel
+                              value={peakPoint.volumeTotal.toLocaleString('es-ES')}
+                            />
+                          }
+                        />
+                      )}
+
                       <Tooltip
                         content={<ChartTooltip isBasic={isBasic} />}
                         cursor={false}
@@ -248,6 +272,43 @@ export default function CallVolumeChart({
         </div>
       </div>
     </section>
+  )
+}
+
+function PeakBubbleLabel(props: any) {
+  const { viewBox, value } = props
+  if (!viewBox || typeof viewBox.x !== 'number' || typeof viewBox.y !== 'number') {
+    return null
+  }
+  const text = String(value || '')
+  const width = Math.max(28, text.length * 7 + 12)
+  const height = 22
+  const x = viewBox.x - width / 2
+  const y = viewBox.y - 34
+
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        rx={11}
+        ry={11}
+        fill='#E9FBF9'
+        stroke='#51D6C7'
+      />
+      <text
+        x={viewBox.x}
+        y={y + 15}
+        textAnchor='middle'
+        fill='#51D6C7'
+        fontSize={12}
+        fontWeight={600}
+      >
+        {text}
+      </text>
+    </g>
   )
 }
 

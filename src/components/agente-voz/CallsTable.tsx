@@ -28,6 +28,7 @@ import {
 
 type CallsTableProps = {
   data?: CallRecord[]
+  selectedWeekStart?: Date
   /** Voice agent tier - determines available actions */
   voiceAgentTier?: VoiceAgentTier
 }
@@ -117,12 +118,16 @@ function mapIntent(intentSource: string): CallIntent {
 
 function mapSentiment(sentimentSource: string): Sentiment {
   const source = normalizeText(sentimentSource)
-  if (!source) return 'contento'
+  if (!source) return 'neutral'
+  if (source === 'neutral') return 'neutral'
   if (source.includes('enfad') || source.includes('angry')) return 'enfadado'
   if (source.includes('nerv')) return 'nervioso'
   if (source.includes('preocup') || source.includes('worr')) return 'preocupado'
-  if (source.includes('alivi') || source.includes('relief')) return 'aliviado'
-  return 'contento'
+  if (source.includes('alivi') || source.includes('relief') || source.includes('relieved')) {
+    return 'aliviado'
+  }
+  if (source.includes('happy') || source.includes('content')) return 'contento'
+  return 'neutral'
 }
 
 function isPlaceholderSummary(value: string): boolean {
@@ -445,6 +450,7 @@ export type ViewMode = 'table' | 'cards'
 
 export default function CallsTable({
   data,
+  selectedWeekStart,
   voiceAgentTier = 'advanced'
 }: CallsTableProps) {
   const supabase = useRef(createSupabaseBrowserClient())
@@ -486,19 +492,42 @@ export default function CallsTable({
         }
 
         const clinicFilter = `clinic_id.eq.${activeClinicId},initial_clinic_id.eq.${activeClinicId}`
+        const weekStart = selectedWeekStart ? new Date(selectedWeekStart) : null
+        if (weekStart) {
+          weekStart.setHours(0, 0, 0, 0)
+        }
+        const weekEnd = weekStart ? new Date(weekStart) : null
+        if (weekEnd) {
+          weekEnd.setDate(weekEnd.getDate() + 7)
+        }
+
+        let callsQuery = supabase.current
+          .from('calls')
+          .select(
+            'id, external_call_id, status, from_number, started_at, duration_seconds, call_outcome, is_urgent, patient_id, caller_contact_id, metadata, initial_clinic_id, recording_url, intent_summary'
+          )
+          .or(clinicFilter)
+          .order('started_at', { ascending: false })
+          .limit(CALLS_FETCH_LIMIT)
+        let countQuery = supabase.current
+          .from('calls')
+          .select('id', { count: 'exact', head: true })
+          .or(clinicFilter)
+
+        if (weekStart && weekEnd) {
+          const rangeStartIso = weekStart.toISOString()
+          const rangeEndIso = weekEnd.toISOString()
+          callsQuery = callsQuery
+            .gte('started_at', rangeStartIso)
+            .lt('started_at', rangeEndIso)
+          countQuery = countQuery
+            .gte('started_at', rangeStartIso)
+            .lt('started_at', rangeEndIso)
+        }
+
         const [{ data: callRows, error }, { count }] = await Promise.all([
-          supabase.current
-            .from('calls')
-            .select(
-              'id, external_call_id, status, from_number, started_at, duration_seconds, call_outcome, is_urgent, patient_id, caller_contact_id, metadata, initial_clinic_id, recording_url, intent_summary'
-            )
-            .or(clinicFilter)
-            .order('started_at', { ascending: false })
-            .limit(CALLS_FETCH_LIMIT),
-          supabase.current
-            .from('calls')
-            .select('id', { count: 'exact', head: true })
-            .or(clinicFilter)
+          callsQuery,
+          countQuery
         ])
         if (error) throw error
 
@@ -517,6 +546,8 @@ export default function CallsTable({
                 'id, external_call_id, status, from_number, started_at, duration_seconds, call_outcome, is_urgent, patient_id, caller_contact_id, metadata, initial_clinic_id, recording_url, intent_summary'
               )
               .or(clinicFilter)
+              .gte('started_at', weekStart ? weekStart.toISOString() : '1970-01-01T00:00:00.000Z')
+              .lt('started_at', weekEnd ? weekEnd.toISOString() : '9999-12-31T23:59:59.999Z')
               .order('started_at', { ascending: false })
               .range(offset, offset + CALLS_FETCH_LIMIT - 1)
             if (nextError) throw nextError
@@ -706,8 +737,10 @@ export default function CallsTable({
             .map((value) => value.trim())
             .find(Boolean)
           const sentimentSource = [
+            asString(metadata?.feeling),
             asString(metadata?.sentiment),
             asString(metadata?.emotion),
+            asString(payloadCustomAnalysis?.feeling),
             asString(payloadCustomAnalysis?.sentiment),
             asString(payloadCustomAnalysis?.emotion)
           ]
@@ -750,7 +783,7 @@ export default function CallsTable({
     return () => {
       isMounted = false
     }
-  }, [activeClinicId, data, isClinicInitialized])
+  }, [activeClinicId, data, isClinicInitialized, selectedWeekStart])
 
   // Listen for appointment status changes to sync call status (ADVANCED MODE ONLY)
   useEffect(() => {

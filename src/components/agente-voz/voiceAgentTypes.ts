@@ -24,6 +24,7 @@ export type Sentiment =
   | 'enfadado'
   | 'contento'
   | 'preocupado'
+  | 'neutral'
 
 export interface CallRecord {
   id: string
@@ -106,7 +107,8 @@ export const SENTIMENT_LABELS: Record<Sentiment, string> = {
   nervioso: 'Nervioso',
   enfadado: 'Enfadado',
   contento: 'Contento',
-  preocupado: 'Preocupado'
+  preocupado: 'Preocupado',
+  neutral: 'Neutral'
 }
 
 // Helper: Intents that imply the caller wants to create/schedule an appointment

@@ -67,6 +67,8 @@ type VoiceKpiStats = {
   avgWaitSeconds: number | null
 }
 
+const CREDIT_RATE_PER_MINUTE = 0.1
+
 const EMPTY_STATS: VoiceKpiStats = {
   appointmentsCreated: 0,
   callsReceived: 0,
@@ -75,6 +77,28 @@ const EMPTY_STATS: VoiceKpiStats = {
   pendingCalls: 0,
   creditsUsed: 0,
   avgWaitSeconds: null
+}
+
+type KpiRawCallRow = {
+  id: number | string
+  external_call_id: string | null
+  status: string | null
+  duration_seconds: number | null
+  metadata: unknown
+  recording_url: string | null
+  from_number: string | null
+  started_at: string | null
+}
+
+type KpiCallLogRow = {
+  call_id: number | string
+  transcript_text: string | null
+  duration_seconds: number | null
+}
+
+type KpiWebhookEventRow = {
+  related_call_id: number | string | null
+  payload: unknown
 }
 
 const EMPTY_DISTRIBUTION_ADVANCED: CallDistribution[] = [
@@ -109,11 +133,130 @@ function formatDurationShort(seconds: number): string {
   return `${remainingSeconds}s`
 }
 
+function round2(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
 function formatDateParam(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function safeJson(value: unknown): Record<string, unknown> | null {
+  if (!value) return null
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as unknown
+      return parsed && typeof parsed === 'object'
+        ? (parsed as Record<string, unknown>)
+        : null
+    } catch {
+      return null
+    }
+  }
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
+function parseDurationSeconds(value: unknown): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed < 0) return 0
+  return Math.round(parsed)
+}
+
+function parseDurationFromPayload(payload: Record<string, unknown> | null): number {
+  const call = safeJson(payload?.call)
+  const fromMs = parseDurationSeconds(call?.duration_ms) / 1000
+  const fromCost = parseDurationSeconds(safeJson(call?.call_cost)?.total_duration_seconds)
+  const fromTop = parseDurationSeconds(payload?.duration_seconds || payload?.duration)
+  return Math.max(fromMs, fromCost, fromTop)
+}
+
+function hasMedia(
+  row: KpiRawCallRow,
+  log: KpiCallLogRow | null,
+  payload: Record<string, unknown> | null
+): boolean {
+  const payloadCall = safeJson(payload?.call)
+  const transcript = [
+    asString(log?.transcript_text),
+    asString(payload?.transcript),
+    asString(payloadCall?.transcript),
+    asString(payloadCall?.full_transcript)
+  ]
+    .map((value) => value.trim())
+    .find(Boolean)
+  const recording = [
+    asString(row.recording_url),
+    asString(safeJson(row.metadata)?.recording_url),
+    asString(payload?.recording_url),
+    asString(payloadCall?.recording_url)
+  ]
+    .map((value) => value.trim())
+    .find(Boolean)
+  return Boolean(transcript && recording)
+}
+
+function getStartedTs(value: string | null): number {
+  if (!value) return 0
+  const ts = new Date(value).getTime()
+  return Number.isFinite(ts) ? ts : 0
+}
+
+function getRowScore(
+  row: KpiRawCallRow,
+  log: KpiCallLogRow | null,
+  payload: Record<string, unknown> | null
+): number {
+  const payloadCall = safeJson(payload?.call)
+  const transcriptLength = [
+    asString(log?.transcript_text),
+    asString(payload?.transcript),
+    asString(payloadCall?.transcript),
+    asString(payloadCall?.full_transcript)
+  ]
+    .map((value) => value.trim())
+    .find(Boolean)?.length || 0
+  return transcriptLength + parseDurationSeconds(row.duration_seconds)
+}
+
+function dedupeAndFilterCalls(
+  rows: KpiRawCallRow[],
+  callLogsByCallId: Map<string, KpiCallLogRow>,
+  payloadByCallId: Map<string, Record<string, unknown>>
+): KpiRawCallRow[] {
+  const deduped = new Map<string, KpiRawCallRow>()
+
+  for (const row of rows) {
+    const rowId = String(row.id)
+    const log = callLogsByCallId.get(rowId) || null
+    const payload = payloadByCallId.get(rowId) || null
+    if (!hasMedia(row, log, payload)) continue
+
+    const key =
+      asString(row.external_call_id).trim() ||
+      asString(row.recording_url).trim() ||
+      `${asString(row.from_number).trim()}|${asString(row.started_at).trim()}`
+    const existing = deduped.get(key)
+    if (!existing) {
+      deduped.set(key, row)
+      continue
+    }
+    const existingId = String(existing.id)
+    const existingLog = callLogsByCallId.get(existingId) || null
+    const existingPayload = payloadByCallId.get(existingId) || null
+    const shouldReplace =
+      getRowScore(row, log, payload) > getRowScore(existing, existingLog, existingPayload) ||
+      getStartedTs(row.started_at) > getStartedTs(existing.started_at)
+    if (shouldReplace) deduped.set(key, row)
+  }
+
+  return Array.from(deduped.values())
 }
 
 function getDelta(current: number, previous: number) {
@@ -136,24 +279,64 @@ async function fetchVoiceStats(
 ): Promise<VoiceKpiStats> {
   const { data: calls, error: callsError } = await supabase
     .from('calls')
-    .select('id, status, duration_seconds, metadata')
+    .select(
+      'id, external_call_id, status, duration_seconds, metadata, recording_url, from_number, started_at'
+    )
     .or(`clinic_id.eq.${clinicId},initial_clinic_id.eq.${clinicId}`)
     .gte('started_at', rangeStart.toISOString())
     .lt('started_at', rangeEndExclusive.toISOString())
 
   if (callsError) throw callsError
 
-  const callRows = calls || []
-  const callIds = callRows
+  const rawCallRows = (calls || []) as KpiRawCallRow[]
+  const callIds = rawCallRows
+    .map((row) => Number(row.id))
+    .filter((id) => Number.isFinite(id))
+
+  const [callLogsRes, webhookEventsRes] = await Promise.all([
+    callIds.length > 0
+      ? supabase
+          .from('call_logs')
+          .select('call_id, transcript_text, duration_seconds')
+          .in('call_id', callIds)
+      : Promise.resolve({ data: [], error: null }),
+    callIds.length > 0
+      ? supabase
+          .from('webhook_events')
+          .select('related_call_id, payload')
+          .in('related_call_id', callIds)
+          .order('received_at', { ascending: false })
+      : Promise.resolve({ data: [], error: null })
+  ])
+
+  if (callLogsRes.error) throw callLogsRes.error
+  if (webhookEventsRes.error) throw webhookEventsRes.error
+
+  const callLogsByCallId = new Map(
+    ((callLogsRes.data || []) as KpiCallLogRow[]).map((row) => [
+      String(row.call_id),
+      row
+    ])
+  )
+  const payloadByCallId = new Map<string, Record<string, unknown>>()
+  for (const row of (webhookEventsRes.data || []) as KpiWebhookEventRow[]) {
+    const key = row.related_call_id ? String(row.related_call_id) : ''
+    if (!key || payloadByCallId.has(key)) continue
+    const payload = safeJson(row.payload)
+    if (payload) payloadByCallId.set(key, payload)
+  }
+
+  const callRows = dedupeAndFilterCalls(rawCallRows, callLogsByCallId, payloadByCallId)
+  const dedupedCallIds = callRows
     .map((row) => Number(row.id))
     .filter((id) => Number.isFinite(id))
 
   const { count: appointmentsCreatedCount, error: apptError } =
-    callIds.length > 0
+    dedupedCallIds.length > 0
       ? await supabase
           .from('appointments')
           .select('id', { count: 'exact', head: true })
-          .in('created_by_call_id', callIds)
+          .in('created_by_call_id', dedupedCallIds)
       : { count: 0, error: null }
 
   if (apptError) throw apptError
@@ -171,12 +354,18 @@ async function fetchVoiceStats(
     if (status.includes('new') || status.includes('pending') || status.includes('queue')) {
       pendingCalls += 1
     }
-    totalDurationSeconds += Number(row.duration_seconds || 0)
+    const rowId = String(row.id)
+    const metadata = safeJson(row.metadata)
+    const payload = payloadByCallId.get(rowId) || null
+    const callLog = callLogsByCallId.get(rowId) || null
+    const durationFromPayload = parseDurationFromPayload(payload)
+    const duration = Math.max(
+      parseDurationSeconds(row.duration_seconds),
+      parseDurationSeconds(callLog?.duration_seconds),
+      durationFromPayload
+    )
+    totalDurationSeconds += duration
 
-    const metadata =
-      row.metadata && typeof row.metadata === 'object'
-        ? (row.metadata as Record<string, unknown>)
-        : null
     const waitCandidate =
       metadata?.wait_time_seconds ??
       metadata?.queue_wait_seconds ??
@@ -206,7 +395,7 @@ async function fetchVoiceStats(
     avgDurationSeconds,
     resolvedCalls,
     pendingCalls,
-    creditsUsed: callsReceived,
+    creditsUsed: round2((totalDurationSeconds / 60) * CREDIT_RATE_PER_MINUTE),
     avgWaitSeconds
   }
 }
@@ -582,7 +771,10 @@ export default function VoiceAgentPage() {
       {/* Bottom Section: Calls Table - Scrollable */}
       <div className='flex-1 min-h-0 bg-surface-app overflow-y-auto'>
         <Suspense fallback={<div className='p-4'>Cargando...</div>}>
-          <CallsTable voiceAgentTier={voiceAgentTier} />
+          <CallsTable
+            voiceAgentTier={voiceAgentTier}
+            selectedWeekStart={selectedWeekStart}
+          />
         </Suspense>
       </div>
     </div>
