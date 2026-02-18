@@ -6,6 +6,7 @@ type RawCallRow = {
   id: number | string
   external_call_id: string | null
   status: string | null
+  management_status: string | null
   started_at: string | null
   recording_url: string | null
   from_number: string | null
@@ -35,6 +36,7 @@ const DISTRIBUTION_COLORS = {
   },
   basic: {
     pedirCita: '#51D6C7',
+    cambiarCita: '#B8D0FF',
     consultas: '#A8EFE7',
     cancelaciones: '#FFD188',
     urgencias: '#FF6B6B'
@@ -66,7 +68,7 @@ export async function GET(req: Request) {
     const { data: calls, error: callsError } = await supabase
       .from('calls')
       .select(
-        'id, external_call_id, status, started_at, recording_url, from_number, is_urgent, call_outcome, metadata'
+        'id, external_call_id, status, management_status, started_at, recording_url, from_number, is_urgent, call_outcome, metadata'
       )
       .or(`clinic_id.eq.${clinicId},initial_clinic_id.eq.${clinicId}`)
       .gte('started_at', weekStartUtc.toISOString())
@@ -140,6 +142,7 @@ export async function GET(req: Request) {
     }
     const basicCounts = {
       pedirCita: 0,
+      cambiarCita: 0,
       consultas: 0,
       cancelaciones: 0,
       urgencias: 0
@@ -153,12 +156,15 @@ export async function GET(req: Request) {
       const metadata = asObject(row.metadata)
       const payload = payloadByCallId.get(String(row.id)) || null
       const payloadCall = asObject(payload?.call)
-      const status = normalizeText(row.status)
+      const lifecycleStatus = normalizeText(row.status)
+      const managementStatus = normalizeText(row.management_status)
       const outcomeText = normalizeText(row.call_outcome)
       const intentText = normalizeText(
-        asString(metadata?.intent) ||
+        asString(metadata?.call_reason) ||
+          asString(metadata?.intent) ||
           asString(metadata?.call_intent) ||
           asString(metadata?.reason) ||
+          asString(asObject(asObject(payloadCall?.call_analysis)?.custom_analysis_data)?.call_reason) ||
           asString(payloadCall?.call_reason) ||
           asString(asObject(payloadCall?.call_analysis)?.call_reason) ||
           ''
@@ -167,14 +173,19 @@ export async function GET(req: Request) {
 
       const urgent = isUrgentCall(row.is_urgent, metadata, summaryText)
       const appointmentIntent = hasAppointmentIntent(summaryText)
-      const accepted = isAcceptedCall(status, metadata, summaryText)
+      const accepted = isAcceptedCall(managementStatus, lifecycleStatus, metadata, summaryText)
 
       volume[dayIndex].volumeTotal += 1
       if (urgent) volume[dayIndex].urgentes += 1
       if (appointmentIntent) volume[dayIndex].citasPropuestas += 1
       if (accepted) volume[dayIndex].citasAceptadas += 1
 
-      const advancedBucket = classifyAdvancedBucket(status, metadata, summaryText)
+      const advancedBucket = classifyAdvancedBucket(
+        managementStatus,
+        lifecycleStatus,
+        metadata,
+        summaryText
+      )
       advancedCounts[advancedBucket] += 1
 
       const basicBucket = classifyBasicBucket(urgent, summaryText)
@@ -215,6 +226,11 @@ export async function GET(req: Request) {
               name: 'Pedir cita',
               key: 'pedirCita',
               color: DISTRIBUTION_COLORS.basic.pedirCita
+            },
+            {
+              name: 'Cambiar cita',
+              key: 'cambiarCita',
+              color: DISTRIBUTION_COLORS.basic.cambiarCita
             },
             {
               name: 'Consultas',
@@ -411,20 +427,37 @@ function isUrgentCall(
 }
 
 function hasAppointmentIntent(text: string): boolean {
+  const primary = getPrimaryIntentToken(text)
+  if (
+    primary.startsWith('cancelar cita') ||
+    primary.startsWith('cambiar cita') ||
+    primary.startsWith('change appointment') ||
+    primary.startsWith('cancel appointment')
+  ) {
+    return false
+  }
   return (
+    text.includes('reservar cita') ||
+    text.includes('pedir cita') ||
     text.includes('cita') ||
     text.includes('agenda') ||
     text.includes('reagendar') ||
-    text.includes('confirmar')
+    text.includes('confirmar') ||
+    text.includes('book') ||
+    text.includes('appointment')
   )
 }
 
 function isAcceptedCall(
-  status: string,
+  managementStatus: string,
+  lifecycleStatus: string,
   metadata: Record<string, unknown> | null,
   text: string
 ): boolean {
-  const acceptedByStatus = status.includes('resolved') || status.includes('completed')
+  const acceptedByStatus =
+    managementStatus.includes('resolved') ||
+    lifecycleStatus.includes('resolved') ||
+    lifecycleStatus.includes('completed')
   const acceptedByMetadata =
     asBoolean(metadata?.appointment_created) ||
     asBoolean(metadata?.appointment_confirmed) ||
@@ -438,16 +471,19 @@ function isAcceptedCall(
 }
 
 function classifyAdvancedBucket(
-  status: string,
+  managementStatus: string,
+  lifecycleStatus: string,
   metadata: Record<string, unknown> | null,
   text: string
 ): 'pendientes' | 'confirmadas' | 'aceptadas' | 'estetica' {
   if (isAestheticCall(metadata, text)) return 'estetica'
 
+  const status = managementStatus || lifecycleStatus
   const isPending =
     status.includes('new') ||
     status.includes('pending') ||
     status.includes('queue') ||
+    status.includes('earring') ||
     status.includes('in_progress')
   if (isPending) return 'pendientes'
 
@@ -463,11 +499,27 @@ function classifyAdvancedBucket(
 function classifyBasicBucket(
   urgent: boolean,
   text: string
-): 'pedirCita' | 'consultas' | 'cancelaciones' | 'urgencias' {
+): 'pedirCita' | 'cambiarCita' | 'consultas' | 'cancelaciones' | 'urgencias' {
+  const primary = getPrimaryIntentToken(text)
   if (urgent) return 'urgencias'
+  if (
+    primary.startsWith('cambiar cita') ||
+    primary.startsWith('change appointment') ||
+    text.includes('cambiar cita') ||
+    text.includes('change appointment') ||
+    text.includes('reagendar') ||
+    text.includes('reschedule')
+  ) {
+    return 'cambiarCita'
+  }
   if (text.includes('cancel') || text.includes('anul')) return 'cancelaciones'
   if (hasAppointmentIntent(text)) return 'pedirCita'
   return 'consultas'
+}
+
+function getPrimaryIntentToken(text: string): string {
+  const normalized = normalizeText(text)
+  return normalized.split('-')[0]?.trim() || normalized
 }
 
 function isAestheticCall(
@@ -569,6 +621,11 @@ function emptyAnalytics() {
           name: 'Pedir cita',
           value: 0,
           color: DISTRIBUTION_COLORS.basic.pedirCita
+        },
+        {
+          name: 'Cambiar cita',
+          value: 0,
+          color: DISTRIBUTION_COLORS.basic.cambiarCita
         },
         {
           name: 'Consultas',

@@ -201,7 +201,7 @@ export default function ListenCallModal({
                     Motivo
                   </span>
                   <span className='text-body-md text-neutral-900'>
-                    {CALL_INTENT_LABELS[call.intent]}
+                    {call.intentDisplay?.trim() || CALL_INTENT_LABELS[call.intent]}
                   </span>
                 </div>
               </div>

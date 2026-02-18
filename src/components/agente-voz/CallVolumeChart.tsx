@@ -157,7 +157,7 @@ export default function CallVolumeChart({
                   <ResponsiveContainer width='100%' height='100%'>
                     <LineChart
                       data={chartData}
-                      margin={{ top: 8, right: 8, bottom: 8, left: 0 }}
+                      margin={{ top: 28, right: 10, bottom: 8, left: 0 }}
                     >
                       <XAxis dataKey='day' hide />
                       <YAxis domain={[0, domainMax]} hide />
@@ -283,8 +283,9 @@ function PeakBubbleLabel(props: any) {
   const text = String(value || '')
   const width = Math.max(28, text.length * 7 + 12)
   const height = 22
-  const x = viewBox.x - width / 2
-  const y = viewBox.y - 34
+  const x = Math.max(4, viewBox.x - width / 2)
+  const textX = x + width / 2
+  const y = Math.max(2, viewBox.y - 28)
 
   return (
     <g>
@@ -299,7 +300,7 @@ function PeakBubbleLabel(props: any) {
         stroke='#51D6C7'
       />
       <text
-        x={viewBox.x}
+        x={textX}
         y={y + 15}
         textAnchor='middle'
         fill='#51D6C7'

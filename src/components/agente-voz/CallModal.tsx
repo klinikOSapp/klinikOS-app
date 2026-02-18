@@ -146,7 +146,7 @@ export default function CallModal({
                 <div className='flex items-center justify-between'>
                   <span className='text-sm text-neutral-500'>Motivo</span>
                   <span className='text-sm font-medium text-neutral-900'>
-                    {CALL_INTENT_LABELS[call.intent]}
+                    {call.intentDisplay?.trim() || CALL_INTENT_LABELS[call.intent]}
                   </span>
                 </div>
 

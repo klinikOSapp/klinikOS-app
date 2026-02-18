@@ -15,6 +15,7 @@ import {
 } from '@/context/AppointmentsContext'
 import { useConfiguration } from '@/context/ConfigurationContext'
 import { usePatients, type PatientTreatment } from '@/context/PatientsContext'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -28,6 +29,7 @@ type CreateAppointmentModalProps = {
 
 export type AppointmentFormData = {
   servicio: string
+  servicioId?: string
   paciente: string
   pacienteId: string
   responsable: string
@@ -59,6 +61,7 @@ export type BlockFormData = {
 
 const getEmptyFormData = (): AppointmentFormData => ({
   servicio: '',
+  servicioId: '',
   paciente: '',
   pacienteId: '',
   responsable: '',
@@ -473,6 +476,7 @@ function stringToDate(str: string): Date | null {
 
 // Type for treatment with selection state
 type SelectableTreatment = PatientTreatment & { selected: boolean }
+type ServiceOption = { value: string; label: string }
 
 export default function CreateAppointmentModal({
   isOpen,
@@ -503,6 +507,7 @@ export default function CreateAppointmentModal({
   const [pendingTreatments, setPendingTreatments] = useState<
     SelectableTreatment[]
   >([])
+  const [serviceOptions, setServiceOptions] = useState<ServiceOption[]>([])
 
   const isBlockMode = formData.servicio === 'block'
 
@@ -540,6 +545,43 @@ export default function CreateAppointmentModal({
     },
     [getPatientById, getPendingTreatments]
   )
+
+  useEffect(() => {
+    let isMounted = true
+    if (!isOpen) return () => { isMounted = false }
+
+    void (async () => {
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const { data, error } = await supabase
+          .from('service_catalog')
+          .select('id, name')
+          .order('name', { ascending: true })
+
+        if (error) {
+          throw error
+        }
+        if (!isMounted) return
+
+        const dbOptions = (data || [])
+          .filter((row) => row?.id != null && row?.name)
+          .map((row) => ({
+            value: String(row.id),
+            label: String(row.name)
+          }))
+
+        setServiceOptions(dbOptions)
+      } catch (error) {
+        console.warn('No se pudo cargar service_catalog para nueva cita', error)
+        if (!isMounted) return
+        setServiceOptions([])
+      }
+    })()
+
+    return () => {
+      isMounted = false
+    }
+  }, [isOpen])
 
   // Toggle treatment selection
   const toggleTreatmentSelection = useCallback((treatmentId: string) => {
@@ -709,15 +751,16 @@ export default function CreateAppointmentModal({
 
   if (!isOpen) return null
 
-  const servicios = [
-    { value: 'block', label: 'Bloquear agenda' },
-    { value: 'consulta', label: 'Consulta' },
-    { value: 'limpieza', label: 'Limpieza dental' },
-    { value: 'ortodoncia', label: 'Ortodoncia' },
-    { value: 'endodoncia', label: 'Endodoncia' },
-    { value: 'revision', label: 'Revisión' },
-    { value: 'extraccion', label: 'Extracción' }
-  ]
+  const servicios = serviceOptions.length
+    ? serviceOptions
+    : [
+        { value: 'consulta', label: 'Consulta' },
+        { value: 'limpieza', label: 'Limpieza dental' },
+        { value: 'ortodoncia', label: 'Ortodoncia' },
+        { value: 'endodoncia', label: 'Endodoncia' },
+        { value: 'revision', label: 'Revisión' },
+        { value: 'extraccion', label: 'Extracción' }
+      ]
 
   // pacientes now comes from context (getPatientsForSelect)
 
@@ -1090,11 +1133,20 @@ export default function CreateAppointmentModal({
                     <FormRow label='Servicio' icon='medical_services' required>
                       <SelectInput
                         placeholder='Seleccionar servicio...'
-                        value={formData.servicio}
+                        value={formData.servicioId || ''}
                         onChange={(v) =>
-                          setFormData((prev) => ({ ...prev, servicio: v }))
+                          setFormData((prev) => {
+                            const selectedService = servicios.find(
+                              (service) => service.value === v
+                            )
+                            return {
+                              ...prev,
+                              servicioId: v,
+                              servicio: selectedService?.label || ''
+                            }
+                          })
                         }
-                        options={servicios.filter((s) => s.value !== 'block')}
+                        options={servicios}
                       />
                     </FormRow>
                   )}

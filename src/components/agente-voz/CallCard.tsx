@@ -72,9 +72,12 @@ export default function CallCard({
 
   // Build quick actions list
   const getQuickActions = (): QuickActionItem[] => {
-    const actions: QuickActionItem[] = [
-      { id: 'call', label: 'Llamar', icon: 'call', onClick: onCall }
-    ]
+    const actions: QuickActionItem[] = []
+
+    // In basic tier, hide "Llamar" from quick-actions menu.
+    if (voiceAgentTier === 'advanced') {
+      actions.push({ id: 'call', label: 'Llamar', icon: 'call', onClick: onCall })
+    }
 
     // Only show appointment actions in advanced mode
     if (voiceAgentTier === 'advanced') {
@@ -96,11 +99,13 @@ export default function CallCard({
       }
     }
 
+    const isResolved = call.status === 'resuelta'
+
     // Common actions
     actions.push({
       id: 'mark-resolved',
-      label: 'Marcar resuelta',
-      icon: 'check_box',
+      label: isResolved ? 'Volver a pendiente' : 'Marcar resuelta',
+      icon: isResolved ? 'undo' : 'check_box',
       onClick: onMarkResolved
     })
 
@@ -122,7 +127,7 @@ export default function CallCard({
       })
     }
 
-    if (onAssignProfessional) {
+    if (voiceAgentTier === 'advanced' && onAssignProfessional) {
       actions.push({
         id: 'assign-professional',
         label: 'Asignar profesional',

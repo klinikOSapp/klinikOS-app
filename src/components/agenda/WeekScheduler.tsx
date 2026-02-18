@@ -1883,6 +1883,7 @@ export default function WeekScheduler() {
       const professionalName = (apt.professional || DEFAULT_PROFESSIONAL).trim()
       const professionalNameKey = professionalName.toLowerCase()
       const eventProfessionalId =
+        apt.professionalId ||
         professionalIdByName.get(professionalNameKey) ||
         toProfessionalOptionId(professionalName)
       const eventBoxLabel = resolveBoxLabel(apt.box || fallbackBox)
@@ -2483,6 +2484,7 @@ export default function WeekScheduler() {
       date: string
       patientPhone: string
       professional: string
+      professionalId?: string
       notes?: string
       patientId?: string
       confirmed?: boolean
@@ -2529,9 +2531,11 @@ export default function WeekScheduler() {
       const professionalName = (apt.professional || DEFAULT_PROFESSIONAL).trim()
       const professionalKey = professionalName.toLowerCase()
       const professionalId =
+        apt.professionalId ||
         effectiveProfessionalOptions.find(
           (option) => option.label.toLowerCase() === professionalKey
-        )?.id ?? toProfessionalOptionId(professionalName)
+        )?.id ||
+        toProfessionalOptionId(professionalName)
 
       return {
         id: apt.id,
@@ -3440,6 +3444,15 @@ export default function WeekScheduler() {
       .join(', ')
     const eventTitle = eventTreatments || data.servicio || 'Nueva cita'
     const eventBoxLabel = resolveBoxLabel(data.box)
+    const selectedProfessional = effectiveProfessionalOptions.find(
+      (option) => option.id === data.responsable
+    )
+    const professionalName = selectedProfessional?.label || 'Profesional'
+    const professionalId = data.responsable || undefined
+    const selectedServiceId =
+      data.servicioId && Number.isFinite(Number(data.servicioId))
+        ? Number(data.servicioId)
+        : null
 
     // Check for voice agent prefill data from URL navigation
     const voiceAgentPrefill = (window as unknown as Record<string, unknown>)
@@ -3476,13 +3489,14 @@ export default function WeekScheduler() {
         date: data.fecha,
         duration: `${data.hora} - ${endTime} (${durationMinutes} minutos)`,
         patientFull: data.paciente || 'Paciente',
-        professional: data.responsable || 'Profesional',
+        professional: professionalName,
         notes: data.observaciones || 'Sin notas',
         locationLabel: 'Fecha y ubicación',
         patientLabel: 'Paciente',
         professionalLabel: 'Profesional',
         economicLabel: 'Económico'
-      }
+      },
+      professionalId
     }
 
     // Actualizar el estado local del scheduler
@@ -3510,7 +3524,9 @@ export default function WeekScheduler() {
       patientName: data.paciente || 'Paciente',
       patientId: data.pacienteId || undefined,
       patientPhone: voiceAgentPrefill?.pacientePhone || '', // From voice agent or empty
-      professional: data.responsable || 'Profesional',
+      professional: professionalName,
+      professionalId,
+      serviceId: selectedServiceId,
       reason: reason,
       status: voiceAgentPrefill?.createdByVoiceAgent
         ? 'Pendiente IA'

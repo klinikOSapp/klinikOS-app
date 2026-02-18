@@ -117,6 +117,7 @@ export default function TranscriptionModal({
   onClose
 }: TranscriptionModalProps) {
   const supabase = useRef(createSupabaseBrowserClient())
+  const displayIntent = call.intentDisplay?.trim() || CALL_INTENT_LABELS[call.intent]
   const modalRef = useRef<HTMLDivElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
   const [messages, setMessages] = useState<TranscriptionMessage[]>([])
@@ -370,8 +371,8 @@ export default function TranscriptionModal({
                 <span className='text-body-md text-neutral-700 w-16 shrink-0'>
                   Motivo
                 </span>
-                <span className='text-body-md text-neutral-900'>
-                  {CALL_INTENT_LABELS[call.intent]}
+                <span className='text-body-md text-neutral-900' title={displayIntent}>
+                  {displayIntent}
                 </span>
               </div>
             </div>

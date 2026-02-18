@@ -24,7 +24,7 @@ function getBaseUrl(request: NextRequest): string {
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const next = requestUrl.searchParams.get('next') ?? '/pacientes'
+  const next = requestUrl.searchParams.get('next') ?? '/agente-voz'
   const baseUrl = getBaseUrl(request)
 
   if (code) {
@@ -39,4 +39,3 @@ export async function GET(request: NextRequest) {
   // Return to login page with error if something went wrong
   return NextResponse.redirect(new URL('/login?error=auth', baseUrl))
 }
-

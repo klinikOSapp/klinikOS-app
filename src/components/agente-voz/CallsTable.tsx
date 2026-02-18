@@ -99,9 +99,29 @@ function extractRecordingUrl(payload: Record<string, unknown> | null): string {
 function mapIntent(intentSource: string): CallIntent {
   const source = normalizeText(intentSource)
   if (!source) return 'consulta_general'
-  if (source.includes('cancel')) return 'cancelar_cita'
-  if (source.includes('confirm')) return 'confirmar_cita'
-  if (source.includes('urgenc') || source.includes('dolor')) return 'urgencia_dolor'
+  const primary = source.split('-')[0]?.trim() || source
+  if (primary.startsWith('urgencia') || source.includes('urgenc') || source.includes('dolor')) {
+    return 'urgencia_dolor'
+  }
+  if (primary.startsWith('cancelar cita') || source.includes('cancel')) return 'cancelar_cita'
+  if (
+    primary.startsWith('cambiar cita') ||
+    source.includes('reprogram') ||
+    source.includes('reagend') ||
+    source.includes('confirm')
+  ) {
+    return 'confirmar_cita'
+  }
+  if (
+    primary.startsWith('reservar cita') ||
+    primary.startsWith('pedir cita') ||
+    source.includes('book') ||
+    source.includes('agenda') ||
+    source.includes('cita')
+  ) {
+    return 'pedir_cita_higiene'
+  }
+  if (primary.startsWith('preguntas frecuentes')) return 'consulta_general'
   if (
     source.includes('financ') ||
     source.includes('presup') ||
@@ -110,10 +130,27 @@ function mapIntent(intentSource: string): CallIntent {
   ) {
     return 'consulta_financiacion'
   }
-  if (source.includes('cita') || source.includes('agenda') || source.includes('book')) {
-    return 'pedir_cita_higiene'
-  }
   return 'consulta_general'
+}
+
+function getIntentDisplay(intentSource: string, intent: CallIntent): string {
+  const raw = intentSource.trim()
+  if (!raw) return CALL_INTENT_LABELS[intent]
+  const normalized = normalizeText(raw)
+  if (
+    normalized === 'voice call' ||
+    normalized === 'llamada de voz' ||
+    normalized === 'no summary available' ||
+    normalized === 'sin resumen disponible' ||
+    normalized === 'n/a'
+  ) {
+    return CALL_INTENT_LABELS[intent]
+  }
+  return raw
+}
+
+function getDisplayedIntent(call: Pick<CallRecord, 'intent' | 'intentDisplay'>): string {
+  return call.intentDisplay?.trim() || CALL_INTENT_LABELS[call.intent]
 }
 
 function mapSentiment(sentimentSource: string): Sentiment {
@@ -222,8 +259,20 @@ function dedupeAndFilterCalls(calls: CallRecord[]): CallRecord[] {
       (existing.summary?.length || 0) +
       (existing.duration !== '00:00' ? 15 : 0) +
       (existing.startedAt ? 10 : 0)
+    const statusPriority: Record<CallRecord['status'], number> = {
+      nueva: 1,
+      pendiente: 2,
+      en_curso: 3,
+      urgente: 4,
+      resuelta: 5
+    }
+    const currentStatusPriority = statusPriority[call.status] ?? 0
+    const existingStatusPriority = statusPriority[existing.status] ?? 0
     const shouldReplace =
-      currentScore > existingScore || getCallTimestamp(call) > getCallTimestamp(existing)
+      currentStatusPriority > existingStatusPriority ||
+      (currentStatusPriority === existingStatusPriority &&
+        (currentScore > existingScore ||
+          getCallTimestamp(call) > getCallTimestamp(existing)))
     if (shouldReplace) {
       deduped.set(key, call)
     }
@@ -344,9 +393,12 @@ function CallQuickActionsMenu({
   const isCreatingIntent = isAppointmentIntent(row.intent)
 
   // Build actions list based on voice agent tier
-  const actions: QuickActionItem[] = [
-    { id: 'call', label: 'Llamar', icon: 'call', onClick: onCall }
-  ]
+  const actions: QuickActionItem[] = []
+
+  // In basic tier, hide "Llamar" from quick-actions menu.
+  if (voiceAgentTier === 'advanced') {
+    actions.push({ id: 'call', label: 'Llamar', icon: 'call', onClick: onCall })
+  }
 
   // Only show appointment actions in advanced mode
   if (voiceAgentTier === 'advanced') {
@@ -369,11 +421,12 @@ function CallQuickActionsMenu({
   }
 
   // Common actions for both tiers
+  const isResolved = row.status === 'resuelta'
   actions.push(
     {
       id: 'mark-resolved',
-      label: 'Marcar resuelta',
-      icon: 'check_box',
+      label: isResolved ? 'Volver a pendiente' : 'Marcar resuelta',
+      icon: isResolved ? 'undo' : 'check_box',
       onClick: onMarkResolved
     },
     {
@@ -387,20 +440,24 @@ function CallQuickActionsMenu({
       label: 'Transcripción',
       icon: 'dictionary',
       onClick: onViewTranscription
-    },
-    {
+    }
+  )
+
+  if (voiceAgentTier === 'advanced') {
+    actions.push({
       id: 'assign-professional',
       label: 'Asignar profesional',
       icon: 'person_add',
       onClick: onAssignProfessional
-    },
-    {
+    })
+  }
+
+  actions.push({
       id: 'more-info',
       label: 'Más información',
       icon: 'info',
       onClick: onMoreInfo
-    }
-  )
+    })
 
   return (
     <div
@@ -461,6 +518,7 @@ export default function CallsTable({
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [viewMode, setViewMode] = useState<ViewMode>('table')
+  const [refreshTick, setRefreshTick] = useState(0)
 
   // Local state for call records (to allow status updates from appointment sync)
   const [localCalls, setLocalCalls] = useState<CallRecord[]>(data ?? [])
@@ -478,9 +536,20 @@ export default function CallsTable({
   }, [data])
 
   useEffect(() => {
+    function triggerRefresh() {
+      setRefreshTick((current) => current + 1)
+    }
+    window.addEventListener('pageshow', triggerRefresh)
+    window.addEventListener('focus', triggerRefresh)
+    return () => {
+      window.removeEventListener('pageshow', triggerRefresh)
+      window.removeEventListener('focus', triggerRefresh)
+    }
+  }, [])
+
+  useEffect(() => {
     let isMounted = true
     async function hydrateCalls() {
-      if (data) return
       if (!isClinicInitialized) return
       try {
         if (!activeClinicId) {
@@ -504,7 +573,7 @@ export default function CallsTable({
         let callsQuery = supabase.current
           .from('calls')
           .select(
-            'id, external_call_id, status, from_number, started_at, duration_seconds, call_outcome, is_urgent, patient_id, caller_contact_id, metadata, initial_clinic_id, recording_url, intent_summary'
+            'id, external_call_id, status, management_status, from_number, started_at, duration_seconds, call_outcome, is_urgent, patient_id, caller_contact_id, metadata, initial_clinic_id, recording_url, intent_summary'
           )
           .or(clinicFilter)
           .order('started_at', { ascending: false })
@@ -543,7 +612,7 @@ export default function CallsTable({
             const { data: nextRows, error: nextError } = await supabase.current
               .from('calls')
               .select(
-                'id, external_call_id, status, from_number, started_at, duration_seconds, call_outcome, is_urgent, patient_id, caller_contact_id, metadata, initial_clinic_id, recording_url, intent_summary'
+                'id, external_call_id, status, management_status, from_number, started_at, duration_seconds, call_outcome, is_urgent, patient_id, caller_contact_id, metadata, initial_clinic_id, recording_url, intent_summary'
               )
               .or(clinicFilter)
               .gte('started_at', weekStart ? weekStart.toISOString() : '1970-01-01T00:00:00.000Z')
@@ -645,14 +714,59 @@ export default function CallsTable({
           ])
         )
 
-        const mapStatus = (raw: string, urgent: boolean): CallRecord['status'] => {
+        const mapStatus = (
+          raw: string,
+          urgent: boolean,
+          managementStatusRaw?: string
+        ): CallRecord['status'] => {
           const v = raw.toLowerCase()
-          if (urgent) return 'urgente'
-          if (v.includes('new')) return 'nueva'
-          if (v.includes('pending') || v.includes('queue')) return 'pendiente'
+          const managementStatus = normalizeText(managementStatusRaw || '')
+
+          // Management status from metadata has priority over call lifecycle status
+          if (
+            managementStatus.includes('resuelt') ||
+            managementStatus.includes('resolved')
+          ) {
+            return 'resuelta'
+          }
+          if (
+            managementStatus.includes('en curso') ||
+            managementStatus.includes('in_progress')
+          ) {
+            return 'en_curso'
+          }
+          if (
+            managementStatus.includes('pend') ||
+            managementStatus.includes('pending') ||
+            managementStatus.includes('queue') ||
+            managementStatus.includes('earring')
+          ) {
+            return urgent ? 'urgente' : 'pendiente'
+          }
+          if (
+            managementStatus.includes('nueva') ||
+            managementStatus.includes('new') ||
+            managementStatus.includes('created') ||
+            managementStatus.includes('initiated')
+          ) {
+            return urgent ? 'urgente' : 'nueva'
+          }
+
+          // Fallback to lifecycle status from calls.status
+          if (v.includes('resolved')) return 'resuelta'
           if (v.includes('in_progress')) return 'en_curso'
-          if (v.includes('resolved') || v.includes('completed')) return 'resuelta'
-          return 'pendiente'
+          if (v.includes('new') || v.includes('created') || v.includes('initiated')) {
+            return urgent ? 'urgente' : 'nueva'
+          }
+          if (
+            v.includes('pending') ||
+            v.includes('queue') ||
+            v.includes('earring') ||
+            v.includes('completed')
+          ) {
+            return urgent ? 'urgente' : 'pendiente'
+          }
+          return urgent ? 'urgente' : 'pendiente'
         }
 
         const hydrated: CallRecord[] = allCallRows.map((row) => {
@@ -682,6 +796,7 @@ export default function CallsTable({
             row.metadata && typeof row.metadata === 'object'
               ? (row.metadata as Record<string, unknown>)
               : null
+          const managementStatusSource = asString(row.management_status).trim()
           const payloadCall = safeJson(webhookPayload?.call)
           const payloadCustomAnalysis = safeJson(
             safeJson(payloadCall?.call_analysis)?.custom_analysis_data
@@ -690,6 +805,7 @@ export default function CallsTable({
             (typeof metadata?.patient_name === 'string' && metadata.patient_name.trim()) ||
             (typeof metadata?.patient_full_name === 'string' &&
               metadata.patient_full_name.trim()) ||
+            (typeof metadata?.full_name === 'string' && metadata.full_name.trim()) ||
             (typeof metadata?.caller_name === 'string' && metadata.caller_name.trim()) ||
             null
           const payloadPatientName =
@@ -726,16 +842,18 @@ export default function CallsTable({
             extractRecordingUrl(webhookPayload) ||
             null
           const intentSource = [
+            asString(metadata?.call_reason),
+            asString(payloadCustomAnalysis?.call_reason),
+            asString(payloadCall?.call_reason),
             asString(metadata?.intent),
             asString(metadata?.call_intent),
             asString(metadata?.reason),
             asString(row.intent_summary),
-            asString(row.call_outcome),
-            asString(payloadCustomAnalysis?.call_reason),
-            asString(payloadCall?.call_reason)
+            asString(row.call_outcome)
           ]
             .map((value) => value.trim())
             .find(Boolean)
+          const mappedIntent = mapIntent(intentSource || '')
           const sentimentSource = [
             asString(metadata?.feeling),
             asString(metadata?.sentiment),
@@ -750,14 +868,19 @@ export default function CallsTable({
             id: callId,
             externalCallId: asString(row.external_call_id).trim() || null,
             startedAt: startedAtRaw,
-            status: mapStatus(String(row.status || ''), Boolean(row.is_urgent)),
+            status: mapStatus(
+              String(row.status || ''),
+              Boolean(row.is_urgent),
+              managementStatusSource
+            ),
             time: startedAt.toLocaleTimeString('es-ES', {
               hour: '2-digit',
               minute: '2-digit'
             }),
             patient: patientName,
             phone,
-            intent: mapIntent(intentSource || ''),
+            intent: mappedIntent,
+            intentDisplay: getIntentDisplay(intentSource || '', mappedIntent),
             duration: durationTextFromSeconds(durationSeconds),
             summary,
             transcript,
@@ -783,7 +906,7 @@ export default function CallsTable({
     return () => {
       isMounted = false
     }
-  }, [activeClinicId, data, isClinicInitialized, selectedWeekStart])
+  }, [activeClinicId, data, isClinicInitialized, refreshTick, selectedWeekStart])
 
   // Listen for appointment status changes to sync call status (ADVANCED MODE ONLY)
   useEffect(() => {
@@ -974,6 +1097,10 @@ export default function CallsTable({
     text: string
     rect: DOMRect
   } | null>(null)
+  const [intentTooltip, setIntentTooltip] = useState<{
+    text: string
+    rect: DOMRect
+  } | null>(null)
 
   // State for search input visibility
   const [isSearchOpen, setIsSearchOpen] = useState(false)
@@ -1047,7 +1174,8 @@ export default function CallsTable({
         (r) =>
           r.patient?.toLowerCase().includes(query) ||
           r.phone.toLowerCase().includes(query) ||
-          CALL_INTENT_LABELS[r.intent].toLowerCase().includes(query)
+          CALL_INTENT_LABELS[r.intent].toLowerCase().includes(query) ||
+          getDisplayedIntent(r).toLowerCase().includes(query)
       )
     }
 
@@ -1082,13 +1210,54 @@ export default function CallsTable({
     setCallModalRow(row)
   }
 
-  // Handler para marcar llamada como resuelta (desde el modal de devolver llamada)
-  const handleCallModalResolved = (row: CallRecord) => {
+  const persistCallManagementStatus = async (
+    row: CallRecord,
+    managementStatus: 'new' | 'pending' | 'in_progress' | 'resolved'
+  ): Promise<boolean> => {
+    const numericId = Number(row.id)
+    const idFilter = Number.isFinite(numericId) ? numericId : row.id
+    const { error } = await supabase.current
+      .from('calls')
+      .update({
+        management_status: managementStatus
+      })
+      .eq('id', idFilter)
+
+    if (error) {
+      console.warn('Failed to persist management status', {
+        callId: row.id,
+        managementStatus,
+        error
+      })
+      return false
+    }
+
+    const nextUiStatus: CallRecord['status'] =
+      managementStatus === 'resolved'
+        ? 'resuelta'
+        : managementStatus === 'in_progress'
+          ? 'en_curso'
+          : managementStatus === 'new'
+            ? 'nueva'
+            : 'pendiente'
+
     setLocalCalls((prevCalls) =>
       prevCalls.map((call) =>
-        call.id === row.id ? { ...call, status: 'resuelta' } : call
+        call.id === row.id ? { ...call, status: nextUiStatus } : call
       )
     )
+    setRefreshTick((current) => current + 1)
+    return true
+  }
+
+  const transitionNewCallToPending = (row: CallRecord) => {
+    if (row.status !== 'nueva') return
+    void persistCallManagementStatus(row, 'pending')
+  }
+
+  // Handler para marcar llamada como resuelta (desde el modal de devolver llamada)
+  const handleCallModalResolved = async (row: CallRecord) => {
+    await persistCallManagementStatus(row, 'resolved')
     setCallModalRow(null)
     console.log(
       `📞 Voice Agent [${voiceAgentTier}]: Call ${row.id} marked as resolved after callback`
@@ -1108,34 +1277,33 @@ export default function CallsTable({
   // Handler para crear cita manualmente (intenciones que no crean cita automáticamente)
   const handleCreateAppointment = (row: CallRecord) => {
     // Navegar a la agenda con datos prellenados para crear cita
+    const intentText = getDisplayedIntent(row)
     const params = new URLSearchParams({
       action: 'create',
       paciente: row.patient || '',
       pacientePhone: row.phone,
-      observaciones: `${CALL_INTENT_LABELS[row.intent]} - ${row.summary}`,
+      observaciones: `${intentText} - ${row.summary}`,
       createdByVoiceAgent: 'true',
       voiceAgentCallId: row.id
     })
     router.push(`/agenda?${params.toString()}`)
   }
 
-  const handleMarkResolved = (row: CallRecord) => {
-    // Update status to resolved
-    setLocalCalls((prevCalls) =>
-      prevCalls.map((call) =>
-        call.id === row.id ? { ...call, status: 'resuelta' } : call
-      )
-    )
+  const handleMarkResolved = async (row: CallRecord) => {
+    const targetStatus = row.status === 'resuelta' ? 'pending' : 'resolved'
+    await persistCallManagementStatus(row, targetStatus)
     console.log(
-      `✅ Voice Agent [${voiceAgentTier}]: Call ${row.id} marked as resolved manually`
+      `✅ Voice Agent [${voiceAgentTier}]: Call ${row.id} set to ${targetStatus}`
     )
   }
 
   const handleListenCall = (row: CallRecord) => {
+    transitionNewCallToPending(row)
     setListenCallRow(row)
   }
 
   const handleViewTranscription = (row: CallRecord) => {
+    transitionNewCallToPending(row)
     setTranscriptionRow(row)
   }
 
@@ -1144,6 +1312,7 @@ export default function CallsTable({
   }
 
   const handleMoreInfo = (row: CallRecord) => {
+    transitionNewCallToPending(row)
     setDetailRow(row)
   }
 
@@ -1405,7 +1574,29 @@ export default function CallsTable({
 
                     {/* Intención */}
                     <td className='px-2 py-2 text-body-md text-neutral-900 border-r border-neutral-300 group-hover:bg-neutral-50 transition-colors'>
-                      {CALL_INTENT_LABELS[row.intent]}
+                      <div
+                        className='truncate cursor-pointer hover:text-brand-600 transition-colors'
+                        onMouseEnter={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          setIntentTooltip({
+                            text: getDisplayedIntent(row),
+                            rect
+                          })
+                        }}
+                        onMouseLeave={() => setIntentTooltip(null)}
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          const nextText = getDisplayedIntent(row)
+                          setIntentTooltip(
+                            intentTooltip?.text === nextText
+                              ? null
+                              : { text: nextText, rect }
+                          )
+                        }}
+                        title={getDisplayedIntent(row)}
+                      >
+                        {getDisplayedIntent(row)}
+                      </div>
                     </td>
 
                     {/* Duración */}
@@ -1652,6 +1843,20 @@ export default function CallsTable({
             <p className='text-body-sm text-neutral-900'>
               {summaryTooltip.text}
             </p>
+          </div>
+        </Portal>
+      )}
+      {intentTooltip && (
+        <Portal>
+          <div
+            className='fixed z-[9999] bg-neutral-100 rounded-lg p-4 shadow-lg border border-neutral-200 max-w-[20rem]'
+            style={{
+              top: intentTooltip.rect.bottom + 8,
+              left: Math.min(intentTooltip.rect.left, window.innerWidth - 340)
+            }}
+            onMouseLeave={() => setIntentTooltip(null)}
+          >
+            <p className='text-body-sm text-neutral-900'>{intentTooltip.text}</p>
           </div>
         </Portal>
       )}

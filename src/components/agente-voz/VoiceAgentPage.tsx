@@ -83,6 +83,7 @@ type KpiRawCallRow = {
   id: number | string
   external_call_id: string | null
   status: string | null
+  management_status: string | null
   duration_seconds: number | null
   metadata: unknown
   recording_url: string | null
@@ -101,6 +102,8 @@ type KpiWebhookEventRow = {
   payload: unknown
 }
 
+type ClinicTier = 'basic' | 'complete'
+
 const EMPTY_DISTRIBUTION_ADVANCED: CallDistribution[] = [
   { name: 'Pendientes', value: 0, color: '#E9FBF9' },
   { name: 'Confirmadas', value: 0, color: '#A8EFE7' },
@@ -110,6 +113,7 @@ const EMPTY_DISTRIBUTION_ADVANCED: CallDistribution[] = [
 
 const EMPTY_DISTRIBUTION_BASIC: CallDistribution[] = [
   { name: 'Pedir cita', value: 0, color: '#51D6C7' },
+  { name: 'Cambiar cita', value: 0, color: '#B8D0FF' },
   { name: 'Consultas', value: 0, color: '#A8EFE7' },
   { name: 'Cancelaciones', value: 0, color: '#FFD188' },
   { name: 'Urgencias', value: 0, color: '#FF6B6B' }
@@ -148,6 +152,14 @@ function asString(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
+function normalizeText(value: unknown): string {
+  return asString(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
 function safeJson(value: unknown): Record<string, unknown> | null {
   if (!value) return null
   if (typeof value === 'string') {
@@ -161,6 +173,39 @@ function safeJson(value: unknown): Record<string, unknown> | null {
     }
   }
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
+function normalizeClinicTier(value: unknown): ClinicTier | null {
+  if (typeof value !== 'string') return null
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) return null
+  if (normalized.includes('basic')) return 'basic'
+  if (
+    normalized.includes('complete') ||
+    normalized.includes('advanced') ||
+    normalized.includes('full')
+  ) {
+    return 'complete'
+  }
+  return null
+}
+
+function resolveClinicTier(record: Record<string, unknown> | null): ClinicTier | null {
+  if (!record) return null
+  const candidates = [
+    record.tier,
+    record.Tier,
+    record.subscription_tier,
+    record.subscription_plan,
+    record.voice_agent_tier,
+    record.voice_agent_plan,
+    record.plan
+  ]
+  for (const candidate of candidates) {
+    const normalized = normalizeClinicTier(candidate)
+    if (normalized) return normalized
+  }
+  return null
 }
 
 function parseDurationSeconds(value: unknown): number {
@@ -259,6 +304,18 @@ function dedupeAndFilterCalls(
   return Array.from(deduped.values())
 }
 
+function isResolvedWorkflowStatus(
+  managementStatusRaw: string | null,
+  lifecycleStatusRaw: string | null
+): boolean {
+  const managementStatus = normalizeText(managementStatusRaw || '')
+  if (managementStatus) {
+    return managementStatus.includes('resolved') || managementStatus.includes('resuelt')
+  }
+  const lifecycle = normalizeText(lifecycleStatusRaw || '')
+  return lifecycle.includes('resolved') || lifecycle.includes('completed')
+}
+
 function getDelta(current: number, previous: number) {
   if (previous <= 0) {
     if (current <= 0) return { changePercent: '0%', changeDirection: 'up' as const }
@@ -280,7 +337,7 @@ async function fetchVoiceStats(
   const { data: calls, error: callsError } = await supabase
     .from('calls')
     .select(
-      'id, external_call_id, status, duration_seconds, metadata, recording_url, from_number, started_at'
+      'id, external_call_id, status, management_status, duration_seconds, metadata, recording_url, from_number, started_at'
     )
     .or(`clinic_id.eq.${clinicId},initial_clinic_id.eq.${clinicId}`)
     .gte('started_at', rangeStart.toISOString())
@@ -347,11 +404,13 @@ async function fetchVoiceStats(
   const waitTimes: number[] = []
 
   for (const row of callRows) {
-    const status = String(row.status || '').toLowerCase()
-    if (status.includes('resolved') || status.includes('completed')) {
+    const resolved = isResolvedWorkflowStatus(
+      row.management_status ?? null,
+      row.status ?? null
+    )
+    if (resolved) {
       resolvedCalls += 1
-    }
-    if (status.includes('new') || status.includes('pending') || status.includes('queue')) {
+    } else {
       pendingCalls += 1
     }
     const rowId = String(row.id)
@@ -414,6 +473,7 @@ export default function VoiceAgentPage() {
   const { voiceAgentTier, setVoiceAgentTier } = useSubscription()
   const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const [clinicTier, setClinicTier] = useState<ClinicTier | null>(null)
 
   // State for selected week (defaults to current week)
   const [selectedWeekStart, setSelectedWeekStart] = useState<Date>(() =>
@@ -428,6 +488,10 @@ export default function VoiceAgentPage() {
     EMPTY_DISTRIBUTION_BASIC
   )
   const [volumeData, setVolumeData] = useState<CallVolumeDataPoint[]>(EMPTY_VOLUME_DATA)
+  const isClinicBasic = clinicTier === 'basic'
+  const effectiveVoiceAgentTier: VoiceAgentTier = isClinicBasic
+    ? 'basic'
+    : voiceAgentTier
 
   // Check if we're viewing the current week
   const isCurrentWeek = isSameWeek(selectedWeekStart, new Date())
@@ -454,6 +518,40 @@ export default function VoiceAgentPage() {
   const goToCurrentWeek = () => {
     setSelectedWeekStart(getWeekStart(new Date()))
   }
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadClinicTier() {
+      if (!isClinicInitialized) return
+      if (!activeClinicId) {
+        if (isMounted) setClinicTier(null)
+        return
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('clinics')
+          .select('*')
+          .eq('id', activeClinicId)
+          .maybeSingle()
+        if (error) throw error
+        if (!isMounted) return
+        const parsed = resolveClinicTier(
+          data && typeof data === 'object' ? (data as Record<string, unknown>) : null
+        )
+        setClinicTier(parsed)
+      } catch (error) {
+        console.warn('VoiceAgent: unable to resolve clinic tier', error)
+        if (isMounted) setClinicTier(null)
+      }
+    }
+
+    void loadClinicTier()
+    return () => {
+      isMounted = false
+    }
+  }, [activeClinicId, isClinicInitialized, supabase])
 
   useEffect(() => {
     let isMounted = true
@@ -572,7 +670,7 @@ export default function VoiceAgentPage() {
     )
 
     const tierLeadCard =
-      voiceAgentTier === 'basic'
+      effectiveVoiceAgentTier === 'basic'
         ? buildCountCard(
             'Llamadas pendientes',
             currentStats.pendingCalls,
@@ -622,7 +720,7 @@ export default function VoiceAgentPage() {
         comparisonLabel: commonComparisonLabel
       }
     ]
-  }, [currentStats, previousStats, voiceAgentTier])
+  }, [currentStats, effectiveVoiceAgentTier, previousStats])
 
   return (
     <div className='flex flex-col gap-[min(1rem,2vw)] p-[min(1rem,2vw)] w-full h-full overflow-hidden'>
@@ -676,67 +774,76 @@ export default function VoiceAgentPage() {
           Datos semanales
         </span>
 
-        {/* Voice Agent Tier Toggle (for testing - will be moved to config later) */}
+        {/* Voice Agent Tier Toggle */}
         <div className='flex items-center gap-2 ml-auto'>
           <span className='text-label-sm text-neutral-500'>Modo:</span>
-          <button
-            type='button'
-            onClick={() =>
-              setVoiceAgentTier(
-                voiceAgentTier === 'advanced' ? 'basic' : 'advanced'
-              )
-            }
-            className={`relative inline-flex h-7 w-[8.5rem] items-center rounded-full transition-colors cursor-pointer p-0.5 ${
-              voiceAgentTier === 'advanced'
-                ? 'bg-success-100 border border-success-300'
-                : 'bg-neutral-100 border border-neutral-300'
-            }`}
-            title='Click para cambiar de modo (solo para testing)'
-          >
-            {/* Sliding indicator */}
+          {isClinicBasic ? (
             <span
-              className={`absolute h-6 w-[4rem] rounded-full transition-all duration-200 ease-in-out ${
-                voiceAgentTier === 'advanced'
-                  ? 'translate-x-[4.25rem] bg-success-500'
-                  : 'translate-x-0.5 bg-neutral-500'
-              }`}
-            />
-            {/* Labels container */}
-            <span className='relative flex w-full h-full'>
-              {/* Basic label */}
-              <span
-                className={`flex-1 flex items-center justify-center text-label-sm font-medium transition-colors z-10 ${
-                  voiceAgentTier === 'basic' ? 'text-white' : 'text-neutral-500'
-                }`}
-              >
-                Básico
-              </span>
-              {/* Advanced label */}
-              <span
-                className={`flex-1 flex items-center justify-center text-label-sm font-medium transition-colors z-10 ${
-                  voiceAgentTier === 'advanced'
-                    ? 'text-white'
-                    : 'text-neutral-500'
-                }`}
-              >
-                Avanzado
-              </span>
+              className='inline-flex h-7 items-center rounded-full border border-neutral-300 bg-neutral-100 px-3 text-label-sm font-medium text-neutral-700'
+              title='Esta clínica tiene plan Básico'
+            >
+              Básico
             </span>
-          </button>
+          ) : (
+            <button
+              type='button'
+              onClick={() =>
+                setVoiceAgentTier(
+                  effectiveVoiceAgentTier === 'advanced' ? 'basic' : 'advanced'
+                )
+              }
+              className={`relative inline-flex h-7 w-[8.5rem] items-center rounded-full transition-colors cursor-pointer p-0.5 ${
+                effectiveVoiceAgentTier === 'advanced'
+                  ? 'bg-success-100 border border-success-300'
+                  : 'bg-neutral-100 border border-neutral-300'
+              }`}
+              title='Cambiar modo'
+            >
+              <span
+                className={`absolute h-6 w-[4rem] rounded-full transition-all duration-200 ease-in-out ${
+                  effectiveVoiceAgentTier === 'advanced'
+                    ? 'translate-x-[4.25rem] bg-success-500'
+                    : 'translate-x-0.5 bg-neutral-500'
+                }`}
+              />
+              <span className='relative flex w-full h-full'>
+                <span
+                  className={`flex-1 flex items-center justify-center text-label-sm font-medium transition-colors z-10 ${
+                    effectiveVoiceAgentTier === 'basic'
+                      ? 'text-white'
+                      : 'text-neutral-500'
+                  }`}
+                >
+                  Básico
+                </span>
+                <span
+                  className={`flex-1 flex items-center justify-center text-label-sm font-medium transition-colors z-10 ${
+                    effectiveVoiceAgentTier === 'advanced'
+                      ? 'text-white'
+                      : 'text-neutral-500'
+                  }`}
+                >
+                  Avanzado
+                </span>
+              </span>
+            </button>
+          )}
           {/* Tier indicator icon */}
           <span
             className={`material-symbols-rounded text-lg ${
-              voiceAgentTier === 'advanced'
+              effectiveVoiceAgentTier === 'advanced'
                 ? 'text-success-600'
                 : 'text-neutral-500'
             }`}
             title={
-              voiceAgentTier === 'advanced'
+              effectiveVoiceAgentTier === 'advanced'
                 ? 'Crea citas automáticamente'
                 : 'Recoge información para gestión manual'
             }
           >
-            {voiceAgentTier === 'advanced' ? 'auto_awesome' : 'support_agent'}
+            {effectiveVoiceAgentTier === 'advanced'
+              ? 'auto_awesome'
+              : 'support_agent'}
           </span>
         </div>
       </div>
@@ -753,9 +860,9 @@ export default function VoiceAgentPage() {
         {/* Donut Chart */}
         <div className='w-[min(16rem,22vw)] shrink-0'>
           <CallDistributionDonut
-            tier={voiceAgentTier}
+            tier={effectiveVoiceAgentTier}
             data={
-              voiceAgentTier === 'basic'
+              effectiveVoiceAgentTier === 'basic'
                 ? basicDistribution
                 : advancedDistribution
             }
@@ -764,7 +871,7 @@ export default function VoiceAgentPage() {
 
         {/* Line Chart - Takes remaining space */}
         <div className='flex-1 min-w-[min(30rem,40vw)]'>
-          <CallVolumeChart tier={voiceAgentTier} data={volumeData} />
+          <CallVolumeChart tier={effectiveVoiceAgentTier} data={volumeData} />
         </div>
       </div>
 
@@ -772,7 +879,7 @@ export default function VoiceAgentPage() {
       <div className='flex-1 min-h-0 bg-surface-app overflow-y-auto'>
         <Suspense fallback={<div className='p-4'>Cargando...</div>}>
           <CallsTable
-            voiceAgentTier={voiceAgentTier}
+            voiceAgentTier={effectiveVoiceAgentTier}
             selectedWeekStart={selectedWeekStart}
           />
         </Suspense>

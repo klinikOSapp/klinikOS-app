@@ -208,6 +208,8 @@ export type Appointment = {
   patientAge?: number // Edad del paciente
   // Información de la cita
   professional: string
+  professionalId?: string
+  serviceId?: number | null
   reason: string // motivo de consulta
   status: AppointmentStatus
   // Para vista de día (box)
@@ -264,6 +266,7 @@ type DbCalendarAppointmentRow = {
   patient_name: string | null
   patient_phone: string | null
   service_name: string | null
+  service_id?: number | null
   staff_assigned: Array<{ staff_id?: string; full_name?: string }> | null
   clinical_notes: Array<{
     note_type?: string
@@ -765,6 +768,8 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
             patientPhone: row.patient_phone || '',
             patientId: row.patient_id,
             professional: firstStaff?.full_name || 'Profesional',
+            professionalId: firstStaff?.staff_id || undefined,
+            serviceId: row.service_id ?? null,
             reason,
             status: statusInfo.status,
             box: row.box_name || undefined,
@@ -1067,6 +1072,87 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
             boxIdByLabelRef.current[normalizedBoxLabel] ||
             boxIdByLabelRef.current[lookupBoxLabel] ||
             null
+          let resolvedServiceId =
+            appointmentData.serviceId != null &&
+            Number.isFinite(Number(appointmentData.serviceId))
+              ? Number(appointmentData.serviceId)
+              : null
+
+          if (!resolvedServiceId && appointmentData.sourceHoldId) {
+            const sourceHoldNumericId = Number(appointmentData.sourceHoldId)
+            if (Number.isFinite(sourceHoldNumericId)) {
+              const { data: sourceHoldRow, error: sourceHoldError } =
+                await supabase
+                  .from('appointment_holds')
+                  .select('suggested_service_id')
+                  .eq('id', sourceHoldNumericId)
+                  .eq('clinic_id', clinicId)
+                  .maybeSingle()
+
+              if (sourceHoldError) {
+                console.warn(
+                  'No se pudo obtener suggested_service_id desde appointment_holds',
+                  sourceHoldError
+                )
+              } else if (
+                sourceHoldRow?.suggested_service_id != null &&
+                Number.isFinite(Number(sourceHoldRow.suggested_service_id))
+              ) {
+                resolvedServiceId = Number(sourceHoldRow.suggested_service_id)
+              }
+            }
+          }
+
+          if (!resolvedServiceId && appointmentData.reason?.trim()) {
+            const firstReason = appointmentData.reason
+              .split(',')
+              .map((value) => value.trim())
+              .filter(Boolean)[0]
+
+            if (firstReason) {
+              const { data: exactServiceMatch, error: exactServiceError } =
+                await supabase
+                  .from('service_catalog')
+                  .select('id')
+                  .ilike('name', firstReason)
+                  .limit(1)
+                  .maybeSingle()
+
+              if (exactServiceError) {
+                console.warn(
+                  'No se pudo resolver service_id exacto por nombre',
+                  exactServiceError
+                )
+              } else if (
+                exactServiceMatch?.id != null &&
+                Number.isFinite(Number(exactServiceMatch.id))
+              ) {
+                resolvedServiceId = Number(exactServiceMatch.id)
+              }
+
+              if (!resolvedServiceId) {
+                const { data: partialServiceMatch, error: partialServiceError } =
+                  await supabase
+                    .from('service_catalog')
+                    .select('id')
+                    .ilike('name', `%${firstReason}%`)
+                    .limit(1)
+                    .maybeSingle()
+
+                if (partialServiceError) {
+                  console.warn(
+                    'No se pudo resolver service_id parcial por nombre',
+                    partialServiceError
+                  )
+                } else if (
+                  partialServiceMatch?.id != null &&
+                  Number.isFinite(Number(partialServiceMatch.id))
+                ) {
+                  resolvedServiceId = Number(partialServiceMatch.id)
+                }
+              }
+            }
+          }
 
           const { data: inserted, error } = await supabase
             .from('appointments')
@@ -1085,6 +1171,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
               ),
               notes: appointmentData.notes || null,
               source: appointmentData.createdByVoiceAgent ? 'call' : 'manual',
+              service_id: resolvedServiceId,
               service_type: appointmentData.reason,
               source_hold_id:
                 appointmentData.sourceHoldId &&
@@ -1111,6 +1198,64 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
                 : apt
             )
           )
+
+          if (appointmentData.professionalId) {
+            const assignmentPayload = [
+              {
+                staff_id: appointmentData.professionalId,
+                role: null as string | null,
+                role_in_appointment: null as string | null
+              }
+            ]
+
+            const hasPersistedAssignment = async (): Promise<boolean> => {
+              try {
+                const { data: existingAssignment, error: verifyError } = await supabase
+                  .from('appointment_staff')
+                  .select('staff_id')
+                  .eq('appointment_id', Number(inserted.id))
+                  .eq('staff_id', appointmentData.professionalId as string)
+                  .maybeSingle()
+
+                if (verifyError) {
+                  console.warn(
+                    'No se pudo verificar assignment en appointment_staff',
+                    verifyError
+                  )
+                  return false
+                }
+
+                return Boolean(existingAssignment?.staff_id)
+              } catch (verifyCatchError) {
+                console.warn(
+                  'Error verificando assignment en appointment_staff',
+                  verifyCatchError
+                )
+                return false
+              }
+            }
+
+            let staffPersisted = false
+            try {
+              await supabase.rpc('assign_staff_to_appointment', {
+                appointment_id: Number(inserted.id),
+                assignments: assignmentPayload
+              })
+              staffPersisted = await hasPersistedAssignment()
+            } catch (staffRpcError) {
+              console.warn('No se pudo asignar staff con RPC', staffRpcError)
+            }
+
+            if (!staffPersisted) {
+              console.warn(
+                'assign_staff_to_appointment terminó sin persistir assignment',
+                {
+                  appointmentId: Number(inserted.id),
+                  professionalId: appointmentData.professionalId
+                }
+              )
+            }
+          }
 
           if (appointmentData.linkedTreatments?.length) {
             await persistAppointmentNote(

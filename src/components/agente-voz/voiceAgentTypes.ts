@@ -35,6 +35,7 @@ export interface CallRecord {
   patient: string | null // null = "Pendiente de asignar"
   phone: string
   intent: CallIntent
+  intentDisplay?: string
   duration: string // Format: "MM:SS"
   summary: string
   transcript?: string | null
@@ -94,11 +95,11 @@ export const CALL_STATUS_LABELS: Record<CallStatus, string> = {
 }
 
 export const CALL_INTENT_LABELS: Record<CallIntent, string> = {
-  pedir_cita_higiene: 'Pedir cita higiene',
+  pedir_cita_higiene: 'Reservar cita',
   consulta_financiacion: 'Consulta financiación',
   urgencia_dolor: 'Urgencia dolor',
   cancelar_cita: 'Cancelar cita',
-  confirmar_cita: 'Confirmar cita',
+  confirmar_cita: 'Cambiar/confirmar cita',
   consulta_general: 'Consulta general'
 }
 

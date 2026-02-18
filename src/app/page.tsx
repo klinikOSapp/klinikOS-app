@@ -15,7 +15,7 @@ export default function PreAuthLanding() {
       const { data: { session } } = await supabase.auth.getSession()
       
       if (session) {
-        router.replace('/pacientes')
+        router.replace('/agente-voz')
       } else {
         router.replace('/login')
       }

@@ -72,6 +72,7 @@ export default function CallDetailModal({
 }: CallDetailModalProps) {
   // Check if we're in basic mode (receptionist - no auto appointments)
   const isBasicMode = voiceAgentTier === 'basic'
+  const displayIntent = call.intentDisplay?.trim() || CALL_INTENT_LABELS[call.intent]
 
   // Determinar si la intención es de pedir cita (cita ya creada automáticamente por el agente)
   // - Si es true: intenciones pedir_cita_higiene, urgencia_dolor, consulta_general → mostrar "Ver en agenda"
@@ -143,7 +144,7 @@ export default function CallDetailModal({
   }, [call.appointmentId, call.status, call.summary, call.time])
 
   // Build reason/notes from call intent and summary
-  const appointmentReason = `${CALL_INTENT_LABELS[call.intent]}${
+  const appointmentReason = `${displayIntent}${
     call.summary ? ` - ${call.summary}` : ''
   }`
 
@@ -529,7 +530,7 @@ export default function CallDetailModal({
                       </div>
                       <div>
                         <p className='text-sm font-medium text-neutral-900'>
-                          {CALL_INTENT_LABELS[call.intent]}
+                          {displayIntent}
                         </p>
                         {call.summary && (
                           <p className='text-sm text-neutral-600 mt-1'>

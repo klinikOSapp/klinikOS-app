@@ -18,6 +18,7 @@ const EMPTY_DATA_ADVANCED: CallDistribution[] = [
 
 const EMPTY_DATA_BASIC: CallDistribution[] = [
   { name: 'Pedir cita', value: 0, color: '#51D6C7' },
+  { name: 'Cambiar cita', value: 0, color: '#B8D0FF' },
   { name: 'Consultas', value: 0, color: '#A8EFE7' },
   { name: 'Cancelaciones', value: 0, color: '#FFD188' },
   { name: 'Urgencias', value: 0, color: '#FF6B6B' }
