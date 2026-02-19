@@ -116,6 +116,7 @@ export type PatientTreatment = {
   code: string // Código/acrónimo del tratamiento (ej: "LDE", "EMP", "END")
   description: string
   tooth?: string // Diente afectado (ej: "36", "11-21")
+  toothFace?: string // Cara del diente (ej: "Vestibular")
   scheduledDate?: string // Fecha programada (ISO)
   completedDate?: string // Fecha realización (ISO)
   amount: number // Precio en céntimos o como número
@@ -376,10 +377,12 @@ type DbPatientRow = {
 
 type DbPatientTreatmentRow = {
   id: string
+  clinic_id: string
   patient_id: string
   treatment_code: string | null
   treatment_name: string | null
   tooth_number: string | null
+  tooth_face: string | null
   amount: number | null
   final_amount: number | null
   paid_amount: number | null
@@ -407,12 +410,54 @@ function eurosToCents(value?: number | null): number {
   return Math.round(Number(value || 0) * 100)
 }
 
+function centsToEuros(value?: number | null): number {
+  return Number((Number(value || 0) / 100).toFixed(2))
+}
+
 function formatEuroAmount(valueInEuros?: number | null): string {
   const value = Number(valueInEuros || 0)
   return `${value.toLocaleString('es-ES', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   })} €`
+}
+
+function toDbBudgetId(value?: string): number | null {
+  if (!value) return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function mapDbTreatmentRowToUi(row: DbPatientTreatmentRow): PatientTreatment {
+  const finalAmountEuros = Number(row.final_amount ?? row.amount ?? 0)
+  const paidAmountEuros = Number(row.paid_amount ?? 0)
+
+  return {
+    id: row.id,
+    code:
+      row.treatment_code ||
+      (row.treatment_name || 'TRT')
+        .trim()
+        .slice(0, 3)
+        .toUpperCase(),
+    description: row.treatment_name || 'Tratamiento',
+    tooth: row.tooth_number || undefined,
+    toothFace: row.tooth_face || undefined,
+    scheduledDate: row.scheduled_date || undefined,
+    completedDate: toIsoDate(row.completed_at),
+    amount: eurosToCents(finalAmountEuros),
+    amountFormatted: formatEuroAmount(finalAmountEuros),
+    status: mapDbTreatmentStatusToUi(row.status),
+    paymentStatus: mapDbPaymentStatusToUi(row.payment_status),
+    paidAmount: eurosToCents(paidAmountEuros),
+    professional: row.completed_by_name || 'Sin asignar',
+    professionalId: row.completed_by || undefined,
+    budgetId: row.budget_id != null ? String(row.budget_id) : undefined,
+    notes: row.notes || undefined,
+    createdAt: toIsoDate(row.created_at) || new Date().toISOString().split('T')[0],
+    updatedAt: toIsoDate(row.updated_at),
+    markedForNextAppointment: Boolean(row.marked_for_next_appointment)
+  }
 }
 
 function mapDbTreatmentStatusToUi(
@@ -1630,7 +1675,11 @@ type PatientsContextType = {
   // Funciones de tratamientos
   getTreatmentsByPatient: (patientId: string) => PatientTreatment[]
   getPendingTreatments: (patientId: string) => PatientTreatment[]
-  addTreatment: (patientId: string, treatment: Omit<PatientTreatment, 'id' | 'createdAt'>) => void
+  addTreatment: (
+    patientId: string,
+    treatment: Omit<PatientTreatment, 'id' | 'createdAt'>
+  ) => Promise<PatientTreatment | null>
+  deleteTreatment: (patientId: string, treatmentId: string) => Promise<boolean>
   updateTreatment: (patientId: string, treatmentId: string, updates: Partial<PatientTreatment>) => void
   // Funciones para marcar tratamientos para próxima cita
   toggleTreatmentForNextAppointment: (patientId: string, treatmentId: string) => void
@@ -1692,7 +1741,7 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
             supabase
               .from('patient_treatments')
               .select(
-                'id, patient_id, treatment_code, treatment_name, tooth_number, amount, final_amount, paid_amount, status, payment_status, scheduled_date, completed_at, completed_by, completed_by_name, budget_id, notes, marked_for_next_appointment, created_at, updated_at'
+                'id, clinic_id, patient_id, treatment_code, treatment_name, tooth_number, tooth_face, amount, final_amount, paid_amount, status, payment_status, scheduled_date, completed_at, completed_by, completed_by_name, budget_id, notes, marked_for_next_appointment, created_at, updated_at'
               )
               .eq('clinic_id', clinicId)
               .order('created_at', { ascending: false })
@@ -1707,33 +1756,7 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
         const rawTreatments = (treatmentRows || []) as DbPatientTreatmentRow[]
 
         for (const row of rawTreatments) {
-          const finalAmountEuros = Number(row.final_amount ?? row.amount ?? 0)
-          const paidAmountEuros = Number(row.paid_amount ?? 0)
-          const treatment: PatientTreatment = {
-            id: row.id,
-            code:
-              row.treatment_code ||
-              (row.treatment_name || 'TRT')
-                .trim()
-                .slice(0, 3)
-                .toUpperCase(),
-            description: row.treatment_name || 'Tratamiento',
-            tooth: row.tooth_number || undefined,
-            scheduledDate: row.scheduled_date || undefined,
-            completedDate: toIsoDate(row.completed_at),
-            amount: eurosToCents(finalAmountEuros),
-            amountFormatted: formatEuroAmount(finalAmountEuros),
-            status: mapDbTreatmentStatusToUi(row.status),
-            paymentStatus: mapDbPaymentStatusToUi(row.payment_status),
-            paidAmount: eurosToCents(paidAmountEuros),
-            professional: row.completed_by_name || 'Sin asignar',
-            professionalId: row.completed_by || undefined,
-            budgetId: row.budget_id != null ? String(row.budget_id) : undefined,
-            notes: row.notes || undefined,
-            createdAt: toIsoDate(row.created_at) || new Date().toISOString().split('T')[0],
-            updatedAt: toIsoDate(row.updated_at),
-            markedForNextAppointment: Boolean(row.marked_for_next_appointment)
-          }
+          const treatment = mapDbTreatmentRowToUi(row)
 
           const list = treatmentsByPatient.get(row.patient_id) || []
           list.push(treatment)
@@ -1914,24 +1937,114 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
 
   // Añadir tratamiento a un paciente
   const addTreatment = useCallback(
-    (patientId: string, treatmentData: Omit<PatientTreatment, 'id' | 'createdAt'>) => {
-      const newTreatment: PatientTreatment = {
-        ...treatmentData,
-        id: `t-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        createdAt: new Date().toISOString().split('T')[0]
-      }
-      setPatients((prev) =>
-        prev.map((p) =>
-          p.id === patientId
-            ? {
-                ...p,
-                treatments: [...p.treatments, newTreatment],
-                updatedAt: new Date().toISOString().split('T')[0]
-              }
-            : p
+    async (
+      patientId: string,
+      treatmentData: Omit<PatientTreatment, 'id' | 'createdAt'>
+    ): Promise<PatientTreatment | null> => {
+      try {
+        const patient = patients.find((p) => p.id === patientId)
+        if (!patient?.clinicId) {
+          console.warn('No se pudo crear tratamiento: paciente o clínica no encontrados')
+          return null
+        }
+
+        const supabase = createSupabaseBrowserClient()
+        const amountEuros = centsToEuros(treatmentData.amount)
+        const paidAmountEuros = centsToEuros(treatmentData.paidAmount)
+
+        const payload = {
+          clinic_id: patient.clinicId,
+          patient_id: patientId,
+          treatment_code: treatmentData.code || null,
+          treatment_name: treatmentData.description ?? 'Tratamiento',
+          tooth_number: treatmentData.tooth || null,
+          tooth_face: treatmentData.toothFace || null,
+          amount: amountEuros,
+          final_amount: amountEuros,
+          paid_amount: paidAmountEuros,
+          status: mapUiTreatmentStatusToDb(treatmentData.status),
+          payment_status: mapUiPaymentStatusToDb(treatmentData.paymentStatus),
+          scheduled_date: treatmentData.scheduledDate || null,
+          completed_at: treatmentData.completedDate || null,
+          completed_by: treatmentData.professionalId || null,
+          completed_by_name: treatmentData.professional || null,
+          budget_id: toDbBudgetId(treatmentData.budgetId),
+          notes: treatmentData.notes || null,
+          marked_for_next_appointment: Boolean(
+            treatmentData.markedForNextAppointment
+          )
+        }
+
+        const { data, error } = await supabase
+          .from('patient_treatments')
+          .insert(payload)
+          .select(
+            'id, clinic_id, patient_id, treatment_code, treatment_name, tooth_number, tooth_face, amount, final_amount, paid_amount, status, payment_status, scheduled_date, completed_at, completed_by, completed_by_name, budget_id, notes, marked_for_next_appointment, created_at, updated_at'
+          )
+          .single()
+
+        if (error || !data) {
+          console.warn('No se pudo persistir addTreatment en DB', error)
+          return null
+        }
+
+        const createdTreatment = mapDbTreatmentRowToUi(
+          data as DbPatientTreatmentRow
         )
-      )
-      console.log(`✅ Tratamiento añadido a paciente ${patientId}`)
+
+        setPatients((prev) =>
+          prev.map((p) =>
+            p.id === patientId
+              ? {
+                  ...p,
+                  treatments: [...p.treatments, createdTreatment],
+                  updatedAt: new Date().toISOString().split('T')[0]
+                }
+              : p
+          )
+        )
+
+        return createdTreatment
+      } catch (error) {
+        console.warn('Error creando tratamiento en DB', error)
+        return null
+      }
+    },
+    [patients]
+  )
+
+  const deleteTreatment = useCallback(
+    async (patientId: string, treatmentId: string): Promise<boolean> => {
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const { error } = await supabase
+          .from('patient_treatments')
+          .delete()
+          .eq('id', treatmentId)
+          .eq('patient_id', patientId)
+
+        if (error) {
+          console.warn('No se pudo eliminar tratamiento en DB', error)
+          return false
+        }
+
+        setPatients((prev) =>
+          prev.map((p) =>
+            p.id === patientId
+              ? {
+                  ...p,
+                  treatments: p.treatments.filter((t) => t.id !== treatmentId),
+                  updatedAt: new Date().toISOString().split('T')[0]
+                }
+              : p
+          )
+        )
+
+        return true
+      } catch (error) {
+        console.warn('Error eliminando tratamiento en DB', error)
+        return false
+      }
     },
     []
   )
@@ -1972,11 +2085,34 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
           if (updates.paidAmount !== undefined) {
             dbUpdates.paid_amount = updates.paidAmount / 100
           }
+          if (updates.code !== undefined) {
+            dbUpdates.treatment_code = updates.code || null
+          }
+          if (updates.description !== undefined) {
+            dbUpdates.treatment_name = updates.description ?? 'Tratamiento'
+          }
+          if (updates.tooth !== undefined) {
+            dbUpdates.tooth_number = updates.tooth || null
+          }
+          if (updates.toothFace !== undefined) {
+            dbUpdates.tooth_face = updates.toothFace || null
+          }
+          if (updates.amount !== undefined) {
+            const amountEuros = centsToEuros(updates.amount)
+            dbUpdates.amount = amountEuros
+            dbUpdates.final_amount = amountEuros
+          }
           if (updates.scheduledDate !== undefined) {
             dbUpdates.scheduled_date = updates.scheduledDate || null
           }
           if (updates.completedDate !== undefined) {
             dbUpdates.completed_at = updates.completedDate || null
+          }
+          if (updates.professional !== undefined) {
+            dbUpdates.completed_by_name = updates.professional || null
+          }
+          if (updates.budgetId !== undefined) {
+            dbUpdates.budget_id = toDbBudgetId(updates.budgetId)
           }
           if (updates.notes !== undefined) {
             dbUpdates.notes = updates.notes || null
@@ -2165,6 +2301,7 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
     getTreatmentsByPatient,
     getPendingTreatments,
     addTreatment,
+    deleteTreatment,
     updateTreatment,
     toggleTreatmentForNextAppointment,
     resetTreatmentsForNextAppointment,

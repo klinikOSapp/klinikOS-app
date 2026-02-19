@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @next/next/no-img-element */
+
 import {
   AddRounded,
   CallRounded,
@@ -10,6 +12,7 @@ import {
 } from '@/components/icons/md3'
 import AvatarImageDropdown from '@/components/pacientes/AvatarImageDropdown'
 import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
+import { getSignedUrl } from '@/lib/storage'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import React from 'react'
 
@@ -238,6 +241,11 @@ export default function Resumen({
   }, [])
 
   React.useEffect(() => {
+    if (lastUrlRef.current) {
+      URL.revokeObjectURL(lastUrlRef.current)
+      lastUrlRef.current = null
+    }
+    setAvatarPreviewUrl(null)
     setPatientData(createInitialPatientData(patientName))
   }, [patientId, patientName])
 
@@ -249,11 +257,24 @@ export default function Resumen({
       try {
         const { data: patient } = await supabase
           .from('patients')
-          .select('id, clinic_id, first_name, last_name, email, phone_number, date_of_birth')
+          .select(
+            'id, clinic_id, first_name, last_name, email, phone_number, date_of_birth, avatar_url'
+          )
           .eq('id', patientId)
           .maybeSingle()
 
         if (!isMounted || !patient) return
+
+        if (patient.avatar_url) {
+          try {
+            const signedAvatarUrl = await getSignedUrl(patient.avatar_url)
+            if (isMounted) setAvatarPreviewUrl(signedAvatarUrl)
+          } catch {
+            if (isMounted) setAvatarPreviewUrl(null)
+          }
+        } else if (isMounted) {
+          setAvatarPreviewUrl(null)
+        }
 
         const fullName =
           [patient.first_name, patient.last_name].filter(Boolean).join(' ') ||

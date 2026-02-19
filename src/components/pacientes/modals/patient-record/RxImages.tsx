@@ -17,45 +17,54 @@ export default function RxImages({ onClose, patientId }: RxImagesProps) {
     { id: string; title: string; date: string; storage_path?: string; signedUrl?: string }[]
   >([])
   const [activeIndex, setActiveIndex] = React.useState(0)
+  const [toast, setToast] = React.useState<{
+    message: string
+    variant: 'success' | 'error'
+  } | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
-  React.useEffect(() => {
-    async function load() {
-      if (!patientId) return
-      const { data } = await supabase
-        .from('clinical_attachments')
-        .select('id, file_name, file_type, storage_path, created_at')
-        .eq('patient_id', patientId)
-        .ilike('file_type', 'image/%')
-        .order('created_at', { ascending: false })
-        .limit(12)
-      if (Array.isArray(data)) {
-        const mapped = await Promise.all(
-          data.map(async (r: any) => {
-            let signedUrl: string | undefined
-            if (r.storage_path) {
-              try {
-                signedUrl = await getSignedUrl(r.storage_path)
-              } catch {
-                signedUrl = undefined
-              }
-            }
-            return {
-              id: String(r.id),
-              title: r.file_name ?? 'Radiografía',
-              date: new Date(r.created_at).toLocaleDateString(DEFAULT_LOCALE, {
-                timeZone: DEFAULT_TIMEZONE
-              }),
-              storage_path: r.storage_path ?? undefined,
-              signedUrl
-            }
-          })
-        )
-        setItems(mapped)
-      }
+  const loadImages = React.useCallback(async () => {
+    if (!patientId) {
+      setItems([])
+      return
     }
-    void load()
+    const { data } = await supabase
+      .from('clinical_attachments')
+      .select('id, file_name, file_type, storage_path, created_at')
+      .eq('patient_id', patientId)
+      .ilike('file_type', 'image/%')
+      .order('created_at', { ascending: false })
+      .limit(12)
+    if (Array.isArray(data)) {
+      const mapped = await Promise.all(
+        data.map(async (r: any) => {
+          let signedUrl: string | undefined
+          if (r.storage_path) {
+            try {
+              signedUrl = await getSignedUrl(r.storage_path)
+            } catch {
+              signedUrl = undefined
+            }
+          }
+          return {
+            id: String(r.id),
+            title: r.file_name ?? 'Radiografía',
+            date: new Date(r.created_at).toLocaleDateString(DEFAULT_LOCALE, {
+              timeZone: DEFAULT_TIMEZONE
+            }),
+            storage_path: r.storage_path ?? undefined,
+            signedUrl
+          }
+        })
+      )
+      setItems(mapped)
+      setActiveIndex(0)
+    }
   }, [patientId, supabase])
+
+  React.useEffect(() => {
+    void loadImages()
+  }, [loadImages])
   return (
     <div
       className='bg-[#f8fafb] relative w-[74.75rem] h-[56.25rem]'
@@ -122,37 +131,27 @@ export default function RxImages({ onClose, patientId }: RxImagesProps) {
                   file: f,
                   kind: 'rx'
                 })
+                const { data: authData } = await supabase.auth.getUser()
+                const staffId = authData.user?.id
+                if (!staffId) throw new Error('No hay usuario autenticado')
+
                 const { error: insertError } = await supabase.from('clinical_attachments').insert({
                   patient_id: patientId,
-                  staff_id: (await supabase.auth.getUser()).data.user?.id,
+                  staff_id: staffId,
                   file_name: f.name,
                   file_type: f.type,
                   storage_path: path
                 })
-                if (insertError) {
-                  // eslint-disable-next-line no-alert
-                  alert(`No se pudo guardar el RX: ${insertError.message}`)
-                }
-                const d = new Date()
-                let signedUrl: string | undefined
-                try {
-                  signedUrl = await getSignedUrl(path)
-                } catch {
-                  signedUrl = undefined
-                }
-                setItems((prev) => [
-                  {
-                    id: `new-${Date.now()}`,
-                    title: f.name,
-                    date: d.toLocaleDateString(DEFAULT_LOCALE, {
-                      timeZone: DEFAULT_TIMEZONE
-                    }),
-                    storage_path: path,
-                    signedUrl
-                  },
-                  ...prev
-                ])
+                if (insertError) throw insertError
+                await loadImages()
+                setToast({ message: 'RX subida correctamente', variant: 'success' })
+              } catch (error: any) {
+                setToast({
+                  message: error?.message || 'No se pudo guardar el RX',
+                  variant: 'error'
+                })
               } finally {
+                window.setTimeout(() => setToast(null), 3000)
                 if (e.target) e.target.value = ''
               }
             }}
@@ -240,6 +239,28 @@ export default function RxImages({ onClose, patientId }: RxImagesProps) {
           </p>
         </div>
       </div>
+      {toast && (
+        <div className='fixed right-4 bottom-4 z-[200]'>
+          <div
+            className={[
+              'min-w-[240px] max-w-[360px] rounded-lg border shadow-[var(--shadow-cta)] px-3 py-2 flex items-start gap-2',
+              toast.variant === 'success'
+                ? 'bg-[var(--color-success-50)] border-[var(--color-success-200)] text-[var(--color-success-800)]'
+                : 'bg-[var(--color-error-50)] border-[var(--color-error-200)] text-[var(--color-error-800)]'
+            ].join(' ')}
+          >
+            <p className='text-body-md flex-1'>{toast.message}</p>
+            <button
+              type='button'
+              aria-label='Cerrar aviso'
+              className='ml-2 leading-none text-body-md'
+              onClick={() => setToast(null)}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
       <style jsx>{`
         .rxThumbs {
           scrollbar-width: thin;
@@ -259,5 +280,4 @@ export default function RxImages({ onClose, patientId }: RxImagesProps) {
     </div>
   )
 }
-
 

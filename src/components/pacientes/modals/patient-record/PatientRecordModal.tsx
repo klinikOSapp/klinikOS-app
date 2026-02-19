@@ -395,6 +395,7 @@ export default function PatientRecordModal({
                       onClose={onClose}
                       openBudgetCreation={shouldOpenBudget}
                       onBudgetCreationOpened={() => setShouldOpenBudget(false)}
+                      patientId={patientId}
                       patientName={patientName}
                       budgetRows={budgetRows}
                       onAddBudget={handleAddBudget}

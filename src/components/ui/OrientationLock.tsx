@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from 'react'
 
+type ScreenOrientationWithLock = ScreenOrientation & {
+  lock?: (orientation: string) => Promise<void>
+}
+
 /**
  * OrientationLock Component
  * 
@@ -44,14 +48,16 @@ export default function OrientationLock() {
     // Try to lock orientation using Screen Orientation API
     const lockOrientation = async () => {
       try {
-        if (screen.orientation && 'lock' in screen.orientation) {
-          const lockFn = screen.orientation.lock as (orientation: string) => Promise<void>
-          await lockFn('landscape')
+        const orientation = screen.orientation as ScreenOrientationWithLock
+        if (orientation && typeof orientation.lock === 'function') {
+          await orientation.lock('landscape')
         }
-      } catch (error) {
+      } catch {
         // Lock failed - probably not in fullscreen or PWA mode
         // The overlay will handle this case
-        console.log('Orientation lock not available:', error)
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('Orientation lock not available')
+        }
       }
     }
 

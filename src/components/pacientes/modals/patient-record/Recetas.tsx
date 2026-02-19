@@ -17,14 +17,38 @@ import {
   type PrescriptionData
 } from '@/utils/exportUtils'
 import React from 'react'
+import type { MedicationEntry } from './PrescriptionCreationModal'
 import PrescriptionCreationModal from './PrescriptionCreationModal'
 import PrescriptionPdfPreview from './PrescriptionPdfPreview'
+
+type PrescriptionContentJson = {
+  medicamento?: string
+  especialista?: string
+  frecuencia?: string
+  duracion?: string
+  administracion?: string
+  medicamentos?: MedicationEntry[]
+  status?: string
+  sent_at?: string
+  sent_via_email_at?: string
+}
+
+type DbClinicalNoteRow = {
+  id: number
+  note_type: string
+  content: string | null
+  content_json: PrescriptionContentJson | null
+  created_at: string
+}
 
 type PrescriptionRow = {
   id: string
   name: string
   sentAt: string
   status: 'Firmado' | 'Enviado'
+  dbId?: number
+  createdAtIso?: string
+  contentJson?: PrescriptionContentJson | null
   url?: string
   // Prescription data for preview
   medicamento?: string
@@ -32,6 +56,7 @@ type PrescriptionRow = {
   frecuencia?: string
   duracion?: string
   administracion?: string
+  medicamentos?: MedicationEntry[]
 }
 
 type ToastVariant = 'success' | 'error'
@@ -106,6 +131,7 @@ export default function Recetas({
     frecuencia?: string
     duracion?: string
     administracion?: string
+    medicamentos?: MedicationEntry[]
   } | null>(null)
   const [rows, setRows] = React.useState<PrescriptionRow[]>([])
 
@@ -136,58 +162,79 @@ export default function Recetas({
     return () => document.removeEventListener('mousedown', handleGlobalClick)
   }, [openMenuRowId])
 
-  React.useEffect(() => {
-    let isMounted = true
-    async function hydratePrescriptions() {
-      if (!patientId) {
-        setRows([])
-        return
-      }
-      try {
-        const { data: notes, error } = await supabase
-          .from('clinical_notes')
-          .select('id, note_type, content, created_at')
-          .eq('patient_id', patientId)
-          .eq('note_type', 'prescription')
-          .order('created_at', { ascending: false })
+  const hydratePrescriptions = React.useCallback(async () => {
+    if (!patientId) {
+      setRows([])
+      return
+    }
+    try {
+      const { data: notes, error } = await supabase
+        .from('clinical_notes')
+        .select('id, note_type, content, content_json, created_at')
+        .eq('patient_id', patientId)
+        .eq('note_type', 'prescription')
+        .order('created_at', { ascending: false })
 
-        if (error) {
-          throw error
-        }
-        if (!isMounted) return
-        setRows(
-          (notes || []).map((n) => ({
-            id: String(n.id),
-            name: `Receta - ${String(n.content || 'Medicamento').slice(0, 30)}.pdf`,
-            sentAt: new Date(String(n.created_at)).toLocaleDateString(DEFAULT_LOCALE, {
+      if (error) throw error
+
+      const mappedRows: PrescriptionRow[] = ((notes || []) as DbClinicalNoteRow[]).map(
+        (note) => {
+          const payload =
+            note.content_json &&
+            typeof note.content_json === 'object' &&
+            !Array.isArray(note.content_json)
+              ? (note.content_json as PrescriptionContentJson)
+              : null
+          const primaryMedication =
+            payload?.medicamento ||
+            payload?.medicamentos?.[0]?.medicamento ||
+            note.content ||
+            'Medicamento'
+          const createdAtIso = note.created_at
+          const displayIso = payload?.sent_at || createdAtIso
+          return {
+            id: String(note.id),
+            dbId: note.id,
+            createdAtIso,
+            contentJson: payload,
+            name: `Receta - ${String(primaryMedication).slice(0, 30)}.pdf`,
+            sentAt: new Date(displayIso).toLocaleDateString(DEFAULT_LOCALE, {
               timeZone: DEFAULT_TIMEZONE
             }),
-            status: 'Enviado',
-            medicamento: String(n.content || '')
-          }))
-        )
-      } catch (err) {
-        console.warn('Recetas hydration failed', err)
-        if (isMounted) setRows([])
-      }
-    }
-
-    void hydratePrescriptions()
-    return () => {
-      isMounted = false
+            status: payload?.status === 'signed' ? 'Firmado' : 'Enviado',
+            medicamento: payload?.medicamento || String(note.content || ''),
+            especialista: payload?.especialista,
+            frecuencia: payload?.frecuencia,
+            duracion: payload?.duracion,
+            administracion: payload?.administracion,
+            medicamentos: Array.isArray(payload?.medicamentos)
+              ? payload?.medicamentos
+              : undefined
+          }
+        }
+      )
+      setRows(mappedRows)
+    } catch (err) {
+      console.warn('Recetas hydration failed', err)
+      setRows([])
     }
   }, [patientId, supabase])
+
+  React.useEffect(() => {
+    void hydratePrescriptions()
+  }, [hydratePrescriptions])
 
   // Action handlers
   const handleViewPrescription = (row: PrescriptionRow) => {
     // If the row has data, use it for preview
-    if (row.medicamento) {
+    if (row.medicamento || (row.medicamentos && row.medicamentos.length > 0)) {
       setPdfData({
         medicamento: row.medicamento,
         especialista: row.especialista,
         frecuencia: row.frecuencia,
         duracion: row.duracion,
-        administracion: row.administracion
+        administracion: row.administracion,
+        medicamentos: row.medicamentos
       })
       setIsPdfOpen(true)
     } else {
@@ -215,27 +262,36 @@ export default function Recetas({
       clinicName: clinicInfo.nombreComercial || 'Clínica Dental',
       clinicAddress: fullClinicAddress || clinicInfo.direccion || '',
       clinicPhone: clinicInfo.telefono || '',
-      prescriptionDate: new Date(),
+      prescriptionDate: row.createdAtIso ? new Date(row.createdAtIso) : new Date(),
       caseNotes: '',
-      medications: row.medicamento
-        ? [
-            {
-              medicamento: row.medicamento,
-              frecuencia: row.frecuencia || '3 por día',
-              duracion: row.duracion || '7 días',
-              administracion: row.administracion || 'Oral',
+      medications:
+        row.medicamentos && row.medicamentos.length > 0
+          ? row.medicamentos.map((medication) => ({
+              medicamento: medication.medicamento || 'Medicamento',
+              frecuencia: medication.frecuencia || '3 por día',
+              duracion: medication.duracion || '7 días',
+              administracion: medication.administracion || 'Oral',
               dosis: '500mg'
-            }
-          ]
-        : [
-            {
-              medicamento: 'Medicamento',
-              frecuencia: '3 por día',
-              duracion: '7 días',
-              administracion: 'Oral',
-              dosis: '500mg'
-            }
-          ]
+            }))
+          : row.medicamento
+          ? [
+              {
+                  medicamento: row.medicamento,
+                  frecuencia: row.frecuencia || '3 por día',
+                  duracion: row.duracion || '7 días',
+                  administracion: row.administracion || 'Oral',
+                  dosis: '500mg'
+              }
+            ]
+          : [
+              {
+                medicamento: 'Medicamento',
+                frecuencia: '3 por día',
+                duracion: '7 días',
+                administracion: 'Oral',
+                dosis: '500mg'
+              }
+            ]
     }
 
     // Generate and download PDF from template
@@ -250,14 +306,41 @@ export default function Recetas({
     window.setTimeout(() => setToast(null), 3000)
   }
 
-  const handleSendPrescription = (row: PrescriptionRow) => {
-    // Simulate sending via email
-    setToast({
-      message: `Receta "${row.name}" enviada al paciente`,
-      variant: 'success'
-    })
-    setOpenMenuRowId(null)
-    window.setTimeout(() => setToast(null), 3000)
+  const handleSendPrescription = async (row: PrescriptionRow) => {
+    try {
+      if (patientId && row.dbId) {
+        const nowIso = new Date().toISOString()
+        const nextJson: PrescriptionContentJson = {
+          ...(row.contentJson || {}),
+          medicamento: row.medicamento,
+          especialista: row.especialista,
+          frecuencia: row.frecuencia,
+          duracion: row.duracion,
+          administracion: row.administracion,
+          medicamentos: row.medicamentos,
+          status: 'sent',
+          sent_at: row.contentJson?.sent_at || row.createdAtIso || nowIso,
+          sent_via_email_at: nowIso
+        }
+        const { error } = await supabase
+          .from('clinical_notes')
+          .update({ content_json: nextJson })
+          .eq('id', row.dbId)
+          .eq('patient_id', patientId)
+        if (error) throw error
+      }
+      await hydratePrescriptions()
+      setToast({
+        message: `Receta "${row.name}" enviada al paciente`,
+        variant: 'success'
+      })
+    } catch (error) {
+      console.warn('No se pudo actualizar el envío de la receta', error)
+      setToast({ message: 'No se pudo enviar la receta', variant: 'error' })
+    } finally {
+      setOpenMenuRowId(null)
+      window.setTimeout(() => setToast(null), 3000)
+    }
   }
 
   return (
@@ -314,7 +397,7 @@ export default function Recetas({
                 </div>
                 <div className='flex flex-col justify-center text-neutral-900'>
                   <p className='text-body-md'>{row.name}</p>
-                  <p className='text-label-sm'>{'12/05/2024'}</p>
+                  <p className='text-label-sm'>{row.sentAt}</p>
                 </div>
               </div>
 
@@ -374,7 +457,7 @@ export default function Recetas({
                       <button
                         type='button'
                         role='menuitem'
-                        onClick={() => handleSendPrescription(row)}
+                        onClick={() => void handleSendPrescription(row)}
                         className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)] cursor-pointer'
                       >
                         <AttachEmailRounded className='size-5' />
@@ -401,43 +484,65 @@ export default function Recetas({
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onContinue={async (data) => {
-          // Create new prescription row
-          const d = new Date()
-          const dd = String(d.getDate()).padStart(2, '0')
-          const mm = String(d.getMonth() + 1).padStart(2, '0')
-          const yyyy = d.getFullYear()
+          const nowIso = new Date().toISOString()
+          const primaryMedication =
+            data.medicamento ||
+            data.medicamentos?.[0]?.medicamento ||
+            'Medicamento'
+          const payload: PrescriptionContentJson = {
+            medicamento: data.medicamento,
+            especialista: data.especialista,
+            frecuencia: data.frecuencia,
+            duracion: data.duracion,
+            administracion: data.administracion,
+            medicamentos: data.medicamentos,
+            status: 'sent',
+            sent_at: nowIso
+          }
+
           const newRow: PrescriptionRow = {
             id: `new-${Date.now()}`,
-            name: `Receta - ${data.medicamento || 'Medicamento'}.pdf`,
-            sentAt: `${dd}/${mm}/${yyyy}`,
+            name: `Receta - ${primaryMedication}.pdf`,
+            sentAt: new Date(nowIso).toLocaleDateString(DEFAULT_LOCALE, {
+              timeZone: DEFAULT_TIMEZONE
+            }),
             status: 'Enviado',
+            contentJson: payload,
+            createdAtIso: nowIso,
             ...data
           }
           if (patientId) {
             try {
               const { data: authData } = await supabase.auth.getUser()
               const staffId = authData.user?.id
-              if (staffId) {
-                const { data: inserted } = await supabase
-                  .from('clinical_notes')
-                  .insert({
-                    patient_id: patientId,
-                    staff_id: staffId,
-                    note_type: 'prescription',
-                    content: data.medicamento || 'Receta'
-                  })
-                  .select('id, created_at')
-                  .single()
-                if (inserted) {
-                  newRow.id = String(inserted.id)
-                  newRow.sentAt = new Date(inserted.created_at).toLocaleDateString(
-                    DEFAULT_LOCALE,
-                    { timeZone: DEFAULT_TIMEZONE }
-                  )
-                }
-              }
+              if (!staffId) throw new Error('No hay usuario autenticado')
+              const { data: inserted, error } = await supabase
+                .from('clinical_notes')
+                .insert({
+                  patient_id: patientId,
+                  staff_id: staffId,
+                  note_type: 'prescription',
+                  content: primaryMedication,
+                  content_json: payload
+                })
+                .select('id, created_at')
+                .single()
+              if (error || !inserted) throw error || new Error('No insertado')
+              newRow.id = String(inserted.id)
+              newRow.dbId = inserted.id
+              newRow.createdAtIso = inserted.created_at
+              newRow.sentAt = new Date(inserted.created_at).toLocaleDateString(
+                DEFAULT_LOCALE,
+                { timeZone: DEFAULT_TIMEZONE }
+              )
             } catch (error) {
               console.warn('Could not persist prescription note', error)
+              setToast({
+                message: 'No se pudo guardar la receta en la base de datos',
+                variant: 'error'
+              })
+              window.setTimeout(() => setToast(null), 3000)
+              return
             }
           }
           setRows((prev) => [newRow, ...prev])
@@ -509,7 +614,7 @@ export default function Recetas({
                 <button
                   type='button'
                   onClick={() => {
-                    handleSendPrescription(previewRow)
+                    void handleSendPrescription(previewRow)
                     setPreviewRow(null)
                   }}
                   className='flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors cursor-pointer'

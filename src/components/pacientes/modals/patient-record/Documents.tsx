@@ -26,6 +26,15 @@ type ConsentRow = {
   documentPath?: string | null
 }
 
+type DbConsentRow = {
+  id: number
+  consent_type: string
+  status: string
+  signed_at: string | null
+  created_at: string
+  document_url: string | null
+}
+
 function StatusBadge({ status }: { status: ConsentRow['status'] }) {
   const isSigned = status === 'Firmado'
   return (
@@ -54,37 +63,38 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
     variant: ToastVariant
   } | null>(null)
 
-  React.useEffect(() => {
-    async function loadConsents() {
-      if (!patientId) {
-        setRows([])
-        return
-      }
-      const { data, error } = await supabase
-        .from('patient_consents')
-        .select('id, consent_type, status, signed_at, created_at, document_url')
-        .eq('patient_id', patientId)
-        .order('created_at', { ascending: false })
-      if (error) return
-      const mapped: ConsentRow[] =
-        (data ?? []).map((c: any) => ({
-          id: String(c.id),
-          name: c.document_url ? String(c.document_url).split('/').pop() || c.consent_type : c.consent_type,
-          sentAt: (c.signed_at || c.created_at
-            ? new Date(c.signed_at || c.created_at).toLocaleDateString(
-                DEFAULT_LOCALE,
-                { timeZone: DEFAULT_TIMEZONE }
-              )
-            : '—') as string,
-          status: (c.status === 'signed' ? 'Firmado' : 'Enviado') as
-            | 'Firmado'
-            | 'Enviado',
-          documentPath: c.document_url || null
-        })) ?? []
-      setRows(mapped)
+  const loadConsents = React.useCallback(async () => {
+    if (!patientId) {
+      setRows([])
+      return
     }
-    void loadConsents()
+    const { data, error } = await supabase
+      .from('patient_consents')
+      .select('id, consent_type, status, signed_at, created_at, document_url')
+      .eq('patient_id', patientId)
+      .order('created_at', { ascending: false })
+    if (error) return
+    const mapped: ConsentRow[] = ((data || []) as DbConsentRow[]).map((c) => ({
+      id: String(c.id),
+      name: c.document_url
+        ? String(c.document_url).split('/').pop() || c.consent_type
+        : c.consent_type,
+      sentAt:
+        c.signed_at || c.created_at
+          ? new Date(c.signed_at || c.created_at).toLocaleDateString(
+              DEFAULT_LOCALE,
+              { timeZone: DEFAULT_TIMEZONE }
+            )
+          : '—',
+      status: c.status === 'signed' ? 'Firmado' : 'Enviado',
+      documentPath: c.document_url || null
+    }))
+    setRows(mapped)
   }, [patientId, supabase])
+
+  React.useEffect(() => {
+    void loadConsents()
+  }, [loadConsents])
 
   React.useEffect(() => {
     function handleGlobalClick(e: MouseEvent) {
@@ -99,6 +109,43 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
     document.addEventListener('mousedown', handleGlobalClick)
     return () => document.removeEventListener('mousedown', handleGlobalClick)
   }, [openMenuRowId])
+
+  const openConsentDocument = React.useCallback(async (row: ConsentRow) => {
+    if (!row.documentPath) return
+    try {
+      const isDirectUrl = /^https?:\/\//i.test(row.documentPath)
+      const url = isDirectUrl ? row.documentPath : await getSignedUrl(row.documentPath)
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (error) {
+      console.warn('No se pudo abrir el consentimiento', error)
+      setToast({ message: 'No se pudo abrir el documento', variant: 'error' })
+      window.setTimeout(() => setToast(null), 3000)
+    }
+  }, [])
+
+  const markConsentAsSent = React.useCallback(
+    async (row: ConsentRow) => {
+      const consentId = Number(row.id)
+      if (!Number.isFinite(consentId)) return
+      try {
+        const { error } = await supabase
+          .from('patient_consents')
+          .update({ status: 'sent' })
+          .eq('id', consentId)
+          .eq('patient_id', patientId || '')
+        if (error) throw error
+
+        await loadConsents()
+        setToast({ message: 'Consentimiento enviado', variant: 'success' })
+      } catch (error) {
+        console.warn('No se pudo enviar consentimiento', error)
+        setToast({ message: 'No se pudo enviar el consentimiento', variant: 'error' })
+      } finally {
+        window.setTimeout(() => setToast(null), 3000)
+      }
+    },
+    [loadConsents, patientId, supabase]
+  )
   return (
     <div className='relative w-[74.75rem] h-[56.25rem] bg-neutral-50'>
       {/* Close */}
@@ -185,7 +232,14 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
 
                   {/* Actions */}
                   <div className='absolute right-8 h-[72px] flex items-center gap-2 relative'>
-                    <VisibilityRounded className='size-6 text-neutral-900' />
+                    <button
+                      type='button'
+                      onClick={() => void openConsentDocument(row)}
+                      className='size-8 grid place-items-center rounded-md hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
+                      aria-label='Ver consentimiento'
+                    >
+                      <VisibilityRounded className='size-6 text-neutral-900' />
+                    </button>
                     <button
                       type='button'
                       aria-haspopup='menu'
@@ -212,7 +266,7 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
                           type='button'
                           role='menuitem'
                           onClick={() => {
-                            // Acción: Enviar consentimiento
+                            void markConsentAsSent(row)
                             setOpenMenuRowId(null)
                           }}
                           className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
@@ -225,8 +279,19 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
                         <button
                           type='button'
                           role='menuitem'
-                          disabled
-                          className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left text-[var(--color-neutral-600)] cursor-not-allowed'
+                          disabled={row.status !== 'Firmado'}
+                          onClick={() => {
+                            if (row.status === 'Firmado') {
+                              void openConsentDocument(row)
+                              setOpenMenuRowId(null)
+                            }
+                          }}
+                          className={[
+                            'w-full flex items-center gap-2 rounded-md px-3 py-2 text-left',
+                            row.status === 'Firmado'
+                              ? 'hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
+                              : 'text-[var(--color-neutral-600)] cursor-not-allowed'
+                          ].join(' ')}
                         >
                           <AttachEmailRounded className='size-5' />
                           <span className='text-body-md'>
@@ -237,17 +302,7 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
                           type='button'
                           role='menuitem'
                           onClick={() => {
-                            // Acción: Descargar
-                            // If we saved a storage path, try to get a signed URL and open
-                            ;(async () => {
-                              try {
-                                if (!row.documentPath) return
-                                const url = await getSignedUrl(row.documentPath)
-                                window.open(url, '_blank', 'noopener,noreferrer')
-                              } catch {
-                                // fallback no-op
-                              }
-                            })()
+                            void openConsentDocument(row)
                             setOpenMenuRowId(null)
                           }}
                           className='w-full flex items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-[var(--color-brand-200)] text-[var(--color-neutral-900)]'
@@ -281,30 +336,18 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
               file: f,
               kind: 'consents'
             })
-            // upsert DB row
-            const supabase = (await import('@/lib/supabase/client')).createSupabaseBrowserClient()
+            const consentType = f.name.replace(/\.[^/.]+$/, '') || 'consentimiento'
             const { error: insertError } = await supabase.from('patient_consents').insert({
               patient_id: patientId,
-              consent_type: f.type?.startsWith('image/') ? 'image' : 'pdf',
-              status: 'pending',
+              consent_type: consentType,
+              status: 'sent',
               document_url: path
             })
             if (insertError) {
               setToast({ message: insertError.message, variant: 'error' })
               return
             }
-            const d = new Date()
-            const dd = String(d.getDate()).padStart(2, '0')
-            const mm = String(d.getMonth() + 1).padStart(2, '0')
-            const yyyy = d.getFullYear()
-            const newRow: ConsentRow = {
-              id: `new-${Date.now()}`,
-              name: f.name,
-              sentAt: `${dd}/${mm}/${yyyy}`,
-              status: 'Enviado',
-              documentPath: path
-            }
-            setRows((prev) => [newRow, ...prev])
+            await loadConsents()
             setToast({ message: 'Consentimiento subido', variant: 'success' })
           } catch (e: any) {
             setToast({ message: e?.message ?? 'Fallo al subir', variant: 'error' })

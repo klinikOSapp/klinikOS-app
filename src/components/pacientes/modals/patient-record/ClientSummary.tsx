@@ -1,70 +1,62 @@
 'use client'
 
-import CallRounded from '@mui/icons-material/CallRounded'
-import CloseRounded from '@mui/icons-material/CloseRounded'
-import MailRounded from '@mui/icons-material/MailRounded'
-import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
-import React from 'react'
-import AvatarImageDropdown from '@/components/pacientes/AvatarImageDropdown'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { uploadPatientFile, getSignedUrl } from '@/lib/storage'
-import TextField from '@mui/material/TextField'
-import Button from '@mui/material/Button'
-import Chip from '@mui/material/Chip'
+/* eslint-disable @next/next/no-img-element */
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className='space-y-3'>
-      <h3 className='text-xl font-medium text-[#24282c]'>{title}</h3>
-      {children}
-    </div>
-  )
-}
+import {
+  CallRounded,
+  CheckRounded,
+  CloseRounded,
+  EditRounded,
+  MailRounded
+} from '@/components/icons/md3'
+import AvatarImageDropdown from '@/components/pacientes/AvatarImageDropdown'
+import { uploadPatientFile, getSignedUrl } from '@/lib/storage'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import React from 'react'
 
 type ClientSummaryProps = {
   onClose?: () => void
   patientId?: string
   initialEditMode?: boolean
   onEditModeOpened?: () => void
+  /** When true, hides edit buttons and disables all editing functionality */
   readOnly?: boolean
 }
 
-type AlertSeverity = 'low' | 'medium' | 'high'
-
-type PatientAlert = {
-  label: string
-  severity: AlertSeverity
-  category?: string | null
-  description?: string | null
-}
-
-type PatientMedicalAlertRow = {
-  alert_type?: string | null
-  description?: string | null
-  severity?: string | null
-  category?: string | null
-  is_critical?: boolean | null
-}
-
-const ALERT_CATEGORY_LABELS: Record<string, string> = {
-  allergy: 'Alergias',
-  accessibility: 'Accesibilidad',
-  habit: 'Hábitos',
-  general: 'General'
-}
-const ALERT_CATEGORIES = ['allergy', 'accessibility', 'habit'] as const
-
-const CATEGORY_CHIP_COLORS: Record<string, { bg: string; text: string; border?: string }> = {
-  allergy: { bg: '#FEE2E2', text: '#B91C1C', border: '#FCA5A5' }, // red
-  accessibility: { bg: '#FEF3C7', text: '#B45309', border: '#FCD34D' }, // amber/yellow
-  habit: { bg: '#FFEDD5', text: '#C2410C', border: '#FDBA74' } // orange
+const initialPatientData = {
+  nombre: '—',
+  email: '—',
+  telefono: '—',
+  fechaNacimiento: '—',
+  edad: '—',
+  dni: '—',
+  pais: '—',
+  estado: '—',
+  motivoConsulta: '—',
+  origenCliente: '—',
+  recomendadoPor: '—',
+  ocupacion: '—',
+  idioma: '—',
+  contactoEmergenciaNombre: '—',
+  contactoEmergenciaEmail: '—',
+  contactoEmergenciaTelefono: '—',
+  alergias: [] as string[],
+  comentario: ''
 }
 
 const LEAD_SOURCE_LABELS: Record<string, string> = {
   referencia: 'Recomendación',
-  social: 'Redes sociales',
+  social: 'Redes Sociales',
   ads: 'Publicidad',
   otro: 'Otro'
+}
+
+const LEAD_LABEL_TO_SOURCE: Record<string, string> = {
+  recomendación: 'referencia',
+  redessociales: 'social',
+  publicidad: 'ads',
+  internet: 'ads',
+  otro: 'otro'
 }
 
 function toDisplayText(value: unknown): string {
@@ -73,10 +65,40 @@ function toDisplayText(value: unknown): string {
   return normalized.length > 0 ? normalized : '—'
 }
 
+function parseListField(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item || '').trim())
+      .filter(Boolean)
+  }
+  if (typeof value !== 'string') return []
+  const trimmed = value.trim()
+  if (!trimmed) return []
+  try {
+    const parsed = JSON.parse(trimmed)
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((item) => String(item || '').trim())
+        .filter(Boolean)
+    }
+  } catch {
+    // fallback to plain text split
+  }
+  return trimmed
+    .split(/[,\n;]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
 function formatLeadSource(value: unknown): string {
   const raw = toDisplayText(value)
   if (raw === '—') return raw
   return LEAD_SOURCE_LABELS[raw.toLowerCase()] ?? raw
+}
+
+function mapLeadSourceForDb(value: string): string {
+  const key = value.toLowerCase().replace(/\s+/g, '')
+  return LEAD_LABEL_TO_SOURCE[key] ?? value.toLowerCase()
 }
 
 function formatPatientStatus(statusValue: unknown, preRegistrationComplete: unknown): string {
@@ -89,207 +111,202 @@ function formatPatientStatus(statusValue: unknown, preRegistrationComplete: unkn
     if (key === 'pre_registration' || key === 'pre-registro') return 'Pre-registro'
     return raw
   }
-
   if (preRegistrationComplete === false) return 'Pre-registro'
   if (preRegistrationComplete === true) return 'Activo'
   return '—'
 }
 
-export default function ClientSummary({ onClose, patientId }: ClientSummaryProps) {
-  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
-  const [displayName, setDisplayName] = React.useState<string>('—')
-  const [email, setEmail] = React.useState<string>('—')
-  const [phone, setPhone] = React.useState<string>('—')
-  const [dni, setDni] = React.useState<string>('—')
-  const [country, setCountry] = React.useState<string>('—')
-  const [preferredLanguage, setPreferredLanguage] = React.useState<string>('—')
-  const [occupation, setOccupation] = React.useState<string>('—')
-  const [dobText, setDobText] = React.useState<string>('—')
-  const [ageText, setAgeText] = React.useState<string>('—')
-  const [alerts, setAlerts] = React.useState<PatientAlert[]>([])
-  const [emergencyName, setEmergencyName] = React.useState<string>('—')
-  const [emergencyEmail, setEmergencyEmail] = React.useState<string>('—')
-  const [emergencyPhone, setEmergencyPhone] = React.useState<string>('—')
-  const [consultationStatus, setConsultationStatus] = React.useState<string>('—')
-  const [consultationReason, setConsultationReason] = React.useState<string>('—')
-  const [clientSource, setClientSource] = React.useState<string>('—')
-  const [referredBy, setReferredBy] = React.useState<string>('—')
-  const [isEditing, setIsEditing] = React.useState(false)
-  const [isSaving, setIsSaving] = React.useState(false)
-  const [alertTagsByCat, setAlertTagsByCat] = React.useState<Record<string, string[]>>({
-    allergy: [],
-    accessibility: [],
-    habit: []
-  })
-  const [activeAlertCat, setActiveAlertCat] = React.useState<(typeof ALERT_CATEGORIES)[number]>('allergy')
-  const [pendingAlertInput, setPendingAlertInput] = React.useState('')
-  const initialAlertsRef = React.useRef<Record<string, string[]>>({
-    allergy: [],
-    accessibility: [],
-    habit: []
-  })
-  const [form, setForm] = React.useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    nationalId: '',
-    country: '',
-    preferredLanguage: '',
-    occupation: '',
-    emergencyName: '',
-    emergencyEmail: '',
-    emergencyPhone: ''
-  })
-
-  React.useEffect(() => {
-    async function load() {
-      if (!patientId) return
-      // Patient core data
-      const { data: p } = await supabase
-        .from('patients')
-        .select('*')
-        .eq('id', patientId)
-        .maybeSingle()
-      
-      // Also fetch primary contact info from contacts table (new schema)
-      let primaryContact: { full_name?: string; phone_primary?: string; email?: string; address_country?: string } | null = null
-      if (p?.primary_contact_id) {
-        const { data: contact } = await supabase
-          .from('contacts')
-          .select('full_name, phone_primary, phone_alt, email, address_country')
-          .eq('id', p.primary_contact_id)
-          .maybeSingle()
-        primaryContact = contact
-      }
-      
-      if (p) {
-        setDisplayName(
-          [p.first_name, p.last_name].filter(Boolean).join(' ') || '—'
-        )
-        // Prefer contact table data, fallback to patient table (legacy)
-        setEmail(primaryContact?.email ?? p.email ?? '—')
-        setPhone(primaryContact?.phone_primary ?? p.phone_number ?? '—')
-        setDni(p.national_id ?? '—')
-        setCountry(primaryContact?.address_country ?? p.address_country ?? '—')
-        setPreferredLanguage(p.preferred_language ?? '—')
-        setOccupation(p.occupation ?? '—')
-        setEmergencyName(p.emergency_contact_name ?? '—')
-        setEmergencyEmail(p.emergency_contact_email ?? '—')
-        setEmergencyPhone(p.emergency_contact_phone ?? '—')
-        setForm({
-          firstName: p.first_name ?? '',
-          lastName: p.last_name ?? '',
-          email: primaryContact?.email ?? p.email ?? '',
-          phone: primaryContact?.phone_primary ?? p.phone_number ?? '',
-          nationalId: p.national_id ?? '',
-          country: primaryContact?.address_country ?? p.address_country ?? '',
-          preferredLanguage: p.preferred_language ?? '',
-          occupation: p.occupation ?? '',
-          emergencyName: p.emergency_contact_name ?? '',
-          emergencyEmail: p.emergency_contact_email ?? '',
-          emergencyPhone: p.emergency_contact_phone ?? ''
-        })
-        if (p.avatar_url) {
-          try {
-            const signed = await getSignedUrl(p.avatar_url)
-            setAvatarPreviewUrl(signed)
-          } catch {
-            // ignore signed url errors
-          }
-        }
-        if (p.date_of_birth) {
-          const d = new Date(p.date_of_birth)
-          setDobText(
-            `${String(d.getDate()).padStart(2, '0')}/${String(
-              d.getMonth() + 1
-            ).padStart(2, '0')}/${d.getFullYear()}`
-          )
-          const now = new Date()
-          let age = now.getFullYear() - d.getFullYear()
-          const m = now.getMonth() - d.getMonth()
-          if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--
-          setAgeText(`${age} años`)
-        }
-
-        setConsultationStatus(
-          formatPatientStatus(
-            p.status ?? p.patient_status ?? p.registration_status ?? p.onboarding_status,
-            p.pre_registration_complete
-          )
-        )
-        setClientSource(formatLeadSource(p.lead_source ?? p.source))
-        setReferredBy(toDisplayText(p.referred_by_name ?? p.referrer_name))
-      }
-
-      const { data: healthProfile } = await supabase
-        .from('patient_health_profiles')
-        .select('main_complaint, motivo_consulta')
-        .eq('patient_id', patientId)
-        .maybeSingle()
-
-      setConsultationReason(
-        toDisplayText(
-          healthProfile?.main_complaint ??
-            healthProfile?.motivo_consulta ??
-            p?.consultation_reason
-        )
-      )
-      // Medical alerts (allergies, chronic conditions, etc.)
-      const { data: alertRows } = await supabase
-        .from('patient_medical_alerts')
-        .select('alert_type, description, severity, category, is_critical')
-        .eq('patient_id', patientId)
-        .order('created_at', { ascending: false })
-        .limit(10)
-      if (Array.isArray(alertRows)) {
-        const normalized = alertRows
-          .map((row: PatientMedicalAlertRow) => {
-            const rawSeverity: string | null = row?.severity ?? null
-            let severity: AlertSeverity
-            if (rawSeverity === 'low' || rawSeverity === 'medium' || rawSeverity === 'high') {
-              severity = rawSeverity
-            } else {
-              severity = row?.is_critical ? 'high' : 'medium'
-            }
-            const label = row?.alert_type || row?.description || 'Alerta'
-            return {
-              label,
-              severity,
-              category: row?.category ?? null,
-              description: row?.description ?? null
-            } satisfies PatientAlert
-          })
-          .filter(Boolean)
-        setAlerts(normalized)
-        const grouped: Record<string, string[]> = {
-          allergy: [],
-          accessibility: [],
-          habit: []
-        }
-        normalized.forEach((a) => {
-          const cat = a.category ?? 'allergy'
-          const key: (typeof ALERT_CATEGORIES)[number] =
-            cat === 'allergy' || cat === 'accessibility' || cat === 'habit'
-              ? cat
-              : 'allergy'
-          if (a.label) grouped[key].push(a.label)
-        })
-        setAlertTagsByCat(grouped)
-        initialAlertsRef.current = grouped
-      } else {
-        setAlerts([])
-        const empty = { allergy: [], accessibility: [], habit: [] }
-        setAlertTagsByCat(empty)
-        initialAlertsRef.current = empty
-      }
+function splitFullName(fullName: string): { firstName: string; lastName: string } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+  if (parts.length <= 1) {
+    return {
+      firstName: parts[0] || '',
+      lastName: ''
     }
-    void load()
-  }, [patientId, supabase])
+  }
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(' ')
+  }
+}
+
+function computeAgeLabel(dateOfBirth: unknown): string {
+  if (!dateOfBirth) return '—'
+  const birthDate = new Date(String(dateOfBirth))
+  if (Number.isNaN(birthDate.getTime())) return '—'
+  const now = new Date()
+  let age = now.getFullYear() - birthDate.getFullYear()
+  const monthDelta = now.getMonth() - birthDate.getMonth()
+  if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < birthDate.getDate())) {
+    age -= 1
+  }
+  return `${Math.max(0, age)} años`
+}
+
+function emptyValueToNull(value: string): string | null {
+  const normalized = value.trim()
+  if (!normalized || normalized === '—') return null
+  return normalized
+}
+
+export default function ClientSummary({
+  patientId,
+  initialEditMode = false,
+  onEditModeOpened,
+  readOnly = false
+}: ClientSummaryProps) {
+  type MedicalAlertRow = {
+    alert_type?: string | null
+    description?: string | null
+    category?: string | null
+  }
+
+  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
   const [avatarPreviewUrl, setAvatarPreviewUrl] = React.useState<string | null>(
     null
   )
   const lastUrlRef = React.useRef<string | null>(null)
+  const patientColumnsRef = React.useRef<Set<string>>(new Set())
+  const primaryContactIdRef = React.useRef<string | null>(null)
+
+  // Estado de edición
+  const [isEditing, setIsEditing] = React.useState(false)
+  const [isSaving, setIsSaving] = React.useState(false)
+
+  // Estados para todos los campos editables
+  const [formData, setFormData] = React.useState(initialPatientData)
+  const [tempFormData, setTempFormData] = React.useState(initialPatientData)
+
+  // Efecto para abrir en modo edición cuando se pasa initialEditMode (solo si no es readOnly)
+  React.useEffect(() => {
+    if (initialEditMode && !readOnly) {
+      setTempFormData(formData)
+      setIsEditing(true)
+      onEditModeOpened?.()
+    }
+  }, [initialEditMode, formData, onEditModeOpened, readOnly])
+
+  React.useEffect(() => {
+    async function loadFromDb() {
+      if (!patientId) {
+        primaryContactIdRef.current = null
+        return
+      }
+
+      const { data: patient } = await supabase
+        .from('patients')
+        .select('*')
+        .eq('id', patientId)
+        .maybeSingle()
+
+      if (!patient) return
+      patientColumnsRef.current = new Set(Object.keys(patient))
+      primaryContactIdRef.current = patient.primary_contact_id || null
+
+      let primaryContact:
+        | {
+            full_name?: string
+            phone_primary?: string
+            email?: string
+            address_country?: string
+          }
+        | null = null
+
+      if (patient.primary_contact_id) {
+        const { data: contact } = await supabase
+          .from('contacts')
+          .select('full_name, phone_primary, email, address_country')
+          .eq('id', patient.primary_contact_id)
+          .maybeSingle()
+        primaryContact = contact
+      }
+
+      const [{ data: healthProfile }, { data: alerts }] = await Promise.all([
+        supabase
+          .from('patient_health_profiles')
+          .select('allergies, main_complaint, motivo_consulta')
+          .eq('patient_id', patientId)
+          .maybeSingle(),
+        supabase
+          .from('patient_medical_alerts')
+          .select('alert_type, description, category')
+          .eq('patient_id', patientId)
+          .order('created_at', { ascending: false })
+          .limit(200)
+      ])
+
+      const allergyFromAlerts =
+        ((alerts || []) as MedicalAlertRow[])
+          .filter((alert) => {
+            const category = String(alert.category || '').toLowerCase()
+            return !category || category === 'allergy'
+          })
+          .map((alert) => String(alert.alert_type || alert.description || '').trim())
+          .filter(Boolean)
+
+      const allergyFromProfile = parseListField(healthProfile?.allergies)
+      const seen = new Set<string>()
+      const allergyList = [...allergyFromAlerts, ...allergyFromProfile].filter((item) => {
+        const key = item.toLowerCase()
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+
+      const mappedData = {
+        ...initialPatientData,
+        nombre:
+          [patient.first_name, patient.last_name].filter(Boolean).join(' ').trim() || '—',
+        email: toDisplayText(primaryContact?.email ?? patient.email),
+        telefono: toDisplayText(primaryContact?.phone_primary ?? patient.phone_number),
+        fechaNacimiento: patient.date_of_birth
+          ? new Date(patient.date_of_birth).toLocaleDateString('es-ES', {
+              timeZone: 'Europe/Madrid'
+            })
+          : '—',
+        edad: computeAgeLabel(patient.date_of_birth),
+        dni: toDisplayText(patient.national_id),
+        pais: toDisplayText(primaryContact?.address_country ?? patient.address_country),
+        estado: formatPatientStatus(
+          patient.status ??
+            patient.patient_status ??
+            patient.registration_status ??
+            patient.onboarding_status,
+          patient.pre_registration_complete
+        ),
+        motivoConsulta: toDisplayText(
+          healthProfile?.main_complaint ??
+            healthProfile?.motivo_consulta ??
+            patient.consultation_reason
+        ),
+        origenCliente: formatLeadSource(patient.lead_source ?? patient.source),
+        recomendadoPor: toDisplayText(patient.referred_by_name ?? patient.referrer_name),
+        ocupacion: toDisplayText(patient.occupation),
+        idioma: toDisplayText(patient.preferred_language),
+        contactoEmergenciaNombre: toDisplayText(patient.emergency_contact_name),
+        contactoEmergenciaEmail: toDisplayText(patient.emergency_contact_email),
+        contactoEmergenciaTelefono: toDisplayText(patient.emergency_contact_phone),
+        alergias: allergyList,
+        comentario: typeof patient.notes === 'string' ? patient.notes : ''
+      }
+
+      setFormData(mappedData)
+      setTempFormData(mappedData)
+
+      if (patient.avatar_url) {
+        try {
+          const signed = await getSignedUrl(patient.avatar_url)
+          setAvatarPreviewUrl(signed)
+        } catch {
+          // ignore avatar url issues
+        }
+      } else {
+        setAvatarPreviewUrl(null)
+      }
+    }
+
+    void loadFromDb()
+  }, [patientId, supabase])
 
   const setPreviewFromFile = React.useCallback((file: File) => {
     const url = URL.createObjectURL(file)
@@ -330,404 +347,656 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
     }
   }, [])
 
-  const AlertRow = ({
-    cat,
-    label
-  }: {
-    cat: (typeof ALERT_CATEGORIES)[number]
-    label: string
-  }) => {
-    const items = alertTagsByCat[cat] ?? []
-    const colors = CATEGORY_CHIP_COLORS[cat]
-    return (
-      <div className='flex flex-wrap items-center gap-2 text-sm'>
-        <span className='text-xs font-medium text-[#8a95a1]'>{label}:</span>
-        {items.length === 0 ? (
-          <span className='text-xs text-[#c1c7d0]'>Sin alertas</span>
-        ) : (
-          items.map((tag, idx) => (
-            <span
-              key={`${cat}-${tag}-${idx}`}
-              className='inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs'
-              style={{
-                backgroundColor: colors.bg,
-                color: colors.text,
-                border: colors.border ? `1px solid ${colors.border}` : undefined
-              }}
-            >
-              <span
-                className='inline-block size-2 rounded-full'
-                style={{ backgroundColor: colors.text, opacity: 0.7 }}
-              />
-              <span className='leading-tight'>{tag}</span>
-            </span>
-          ))
-        )}
-      </div>
-    )
+  // Manejadores de edición
+  const handleEdit = () => {
+    setTempFormData(formData)
+    setIsEditing(true)
   }
 
+  const handleSave = async () => {
+    if (readOnly) return
+    if (!patientId) {
+      setFormData(tempFormData)
+      setIsEditing(false)
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const { firstName, lastName } = splitFullName(tempFormData.nombre)
+      const normalizedEmail = emptyValueToNull(tempFormData.email)
+      const normalizedPhone = emptyValueToNull(tempFormData.telefono)
+      const normalizedCountry = emptyValueToNull(tempFormData.pais)
+
+      const patientPayload: Record<string, unknown> = {
+        first_name: firstName || null,
+        last_name: lastName || null,
+        email: normalizedEmail,
+        phone_number: normalizedPhone,
+        national_id: emptyValueToNull(tempFormData.dni),
+        address_country: normalizedCountry,
+        preferred_language: emptyValueToNull(tempFormData.idioma),
+        occupation: emptyValueToNull(tempFormData.ocupacion),
+        emergency_contact_name: emptyValueToNull(tempFormData.contactoEmergenciaNombre),
+        emergency_contact_email: emptyValueToNull(tempFormData.contactoEmergenciaEmail),
+        emergency_contact_phone: emptyValueToNull(tempFormData.contactoEmergenciaTelefono),
+        notes: tempFormData.comentario?.trim() || null
+      }
+
+      const columns = patientColumnsRef.current
+      if (columns.has('lead_source')) {
+        patientPayload.lead_source =
+          tempFormData.origenCliente === '—'
+            ? null
+            : mapLeadSourceForDb(tempFormData.origenCliente)
+      }
+      if (columns.has('source')) {
+        patientPayload.source =
+          tempFormData.origenCliente === '—'
+            ? null
+            : mapLeadSourceForDb(tempFormData.origenCliente)
+      }
+      if (columns.has('referred_by_name')) {
+        patientPayload.referred_by_name =
+          tempFormData.recomendadoPor === '—' ? null : tempFormData.recomendadoPor
+      }
+      if (columns.has('referrer_name')) {
+        patientPayload.referrer_name =
+          tempFormData.recomendadoPor === '—' ? null : tempFormData.recomendadoPor
+      }
+
+      const alertsPayload = tempFormData.alergias.map((label) => ({
+        label,
+        category: 'allergy',
+        severity: 'high'
+      }))
+
+      const savePatientRes = await fetch('/api/patients/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId,
+          patient: patientPayload,
+          alerts: alertsPayload,
+          primaryContact: primaryContactIdRef.current
+            ? {
+                id: primaryContactIdRef.current,
+                full_name: emptyValueToNull(tempFormData.nombre),
+                email: normalizedEmail,
+                phone_primary: normalizedPhone,
+                address_country: normalizedCountry
+              }
+            : undefined,
+          healthProfile: {
+            allergies: tempFormData.alergias.join(', ') || null,
+            main_complaint: emptyValueToNull(tempFormData.motivoConsulta),
+            motivo_consulta: emptyValueToNull(tempFormData.motivoConsulta)
+          }
+        })
+      })
+
+      if (!savePatientRes.ok) {
+        const saveError = (await savePatientRes.json().catch(() => null)) as
+          | { error?: string }
+          | null
+        throw new Error(saveError?.error || 'No se pudo guardar la ficha')
+      }
+
+      setFormData(tempFormData)
+      setIsEditing(false)
+    } catch (error) {
+      console.error('Error saving patient summary', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleCancel = () => {
+    setTempFormData(formData)
+    setIsEditing(false)
+  }
+
+  const updateField = (
+    field: keyof typeof formData,
+    value: string | string[]
+  ) => {
+    setTempFormData((prev) => ({ ...prev, [field]: value }))
+  }
   return (
     <div
-      className='relative bg-[#f8fafb] overflow-hidden w-full h-full p-6'
+      className='relative bg-[#f8fafb] overflow-hidden w-full h-full'
+      data-node-id='423:822'
     >
-      <button
-        type='button'
-        aria-label='Cerrar'
-        onClick={onClose}
-        className='absolute size-[1.5rem] top-[1rem] right-[1rem] cursor-pointer'
-        data-name='close'
-        data-node-id='410:779'
+      <div
+        className='absolute content-stretch flex gap-[1.5rem] items-center left-[2rem] top-[3rem]'
+        data-node-id='426:854'
       >
-        <CloseRounded className='size-6 text-[#24282c]' />
-      </button>
-      <div className='flex flex-col gap-6 h-full overflow-auto'>
-        <div className='flex flex-col gap-4'>
-          <div className='flex flex-wrap items-start gap-6 justify-between'>
-            <div className='flex items-center gap-4 min-w-[20rem]'>
-              <div className='relative shrink-0'>
-                <div className='rounded-[12.5rem] size-[6rem] overflow-hidden bg-[var(--color-neutral-600)]'>
-                  {avatarPreviewUrl ? (
-                    <img
-                      src={avatarPreviewUrl}
-                      alt=''
-                      className='w-full h-full object-cover'
-                      loading='lazy'
-                    />
-                  ) : null}
-                </div>
-                <div className='absolute -bottom-1 -right-1'>
-                  <AvatarImageDropdown
-                    previewUrl={avatarPreviewUrl ?? undefined}
-                    onCaptureFromCamera={async (f) => {
-                      setPreviewFromFile(f)
-                      await saveAvatar(f)
-                    }}
-                    onUploadFromDevice={async (f) => {
-                      setPreviewFromFile(f)
-                      await saveAvatar(f)
-                    }}
-                  />
-                </div>
-              </div>
-              <div className='flex flex-col gap-2'>
-                <p className='text-2xl font-medium text-[#24282c]'>{displayName}</p>
-                <div className='flex items-center gap-2 text-[#24282c]'>
-                  <MailRounded className='size-5' />
-                  <span className='text-sm'>{email}</span>
-                </div>
-                <div className='flex items-center gap-2 text-[#24282c]'>
-                  <CallRounded className='size-5' />
-                  <span className='text-sm'>{phone}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className='flex-1 min-w-[22rem] flex flex-col gap-2'>
-              <AlertRow cat='allergy' label='Alergias' />
-              <AlertRow cat='accessibility' label='Accesibilidad' />
-              <AlertRow cat='habit' label='Hábitos' />
-              <div className='bg-[#e2e7ea] rounded-lg px-3 py-2 text-sm text-[#aeb8c2]'>
-                Añadir comentario sobre el paciente
-              </div>
-            </div>
-
-            <div className='flex items-center gap-3 self-start'>
-              <Button
-                variant='outlined'
-                size='small'
-                onClick={() => setIsEditing((prev) => !prev)}
-              >
-                {isEditing ? 'Cancelar' : 'Editar'}
-              </Button>
-              <MoreVertRounded className='size-6 text-[#24282c]' />
-            </div>
+        <div className='relative shrink-0'>
+          <div
+            className='rounded-[12.5rem] size-[6rem] overflow-hidden bg-[var(--color-neutral-600)]'
+            data-node-id='423:829'
+          >
+            {avatarPreviewUrl ? (
+              <img
+                src={avatarPreviewUrl}
+                alt=''
+                className='w-full h-full object-cover'
+                loading='lazy'
+              />
+            ) : null}
+          </div>
+          <div className='absolute -bottom-1 -right-1'>
+            <AvatarImageDropdown
+              previewUrl={avatarPreviewUrl ?? undefined}
+              onCaptureFromCamera={async (file) => {
+                setPreviewFromFile(file)
+                await saveAvatar(file)
+              }}
+              onUploadFromDevice={async (file) => {
+                setPreviewFromFile(file)
+                await saveAvatar(file)
+              }}
+            />
           </div>
         </div>
-
-        <hr className='border-[#e1e7ec]' />
-
-        <div className='grid gap-10'>
-          <div className='grid md:grid-cols-2 gap-10'>
-            <Section title='General'>
-              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-[#535c66]'>
-                <LabelValue label='Fecha de nacimiento' value={dobText} />
-                <LabelValue label='Edad' value={ageText} />
-                <LabelValue label='DNI/NIE' value={dni} />
-                <LabelValue label='País' value={country} />
-              </div>
-            </Section>
-
-            <Section title='Consulta'>
-              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-[#535c66]'>
-                <LabelValue label='Estado' value={consultationStatus} />
-                <LabelValue label='Motivo de la consulta' value={consultationReason} />
-              </div>
-            </Section>
+        <div
+          className='content-stretch flex flex-col gap-[0.5rem] items-start relative shrink-0 w-[14.25rem]'
+          data-node-id='426:853'
+        >
+          {isEditing ? (
+            <input
+              type='text'
+              value={tempFormData.nombre}
+              onChange={(e) => updateField('nombre', e.target.value)}
+              className="font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] w-full not-italic text-[#24282c] text-[1.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)]"
+            />
+          ) : (
+            <p
+              className="font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] min-w-full not-italic relative shrink-0 text-[#24282c] text-[1.5rem]"
+              data-node-id='426:830'
+              style={{ width: 'min-content' }}
+            >
+              {formData.nombre}
+            </p>
+          )}
+          <div
+            className='content-stretch flex gap-[0.5rem] items-center relative shrink-0 w-full'
+            data-node-id='426:848'
+          >
+            <div
+              className='relative shrink-0 size-[1.5rem]'
+              data-name='mail'
+              data-node-id='426:837'
+            >
+              <MailRounded className='size-6 text-[#24282c]' />
+            </div>
+            {isEditing ? (
+              <input
+                type='email'
+                value={tempFormData.email}
+                onChange={(e) => updateField('email', e.target.value)}
+                className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[1rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-full"
+              />
+            ) : (
+              <p
+                className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic relative shrink-0 text-[#24282c] text-[1rem] text-nowrap whitespace-pre"
+                data-node-id='426:831'
+              >
+                {formData.email}
+              </p>
+            )}
           </div>
-
-          <div className='grid md:grid-cols-2 gap-10'>
-            <Section title='Información adicional'>
-              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-[#535c66]'>
-                <LabelValue label='Origen del cliente' value={clientSource} />
-                <LabelValue label='Recomendado por' value={referredBy} />
-                <LabelValue label='Ocupación' value={occupation} />
-                <LabelValue label='Idioma de preferencia' value={preferredLanguage} />
-              </div>
-            </Section>
-
-            <Section title='Contacto de emergencia'>
-              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-[#535c66]'>
-                <LabelValue label='Nombre' value={emergencyName} />
-                <LabelValue label='Email' value={emergencyEmail} />
-                <LabelValue label='Teléfono' value={emergencyPhone} />
-              </div>
-            </Section>
+          <div
+            className='content-stretch flex gap-[0.5rem] items-center relative shrink-0'
+            data-node-id='426:849'
+          >
+            <div
+              className='relative shrink-0 size-[1.5rem]'
+              data-name='call'
+              data-node-id='426:847'
+            >
+              <CallRounded className='size-6 text-[#24282c]' />
+            </div>
+            {isEditing ? (
+              <input
+                type='tel'
+                value={tempFormData.telefono}
+                onChange={(e) => updateField('telefono', e.target.value)}
+                className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[1rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-full"
+              />
+            ) : (
+              <p
+                className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic relative shrink-0 text-[#24282c] text-[1rem] text-nowrap whitespace-pre"
+                data-node-id='426:838'
+              >
+                {formData.telefono}
+              </p>
+            )}
           </div>
         </div>
       </div>
-
-      {isEditing && (
-        <div className='absolute inset-0 bg-black/30 backdrop-blur-[2px] flex items-center justify-center p-6'>
-          <div className='bg-white rounded-lg shadow-lg w-full max-w-3xl p-6 space-y-4'>
-            <div className='flex items-center justify-between'>
-              <h3 className='text-lg font-medium text-[#24282c]'>Editar datos del paciente</h3>
-              <button onClick={() => setIsEditing(false)} aria-label='Cerrar'>
-                <CloseRounded className='size-5 text-[#24282c]' />
-              </button>
-            </div>
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-              <TextField
-                label='Nombre'
-                size='small'
-                value={form.firstName}
-                onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-              />
-              <TextField
-                label='Apellidos'
-                size='small'
-                value={form.lastName}
-                onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-              />
-              <TextField
-                label='Email'
-                size='small'
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              />
-              <TextField
-                label='Teléfono'
-                size='small'
-                value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-              />
-              <TextField
-                label='DNI/NIE'
-                size='small'
-                value={form.nationalId}
-                onChange={(e) => setForm((f) => ({ ...f, nationalId: e.target.value }))}
-              />
-              <TextField
-                label='País'
-                size='small'
-                value={form.country}
-                onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
-              />
-              <TextField
-                label='Idioma preferido'
-                size='small'
-                value={form.preferredLanguage}
-                onChange={(e) => setForm((f) => ({ ...f, preferredLanguage: e.target.value }))}
-              />
-              <TextField
-                label='Ocupación'
-                size='small'
-                value={form.occupation}
-                onChange={(e) => setForm((f) => ({ ...f, occupation: e.target.value }))}
-              />
-              <TextField
-                label='Contacto emergencia - Nombre'
-                size='small'
-                value={form.emergencyName}
-                onChange={(e) => setForm((f) => ({ ...f, emergencyName: e.target.value }))}
-              />
-              <TextField
-                label='Contacto emergencia - Email'
-                size='small'
-                value={form.emergencyEmail}
-                onChange={(e) => setForm((f) => ({ ...f, emergencyEmail: e.target.value }))}
-              />
-              <TextField
-                label='Contacto emergencia - Teléfono'
-                size='small'
-                value={form.emergencyPhone}
-                onChange={(e) => setForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
-              />
-            </div>
-            <div className='space-y-2'>
-              <p className='text-sm font-medium text-[#24282c]'>Alertas</p>
-              <div className='flex items-center gap-2 flex-wrap'>
-                {ALERT_CATEGORIES.map((cat) => {
-                  const label = ALERT_CATEGORY_LABELS[cat]
-                  const isActive = activeAlertCat === cat
-                  return (
-                    <button
-                      key={cat}
-                      type='button'
-                      onClick={() => setActiveAlertCat(cat)}
-                      className={`px-3 py-1 rounded-full text-sm border ${
-                        isActive
-                          ? 'bg-[#1e4947] text-white border-[#1e4947]'
-                          : 'bg-white text-[#1e4947] border-[#1e4947]'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  )
-                })}
-              </div>
-              <div className='flex flex-wrap gap-2'>
-                {(alertTagsByCat[activeAlertCat] ?? []).map((tag) => (
-                  <Chip
-                    key={`${activeAlertCat}-${tag}`}
-                    label={tag}
-                    onDelete={() =>
-                      setAlertTagsByCat((prev) => ({
-                        ...prev,
-                        [activeAlertCat]: prev[activeAlertCat].filter((t) => t !== tag)
-                      }))
-                    }
-                    variant='outlined'
-                    className='!text-sm'
-                    sx={{
-                      backgroundColor: CATEGORY_CHIP_COLORS[activeAlertCat].bg,
-                      color: CATEGORY_CHIP_COLORS[activeAlertCat].text,
-                      borderColor: CATEGORY_CHIP_COLORS[activeAlertCat].border
-                    }}
-                  />
-                ))}
-              </div>
-              <TextField
-                label='Añadir alerta (separa con coma o Enter)'
-                size='small'
-                value={pendingAlertInput}
-                onChange={(e) => setPendingAlertInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ',') {
-                    e.preventDefault()
-                    const value = pendingAlertInput.trim().replace(/,$/, '')
-                    if (value) {
-                      setAlertTagsByCat((prev) => {
-                        const exists = prev[activeAlertCat]?.includes(value)
-                        if (exists) return prev
-                        return {
-                          ...prev,
-                          [activeAlertCat]: [...(prev[activeAlertCat] ?? []), value]
-                        }
-                      })
-                    }
-                    setPendingAlertInput('')
-                  }
-                }}
-                placeholder='Ej: penicilina, latex, embarazo'
-                fullWidth
-              />
-            </div>
-            <div className='flex justify-end gap-2'>
-              <Button
-                onClick={() => {
-                  setIsEditing(false)
-                  setAlertTagsByCat(initialAlertsRef.current)
-                  setPendingAlertInput('')
-                }}
-                disabled={isSaving}
-              >
-                Cancelar
-              </Button>
-              <Button
-                variant='contained'
-                onClick={async () => {
-                  if (!patientId) return
-                  setIsSaving(true)
-                  const alertsPayload = Object.entries(alertTagsByCat).flatMap(([cat, values]) =>
-                    values.map((label) => ({
-                      label,
-                      category: cat
-                    }))
-                  )
-
-                  const res = await fetch('/api/patients/update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      patientId,
-                      patient: {
-                        first_name: form.firstName || null,
-                        last_name: form.lastName || null,
-                        email: form.email || null,
-                        phone_number: form.phone || null,
-                        national_id: form.nationalId || null,
-                        address_country: form.country || null,
-                        preferred_language: form.preferredLanguage || null,
-                        occupation: form.occupation || null,
-                        emergency_contact_name: form.emergencyName || null,
-                        emergency_contact_email: form.emergencyEmail || null,
-                        emergency_contact_phone: form.emergencyPhone || null
-                      },
-                      alerts: alertsPayload
-                    })
-                  })
-
-                  if (!res.ok) {
-                    const data = await res.json().catch(() => ({}))
-                    console.error(data?.error || 'No se pudo guardar el paciente')
-                    setIsSaving(false)
-                    return
-                  }
-
-                  // Update local state with saved values
-                  setDisplayName([form.firstName, form.lastName].filter(Boolean).join(' ') || '—')
-                  setEmail(form.email || '—')
-                  setPhone(form.phone || '—')
-                  setDni(form.nationalId || '—')
-                  setCountry(form.country || '—')
-                  setPreferredLanguage(form.preferredLanguage || '—')
-                  setOccupation(form.occupation || '—')
-                  setEmergencyName(form.emergencyName || '—')
-                  setEmergencyEmail(form.emergencyEmail || '—')
-                  setEmergencyPhone(form.emergencyPhone || '—')
-                  const newAlerts = Object.entries(alertTagsByCat).flatMap(([cat, values]) =>
-                    values.map(
-                      (label) =>
-                        ({
-                          label,
-                          severity: 'medium',
-                          category: cat
-                        } as PatientAlert)
-                    )
-                  )
-                  setAlerts(newAlerts)
-                  initialAlertsRef.current = { ...alertTagsByCat }
-                  setIsSaving(false)
-                  setIsEditing(false)
-                }}
-                disabled={isSaving}
-              >
-                {isSaving ? 'Guardando...' : 'Guardar'}
-              </Button>
-            </div>
+      <div
+        className='absolute left-[2.25rem] top-[11.5rem] w-[70.5rem] border-t border-[#e2e7ea]'
+        data-node-id='426:850'
+      />
+      <div
+        className='absolute top-[3rem] flex flex-wrap gap-[0.5rem] max-w-[26rem]'
+        style={{ left: 'calc(50% - 0.25rem)' }}
+      >
+        {(isEditing ? tempFormData.alergias : formData.alergias).map((allergy, index) => (
+          <div
+            key={`${allergy}-${index}`}
+            className='bg-[#f7b7ba] box-border content-stretch flex gap-[0.5rem] items-center justify-center px-[0.5rem] py-[0.25rem] rounded-[6rem]'
+          >
+            <p className="font-['Inter:Medium',_sans-serif] font-medium leading-[1rem] not-italic relative shrink-0 text-[0.75rem] text-nowrap text-red-700 whitespace-pre">
+              {allergy}
+            </p>
           </div>
-        </div>
+        ))}
+      </div>
+      <div
+        className='absolute bg-[#e2e7ea] h-[3.5rem] overflow-clip rounded-[0.5rem] top-[5.5rem] w-[30.25rem]'
+        data-node-id='426:855'
+        style={{ left: 'calc(43.75% + 0.797rem)' }}
+      >
+        {isEditing ? (
+          <textarea
+            value={tempFormData.comentario}
+            onChange={(e) => updateField('comentario', e.target.value)}
+            placeholder='Añadir comentario sobre el paciente'
+            className='w-full h-full px-2 py-2 text-[0.875rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded-[0.5rem] outline-none focus:border-[var(--color-brand-500)] resize-none text-[#24282c]'
+          />
+        ) : (
+          <p
+            className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1rem] left-[0.5rem] not-italic text-[#aeb8c2] text-[0.75rem] text-nowrap top-[0.5rem] whitespace-pre"
+            data-node-id='426:856'
+          >
+            {formData.comentario || 'Añadir comentario sobre el paciente'}
+          </p>
+        )}
+      </div>
+      <p
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1rem] not-italic text-[#8a95a1] text-[0.75rem] text-nowrap top-[3.25rem] whitespace-pre"
+        data-node-id='426:863'
+        style={{ left: 'calc(43.75% + 0.797rem)' }}
+      >{`Alergias: `}</p>
+      <p
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] left-[2rem] not-italic text-[#24282c] text-[1.5rem] text-nowrap top-[14rem] whitespace-pre"
+        data-node-id='426:864'
+      >
+        General
+      </p>
+      <p
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] not-italic text-[#24282c] text-[1.5rem] text-nowrap top-[14rem] whitespace-pre"
+        data-node-id='426:909'
+        style={{ left: 'calc(43.75% + 0.797rem)' }}
+      >
+        Consulta
+      </p>
+      <p
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] left-[2rem] not-italic text-[#24282c] text-[1.5rem] text-nowrap top-[27rem] whitespace-pre"
+        data-node-id='426:876'
+      >
+        Información adicional
+      </p>
+      <p
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] left-[2rem] not-italic text-[#24282c] text-[1.5rem] text-nowrap top-[40rem] whitespace-pre"
+        data-node-id='426:885'
+      >
+        Contacto de emergencia
+      </p>
+      <p
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] not-italic text-[#8a95a1] text-[1rem] text-nowrap top-[17rem] whitespace-pre"
+        data-node-id='426:868'
+        style={{ left: 'calc(18.75% + 1.922rem)' }}
+      >
+        Edad
+      </p>
+      <p
+        className='absolute font-["Inter:Medium",_sans-serif] font-medium leading-[1.5rem] not-italic text-[#24282c] text-[1rem] top-[30rem] w-[11.813rem]'
+        data-node-id='426:877'
+        style={{ left: 'calc(18.75% + 1.922rem)' }}
+      >
+        Recomendado por:
+      </p>
+      <p
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[17rem] whitespace-pre"
+        data-node-id='426:870'
+      >
+        Fecha de nacimiento
+      </p>
+      <p
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[17rem] whitespace-pre"
+        data-node-id='426:911'
+        style={{ left: 'calc(43.75% + 0.797rem)' }}
+      >
+        Estado
+      </p>
+      <p
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[30rem] whitespace-pre"
+        data-node-id='426:878'
+      >
+        Origen del cliente
+      </p>
+      {isEditing ? (
+        <input
+          type='text'
+          value={tempFormData.contactoEmergenciaNombre}
+          onChange={(e) =>
+            updateField('contactoEmergenciaNombre', e.target.value)
+          }
+          placeholder='Nombre contacto'
+          className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] top-[43rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[12rem]"
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[43rem] whitespace-pre"
+          data-node-id='426:887'
+        >
+          {formData.contactoEmergenciaNombre}
+        </p>
       )}
-    </div>
-  )
-}
-
-function LabelValue({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className='flex flex-col gap-1'>
-      <span className='text-xs font-medium text-[#8a95a1]'>{label}</span>
-      <span className='text-sm text-[#535c66]'>{value || '—'}</span>
+      <p
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[21.5rem] whitespace-pre"
+        data-node-id='426:872'
+      >
+        DNI/NIE
+      </p>
+      <p
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[21.5rem] whitespace-pre"
+        data-node-id='426:912'
+        style={{ left: 'calc(43.75% + 0.797rem)' }}
+      >
+        Motivo de la consulta
+      </p>
+      <p
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[34.5rem] whitespace-pre"
+        data-node-id='426:879'
+      >
+        Ocupación
+      </p>
+      <p
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[21.5rem] whitespace-pre"
+        data-node-id='426:874'
+        style={{ left: 'calc(18.75% + 1.922rem)' }}
+      >
+        Pais
+      </p>
+      <p
+        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] left-[2rem] not-italic text-[#24282c] text-[1rem] text-nowrap top-[34.5rem] whitespace-pre"
+        data-node-id='426:880'
+        style={{ left: 'calc(18.75% + 1.922rem)' }}
+      >
+        Idioma de preferencia
+      </p>
+      {isEditing ? (
+        <input
+          type='text'
+          value={tempFormData.edad}
+          onChange={(e) => updateField('edad', e.target.value)}
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[18.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[6rem]"
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[18.75rem] whitespace-pre"
+          data-node-id='426:869'
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
+        >
+          {formData.edad}
+        </p>
+      )}
+      {isEditing ? (
+        <input
+          type='text'
+          value={tempFormData.recomendadoPor}
+          onChange={(e) => updateField('recomendadoPor', e.target.value)}
+          placeholder='Nombre'
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[31.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[10rem]"
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[31.75rem] whitespace-pre"
+          data-node-id='426:881'
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
+        >
+          {formData.recomendadoPor}
+        </p>
+      )}
+      {isEditing ? (
+        <input
+          type='text'
+          value={tempFormData.fechaNacimiento}
+          onChange={(e) => updateField('fechaNacimiento', e.target.value)}
+          placeholder='DD/MM/AAAA'
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[18.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[8rem]"
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[18.75rem] whitespace-pre"
+          data-node-id='426:871'
+        >
+          {formData.fechaNacimiento}
+        </p>
+      )}
+      {isEditing ? (
+        <select
+          value={tempFormData.estado}
+          onChange={(e) => updateField('estado', e.target.value)}
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[18.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[10rem]"
+          style={{ left: 'calc(43.75% + 0.797rem)' }}
+        >
+          <option value='Pre-registro'>Pre-registro</option>
+          <option value='Activo'>Activo</option>
+          <option value='Inactivo'>Inactivo</option>
+          <option value='Pendiente'>Pendiente</option>
+        </select>
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[18.75rem] whitespace-pre"
+          data-node-id='426:915'
+          style={{ left: 'calc(43.75% + 0.797rem)' }}
+        >
+          {formData.estado}
+        </p>
+      )}
+      {isEditing ? (
+        <select
+          value={tempFormData.origenCliente}
+          onChange={(e) => updateField('origenCliente', e.target.value)}
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[31.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[10rem]"
+        >
+          <option value='Recomendación'>Recomendación</option>
+          <option value='Internet'>Internet</option>
+          <option value='Redes Sociales'>Redes Sociales</option>
+          <option value='Publicidad'>Publicidad</option>
+          <option value='Otro'>Otro</option>
+        </select>
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[31.75rem] whitespace-pre"
+          data-node-id='426:882'
+        >
+          {formData.origenCliente}
+        </p>
+      )}
+      {isEditing ? (
+        <input
+          type='email'
+          value={tempFormData.contactoEmergenciaEmail}
+          onChange={(e) =>
+            updateField('contactoEmergenciaEmail', e.target.value)
+          }
+          placeholder='Email contacto'
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[44.75rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[12rem]"
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[44.75rem] whitespace-pre"
+          data-node-id='426:891'
+        >
+          {formData.contactoEmergenciaEmail}
+        </p>
+      )}
+      {isEditing ? (
+        <input
+          type='tel'
+          value={tempFormData.contactoEmergenciaTelefono}
+          onChange={(e) =>
+            updateField('contactoEmergenciaTelefono', e.target.value)
+          }
+          placeholder='Teléfono contacto'
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[46.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[10rem]"
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[46.25rem] whitespace-pre"
+          data-node-id='426:894'
+        >
+          {formData.contactoEmergenciaTelefono}
+        </p>
+      )}
+      {isEditing ? (
+        <input
+          type='text'
+          value={tempFormData.dni}
+          onChange={(e) => updateField('dni', e.target.value)}
+          placeholder='DNI/NIE'
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[23.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[8rem]"
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[23.25rem] whitespace-pre"
+          data-node-id='426:873'
+        >
+          {formData.dni}
+        </p>
+      )}
+      {isEditing ? (
+        <textarea
+          value={tempFormData.motivoConsulta}
+          onChange={(e) => updateField('motivoConsulta', e.target.value)}
+          placeholder='Motivo de la consulta'
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[23.25rem] w-[30.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] resize-none min-h-[3rem]"
+          style={{ left: 'calc(43.75% + 0.797rem)' }}
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[23.25rem] w-[30.25rem]"
+          data-node-id='426:916'
+          style={{ left: 'calc(43.75% + 0.797rem)' }}
+        >
+          {formData.motivoConsulta}
+        </p>
+      )}
+      {isEditing ? (
+        <input
+          type='text'
+          value={tempFormData.ocupacion}
+          onChange={(e) => updateField('ocupacion', e.target.value)}
+          placeholder='Ocupación'
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] top-[36.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[10rem]"
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] left-[2rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[36.25rem] whitespace-pre"
+          data-node-id='426:883'
+        >
+          {formData.ocupacion}
+        </p>
+      )}
+      {isEditing ? (
+        <input
+          type='text'
+          value={tempFormData.pais}
+          onChange={(e) => updateField('pais', e.target.value)}
+          placeholder='País'
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[23.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[8rem]"
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
+        />
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[23.25rem] whitespace-pre"
+          data-node-id='426:875'
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
+        >
+          {formData.pais}
+        </p>
+      )}
+      {isEditing ? (
+        <select
+          value={tempFormData.idioma}
+          onChange={(e) => updateField('idioma', e.target.value)}
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[36.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[8rem]"
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
+        >
+          <option value='Español'>Español</option>
+          <option value='Inglés'>Inglés</option>
+          <option value='Francés'>Francés</option>
+          <option value='Valenciano'>Valenciano</option>
+          <option value='Catalán'>Catalán</option>
+        </select>
+      ) : (
+        <p
+          className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] text-nowrap top-[36.25rem] whitespace-pre"
+          data-node-id='426:884'
+          style={{ left: 'calc(18.75% + 1.922rem)' }}
+        >
+          {formData.idioma}
+        </p>
+      )}
+      {/* Edit/Save buttons - hidden when readOnly */}
+      {!readOnly &&
+        (!isEditing ? (
+          <button
+            type='button'
+            onClick={handleEdit}
+            className='absolute bg-[#f8fafb] box-border content-stretch flex gap-[0.5rem] items-center justify-center px-[0.5rem] py-[0.25rem] rounded-[1rem] top-[14.125rem] cursor-pointer hover:bg-[var(--color-brand-50)] transition-colors'
+            data-name='Remember - Button'
+            data-node-id='426:905'
+            style={{ left: 'calc(87.5% + 1.906rem)' }}
+          >
+            <div
+              aria-hidden='true'
+              className='absolute border border-[#51d6c7] border-solid inset-0 pointer-events-none rounded-[1rem]'
+            />
+            <EditRounded className='size-4 text-[#1e4947]' />
+            <p
+              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic relative shrink-0 text-[#1e4947] text-[0.875rem] text-nowrap whitespace-pre"
+              data-node-id='I426:905;236:963'
+            >
+              Editar
+            </p>
+          </button>
+        ) : (
+          <div
+            className='absolute flex gap-[0.5rem] top-[14.125rem]'
+            style={{ left: 'calc(80% + 1rem)' }}
+          >
+            <button
+              type='button'
+              onClick={handleCancel}
+              className='bg-[#f8fafb] box-border flex gap-[0.5rem] items-center justify-center px-[0.75rem] py-[0.25rem] rounded-[1rem] cursor-pointer hover:bg-[var(--color-neutral-100)] transition-colors border border-[var(--color-neutral-300)]'
+            >
+              <CloseRounded className='size-4 text-[var(--color-neutral-700)]' />
+              <span className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] text-[var(--color-neutral-700)] text-[0.875rem]">
+                Cancelar
+              </span>
+            </button>
+            <button
+              type='button'
+              onClick={handleSave}
+              disabled={isSaving}
+              className='bg-[var(--color-brand-500)] box-border flex gap-[0.5rem] items-center justify-center px-[0.75rem] py-[0.25rem] rounded-[1rem] cursor-pointer hover:bg-[var(--color-brand-600)] transition-colors'
+            >
+              <CheckRounded className='size-4 text-white' />
+              <span className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] text-white text-[0.875rem]">
+                {isSaving ? 'Guardando...' : 'Guardar'}
+              </span>
+            </button>
+          </div>
+        ))}
     </div>
   )
 }

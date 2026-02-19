@@ -20,6 +20,7 @@ type AddPatientModalProps = {
   open: boolean
   onClose: () => void
   onContinue?: () => void
+  onPatientCreated?: (patientId: string) => void
 }
 
 // FieldLabel, TextInput, SelectInput, TextArea moved to AddPatientInputs.tsx
@@ -27,7 +28,8 @@ type AddPatientModalProps = {
 export default function AddPatientModal({
   open,
   onClose,
-  onContinue
+  onContinue,
+  onPatientCreated
 }: AddPatientModalProps) {
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
   const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
@@ -538,6 +540,9 @@ export default function AddPatientModal({
       }
 
       await Promise.all(followUp)
+      if (patientId) {
+        onPatientCreated?.(patientId)
+      }
       setAvatarFile(null)
       onClose()
     } catch (error) {

@@ -304,12 +304,18 @@ type DbPatient = {
   last_name: string
   phone_number: string | null
   email: string | null
+  preferred_financing_option?: string | null
   national_id?: string | null
   primary_contact_id?: string | null
   contacts?:
     | { phone_primary: string | null; email: string | null }
     | Array<{ phone_primary: string | null; email: string | null }>
     | null
+}
+
+type DbFinancingRequest = {
+  patient_id: string
+  status: string | null
 }
 
 const PAGE_SIZE = 15
@@ -373,184 +379,214 @@ function PacientesPageInner() {
     name: string
   } | null>(null)
   const [currentPage, setCurrentPage] = React.useState(1)
+  const [isDeleting, setIsDeleting] = React.useState(false)
 
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  React.useEffect(() => {
-    async function init() {
-      if (!isClinicInitialized) return
-      setIsLoading(true)
+  const loadPatients = React.useCallback(async () => {
+    if (!isClinicInitialized) return
+    setIsLoading(true)
 
-      const { data: sessionData } = await supabase.auth.getSession()
-      if (!sessionData.session) {
-        router.replace('/login')
-        return
-      }
-
-      const { data: userData } = await supabase.auth.getUser()
-      const user = userData?.user
-      if (user) {
-        const fullName =
-          (user.user_metadata?.full_name as string | undefined) ||
-          ([user.user_metadata?.first_name, user.user_metadata?.last_name]
-            .filter(Boolean)
-            .join(' ')
-            .trim() ||
-            user.email?.split('@')[0] ||
-            'Usuario')
-
-        await supabase
-          .from('staff')
-          .upsert({ id: user.id, full_name: fullName }, { onConflict: 'id' })
-      }
-
-      const clinicId = activeClinicId
-      if (!clinicId) {
-        setRows([])
-        setIsLoading(false)
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('patients')
-        .select(`
-          id, first_name, last_name, phone_number, email, national_id, primary_contact_id,
-          contacts!primary_contact_id (phone_primary, email)
-        `)
-        .eq('clinic_id', clinicId)
-        .limit(500)
-
-      if (error) {
-        setRows([])
-        setIsLoading(false)
-        return
-      }
-
-      const patients = (data as unknown as DbPatient[]) ?? []
-      const patientIds = patients.map((patient) => patient.id)
-
-      if (patientIds.length === 0) {
-        setRows([])
-        setIsLoading(false)
-        return
-      }
-
-      const nowIso = new Date().toISOString()
-      const oneYearAgo = new Date()
-      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
-
-      const [{ data: futureAppts }, { data: pastAppts }, { data: invoices }] =
-        await Promise.all([
-          supabase
-            .from('appointments')
-            .select('patient_id, scheduled_start_time')
-            .in('patient_id', patientIds)
-            .gte('scheduled_start_time', nowIso)
-            .order('scheduled_start_time', { ascending: true }),
-          supabase
-            .from('appointments')
-            .select('patient_id, scheduled_start_time')
-            .in('patient_id', patientIds)
-            .lt('scheduled_start_time', nowIso)
-            .order('scheduled_start_time', { ascending: false }),
-          supabase
-            .from('invoices')
-            .select('patient_id, status, total_amount, amount_paid')
-            .in('patient_id', patientIds)
-            .in('status', ['open', 'overdue'])
-        ])
-
-      const nextByPatient = new Map<string, string>()
-      if (Array.isArray(futureAppts)) {
-        for (const appointment of futureAppts) {
-          if (!nextByPatient.has(appointment.patient_id)) {
-            nextByPatient.set(
-              appointment.patient_id,
-              new Date(appointment.scheduled_start_time).toLocaleDateString(
-                DEFAULT_LOCALE,
-                { timeZone: DEFAULT_TIMEZONE }
-              )
-            )
-          }
-        }
-      }
-
-      const lastVisitByPatient = new Map<string, Date>()
-      if (Array.isArray(pastAppts)) {
-        for (const appointment of pastAppts) {
-          if (!lastVisitByPatient.has(appointment.patient_id)) {
-            lastVisitByPatient.set(
-              appointment.patient_id,
-              new Date(appointment.scheduled_start_time)
-            )
-          }
-        }
-      }
-
-      const debtByPatient = new Map<string, number>()
-      if (Array.isArray(invoices)) {
-        for (const invoice of invoices) {
-          const previousDebt = debtByPatient.get(invoice.patient_id) ?? 0
-          const remainingAmount =
-            Number(invoice.total_amount ?? 0) - Number(invoice.amount_paid ?? 0)
-          debtByPatient.set(invoice.patient_id, previousDebt + remainingAmount)
-        }
-      }
-
-      const mappedRows: PatientRow[] = patients.map((patient) => {
-        const contact = Array.isArray(patient.contacts)
-          ? patient.contacts[0]
-          : patient.contacts
-
-        const debt = debtByPatient.get(patient.id)
-        const hasDebt = typeof debt === 'number' && debt > 0
-        const lastVisit = lastVisitByPatient.get(patient.id)
-        const isActive =
-          lastVisit !== undefined
-            ? lastVisit.getTime() >= oneYearAgo.getTime()
-            : false
-
-        const status: 'Activo' | 'Inactivo' = isActive ? 'Activo' : 'Inactivo'
-        const tags: PatientRow['tags'] = ['deuda', 'activo', 'financiacion'].filter(
-          (tag) => {
-            if (tag === 'deuda') return hasDebt
-            if (tag === 'activo') return status === 'Activo'
-            return false
-          }
-        ) as PatientRow['tags']
-
-        const debtAmount = hasDebt ? Number(debt!.toFixed(2)) : 0
-
-        return {
-          id: patient.id,
-          name:
-            [patient.first_name, patient.last_name].filter(Boolean).join(' ') ||
-            'Paciente sin nombre',
-          phone: contact?.phone_primary ?? patient.phone_number ?? 'Sin teléfono',
-          email: contact?.email ?? patient.email ?? '',
-          nextDate: nextByPatient.get(patient.id) ?? 'Sin cita',
-          status,
-          hasFinancing: false,
-          debt:
-            debtAmount > 0
-              ? `${debtAmount.toLocaleString(DEFAULT_LOCALE, {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 2
-                })} €`
-              : '0 €',
-          debtAmount,
-          tags
-        }
-      })
-
-      setRows(mappedRows)
-      setIsLoading(false)
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData.session) {
+      router.replace('/login')
+      return
     }
 
-    void init()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeClinicId, isClinicInitialized])
+    const { data: userData } = await supabase.auth.getUser()
+    const user = userData?.user
+    if (user) {
+      const fullName =
+        (user.user_metadata?.full_name as string | undefined) ||
+        ([user.user_metadata?.first_name, user.user_metadata?.last_name]
+          .filter(Boolean)
+          .join(' ')
+          .trim() ||
+          user.email?.split('@')[0] ||
+          'Usuario')
+
+      await supabase
+        .from('staff')
+        .upsert({ id: user.id, full_name: fullName }, { onConflict: 'id' })
+    }
+
+    const clinicId = activeClinicId
+    if (!clinicId) {
+      setRows([])
+      setIsLoading(false)
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('patients')
+      .select(`
+        id, first_name, last_name, phone_number, email, preferred_financing_option, national_id, primary_contact_id,
+        contacts!primary_contact_id (phone_primary, email)
+      `)
+      .eq('clinic_id', clinicId)
+      .limit(500)
+
+    if (error) {
+      setRows([])
+      setIsLoading(false)
+      return
+    }
+
+    const patients = (data as unknown as DbPatient[]) ?? []
+    const patientIds = patients.map((patient) => patient.id)
+
+    if (patientIds.length === 0) {
+      setRows([])
+      setIsLoading(false)
+      return
+    }
+
+    const nowIso = new Date().toISOString()
+    const oneYearAgo = new Date()
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+
+    const [
+      { data: futureAppts },
+      { data: pastAppts },
+      { data: invoices },
+      { data: financingRequests }
+    ] = await Promise.all([
+      supabase
+        .from('appointments')
+        .select('patient_id, scheduled_start_time')
+        .in('patient_id', patientIds)
+        .gte('scheduled_start_time', nowIso)
+        .order('scheduled_start_time', { ascending: true }),
+      supabase
+        .from('appointments')
+        .select('patient_id, scheduled_start_time')
+        .in('patient_id', patientIds)
+        .lt('scheduled_start_time', nowIso)
+        .order('scheduled_start_time', { ascending: false }),
+      supabase
+        .from('invoices')
+        .select('patient_id, status, total_amount, amount_paid')
+        .in('patient_id', patientIds)
+        .in('status', ['open', 'overdue']),
+      supabase
+        .from('financing_requests')
+        .select('patient_id, status')
+        .in('patient_id', patientIds)
+    ])
+
+    const nextByPatient = new Map<string, string>()
+    if (Array.isArray(futureAppts)) {
+      for (const appointment of futureAppts) {
+        if (!nextByPatient.has(appointment.patient_id)) {
+          nextByPatient.set(
+            appointment.patient_id,
+            new Date(appointment.scheduled_start_time).toLocaleDateString(
+              DEFAULT_LOCALE,
+              { timeZone: DEFAULT_TIMEZONE }
+            )
+          )
+        }
+      }
+    }
+
+    const lastVisitByPatient = new Map<string, Date>()
+    if (Array.isArray(pastAppts)) {
+      for (const appointment of pastAppts) {
+        if (!lastVisitByPatient.has(appointment.patient_id)) {
+          lastVisitByPatient.set(
+            appointment.patient_id,
+            new Date(appointment.scheduled_start_time)
+          )
+        }
+      }
+    }
+
+    const debtByPatient = new Map<string, number>()
+    if (Array.isArray(invoices)) {
+      for (const invoice of invoices) {
+        const previousDebt = debtByPatient.get(invoice.patient_id) ?? 0
+        const remainingAmount =
+          Number(invoice.total_amount ?? 0) - Number(invoice.amount_paid ?? 0)
+        debtByPatient.set(invoice.patient_id, previousDebt + remainingAmount)
+      }
+    }
+
+    const financingRequestByPatient = new Set<string>()
+    const activeFinancingStatuses = new Set([
+      'approved',
+      'pending',
+      'submitted',
+      'in_review',
+      'active',
+      'accepted'
+    ])
+    if (Array.isArray(financingRequests)) {
+      for (const request of financingRequests as DbFinancingRequest[]) {
+        const status = (request.status || '').toLowerCase().trim()
+        if (activeFinancingStatuses.has(status)) {
+          financingRequestByPatient.add(request.patient_id)
+        }
+      }
+    }
+
+    const mappedRows: PatientRow[] = patients.map((patient) => {
+      const contact = Array.isArray(patient.contacts)
+        ? patient.contacts[0]
+        : patient.contacts
+
+      const debt = debtByPatient.get(patient.id)
+      const hasDebt = typeof debt === 'number' && debt > 0
+      const lastVisit = lastVisitByPatient.get(patient.id)
+      const isActive =
+        lastVisit !== undefined
+          ? lastVisit.getTime() >= oneYearAgo.getTime()
+          : false
+
+      const status: 'Activo' | 'Inactivo' = isActive ? 'Activo' : 'Inactivo'
+      const hasFinancing =
+        financingRequestByPatient.has(patient.id) ||
+        Boolean(patient.preferred_financing_option?.trim())
+      const tags: PatientRow['tags'] = ['deuda', 'activo', 'financiacion'].filter(
+        (tag) => {
+          if (tag === 'deuda') return hasDebt
+          if (tag === 'activo') return status === 'Activo'
+          if (tag === 'financiacion') return hasFinancing
+          return false
+        }
+      ) as PatientRow['tags']
+
+      const debtAmount = hasDebt ? Number(debt!.toFixed(2)) : 0
+
+      return {
+        id: patient.id,
+        name:
+          [patient.first_name, patient.last_name].filter(Boolean).join(' ') ||
+          'Paciente sin nombre',
+        phone: contact?.phone_primary ?? patient.phone_number ?? 'Sin teléfono',
+        email: contact?.email ?? patient.email ?? '',
+        nextDate: nextByPatient.get(patient.id) ?? 'Sin cita',
+        status,
+        hasFinancing,
+        debt:
+          debtAmount > 0
+            ? `${debtAmount.toLocaleString(DEFAULT_LOCALE, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2
+              })} €`
+            : '0 €',
+        debtAmount,
+        tags
+      }
+    })
+
+    setRows(mappedRows)
+    setIsLoading(false)
+  }, [activeClinicId, isClinicInitialized, router, supabase])
+
+  React.useEffect(() => {
+    void loadPatients()
+  }, [loadPatients])
 
   React.useEffect(() => {
     const q = (searchParams.get('q') || '').trim()
@@ -621,6 +657,35 @@ function PacientesPageInner() {
     [selectedPatientForModal]
   )
 
+  const deletePatientsByIds = React.useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0 || isDeleting) return
+      if (!activeClinicId) return
+
+      setIsDeleting(true)
+      try {
+        const uniqueIds = Array.from(new Set(ids))
+        const { error } = await supabase
+          .from('patients')
+          .delete()
+          .eq('clinic_id', activeClinicId)
+          .in('id', uniqueIds)
+
+        if (error) {
+          console.error('Error deleting patients', error)
+          alert('No se pudieron eliminar los pacientes seleccionados.')
+          return
+        }
+
+        removeRowsByIds(uniqueIds)
+        void loadPatients()
+      } finally {
+        setIsDeleting(false)
+      }
+    },
+    [activeClinicId, isDeleting, loadPatients, removeRowsByIds, supabase]
+  )
+
   const filteredRows = React.useMemo(() => {
     if (isLoading) return []
 
@@ -679,6 +744,9 @@ function PacientesPageInner() {
         <AddPatientModal
           open={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
+          onPatientCreated={() => {
+            void loadPatients()
+          }}
         />
 
         <PatientRecordModal
@@ -729,9 +797,12 @@ function PacientesPageInner() {
                 <>
                   <Chip color='teal'>{selectedPatientIds.length} seleccionados</Chip>
                   <button
-                    onClick={() => removeRowsByIds(selectedPatientIds)}
+                    onClick={() => {
+                      void deletePatientsByIds(selectedPatientIds)
+                    }}
                     className='bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] p-1 size-[32px] inline-flex items-center justify-center cursor-pointer hover:bg-[var(--color-error-50)] hover:border-[var(--color-error-300)] hover:text-[var(--color-error-600)] transition-colors'
                     title={`Eliminar ${selectedPatientIds.length} paciente(s)`}
+                    disabled={isDeleting}
                   >
                     <DeleteRounded className='size-5' />
                   </button>
@@ -997,7 +1068,7 @@ function PacientesPageInner() {
                               onDelete={() => {
                                 setOpenMenuId(null)
                                 setMenuTriggerRect(null)
-                                removeRowsByIds([row.id])
+                                void deletePatientsByIds([row.id])
                               }}
                             />
                           )}

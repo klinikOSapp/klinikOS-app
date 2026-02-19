@@ -32,6 +32,8 @@ import {
   type BudgetTypeData
 } from '@/components/pacientes/shared/budgetTypeData'
 import type { TreatmentV2 } from '@/components/pacientes/shared/treatmentTypes'
+import { useClinic } from '@/context/ClinicContext'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { BudgetInstallmentPlan, BudgetPayment } from '@/types/payments'
 import React from 'react'
 import { createPortal } from 'react-dom'
@@ -56,6 +58,7 @@ type BudgetsPaymentsProps = {
   onClose?: () => void
   openBudgetCreation?: boolean
   onBudgetCreationOpened?: () => void
+  patientId?: string
   patientName?: string
   // Shared state props (optional - uses local state if not provided)
   budgetRows?: BudgetRow[]
@@ -548,6 +551,7 @@ type ProductionRow = {
   professional: string
   // Referencias para conexión a DB
   budgetId?: string
+  quoteId?: number
   patientId?: string
 }
 
@@ -597,6 +601,7 @@ export type BudgetRow = {
   // Referencias para conexión a DB
   patientId?: string
   patientName?: string
+  quoteId?: number
   // Campos extendidos para detalles
   treatments?: BudgetTreatment[]
   generalDiscount?: BudgetGeneralDiscount
@@ -621,6 +626,109 @@ type InvoiceRow = {
   status: InvoiceStatusType
   paymentMethod: string
   insurer: string
+  dbInvoiceId?: number
+  quoteId?: number
+  amountNumber?: number
+  amountPaidNumber?: number
+  issueTimestamp?: string
+}
+
+type DbQuoteRow = {
+  id: number
+  quote_number: string | null
+  status: string | null
+  total_amount: number | null
+  issue_date: string | null
+  expiry_date: string | null
+  signed_at: string | null
+  production_status: string | null
+  production_date: string | null
+}
+
+type DbInvoiceRow = {
+  id: number
+  quote_id: number | null
+  invoice_number: string | null
+  status: string | null
+  issue_date: string | null
+  issue_timestamp: string | null
+  total_amount: number | null
+  amount_paid: number | null
+}
+
+type DbPaymentRow = {
+  id: number
+  invoice_id: number | null
+  payment_method: string | null
+  amount: number | null
+  transaction_date: string | null
+}
+
+function formatEuroAmount(value: number): string {
+  return `${value.toLocaleString('es-ES', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })} €`
+}
+
+function formatShortDate(value: string | null | undefined): string {
+  if (!value) return ''
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return ''
+  return parsed.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit'
+  })
+}
+
+function mapDbQuoteStatusToUi(status: string | null | undefined): BudgetStatusType {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'accepted' || normalized === 'signed' || normalized === 'approved') {
+    return 'Aceptado'
+  }
+  if (
+    normalized === 'rejected' ||
+    normalized === 'cancelled' ||
+    normalized === 'declined' ||
+    normalized === 'void'
+  ) {
+    return 'Rechazado'
+  }
+  return 'Pendiente'
+}
+
+function mapUiBudgetStatusToDb(status: BudgetStatusType): string {
+  switch (status) {
+    case 'Aceptado':
+      return 'accepted'
+    case 'Rechazado':
+      return 'rejected'
+    case 'Pendiente':
+    default:
+      return 'sent'
+  }
+}
+
+function mapDbInvoiceStatusToUi(status: string | null | undefined): InvoiceStatusType {
+  const normalized = String(status || '').toLowerCase()
+  return normalized === 'paid' || normalized === 'accepted' ? 'Cobrado' : 'Pendiente'
+}
+
+function mapDbPaymentMethodToUi(method: string | null | undefined): string {
+  const normalized = String(method || '').toLowerCase().trim()
+  if (!normalized) return ''
+  if (normalized.includes('efectivo') || normalized.includes('cash')) return 'Efectivo'
+  if (normalized.includes('tarjeta') || normalized.includes('card') || normalized.includes('tpv')) {
+    return 'Tarjeta'
+  }
+  if (normalized.includes('transfer')) return 'Transferencia'
+  if (normalized.includes('financi')) return 'Financiación'
+  return method || ''
+}
+
+function mapDbProductionStatusToUi(status: string | null | undefined): StatusType {
+  return status === 'Done' ? 'Producido' : 'Pendiente'
 }
 
 const INITIAL_INVOICE_ROWS: InvoiceRow[] = [
@@ -2029,13 +2137,18 @@ export default function BudgetsPayments({
   onClose,
   openBudgetCreation = false,
   onBudgetCreationOpened,
+  patientId,
   patientName,
   budgetRows: externalBudgetRows,
   onAddBudget,
   onUpdateBudgetRows
 }: BudgetsPaymentsProps) {
+  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
+  const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
+  const shouldUseDbSource = Boolean(patientId && activeClinicId)
+
   // Nombre del paciente para mostrar (usa prop o mock)
-  const displayPatientName = patientName || 'María García López'
+  const displayPatientName = patientName || 'Paciente'
   type TabKey = 'Presupuestos' | 'Producción' | 'Facturas' | 'Cuotas'
   const [activeTab, setActiveTab] = React.useState<TabKey>('Presupuestos')
 
@@ -2080,28 +2193,196 @@ export default function BudgetsPayments({
   // Use external budgetRows if provided, otherwise use local state
   const [localBudgetRows, setLocalBudgetRows] =
     React.useState<BudgetRow[]>(INITIAL_BUDGET_ROWS)
-  const budgetRows = externalBudgetRows ?? localBudgetRows
+  const budgetRows =
+    shouldUseDbSource ? localBudgetRows : externalBudgetRows ?? localBudgetRows
   const setBudgetRows = React.useCallback(
     (newRows: BudgetRow[] | ((prev: BudgetRow[]) => BudgetRow[])) => {
+      if (shouldUseDbSource) {
+        setLocalBudgetRows((prevRows) =>
+          typeof newRows === 'function' ? newRows(prevRows) : newRows
+        )
+        return
+      }
+
       if (typeof newRows === 'function') {
         const updatedRows = newRows(budgetRows)
-        if (onUpdateBudgetRows) {
-          onUpdateBudgetRows(updatedRows)
-        } else {
-          setLocalBudgetRows(updatedRows)
-        }
-      } else {
-        if (onUpdateBudgetRows) {
-          onUpdateBudgetRows(newRows)
-        } else {
-          setLocalBudgetRows(newRows)
-        }
+        if (onUpdateBudgetRows) onUpdateBudgetRows(updatedRows)
+        else setLocalBudgetRows(updatedRows)
+        return
       }
+
+      if (onUpdateBudgetRows) onUpdateBudgetRows(newRows)
+      else setLocalBudgetRows(newRows)
     },
-    [budgetRows, onUpdateBudgetRows]
+    [budgetRows, onUpdateBudgetRows, shouldUseDbSource]
   )
   const [invoiceRows, setInvoiceRows] =
     React.useState<InvoiceRow[]>(INITIAL_INVOICE_ROWS)
+  const [isHydrating, setIsHydrating] = React.useState(false)
+
+  const refreshFinanceData = React.useCallback(async () => {
+    if (!shouldUseDbSource || !patientId || !activeClinicId || !isClinicInitialized) {
+      return
+    }
+
+    setIsHydrating(true)
+    try {
+      const [{ data: quoteRows }, { data: invoiceRowsDb }, { data: insuranceRows }] =
+        await Promise.all([
+          supabase
+            .from('quotes')
+            .select(
+              'id, quote_number, status, total_amount, issue_date, expiry_date, signed_at, production_status, production_date'
+            )
+            .eq('clinic_id', activeClinicId)
+            .eq('patient_id', patientId)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('invoices')
+            .select(
+              'id, quote_id, invoice_number, status, issue_date, issue_timestamp, total_amount, amount_paid'
+            )
+            .eq('clinic_id', activeClinicId)
+            .eq('patient_id', patientId)
+            .order('issue_timestamp', { ascending: false }),
+          supabase
+            .from('patient_insurances')
+            .select('provider, is_primary, created_at')
+            .eq('patient_id', patientId)
+            .order('is_primary', { ascending: false })
+            .order('created_at', { ascending: false })
+            .limit(1)
+        ])
+
+      const typedQuotes = (quoteRows || []) as DbQuoteRow[]
+      const typedInvoices = (invoiceRowsDb || []) as DbInvoiceRow[]
+      const invoiceIds = typedInvoices.map((row) => row.id)
+      const insurer = String(insuranceRows?.[0]?.provider || '').trim()
+
+      let typedPayments: DbPaymentRow[] = []
+      if (invoiceIds.length > 0) {
+        const { data: paymentRows } = await supabase
+          .from('payments')
+          .select('id, invoice_id, payment_method, amount, transaction_date')
+          .eq('clinic_id', activeClinicId)
+          .in('invoice_id', invoiceIds)
+          .is('voided_at', null)
+          .order('transaction_date', { ascending: false })
+        typedPayments = (paymentRows || []) as DbPaymentRow[]
+      }
+
+      const paymentsByInvoice = new Map<number, DbPaymentRow[]>()
+      for (const payment of typedPayments) {
+        const invoiceId = Number(payment.invoice_id)
+        if (!Number.isFinite(invoiceId)) continue
+        const currentRows = paymentsByInvoice.get(invoiceId) || []
+        currentRows.push(payment)
+        paymentsByInvoice.set(invoiceId, currentRows)
+      }
+
+      const invoiceRowsMapped: InvoiceRow[] = typedInvoices.map((invoice) => {
+        const invoicePayments = paymentsByInvoice.get(invoice.id) || []
+        const paidFromPayments = invoicePayments.reduce(
+          (sum, row) => sum + Number(row.amount || 0),
+          0
+        )
+        const totalAmount = Number(invoice.total_amount || 0)
+        const fallbackPaidAmount = Number(invoice.amount_paid || 0)
+        const paidAmount = paidFromPayments > 0 ? paidFromPayments : fallbackPaidAmount
+        const effectiveStatus =
+          invoice.status || (paidAmount + 0.009 >= totalAmount ? 'paid' : 'open')
+        const latestPayment = invoicePayments[0]
+
+        return {
+          id: invoice.invoice_number || `FAC-${invoice.id}`,
+          description: invoice.quote_id
+            ? `Factura presupuesto #${invoice.quote_id}`
+            : `Factura #${invoice.id}`,
+          amount: formatEuroAmount(totalAmount),
+          date: formatShortDate(invoice.issue_timestamp || invoice.issue_date) || '—',
+          status: mapDbInvoiceStatusToUi(effectiveStatus),
+          paymentMethod: mapDbPaymentMethodToUi(latestPayment?.payment_method),
+          insurer,
+          dbInvoiceId: invoice.id,
+          quoteId: invoice.quote_id || undefined,
+          amountNumber: totalAmount,
+          amountPaidNumber: paidAmount,
+          issueTimestamp: invoice.issue_timestamp || null || undefined
+        }
+      })
+
+      const invoicesByQuoteId = new Map<number, InvoiceRow[]>()
+      for (const row of invoiceRowsMapped) {
+        if (!row.quoteId) continue
+        const list = invoicesByQuoteId.get(row.quoteId) || []
+        list.push(row)
+        invoicesByQuoteId.set(row.quoteId, list)
+      }
+
+      const budgetRowsMapped: BudgetRow[] = typedQuotes.map((quote) => {
+        const budgetInvoices = invoicesByQuoteId.get(quote.id) || []
+        const hasAcceptedInvoice = budgetInvoices.some((invoice) => invoice.status === 'Cobrado')
+        return {
+          id: quote.quote_number || `PRE-${quote.id}`,
+          quoteId: quote.id,
+          description: quote.quote_number
+            ? `Presupuesto ${quote.quote_number}`
+            : `Presupuesto #${quote.id}`,
+          amount: formatEuroAmount(Number(quote.total_amount || 0)),
+          date: formatShortDate(quote.issue_date || quote.signed_at) || '—',
+          status: hasAcceptedInvoice
+            ? 'Aceptado'
+            : mapDbQuoteStatusToUi(quote.status),
+          professional: 'Sin asignar',
+          insurer,
+          patientId,
+          patientName: displayPatientName,
+          subtotal: Number(quote.total_amount || 0),
+          validUntil: formatShortDate(quote.expiry_date) || undefined
+        }
+      })
+
+      const productionRowsMapped: ProductionRow[] = typedQuotes.map((quote) => {
+        const quoteInvoices = invoicesByQuoteId.get(quote.id) || []
+        const hasPaidInvoice = quoteInvoices.some((invoice) => invoice.status === 'Cobrado')
+
+        return {
+          id: `prod-quote-${quote.id}`,
+          quoteId: quote.id,
+          budgetId: quote.quote_number || `PRE-${quote.id}`,
+          patientId,
+          date: formatShortDate(quote.production_date || quote.signed_at) || '',
+          description: quote.quote_number
+            ? `Producción ${quote.quote_number}`
+            : `Producción presupuesto #${quote.id}`,
+          amount: formatEuroAmount(Number(quote.total_amount || 0)),
+          status: hasPaidInvoice
+            ? 'Facturado'
+            : mapDbProductionStatusToUi(quote.production_status),
+          professional: 'Sin asignar'
+        }
+      })
+
+      setLocalBudgetRows(budgetRowsMapped)
+      setProductionRows(productionRowsMapped)
+      setInvoiceRows(invoiceRowsMapped)
+    } catch (error) {
+      console.warn('Finanzas hydration failed, keeping local state', error)
+    } finally {
+      setIsHydrating(false)
+    }
+  }, [
+    activeClinicId,
+    displayPatientName,
+    isClinicInitialized,
+    patientId,
+    shouldUseDbSource,
+    supabase
+  ])
+
+  React.useEffect(() => {
+    void refreshFinanceData()
+  }, [refreshFinanceData])
 
   // === FILTER STATES ===
   // Search
@@ -2442,6 +2723,31 @@ export default function BudgetsPayments({
         row.id === rowId ? { ...row, status: newStatus } : row
       )
     )
+
+    if (!shouldUseDbSource) return
+    const target = productionRows.find((row) => row.id === rowId)
+    if (!target?.quoteId) return
+
+    void (async () => {
+      try {
+        const response = await fetch('/api/caja/production', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            quoteId: String(target.quoteId),
+            productionStatus: newStatus === 'Producido' ? 'Done' : 'Pending'
+          })
+        })
+
+        if (!response.ok) {
+          throw new Error('No se pudo actualizar el estado de producción')
+        }
+      } catch (error) {
+        console.warn('Error updating production status', error)
+      } finally {
+        await refreshFinanceData()
+      }
+    })()
   }
 
   // Handler to update budget row status
@@ -2454,6 +2760,35 @@ export default function BudgetsPayments({
         row.id === rowId ? { ...row, status: newStatus } : row
       )
     )
+
+    if (!shouldUseDbSource || !activeClinicId) return
+    const target = budgetRows.find((row) => row.id === rowId)
+    if (!target?.quoteId) return
+
+    void (async () => {
+      try {
+        const payload: Record<string, unknown> = {
+          status: mapUiBudgetStatusToDb(newStatus)
+        }
+        if (newStatus === 'Aceptado') {
+          payload.signed_at = new Date().toISOString()
+        }
+
+        const { error } = await supabase
+          .from('quotes')
+          .update(payload)
+          .eq('id', target.quoteId)
+          .eq('clinic_id', activeClinicId)
+
+        if (error) {
+          throw error
+        }
+      } catch (error) {
+        console.warn('Error updating quote status', error)
+      } finally {
+        await refreshFinanceData()
+      }
+    })()
   }
 
   // Handler to update invoice row status
@@ -2466,6 +2801,34 @@ export default function BudgetsPayments({
         row.id === rowId ? { ...row, status: newStatus } : row
       )
     )
+
+    if (!shouldUseDbSource || !activeClinicId) return
+    const target = invoiceRows.find((row) => row.id === rowId)
+    if (!target?.dbInvoiceId) return
+
+    void (async () => {
+      try {
+        const totalAmount = Number(target.amountNumber || 0)
+        const payload: Record<string, unknown> =
+          newStatus === 'Cobrado'
+            ? { status: 'paid', amount_paid: totalAmount }
+            : { status: 'open' }
+
+        const { error } = await supabase
+          .from('invoices')
+          .update(payload)
+          .eq('id', target.dbInvoiceId)
+          .eq('clinic_id', activeClinicId)
+
+        if (error) {
+          throw error
+        }
+      } catch (error) {
+        console.warn('Error updating invoice status', error)
+      } finally {
+        await refreshFinanceData()
+      }
+    })()
   }
 
   // Handler for invoice action menu items
@@ -2484,6 +2847,25 @@ export default function BudgetsPayments({
       }
       case 'eliminar':
         setInvoiceRows((prevRows) => prevRows.filter((row) => row.id !== rowId))
+        if (shouldUseDbSource && activeClinicId) {
+          const row = invoiceRows.find((item) => item.id === rowId)
+          if (row?.dbInvoiceId) {
+            void (async () => {
+              try {
+                const { error } = await supabase
+                  .from('invoices')
+                  .delete()
+                  .eq('id', row.dbInvoiceId)
+                  .eq('clinic_id', activeClinicId)
+                if (error) throw error
+              } catch (error) {
+                console.warn('Error deleting invoice', error)
+              } finally {
+                await refreshFinanceData()
+              }
+            })()
+          }
+        }
         break
       case 'ver-trazabilidad': {
         // Find the invoice row and open the traceability modal
@@ -2655,9 +3037,10 @@ Aseguradora: ${invoice.insurer || '-'}
         // Find the row and show the related invoice
         const row = productionRows.find((r) => r.id === rowId)
         if (row) {
-          // Find related invoice by matching description or ID pattern
+          // Find related invoice by quote reference first, fallback by legacy pattern
           const relatedInvoice = invoiceRows.find(
             (inv) =>
+              (row.quoteId && inv.quoteId === row.quoteId) ||
               inv.description === row.description ||
               inv.id === `F-${row.id.replace('PR-', '')}`
           )
@@ -2680,9 +3063,31 @@ Aseguradora: ${invoice.insurer || '-'}
         break
       }
       case 'eliminar':
-        setProductionRows((prevRows) =>
-          prevRows.filter((row) => row.id !== rowId)
-        )
+        if (shouldUseDbSource) {
+          const row = productionRows.find((item) => item.id === rowId)
+          if (row?.quoteId) {
+            void (async () => {
+              try {
+                await fetch('/api/caja/production', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    quoteId: String(row.quoteId),
+                    productionStatus: 'Pending'
+                  })
+                })
+              } catch (error) {
+                console.warn('Error resetting production status', error)
+              } finally {
+                await refreshFinanceData()
+              }
+            })()
+          }
+        } else {
+          setProductionRows((prevRows) =>
+            prevRows.filter((row) => row.id !== rowId)
+          )
+        }
         break
       default:
         break
@@ -2699,6 +3104,34 @@ Aseguradora: ${invoice.insurer || '-'}
             : row
         )
       )
+
+      if (shouldUseDbSource && activeClinicId && selectedProductionRow.quoteId) {
+        const parsedDate =
+          data.date && data.date.trim().length > 0
+            ? new Date(data.date)
+            : null
+        const isoDate =
+          parsedDate && !Number.isNaN(parsedDate.getTime())
+            ? parsedDate.toISOString()
+            : null
+
+        void (async () => {
+          try {
+            const { error } = await supabase
+              .from('quotes')
+              .update({
+                production_date: isoDate
+              })
+              .eq('id', selectedProductionRow.quoteId)
+              .eq('clinic_id', activeClinicId)
+            if (error) throw error
+          } catch (error) {
+            console.warn('Error editing production date', error)
+          } finally {
+            await refreshFinanceData()
+          }
+        })()
+      }
     }
   }
 
@@ -2724,12 +3157,36 @@ Aseguradora: ${invoice.insurer || '-'}
         }
       ]
     }
-    // Add the duplicated budget to the list
-    if (onAddBudget) {
-      onAddBudget(duplicatedBudget)
-    } else {
-      setBudgetRows((prev) => [duplicatedBudget, ...prev])
+    if (shouldUseDbSource && activeClinicId && patientId) {
+      void (async () => {
+        try {
+          const parsedAmount = Number(
+            String(budget.amount || '0')
+              .replace(/[€\s.]/g, '')
+              .replace(',', '.')
+          )
+          const { error } = await supabase.from('quotes').insert({
+            clinic_id: activeClinicId,
+            patient_id: patientId,
+            quote_number: null,
+            status: 'sent',
+            total_amount: Number.isFinite(parsedAmount) ? parsedAmount : 0
+          })
+          if (error) throw error
+        } catch (error) {
+          console.warn('Error duplicating quote', error)
+        } finally {
+          await refreshFinanceData()
+        }
+      })()
+      setShowBudgetDetailsModal(false)
+      return
     }
+
+    // Add the duplicated budget to the list
+    if (onAddBudget) onAddBudget(duplicatedBudget)
+    else setBudgetRows((prev) => [duplicatedBudget, ...prev])
+
     // Close details modal if open and open edit modal with the duplicated budget
     setShowBudgetDetailsModal(false)
     setSelectedBudgetRow(duplicatedBudget)
@@ -2755,13 +3212,74 @@ Aseguradora: ${invoice.insurer || '-'}
   }
 
   const handleConvertToInvoice = (budget: BudgetRow) => {
-    console.log('Convirtiendo presupuesto a factura:', budget.id)
-    // TODO: Create invoice from budget
-    alert(`Presupuesto ${budget.id} convertido a factura`)
+    if (!shouldUseDbSource || !activeClinicId || !patientId) {
+      alert(`Presupuesto ${budget.id} convertido a factura`)
+      return
+    }
+
+    void (async () => {
+      try {
+        const { data: invoiceNumberData } = await supabase.rpc(
+          'get_next_invoice_number',
+          {
+            p_clinic_id: activeClinicId,
+            p_series_id: null
+          }
+        )
+        const payload = (invoiceNumberData || {}) as Record<string, unknown>
+        const invoiceNumber =
+          typeof payload.invoice_number === 'string'
+            ? payload.invoice_number
+            : `TMP-${Date.now()}`
+        const seriesId =
+          typeof payload.series_id === 'number' ? payload.series_id : null
+
+        const totalAmount = Number(budget.subtotal || 0)
+        const { error } = await supabase.from('invoices').insert({
+          clinic_id: activeClinicId,
+          patient_id: patientId,
+          quote_id: budget.quoteId || null,
+          invoice_number: invoiceNumber,
+          status: 'open',
+          total_amount: totalAmount,
+          amount_paid: 0,
+          issue_timestamp: new Date().toISOString(),
+          series_id: seriesId
+        })
+
+        if (error) {
+          throw error
+        }
+      } catch (error) {
+        console.warn('Error converting quote to invoice', error)
+      } finally {
+        await refreshFinanceData()
+      }
+    })()
   }
 
   const handleDeleteBudget = (budgetId: string) => {
+    const budget = budgetRows.find((row) => row.id === budgetId)
     setBudgetRows((prevRows) => prevRows.filter((row) => row.id !== budgetId))
+
+    if (!shouldUseDbSource || !activeClinicId || !budget?.quoteId) return
+
+    void (async () => {
+      try {
+        const { error } = await supabase
+          .from('quotes')
+          .delete()
+          .eq('id', budget.quoteId)
+          .eq('clinic_id', activeClinicId)
+        if (error) {
+          throw error
+        }
+      } catch (error) {
+        console.warn('Error deleting quote', error)
+      } finally {
+        await refreshFinanceData()
+      }
+    })()
   }
 
   // Handler for budget action menu items
@@ -4114,8 +4632,27 @@ Aseguradora: ${invoice.insurer || '-'}
         treatments={budgetTypeTreatments}
         initialBudgetName={budgetTypeName}
         onCreateBudget={(selectedTreatments, budgetInfo) => {
-          console.log('Selected treatments:', selectedTreatments)
-          console.log('Budget info:', budgetInfo)
+          if (shouldUseDbSource && activeClinicId && patientId) {
+            void (async () => {
+              try {
+                const { error } = await supabase.from('quotes').insert({
+                  clinic_id: activeClinicId,
+                  patient_id: patientId,
+                  quote_number: null,
+                  status: 'sent',
+                  total_amount: Number(budgetInfo.total || 0),
+                  issue_date: new Date().toISOString().slice(0, 10)
+                })
+                if (error) throw error
+              } catch (error) {
+                console.warn('Error creating quote', error)
+              } finally {
+                await refreshFinanceData()
+              }
+            })()
+            setShowAddTreatmentsModal(false)
+            return
+          }
 
           // Calculate validity date (30 days from now)
           const validUntilDate = new Date()
@@ -4202,8 +4739,30 @@ Aseguradora: ${invoice.insurer || '-'}
         open={showAddProductionModal}
         onClose={() => setShowAddProductionModal(false)}
         onSubmit={(data) => {
-          console.log('New production:', data)
-          // Here you would add the new production to the list
+          if (shouldUseDbSource && activeClinicId && patientId) {
+            const parsedAmount = Number(
+              String(data.price || '')
+                .replace(/[€\s.]/g, '')
+                .replace(',', '.')
+            )
+            void (async () => {
+              try {
+                const { error } = await supabase.from('quotes').insert({
+                  clinic_id: activeClinicId,
+                  patient_id: patientId,
+                  status: 'sent',
+                  total_amount: Number.isFinite(parsedAmount) ? parsedAmount : 0,
+                  issue_date: new Date().toISOString().slice(0, 10),
+                  production_status: 'Pending'
+                })
+                if (error) throw error
+              } catch (error) {
+                console.warn('Error creating production quote', error)
+              } finally {
+                await refreshFinanceData()
+              }
+            })()
+          }
           setShowAddProductionModal(false)
         }}
       />
@@ -4214,8 +4773,34 @@ Aseguradora: ${invoice.insurer || '-'}
           setSelectedProductionRow(null)
         }}
         onSubmit={(data) => {
-          console.log('Mark as produced:', data)
           if (selectedProductionRow) {
+            if (shouldUseDbSource && selectedProductionRow.quoteId && activeClinicId) {
+              void (async () => {
+                try {
+                  await fetch('/api/caja/production', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      quoteId: String(selectedProductionRow.quoteId),
+                      productionStatus: 'Done'
+                    })
+                  })
+                  if (data.productionDate) {
+                    const { error } = await supabase
+                      .from('quotes')
+                      .update({ production_date: data.productionDate.toISOString() })
+                      .eq('id', selectedProductionRow.quoteId)
+                      .eq('clinic_id', activeClinicId)
+                    if (error) throw error
+                  }
+                } catch (error) {
+                  console.warn('Error marking production as done', error)
+                } finally {
+                  await refreshFinanceData()
+                }
+              })()
+            }
+
             // Format the selected date or use today as fallback
             const formattedDate = data.productionDate
               ? data.productionDate.toLocaleDateString('es-ES', {
@@ -4262,8 +4847,48 @@ Aseguradora: ${invoice.insurer || '-'}
           setSelectedProductionRow(null)
         }}
         onSubmit={(data) => {
-          console.log('Invoice production:', data)
           if (selectedProductionRow) {
+            if (shouldUseDbSource && activeClinicId && patientId) {
+              void (async () => {
+                try {
+                  const invoiceDateIso = data.invoiceDate
+                    ? data.invoiceDate.toISOString()
+                    : new Date().toISOString()
+                  const amountNumber = Number(
+                    selectedProductionRow.amount
+                      .replace(/[€\s.]/g, '')
+                      .replace(',', '.')
+                  )
+                  const { error } = await supabase.from('invoices').insert({
+                    clinic_id: activeClinicId,
+                    patient_id: patientId,
+                    quote_id: selectedProductionRow.quoteId || null,
+                    invoice_number: data.invoiceNumber,
+                    status: 'open',
+                    total_amount: Number.isFinite(amountNumber) ? amountNumber : 0,
+                    amount_paid: 0,
+                    issue_timestamp: invoiceDateIso
+                  })
+                  if (error) throw error
+
+                  if (selectedProductionRow.quoteId) {
+                    await fetch('/api/caja/production', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        quoteId: String(selectedProductionRow.quoteId),
+                        productionStatus: 'Done'
+                      })
+                    })
+                  }
+                } catch (error) {
+                  console.warn('Error creating invoice from production', error)
+                } finally {
+                  await refreshFinanceData()
+                }
+              })()
+            }
+
             // Format the selected date or use today as fallback
             const formattedDate = data.invoiceDate
               ? data.invoiceDate.toLocaleDateString('es-ES', {
@@ -4306,9 +4931,49 @@ Aseguradora: ${invoice.insurer || '-'}
           setSelectedInvoiceRow(null)
         }}
         onSubmit={(data) => {
-          console.log('Register payment:', data)
+          if (selectedInvoiceRow?.dbInvoiceId && shouldUseDbSource) {
+            return (async () => {
+              try {
+                const response = await fetch('/api/caja/register-payment', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    invoiceId: String(selectedInvoiceRow.dbInvoiceId),
+                    amount: data.amountToPay,
+                    paymentMethod: data.paymentMethod,
+                    transactionDate: data.paymentDate?.toISOString(),
+                    transactionId: data.reference || null,
+                    notes: selectedInvoiceRow.description
+                  })
+                })
+                const responseBody = (await response.json().catch(() => null)) as
+                  | { error?: string }
+                  | null
+                if (!response.ok) {
+                  return {
+                    ok: false,
+                    error: responseBody?.error || 'No se pudo registrar el pago'
+                  }
+                }
+
+                await refreshFinanceData()
+                setShowRegisterPaymentModal(false)
+                setSelectedInvoiceRow(null)
+                return { ok: true }
+              } catch (error) {
+                return {
+                  ok: false,
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : 'No se pudo registrar el pago'
+                }
+              }
+            })()
+          }
+
           if (selectedInvoiceRow) {
-            // Update the invoice: change status to "Cobrado" and set payment method
+            // Legacy local fallback
             setInvoiceRows((prevRows) =>
               prevRows.map((row) =>
                 row.id === selectedInvoiceRow.id
@@ -4328,6 +4993,7 @@ Aseguradora: ${invoice.insurer || '-'}
               )
             )
           }
+
           setShowRegisterPaymentModal(false)
           setSelectedInvoiceRow(null)
         }}
@@ -4358,36 +5024,7 @@ Aseguradora: ${invoice.insurer || '-'}
         budget={selectedBudgetRow}
         patientName={displayPatientName}
         onStatusChange={(budgetId, newStatus) => {
-          // Combine status change and history update in a single state update
-          setBudgetRows((prev) =>
-            prev.map((b) =>
-              b.id === budgetId
-                ? {
-                    ...b,
-                    status: newStatus,
-                    history: [
-                      ...(b.history || []),
-                      {
-                        date: new Date().toLocaleString('es-ES', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        }),
-                        action:
-                          newStatus === 'Aceptado'
-                            ? 'Presupuesto aceptado'
-                            : newStatus === 'Rechazado'
-                            ? 'Presupuesto rechazado'
-                            : 'Presupuesto reabierto',
-                        user: 'Sistema'
-                      }
-                    ]
-                  }
-                : b
-            )
-          )
+          handleBudgetStatusChange(budgetId, newStatus)
         }}
         onDuplicate={handleDuplicateBudget}
         onDelete={(budgetId) => {
@@ -4415,21 +5052,40 @@ Aseguradora: ${invoice.insurer || '-'}
           setBudgetRows((prev) =>
             prev.map((b) => (b.id === updatedBudget.id ? updatedBudget : b))
           )
+
+          if (shouldUseDbSource && activeClinicId && updatedBudget.quoteId) {
+            void (async () => {
+              try {
+                const { error } = await supabase
+                  .from('quotes')
+                  .update({
+                    status: mapUiBudgetStatusToDb(updatedBudget.status),
+                    total_amount: Number(updatedBudget.subtotal || 0),
+                    expiry_date: updatedBudget.validUntil || null
+                  })
+                  .eq('id', updatedBudget.quoteId)
+                  .eq('clinic_id', activeClinicId)
+                if (error) throw error
+              } catch (error) {
+                console.warn('Error updating quote', error)
+              } finally {
+                await refreshFinanceData()
+              }
+            })()
+          }
         }}
       />
       <BudgetQuickPaymentModal
         open={showQuickPaymentModal}
         onClose={() => setShowQuickPaymentModal(false)}
         onPaymentSubmit={(data: QuickPaymentFormData) => {
-          console.log('Pago de cuotas registrado:', data)
-          // TODO: Integrar con el contexto para registrar el pago
-          // - Actualizar estado de las cuotas seleccionadas
-          // - Añadir entrada al historial de pagos
-          // - Sincronizar con CashClosingContext
+          if (shouldUseDbSource) {
+            void refreshFinanceData()
+          }
           setShowQuickPaymentModal(false)
         }}
         patientName={displayPatientName}
-        patientId='current-patient'
+        patientId={patientId || ''}
         budgets={budgetRows.filter((b) => b.installmentPlan)}
       />
       {/* Production Details Modal */}
@@ -4462,6 +5118,8 @@ Aseguradora: ${invoice.insurer || '-'}
         onViewInvoice={() => {
           const relatedInvoice = invoiceRows.find(
             (inv) =>
+              (selectedProductionRow?.quoteId &&
+                inv.quoteId === selectedProductionRow.quoteId) ||
               inv.description === selectedProductionRow?.description ||
               inv.id === `F-${selectedProductionRow?.id.replace('PR-', '')}`
           )

@@ -583,7 +583,8 @@ type AppointmentsContextType = {
   ) => void
   addAttachment: (
     appointmentId: string,
-    attachment: Omit<VisitAttachment, 'id'>
+    attachment: Omit<VisitAttachment, 'id'>,
+    options?: { persistToDb?: boolean }
   ) => void
   removeAttachment: (appointmentId: string, attachmentId: string) => void
 }
@@ -2293,7 +2294,12 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
 
   // Añadir archivo adjunto a una cita
   const addAttachment = useCallback(
-    (appointmentId: string, attachment: Omit<VisitAttachment, 'id'>) => {
+    (
+      appointmentId: string,
+      attachment: Omit<VisitAttachment, 'id'>,
+      options?: { persistToDb?: boolean }
+    ) => {
+      const shouldPersist = options?.persistToDb !== false
       let patientId: string | undefined
       const newAttachment: VisitAttachment = {
         ...attachment,
@@ -2311,6 +2317,8 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         })
       })
       console.log(`✅ Archivo adjunto añadido a cita ${appointmentId}`)
+
+      if (!shouldPersist) return
 
       void (async () => {
         const staffId = staffIdRef.current

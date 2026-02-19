@@ -9,6 +9,7 @@ import {
   useState
 } from 'react'
 import { useClinic } from '@/context/ClinicContext'
+import { uploadPatientFile } from '@/lib/storage'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 // ============================================
@@ -172,13 +173,13 @@ type PatientFilesContextType = {
     patientId: string,
     appointmentId: string,
     uploadedBy: string
-  ) => Promise<string>
+  ) => Promise<{ id: string; storagePath: string }>
   addOdontogramFromClinicalHistory: (
     file: File,
     patientId: string,
     appointmentId: string,
     uploadedBy: string
-  ) => Promise<string>
+  ) => Promise<{ id: string; storagePath: string }>
 }
 
 const PatientFilesContext = createContext<PatientFilesContextType | undefined>(
@@ -550,8 +551,12 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
       patientId: string,
       appointmentId: string,
       uploadedBy: string
-    ): Promise<string> => {
-      const url = URL.createObjectURL(file)
+    ): Promise<{ id: string; storagePath: string }> => {
+      const { path } = await uploadPatientFile({
+        patientId,
+        file,
+        kind: 'consents'
+      })
       const now = new Date()
       const sentAt = now.toLocaleDateString('es-ES', {
         day: '2-digit',
@@ -563,7 +568,7 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
         patientId,
         name: file.name,
         type: 'document',
-        url,
+        url: path,
         mimeType: file.type,
         size: file.size,
         uploadedAt: now.toISOString(),
@@ -577,7 +582,7 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
       console.log(
         `✅ Documento subido desde historial clínico y guardado en consentimientos: ${file.name}`
       )
-      return id
+      return { id, storagePath: path }
     },
     [addFile]
   )
@@ -589,15 +594,19 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
       patientId: string,
       appointmentId: string,
       uploadedBy: string
-    ): Promise<string> => {
-      const url = URL.createObjectURL(file)
+    ): Promise<{ id: string; storagePath: string }> => {
+      const { path } = await uploadPatientFile({
+        patientId,
+        file,
+        kind: 'rx'
+      })
       const now = new Date()
 
       const newFile: Omit<PatientFile, 'id'> = {
         patientId,
         name: file.name.replace(/\.[^/.]+$/, '') || 'Odontograma',
         type: 'odontogram',
-        url,
+        url: path,
         mimeType: file.type,
         size: file.size,
         uploadedAt: now.toISOString(),
@@ -610,7 +619,7 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
       console.log(
         `✅ Odontograma subido desde historial clínico y guardado en imágenes RX: ${file.name}`
       )
-      return id
+      return { id, storagePath: path }
     },
     [addFile]
   )
