@@ -38,6 +38,14 @@ type PatientAlert = {
   description?: string | null
 }
 
+type PatientMedicalAlertRow = {
+  alert_type?: string | null
+  description?: string | null
+  severity?: string | null
+  category?: string | null
+  is_critical?: boolean | null
+}
+
 const ALERT_CATEGORY_LABELS: Record<string, string> = {
   allergy: 'Alergias',
   accessibility: 'Accesibilidad',
@@ -50,6 +58,41 @@ const CATEGORY_CHIP_COLORS: Record<string, { bg: string; text: string; border?: 
   allergy: { bg: '#FEE2E2', text: '#B91C1C', border: '#FCA5A5' }, // red
   accessibility: { bg: '#FEF3C7', text: '#B45309', border: '#FCD34D' }, // amber/yellow
   habit: { bg: '#FFEDD5', text: '#C2410C', border: '#FDBA74' } // orange
+}
+
+const LEAD_SOURCE_LABELS: Record<string, string> = {
+  referencia: 'Recomendación',
+  social: 'Redes sociales',
+  ads: 'Publicidad',
+  otro: 'Otro'
+}
+
+function toDisplayText(value: unknown): string {
+  if (typeof value !== 'string') return '—'
+  const normalized = value.trim()
+  return normalized.length > 0 ? normalized : '—'
+}
+
+function formatLeadSource(value: unknown): string {
+  const raw = toDisplayText(value)
+  if (raw === '—') return raw
+  return LEAD_SOURCE_LABELS[raw.toLowerCase()] ?? raw
+}
+
+function formatPatientStatus(statusValue: unknown, preRegistrationComplete: unknown): string {
+  const raw = toDisplayText(statusValue)
+  if (raw !== '—') {
+    const key = raw.toLowerCase()
+    if (key === 'active' || key === 'activo') return 'Activo'
+    if (key === 'inactive' || key === 'inactivo') return 'Inactivo'
+    if (key === 'discharged' || key === 'alta') return 'Alta'
+    if (key === 'pre_registration' || key === 'pre-registro') return 'Pre-registro'
+    return raw
+  }
+
+  if (preRegistrationComplete === false) return 'Pre-registro'
+  if (preRegistrationComplete === true) return 'Activo'
+  return '—'
 }
 
 export default function ClientSummary({ onClose, patientId }: ClientSummaryProps) {
@@ -67,6 +110,10 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
   const [emergencyName, setEmergencyName] = React.useState<string>('—')
   const [emergencyEmail, setEmergencyEmail] = React.useState<string>('—')
   const [emergencyPhone, setEmergencyPhone] = React.useState<string>('—')
+  const [consultationStatus, setConsultationStatus] = React.useState<string>('—')
+  const [consultationReason, setConsultationReason] = React.useState<string>('—')
+  const [clientSource, setClientSource] = React.useState<string>('—')
+  const [referredBy, setReferredBy] = React.useState<string>('—')
   const [isEditing, setIsEditing] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
   const [alertTagsByCat, setAlertTagsByCat] = React.useState<Record<string, string[]>>({
@@ -101,9 +148,7 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
       // Patient core data
       const { data: p } = await supabase
         .from('patients')
-        .select(
-          'first_name, last_name, email, phone_number, national_id, address_country, preferred_language, occupation, date_of_birth, avatar_url, emergency_contact_name, emergency_contact_email, emergency_contact_phone, primary_contact_id'
-        )
+        .select('*')
         .eq('id', patientId)
         .maybeSingle()
       
@@ -166,7 +211,30 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
           if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--
           setAgeText(`${age} años`)
         }
+
+        setConsultationStatus(
+          formatPatientStatus(
+            p.status ?? p.patient_status ?? p.registration_status ?? p.onboarding_status,
+            p.pre_registration_complete
+          )
+        )
+        setClientSource(formatLeadSource(p.lead_source ?? p.source))
+        setReferredBy(toDisplayText(p.referred_by_name ?? p.referrer_name))
       }
+
+      const { data: healthProfile } = await supabase
+        .from('patient_health_profiles')
+        .select('main_complaint, motivo_consulta')
+        .eq('patient_id', patientId)
+        .maybeSingle()
+
+      setConsultationReason(
+        toDisplayText(
+          healthProfile?.main_complaint ??
+            healthProfile?.motivo_consulta ??
+            p?.consultation_reason
+        )
+      )
       // Medical alerts (allergies, chronic conditions, etc.)
       const { data: alertRows } = await supabase
         .from('patient_medical_alerts')
@@ -176,7 +244,7 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
         .limit(10)
       if (Array.isArray(alertRows)) {
         const normalized = alertRows
-          .map((row: any) => {
+          .map((row: PatientMedicalAlertRow) => {
             const rawSeverity: string | null = row?.severity ?? null
             let severity: AlertSeverity
             if (rawSeverity === 'low' || rawSeverity === 'medium' || rawSeverity === 'high') {
@@ -200,8 +268,11 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
           habit: []
         }
         normalized.forEach((a) => {
-          const cat = (a.category as string) || 'allergy'
-          const key = ALERT_CATEGORIES.includes(cat as any) ? cat : 'allergy'
+          const cat = a.category ?? 'allergy'
+          const key: (typeof ALERT_CATEGORIES)[number] =
+            cat === 'allergy' || cat === 'accessibility' || cat === 'habit'
+              ? cat
+              : 'allergy'
           if (a.label) grouped[key].push(a.label)
         })
         setAlertTagsByCat(grouped)
@@ -250,7 +321,7 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
         // ignore
       }
     },
-    [patientId, supabase, setAvatarPreviewUrl]
+    [patientId]
   )
 
   React.useEffect(() => {
@@ -389,8 +460,8 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
 
             <Section title='Consulta'>
               <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-[#535c66]'>
-                <LabelValue label='Estado' value='Pre-registro' />
-                <LabelValue label='Motivo de la consulta' value='—' />
+                <LabelValue label='Estado' value={consultationStatus} />
+                <LabelValue label='Motivo de la consulta' value={consultationReason} />
               </div>
             </Section>
           </div>
@@ -398,8 +469,8 @@ export default function ClientSummary({ onClose, patientId }: ClientSummaryProps
           <div className='grid md:grid-cols-2 gap-10'>
             <Section title='Información adicional'>
               <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-[#535c66]'>
-                <LabelValue label='Origen del cliente' value='Recomendación' />
-                <LabelValue label='Recomendado por' value='Sonia Pujante' />
+                <LabelValue label='Origen del cliente' value={clientSource} />
+                <LabelValue label='Recomendado por' value={referredBy} />
                 <LabelValue label='Ocupación' value={occupation} />
                 <LabelValue label='Idioma de preferencia' value={preferredLanguage} />
               </div>
@@ -660,5 +731,3 @@ function LabelValue({ label, value }: { label: string; value: React.ReactNode })
     </div>
   )
 }
-
-

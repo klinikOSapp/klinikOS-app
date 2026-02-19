@@ -6,8 +6,6 @@ import {
   EditRounded,
   MailRounded,
   MoreVertRounded,
-  SearchRounded,
-  FilterListRounded,
   AppsRounded
 } from '@/components/icons/md3'
 import AvatarImageDropdown from '@/components/pacientes/AvatarImageDropdown'
@@ -50,6 +48,24 @@ type RecentHistoryItem = {
   descripcion: string
 }
 
+type AlertSeverity = 'low' | 'medium' | 'high'
+
+type AlertTag = {
+  label: string
+  severity: AlertSeverity
+}
+
+type CalendarAppointmentRow = {
+  id: number
+  patient_id: string | null
+  scheduled_start_time: string | null
+  scheduled_end_time: string | null
+  status: string | null
+  notes: string | null
+  service_name?: string | null
+  staff_assigned?: Array<{ staff_id?: string | null; full_name?: string | null }> | null
+}
+
 type ResumenPatientData = {
   nombre: string
   edad: string
@@ -64,8 +80,8 @@ type ResumenPatientData = {
     estado: string
   }
   informacionCritica: {
-    alergias: string[]
-    enfermedades: string[]
+    alergias: AlertTag[]
+    enfermedades: AlertTag[]
     medicacion: string[]
     notas: string
   }
@@ -76,34 +92,120 @@ type ResumenPatientData = {
   historialReciente: RecentHistoryItem[]
 }
 
-const DEFAULT_PATIENT_DATA: ResumenPatientData = {
-  nombre: '—',
-  edad: '—',
-  email: '—',
-  telefono: '—',
-  proximaCita: {
-    tipo: 'Sin próxima cita',
-    fecha: '—',
-    hora: '—',
-    doctora: '—',
-    duracion: '—',
-    estado: 'Pendiente'
-  },
-  informacionCritica: {
-    alergias: [],
-    enfermedades: [],
-    medicacion: [],
-    notas: '—'
-  },
-  tratamientosPendientes: [],
-  saldoPendiente: '0,00 €',
-  documentosPendientes: [],
-  facturasVencidas: [],
-  historialReciente: []
+function parseListField(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item || '').trim())
+      .filter(Boolean)
+  }
+
+  if (typeof value !== 'string') return []
+
+  const trimmed = value.trim()
+  if (!trimmed) return []
+
+  try {
+    const parsed = JSON.parse(trimmed)
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((item) => String(item || '').trim())
+        .filter(Boolean)
+    }
+  } catch {
+    // Continue with plain text parsing
+  }
+
+  return trimmed
+    .split(/[,\n;]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function createInitialPatientData(patientName?: string): ResumenPatientData {
+  return {
+    nombre: patientName?.trim() || 'Paciente',
+    edad: 'No disponible',
+    email: 'No registrado',
+    telefono: 'No registrado',
+    proximaCita: {
+      tipo: 'Sin próxima cita',
+      fecha: 'Sin fecha',
+      hora: '',
+      doctora: 'Sin asignar',
+      duracion: 'No especificada',
+      estado: 'Pendiente'
+    },
+    informacionCritica: {
+      alergias: [],
+      enfermedades: [],
+      medicacion: [],
+      notas: 'Sin notas clínicas registradas.'
+    },
+    tratamientosPendientes: [],
+    saldoPendiente: '0,00 €',
+    documentosPendientes: [],
+    facturasVencidas: [],
+    historialReciente: []
+  }
+}
+
+function getAlertSeverity(value: unknown, isCritical: unknown): AlertSeverity {
+  const raw = String(value || '').toLowerCase()
+  if (raw === 'low' || raw === 'medium' || raw === 'high') return raw
+  return isCritical ? 'high' : 'medium'
+}
+
+function getAlertTagClasses(severity: AlertSeverity): string {
+  if (severity === 'high') {
+    return 'bg-[#f7b7ba] text-red-700'
+  }
+  if (severity === 'medium') {
+    return 'bg-[#FEF3C7] text-[#B45309]'
+  }
+  return 'bg-[#DBEAFE] text-[#1D4ED8]'
+}
+
+function severityRank(severity: AlertSeverity): number {
+  if (severity === 'high') return 3
+  if (severity === 'medium') return 2
+  return 1
+}
+
+function mergeAlertTags(...groups: AlertTag[][]): AlertTag[] {
+  const merged = new Map<string, AlertTag>()
+
+  for (const group of groups) {
+    for (const tag of group) {
+      const label = String(tag.label || '').trim()
+      if (!label) continue
+      const key = label.toLowerCase()
+      const existing = merged.get(key)
+      if (!existing || severityRank(tag.severity) > severityRank(existing.severity)) {
+        merged.set(key, { label, severity: tag.severity })
+      }
+    }
+  }
+
+  return Array.from(merged.values())
+}
+
+function parseValidDate(value: string | null | undefined): Date | null {
+  if (!value) return null
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed
+}
+
+function mapAppointmentStatusToLabel(status: string | null | undefined): string {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'confirmed') return 'Confirmado'
+  if (normalized === 'completed') return 'Completado'
+  if (normalized === 'in_progress' || normalized === 'checked_in') return 'En curso'
+  if (normalized === 'cancelled' || normalized === 'no_show') return 'Cancelado'
+  return 'Pendiente'
 }
 
 export default function Resumen({
-  onClose,
   patientId,
   patientName,
   onNavigateToTreatments,
@@ -114,10 +216,9 @@ export default function Resumen({
   onNavigateToPrescriptions
 }: ResumenProps) {
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
-  const [patientData, setPatientData] = React.useState<ResumenPatientData>(() => ({
-    ...DEFAULT_PATIENT_DATA,
-    nombre: patientName || DEFAULT_PATIENT_DATA.nombre
-  }))
+  const [patientData, setPatientData] = React.useState<ResumenPatientData>(() =>
+    createInitialPatientData(patientName)
+  )
   const [avatarPreviewUrl, setAvatarPreviewUrl] = React.useState<string | null>(
     null
   )
@@ -137,6 +238,10 @@ export default function Resumen({
   }, [])
 
   React.useEffect(() => {
+    setPatientData(createInitialPatientData(patientName))
+  }, [patientId, patientName])
+
+  React.useEffect(() => {
     let isMounted = true
 
     async function hydrateResumen() {
@@ -144,7 +249,7 @@ export default function Resumen({
       try {
         const { data: patient } = await supabase
           .from('patients')
-          .select('id, first_name, last_name, email, phone_number, date_of_birth')
+          .select('id, clinic_id, first_name, last_name, email, phone_number, date_of_birth')
           .eq('id', patientId)
           .maybeSingle()
 
@@ -152,8 +257,8 @@ export default function Resumen({
 
         const fullName =
           [patient.first_name, patient.last_name].filter(Boolean).join(' ') ||
-          patientName ||
-          DEFAULT_PATIENT_DATA.nombre
+          patientName?.trim() ||
+          'Paciente'
         const years = patient.date_of_birth
           ? Math.max(
               0,
@@ -162,26 +267,41 @@ export default function Resumen({
           : null
 
         const nowIso = new Date().toISOString()
+        const startDate = new Date()
+        startDate.setDate(startDate.getDate() - 1)
+        const endDate = new Date()
+        endDate.setDate(endDate.getDate() + 365)
+        const dateFrom = startDate.toISOString().slice(0, 10)
+        const dateTo = endDate.toISOString().slice(0, 10)
+        const nowMs = Date.now()
 
         const [
-          { data: nextAppointments },
+          { data: calendarRows },
           { data: alerts },
+          { data: healthProfile },
           { data: pendingConsents },
           { data: openInvoices },
           { data: pendingTreatments }
         ] = await Promise.all([
-          supabase
-            .from('appointments')
-            .select('scheduled_start_time, scheduled_end_time, status, notes')
-            .eq('patient_id', patientId)
-            .gte('scheduled_start_time', nowIso)
-            .order('scheduled_start_time', { ascending: true })
-            .limit(1),
+          patient.clinic_id
+            ? supabase.rpc('get_appointments_calendar', {
+                p_clinic_id: patient.clinic_id,
+                p_start_date: dateFrom,
+                p_end_date: dateTo,
+                p_staff_id: null,
+                p_box_id: null
+              })
+            : Promise.resolve({ data: [] as CalendarAppointmentRow[] }),
           supabase
             .from('patient_medical_alerts')
-            .select('alert_type, description')
+            .select('alert_type, description, category, severity, is_critical')
             .eq('patient_id', patientId)
-            .limit(50),
+            .limit(200),
+          supabase
+            .from('patient_health_profiles')
+            .select('allergies, medications, main_complaint, motivo_consulta')
+            .eq('patient_id', patientId)
+            .maybeSingle(),
           supabase
             .from('patient_consents')
             .select('consent_type, status')
@@ -204,36 +324,122 @@ export default function Resumen({
             .limit(10)
         ])
 
-        const nextAppointment = nextAppointments?.[0]
-        const startAt = nextAppointment?.scheduled_start_time
-          ? new Date(nextAppointment.scheduled_start_time)
-          : null
-        const endAt = nextAppointment?.scheduled_end_time
-          ? new Date(nextAppointment.scheduled_end_time)
-          : null
+        const nextAppointmentFromCalendar = ((calendarRows || []) as CalendarAppointmentRow[])
+          .filter((row) => row.patient_id === patientId)
+          .map((row) => ({
+            ...row,
+            __startAt: parseValidDate(row.scheduled_start_time),
+            __endAt: parseValidDate(row.scheduled_end_time)
+          }))
+          .filter((row) => row.__startAt && row.__startAt.getTime() >= nowMs)
+          .sort((a, b) => a.__startAt!.getTime() - b.__startAt!.getTime())[0]
+
+        let nextAppointment:
+          | {
+              scheduled_start_time: string | null
+              scheduled_end_time: string | null
+              status: string | null
+              notes: string | null
+              service_name?: string | null
+              staff_assigned?: Array<{
+                staff_id?: string | null
+                full_name?: string | null
+              }> | null
+            }
+          | null = nextAppointmentFromCalendar ?? null
+
+        if (!nextAppointment) {
+          const { data: nextAppointmentsFallback } = await supabase
+            .from('appointments')
+            .select('scheduled_start_time, scheduled_end_time, status, notes')
+            .eq('patient_id', patientId)
+            .gte('scheduled_start_time', nowIso)
+            .order('scheduled_start_time', { ascending: true })
+            .limit(1)
+          nextAppointment = nextAppointmentsFallback?.[0] ?? null
+        }
+
+        const startAt = parseValidDate(nextAppointment?.scheduled_start_time)
+        const endAt = parseValidDate(nextAppointment?.scheduled_end_time)
         const nextDuration =
           startAt && endAt
             ? `${Math.max(
                 15,
                 Math.round((endAt.getTime() - startAt.getTime()) / 60000)
               )} minutos`
-            : DEFAULT_PATIENT_DATA.proximaCita.duracion
+            : 'No especificada'
 
         const debt = (openInvoices || []).reduce((sum, inv) => {
           return sum + (Number(inv.total_amount || 0) - Number(inv.amount_paid || 0))
         }, 0)
 
+        const allergyTagsFromAlerts =
+          alerts
+            ?.filter((alert) => {
+              const category = String(alert.category || '').toLowerCase()
+              const alertType = String(alert.alert_type || '').toLowerCase()
+              if (category) return category === 'allergy'
+              if (alertType === 'allergy') return true
+              // Legacy rows often don't set category; treat them as allergies by default.
+              return true
+            })
+            .map((alert) => ({
+              label: String(alert.alert_type || alert.description || 'Alerta').trim(),
+              severity: getAlertSeverity(alert.severity, alert.is_critical)
+            }))
+            .filter((alert) => Boolean(alert.label))
+            || []
+
+        const conditionsFromAlerts =
+          alerts
+            ?.filter((alert) => {
+              const category = String(alert.category || '').toLowerCase()
+              return category === 'condition'
+            })
+            .map((alert) => ({
+              label: String(alert.alert_type || alert.description || 'Alerta').trim(),
+              severity: getAlertSeverity(alert.severity, alert.is_critical)
+            }))
+            .filter(Boolean)
+            || []
+
+        const allergiesFromProfile = parseListField(healthProfile?.allergies)
+        const allergyTagsFromProfile: AlertTag[] = allergiesFromProfile.map((label) => ({
+          label,
+          severity: 'medium'
+        }))
+        const combinedAllergyTags = mergeAlertTags(
+          allergyTagsFromAlerts,
+          allergyTagsFromProfile
+        )
+        const medicationsFromProfile = parseListField(healthProfile?.medications)
+        const baseData = createInitialPatientData(fullName)
+        const assignedStaff = Array.isArray(nextAppointment?.staff_assigned)
+          ? nextAppointment.staff_assigned[0]
+          : null
+        const doctorName =
+          String(assignedStaff?.full_name || '').trim() ||
+          baseData.proximaCita.doctora
+        const clinicalNotes =
+          String(
+            healthProfile?.main_complaint || healthProfile?.motivo_consulta || ''
+          ).trim() || baseData.informacionCritica.notas
+
         if (!isMounted) return
-        setPatientData((prev) => ({
-          ...prev,
+
+        setPatientData({
+          ...baseData,
           nombre: fullName,
-          edad: years !== null ? `${years} años` : prev.edad,
-          email: patient.email || prev.email,
-          telefono: patient.phone_number || prev.telefono,
+          edad: years !== null ? `${years} años` : baseData.edad,
+          email: patient.email || baseData.email,
+          telefono: patient.phone_number || baseData.telefono,
           proximaCita: startAt
             ? {
-                ...prev.proximaCita,
-                tipo: nextAppointment?.notes || prev.proximaCita.tipo,
+                ...baseData.proximaCita,
+                tipo:
+                  nextAppointment?.service_name ||
+                  nextAppointment?.notes ||
+                  baseData.proximaCita.tipo,
                 fecha: startAt.toLocaleDateString(DEFAULT_LOCALE, {
                   timeZone: DEFAULT_TIMEZONE
                 }),
@@ -242,27 +448,17 @@ export default function Resumen({
                   hour: '2-digit',
                   minute: '2-digit'
                 }),
+                doctora: doctorName,
                 duracion: nextDuration,
-                estado:
-                  nextAppointment?.status === 'confirmed'
-                    ? 'Confirmado'
-                    : nextAppointment?.status === 'completed'
-                    ? 'Completado'
-                    : 'Pendiente'
+                estado: mapAppointmentStatusToLabel(nextAppointment?.status)
               }
-            : prev.proximaCita,
+            : baseData.proximaCita,
           informacionCritica: {
-            ...prev.informacionCritica,
-            alergias:
-              alerts
-                ?.filter((a) => a.alert_type === 'allergy')
-                .map((a) => a.description)
-                .slice(0, 4) || prev.informacionCritica.alergias,
-            enfermedades:
-              alerts
-                ?.filter((a) => a.alert_type !== 'allergy')
-                .map((a) => a.description)
-                .slice(0, 4) || prev.informacionCritica.enfermedades
+            ...baseData.informacionCritica,
+            alergias: combinedAllergyTags,
+            enfermedades: conditionsFromAlerts,
+            medicacion: medicationsFromProfile,
+            notas: clinicalNotes
           },
           tratamientosPendientes:
             pendingTreatments?.map((t) => ({
@@ -271,11 +467,11 @@ export default function Resumen({
                 ? new Date(t.scheduled_date).toLocaleDateString(DEFAULT_LOCALE, {
                     timeZone: DEFAULT_TIMEZONE
                   })
-                : '—',
-              doctora: prev.proximaCita.doctora,
+                : 'Sin fecha',
+              doctora: baseData.proximaCita.doctora,
               precio: `${Number(t.final_amount || 0).toFixed(2)}€`,
               estado: t.status === 'in_progress' ? 'En curso' : 'Pendiente'
-            })) || prev.tratamientosPendientes,
+            })) || [],
           saldoPendiente: `${debt.toLocaleString(DEFAULT_LOCALE, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
@@ -284,7 +480,7 @@ export default function Resumen({
             pendingConsents?.map((c) => ({
               tipo: 'Consentimiento',
               descripcion: c.consent_type
-            })) || prev.documentosPendientes,
+            })) || [],
           facturasVencidas:
             openInvoices
               ?.filter((inv) => inv.status === 'overdue')
@@ -294,8 +490,8 @@ export default function Resumen({
                 importe: `${(
                   Number(inv.total_amount || 0) - Number(inv.amount_paid || 0)
                 ).toFixed(2)}€`
-              })) || prev.facturasVencidas
-        }))
+              })) || []
+        })
       } catch (error) {
         console.warn('Resumen hydration failed', error)
       }
@@ -426,7 +622,9 @@ export default function Resumen({
           <p
             className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[0.875rem]"
           >
-            {patientData.proximaCita.fecha} - {patientData.proximaCita.hora}
+            {patientData.proximaCita.hora
+              ? `${patientData.proximaCita.fecha} - ${patientData.proximaCita.hora}`
+              : patientData.proximaCita.fecha}
           </p>
           <p
             className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[0.875rem]"
@@ -476,9 +674,11 @@ export default function Resumen({
               {patientData.informacionCritica.alergias.map((alergia, idx) => (
                 <span
                   key={idx}
-                  className='inline-block px-[0.75rem] py-[0.375rem] bg-[#f7b7ba] text-[0.75rem] text-red-700 rounded-full font-medium'
+                  className={`inline-block px-[0.75rem] py-[0.375rem] text-[0.75rem] rounded-full font-medium ${getAlertTagClasses(
+                    alergia.severity
+                  )}`}
                 >
-                  {alergia}
+                  {alergia.label}
                 </span>
               ))}
             </div>
@@ -491,11 +691,18 @@ export default function Resumen({
             >
               Enfermedades
             </p>
-            <p
-              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[1rem]"
-            >
-              {patientData.informacionCritica.enfermedades.join(', ')}
-            </p>
+            <div className='flex flex-wrap gap-[0.5rem]'>
+              {patientData.informacionCritica.enfermedades.map((enfermedad, idx) => (
+                <span
+                  key={idx}
+                  className={`inline-block px-[0.75rem] py-[0.375rem] text-[0.75rem] rounded-full font-medium ${getAlertTagClasses(
+                    enfermedad.severity
+                  )}`}
+                >
+                  {enfermedad.label}
+                </span>
+              ))}
+            </div>
           </div>
 
           {/* Medicación actual */}

@@ -361,6 +361,7 @@ export default function PatientRecordModal({
                   {active === 'Información General' && (
                     <ClientSummary
                       onClose={onClose}
+                      patientId={patientId}
                       initialEditMode={shouldOpenEdit}
                       onEditModeOpened={() => setShouldOpenEdit(false)}
                     />
