@@ -210,6 +210,8 @@ export type Appointment = {
   professional: string
   professionalId?: string
   serviceId?: number | null
+  invoiceId?: string
+  invoiceNumber?: string
   reason: string // motivo de consulta
   status: AppointmentStatus
   // Para vista de día (box)
@@ -273,6 +275,15 @@ type DbCalendarAppointmentRow = {
     content?: string
     content_json?: Record<string, unknown> | unknown[]
   }> | null
+}
+
+type DbInvoiceDebtRow = {
+  id: number
+  patient_id: string
+  invoice_number?: string | null
+  issue_timestamp?: string | null
+  total_amount: number | string | null
+  amount_paid: number | string | null
 }
 
 type DbAppointmentHoldRow = {
@@ -626,7 +637,13 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         const dateFrom = startDate.toISOString().slice(0, 10)
         const dateTo = endDate.toISOString().slice(0, 10)
 
-        const [{ data: calendarRows }, { data: boxRows }, { data: holdRows }, { data: paymentRows }] =
+        const [
+          { data: calendarRows },
+          { data: boxRows },
+          { data: holdRows },
+          { data: paymentRows },
+          { data: debtInvoiceRows }
+        ] =
           await Promise.all([
             supabase.rpc('get_appointments_calendar', {
               p_clinic_id: clinicId,
@@ -652,8 +669,55 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
               .select('id, invoice_id, amount, payment_method, transaction_date, notes')
               .eq('clinic_id', clinicId)
               .order('transaction_date', { ascending: false })
-              .limit(500)
+              .limit(500),
+            supabase
+              .from('invoices')
+              .select(
+                'id, patient_id, invoice_number, issue_timestamp, total_amount, amount_paid'
+              )
+              .eq('clinic_id', clinicId)
+              .in('status', ['open', 'overdue'])
+              .order('issue_timestamp', { ascending: false })
           ])
+
+        const roundCurrency = (value: number): number =>
+          Number(value.toFixed(2))
+
+        const patientDebtMap = new Map<
+          string,
+          { totalAmount: number; paidAmount: number; pendingAmount: number }
+        >()
+        const invoiceMetaByPatient = new Map<
+          string,
+          { invoiceId: string; invoiceNumber?: string }
+        >()
+        for (const row of (debtInvoiceRows || []) as DbInvoiceDebtRow[]) {
+          const patientId = String(row.patient_id || '').trim()
+          if (!patientId) continue
+          const totalAmount = Number(row.total_amount || 0)
+          const paidAmount = Number(row.amount_paid || 0)
+          const pendingAmount = Math.max(0, totalAmount - paidAmount)
+          if (pendingAmount <= 0) continue
+
+          const previous = patientDebtMap.get(patientId) || {
+            totalAmount: 0,
+            paidAmount: 0,
+            pendingAmount: 0
+          }
+          patientDebtMap.set(patientId, {
+            totalAmount: previous.totalAmount + totalAmount,
+            paidAmount: previous.paidAmount + paidAmount,
+            pendingAmount: previous.pendingAmount + pendingAmount
+          })
+
+          if (!invoiceMetaByPatient.has(patientId)) {
+            invoiceMetaByPatient.set(patientId, {
+              invoiceId: String(row.id),
+              invoiceNumber: row.invoice_number || undefined
+            })
+          }
+
+        }
 
         const boxMapById = new Map<string, string>()
         const boxMapByLabel = new Map<string, string>()
@@ -759,6 +823,19 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
             }
           }
 
+          const patientDebt =
+            row.patient_id ? patientDebtMap.get(row.patient_id) : undefined
+          const paymentInfo = patientDebt
+            ? {
+                totalAmount: roundCurrency(patientDebt.totalAmount),
+                paidAmount: roundCurrency(patientDebt.paidAmount),
+                pendingAmount: roundCurrency(patientDebt.pendingAmount),
+                currency: '€'
+              }
+            : undefined
+          const invoiceMeta =
+            row.patient_id ? invoiceMetaByPatient.get(row.patient_id) : undefined
+
           return {
             id: String(row.id),
             date: toIsoDate(startIso),
@@ -770,14 +847,18 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
             professional: firstStaff?.full_name || 'Profesional',
             professionalId: firstStaff?.staff_id || undefined,
             serviceId: row.service_id ?? null,
+            invoiceId: invoiceMeta?.invoiceId,
+            invoiceNumber: invoiceMeta?.invoiceNumber,
             reason,
             status: statusInfo.status,
             box: row.box_name || undefined,
-            charge: 'No',
+            charge:
+              paymentInfo && paymentInfo.pendingAmount > 0 ? 'Si' : 'No',
             notes: row.notes || undefined,
             completed: statusInfo.completed,
             confirmed: statusInfo.confirmed,
             visitStatus: mapDbToVisitStatus(row.status),
+            paymentInfo,
             linkedTreatments,
             soapNotes,
             attachments: attachmentByAppointment.get(String(row.id)) || []
@@ -1378,19 +1459,92 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
               null
           }
 
-          const { error } = await supabase
-            .from('appointments')
-            .update(dbUpdates)
-            .eq('id', numericId)
-            .eq('clinic_id', clinicId)
+          const shouldTryPostFallback = (error: unknown): boolean => {
+            const errorText = JSON.stringify(error || {}).toLowerCase()
+            return (
+              errorText.includes('failed to fetch') ||
+              errorText.includes('cors') ||
+              errorText.includes('method patch is not allowed')
+            )
+          }
 
-          if (error) {
-            console.warn('No se pudo actualizar cita en DB', error)
+          let updateError: unknown = null
+
+          try {
+            const { error } = await supabase
+              .from('appointments')
+              .update(dbUpdates)
+              .eq('id', numericId)
+              .eq('clinic_id', clinicId)
+
+            if (error) {
+              updateError = error
+            }
+          } catch (error) {
+            updateError = error
+          }
+
+          if (
+            updateError &&
+            shouldTryPostFallback(updateError) &&
+            currentAppointment?.patientId
+          ) {
+            const fallbackStartIso =
+              (dbUpdates.scheduled_start_time as string | undefined) ||
+              (currentAppointment.date && currentAppointment.startTime
+                ? buildLocalIso(currentAppointment.date, currentAppointment.startTime)
+                : undefined)
+            const fallbackEndIso =
+              (dbUpdates.scheduled_end_time as string | undefined) ||
+              (currentAppointment.date && currentAppointment.endTime
+                ? buildLocalIso(currentAppointment.date, currentAppointment.endTime)
+                : undefined)
+
+            if (fallbackStartIso && fallbackEndIso) {
+              const fallbackPayload: Record<string, unknown> = {
+                id: numericId,
+                clinic_id: clinicId,
+                patient_id: currentAppointment.patientId,
+                status:
+                  (dbUpdates.status as string | undefined) ||
+                  mapUiStatusToDb(currentAppointment.status),
+                scheduled_start_time: fallbackStartIso,
+                scheduled_end_time: fallbackEndIso,
+                updated_at:
+                  (dbUpdates.updated_at as string | undefined) ||
+                  new Date().toISOString()
+              }
+
+              if ('notes' in dbUpdates) {
+                fallbackPayload.notes = dbUpdates.notes ?? null
+              }
+              if ('service_type' in dbUpdates) {
+                fallbackPayload.service_type = dbUpdates.service_type
+              }
+              if ('box_id' in dbUpdates) {
+                fallbackPayload.box_id = dbUpdates.box_id
+              }
+
+              const { error: fallbackError } = await supabase
+                .from('appointments')
+                .upsert(fallbackPayload, {
+                  onConflict: 'id',
+                  ignoreDuplicates: false
+                })
+
+              if (!fallbackError) {
+                updateError = null
+              } else {
+                updateError = fallbackError
+              }
+            }
+          }
+
+          if (updateError) {
+            console.warn('No se pudo actualizar cita en DB', updateError)
             if (currentAppointment) {
               setAppointments((prev) =>
-                prev.map((apt) =>
-                  apt.id === id ? currentAppointment : apt
-                )
+                prev.map((apt) => (apt.id === id ? currentAppointment : apt))
               )
             }
             return

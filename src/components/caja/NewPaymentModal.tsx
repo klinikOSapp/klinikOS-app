@@ -12,7 +12,10 @@ import { createPortal } from 'react-dom'
 type NewPaymentModalProps = {
   open: boolean
   onClose: () => void
-  onSubmit: (data: NewPaymentFormData) => void
+  onSubmit: (data: NewPaymentFormData) => Promise<{
+    ok: boolean
+    error?: string
+  }>
   // Datos del movimiento original
   patientId: string
   patientName: string
@@ -52,6 +55,8 @@ export default function NewPaymentModal({
   const [generateReceipt, setGenerateReceipt] = useState<boolean>(true)
   const [generateInvoice, setGenerateInvoice] = useState<boolean>(false)
   const [showSuccess, setShowSuccess] = useState<boolean>(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Reset form when modal opens
   useEffect(() => {
@@ -62,6 +67,8 @@ export default function NewPaymentModal({
       setGenerateReceipt(true)
       setGenerateInvoice(false)
       setShowSuccess(false)
+      setSubmitError(null)
+      setIsSubmitting(false)
     }
   }, [open, pendingAmount])
 
@@ -79,16 +86,32 @@ export default function NewPaymentModal({
     }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!canSubmit) return
 
-    onSubmit({
-      amount: numericAmount,
-      paymentMethod,
-      reference: reference || undefined,
-      generateReceipt,
-      generateInvoice
-    })
+    setSubmitError(null)
+    setIsSubmitting(true)
+    let result: { ok: boolean; error?: string }
+    try {
+      result = await onSubmit({
+        amount: numericAmount,
+        paymentMethod,
+        reference: reference || undefined,
+        generateReceipt,
+        generateInvoice
+      })
+    } catch (error: any) {
+      result = {
+        ok: false,
+        error: error?.message || 'No se pudo registrar el pago'
+      }
+    }
+
+    if (!result.ok) {
+      setSubmitError(result.error || 'No se pudo registrar el pago')
+      setIsSubmitting(false)
+      return
+    }
 
     setShowSuccess(true)
     
@@ -249,6 +272,10 @@ export default function NewPaymentModal({
             />
           </div>
 
+          {submitError ? (
+            <p className='text-body-sm text-error-600'>{submitError}</p>
+          ) : null}
+
           {/* Checkboxes */}
           <div className='flex flex-col gap-2'>
             <label className='flex items-center gap-3 cursor-pointer'>
@@ -279,14 +306,16 @@ export default function NewPaymentModal({
           <button
             type='button'
             onClick={handleSubmit}
-            disabled={!canSubmit}
+            disabled={!canSubmit || isSubmitting}
             className={`w-full py-3 rounded-xl text-title-sm transition-colors ${
-              canSubmit
+              canSubmit && !isSubmitting
                 ? 'bg-brand-500 text-white hover:bg-brand-600 cursor-pointer'
                 : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
             }`}
           >
-            Cobrar {formatAmount(numericAmount)} €
+            {isSubmitting
+              ? 'Guardando...'
+              : `Cobrar ${formatAmount(numericAmount)} €`}
           </button>
         </div>
       </div>

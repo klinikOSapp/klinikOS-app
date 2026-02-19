@@ -236,7 +236,7 @@ export default function CashToolbar({
             type='button'
             className='inline-flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-neutral-900 shadow-cta transition-colors hover:bg-brand-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-surface-app'
             style={ctaStyles}
-            onClick={() => handleOpenClosingModal()}
+            onClick={() => handleOpenClosingModal(dateToCheck)}
             aria-haspopup='dialog'
             aria-expanded={isClosingModalOpen}
           >

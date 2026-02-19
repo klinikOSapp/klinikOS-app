@@ -10,6 +10,7 @@ import type { FormEvent } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PaymentMethod } from '@/types/payments'
 
+import NewPaymentModal, { type NewPaymentFormData } from './NewPaymentModal'
 import ReceiptPreviewModal from './ReceiptPreviewModal'
 
 type InvoiceStatus = 'Aceptado' | 'Enviado'
@@ -45,13 +46,13 @@ type CashMovement = {
 
 // MOVEMENTS removed - now fetched from API
 
-const TABLE_WIDTH_REM = 101 // 1616px ÷ 16
+const TABLE_WIDTH_REM = 104.3125 // total of column widths in rem
 const TABLE_HEIGHT_REM = 27.5 // 440px ÷ 16
-const SEARCH_WIDTH_REM = 23 // 368px ÷ 16
+const SEARCH_WIDTH_REM = 17 // closer to /dev layout
 const CONTROL_HEIGHT_REM = 2 // 32px ÷ 16
 
 const COLUMN_WIDTHS_REM = {
-  time: 5.4, // 86.4px (90% of 96px)
+  time: 8.5, // keeps full DD MMM. YYYY date visible
   patient: 17.875, // 286px
   concept: 25.75, // 412px
   amount: 10.375, // 166px
@@ -81,16 +82,28 @@ type ColumnDefinition = {
   render: (movement: CashMovement) => React.ReactNode
 }
 
+function formatMovementDay(day: string) {
+  const [y, m, d] = day.split('-').map((v) => Number(v))
+  if (!y || !m || !d) return day
+  const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0))
+  const monthShort = new Intl.DateTimeFormat('es-ES', {
+    month: 'short',
+    timeZone: 'Europe/Madrid'
+  }).format(date)
+  const monthNormalized = monthShort.endsWith('.') ? monthShort : `${monthShort}.`
+  const monthLabel =
+    monthNormalized.charAt(0).toUpperCase() + monthNormalized.slice(1)
+  return `${String(d).padStart(2, '0')} ${monthLabel} ${y}`
+}
+
 const columns: ColumnDefinition[] = [
   {
     id: 'time',
     label: 'Día',
     widthRem: COLUMN_WIDTHS_REM.time,
-    render: (movement) => {
-      // Show DD/MM/YYYY (v2.0)
-      const [y, m, d] = movement.day.split('-')
-      return d && m && y ? `${d}/${m}/${y}` : movement.day
-    }
+    render: (movement) => (
+      <span className='whitespace-nowrap'>{formatMovementDay(movement.day)}</span>
+    )
   },
   {
     id: 'patient',
@@ -149,14 +162,14 @@ const getHeaderCellClasses = (index: number, align: 'left' | 'right' = 'left') =
   const borders =
     index < totalColumns - 1 ? 'border-hairline-b border-hairline-r' : 'border-hairline-b'
   const textAlign = align === 'right' ? 'text-right' : 'text-left'
-  return `${borders} py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-body-md font-normal text-[var(--color-neutral-600)] ${textAlign}`
+  return `${borders} overflow-hidden py-[0.5rem] pl-[0.5rem] pr-[0.75rem] text-body-md font-normal text-[var(--color-neutral-600)] ${textAlign}`
 }
 
 const getBodyCellClasses = (index: number, align: 'left' | 'right' = 'left') => {
   const borders =
     index < totalColumns - 1 ? 'border-hairline-b border-hairline-r' : 'border-hairline-b'
   const textAlign = align === 'right' ? 'text-right' : 'text-left'
-  return `${borders} py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] text-body-md text-neutral-900 ${textAlign}`
+  return `${borders} overflow-hidden py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] text-body-md text-neutral-900 ${textAlign}`
 }
 
 const PAYMENT_FILTERS: Array<Exclude<PaymentCategory, 'Pendiente'>> = [
@@ -214,6 +227,7 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       amount: number
       transactionDate: string
       paymentMethod: string
+      paymentReference?: string | null
     }>
   }>({ open: false, movement: null, loading: false })
 
@@ -227,12 +241,18 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       totalAmount: number
       amountPaid: number
       outstandingAmount: number
+      issueDate?: string | null
+      patientName?: string
+      patientNif?: string
+      insurer?: string
+      professional?: string
     }
     payments?: Array<{
       id: string
       amount: number
       transactionDate: string
       paymentMethod: string
+      paymentReference?: string | null
     }>
   }>({ open: false, movement: null, loading: false })
 
@@ -284,24 +304,22 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
   const [registerPaymentModal, setRegisterPaymentModal] = useState<{
     open: boolean
     movement: CashMovement | null
-    amount: string
-    method: string
-    notes: string
-    isSaving: boolean
-    error: string | null
-  }>({
-    open: false,
-    movement: null,
-    amount: '',
-    method: 'TPV',
-    notes: '',
-    isSaving: false,
-    error: null
-  })
+  }>({ open: false, movement: null })
+
   const [receiptModal, setReceiptModal] = useState<{
     open: boolean
     movement: CashMovement | null
+    transactionData?: {
+      patientName: string
+      concept: string
+      amount: number
+      paymentMethod: PaymentMethod
+      date: string
+      paymentReference?: string
+    }
   }>({ open: false, movement: null })
+  const inflightFetchControllerRef = useRef<AbortController | null>(null)
+  const fetchRequestIdRef = useRef(0)
 
   const formatMadridDate = (d: Date) =>
     new Intl.DateTimeFormat('en-CA', {
@@ -529,7 +547,18 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
 
   const fetchMovements = (opts?: { silent?: boolean }) => {
     const silent = Boolean(opts?.silent)
-    if (!silent) setIsLoading(true)
+    if (!silent) {
+      setIsLoading(true)
+      // Avoid showing stale rows while a new date/filter range is loading.
+      setMovements((prev) => (prev.length > 0 ? [] : prev))
+      lastHashRef.current = ''
+    }
+    const requestId = fetchRequestIdRef.current + 1
+    fetchRequestIdRef.current = requestId
+    inflightFetchControllerRef.current?.abort()
+    const controller = new AbortController()
+    inflightFetchControllerRef.current = controller
+
     const params = new URLSearchParams()
     params.set('date', formatMadridDate(date))
     params.set('timeScale', timeScale)
@@ -540,9 +569,13 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
     if (paymentStatus) params.set('paymentStatus', paymentStatus)
     if (activeClinicId) params.set('clinicId', activeClinicId)
 
-    fetch(`/api/caja/movements?${params.toString()}`)
+    fetch(`/api/caja/movements?${params.toString()}`, {
+      signal: controller.signal,
+      cache: 'no-store'
+    })
       .then((res) => res.json())
       .then((data) => {
+        if (controller.signal.aborted || requestId !== fetchRequestIdRef.current) return
         const next = Array.isArray(data.movements) ? (data.movements as CashMovement[]) : []
         const nextHash = hashMovements(next)
         if (nextHash !== lastHashRef.current) {
@@ -552,10 +585,17 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
         if (!silent) setIsLoading(false)
       })
       .catch((error) => {
+        if (controller.signal.aborted || requestId !== fetchRequestIdRef.current) return
         console.error('Error fetching movements:', error)
         if (!silent) setIsLoading(false)
       })
   }
+
+  useEffect(() => {
+    return () => {
+      inflightFetchControllerRef.current?.abort()
+    }
+  }, [])
 
   // Fetch movements from API
   useEffect(() => {
@@ -692,6 +732,7 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       }
       setModifyPaymentModal((p) => ({ ...p, saving: false, open: false }))
       fetchMovements({ silent: true })
+      window.dispatchEvent(new CustomEvent('caja:refresh-closing'))
       const movement = modifyPaymentModal.movement
       if (movement && paymentsModal.open && paymentsModal.movement?.invoiceId === movement.invoiceId) {
         openPaymentsModal(movement)
@@ -748,6 +789,7 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       const movement = deletePaymentModal.movement
       setDeletePaymentModal({ open: false, movement: null, paymentId: '', deleting: false, error: null })
       fetchMovements({ silent: true })
+      window.dispatchEvent(new CustomEvent('caja:refresh-closing'))
       if (movement && paymentsModal.open && paymentsModal.movement?.invoiceId === movement.invoiceId) {
         openPaymentsModal(movement)
       }
@@ -760,16 +802,9 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
   }
 
   const openRegisterPaymentModal = (movement: CashMovement) => {
-    const defaultMethod: Exclude<PaymentCategory, 'Pendiente'> =
-      movement.paymentCategory === 'Pendiente' ? 'TPV' : movement.paymentCategory
     setRegisterPaymentModal({
       open: true,
-      movement,
-      amount: '',
-      method: defaultMethod,
-      notes: '',
-      isSaving: false,
-      error: null
+      movement
     })
   }
 
@@ -851,16 +886,34 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
     return () => window.removeEventListener('caja:toggle-produced', handler as EventListener)
   }, [date, timeScale, fromDate, toDate, paymentMethod, paymentStatus, query])
 
-  const submitRegisterPayment = async () => {
+  const mapNewPaymentMethodToApi = (
+    method: PaymentMethod
+  ): 'Efectivo' | 'TPV' | 'Transferencia' | 'Financiación' | 'Otros' => {
+    switch (method) {
+      case 'efectivo':
+        return 'Efectivo'
+      case 'tarjeta':
+        return 'TPV'
+      case 'transferencia':
+        return 'Transferencia'
+      case 'financiacion':
+        return 'Financiación'
+      default:
+        return 'Otros'
+    }
+  }
+
+  const submitRegisterPayment = async (
+    payload: NewPaymentFormData
+  ): Promise<{ ok: boolean; error?: string }> => {
     const movement = registerPaymentModal.movement
-    if (!movement) return
-    const amount = Number(registerPaymentModal.amount.replace(',', '.'))
+    if (!movement) return { ok: false, error: 'No hay factura seleccionada' }
+
+    const amount = Number(payload.amount)
     if (!Number.isFinite(amount) || amount <= 0) {
-      setRegisterPaymentModal((p) => ({ ...p, error: 'Introduce un importe válido' }))
-      return
+      return { ok: false, error: 'Introduce un importe válido' }
     }
 
-    setRegisterPaymentModal((p) => ({ ...p, isSaving: true, error: null }))
     try {
       const res = await fetch('/api/caja/register-payment', {
         method: 'POST',
@@ -868,23 +921,48 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
         body: JSON.stringify({
           invoiceId: movement.invoiceId,
           amount,
-          paymentMethod: registerPaymentModal.method,
-          notes: registerPaymentModal.notes || null
+          paymentMethod: mapNewPaymentMethodToApi(payload.paymentMethod),
+          transactionId: payload.reference || null,
+          notes: null
         })
       })
       const data = await res.json()
       if (!res.ok) {
-        setRegisterPaymentModal((p) => ({ ...p, isSaving: false, error: data?.error || 'Error' }))
-        return
+        return { ok: false, error: data?.error || 'No se pudo guardar el pago' }
       }
-      setRegisterPaymentModal((p) => ({ ...p, isSaving: false, open: false }))
-      // refresh movements and payment history silently
+
+      setRegisterPaymentModal({ open: false, movement: null })
       fetchMovements({ silent: true })
+      window.dispatchEvent(new CustomEvent('caja:refresh-closing'))
       if (paymentsModal.open && paymentsModal.movement?.invoiceId === movement.invoiceId) {
         openPaymentsModal(movement)
       }
+      if (invoiceModal.open && invoiceModal.movement?.invoiceId === movement.invoiceId) {
+        openInvoiceModal(movement)
+      }
+
+      if (payload.generateReceipt) {
+        setReceiptModal({
+          open: true,
+          movement: null,
+          transactionData: {
+            patientName: movement.patient,
+            concept: movement.concept,
+            amount,
+            paymentMethod: payload.paymentMethod,
+            paymentReference: payload.reference,
+            date: new Date().toISOString()
+          }
+        })
+      }
+
+      if (payload.generateInvoice) {
+        openInvoiceModal(movement)
+      }
+
+      return { ok: true }
     } catch (e: any) {
-      setRegisterPaymentModal((p) => ({ ...p, isSaving: false, error: e?.message || 'Error' }))
+      return { ok: false, error: e?.message || 'Error inesperado al guardar el pago' }
     }
   }
 
@@ -928,25 +1006,28 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
         width: '100%'
       }}
     >
-      <div className='flex flex-wrap items-center gap-gapsm'>
-        <div className='text-body-sm text-[var(--color-neutral-700)]'>
-          Desde&nbsp;&nbsp;DD/MM/AAAA
+      <div className='flex flex-wrap items-center justify-between gap-gapsm'>
+        <div className='flex items-center gap-gapsm'>
+          <div className='text-body-sm text-[var(--color-neutral-700)]'>
+            Desde&nbsp;&nbsp;DD/MM/AAAA
+          </div>
+          <div className='text-body-sm text-[var(--color-neutral-700)]'>
+            Hasta&nbsp;&nbsp;DD/MM/AAAA
+          </div>
         </div>
-        <div className='text-body-sm text-[var(--color-neutral-700)]'>
-          Hasta&nbsp;&nbsp;DD/MM/AAAA
-        </div>
-        <SearchInput
-          value={query}
-          onChange={setQuery}
-          suggestions={patientSuggestions}
-          loading={isSuggesting}
-          onPickSuggestion={(name) => setQuery(name)}
-        />
-        <div className='ml-auto flex flex-wrap items-center gap-gapsm'>
+        <div className='flex flex-wrap items-center gap-gapsm'>
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            suggestions={patientSuggestions}
+            loading={isSuggesting}
+            onPickSuggestion={(name) => setQuery(name)}
+          />
           {[
             { id: '', label: 'Todos' },
             { id: 'Efectivo', label: 'Efectivo' },
             { id: 'TPV', label: 'TPV' },
+            { id: 'Transferencia', label: 'Transfer' },
             { id: 'Financiación', label: 'Financiación' }
           ].map((option) => {
             const isActive = paymentMethod === option.id
@@ -973,7 +1054,7 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
 
       <div ref={tableContainerRef} className='mt-6 flex-1 overflow-hidden rounded-lg'>
         <div className='h-full overflow-y-auto table-scroll-x'>
-          <table className='w-full min-w-[50rem] table-fixed border-collapse text-left'>
+          <table className='w-full table-fixed border-collapse text-left'>
             <thead className='sticky top-0 z-10 bg-[var(--color-neutral-50)]'>
               <tr>
                 {columns.map((column, index) => (
@@ -1176,18 +1257,26 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
           description={invoiceModal.movement?.concept || '—'}
           amount={invoiceModal.movement?.amount || '0,00 €'}
           date={
-            invoiceModal.movement?.day
-              ? new Date(`${invoiceModal.movement.day}T00:00:00`).toLocaleDateString('es-ES', {
+            invoiceModal.invoice?.issueDate
+              ? new Date(invoiceModal.invoice.issueDate).toLocaleDateString('es-ES', {
                   day: 'numeric',
                   month: 'short',
                   year: 'numeric'
                 })
+              : invoiceModal.movement?.day
+                ? new Date(`${invoiceModal.movement.day}T00:00:00`).toLocaleDateString('es-ES', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                  })
               : '—'
           }
           status={invoiceModal.movement?.collectionStatus === 'Cobrado' ? 'Cobrado' : 'Pendiente'}
           paymentMethod={invoiceModal.payments?.[0]?.paymentMethod || invoiceModal.movement?.method || '-'}
-          insurer={invoiceModal.movement?.insurer || '-'}
-          patientName={invoiceModal.movement?.patient || undefined}
+          insurer={invoiceModal.invoice?.insurer || invoiceModal.movement?.insurer || '-'}
+          patientName={invoiceModal.invoice?.patientName || invoiceModal.movement?.patient || '-'}
+          patientNIF={invoiceModal.invoice?.patientNif || '-'}
+          professional={invoiceModal.invoice?.professional || '-'}
           budgetId={invoiceModal.movement?.quoteId || undefined}
           paymentDate={
             invoiceModal.payments?.[0]?.transactionDate
@@ -1198,6 +1287,7 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
                 })
               : undefined
           }
+          paymentReference={invoiceModal.payments?.[0]?.paymentReference || undefined}
           onDownloadPdf={() => window.print()}
         />
       )}
@@ -1334,100 +1424,30 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
         </div>
       )}
 
-      {registerPaymentModal.open && (
-        <div className='fixed inset-0 z-[80] bg-black/30' onClick={() => setRegisterPaymentModal((p) => ({ ...p, open: false }))}>
-          <div className='absolute inset-0 flex items-center justify-center px-[2rem] py-[2rem]'>
-            <div
-              className='w-[min(34rem,95vw)] rounded-xl bg-surface shadow-elevation-popover overflow-hidden'
-              onClick={(e) => e.stopPropagation()}
-              role='dialog'
-              aria-modal='true'
-              aria-label='Registrar pago'
-            >
-              <header className='flex h-[3.5rem] items-center justify-between border-b border-border px-[1.25rem]'>
-                <p className='text-title-md font-medium text-fg'>Registrar pago</p>
-                <button
-                  type='button'
-                  className='flex size-[2rem] items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
-                  onClick={() => setRegisterPaymentModal((p) => ({ ...p, open: false }))}
-                  aria-label='Cerrar'
-                >
-                  <span className='material-symbols-rounded text-[1.25rem] leading-none'>close</span>
-                </button>
-              </header>
-              <div className='p-[1.25rem] space-y-[1rem]'>
-                <div className='text-body-sm text-neutral-600'>
-                  Factura <span className='font-medium text-fg'>#{registerPaymentModal.movement?.invoiceId}</span>
-                </div>
-                <div className='grid grid-cols-2 gap-[0.75rem]'>
-                  <label className='flex flex-col gap-[0.25rem] text-body-sm text-fg'>
-                    Importe (€)
-                    <input
-                      value={registerPaymentModal.amount}
-                      onChange={(e) => setRegisterPaymentModal((p) => ({ ...p, amount: e.target.value }))}
-                      className='rounded-lg border border-border bg-surface px-[0.75rem] py-[0.5rem]'
-                      inputMode='decimal'
-                      placeholder='0,00'
-                    />
-                  </label>
-                  <label className='flex flex-col gap-[0.25rem] text-body-sm text-fg'>
-                    Método
-                    <select
-                      value={registerPaymentModal.method}
-                      onChange={(e) => setRegisterPaymentModal((p) => ({ ...p, method: e.target.value }))}
-                      className='rounded-lg border border-border bg-surface px-[0.75rem] py-[0.5rem]'
-                    >
-                      {PAYMENT_FILTERS.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <label className='flex flex-col gap-[0.25rem] text-body-sm text-fg'>
-                  Nota (opcional)
-                  <textarea
-                    value={registerPaymentModal.notes}
-                    onChange={(e) => setRegisterPaymentModal((p) => ({ ...p, notes: e.target.value }))}
-                    className='min-h-[5rem] rounded-lg border border-border bg-surface px-[0.75rem] py-[0.5rem]'
-                    placeholder='Ej: Pago parcial en recepción...'
-                  />
-                </label>
-                {registerPaymentModal.error ? (
-                  <div className='text-body-sm text-error-600'>{registerPaymentModal.error}</div>
-                ) : null}
-                <div className='flex items-center justify-end gap-[0.75rem]'>
-                  <button
-                    type='button'
-                    className='rounded-full border border-border bg-surface px-[1rem] py-[0.5rem] text-title-sm text-fg hover:bg-neutral-50'
-                    onClick={() => setRegisterPaymentModal((p) => ({ ...p, open: false }))}
-                    disabled={registerPaymentModal.isSaving}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type='button'
-                    className='rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-neutral-900 hover:bg-brand-400 disabled:opacity-50'
-                    onClick={submitRegisterPayment}
-                    disabled={registerPaymentModal.isSaving}
-                  >
-                    {registerPaymentModal.isSaving ? 'Guardando…' : 'Guardar pago'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      {registerPaymentModal.open && registerPaymentModal.movement && (
+        <NewPaymentModal
+          open={registerPaymentModal.open}
+          onClose={() => setRegisterPaymentModal({ open: false, movement: null })}
+          onSubmit={submitRegisterPayment}
+          patientId={registerPaymentModal.movement.patientId || ''}
+          patientName={registerPaymentModal.movement.patient}
+          concept={registerPaymentModal.movement.concept}
+          pendingAmount={Math.max(registerPaymentModal.movement.outstandingAmount, 0)}
+          originalTransactionId={registerPaymentModal.movement.id}
+        />
       )}
 
       {receiptModal.open && (
         <ReceiptPreviewModal
           open={receiptModal.open}
-          onClose={() => setReceiptModal({ open: false, movement: null })}
+          onClose={() =>
+            setReceiptModal({ open: false, movement: null, transactionData: undefined })
+          }
           receipt={null}
           transactionData={
-            receiptModal.movement
+            receiptModal.transactionData
+              ? receiptModal.transactionData
+              : receiptModal.movement
               ? {
                   patientName: receiptModal.movement.patient,
                   concept: receiptModal.movement.concept,
@@ -1715,7 +1735,6 @@ function ProductionBadge({ movement }: { movement: CashMovement }) {
   const badgeClass = isDone
     ? 'bg-success-200 text-success-800'
     : 'bg-neutral-200 text-neutral-700'
-  const icon = isDone ? 'check_box' : 'check_box_outline_blank'
 
   // Per request: only clinical workflow can toggle.
   const canToggleProduced = can('clinical_notes', 'edit')
@@ -1736,16 +1755,9 @@ function ProductionBadge({ movement }: { movement: CashMovement }) {
       type='button'
       onClick={toggle}
       disabled={!movement.quoteId || !canToggleProduced}
-      className='flex items-center gap-[0.25rem] disabled:opacity-50 disabled:cursor-not-allowed'
+      className='inline-flex items-center disabled:opacity-50 disabled:cursor-not-allowed'
       aria-label='Cambiar estado de producción'
     >
-      <span
-        className={`material-symbols-rounded text-[1.25rem] ${
-          isDone ? 'text-success-800' : 'text-neutral-500'
-        }`}
-      >
-        {icon}
-      </span>
       <span
         className={`inline-flex h-[1.75rem] items-center rounded-full px-[0.75rem] text-label-sm font-medium ${badgeClass}`}
       >
@@ -1848,7 +1860,7 @@ function ActionsMenu({ movement }: { movement: CashMovement }) {
         ref={buttonRef}
         type='button'
         aria-label='Acciones'
-        className='mx-auto flex size-12 items-center justify-center rounded-full border-[0.1875rem] border-neutral-700 text-neutral-900 transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic'
+        className='mx-auto flex h-[1.5rem] w-[1.5rem] items-center justify-center rounded-full text-neutral-900 transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic'
         onClick={(e) => {
           e.stopPropagation()
           setOpen((v) => {
@@ -1862,7 +1874,7 @@ function ActionsMenu({ movement }: { movement: CashMovement }) {
           })
         }}
       >
-        <span className='material-symbols-rounded text-[2rem] leading-none'>more_vert</span>
+        <span className='material-symbols-rounded text-[1.25rem] leading-none'>more_vert</span>
       </button>
 
       {open && (

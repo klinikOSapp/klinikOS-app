@@ -64,8 +64,6 @@ export default function CashSummaryCard({
       day: '2-digit'
     }).format(d)
 
-  const yearLabel = new Intl.DateTimeFormat('es-ES', { year: 'numeric' }).format(date)
-
   // v2.0: KPI cards are filterable and change with temporal selection
   useEffect(() => {
     if (!activeClinicId) {
@@ -150,19 +148,6 @@ export default function CashSummaryCard({
           transformOrigin: 'top left'
         }}
       >
-        <header className='flex items-center justify-between'>
-          <h2 className='text-title-sm font-medium text-fg'>Ingresos</h2>
-          <button
-            type='button'
-            className='inline-flex items-center gap-[0.25rem] text-label-sm text-fg-secondary'
-          >
-            {yearLabel}
-            <span className='material-symbols-rounded text-[1rem] leading-4'>
-              arrow_drop_down
-            </span>
-          </button>
-        </header>
-
         <div className='mt-[1rem] flex flex-1 gap-gapmd'>
           <div className='grid flex-none' style={summaryGridStyles}>
             {isLoading ? (

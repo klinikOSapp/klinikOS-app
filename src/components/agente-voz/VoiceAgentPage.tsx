@@ -489,6 +489,7 @@ export default function VoiceAgentPage() {
   )
   const [volumeData, setVolumeData] = useState<CallVolumeDataPoint[]>(EMPTY_VOLUME_DATA)
   const isClinicBasic = clinicTier === 'basic'
+  const canCallActions = clinicTier !== 'basic'
   const effectiveVoiceAgentTier: VoiceAgentTier = isClinicBasic
     ? 'basic'
     : voiceAgentTier
@@ -880,6 +881,7 @@ export default function VoiceAgentPage() {
         <Suspense fallback={<div className='p-4'>Cargando...</div>}>
           <CallsTable
             voiceAgentTier={effectiveVoiceAgentTier}
+            canCallActions={canCallActions}
             selectedWeekStart={selectedWeekStart}
           />
         </Suspense>

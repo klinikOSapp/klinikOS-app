@@ -22,6 +22,8 @@ type CallCardsViewProps = {
   onAssignProfessional?: (call: CallRecord) => void
   /** Voice agent tier */
   voiceAgentTier?: VoiceAgentTier
+  /** Whether call actions should be shown */
+  canCallActions?: boolean
 }
 
 /**
@@ -40,7 +42,8 @@ export default function CallCardsView({
   onListenCall,
   onViewTranscription,
   onAssignProfessional,
-  voiceAgentTier = 'advanced'
+  voiceAgentTier = 'advanced',
+  canCallActions = true
 }: CallCardsViewProps) {
   if (calls.length === 0) {
     return (
@@ -65,6 +68,7 @@ export default function CallCardsView({
             key={call.id}
             call={call}
             onCall={() => onCall(call)}
+            canCallActions={canCallActions}
             onMarkResolved={() => onMarkResolved(call)}
             onAddNote={() => onAddNote(call)}
             onShowDetail={() => onShowDetail(call)}

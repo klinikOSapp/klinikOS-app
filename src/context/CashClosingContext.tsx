@@ -1120,6 +1120,17 @@ function isoDate(dateValue: string | Date): string {
   return date.toISOString().slice(0, 10)
 }
 
+function madridIsoDate(dateValue: string | Date): string {
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date)
+}
+
 type DbCajaMovementRow = {
   invoice_id: number | null
   invoice_number: string | null
@@ -1132,6 +1143,30 @@ type DbCajaMovementRow = {
   production_status: string | null
   total_paid: number | string | null
   last_payment_method: string | null
+}
+
+type DbPaymentRow = {
+  id: string | number | null
+  invoice_id: string | number | null
+  patient_id: string | null
+  amount: number | string | null
+  payment_method: string | null
+  transaction_date: string | null
+  concept: string | null
+}
+
+type DbInvoiceMetaRow = {
+  id: string | number
+  invoice_number: string | null
+  quote_id: string | number | null
+  patients?: {
+    first_name?: string | null
+    last_name?: string | null
+  } | null
+  quotes?: {
+    quote_number?: string | null
+    production_status?: string | null
+  } | null
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1149,6 +1184,7 @@ export function CashClosingProvider({
   const [closings, setClosings] = useState<CashClosing[]>([])
   const [transactions, setTransactions] = useState<CashTransaction[]>([])
   const [receipts, setReceipts] = useState<Receipt[]>([])
+  const [refreshToken, setRefreshToken] = useState(0)
   const clinicIdRef = useRef<string | null>(null)
   const staffIdRef = useRef<string | null>(null)
 
@@ -1180,7 +1216,7 @@ export function CashClosingProvider({
         const end = new Date()
         end.setDate(end.getDate() + 1)
 
-        const [{ data: closingRows }, { data: movementRows }] = await Promise.all([
+        const [{ data: closingRows }, { data: movementRows }, { data: paymentRows, error: paymentRowsError }] = await Promise.all([
           supabase
             .from('daily_cash_closings')
             .select(
@@ -1192,8 +1228,95 @@ export function CashClosingProvider({
             p_clinic_id: clinicId,
             p_start_time: start.toISOString(),
             p_end_time: end.toISOString()
-          })
+          }),
+          supabase
+            .from('payments')
+            .select('id, invoice_id, patient_id, amount, payment_method, transaction_date, concept')
+            .eq('clinic_id', clinicId)
+            .is('voided_at', null)
+            .gte('transaction_date', start.toISOString())
+            .lte('transaction_date', end.toISOString())
+            .order('transaction_date', { ascending: false })
+            .limit(5000)
         ])
+
+        if (paymentRowsError) {
+          console.warn('CashClosingContext payment hydration failed', paymentRowsError)
+        }
+
+        const rpcMetaByInvoice = new Map<
+          string,
+          { patientName: string; concept: string; quoteId: string | null; productionStatus: string | null }
+        >()
+        for (const row of (movementRows || []) as DbCajaMovementRow[]) {
+          const invoiceId = row.invoice_id != null ? String(row.invoice_id) : ''
+          if (!invoiceId || rpcMetaByInvoice.has(invoiceId)) continue
+          const patientName = [row.patient_first_name, row.patient_last_name]
+            .filter(Boolean)
+            .join(' ')
+            .trim()
+          rpcMetaByInvoice.set(invoiceId, {
+            patientName: patientName || 'Paciente',
+            concept: row.quote_number || row.invoice_number || 'Movimiento caja',
+            quoteId: row.quote_id != null ? String(row.quote_id) : null,
+            productionStatus: row.production_status || null
+          })
+        }
+
+        const paymentInvoiceIds = Array.from(
+          new Set(
+            ((paymentRows || []) as DbPaymentRow[])
+              .map((row) => (row.invoice_id != null ? String(row.invoice_id) : ''))
+              .filter(Boolean)
+          )
+        )
+
+        const invoiceMetaById = new Map<
+          string,
+          { patientName: string; concept: string; quoteId: string | null; productionStatus: string | null }
+        >()
+
+        if (paymentInvoiceIds.length > 0) {
+          const { data: invoiceRows, error: invoiceRowsError } = await supabase
+            .from('invoices')
+            .select(
+              `
+              id,
+              invoice_number,
+              quote_id,
+              patients (
+                first_name,
+                last_name
+              ),
+              quotes (
+                quote_number,
+                production_status
+              )
+            `
+            )
+            .eq('clinic_id', clinicId)
+            .in('id', paymentInvoiceIds)
+
+          if (invoiceRowsError) {
+            console.warn('CashClosingContext invoice meta hydration failed', invoiceRowsError)
+          } else {
+            for (const row of (invoiceRows || []) as unknown as DbInvoiceMetaRow[]) {
+              const patientName = [
+                row.patients?.first_name || '',
+                row.patients?.last_name || ''
+              ]
+                .join(' ')
+                .trim()
+              const concept = row.quotes?.quote_number || row.invoice_number || 'Movimiento caja'
+              invoiceMetaById.set(String(row.id), {
+                patientName: patientName || 'Paciente',
+                concept,
+                quoteId: row.quote_id != null ? String(row.quote_id) : null,
+                productionStatus: row.quotes?.production_status || null
+              })
+            }
+          }
+        }
 
         const mappedClosings = (closingRows || []).map((row) => {
           const breakdown =
@@ -1237,41 +1360,35 @@ export function CashClosingProvider({
           mappedClosings.map((closing) => [closing.closing_date, closing])
         )
 
-        const mappedTransactions: CashTransaction[] = (
-          (movementRows || []) as DbCajaMovementRow[]
-        ).map((row) => {
-            const date = String(
-              row.day_madrid || isoDate(row.issue_timestamp || new Date())
-            )
-            const totalPaid = Number(row.total_paid || 0)
-            const patientName = [row.patient_first_name, row.patient_last_name]
-              .filter(Boolean)
-              .join(' ')
-              .trim()
+        const mappedTransactions: CashTransaction[] = ((paymentRows || []) as DbPaymentRow[])
+          .filter((row) => Number(row.amount || 0) > 0)
+          .map((row) => {
+            const invoiceId =
+              row.invoice_id != null ? String(row.invoice_id) : null
+            const transactionDateRaw = row.transaction_date || new Date().toISOString()
+            const date = madridIsoDate(transactionDateRaw)
+            const invoiceMeta = invoiceId
+              ? invoiceMetaById.get(invoiceId) || rpcMetaByInvoice.get(invoiceId)
+              : null
+
             return {
-              id: `inv-${row.invoice_id}`,
+              id: row.id != null ? `pay-${row.id}` : `pay-${Date.now()}`,
               clinic_id: clinicId,
               closing_id: closingByDate.get(date)?.id || null,
               transaction_date: date,
-              created_at:
-                typeof row.issue_timestamp === 'string'
-                  ? row.issue_timestamp
-                  : new Date().toISOString(),
-              patient_id: null,
-              patient_name: patientName || 'Paciente',
-              concept: row.quote_number || row.invoice_number || 'Movimiento caja',
-              amount: totalPaid,
-              payment_method: mapDbPaymentMethodToUi(
-                row.last_payment_method as string | null
-              ),
-              payment_status: totalPaid > 0 ? 'cobrado' : 'pendiente',
+              created_at: transactionDateRaw,
+              patient_id: row.patient_id || null,
+              patient_name: invoiceMeta?.patientName || 'Paciente',
+              concept: invoiceMeta?.concept || row.concept || 'Movimiento caja',
+              amount: Number(row.amount || 0),
+              payment_method: mapDbPaymentMethodToUi(row.payment_method),
+              payment_status: 'cobrado',
               production_status: mapDbProductionStatus(
-                row.production_status as string | null
+                invoiceMeta?.productionStatus || null
               ),
-              invoice_id:
-                row.invoice_id != null ? String(row.invoice_id) : null,
+              invoice_id: invoiceId,
               appointment_id: null,
-              budget_id: row.quote_id != null ? String(row.quote_id) : null,
+              budget_id: invoiceMeta?.quoteId || null,
               installment_ids: null
             }
           })
@@ -1307,7 +1424,19 @@ export function CashClosingProvider({
     return () => {
       isMounted = false
     }
-  }, [activeClinicId, isClinicInitialized])
+  }, [activeClinicId, isClinicInitialized, refreshToken])
+
+  useEffect(() => {
+    const onRefresh = () => setRefreshToken((prev) => prev + 1)
+    if (typeof window !== 'undefined') {
+      window.addEventListener('caja:refresh-closing', onRefresh as EventListener)
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('caja:refresh-closing', onRefresh as EventListener)
+      }
+    }
+  }, [])
 
   const createInvoiceAndPayment = useCallback(
     async (input: {
@@ -1750,9 +1879,12 @@ export function CashClosingProvider({
   )
 
   const getAvailableDates = useCallback(() => {
-    const dates = new Set(transactions.map((t) => t.transaction_date))
+    const dates = new Set([
+      ...transactions.map((t) => t.transaction_date),
+      ...closings.map((c) => c.closing_date)
+    ])
     return Array.from(dates).sort((a, b) => b.localeCompare(a)) // Most recent first
-  }, [transactions])
+  }, [transactions, closings])
 
   const value = useMemo(
     () => ({

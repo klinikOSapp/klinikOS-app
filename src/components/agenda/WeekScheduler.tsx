@@ -1615,6 +1615,8 @@ export default function WeekScheduler() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedEventForPayment, setSelectedEventForPayment] = useState<{
     id: string
+    invoiceId: string
+    invoiceNumber?: string
     patientName: string
     treatment: string
     amount: string
@@ -1928,6 +1930,8 @@ export default function WeekScheduler() {
           notesLabel: NOTES_LABEL,
           patientId: apt.patientId,
           appointmentId: apt.id,
+          invoiceId: apt.invoiceId || undefined,
+          invoiceNumber: apt.invoiceNumber || undefined,
           treatmentDescription: apt.reason,
           paymentInfo: apt.paymentInfo,
           installmentPlan: apt.installmentPlan
@@ -2058,6 +2062,37 @@ export default function WeekScheduler() {
     }
   }
 
+  const resolveEventPatient = useCallback(
+    (event: AgendaEvent) => {
+      const detail = event.detail
+      const appointmentId = detail?.appointmentId ?? event.id
+      const appointment = getAppointmentById(appointmentId)
+      const patientId = detail?.patientId || appointment?.patientId
+      const patientName =
+        detail?.patientFull || appointment?.patientName || event.patient || 'Paciente'
+      return { patientId, patientName }
+    },
+    [getAppointmentById]
+  )
+
+  const mapPaymentMethodToApi = useCallback(
+    (method: string): 'Efectivo' | 'TPV' | 'Transferencia' | 'Financiación' | 'Otros' => {
+      switch (method) {
+        case 'efectivo':
+          return 'Efectivo'
+        case 'tarjeta':
+          return 'TPV'
+        case 'transferencia':
+          return 'Transferencia'
+        case 'financiacion':
+          return 'Financiación'
+        default:
+          return 'Otros'
+      }
+    },
+    []
+  )
+
   // Handler para abrir modal de pago desde acciones rápidas
   const handlePaymentAction = useCallback(() => {
     if (!active?.event) return
@@ -2067,6 +2102,8 @@ export default function WeekScheduler() {
 
     setSelectedEventForPayment({
       id: detail?.appointmentId ?? event.id,
+      invoiceId: detail?.invoiceId ?? '',
+      invoiceNumber: detail?.invoiceNumber,
       patientName: detail?.patientFull ?? event.patient,
       treatment: detail?.treatmentDescription ?? event.title,
       amount: detail?.economicAmount ?? '0,00 €',
@@ -2080,150 +2117,167 @@ export default function WeekScheduler() {
 
   // Handler para registrar pago (soporta pagos parciales)
   const handleRegisterPayment = useCallback(
-    (data: {
+    async (data: {
       paymentMethod: string
       paymentDate: Date | null
       reference: string
       amountToPay: number
+      generateReceipt?: boolean
     }) => {
-      if (selectedEventForPayment) {
-        const paymentInfo = selectedEventForPayment.paymentInfo
-        const installmentPlan = selectedEventForPayment.installmentPlan
-        const isFullyPaid = paymentInfo
-          ? data.amountToPay >= paymentInfo.pendingAmount
-          : true
+      if (!selectedEventForPayment) {
+        return { ok: false, error: 'No hay cita seleccionada' }
+      }
 
-        // Solo marcar como "No" cobro si se pagó completamente
-        if (isFullyPaid) {
-          updateAppointment(selectedEventForPayment.id, {
-            charge: 'No' // Ya cobrado completamente
+      const invoiceId = selectedEventForPayment.invoiceId?.trim()
+      if (!invoiceId) {
+        return { ok: false, error: 'La cita no tiene factura vinculada para cobrar' }
+      }
+
+      try {
+        const response = await fetch('/api/caja/register-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            invoiceId,
+            amount: data.amountToPay,
+            paymentMethod: mapPaymentMethodToApi(data.paymentMethod),
+            transactionDate: data.paymentDate
+              ? data.paymentDate.toISOString()
+              : undefined,
+            transactionId: data.reference || null,
+            notes: selectedEventForPayment.treatment || null
           })
-        }
-
-        // ✅ ACTUALIZAR LA AGENDA EN TIEMPO REAL
-        const eventIdToUpdate = selectedEventForPayment.id
-        console.log('🔄 Buscando evento para actualizar:', eventIdToUpdate)
-
-        setDayColumnsState((prevColumns) => {
-          const updatedColumns = prevColumns.map((column) => ({
-            ...column,
-            events: column.events.map((event) => {
-              // Encontrar el evento que se actualizó
-              const isMatch =
-                event.id === eventIdToUpdate ||
-                event.detail?.appointmentId === eventIdToUpdate
-
-              if (!isMatch) return event
-
-              console.log(
-                '✅ Evento encontrado:',
-                event.id,
-                'Actualizando paymentInfo...'
-              )
-
-              // Obtener el monto total del tratamiento
-              const currentPaymentInfo = event.detail?.paymentInfo
-              const totalAmount =
-                currentPaymentInfo?.totalAmount ??
-                parseFloat(
-                  event.detail?.economicAmount
-                    ?.replace(/[^\d,.-]/g, '')
-                    .replace(',', '.') || '0'
-                )
-
-              // Calcular nuevos valores de pago
-              const previouslyPaid = currentPaymentInfo?.paidAmount ?? 0
-              const newPaidAmount = previouslyPaid + data.amountToPay
-              const newPendingAmount = Math.max(0, totalAmount - newPaidAmount)
-              const fullyPaid = newPendingAmount === 0
-
-              // Actualizar plan de cuotas si existe
-              const currentInstallmentPlan = event.detail?.installmentPlan
-              const newInstallmentPlan =
-                currentInstallmentPlan && !fullyPaid
-                  ? {
-                      ...currentInstallmentPlan,
-                      currentInstallment:
-                        currentInstallmentPlan.currentInstallment + 1
-                    }
-                  : currentInstallmentPlan
-
-              // Crear el nuevo paymentInfo
-              const newPaymentInfo = {
-                totalAmount: totalAmount,
-                paidAmount: newPaidAmount,
-                pendingAmount: newPendingAmount,
-                currency: currentPaymentInfo?.currency ?? '€'
-              }
-
-              // Determinar el nuevo economicStatus
-              const newEconomicStatus = fullyPaid
-                ? 'Pagado'
-                : `Pago parcial (${newPaidAmount.toLocaleString('es-ES', {
-                    minimumFractionDigits: 2
-                  })} € de ${totalAmount.toLocaleString('es-ES', {
-                    minimumFractionDigits: 2
-                  })} €)`
-
-              console.log('📊 Nuevo paymentInfo:', newPaymentInfo)
-              console.log('📊 Nuevo economicStatus:', newEconomicStatus)
-
-              // Retornar el evento actualizado
-              const updatedEvent = {
-                ...event,
-                detail: {
-                  ...event.detail!,
-                  paymentInfo: newPaymentInfo,
-                  installmentPlan: newInstallmentPlan,
-                  economicStatus: newEconomicStatus,
-                  economicAmount: fullyPaid
-                    ? `${totalAmount.toLocaleString('es-ES', {
-                        minimumFractionDigits: 2
-                      })} € (Pagado)`
-                    : `${newPendingAmount.toLocaleString('es-ES', {
-                        minimumFractionDigits: 2
-                      })} € pendiente`
-                }
-              }
-
-              return updatedEvent
-            })
-          }))
-
-          return updatedColumns
         })
 
-        // TODO: Cuando el backend esté listo:
-        // - Guardar el pago en la tabla de pagos
-        // - Sincronizar con base de datos
-        console.log('✅ Pago registrado y agenda actualizada:', {
-          appointmentId: selectedEventForPayment.id,
-          amountPaid: data.amountToPay,
-          isFullyPaid,
-          remainingAfterPayment: paymentInfo
-            ? paymentInfo.pendingAmount - data.amountToPay
-            : 0,
-          ...data
+        const result = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          return {
+            ok: false,
+            error: result?.error || 'No se pudo registrar el pago'
+          }
+        }
+      } catch (error: unknown) {
+        return {
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Error inesperado al registrar pago'
+        }
+      }
+
+      const paymentInfo = selectedEventForPayment.paymentInfo
+      const isFullyPaid = paymentInfo
+        ? data.amountToPay >= paymentInfo.pendingAmount
+        : true
+
+      if (isFullyPaid) {
+        updateAppointment(selectedEventForPayment.id, {
+          charge: 'No'
         })
       }
 
-      setShowPaymentModal(false)
-      setSelectedEventForPayment(null)
+      const eventIdToUpdate = selectedEventForPayment.id
+      setDayColumnsState((prevColumns) => {
+        const updatedColumns = prevColumns.map((column) => ({
+          ...column,
+          events: column.events.map((event) => {
+            const isMatch =
+              event.id === eventIdToUpdate ||
+              event.detail?.appointmentId === eventIdToUpdate
+
+            if (!isMatch) return event
+
+            const currentPaymentInfo = event.detail?.paymentInfo
+            const totalAmount =
+              currentPaymentInfo?.totalAmount ??
+              parseFloat(
+                event.detail?.economicAmount
+                  ?.replace(/[^\d,.-]/g, '')
+                  .replace(',', '.') || '0'
+              )
+
+            const previouslyPaid = currentPaymentInfo?.paidAmount ?? 0
+            const newPaidAmount = previouslyPaid + data.amountToPay
+            const newPendingAmount = Math.max(0, totalAmount - newPaidAmount)
+            const fullyPaid = newPendingAmount === 0
+
+            const currentInstallmentPlan = event.detail?.installmentPlan
+            const newInstallmentPlan =
+              currentInstallmentPlan && !fullyPaid
+                ? {
+                    ...currentInstallmentPlan,
+                    currentInstallment:
+                      currentInstallmentPlan.currentInstallment + 1
+                  }
+                : currentInstallmentPlan
+
+            const newPaymentInfo = {
+              totalAmount,
+              paidAmount: newPaidAmount,
+              pendingAmount: newPendingAmount,
+              currency: currentPaymentInfo?.currency ?? '€'
+            }
+
+            const newEconomicStatus = fullyPaid
+              ? 'Pagado'
+              : `Pago parcial (${newPaidAmount.toLocaleString('es-ES', {
+                  minimumFractionDigits: 2
+                })} € de ${totalAmount.toLocaleString('es-ES', {
+                  minimumFractionDigits: 2
+                })} €)`
+
+            return {
+              ...event,
+              detail: {
+                ...event.detail!,
+                paymentInfo: newPaymentInfo,
+                installmentPlan: newInstallmentPlan,
+                economicStatus: newEconomicStatus,
+                economicAmount: fullyPaid
+                  ? `${totalAmount.toLocaleString('es-ES', {
+                      minimumFractionDigits: 2
+                    })} € (Pagado)`
+                  : `${newPendingAmount.toLocaleString('es-ES', {
+                      minimumFractionDigits: 2
+                    })} € pendiente`
+              }
+            }
+          })
+        }))
+
+        return updatedColumns
+      })
+
+      if (!data.generateReceipt) {
+        setShowPaymentModal(false)
+        setSelectedEventForPayment(null)
+      }
+
+      return { ok: true }
     },
-    [selectedEventForPayment, updateAppointment]
+    [mapPaymentMethodToApi, selectedEventForPayment, updateAppointment]
   )
 
   // Handler para ver ficha del paciente - Abre el modal directamente
   const handleViewPatient = useCallback(() => {
-    if (!active?.event?.detail) return
-
-    // Abrir el modal de ficha del paciente
+    if (!active?.event) return
+    const { patientId, patientName } = resolveEventPatient(active.event)
+    if (!patientId) {
+      console.warn(
+        'No se pudo abrir ficha: cita sin patientId',
+        active.event.detail?.appointmentId ?? active.event.id
+      )
+      return
+    }
     setPatientRecordConfig({
       open: true,
-      initialTab: 'Resumen'
+      initialTab: 'Resumen',
+      patientId,
+      patientName
     })
     setActive(null) // Cerrar overlay
-  }, [active])
+  }, [active, resolveEventPatient])
 
   // Handler para marcar cita como completada/pendiente
   const handleToggleComplete = useCallback(
@@ -2401,8 +2455,25 @@ export default function WeekScheduler() {
 
       const event = contextMenu.event
       const detail = event.detail
+      const { patientId, patientName } = resolveEventPatient(event)
 
       switch (action) {
+        case 'view-patient':
+          if (!patientId) {
+            console.warn(
+              'No se pudo abrir ficha: cita sin patientId',
+              detail?.appointmentId ?? event.id
+            )
+            break
+          }
+          setPatientRecordConfig({
+            open: true,
+            initialTab: 'Resumen',
+            patientId,
+            patientName
+          })
+          break
+
         case 'view-appointment':
           // Abrir overlay de detalle de la cita - encontrar la columna correspondiente
           const column = dayColumnsState.find((col) =>
@@ -2416,40 +2487,62 @@ export default function WeekScheduler() {
         case 'new-appointment':
           // Abrir modal de nueva cita con datos pre-rellenados del paciente
           openCreateAppointmentModal({
-            paciente: detail?.patientFull || ''
+            paciente: patientName || '',
+            pacienteId: patientId || ''
           })
           break
 
         case 'new-budget':
+          if (!patientId) {
+            console.warn(
+              'No se pudo abrir presupuesto: cita sin patientId',
+              detail?.appointmentId ?? event.id
+            )
+            break
+          }
           // Abrir modal de ficha del paciente en tab Finanzas con creación abierta
           setPatientRecordConfig({
             open: true,
             initialTab: 'Finanzas',
             openBudgetCreation: true,
-            patientId: event.id, // Mock: usando event.id como patientId
-            patientName: detail?.patientFull || 'Paciente'
+            patientId,
+            patientName
           })
           break
 
         case 'new-prescription':
+          if (!patientId) {
+            console.warn(
+              'No se pudo abrir receta: cita sin patientId',
+              detail?.appointmentId ?? event.id
+            )
+            break
+          }
           // Abrir modal de ficha del paciente en tab Recetas con creación abierta
           setPatientRecordConfig({
             open: true,
             initialTab: 'Recetas',
             openPrescriptionCreation: true,
-            patientId: event.id,
-            patientName: detail?.patientFull || 'Paciente'
+            patientId,
+            patientName
           })
           break
 
         case 'report':
+          if (!patientId) {
+            console.warn(
+              'No se pudo abrir historial clínico: cita sin patientId',
+              detail?.appointmentId ?? event.id
+            )
+            break
+          }
           // Abrir modal de ficha del paciente en Historial clínico en modo edición
           setPatientRecordConfig({
             open: true,
             initialTab: 'Historial clínico',
             openClinicalHistoryEdit: true,
-            patientId: event.id,
-            patientName: detail?.patientFull || 'Paciente'
+            patientId,
+            patientName
           })
           break
 
@@ -2463,7 +2556,13 @@ export default function WeekScheduler() {
 
       setContextMenu(null)
     },
-    [contextMenu, dayColumnsState, openCreateAppointmentModal, router]
+    [
+      contextMenu,
+      dayColumnsState,
+      openCreateAppointmentModal,
+      resolveEventPatient,
+      router
+    ]
   )
 
   const timeToMinutes = (time: string): number => {
@@ -2487,6 +2586,8 @@ export default function WeekScheduler() {
       professionalId?: string
       notes?: string
       patientId?: string
+      invoiceId?: string
+      invoiceNumber?: string
       confirmed?: boolean
       createdByVoiceAgent?: boolean
       voiceAgentCallId?: string
@@ -2566,6 +2667,8 @@ export default function WeekScheduler() {
           notesLabel: NOTES_LABEL,
           patientId: apt.patientId,
           appointmentId: apt.id,
+          invoiceId: apt.invoiceId || undefined,
+          invoiceNumber: apt.invoiceNumber || undefined,
           treatmentDescription: apt.reason,
           paymentInfo: apt.paymentInfo,
           installmentPlan: apt.installmentPlan
@@ -4202,11 +4305,15 @@ export default function WeekScheduler() {
             setSelectedEventForPayment(null)
           }}
           onSubmit={handleRegisterPayment}
-          invoiceId={selectedEventForPayment.id}
+          invoiceId={
+            selectedEventForPayment.invoiceNumber ||
+            selectedEventForPayment.invoiceId
+          }
           treatment={selectedEventForPayment.treatment}
           amount={selectedEventForPayment.amount}
           paymentInfo={selectedEventForPayment.paymentInfo}
           installmentPlan={selectedEventForPayment.installmentPlan}
+          patientName={selectedEventForPayment.patientName}
         />
       )}
 

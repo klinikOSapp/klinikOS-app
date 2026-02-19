@@ -31,6 +31,8 @@ type CallsTableProps = {
   selectedWeekStart?: Date
   /** Voice agent tier - determines available actions */
   voiceAgentTier?: VoiceAgentTier
+  /** Whether call actions are available for the clinic */
+  canCallActions?: boolean
 }
 
 const ITEMS_PER_PAGE = 9
@@ -304,7 +306,8 @@ function CallQuickActionsMenu({
   onViewTranscription,
   onAssignProfessional,
   onMoreInfo,
-  voiceAgentTier = 'advanced'
+  voiceAgentTier = 'advanced',
+  canCallActions = true
 }: {
   row: CallRecord
   onClose: () => void
@@ -318,6 +321,7 @@ function CallQuickActionsMenu({
   onAssignProfessional: () => void
   onMoreInfo: () => void
   voiceAgentTier?: VoiceAgentTier
+  canCallActions?: boolean
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{
@@ -395,8 +399,7 @@ function CallQuickActionsMenu({
   // Build actions list based on voice agent tier
   const actions: QuickActionItem[] = []
 
-  // In basic tier, hide "Llamar" from quick-actions menu.
-  if (voiceAgentTier === 'advanced') {
+  if (canCallActions) {
     actions.push({ id: 'call', label: 'Llamar', icon: 'call', onClick: onCall })
   }
 
@@ -508,7 +511,8 @@ export type ViewMode = 'table' | 'cards'
 export default function CallsTable({
   data,
   selectedWeekStart,
-  voiceAgentTier = 'advanced'
+  voiceAgentTier = 'advanced',
+  canCallActions = true
 }: CallsTableProps) {
   const supabase = useRef(createSupabaseBrowserClient())
   const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
@@ -1449,6 +1453,7 @@ export default function CallsTable({
           <CallCardsView
             calls={paginatedData}
             onCall={handleCall}
+            canCallActions={canCallActions}
             onMarkResolved={handleMarkResolved}
             onAddNote={(call) => {
               // TODO: Implement add note functionality
@@ -1749,6 +1754,7 @@ export default function CallsTable({
             onAssignProfessional={() => handleAssignProfessional(activeMenuRow)}
             onMoreInfo={() => handleMoreInfo(activeMenuRow)}
             voiceAgentTier={voiceAgentTier}
+            canCallActions={canCallActions}
           />
         </Portal>
       )}
@@ -1800,7 +1806,7 @@ export default function CallsTable({
         <CallDetailModal
           call={detailRow}
           onClose={() => setDetailRow(null)}
-          onCall={() => handleCall(detailRow)}
+          onCall={canCallActions ? () => handleCall(detailRow) : undefined}
           onCreateAppointment={(prefill) => {
             // Navigate to agenda to create appointment with pre-filled data
             // Encode the prefill data as URL parameters

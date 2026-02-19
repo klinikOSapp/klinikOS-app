@@ -12,14 +12,15 @@ const CARD_HEIGHT_REM = CARD_HEIGHT_PX / 16
 const GRID_WIDTH_PX = 451
 const GRID_HEIGHT_PX = 228
 const GRID_LEFT_PX = 56
-const GRID_TOP_PX = 58
+const GRID_TOP_PX = 46
 const CARD_PADDING_PX = 16
-const Y_AXIS_TOP_PX = 64
+const Y_AXIS_TOP_PX = 52
 const Y_AXIS_HEIGHT_PX = 222
-const X_AXIS_TOP_PX = 302
+const X_AXIS_TOP_PX = 290
 const CHIP_LEFT_PX = 64
-const CHIP_FACT_TOP_PX = 66
-const CHIP_OBJ_TOP_PX = 98
+const CHIP_OBJ_LEFT_PX = 210
+const CHIP_FACT_TOP_PX = 16
+const CHIP_OBJ_TOP_PX = 16
 
 const percentOfWidth = (px: number) => `${(px / CARD_WIDTH_PX) * 100}%`
 const percentOfHeight = (px: number) => `${(px / CARD_HEIGHT_PX) * 100}%`
@@ -52,12 +53,6 @@ const chartCanvas = {
   maxValue: 50 // Default, will be calculated dynamically
 }
 
-const HEADER_RECT = {
-  left: CARD_PADDING_PX,
-  top: CARD_PADDING_PX,
-  width: 491,
-  height: 24
-}
 const FACT_CHIP_RECT = {
   left: CHIP_LEFT_PX,
   top: CHIP_FACT_TOP_PX,
@@ -65,7 +60,7 @@ const FACT_CHIP_RECT = {
   height: 24
 }
 const TARGET_CHIP_RECT = {
-  left: CHIP_LEFT_PX,
+  left: CHIP_OBJ_LEFT_PX,
   top: CHIP_OBJ_TOP_PX,
   width: 135,
   height: 24
@@ -135,11 +130,6 @@ export default function CashTrendCard({
       month: '2-digit',
       day: '2-digit'
     }).format(d)
-
-  const yearLabel = useMemo(
-    () => new Intl.DateTimeFormat('es-ES', { year: 'numeric' }).format(anchorDate),
-    [anchorDate]
-  )
 
   // Fetch trend data from API
   useEffect(() => {
@@ -593,22 +583,6 @@ export default function CashTrendCard({
           minWidth: CARD_WIDTH_PX * scale
         }}
       >
-        <header
-          className='absolute flex items-center justify-between'
-          style={rectToStyle(HEADER_RECT)}
-        >
-          <h2 className='text-title-sm font-medium text-fg'>Ingresos</h2>
-          <button
-            type='button'
-            className='inline-flex items-center gap-[0.25rem] text-label-md font-normal text-fg'
-          >
-            {yearLabel}
-            <span className='material-symbols-rounded text-[1rem] leading-4 text-fg'>
-              arrow_drop_down
-            </span>
-          </button>
-        </header>
-
         {/* Legend chips - Turquoise for Facturado, light teal for Objetivo */}
         <div
           className='absolute inline-flex items-center gap-[0.25rem] rounded-pill border px-[0.5rem] py-[0.25rem] text-label-md font-normal'

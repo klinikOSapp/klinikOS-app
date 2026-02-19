@@ -96,6 +96,12 @@ export function CashClosingModal({
   } = useCashClosing()
 
   const availableDates = React.useMemo(() => getAvailableDates(), [getAvailableDates])
+  const dateOptions = React.useMemo(() => {
+    const merged = new Set<string>()
+    if (selectedDate) merged.add(selectedDate)
+    for (const date of availableDates) merged.add(date)
+    return Array.from(merged).sort((a, b) => b.localeCompare(a))
+  }, [availableDates, selectedDate])
 
   // Initialize modal state only when opening
   React.useEffect(() => {
@@ -267,8 +273,10 @@ export function CashClosingModal({
   }
 
   const formatDateLabel = (dateStr: string) => {
-    const date = new Date(dateStr + 'T00:00:00')
+    const [y, m, d] = dateStr.split('-').map((v) => Number(v))
+    const date = new Date(Date.UTC(y || 1970, (m || 1) - 1, d || 1, 12, 0, 0))
     return date.toLocaleDateString('es-ES', {
+      timeZone: 'Europe/Madrid',
       weekday: 'long',
       day: 'numeric',
       month: 'long',
@@ -277,8 +285,10 @@ export function CashClosingModal({
   }
 
   const formatShortDate = (dateStr: string) => {
-    const date = new Date(dateStr + 'T00:00:00')
+    const [y, m, d] = dateStr.split('-').map((v) => Number(v))
+    const date = new Date(Date.UTC(y || 1970, (m || 1) - 1, d || 1, 12, 0, 0))
     return date.toLocaleDateString('es-ES', {
+      timeZone: 'Europe/Madrid',
       day: 'numeric',
       month: 'short',
       year: 'numeric'
@@ -342,7 +352,7 @@ export function CashClosingModal({
 
               {showDatePicker && (
                 <div className='absolute right-0 top-[calc(100%+0.5rem)] z-[100] max-h-[20rem] min-w-[14rem] overflow-y-auto rounded-xl border border-border bg-neutral-0 py-2 shadow-elevation-popover'>
-                  {availableDates.map((date) => {
+                  {dateOptions.map((date) => {
                     const isClosed = isDayClosed(date)
                     const isSelected = date === selectedDate
                     return (

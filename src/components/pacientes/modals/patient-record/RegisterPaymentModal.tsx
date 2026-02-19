@@ -23,7 +23,12 @@ import { createPortal } from 'react-dom'
 type RegisterPaymentModalProps = {
   open: boolean
   onClose: () => void
-  onSubmit?: (data: RegisterPaymentFormData) => void
+  onSubmit?: (
+    data: RegisterPaymentFormData
+  ) =>
+    | void
+    | { ok: boolean; error?: string }
+    | Promise<{ ok: boolean; error?: string } | void>
   // Data from the invoice row
   invoiceId: string
   treatment: string
@@ -96,6 +101,8 @@ export default function RegisterPaymentModal({
   const [showReceiptSuccess, setShowReceiptSuccess] = React.useState<boolean>(false)
   const [lastReceiptBlob, setLastReceiptBlob] = React.useState<Blob | null>(null)
   const [lastReceiptNumber, setLastReceiptNumber] = React.useState<string>('')
+  const [submitError, setSubmitError] = React.useState<string>('')
+  const [isSubmitting, setIsSubmitting] = React.useState<boolean>(false)
 
   // Calcular el monto a pagar según la opción seleccionada
   const getAmountToPay = (): number => {
@@ -157,8 +164,10 @@ export default function RegisterPaymentModal({
     setFormData((prev) => ({ ...prev, paymentDate: new Date() }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isSubmitting) return
+    setSubmitError('')
 
     // Validar que hay un monto válido
     if (amountToPay <= 0) {
@@ -170,7 +179,35 @@ export default function RegisterPaymentModal({
       return
     }
 
+    const submitPayload: RegisterPaymentFormData = {
+      ...formData,
+      amountToPay,
+      generateReceipt
+    }
+
+    const submitPayment = async (): Promise<boolean> => {
+      if (!onSubmit) return true
+      try {
+        const result = await onSubmit(submitPayload)
+        if (result && typeof result === 'object' && 'ok' in result) {
+          if (!result.ok) {
+            setSubmitError(result.error || 'No se pudo guardar el pago')
+            return false
+          }
+        }
+        return true
+      } catch (error: unknown) {
+        setSubmitError(
+          error instanceof Error
+            ? error.message
+            : 'No se pudo guardar el pago'
+        )
+        return false
+      }
+    }
+
     // HU-015: Generate receipt PDF if requested
+    setIsSubmitting(true)
     if (generateReceipt && formData.paymentDate) {
       const receiptNumber = generateReceiptNumber()
       const totalAmount = paymentInfo?.totalAmount ?? 
@@ -195,16 +232,18 @@ export default function RegisterPaymentModal({
       const blob = generatePaymentReceiptPDF(receiptData)
       setLastReceiptBlob(blob)
       setLastReceiptNumber(receiptNumber)
-      setShowReceiptSuccess(true)
+      const ok = await submitPayment()
+      if (ok) {
+        setShowReceiptSuccess(true)
+      }
     } else {
       // No receipt requested, just submit and close
-      onSubmit?.({
-        ...formData,
-        amountToPay,
-        generateReceipt
-      })
-      onClose()
+      const ok = await submitPayment()
+      if (ok) {
+        onClose()
+      }
     }
+    setIsSubmitting(false)
   }
 
   const handleDownloadReceipt = () => {
@@ -233,14 +272,7 @@ export default function RegisterPaymentModal({
   }
 
   const handleFinishWithReceipt = () => {
-    onSubmit?.({
-      ...formData,
-      amountToPay,
-      generateReceipt: true
-    })
-    setShowReceiptSuccess(false)
-    setLastReceiptBlob(null)
-    onClose()
+    handleClose()
   }
 
   const resetForm = () => {
@@ -256,6 +288,8 @@ export default function RegisterPaymentModal({
     setShowReceiptSuccess(false)
     setLastReceiptBlob(null)
     setLastReceiptNumber('')
+    setSubmitError('')
+    setIsSubmitting(false)
   }
 
   const handleClose = () => {
@@ -275,24 +309,28 @@ export default function RegisterPaymentModal({
 
       {/* Modal - 602px = 37.625rem */}
       <div
-        className='relative bg-white rounded-lg w-[37.625rem] max-h-[90vh] overflow-y-auto'
+        className={`relative bg-white rounded-lg w-[37.625rem] max-h-[90vh] ${
+          showReceiptSuccess ? 'overflow-hidden' : 'overflow-y-auto'
+        }`}
         data-node-id='3092:12114'
       >
-        {/* Header - 56px height */}
-        <div className='sticky top-0 z-10 flex items-center justify-between h-14 px-8 border-b border-neutral-300 bg-white'>
-          <h2 className='text-title-md text-neutral-900'>Registrar pago</h2>
-          <button
-            type='button'
-            onClick={handleClose}
-            className='text-neutral-900 hover:text-neutral-600 transition-colors cursor-pointer'
-            aria-label='Cerrar'
-          >
-            <CloseRounded className='size-[0.875rem]' />
-          </button>
-        </div>
+        {!showReceiptSuccess && (
+          <>
+            {/* Header - 56px height */}
+            <div className='sticky top-0 z-10 flex items-center justify-between h-14 px-8 border-b border-neutral-300 bg-white'>
+              <h2 className='text-title-md text-neutral-900'>Registrar pago</h2>
+              <button
+                type='button'
+                onClick={handleClose}
+                className='text-neutral-900 hover:text-neutral-600 transition-colors cursor-pointer'
+                aria-label='Cerrar'
+              >
+                <CloseRounded className='size-[0.875rem]' />
+              </button>
+            </div>
 
-        {/* Content */}
-        <form onSubmit={handleSubmit} className='flex flex-col gap-8 px-8 py-6'>
+            {/* Content */}
+            <form onSubmit={handleSubmit} className='flex flex-col gap-8 px-8 py-6'>
           {/* Info del tratamiento */}
           <div className='flex flex-col gap-4'>
             <div className='flex flex-col gap-1'>
@@ -576,30 +614,36 @@ export default function RegisterPaymentModal({
 
           {/* Buttons */}
           <div className='flex items-center justify-end gap-3 pt-4 border-t border-neutral-200'>
+            {submitError && (
+              <p className='mr-auto text-body-sm text-red-600'>{submitError}</p>
+            )}
             <button
               type='button'
               onClick={handleClose}
+              disabled={isSubmitting}
               className='px-4 py-2 rounded-[8.5rem] border border-neutral-300 text-title-sm text-neutral-900 hover:bg-neutral-50 transition-colors cursor-pointer'
             >
               Cancelar
             </button>
             <button
               type='submit'
-              disabled={amountToPay <= 0 || !!amountError}
+              disabled={amountToPay <= 0 || !!amountError || isSubmitting}
               className='px-6 py-2 rounded-[8.5rem] bg-brand-500 text-title-sm text-brand-900 hover:bg-brand-400 active:bg-brand-600 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
             >
-              Registrar pago de{' '}
-              {amountToPay.toLocaleString('es-ES', {
-                minimumFractionDigits: 2
-              })}{' '}
-              {currency}
+              {isSubmitting
+                ? 'Guardando...'
+                : `Registrar pago de ${amountToPay.toLocaleString('es-ES', {
+                    minimumFractionDigits: 2
+                  })} ${currency}`}
             </button>
           </div>
-        </form>
+            </form>
+          </>
+        )}
 
         {/* HU-015: Receipt success view */}
         {showReceiptSuccess && (
-          <div className='absolute inset-0 bg-white flex flex-col'>
+          <div className='flex min-h-[30rem] flex-col bg-white'>
             <div className='sticky top-0 z-10 flex items-center justify-between h-14 px-8 border-b border-neutral-300 bg-white'>
               <h2 className='text-title-md text-neutral-900'>Pago registrado</h2>
               <button

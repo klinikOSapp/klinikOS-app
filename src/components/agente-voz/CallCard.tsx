@@ -8,6 +8,7 @@ import { SENTIMENT_LABELS, isAppointmentIntent } from './voiceAgentTypes'
 type CallCardProps = {
   call: CallRecord
   onCall: () => void
+  canCallActions?: boolean
   onMarkResolved: () => void
   onAddNote: () => void
   onShowDetail: () => void
@@ -53,6 +54,7 @@ type QuickActionItem = {
 export default function CallCard({
   call,
   onCall,
+  canCallActions = true,
   onMarkResolved,
   onAddNote,
   onShowDetail,
@@ -74,8 +76,7 @@ export default function CallCard({
   const getQuickActions = (): QuickActionItem[] => {
     const actions: QuickActionItem[] = []
 
-    // In basic tier, hide "Llamar" from quick-actions menu.
-    if (voiceAgentTier === 'advanced') {
+    if (canCallActions) {
       actions.push({ id: 'call', label: 'Llamar', icon: 'call', onClick: onCall })
     }
 
@@ -299,7 +300,7 @@ export default function CallCard({
 
         {/* Audio Player */}
         <div className='mt-4' onClick={(e) => e.stopPropagation()}>
-          <AudioWaveform duration={call.duration} />
+          <AudioWaveform duration={call.duration} audioUrl={call.recordingUrl} />
         </div>
 
         {/* Transcript link */}
@@ -349,15 +350,16 @@ export default function CallCard({
           Añadir nota
         </button>
 
-        {/* Llamar */}
-        <button
-          type='button'
-          onClick={onCall}
-          className='px-3 py-1.5 bg-brand-400 hover:bg-brand-500 rounded-full text-sm font-medium text-[#24282c] transition-colors flex items-center gap-1.5'
-        >
-          <span className='material-symbols-rounded text-lg'>call</span>
-          <span>Llamar</span>
-        </button>
+        {canCallActions && (
+          <button
+            type='button'
+            onClick={onCall}
+            className='px-3 py-1.5 bg-brand-400 hover:bg-brand-500 rounded-full text-sm font-medium text-[#24282c] transition-colors flex items-center gap-1.5'
+          >
+            <span className='material-symbols-rounded text-lg'>call</span>
+            <span>Llamar</span>
+          </button>
+        )}
       </div>
     </div>
   )

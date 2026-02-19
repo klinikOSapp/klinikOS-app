@@ -7,6 +7,7 @@ type Body = {
   amount: number
   paymentMethod: string
   transactionDate?: string // ISO
+  transactionId?: string | null
   notes?: string | null
 }
 
@@ -38,6 +39,10 @@ export async function POST(req: Request) {
       body.transactionDate && String(body.transactionDate).trim()
         ? new Date(String(body.transactionDate)).toISOString()
         : new Date().toISOString()
+    const transactionId =
+      body.transactionId && String(body.transactionId).trim()
+        ? String(body.transactionId).trim()
+        : null
     const notes = body.notes ? String(body.notes) : null
 
     if (!invoiceId || !paymentMethod || !Number.isFinite(amount) || amount <= 0) {
@@ -47,7 +52,7 @@ export async function POST(req: Request) {
     // Ensure invoice belongs to clinic.
     const { data: invoice, error: invError } = await supabase
       .from('invoices')
-      .select('id, clinic_id')
+      .select('id, clinic_id, total_amount, patient_id')
       .eq('id', invoiceId)
       .maybeSingle()
 
@@ -59,6 +64,32 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
+    const { data: existingPayments, error: paymentsError } = await supabase
+      .from('payments')
+      .select('amount')
+      .eq('clinic_id', clinicId)
+      .eq('invoice_id', invoiceId)
+
+    if (paymentsError) {
+      console.error('[register-payment] payments lookup error', paymentsError)
+      return NextResponse.json({ error: paymentsError.message }, { status: 500 })
+    }
+
+    const alreadyPaid = (existingPayments || []).reduce(
+      (sum: number, row: any) => sum + Number(row.amount || 0),
+      0
+    )
+    const invoiceTotal = Number((invoice as any).total_amount || 0)
+    const outstanding = Math.max(invoiceTotal - alreadyPaid, 0)
+    if (amount - outstanding > 0.009) {
+      return NextResponse.json(
+        {
+          error: `El pago (${amount.toFixed(2)} €) supera el pendiente (${outstanding.toFixed(2)} €)`
+        },
+        { status: 400 }
+      )
+    }
+
     const { error } = await supabase.from('payments').insert({
       invoice_id: invoiceId,
       clinic_id: clinicId,
@@ -66,6 +97,8 @@ export async function POST(req: Request) {
       payment_method: paymentMethod,
       amount,
       transaction_date: transactionDate,
+      transaction_id: transactionId,
+      patient_id: (invoice as any).patient_id || null,
       notes
     })
 
@@ -74,10 +107,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    const newAmountPaid = alreadyPaid + amount
+    const nextStatus = newAmountPaid + 0.009 >= invoiceTotal ? 'paid' : 'open'
+    const { error: invoiceUpdateError } = await supabase
+      .from('invoices')
+      .update({
+        amount_paid: newAmountPaid,
+        status: nextStatus
+      })
+      .eq('id', invoiceId)
+      .eq('clinic_id', clinicId)
+
+    if (invoiceUpdateError) {
+      console.error('[register-payment] invoice update error', invoiceUpdateError)
+      return NextResponse.json({ error: invoiceUpdateError.message }, { status: 500 })
+    }
+
     return NextResponse.json({ ok: true })
   } catch (error: any) {
     console.error('Error in register-payment API:', error)
     return NextResponse.json({ error: error?.message ?? 'Unexpected error' }, { status: 500 })
   }
 }
-

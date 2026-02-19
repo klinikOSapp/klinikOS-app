@@ -85,6 +85,39 @@ function getPaymentCategory(
   return 'TPV'
 }
 
+function formatPaymentMethodLabel(method: string): string {
+  const value = String(method || '').trim()
+  if (!value) return 'Pendiente'
+  const lower = value.toLowerCase()
+  if (lower.includes('efectivo') || lower.includes('cash')) return 'Efectivo'
+  if (lower.includes('tpv') || lower.includes('tarjeta') || lower.includes('card'))
+    return 'TPV'
+  if (
+    lower.includes('transferencia') ||
+    lower.includes('transfer') ||
+    lower.includes('bancaria') ||
+    lower.includes('bank')
+  )
+    return 'Transferencia'
+  if (
+    lower.includes('financi') ||
+    lower.includes('plazo') ||
+    lower.includes('financed') ||
+    lower.includes('financing')
+  )
+    return 'Financiación'
+  if (
+    lower.includes('other') ||
+    lower.includes('otros') ||
+    lower.includes('wallet') ||
+    lower.includes('billetera') ||
+    lower.includes('cheque') ||
+    lower.includes('cript')
+  )
+    return 'Otros'
+  return value
+}
+
 // Map invoice status to UI status
 function getInvoiceStatus(status: string): 'Aceptado' | 'Enviado' {
   return status === 'paid' || status === 'accepted' ? 'Aceptado' : 'Enviado'
@@ -220,7 +253,8 @@ export async function GET(req: Request) {
         const collectionStatus: 'Cobrado' | 'Por cobrar' =
           outstandingAmount <= 0.009 ? 'Cobrado' : 'Por cobrar'
 
-        const method = row.last_payment_method ? String(row.last_payment_method) : 'Pendiente'
+        const methodRaw = row.last_payment_method ? String(row.last_payment_method) : ''
+        const method = methodRaw ? formatPaymentMethodLabel(methodRaw) : 'Pendiente'
         const paymentCategory = row.last_payment_method
           ? getPaymentCategory(String(row.last_payment_method))
           : 'Pendiente'
@@ -389,7 +423,9 @@ export async function GET(req: Request) {
           : '00:00'
 
         const lastPayment = lastPaymentByInvoice.get(String(invoice.id))
-        const method = lastPayment?.method ? lastPayment.method : 'Pendiente'
+        const method = lastPayment?.method
+          ? formatPaymentMethodLabel(lastPayment.method)
+          : 'Pendiente'
         const paymentCategory = lastPayment?.method
           ? getPaymentCategory(lastPayment.method)
           : 'Pendiente'
@@ -456,5 +492,4 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error?.message ?? 'Unexpected error' }, { status: 500 })
   }
 }
-
 

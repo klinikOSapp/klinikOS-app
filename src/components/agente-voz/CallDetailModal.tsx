@@ -72,6 +72,7 @@ export default function CallDetailModal({
 }: CallDetailModalProps) {
   // Check if we're in basic mode (receptionist - no auto appointments)
   const isBasicMode = voiceAgentTier === 'basic'
+  const canCall = typeof onCall === 'function'
   const displayIntent = call.intentDisplay?.trim() || CALL_INTENT_LABELS[call.intent]
 
   // Determinar si la intención es de pedir cita (cita ya creada automáticamente por el agente)
@@ -610,14 +611,16 @@ export default function CallDetailModal({
                   </span>
                   <span>Marcar como resuelta</span>
                 </button>
-                <button
-                  type='button'
-                  onClick={onCall}
-                  className='px-5 py-2.5 bg-brand-500 text-white text-sm font-semibold rounded-xl hover:bg-brand-600 transition-colors flex items-center gap-2 shadow-sm'
-                >
-                  <span className='material-symbols-rounded text-lg'>call</span>
-                  <span>Llamar</span>
-                </button>
+                {canCall && (
+                  <button
+                    type='button'
+                    onClick={onCall}
+                    className='px-5 py-2.5 bg-brand-500 text-white text-sm font-semibold rounded-xl hover:bg-brand-600 transition-colors flex items-center gap-2 shadow-sm'
+                  >
+                    <span className='material-symbols-rounded text-lg'>call</span>
+                    <span>Llamar</span>
+                  </button>
+                )}
               </>
             ) : canCreateAppointment ? (
               <>
@@ -639,14 +642,16 @@ export default function CallDetailModal({
                   </span>
                   <span>Ver en agenda</span>
                 </button>
-                <button
-                  type='button'
-                  onClick={onCall}
-                  className='px-5 py-2.5 bg-white border border-neutral-300 text-neutral-700 text-sm font-semibold rounded-xl hover:bg-neutral-50 transition-colors flex items-center gap-2'
-                >
-                  <span className='material-symbols-rounded text-lg'>call</span>
-                  <span>Llamar</span>
-                </button>
+                {canCall && (
+                  <button
+                    type='button'
+                    onClick={onCall}
+                    className='px-5 py-2.5 bg-white border border-neutral-300 text-neutral-700 text-sm font-semibold rounded-xl hover:bg-neutral-50 transition-colors flex items-center gap-2'
+                  >
+                    <span className='material-symbols-rounded text-lg'>call</span>
+                    <span>Llamar</span>
+                  </button>
+                )}
               </>
             ) : (
               <>
@@ -669,14 +674,16 @@ export default function CallDetailModal({
                   </span>
                   <span>Crear cita</span>
                 </button>
-                <button
-                  type='button'
-                  onClick={onCall}
-                  className='px-5 py-2.5 bg-white border border-neutral-300 text-neutral-700 text-sm font-semibold rounded-xl hover:bg-neutral-50 transition-colors flex items-center gap-2'
-                >
-                  <span className='material-symbols-rounded text-lg'>call</span>
-                  <span>Llamar</span>
-                </button>
+                {canCall && (
+                  <button
+                    type='button'
+                    onClick={onCall}
+                    className='px-5 py-2.5 bg-white border border-neutral-300 text-neutral-700 text-sm font-semibold rounded-xl hover:bg-neutral-50 transition-colors flex items-center gap-2'
+                  >
+                    <span className='material-symbols-rounded text-lg'>call</span>
+                    <span>Llamar</span>
+                  </button>
+                )}
               </>
             )}
           </footer>

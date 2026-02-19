@@ -412,6 +412,34 @@ export function DatePickerInput({
     }
   }, [selectedDate])
 
+  // Keep internal state synced with controlled value changes from parent.
+  React.useEffect(() => {
+    if (!value) {
+      setSelectedDate(null)
+      return
+    }
+
+    const next = new Date(value)
+    if (Number.isNaN(next.getTime())) return
+
+    setSelectedDate((previous) => {
+      if (
+        previous &&
+        previous.getFullYear() === next.getFullYear() &&
+        previous.getMonth() === next.getMonth() &&
+        previous.getDate() === next.getDate()
+      ) {
+        return previous
+      }
+      return next
+    })
+
+    if (!calendarOpen) {
+      setViewMonth(next.getMonth())
+      setViewYear(next.getFullYear())
+    }
+  }, [calendarOpen, value])
+
   // Función para validar y actualizar la fecha
   const updateDateFromInputs = React.useCallback((d: string, m: string, y: string) => {
     if (d.length === 2 && m.length === 2 && y.length === 4) {
@@ -648,7 +676,7 @@ export function DatePickerInput({
           createPortal(
             <div
               ref={calendarRef}
-              className='fixed z-[100] w-[22.5rem] bg-[var(--color-surface-popover,#fff)] rounded-[1rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)] overflow-hidden'
+              className='fixed z-[10050] w-[22.5rem] bg-[var(--color-surface-popover,#fff)] rounded-[1rem] border border-[var(--color-neutral-300)] shadow-[0_10px_30px_rgba(0,0,0,0.12)] overflow-hidden'
               style={{
                 left: popoverPos.left,
                 top: popoverPos.top,

@@ -140,6 +140,7 @@ export type EventDetail = {
   patientId?: string // ID del paciente para navegación
   appointmentId?: string // ID de la cita para tracking
   invoiceId?: string // ID de factura si existe
+  invoiceNumber?: string // Número visible de factura (si existe)
   treatmentDescription?: string // Descripción del tratamiento para el modal de cobro
   // Información de pagos parciales
   paymentInfo?: PaymentInfo

@@ -1806,6 +1806,7 @@ interface DayCalendarProps {
   selectedProfessionals?: string[] // Professionals selected in the filter
   onOpenCreateAppointment?: (prefill?: {
     paciente?: string
+    pacienteId?: string
     fecha?: string
     hora?: string
     duracion?: string
@@ -1951,7 +1952,8 @@ export default function DayCalendar({
   const router = useRouter()
 
   // Get blocks from context
-  const { getBlocksByDate, deleteBlock } = useAppointments()
+  const { getBlocksByDate, deleteBlock, getAppointmentById, updateAppointment } =
+    useAppointments()
 
   // Get boxes from configuration context
   const { activeBoxes } = useConfiguration()
@@ -2033,6 +2035,8 @@ export default function DayCalendar({
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedEventForPayment, setSelectedEventForPayment] = useState<{
     id: string
+    invoiceId: string
+    invoiceNumber?: string
     patientName: string
     treatment: string
     amount: string
@@ -2125,6 +2129,24 @@ export default function DayCalendar({
     setActive(null)
   }
 
+  const mapPaymentMethodToApi = useCallback(
+    (method: string): 'Efectivo' | 'TPV' | 'Transferencia' | 'Financiación' | 'Otros' => {
+      switch (method) {
+        case 'efectivo':
+          return 'Efectivo'
+        case 'tarjeta':
+          return 'TPV'
+        case 'transferencia':
+          return 'Transferencia'
+        case 'financiacion':
+          return 'Financiación'
+        default:
+          return 'Otros'
+      }
+    },
+    []
+  )
+
   // Handler para abrir modal de pago desde acciones rápidas
   const handlePaymentAction = useCallback(() => {
     if (!active?.event) return
@@ -2134,6 +2156,8 @@ export default function DayCalendar({
 
     setSelectedEventForPayment({
       id: detail?.appointmentId ?? event.id,
+      invoiceId: detail?.invoiceId ?? '',
+      invoiceNumber: detail?.invoiceNumber,
       patientName: detail?.patientFull ?? event.label.split('\n')[1] ?? '',
       treatment:
         detail?.treatmentDescription ?? event.label.split('\n')[0] ?? '',
@@ -2148,47 +2172,117 @@ export default function DayCalendar({
 
   // Handler para registrar pago (soporta pagos parciales)
   const handleRegisterPayment = useCallback(
-    (data: {
+    async (data: {
       paymentMethod: string
       paymentDate: Date | null
       reference: string
       amountToPay: number
+      generateReceipt?: boolean
     }) => {
-      if (selectedEventForPayment) {
-        const paymentInfo = selectedEventForPayment.paymentInfo
-        const isFullyPaid = paymentInfo
-          ? data.amountToPay >= paymentInfo.pendingAmount
-          : true
-
-        // TODO: Integrar con contexto/backend para actualizar estado de cobro
-        console.log('✅ Pago registrado desde vista día:', {
-          appointmentId: selectedEventForPayment.id,
-          amountPaid: data.amountToPay,
-          isFullyPaid,
-          remainingAfterPayment: paymentInfo
-            ? paymentInfo.pendingAmount - data.amountToPay
-            : 0,
-          ...data
-        })
+      if (!selectedEventForPayment) {
+        return { ok: false, error: 'No hay cita seleccionada' }
       }
 
-      setShowPaymentModal(false)
-      setSelectedEventForPayment(null)
+      const invoiceId = selectedEventForPayment.invoiceId?.trim()
+      if (!invoiceId) {
+        return { ok: false, error: 'La cita no tiene factura vinculada para cobrar' }
+      }
+
+      try {
+        const response = await fetch('/api/caja/register-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            invoiceId,
+            amount: data.amountToPay,
+            paymentMethod: mapPaymentMethodToApi(data.paymentMethod),
+            transactionDate: data.paymentDate
+              ? data.paymentDate.toISOString()
+              : undefined,
+            transactionId: data.reference || null,
+            notes: selectedEventForPayment.treatment || null
+          })
+        })
+
+        const result = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          return {
+            ok: false,
+            error: result?.error || 'No se pudo registrar el pago'
+          }
+        }
+      } catch (error: unknown) {
+        return {
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Error inesperado al registrar pago'
+        }
+      }
+
+      const currentPaymentInfo = selectedEventForPayment.paymentInfo
+      const totalAmount = currentPaymentInfo?.totalAmount ?? data.amountToPay
+      const newPaidAmount = (currentPaymentInfo?.paidAmount ?? 0) + data.amountToPay
+      const newPendingAmount = Math.max(0, totalAmount - newPaidAmount)
+      const isFullyPaid = newPendingAmount === 0
+
+      updateAppointment(selectedEventForPayment.id, {
+        charge: isFullyPaid ? 'No' : 'Si',
+        paymentInfo: {
+          totalAmount,
+          paidAmount: newPaidAmount,
+          pendingAmount: newPendingAmount,
+          currency: currentPaymentInfo?.currency ?? '€'
+        }
+      })
+
+      if (!data.generateReceipt) {
+        setShowPaymentModal(false)
+        setSelectedEventForPayment(null)
+      }
+
+      return { ok: true }
     },
-    [selectedEventForPayment]
+    [mapPaymentMethodToApi, selectedEventForPayment, updateAppointment]
+  )
+
+  const resolveEventPatient = useCallback(
+    (event: DayEvent) => {
+      const detail = event.detail
+      const appointmentId = detail?.appointmentId ?? event.id
+      const appointment = getAppointmentById(appointmentId)
+      const patientId = detail?.patientId || appointment?.patientId
+      const fallbackPatientName = event.label.split('\n')[1]?.trim()
+      const patientName =
+        detail?.patientFull ||
+        appointment?.patientName ||
+        fallbackPatientName ||
+        'Paciente'
+      return { patientId, patientName }
+    },
+    [getAppointmentById]
   )
 
   // Handler para ver ficha del paciente - Abre el modal directamente
   const handleViewPatient = useCallback(() => {
-    if (!active?.event?.detail) return
-
-    // Abrir el modal de ficha del paciente
+    if (!active?.event) return
+    const { patientId, patientName } = resolveEventPatient(active.event)
+    if (!patientId) {
+      console.warn(
+        'No se pudo abrir ficha: cita sin patientId',
+        active.event.detail?.appointmentId ?? active.event.id
+      )
+      return
+    }
     setPatientRecordConfig({
       open: true,
-      initialTab: 'Resumen'
+      initialTab: 'Resumen',
+      patientId,
+      patientName
     })
     setActive(null) // Cerrar overlay
-  }, [active])
+  }, [active, resolveEventPatient])
 
   // Handler para marcar cita como completada/pendiente
   const handleToggleComplete = useCallback(
@@ -2273,15 +2367,22 @@ export default function DayCalendar({
 
       const event = contextMenu.event
       const detail = event.detail
+      const { patientId, patientName } = resolveEventPatient(event)
 
       switch (action) {
         case 'view-patient':
-          // Abrir modal de ficha del paciente
+          if (!patientId) {
+            console.warn(
+              'No se pudo abrir ficha: cita sin patientId',
+              detail?.appointmentId ?? event.id
+            )
+            break
+          }
           setPatientRecordConfig({
             open: true,
             initialTab: 'Resumen',
-            patientId: event.id,
-            patientName: detail?.patientFull || 'Paciente'
+            patientId,
+            patientName
           })
           break
 
@@ -2296,40 +2397,62 @@ export default function DayCalendar({
         case 'new-appointment':
           // Abrir modal de nueva cita con datos pre-rellenados del paciente
           onOpenCreateAppointment?.({
-            paciente: detail?.patientFull || ''
+            paciente: patientName || '',
+            pacienteId: patientId || ''
           })
           break
 
         case 'new-budget':
+          if (!patientId) {
+            console.warn(
+              'No se pudo abrir presupuesto: cita sin patientId',
+              detail?.appointmentId ?? event.id
+            )
+            break
+          }
           // Abrir modal de ficha del paciente en tab Finanzas con creación abierta
           setPatientRecordConfig({
             open: true,
             initialTab: 'Finanzas',
             openBudgetCreation: true,
-            patientId: event.id,
-            patientName: detail?.patientFull || 'Paciente'
+            patientId,
+            patientName
           })
           break
 
         case 'new-prescription':
+          if (!patientId) {
+            console.warn(
+              'No se pudo abrir receta: cita sin patientId',
+              detail?.appointmentId ?? event.id
+            )
+            break
+          }
           // Abrir modal de ficha del paciente en tab Recetas con creación abierta
           setPatientRecordConfig({
             open: true,
             initialTab: 'Recetas',
             openPrescriptionCreation: true,
-            patientId: event.id,
-            patientName: detail?.patientFull || 'Paciente'
+            patientId,
+            patientName
           })
           break
 
         case 'report':
+          if (!patientId) {
+            console.warn(
+              'No se pudo abrir historial clínico: cita sin patientId',
+              detail?.appointmentId ?? event.id
+            )
+            break
+          }
           // Abrir modal de ficha del paciente en Historial clínico en modo edición
           setPatientRecordConfig({
             open: true,
             initialTab: 'Historial clínico',
             openClinicalHistoryEdit: true,
-            patientId: event.id,
-            patientName: detail?.patientFull || 'Paciente'
+            patientId,
+            patientName
           })
           break
 
@@ -2343,7 +2466,7 @@ export default function DayCalendar({
 
       setContextMenu(null)
     },
-    [contextMenu, onOpenCreateAppointment, router]
+    [contextMenu, onOpenCreateAppointment, resolveEventPatient, router]
   )
 
   // === Quick appointment creation handlers ===
@@ -3040,11 +3163,15 @@ export default function DayCalendar({
             setSelectedEventForPayment(null)
           }}
           onSubmit={handleRegisterPayment}
-          invoiceId={selectedEventForPayment.id}
+          invoiceId={
+            selectedEventForPayment.invoiceNumber ||
+            selectedEventForPayment.invoiceId
+          }
           treatment={selectedEventForPayment.treatment}
           amount={selectedEventForPayment.amount}
           paymentInfo={selectedEventForPayment.paymentInfo}
           installmentPlan={selectedEventForPayment.installmentPlan}
+          patientName={selectedEventForPayment.patientName}
         />
       )}
 
