@@ -35,6 +35,17 @@ import type { TreatmentV2 } from '@/components/pacientes/shared/treatmentTypes'
 import { useClinic } from '@/context/ClinicContext'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { BudgetInstallmentPlan, BudgetPayment } from '@/types/payments'
+import { setPendingAppointmentData } from '@/utils/appointmentPrefill'
+import {
+  downloadBlob,
+  formatBudgetFilename,
+  formatReceiptFilename,
+  generateBudgetPDF,
+  generateDocumentPDF,
+  generatePaymentReceiptPDF,
+  generateReceiptNumber
+} from '@/utils/exportUtils'
+import { useRouter } from 'next/navigation'
 import React from 'react'
 import { createPortal } from 'react-dom'
 import AddProductionModal from './AddProductionModal'
@@ -729,6 +740,18 @@ function mapDbPaymentMethodToUi(method: string | null | undefined): string {
 
 function mapDbProductionStatusToUi(status: string | null | undefined): StatusType {
   return status === 'Done' ? 'Producido' : 'Pendiente'
+}
+
+function parseEuroAmount(value: string | number | null | undefined): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  if (!value) return 0
+
+  const normalized = String(value)
+    .replace(/[€\s]/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.')
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 const INITIAL_INVOICE_ROWS: InvoiceRow[] = [
@@ -2143,6 +2166,7 @@ export default function BudgetsPayments({
   onAddBudget,
   onUpdateBudgetRows
 }: BudgetsPaymentsProps) {
+  const router = useRouter()
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
   const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
   const shouldUseDbSource = Boolean(patientId && activeClinicId)
@@ -2151,6 +2175,34 @@ export default function BudgetsPayments({
   const displayPatientName = patientName || 'Paciente'
   type TabKey = 'Presupuestos' | 'Producción' | 'Facturas' | 'Cuotas'
   const [activeTab, setActiveTab] = React.useState<TabKey>('Presupuestos')
+  const [notice, setNotice] = React.useState<{
+    message: string
+    variant: 'success' | 'error' | 'info'
+  } | null>(null)
+  const noticeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  )
+
+  const showNotice = React.useCallback(
+    (message: string, variant: 'success' | 'error' | 'info' = 'info') => {
+      if (noticeTimerRef.current) {
+        clearTimeout(noticeTimerRef.current)
+      }
+      setNotice({ message, variant })
+      noticeTimerRef.current = setTimeout(() => {
+        setNotice(null)
+      }, 3200)
+    },
+    []
+  )
+
+  React.useEffect(() => {
+    return () => {
+      if (noticeTimerRef.current) {
+        clearTimeout(noticeTimerRef.current)
+      }
+    }
+  }, [])
 
   // Estado para modal de pago rápido de cuotas
   const [showQuickPaymentModal, setShowQuickPaymentModal] =
@@ -2383,6 +2435,55 @@ export default function BudgetsPayments({
   React.useEffect(() => {
     void refreshFinanceData()
   }, [refreshFinanceData])
+
+  const resolvePatientEmail = React.useCallback(async (): Promise<string | null> => {
+    if (!patientId) return null
+
+    const { data: patient } = await supabase
+      .from('patients')
+      .select('email, primary_contact_id')
+      .eq('id', patientId)
+      .maybeSingle()
+
+    const directEmail = String(patient?.email || '').trim()
+    if (directEmail) return directEmail
+
+    const primaryContactId = String(patient?.primary_contact_id || '').trim()
+    if (!primaryContactId) return null
+
+    const { data: contact } = await supabase
+      .from('contacts')
+      .select('email')
+      .eq('id', primaryContactId)
+      .maybeSingle()
+
+    const contactEmail = String(contact?.email || '').trim()
+    return contactEmail || null
+  }, [patientId, supabase])
+
+  const openEmailComposer = React.useCallback(
+    async (subject: string, body: string) => {
+      try {
+        const email = await resolvePatientEmail()
+        if (!email) {
+          showNotice('No hay email configurado para este paciente', 'error')
+          return false
+        }
+
+        const mailto = `mailto:${email}?subject=${encodeURIComponent(
+          subject
+        )}&body=${encodeURIComponent(body)}`
+        window.location.href = mailto
+        showNotice('Se abrió el cliente de correo', 'success')
+        return true
+      } catch (error) {
+        console.warn('No se pudo abrir cliente de correo', error)
+        showNotice('No se pudo abrir el cliente de correo', 'error')
+        return false
+      }
+    },
+    [resolvePatientEmail, showNotice]
+  )
 
   // === FILTER STATES ===
   // Search
@@ -2895,19 +2996,29 @@ export default function BudgetsPayments({
         break
       }
       case 'enviar-mail': {
-        // Find the invoice row and simulate sending email
+        // Find invoice row and open email client with prefilled content
         const row = invoiceRows.find((r) => r.id === rowId)
         if (row) {
-          // Simulate email sending
-          alert(`Email enviado al paciente con la factura ${row.id}`)
+          void openEmailComposer(
+            `Factura ${row.id} - ${displayPatientName}`,
+            [
+              `Hola ${displayPatientName},`,
+              '',
+              `Adjuntamos la factura ${row.id}.`,
+              `Concepto: ${row.description}`,
+              `Importe: ${row.amount}`,
+              `Fecha: ${row.date}`,
+              '',
+              'Gracias.'
+            ].join('\n')
+          )
         }
         break
       }
       case 'descargar-pdf': {
-        // Find the invoice row and simulate PDF download
+        // Find the invoice row and generate PDF
         const row = invoiceRows.find((r) => r.id === rowId)
         if (row) {
-          // Simulate PDF download
           handleDownloadInvoicePdf(row)
         }
         break
@@ -2919,28 +3030,31 @@ export default function BudgetsPayments({
 
   // Helper function to download invoice PDF
   const handleDownloadInvoicePdf = (invoice: InvoiceRow) => {
-    // Create a simple text representation of the invoice
-    const invoiceContent = `
-FACTURA ${invoice.id}
-====================
-Fecha: ${invoice.date}
-Descripción: ${invoice.description}
-Importe: ${invoice.amount}
-Estado: ${invoice.status}
-Método de pago: ${invoice.paymentMethod || '-'}
-Aseguradora: ${invoice.insurer || '-'}
-    `.trim()
+    try {
+      const html = [
+        `<h2>Factura ${invoice.id}</h2>`,
+        `<p><strong>Paciente:</strong> ${displayPatientName}</p>`,
+        `<p><strong>Fecha:</strong> ${invoice.date}</p>`,
+        `<p><strong>Descripción:</strong> ${invoice.description}</p>`,
+        `<p><strong>Estado:</strong> ${invoice.status}</p>`,
+        `<p><strong>Método de pago:</strong> ${invoice.paymentMethod || '-'}</p>`,
+        `<p><strong>Aseguradora:</strong> ${invoice.insurer || '-'}</p>`,
+        `<p><strong>Importe:</strong> ${invoice.amount}</p>`
+      ].join('')
 
-    // Create blob and download
-    const blob = new Blob([invoiceContent], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `factura-${invoice.id}.txt`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+      const blob = generateDocumentPDF({
+        title: `Factura ${invoice.id}`,
+        content: html,
+        patientName: displayPatientName,
+        documentDate: invoice.issueTimestamp ? new Date(invoice.issueTimestamp) : new Date()
+      })
+      const safeId = String(invoice.id).replace(/[^\w.-]/g, '_')
+      downloadBlob(blob, `Factura_${safeId}.pdf`)
+      showNotice(`Factura ${invoice.id} descargada`, 'success')
+    } catch (error) {
+      console.warn('No se pudo generar PDF de factura', error)
+      showNotice('No se pudo descargar la factura', 'error')
+    }
   }
 
   // Export invoices to CSV
@@ -3029,7 +3143,7 @@ Aseguradora: ${invoice.insurer || '-'}
             setShowBudgetDetailsModal(true)
           }
         } else {
-          alert('No hay presupuesto asociado a esta producción')
+          showNotice('No hay presupuesto asociado a esta producción', 'error')
         }
         break
       }
@@ -3048,7 +3162,7 @@ Aseguradora: ${invoice.insurer || '-'}
             setSelectedInvoiceRow(relatedInvoice)
             setShowInvoiceDetailsModal(true)
           } else {
-            alert('No se encontró la factura asociada')
+            showNotice('No se encontró la factura asociada', 'error')
           }
         }
         break
@@ -3194,26 +3308,122 @@ Aseguradora: ${invoice.insurer || '-'}
   }
 
   const handleDownloadBudgetPdf = (budget: BudgetRow) => {
-    console.log('Descargando PDF del presupuesto:', budget.id)
-    // TODO: Implement PDF generation using existing exportUtils
-    alert(`PDF del presupuesto ${budget.id} descargado`)
+    try {
+      const treatmentsForPdf =
+        budget.treatments && budget.treatments.length > 0
+          ? budget.treatments.map((treatment) => ({
+              pieza: treatment.pieza,
+              cara: treatment.cara,
+              codigo: treatment.codigo || '',
+              tratamiento: treatment.tratamiento,
+              precio: treatment.precio,
+              porcentajeDescuento: treatment.porcentajeDescuento || 0,
+              descuento: treatment.descuento || '0 €',
+              importe: treatment.importe,
+              doctor: treatment.doctor || budget.professional || 'Sin asignar'
+            }))
+          : [
+              {
+                codigo: budget.id,
+                tratamiento: budget.description,
+                precio: budget.amount,
+                porcentajeDescuento: 0,
+                descuento: '0 €',
+                importe: budget.amount,
+                doctor: budget.professional || 'Sin asignar'
+              }
+            ]
+
+      const subtotal =
+        typeof budget.subtotal === 'number'
+          ? budget.subtotal
+          : parseEuroAmount(budget.amount)
+      const generalDiscountAmount =
+        budget.generalDiscount?.type === 'fixed'
+          ? budget.generalDiscount.value
+          : budget.generalDiscount?.type === 'percentage'
+          ? (subtotal * budget.generalDiscount.value) / 100
+          : 0
+      const totalFinal = Math.max(0, subtotal - generalDiscountAmount)
+
+      const blob = generateBudgetPDF(treatmentsForPdf, displayPatientName, {
+        budgetName: budget.description,
+        generalDiscount: budget.generalDiscount,
+        subtotal,
+        generalDiscountAmount,
+        totalFinal
+      })
+      const filename = formatBudgetFilename(displayPatientName, budget.description)
+      downloadBlob(blob, filename)
+      showNotice(`Presupuesto ${budget.id} descargado`, 'success')
+    } catch (error) {
+      console.warn('No se pudo generar el PDF del presupuesto', error)
+      showNotice('No se pudo descargar el presupuesto', 'error')
+    }
   }
 
   const handleSendBudgetEmail = (budget: BudgetRow) => {
-    console.log('Enviando email del presupuesto:', budget.id)
-    // TODO: Implement email sending
-    alert(`Email del presupuesto ${budget.id} enviado al paciente`)
+    void openEmailComposer(
+      `Presupuesto ${budget.id} - ${displayPatientName}`,
+      [
+        `Hola ${displayPatientName},`,
+        '',
+        `Adjuntamos el presupuesto ${budget.id}.`,
+        `Concepto: ${budget.description}`,
+        `Importe: ${budget.amount}`,
+        `Estado: ${budget.status}`,
+        '',
+        'Gracias.'
+      ].join('\n')
+    )
   }
 
   const handleCreateAppointments = (budget: BudgetRow) => {
-    console.log('Creando citas para presupuesto:', budget.id)
-    // TODO: Navigate to appointments or open modal
-    alert(`Crear citas para los tratamientos del presupuesto ${budget.id}`)
+    const linkedTreatments =
+      budget.treatments && budget.treatments.length > 0
+        ? budget.treatments.map((treatment, index) => ({
+            id:
+              treatment.codigo ||
+              `${budget.id}-${index}-${String(treatment.tratamiento || '').slice(0, 12)}`,
+            description: treatment.tratamiento || budget.description,
+            amount: treatment.importe || treatment.precio || budget.amount
+          }))
+        : [
+            {
+              id: budget.id,
+              description: budget.description,
+              amount: budget.amount
+            }
+          ]
+
+    setPendingAppointmentData({
+      paciente: displayPatientName,
+      pacienteId: patientId,
+      observaciones: `Cita desde presupuesto ${budget.id}\nEstado: ${budget.status}`,
+      linkedTreatments
+    })
+    showNotice('Redirigiendo a Agenda con el presupuesto precargado', 'info')
+    router.push('/agenda')
   }
 
   const handleConvertToInvoice = (budget: BudgetRow) => {
     if (!shouldUseDbSource || !activeClinicId || !patientId) {
-      alert(`Presupuesto ${budget.id} convertido a factura`)
+      const newInvoice: InvoiceRow = {
+        id: `FAC-${Date.now().toString().slice(-6)}`,
+        description: budget.description,
+        amount: budget.amount,
+        date: new Date().toLocaleDateString('es-ES', {
+          day: '2-digit',
+          month: '2-digit',
+          year: '2-digit'
+        }),
+        status: 'Pendiente',
+        paymentMethod: '',
+        insurer: budget.insurer || ''
+      }
+      setInvoiceRows((prev) => [newInvoice, ...prev])
+      setActiveTab('Facturas')
+      showNotice(`Presupuesto ${budget.id} convertido a factura`, 'success')
       return
     }
 
@@ -5165,8 +5375,18 @@ Aseguradora: ${invoice.insurer || '-'}
         }}
         onSendEmail={() => {
           if (selectedInvoiceRow) {
-            alert(
-              `Email enviado al paciente con la factura ${selectedInvoiceRow.id}`
+            void openEmailComposer(
+              `Factura ${selectedInvoiceRow.id} - ${displayPatientName}`,
+              [
+                `Hola ${displayPatientName},`,
+                '',
+                `Adjuntamos la factura ${selectedInvoiceRow.id}.`,
+                `Concepto: ${selectedInvoiceRow.description}`,
+                `Importe: ${selectedInvoiceRow.amount}`,
+                `Fecha: ${selectedInvoiceRow.date}`,
+                '',
+                'Gracias.'
+              ].join('\n')
             )
           }
         }}
@@ -5188,27 +5408,67 @@ Aseguradora: ${invoice.insurer || '-'}
         insurer={selectedInvoiceRow?.insurer}
         onDownloadReceipt={() => {
           if (selectedInvoiceRow) {
-            // Simulate receipt download
-            const receiptContent = `
-RECIBO DE PAGO
-====================
-Factura: ${selectedInvoiceRow.id}
-Fecha: ${selectedInvoiceRow.date}
-Importe: ${selectedInvoiceRow.amount}
-Método: ${selectedInvoiceRow.paymentMethod || '-'}
-            `.trim()
-            const blob = new Blob([receiptContent], { type: 'text/plain' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `recibo-${selectedInvoiceRow.id}.txt`
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
-            URL.revokeObjectURL(url)
+            try {
+              const receiptNumber = generateReceiptNumber()
+              const totalAmount =
+                selectedInvoiceRow.amountNumber ??
+                parseEuroAmount(selectedInvoiceRow.amount)
+              const amountPaid =
+                selectedInvoiceRow.amountPaidNumber ??
+                (selectedInvoiceRow.status === 'Cobrado' ? totalAmount : 0)
+              const remainingBalance = Math.max(0, totalAmount - amountPaid)
+              const receiptBlob = generatePaymentReceiptPDF({
+                receiptNumber,
+                paymentDate: selectedInvoiceRow.issueTimestamp
+                  ? new Date(selectedInvoiceRow.issueTimestamp)
+                  : new Date(),
+                patientName: displayPatientName,
+                invoiceNumber: selectedInvoiceRow.id,
+                treatment: selectedInvoiceRow.description,
+                amountPaid,
+                paymentMethod:
+                  selectedInvoiceRow.paymentMethod?.toLowerCase() || 'efectivo',
+                totalAmount,
+                previousPaid: 0,
+                remainingBalance
+              })
+              const filename = formatReceiptFilename(
+                displayPatientName,
+                receiptNumber
+              )
+              downloadBlob(receiptBlob, filename)
+              showNotice(`Recibo ${receiptNumber} descargado`, 'success')
+            } catch (error) {
+              console.warn('No se pudo generar el recibo', error)
+              showNotice('No se pudo descargar el recibo', 'error')
+            }
           }
         }}
       />
+      {notice && (
+        <div className='fixed right-4 bottom-4 z-[200]'>
+          <div
+            className={[
+              'min-w-[240px] max-w-[360px] rounded-lg border shadow-[var(--shadow-cta)] px-3 py-2 flex items-start gap-2',
+              notice.variant === 'success'
+                ? 'bg-[var(--color-success-50)] border-[var(--color-success-200)] text-[var(--color-success-800)]'
+                : notice.variant === 'error'
+                ? 'bg-[var(--color-error-50)] border-[var(--color-error-200)] text-[var(--color-error-800)]'
+                : 'bg-[var(--color-neutral-50)] border-[var(--color-neutral-200)] text-[var(--color-neutral-900)]'
+            ].join(' ')}
+          >
+            <p className='text-body-md flex-1'>{notice.message}</p>
+            <button
+              type='button'
+              aria-label='Cerrar aviso'
+              className='ml-2 leading-none text-body-md'
+              onClick={() => setNotice(null)}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

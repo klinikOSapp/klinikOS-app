@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const runtime = 'nodejs'
+
+const CIMA_BASE_URL = 'https://cima.aemps.es/cima/rest/medicamentos'
+const REQUEST_TIMEOUT_MS = 10000
+
 // Types for CIMA API response
 interface CIMAMedicamento {
   nregistro: string
@@ -48,41 +53,54 @@ export interface MedicamentoSimplificado {
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
-  const query = searchParams.get('q')
+  const query = (searchParams.get('q') || '').trim()
 
   // Validate query parameter
-  if (!query || query.length < 2) {
+  if (query.length < 2) {
     return NextResponse.json(
       { error: 'El parámetro de búsqueda debe tener al menos 2 caracteres' },
       { status: 400 }
     )
   }
 
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
   try {
     // Call CIMA API
-    const cimaUrl = `https://cima.aemps.es/cima/rest/medicamentos?nombre=${encodeURIComponent(query)}`
+    const cimaUrl = `${CIMA_BASE_URL}?nombre=${encodeURIComponent(query)}`
     
     const response = await fetch(cimaUrl, {
       headers: {
         'Accept': 'application/json',
+        'User-Agent': 'klinikOS/1.0 (+medication-search)',
+        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
       },
-      // Cache for 1 hour to reduce API calls
-      next: { revalidate: 3600 }
+      signal: controller.signal,
+      cache: 'no-store'
     })
 
     if (!response.ok) {
-      throw new Error(`CIMA API responded with status: ${response.status}`)
+      return NextResponse.json(
+        {
+          total: 0,
+          resultados: [],
+          error: `Servicio CIMA no disponible (HTTP ${response.status})`
+        },
+        { status: 200 }
+      )
     }
 
     const data: CIMAResponse = await response.json()
+    const rawResultados = Array.isArray(data?.resultados) ? data.resultados : []
 
     // Filter and transform results
-    // Only show commercialized medications and limit to 20 results
-    const medicamentos: MedicamentoSimplificado[] = data.resultados
-      .filter((med) => med.comerc) // Only commercialized
+    // Prefer commercialized medications and limit to 20 results
+    const medicamentos: MedicamentoSimplificado[] = rawResultados
+      .filter((med) => med && med.comerc !== false)
       .slice(0, 20) // Limit results
       .map((med) => ({
-        nregistro: med.nregistro,
+        nregistro: med.nregistro || '',
         nombre: med.nombre,
         dosis: med.dosis || '',
         formaFarmaceutica: med.formaFarmaceuticaSimplificada?.nombre || 
@@ -94,14 +112,31 @@ export async function GET(request: NextRequest) {
       }))
 
     return NextResponse.json({
-      total: data.totalFilas,
+      total: Number(data?.totalFilas) || medicamentos.length,
       resultados: medicamentos
     })
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return NextResponse.json(
+        {
+          total: 0,
+          resultados: [],
+          error: 'Tiempo de espera agotado al consultar CIMA'
+        },
+        { status: 200 }
+      )
+    }
+
     console.error('Error fetching from CIMA API:', error)
     return NextResponse.json(
-      { error: 'Error al buscar medicamentos. Por favor, inténtalo de nuevo.' },
-      { status: 500 }
+      {
+        total: 0,
+        resultados: [],
+        error: 'Error al buscar medicamentos en CIMA. Inténtalo de nuevo.'
+      },
+      { status: 200 }
     )
+  } finally {
+    clearTimeout(timeoutId)
   }
 }

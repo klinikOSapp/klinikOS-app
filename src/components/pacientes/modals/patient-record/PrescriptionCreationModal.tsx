@@ -16,11 +16,13 @@ import {
   MODAL_WIDTH_REM
 } from './modalDimensions'
 import MedicamentoAutocomplete, { mapViaToOption } from '@/components/ui/MedicamentoAutocomplete'
+import { useConfiguration } from '@/context/ConfigurationContext'
 
 // HU-021: Type for a single medication entry
 export type MedicationEntry = {
   id: string
   medicamento: string
+  dosis?: string
   frecuencia: string
   duracion: string
   administracion: string
@@ -35,6 +37,8 @@ type PrescriptionCreationModalProps = {
   onContinue?: (data: {
     medicamento: string
     especialista: string
+    especialistaId?: string
+    especialistaLicense?: string
     frecuencia: string
     duracion: string
     administracion: string
@@ -61,7 +65,6 @@ const INPUT_LEFT_REM = 12.3125
 const INPUT_WIDTH_REM = 19.1875
 const INPUT_HEIGHT_REM = 3
 
-const SPECIALIST_OPTIONS = ['Dra. Gómez', 'Dr. Pérez', 'Dra. Sánchez']
 const ADMINISTRATION_OPTIONS = ['Oral', 'Tópica', 'Intravenosa']
 
 const BOTTOM_LINE_TOP_REM = 53.25
@@ -103,7 +106,9 @@ type ComboBoxProps = {
   width?: number
   left?: number
   value?: string
+  options?: string[]
   onChange?: (val: string) => void
+  onSelectOption?: (val: string) => void
 }
 
 function ComboBox({
@@ -112,7 +117,9 @@ function ComboBox({
   width = INPUT_WIDTH_REM,
   left = INPUT_LEFT_REM,
   value,
-  onChange
+  options = [],
+  onChange,
+  onSelectOption
 }: ComboBoxProps) {
   const [open, setOpen] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
@@ -132,6 +139,12 @@ function ComboBox({
     }
     return undefined
   }, [open])
+
+  const filteredOptions = options.filter((opt) =>
+    (value ?? '').length === 0
+      ? true
+      : opt.toLowerCase().includes((value ?? '').toLowerCase())
+  )
 
   return (
     <div
@@ -159,18 +172,13 @@ function ComboBox({
       </div>
       {open && (
         <div className='absolute z-50 mt-1 w-full overflow-hidden rounded-[0.5rem] border border-neutral-300 bg-[rgba(248,250,251,0.95)] backdrop-blur-sm shadow-[2px_2px_4px_rgba(0,0,0,0.1)] max-h-60 overflow-y-auto'>
-          {(placeholder === 'Value' ? SPECIALIST_OPTIONS : ADMINISTRATION_OPTIONS)
-            .filter((opt) =>
-              (value ?? '').length === 0
-                ? true
-                : opt.toLowerCase().includes((value ?? '').toLowerCase())
-            )
-            .map((opt) => (
+          {filteredOptions.map((opt) => (
               <button
                 key={opt}
                 type='button'
                 onClick={() => {
                   onChange?.(opt)
+                  onSelectOption?.(opt)
                   setOpen(false)
                 }}
                 className='w-full px-2 py-2 text-left text-body-md text-neutral-900 hover:bg-brand-50'
@@ -178,12 +186,7 @@ function ComboBox({
                 {opt}
               </button>
             ))}
-          {((placeholder === 'Value' ? SPECIALIST_OPTIONS : ADMINISTRATION_OPTIONS).filter(
-            (opt) =>
-              (value ?? '').length === 0
-                ? true
-                : opt.toLowerCase().includes((value ?? '').toLowerCase())
-          ).length === 0) && (
+          {filteredOptions.length === 0 && (
             <div className='px-2 py-2 text-body-md text-neutral-500'>Sin resultados</div>
           )}
         </div>
@@ -259,13 +262,36 @@ export default function PrescriptionCreationModal({
   onContinue,
   patientName
 }: PrescriptionCreationModalProps) {
+  const { activeProfessionals } = useConfiguration()
   // Nombre del paciente para mostrar (usa prop o mock)
   const displayPatientName = patientName || 'María García López'
   const [mounted, setMounted] = React.useState(false)
   const [especialista, setEspecialista] = React.useState('')
+  const [especialistaId, setEspecialistaId] = React.useState<string | undefined>(undefined)
+  const [especialistaLicense, setEspecialistaLicense] = React.useState<string | undefined>(undefined)
   
   // HU-021: State for multiple medications
   const [medicamentos, setMedicamentos] = React.useState<MedicationEntry[]>([createEmptyMedication()])
+
+  const specialistOptions = React.useMemo(() => {
+    const names = activeProfessionals
+      .filter((p) => p.status === 'Activo')
+      .map((p) => p.name)
+      .filter(Boolean)
+    return Array.from(new Set(names))
+  }, [activeProfessionals])
+
+  React.useEffect(() => {
+    if (!open) return
+    if (especialista) return
+    const firstProfessional = activeProfessionals.find(
+      (professional) => professional.status === 'Activo'
+    )
+    if (!firstProfessional) return
+    setEspecialista(firstProfessional.name)
+    setEspecialistaId(firstProfessional.id)
+    setEspecialistaLicense(firstProfessional.professionalLicenseId)
+  }, [activeProfessionals, especialista, open])
   
   // Helper to update a specific medication field
   const updateMedication = (id: string, field: keyof MedicationEntry, value: string) => {
@@ -288,6 +314,19 @@ export default function PrescriptionCreationModal({
   
   // Legacy compatibility: get first medication for single-medication callback
   const firstMed = medicamentos[0] || createEmptyMedication()
+  const selectedProfessional = React.useMemo(() => {
+    if (especialistaId) {
+      return activeProfessionals.find(
+        (professional) => professional.id === especialistaId
+      )
+    }
+    if (!especialista.trim()) return undefined
+    return activeProfessionals.find(
+      (professional) =>
+        professional.name.trim().toLowerCase() ===
+        especialista.trim().toLowerCase()
+    )
+  }, [activeProfessionals, especialista, especialistaId])
 
   React.useEffect(() => {
     setMounted(true)
@@ -391,11 +430,26 @@ export default function PrescriptionCreationModal({
                     <p className='text-body-md text-neutral-900 mb-2'>Especialista</p>
                     <div className='relative' style={{ width: `${INPUT_WIDTH_REM}rem` }}>
                       <ComboBox
-                        placeholder='Value'
+                        placeholder='Especialista'
                         top={0}
                         left={0}
                         value={especialista}
-                        onChange={setEspecialista}
+                        options={specialistOptions}
+                        onChange={(value) => {
+                          setEspecialista(value)
+                          setEspecialistaId(undefined)
+                          setEspecialistaLicense(undefined)
+                        }}
+                        onSelectOption={(selectedName) => {
+                          const selectedProfessional = activeProfessionals.find(
+                            (professional) => professional.name === selectedName
+                          )
+                          setEspecialista(selectedName)
+                          setEspecialistaId(selectedProfessional?.id)
+                          setEspecialistaLicense(
+                            selectedProfessional?.professionalLicenseId
+                          )
+                        }}
                       />
                     </div>
                   </div>
@@ -447,6 +501,7 @@ export default function PrescriptionCreationModal({
                               onChange={(val) => updateMedication(med.id, 'medicamento', val)}
                               onSelect={(medicamento) => {
                                 updateMedication(med.id, 'medicamento', medicamento.nombre)
+                                updateMedication(med.id, 'dosis', medicamento.dosis || '')
                                 // Auto-fill administration route based on selected medication
                                 if (medicamento.viaAdministracion) {
                                   updateMedication(med.id, 'administracion', mapViaToOption(medicamento.viaAdministracion))
@@ -537,6 +592,10 @@ export default function PrescriptionCreationModal({
                         // Legacy compatibility: pass first medication fields
                         medicamento: firstMed.medicamento,
                         especialista,
+                        especialistaId: selectedProfessional?.id || especialistaId,
+                        especialistaLicense:
+                          selectedProfessional?.professionalLicenseId ||
+                          especialistaLicense,
                         frecuencia: firstMed.frecuencia,
                         duracion: firstMed.duracion,
                         administracion: firstMed.administracion,
@@ -544,7 +603,10 @@ export default function PrescriptionCreationModal({
                         medicamentos
                       })
                     }
-                    disabled={medicamentos.every(m => !m.medicamento.trim())}
+                    disabled={
+                      medicamentos.every((m) => !m.medicamento.trim()) ||
+                      !especialista.trim()
+                    }
                     className='flex items-center justify-center gap-2 rounded-[8.5rem] border border-brand-500 bg-brand-500 px-4 py-2 text-body-md font-medium text-brand-900 transition-colors hover:bg-brand-400 disabled:opacity-50 disabled:cursor-not-allowed'
                     style={{ width: `${BUTTON_WIDTH_REM}rem`, borderRadius: `${BUTTON_RADIUS_REM}rem` }}
                   >
@@ -561,4 +623,3 @@ export default function PrescriptionCreationModal({
     document.body
   )
 }
-

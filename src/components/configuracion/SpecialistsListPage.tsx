@@ -31,54 +31,24 @@ import ProfessionalScheduleModal from './ProfessionalScheduleModal'
 type StatusFilter = 'all' | 'active' | 'inactive'
 type SpecialtyFilter = string | null
 
-export type Specialist = {
-  id: string
-  name: string
-  role: string
-  phone: string
-  email: string
-  colorLabel: string
-  colorTone: 'morado' | 'naranja' | 'verde'
-  commission: string
-  status: 'Activo' | 'Inactivo'
-}
+type Specialist = Professional
 
 export const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
   {
-    name: 'Fernandino Fernández',
-    role: 'Odontólogo',
-    phone: '608020203',
-    email: 'fernandino@gmail.com',
-    colorLabel: 'Morado',
-    colorTone: 'morado',
-    commission: '30%',
-    status: 'Inactivo'
-  },
-  {
-    name: 'Carlos Pérez',
+    name: 'Dra. María García',
     role: 'Ortodoncista',
-    phone: '608020203',
-    email: 'carlitosperez@gmail.com',
+    phone: '600000001',
+    email: 'maria@clinicamorales.es',
     colorLabel: 'Naranja',
     colorTone: 'naranja',
     commission: '30%',
     status: 'Activo'
   },
   {
-    name: 'Fernandino Fernández',
+    name: 'Dr. Antonio Ruiz',
     role: 'Odontólogo',
-    phone: '608020203',
-    email: 'fernandino@gmail.com',
-    colorLabel: 'Morado',
-    colorTone: 'morado',
-    commission: '30%',
-    status: 'Activo'
-  },
-  {
-    name: 'Fernandino Fernández',
-    role: 'Odontólogo',
-    phone: '608020203',
-    email: 'fernandino@gmail.com',
+    phone: '600000002',
+    email: 'antonio@clinicamorales.es',
     colorLabel: 'Morado',
     colorTone: 'morado',
     commission: '30%',
@@ -87,91 +57,14 @@ export const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
   {
     name: 'Javier Herrera',
     role: 'Higienista',
-    phone: '608020203',
-    email: 'javier_1890@gmail.com',
+    phone: '600000003',
+    email: 'javier@clinicamorales.es',
     colorLabel: 'Verde',
     colorTone: 'verde',
-    commission: '30%',
-    status: 'Activo'
-  },
-  {
-    name: 'Carlos Pérez',
-    role: 'Ortodoncista',
-    phone: '608020203',
-    email: 'carlitosperez@gmail.com',
-    colorLabel: 'Naranja',
-    colorTone: 'naranja',
-    commission: '30%',
+    commission: '25%',
     status: 'Inactivo'
-  },
-  {
-    name: 'Carlos Pérez',
-    role: 'Ortodoncista',
-    phone: '608020203',
-    email: 'carlitosperez@gmail.com',
-    colorLabel: 'Naranja',
-    colorTone: 'naranja',
-    commission: '30%',
-    status: 'Activo'
-  },
-  {
-    name: 'Javier Herrera',
-    role: 'Higienista',
-    phone: '608020203',
-    email: 'javier_1890@gmail.com',
-    colorLabel: 'Verde',
-    colorTone: 'verde',
-    commission: '30%',
-    status: 'Activo'
-  },
-  {
-    name: 'Fernandino Fernández',
-    role: 'Odontólogo',
-    phone: '608020203',
-    email: 'fernandino@gmail.com',
-    colorLabel: 'Morado',
-    colorTone: 'morado',
-    commission: '30%',
-    status: 'Activo'
-  },
-  {
-    name: 'Carlos Pérez',
-    role: 'Ortodoncista',
-    phone: '608020203',
-    email: 'carlitosperez@gmail.com',
-    colorLabel: 'Naranja',
-    colorTone: 'naranja',
-    commission: '30%',
-    status: 'Activo'
-  },
-  {
-    name: 'Carlos Pérez',
-    role: 'Ortodoncista',
-    phone: '608020203',
-    email: 'carlitosperez@gmail.com',
-    colorLabel: 'Naranja',
-    colorTone: 'naranja',
-    commission: '30%',
-    status: 'Activo'
-  },
-  {
-    name: 'Fernandino Fernández',
-    role: 'Odontólogo',
-    phone: '608020203',
-    email: 'fernandino@gmail.com',
-    colorLabel: 'Morado',
-    colorTone: 'morado',
-    commission: '30%',
-    status: 'Activo'
   }
-] as const
-
-const initialSpecialists: Specialist[] = initialSpecialistsData.map(
-  (item, idx) => ({
-    ...item,
-    id: `s${idx + 1}`
-  })
-)
+]
 
 const colorToneStyles: Record<
   Specialist['colorTone'],
@@ -179,7 +72,9 @@ const colorToneStyles: Record<
 > = {
   morado: { bg: 'bg-[#f3eaff]', text: 'text-[#7725eb]' },
   naranja: { bg: 'bg-[#fff7e8]', text: 'text-[#d97706]' },
-  verde: { bg: 'bg-[#e9f8f1]', text: 'text-[#2e7d5b]' }
+  verde: { bg: 'bg-[#e9f8f1]', text: 'text-[#2e7d5b]' },
+  azul: { bg: 'bg-[#e0f2fe]', text: 'text-[#0369a1]' },
+  rojo: { bg: 'bg-[#fee2e2]', text: 'text-[#dc2626]' }
 }
 
 const statusStyles: Record<Specialist['status'], { bg: string; text: string }> =
@@ -399,7 +294,6 @@ function TableRow({
 
 export default function SpecialistsListPage() {
   const [showAddModal, setShowAddModal] = React.useState(false)
-  const [data, setData] = React.useState<Specialist[]>(initialSpecialists)
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
   const [editingId, setEditingId] = React.useState<string | null>(null)
 
@@ -416,7 +310,9 @@ export default function SpecialistsListPage() {
   const [scheduleEditingId, setScheduleEditingId] = React.useState<string | null>(null)
 
   // Get configuration context for professionals
-  const { professionals } = useConfiguration()
+  const { professionals, addProfessional, updateProfessional, deleteProfessional } =
+    useConfiguration()
+  const data = professionals
 
   // Get unique specialties from data
   const uniqueSpecialties = useMemo(() => {
@@ -450,6 +346,13 @@ export default function SpecialistsListPage() {
       return true
     })
   }, [data, search, statusFilter, specialtyFilter])
+
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const validIds = new Set(data.map((item) => item.id))
+      return new Set(Array.from(prev).filter((id) => validIds.has(id)))
+    })
+  }, [data])
 
   // Close filter dropdown when clicking outside
   useEffect(() => {
@@ -513,67 +416,41 @@ export default function SpecialistsListPage() {
   }, [])
 
   const handleAddProfessional = (form: ProfessionalFormData) => {
-    const colorTone: Specialist['colorTone'] =
-      form.color === 'morado'
-        ? 'morado'
-        : form.color === 'naranja'
-        ? 'naranja'
-        : 'verde'
-
-    setData((prev) => [
-      ...prev,
-      {
-        id: `s${prev.length + 1}`,
-        name: form.nombre || 'Nuevo profesional',
-        role: form.especialidad || 'Especialidad',
-        phone: form.telefono || '—',
-        email: form.email || '—',
-        colorLabel:
-          form.color === 'morado'
-            ? 'Morado'
-            : form.color === 'naranja'
-            ? 'Naranja'
-            : 'Verde',
-        colorTone,
-        commission: form.comision && form.comision.trim() ? form.comision : '—',
-        status: form.estado
-      }
-    ])
+    addProfessional({
+      name: form.nombre || 'Nuevo profesional',
+      role: form.especialidad || 'Profesional',
+      phone: form.telefono || '',
+      email: form.email || '',
+      colorLabel:
+        form.color === 'morado'
+          ? 'Morado'
+          : form.color === 'naranja'
+          ? 'Naranja'
+          : 'Verde',
+      colorTone: form.color,
+      commission: form.comision && form.comision.trim() ? form.comision : '0%',
+      status: form.estado
+    })
     setShowAddModal(false)
   }
 
   const handleEditProfessional = (form: ProfessionalFormData) => {
-    const colorTone: Specialist['colorTone'] =
-      form.color === 'morado'
-        ? 'morado'
-        : form.color === 'naranja'
-        ? 'naranja'
-        : 'verde'
-    setData((prev) =>
-      prev.map((s) =>
-        s.id === editingId
-          ? {
-              ...s,
-              name: form.nombre || s.name,
-              role: form.especialidad || s.role,
-              phone: form.telefono || s.phone,
-              email: form.email || s.email,
-              colorLabel:
-                form.color === 'morado'
-                  ? 'Morado'
-                  : form.color === 'naranja'
-                  ? 'Naranja'
-                  : 'Verde',
-              colorTone,
-              commission:
-                form.comision && form.comision.trim()
-                  ? form.comision
-                  : s.commission,
-              status: form.estado
-            }
-          : s
-      )
-    )
+    if (!editingId) return
+    updateProfessional(editingId, {
+      name: form.nombre || undefined,
+      role: form.especialidad || undefined,
+      phone: form.telefono || undefined,
+      email: form.email || undefined,
+      colorLabel:
+        form.color === 'morado'
+          ? 'Morado'
+          : form.color === 'naranja'
+          ? 'Naranja'
+          : 'Verde',
+      colorTone: form.color,
+      commission: form.comision && form.comision.trim() ? form.comision : '0%',
+      status: form.estado
+    })
     setShowAddModal(false)
     setEditingId(null)
   }
@@ -595,10 +472,8 @@ export default function SpecialistsListPage() {
 
   const handleDeactivateSelected = () => {
     if (selectionCount === 0) return
-    setData((prev) =>
-      prev.map((s) =>
-        selectedIds.has(s.id) ? { ...s, status: 'Inactivo' as const } : s
-      )
+    Array.from(selectedIds).forEach((id) =>
+      updateProfessional(id, { status: 'Inactivo' })
     )
     setSelectedIds(new Set())
   }
@@ -612,7 +487,7 @@ export default function SpecialistsListPage() {
         }?`
       )
     ) {
-      setData((prev) => prev.filter((s) => !selectedIds.has(s.id)))
+      Array.from(selectedIds).forEach((id) => deleteProfessional(id))
       setSelectedIds(new Set())
     }
   }
@@ -623,7 +498,12 @@ export default function SpecialistsListPage() {
         telefono: editingSpecialist.phone,
         email: editingSpecialist.email,
         especialidad: editingSpecialist.role,
-        color: editingSpecialist.colorTone,
+        color:
+          editingSpecialist.colorTone === 'morado' ||
+          editingSpecialist.colorTone === 'naranja' ||
+          editingSpecialist.colorTone === 'verde'
+            ? editingSpecialist.colorTone
+            : 'verde',
         estado: editingSpecialist.status,
         comision: editingSpecialist.commission
       }
@@ -970,27 +850,7 @@ export default function SpecialistsListPage() {
         }}
         professional={(() => {
           if (!scheduleEditingId) return null
-          // Try to find in context professionals first
-          const fromContext = professionals.find((p) => p.id === scheduleEditingId) ||
-            professionals.find((p) => p.name === data.find((s) => s.id === scheduleEditingId)?.name)
-          if (fromContext) return fromContext
-          // If not found, create a Professional from the local Specialist data
-          const specialist = data.find((s) => s.id === scheduleEditingId)
-          if (!specialist) return null
-          // Map specialist to a Professional object with default values for missing fields
-          const colorTones: Array<'morado' | 'naranja' | 'verde' | 'azul' | 'rojo'> = ['morado', 'naranja', 'verde', 'azul', 'rojo']
-          const colorIndex = data.findIndex((s) => s.id === scheduleEditingId) % colorTones.length
-          return {
-            id: specialist.id,
-            name: specialist.name,
-            role: specialist.role,
-            phone: specialist.phone,
-            email: specialist.email,
-            colorLabel: 'Auto',
-            colorTone: colorTones[colorIndex],
-            commission: '0%',
-            status: specialist.status
-          } as Professional
+          return professionals.find((p) => p.id === scheduleEditingId) || null
         })()}
       />
     </>

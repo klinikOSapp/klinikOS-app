@@ -9,7 +9,11 @@ import {
   PictureAsPdfRounded,
   VisibilityRounded
 } from '@/components/icons/md3'
-import { useConfiguration } from '@/context/ConfigurationContext'
+import {
+  DEFAULT_DOCUMENT_TEMPLATES,
+  useConfiguration
+} from '@/context/ConfigurationContext'
+import { useClinic } from '@/context/ClinicContext'
 import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/lib/datetime'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import {
@@ -24,6 +28,8 @@ import PrescriptionPdfPreview from './PrescriptionPdfPreview'
 type PrescriptionContentJson = {
   medicamento?: string
   especialista?: string
+  especialista_id?: string
+  especialista_license?: string
   frecuencia?: string
   duracion?: string
   administracion?: string
@@ -53,6 +59,8 @@ type PrescriptionRow = {
   // Prescription data for preview
   medicamento?: string
   especialista?: string
+  especialistaId?: string
+  especialistaLicense?: string
   frecuencia?: string
   duracion?: string
   administracion?: string
@@ -93,13 +101,23 @@ export default function Recetas({
   patientName
 }: RecetasProps) {
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
+  const { activeClinicId } = useClinic()
   // Get clinic data and templates from configuration context
-  const { clinicInfo, getDocumentTemplatesByType } = useConfiguration()
+  const { clinicInfo, getDocumentTemplatesByType, activeProfessionals } =
+    useConfiguration()
 
   // Get the receta template
   const recetaTemplate = React.useMemo(() => {
     const templates = getDocumentTemplatesByType('receta')
-    return templates[0]?.content || null
+    const sortedTemplates = [...templates].sort((a, b) => {
+      const aTs = a.lastModified ? new Date(a.lastModified).getTime() : 0
+      const bTs = b.lastModified ? new Date(b.lastModified).getTime() : 0
+      return bTs - aTs
+    })
+    const candidate =
+      sortedTemplates.find((template) => template.content?.trim())?.content?.trim() ||
+      ''
+    return candidate || DEFAULT_DOCUMENT_TEMPLATES.receta
   }, [getDocumentTemplatesByType])
 
   // Build full clinic address from configuration
@@ -128,6 +146,8 @@ export default function Recetas({
   const [pdfData, setPdfData] = React.useState<{
     medicamento?: string
     especialista?: string
+    especialistaId?: string
+    especialistaLicense?: string
     frecuencia?: string
     duracion?: string
     administracion?: string
@@ -204,6 +224,8 @@ export default function Recetas({
             status: payload?.status === 'signed' ? 'Firmado' : 'Enviado',
             medicamento: payload?.medicamento || String(note.content || ''),
             especialista: payload?.especialista,
+            especialistaId: payload?.especialista_id,
+            especialistaLicense: payload?.especialista_license,
             frecuencia: payload?.frecuencia,
             duracion: payload?.duracion,
             administracion: payload?.administracion,
@@ -228,9 +250,26 @@ export default function Recetas({
   const handleViewPrescription = (row: PrescriptionRow) => {
     // If the row has data, use it for preview
     if (row.medicamento || (row.medicamentos && row.medicamentos.length > 0)) {
+      const resolvedProfessional =
+        (row.especialistaId
+          ? activeProfessionals.find(
+              (professional) => professional.id === row.especialistaId
+            )
+          : undefined) ||
+        (row.especialista
+          ? activeProfessionals.find(
+              (professional) =>
+                professional.name.trim().toLowerCase() ===
+                row.especialista?.trim().toLowerCase()
+            )
+          : undefined)
       setPdfData({
         medicamento: row.medicamento,
-        especialista: row.especialista,
+        especialista: resolvedProfessional?.name || row.especialista,
+        especialistaId: row.especialistaId || resolvedProfessional?.id,
+        especialistaLicense:
+          row.especialistaLicense ||
+          resolvedProfessional?.professionalLicenseId,
         frecuencia: row.frecuencia,
         duracion: row.duracion,
         administracion: row.administracion,
@@ -252,13 +291,35 @@ export default function Recetas({
     }
 
     // Build prescription data for PDF generation using clinic info from configuration
+    const resolvedProfessional =
+      (row.especialistaId
+        ? activeProfessionals.find(
+            (professional) => professional.id === row.especialistaId
+          )
+        : undefined) ||
+      (row.especialista
+        ? activeProfessionals.find(
+            (professional) =>
+              professional.name.trim().toLowerCase() ===
+              row.especialista?.trim().toLowerCase()
+          )
+        : undefined)
+
     const prescriptionData: PrescriptionData = {
       patientName: displayPatientName,
       patientDni: '44556677X',
       patientSex: 'Hombre',
       patientAge: 45,
-      doctorName: row.especialista || 'Dr. García López',
-      doctorLicense: 'XX 895 895 895',
+      doctorName:
+        resolvedProfessional?.name ||
+        activeProfessionals[0]?.name ||
+        row.especialista ||
+        'Profesional',
+      doctorLicense:
+        row.especialistaLicense ||
+        resolvedProfessional?.professionalLicenseId ||
+        activeProfessionals[0]?.professionalLicenseId ||
+        '',
       clinicName: clinicInfo.nombreComercial || 'Clínica Dental',
       clinicAddress: fullClinicAddress || clinicInfo.direccion || '',
       clinicPhone: clinicInfo.telefono || '',
@@ -271,7 +332,7 @@ export default function Recetas({
               frecuencia: medication.frecuencia || '3 por día',
               duracion: medication.duracion || '7 días',
               administracion: medication.administracion || 'Oral',
-              dosis: '500mg'
+              dosis: medication.dosis || ''
             }))
           : row.medicamento
           ? [
@@ -280,7 +341,7 @@ export default function Recetas({
                   frecuencia: row.frecuencia || '3 por día',
                   duracion: row.duracion || '7 días',
                   administracion: row.administracion || 'Oral',
-                  dosis: '500mg'
+                  dosis: ''
               }
             ]
           : [
@@ -289,7 +350,7 @@ export default function Recetas({
                 frecuencia: '3 por día',
                 duracion: '7 días',
                 administracion: 'Oral',
-                dosis: '500mg'
+                dosis: ''
               }
             ]
     }
@@ -314,6 +375,8 @@ export default function Recetas({
           ...(row.contentJson || {}),
           medicamento: row.medicamento,
           especialista: row.especialista,
+          especialista_id: row.especialistaId,
+          especialista_license: row.especialistaLicense,
           frecuencia: row.frecuencia,
           duracion: row.duracion,
           administracion: row.administracion,
@@ -492,6 +555,8 @@ export default function Recetas({
           const payload: PrescriptionContentJson = {
             medicamento: data.medicamento,
             especialista: data.especialista,
+            especialista_id: data.especialistaId,
+            especialista_license: data.especialistaLicense,
             frecuencia: data.frecuencia,
             duracion: data.duracion,
             administracion: data.administracion,
@@ -509,6 +574,8 @@ export default function Recetas({
             status: 'Enviado',
             contentJson: payload,
             createdAtIso: nowIso,
+            especialistaId: data.especialistaId,
+            especialistaLicense: data.especialistaLicense,
             ...data
           }
           if (patientId) {
@@ -535,6 +602,75 @@ export default function Recetas({
                 DEFAULT_LOCALE,
                 { timeZone: DEFAULT_TIMEZONE }
               )
+
+              const normalizedMedications = (data.medicamentos || [])
+                .filter((med) => med.medicamento?.trim())
+                .map((medication, index) => ({
+                  medication_name: medication.medicamento.trim(),
+                  dosage: medication.dosis || null,
+                  frequency: medication.frecuencia || null,
+                  duration: medication.duracion || null,
+                  administration_route: medication.administracion || null,
+                  sort_order: index
+                }))
+
+              const fallbackMedicationRows =
+                normalizedMedications.length > 0
+                  ? normalizedMedications
+                  : [
+                      {
+                        medication_name: primaryMedication,
+                        dosage: null,
+                        frequency: data.frecuencia || null,
+                        duration: data.duracion || null,
+                        administration_route: data.administracion || null,
+                        sort_order: 0
+                      }
+                    ]
+
+              // Best effort: mirror receta into prescriptions/prescription_items.
+              if (activeClinicId) {
+                try {
+                  const { data: prescriptionRecord, error: prescriptionError } =
+                    await supabase
+                      .from('prescriptions')
+                      .insert({
+                        clinic_id: activeClinicId,
+                        patient_id: patientId,
+                        prescribing_professional_id:
+                          data.especialistaId || null,
+                        prescribing_professional_name:
+                          data.especialista || null,
+                        prescribing_professional_license:
+                          data.especialistaLicense || null,
+                        prescription_date: nowIso.slice(0, 10),
+                        notes: null,
+                        created_by: staffId,
+                        updated_by: staffId
+                      })
+                      .select('id')
+                      .single()
+
+                  if (prescriptionError) throw prescriptionError
+
+                  if (prescriptionRecord?.id) {
+                    const { error: prescriptionItemsError } = await supabase
+                      .from('prescription_items')
+                      .insert(
+                        fallbackMedicationRows.map((item) => ({
+                          prescription_id: prescriptionRecord.id,
+                          ...item
+                        }))
+                      )
+                    if (prescriptionItemsError) throw prescriptionItemsError
+                  }
+                } catch (mirrorError) {
+                  console.warn(
+                    'Could not mirror prescription into prescriptions tables',
+                    mirrorError
+                  )
+                }
+              }
             } catch (error) {
               console.warn('Could not persist prescription note', error)
               setToast({

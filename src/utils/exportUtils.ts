@@ -1961,17 +1961,13 @@ export async function generatePrescriptionPDFFromTemplate(
   templateHtml: string,
   data: PrescriptionData
 ): Promise<Blob> {
-  // Dynamically import html2pdf.js at runtime without static bundle dependency.
-  // This keeps /caja working when npm registry is unavailable locally.
+  // Dynamically import html2pdf.js only on client side.
+  // Use bundler-resolved import so production/runtime can resolve the package chunk.
   let html2pdf: any = null
   try {
     if (typeof window !== 'undefined') {
-      const dynamicImport = new Function(
-        'moduleName',
-        'return import(moduleName)'
-      ) as (moduleName: string) => Promise<{ default: any }>
-      const mod = await dynamicImport('html2pdf.js')
-      html2pdf = mod.default
+      const mod = await import('html2pdf.js')
+      html2pdf = (mod as any).default ?? mod
     }
   } catch (error) {
     console.warn('html2pdf.js unavailable, using jsPDF fallback', error)

@@ -1,0 +1,59 @@
+Total messages: 27 (Errors: 1, Warnings: 10)
+Returning 26 messages for level "info"
+
+[INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/4b4c5_next_dist_compiled_react-dom_83f7d5fe._.js:14537
+[WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ http://localhost:3000/_next/static/chunks/8bb67_recharts_es6_util_1bdc4f1c._.js:703
+[WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ http://localhost:3000/_next/static/chunks/8bb67_recharts_es6_util_1bdc4f1c._.js:703
+[WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ http://localhost:3000/_next/static/chunks/8bb67_recharts_es6_util_1bdc4f1c._.js:703
+[WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ http://localhost:3000/_next/static/chunks/8bb67_recharts_es6_util_1bdc4f1c._.js:703
+[WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ http://localhost:3000/_next/static/chunks/8bb67_recharts_es6_util_1bdc4f1c._.js:703
+[WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ http://localhost:3000/_next/static/chunks/8bb67_recharts_es6_util_1bdc4f1c._.js:703
+[WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ http://localhost:3000/_next/static/chunks/8bb67_recharts_es6_util_1bdc4f1c._.js:703
+[WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ http://localhost:3000/_next/static/chunks/8bb67_recharts_es6_util_1bdc4f1c._.js:703
+[WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ http://localhost:3000/_next/static/chunks/8bb67_recharts_es6_util_1bdc4f1c._.js:703
+[WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ http://localhost:3000/_next/static/chunks/8bb67_recharts_es6_util_1bdc4f1c._.js:703
+[ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/gestion/overview?timeScale=week&date=2026-02-23:0
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4b4c5_next_dist_client_8ab9c833._.js:5949
+[LOG] [Fast Refresh] done in 643ms @ http://localhost:3000/_next/static/chunks/4b4c5_next_dist_client_8ab9c833._.js:5809
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4b4c5_next_dist_client_8ab9c833._.js:5949
+[LOG] [Fast Refresh] done in 293ms @ http://localhost:3000/_next/static/chunks/4b4c5_next_dist_client_8ab9c833._.js:5809
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4b4c5_next_dist_client_8ab9c833._.js:5949
+[LOG] [Fast Refresh] done in 292ms @ http://localhost:3000/_next/static/chunks/4b4c5_next_dist_client_8ab9c833._.js:5809
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4b4c5_next_dist_client_8ab9c833._.js:5949
+[LOG] [Fast Refresh] done in 509ms @ http://localhost:3000/_next/static/chunks/4b4c5_next_dist_client_8ab9c833._.js:5809
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4b4c5_next_dist_client_8ab9c833._.js:5949
+[LOG] [Fast Refresh] done in 331ms @ http://localhost:3000/_next/static/chunks/4b4c5_next_dist_client_8ab9c833._.js:5809
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4b4c5_next_dist_client_8ab9c833._.js:5949
+[LOG] [Fast Refresh] done in 153ms @ http://localhost:3000/_next/static/chunks/4b4c5_next_dist_client_8ab9c833._.js:5809
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4b4c5_next_dist_client_8ab9c833._.js:5949
+[LOG] [Fast Refresh] done in 179ms @ http://localhost:3000/_next/static/chunks/4b4c5_next_dist_client_8ab9c833._.js:5809

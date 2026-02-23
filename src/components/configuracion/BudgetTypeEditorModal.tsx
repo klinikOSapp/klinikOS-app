@@ -5,7 +5,6 @@ import type {
   BudgetTypeData,
   BudgetTypeTreatment
 } from '@/components/pacientes/shared/budgetTypeData'
-import { TREATMENT_CATALOG } from '@/components/pacientes/shared/treatmentTypes'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -17,23 +16,13 @@ type BudgetTypeEditorModalProps = {
   onClose: () => void
   onSave: (budgetType: Omit<BudgetTypeData, 'id'> | BudgetTypeData) => void
   editingBudgetType?: BudgetTypeData | null
+  availableTreatments?: Array<{
+    code: string
+    description: string
+    price: number
+    familia?: string
+  }>
 }
-
-// Convert TREATMENT_CATALOG to array for easier rendering
-const treatmentOptions = Object.entries(TREATMENT_CATALOG).map(
-  ([code, entry]) => ({
-    code,
-    description: entry.description,
-    price:
-      parseFloat(
-        entry.amount
-          .replace(/[^\d,.-]/g, '')
-          .replace('.', '')
-          .replace(',', '.')
-      ) || 0,
-    familia: entry.familia
-  })
-)
 
 // ============================================
 // Main Component
@@ -42,7 +31,8 @@ export default function BudgetTypeEditorModal({
   open,
   onClose,
   onSave,
-  editingBudgetType
+  editingBudgetType,
+  availableTreatments = []
 }: BudgetTypeEditorModalProps) {
   const [mounted, setMounted] = useState(false)
 
@@ -89,6 +79,12 @@ export default function BudgetTypeEditorModal({
   const totalPrice = useMemo(() => {
     return treatments.reduce((sum, t) => sum + t.precio, 0)
   }, [treatments])
+
+  const treatmentOptions = useMemo(() => {
+    return [...availableTreatments].sort((a, b) =>
+      a.description.localeCompare(b.description, 'es')
+    )
+  }, [availableTreatments])
 
   // Filter treatments for selector
   const filteredTreatments = useMemo(() => {

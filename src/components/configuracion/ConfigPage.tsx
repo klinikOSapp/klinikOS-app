@@ -13,7 +13,7 @@ import {
   useConfiguration,
   type DayOfWeek
 } from '@/context/ConfigurationContext'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import AddClinicModal, { ClinicFormData } from './AddClinicModal'
 
 type FieldProps = {
@@ -134,25 +134,47 @@ export default function ConfigPage() {
   const {
     workingHours,
     updateWorkingHours,
+    clinics,
+    addClinic,
+    updateClinic,
+    deleteClinic,
     clinicInfo: contextClinicInfo,
     updateClinicInfo: updateContextClinicInfo
   } = useConfiguration()
 
   // Local clinic information state (for editing before save)
   const [clinicInfo, setClinicInfo] = useState<ClinicaInfo>({
-    nombreComercial: contextClinicInfo.nombreComercial || 'Clínica Morales',
-    razonSocial: contextClinicInfo.razonSocial || 'Clínica Morales S.L.',
-    cif: contextClinicInfo.cif || 'B12345678',
-    direccion: contextClinicInfo.direccion || 'C/ Universidad, 2',
-    poblacion: contextClinicInfo.poblacion || 'Valencia',
-    codigoPostal: contextClinicInfo.codigoPostal || '46001',
-    telefono: contextClinicInfo.telefono || '608020203',
-    email: contextClinicInfo.email || 'clinicamorales@morales.es',
-    iban: contextClinicInfo.iban || 'ES12 1234 5678 9012 3456 7890',
-    emailBancario: contextClinicInfo.emailBancario || 'facturacion@morales.es',
+    nombreComercial: contextClinicInfo.nombreComercial || '',
+    razonSocial: contextClinicInfo.razonSocial || '',
+    cif: contextClinicInfo.cif || '',
+    direccion: contextClinicInfo.direccion || '',
+    poblacion: contextClinicInfo.poblacion || '',
+    codigoPostal: contextClinicInfo.codigoPostal || '',
+    telefono: contextClinicInfo.telefono || '',
+    email: contextClinicInfo.email || '',
+    iban: contextClinicInfo.iban || '',
+    emailBancario: contextClinicInfo.emailBancario || '',
     logo: contextClinicInfo.logo,
     web: contextClinicInfo.web
   })
+
+  useEffect(() => {
+    if (isEditing) return
+    setClinicInfo({
+      nombreComercial: contextClinicInfo.nombreComercial || '',
+      razonSocial: contextClinicInfo.razonSocial || '',
+      cif: contextClinicInfo.cif || '',
+      direccion: contextClinicInfo.direccion || '',
+      poblacion: contextClinicInfo.poblacion || '',
+      codigoPostal: contextClinicInfo.codigoPostal || '',
+      telefono: contextClinicInfo.telefono || '',
+      email: contextClinicInfo.email || '',
+      iban: contextClinicInfo.iban || '',
+      emailBancario: contextClinicInfo.emailBancario || '',
+      logo: contextClinicInfo.logo,
+      web: contextClinicInfo.web
+    })
+  }, [contextClinicInfo, isEditing])
 
   const updateClinicInfo = useCallback(
     (field: keyof ClinicaInfo, value: string) => {
@@ -224,36 +246,35 @@ export default function ConfigPage() {
   }, [contextClinicInfo])
 
   // Rows state - declared first so callbacks can reference it
-  const [rows, setRows] = useState<Clinica[]>([
-    {
-      id: 's1',
-      nombre: 'Clínica Morales Ruzafa',
-      direccion: 'C/ Universidad, 2, Valencia',
-      horario: '08:00 - 20:00',
-      telefono: '608020203',
-      email: 'clinicamorales@morales.es',
-      selected: false
-    },
-    {
-      id: 's2',
-      nombre: 'Clínica Morales Albal',
-      direccion: 'C/ Madrid, 12, Catarroja',
-      horario: '09:30 - 20:00',
-      telefono: '608020203',
-      email: 'clinicamorales@morales.es',
-      selected: false
-    },
-    {
-      id: 's3',
-      nombre: 'Clínica Morales Blasco',
-      direccion: 'C/ José María Hoyo, 34, Valencia',
-      horario: '08:30 - 19:30',
-      telefono: '608020203',
-      email: 'clinicamorales@morales.es',
-      selected: true
-    }
-  ])
+  const [rows, setRows] = useState<Clinica[]>([])
   const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    setRows((prev) =>
+      clinics.map((clinic) => {
+        const previous = prev.find((row) => row.id === clinic.id)
+        return {
+          id: clinic.id,
+          nombre: clinic.nombre,
+          direccion: clinic.direccion,
+          horario: clinic.horario,
+          telefono: clinic.telefono,
+          email: clinic.email,
+          selected: previous?.selected ?? false
+        }
+      })
+    )
+  }, [clinics])
+
+  useEffect(() => {
+    if (rows.length === 0 && selectedClinicIndex !== 0) {
+      setSelectedClinicIndex(0)
+      return
+    }
+    if (selectedClinicIndex >= rows.length && rows.length > 0) {
+      setSelectedClinicIndex(rows.length - 1)
+    }
+  }, [rows, selectedClinicIndex])
 
   const selectionCount = useMemo(
     () => rows.filter((r) => r.selected).length,
@@ -279,29 +300,29 @@ export default function ConfigPage() {
   }, [])
 
   const deleteSelected = useCallback(() => {
-    setRows((prev) => prev.filter((r) => !r.selected))
-  }, [])
+    const selected = rows.filter((row) => row.selected)
+    selected.forEach((row) => deleteClinic(row.id))
+  }, [deleteClinic, rows])
 
-  const handleCreateClinica = useCallback((data: ClinicFormData) => {
-    const horario =
-      data.horarioApertura && data.horarioCierre
-        ? `${data.horarioApertura} - ${data.horarioCierre}`
-        : data.horarioApertura || data.horarioCierre || '08:00 - 20:00'
+  const handleCreateClinica = useCallback(
+    (data: ClinicFormData) => {
+      const horario =
+        data.horarioApertura && data.horarioCierre
+          ? `${data.horarioApertura} - ${data.horarioCierre}`
+          : data.horarioApertura || data.horarioCierre || '08:00 - 20:00'
 
-    setRows((prev) => [
-      ...prev,
-      {
-        id: `c${prev.length + 1}`,
-        nombre: data.nombreComercial || `Nueva clínica ${prev.length + 1}`,
+      addClinic({
+        nombre: data.nombreComercial || 'Nueva clínica',
         direccion: data.direccion || 'Dirección pendiente',
         horario,
-        telefono: data.telefonos.filter((t) => t).join(', ') || '—',
-        email: data.emails.filter((e) => e).join(', ') || '—',
-        selected: false
-      }
-    ])
-    setShowClinicModal(false)
-  }, [])
+        telefono: data.telefonos.filter((t) => t).join(', '),
+        email: data.emails.filter((e) => e).join(', '),
+        isActive: true
+      })
+      setShowClinicModal(false)
+    },
+    [addClinic]
+  )
 
   // Edit clinic state and handlers
   const [editingClinic, setEditingClinic] = useState<Clinica | null>(null)
@@ -324,28 +345,21 @@ export default function ConfigPage() {
               data.horarioCierre ||
               editingClinic.horario
 
-        setRows((prev) =>
-          prev.map((r) =>
-            r.id === editingClinic.id
-              ? {
-                  ...r,
-                  nombre: data.nombreComercial || r.nombre,
-                  direccion: data.direccion || r.direccion,
-                  horario,
-                  telefono:
-                    data.telefonos.filter((t) => t).join(', ') || r.telefono,
-                  email: data.emails.filter((e) => e).join(', ') || r.email
-                }
-              : r
-          )
-        )
+        updateClinic(editingClinic.id, {
+          nombre: data.nombreComercial || editingClinic.nombre,
+          direccion: data.direccion || editingClinic.direccion,
+          horario,
+          telefono:
+            data.telefonos.filter((t) => t).join(', ') || editingClinic.telefono,
+          email: data.emails.filter((e) => e).join(', ') || editingClinic.email
+        })
         setEditingClinic(null)
       } else {
         handleCreateClinica(data)
       }
       setShowClinicModal(false)
     },
-    [editingClinic, handleCreateClinica]
+    [editingClinic, handleCreateClinica, updateClinic]
   )
 
   return (

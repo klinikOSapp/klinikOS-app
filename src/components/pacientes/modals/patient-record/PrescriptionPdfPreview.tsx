@@ -7,7 +7,10 @@ import {
   PictureAsPdfRounded
 } from '@/components/icons/md3'
 import Portal from '@/components/ui/Portal'
-import { useConfiguration } from '@/context/ConfigurationContext'
+import {
+  DEFAULT_DOCUMENT_TEMPLATES,
+  useConfiguration
+} from '@/context/ConfigurationContext'
 import {
   downloadBlob,
   formatPrescriptionFilename,
@@ -26,6 +29,8 @@ type PrescriptionPdfPreviewProps = {
   data?: {
     medicamento?: string
     especialista?: string
+    especialistaId?: string
+    especialistaLicense?: string
     frecuencia?: string
     duracion?: string
     administracion?: string
@@ -51,12 +56,20 @@ export default function PrescriptionPdfPreview({
   const [isGenerating, setIsGenerating] = React.useState(false)
 
   // Get clinic data and templates from configuration context
-  const { clinicInfo, getDocumentTemplatesByType } = useConfiguration()
+  const { clinicInfo, getDocumentTemplatesByType, activeProfessionals } = useConfiguration()
 
   // Get the receta template
   const recetaTemplate = React.useMemo(() => {
     const templates = getDocumentTemplatesByType('receta')
-    return templates[0]?.content || null
+    const sortedTemplates = [...templates].sort((a, b) => {
+      const aTs = a.lastModified ? new Date(a.lastModified).getTime() : 0
+      const bTs = b.lastModified ? new Date(b.lastModified).getTime() : 0
+      return bTs - aTs
+    })
+    const candidate =
+      sortedTemplates.find((template) => template.content?.trim())?.content?.trim() ||
+      ''
+    return candidate || DEFAULT_DOCUMENT_TEMPLATES.receta
   }, [getDocumentTemplatesByType])
 
   // Build full clinic address from configuration
@@ -76,7 +89,7 @@ export default function PrescriptionPdfPreview({
         frecuencia: m.frecuencia.trim() || '-',
         duracion: m.duracion.trim() || '-',
         administracion: m.administracion.trim() || 'Oral',
-        dosis: '500mg' // Placeholder
+        dosis: m.dosis?.trim() || ''
       }))
     }
     // Legacy: single medication
@@ -86,10 +99,24 @@ export default function PrescriptionPdfPreview({
         frecuencia: data?.frecuencia?.trim() || '3 por día',
         duracion: data?.duracion?.trim() || '7 días',
         administracion: data?.administracion?.trim() || 'Oral',
-        dosis: '500mg'
+        dosis: ''
       }
     ]
   }, [data])
+
+  const selectedProfessional = React.useMemo(() => {
+    if (data?.especialistaId) {
+      return activeProfessionals.find(
+        (professional) => professional.id === data.especialistaId
+      )
+    }
+    if (!data?.especialista?.trim()) return undefined
+    return activeProfessionals.find(
+      (professional) =>
+        professional.name.trim().toLowerCase() ===
+        data.especialista?.trim().toLowerCase()
+    )
+  }, [activeProfessionals, data?.especialista, data?.especialistaId])
 
   // Generate PDF when modal opens
   React.useEffect(() => {
@@ -111,13 +138,25 @@ export default function PrescriptionPdfPreview({
     setIsGenerating(true)
 
     // Build prescription data using clinic info from configuration context
+    const fallbackProfessional = activeProfessionals[0]
+    const doctorName =
+      selectedProfessional?.name ||
+      fallbackProfessional?.name ||
+      data?.especialista ||
+      'Profesional'
+    const doctorLicense =
+      data?.especialistaLicense ||
+      selectedProfessional?.professionalLicenseId ||
+      fallbackProfessional?.professionalLicenseId ||
+      ''
+
     const prescriptionData: PrescriptionData = {
       patientName: patientName,
       patientDni: '44556677X',
       patientSex: 'Hombre',
       patientAge: 45,
-      doctorName: data?.especialista || 'Dr. García López',
-      doctorLicense: 'XX 895 895 895',
+      doctorName,
+      doctorLicense,
       clinicName: clinicInfo.nombreComercial || 'Clínica Dental',
       clinicAddress: fullClinicAddress || clinicInfo.direccion || '',
       clinicPhone: clinicInfo.telefono || '',
@@ -156,7 +195,15 @@ export default function PrescriptionPdfPreview({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, data, patientName, medications, recetaTemplate])
+  }, [
+    open,
+    data,
+    patientName,
+    medications,
+    recetaTemplate,
+    selectedProfessional,
+    activeProfessionals
+  ])
 
   const handleDownload = React.useCallback(() => {
     if (!document) return
@@ -209,7 +256,10 @@ export default function PrescriptionPdfPreview({
               <PictureAsPdfRounded className='w-[1.5rem] h-[1.5rem] text-[#E53935]' />
               <div>
                 <p className='text-[0.875rem] font-medium text-[#24282C]'>
-                  {data?.especialista || 'Dr. García López'}
+                  {selectedProfessional?.name ||
+                    activeProfessionals[0]?.name ||
+                    data?.especialista ||
+                    'Profesional'}
                 </p>
                 <p className='text-[0.75rem] text-[#535C66]'>
                   {document?.filename || 'Receta.pdf'}

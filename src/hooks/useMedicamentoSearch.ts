@@ -28,8 +28,9 @@ export function useMedicamentoSearch(
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const latestQueryRef = useRef('')
 
   // Cleanup on unmount
   useEffect(() => {
@@ -44,12 +45,16 @@ export function useMedicamentoSearch(
   }, [])
 
   const fetchMedicamentos = useCallback(async (query: string) => {
+    latestQueryRef.current = query
+
     // Check cache first
     const cacheKey = query.toLowerCase()
     const cached = cache.get(cacheKey)
     
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      if (latestQueryRef.current !== query) return
       setResultados(cached.data)
+      setError(null)
       setLoading(false)
       return
     }
@@ -73,13 +78,15 @@ export function useMedicamentoSearch(
       }
 
       const data = await response.json()
-      const medicamentos = data.resultados || []
+      const medicamentos = Array.isArray(data.resultados) ? data.resultados : []
       
       // Update cache
       cache.set(cacheKey, { data: medicamentos, timestamp: Date.now() })
+
+      if (latestQueryRef.current !== query) return
       
       setResultados(medicamentos)
-      setError(null)
+      setError(typeof data.error === 'string' && data.error ? data.error : null)
     } catch (err) {
       // Ignore abort errors
       if (err instanceof Error && err.name === 'AbortError') {
@@ -87,21 +94,31 @@ export function useMedicamentoSearch(
       }
       
       console.error('Error searching medications:', err)
+      if (latestQueryRef.current !== query) return
       setError(err instanceof Error ? err.message : 'Error desconocido')
       setResultados([])
     } finally {
-      setLoading(false)
+      if (latestQueryRef.current === query) {
+        setLoading(false)
+      }
     }
   }, [])
 
   const search = useCallback((query: string) => {
+    const normalizedQuery = query.trim()
+
     // Clear previous timer
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current)
     }
 
     // Clear results if query is too short
-    if (!query || query.length < minChars) {
+    if (!normalizedQuery || normalizedQuery.length < minChars) {
+      // Cancel pending request to avoid stale late results
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      latestQueryRef.current = normalizedQuery
       setResultados([])
       setLoading(false)
       setError(null)
@@ -114,11 +131,15 @@ export function useMedicamentoSearch(
 
     // Debounce the actual search
     debounceTimerRef.current = setTimeout(() => {
-      fetchMedicamentos(query)
+      fetchMedicamentos(normalizedQuery)
     }, debounceMs)
   }, [debounceMs, minChars, fetchMedicamentos])
 
   const clearResults = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    latestQueryRef.current = ''
     setResultados([])
     setError(null)
     setLoading(false)
