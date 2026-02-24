@@ -3,6 +3,7 @@
 import { ChevronLeftRounded, ChevronRightRounded } from '@/components/icons/md3'
 import { SidebarProps } from '@/types/layout'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import CTANav from './CTANav'
 import ClinicCard from './ClinicCard'
 import NavElement from './NavElement'
@@ -22,9 +23,23 @@ export default function Sidebar({
 
   const pathname = usePathname()
 
+  const [isTouchDevice, setIsTouchDevice] = useState(false)
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const mql = window.matchMedia('(hover: none)')
+    setIsTouchDevice(mql.matches)
+    const handler = (e: MediaQueryListEvent) => setIsTouchDevice(e.matches)
+    mql.addEventListener('change', handler)
+    return () => mql.removeEventListener('change', handler)
+  }, [])
+
+  useEffect(() => {
+    setExpandedItemId(null)
+  }, [pathname])
+
   const menuItems = ctaMenuItems ?? [
     { id: 'nueva-cita', label: 'Nueva cita' },
-    { id: 'nuevo-presupuesto', label: 'Nuevo presupuesto' },
     { id: 'nuevo-paciente', label: 'Nuevo paciente' }
   ]
 
@@ -99,6 +114,19 @@ export default function Sidebar({
                     icon={it.icon}
                     collapsed={collapsed}
                     isActiveOverride={sectionActive}
+                    onClick={
+                      isTouchDevice && it.children?.length
+                        ? (e) => {
+                            const isExpanded = expandedItemId === it.id
+                            if (!isExpanded && !childActive) {
+                              e.preventDefault()
+                              setExpandedItemId(it.id)
+                            } else {
+                              setExpandedItemId(null)
+                            }
+                          }
+                        : undefined
+                    }
                   />
                   {it.children && it.children.length > 0 && (
                     <>
@@ -107,7 +135,7 @@ export default function Sidebar({
                         <div
                           className={[
                             'grid gap-0 overflow-hidden transition-[max-height,opacity,transform] duration-200 ease-out',
-                            childActive
+                            childActive || expandedItemId === it.id
                               ? 'max-h-24 opacity-100 translate-y-0'
                               : 'max-h-0 opacity-0 -translate-y-1 pointer-events-none group-hover/navitem:max-h-24 group-hover/navitem:opacity-100 group-hover/navitem:translate-y-0 group-hover/navitem:pointer-events-auto group-focus-within/navitem:max-h-24 group-focus-within/navitem:opacity-100 group-focus-within/navitem:translate-y-0 group-focus-within/navitem:pointer-events-auto'
                           ].join(' ')}
@@ -127,7 +155,14 @@ export default function Sidebar({
                       )}
                       {/* Popover (sidebar colapsado) */}
                       {collapsed && (
-                        <div className='absolute left-full top-0 ml-2 min-w-[10rem] bg-white rounded-xl shadow-lg border border-[var(--color-brand-100)] py-2 opacity-0 invisible translate-x-[-0.5rem] transition-all duration-200 ease-out group-hover/navitem:opacity-100 group-hover/navitem:visible group-hover/navitem:translate-x-0 group-focus-within/navitem:opacity-100 group-focus-within/navitem:visible group-focus-within/navitem:translate-x-0 z-50'>
+                        <div
+                          className={[
+                            'absolute left-full top-0 ml-2 min-w-[10rem] bg-white rounded-xl shadow-lg border border-[var(--color-brand-100)] py-2 transition-all duration-200 ease-out z-50',
+                            expandedItemId === it.id
+                              ? 'opacity-100 visible translate-x-0'
+                              : 'opacity-0 invisible translate-x-[-0.5rem] group-hover/navitem:opacity-100 group-hover/navitem:visible group-hover/navitem:translate-x-0 group-focus-within/navitem:opacity-100 group-focus-within/navitem:visible group-focus-within/navitem:translate-x-0'
+                          ].join(' ')}
+                        >
                           {it.children.map((child) => (
                             <NavElement
                               key={child.id}

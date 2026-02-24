@@ -12,6 +12,7 @@ export interface NavElementProps {
   isChild?: boolean
   isActiveOverride?: boolean
   hasActiveChild?: boolean
+  onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void
 }
 
 export function NavElement({
@@ -21,7 +22,8 @@ export function NavElement({
   collapsed,
   isChild = false,
   isActiveOverride,
-  hasActiveChild = false
+  hasActiveChild = false,
+  onClick
 }: NavElementProps) {
   const pathname = usePathname()
   const isActive = isActiveOverride ?? pathname === href
@@ -38,6 +40,7 @@ export function NavElement({
   return (
     <Link
       href={href}
+      onClick={onClick}
       aria-current={isActive ? 'page' : undefined}
       className={[
         'flex items-center h-[var(--spacing-nav-item)] w-full',
