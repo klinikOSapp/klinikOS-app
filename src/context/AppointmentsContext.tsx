@@ -2583,8 +2583,240 @@ const INITIAL_APPOINTMENTS: Appointment[] = [
       callIntent: 'pedir_cita_higiene',
       transcriptionAvailable: true
     }
-  }
+  },
+
+  // ============================================
+  // CITAS GENERADAS PARA DEMO (Feb 9 - Mar 13, 2026)
+  // ~500 citas realistas para 5 semanas completas
+  // ============================================
+  ...generateDemoAppointments()
 ]
+
+// -------------------------------------------------------
+// Generador masivo de citas para demo
+// -------------------------------------------------------
+function generateDemoAppointments(): Appointment[] {
+  const PATIENTS = [
+    { name: 'María García López', phone: '612 345 678', age: 34, id: 'pat-001' },
+    { name: 'Carlos Rodríguez Fernández', phone: '623 456 789', age: 45, id: 'pat-002' },
+    { name: 'Ana Martínez Sánchez', phone: '634 567 890', age: 28, id: 'pat-003' },
+    { name: 'Laura Fernández Ruiz', phone: '645 678 901', age: 52, id: 'pat-004' },
+    { name: 'Pedro López García', phone: '656 789 012', age: 38, id: 'pat-005' },
+    { name: 'Isabel Torres Vega', phone: '667 890 123', age: 62, id: 'pat-006' },
+    { name: 'Sofía Navarro Díaz', phone: '678 901 234', age: 42, id: 'pat-007' },
+    { name: 'Javier Moreno Torres', phone: '689 012 345', age: 31, id: 'pat-008' },
+    { name: 'David Sánchez Martín', phone: '690 123 456', age: 55, id: 'pat-009' },
+    { name: 'Carmen Ruiz Jiménez', phone: '601 234 567', age: 47, id: 'pat-010' },
+    { name: 'Miguel Gómez Hernández', phone: '612 345 679', age: 33, id: 'pat-011' },
+    { name: 'Elena Vega Castillo', phone: '623 456 780', age: 29, id: 'pat-012' },
+    { name: 'Antonio Pérez Molina', phone: '634 567 891', age: 61, id: 'pat-013' },
+    { name: 'Fernando Díaz Ortega', phone: '645 678 902', age: 59, id: 'pat-014' },
+    { name: 'Beatriz Muñoz Serrano', phone: '656 789 013', age: 36, id: 'pat-015' },
+    { name: 'Marta Alonso Blanco', phone: '667 890 124', age: 44, id: 'pat-016' },
+    { name: 'Ramón Castro Vidal', phone: '678 901 235', age: 68, id: 'pat-017' },
+    { name: 'Patricia Romero Nieto', phone: '689 012 346', age: 25, id: 'pat-018' },
+    { name: 'Alberto Gil Ramos', phone: '690 123 457', age: 40, id: 'pat-019' },
+    { name: 'Lucía Herrero Campos', phone: '601 234 568', age: 37, id: 'pat-020' },
+    { name: 'Raquel Domínguez Peña', phone: '612 345 680', age: 50, id: 'pat-021' },
+    { name: 'Sergio Iglesias Prieto', phone: '623 456 791', age: 26, id: 'pat-022' },
+    { name: 'Cristina Rubio Marín', phone: '634 567 802', age: 43, id: 'pat-023' },
+    { name: 'Hugo Medina Cano', phone: '645 678 913', age: 57, id: 'pat-024' },
+    { name: 'Nuria Delgado Fuentes', phone: '656 789 024', age: 32, id: 'pat-025' },
+    { name: 'Óscar Calvo Bravo', phone: '667 890 135', age: 48, id: 'pat-026' },
+    { name: 'Alicia Reyes Gallardo', phone: '678 901 246', age: 22, id: 'pat-027' },
+    { name: 'Tomás Guerrero León', phone: '689 012 357', age: 65, id: 'pat-028' },
+    { name: 'Pilar Ortiz Esteban', phone: '690 123 468', age: 39, id: 'pat-029' },
+    { name: 'Adrián Moya Pascual', phone: '601 234 579', age: 54, id: 'pat-030' },
+    { name: 'Rosa Caballero Aguilar', phone: '612 345 690', age: 71, id: 'pat-031' },
+    { name: 'Diego Vargas Soler', phone: '623 456 701', age: 30, id: 'pat-032' },
+    { name: 'Silvia Molina Carrasco', phone: '634 567 812', age: 46, id: 'pat-033' },
+    { name: 'Pablo Jiménez Crespo', phone: '645 678 923', age: 35, id: 'pat-034' },
+    { name: 'Inés Ramos Cortés', phone: '656 789 034', age: 58, id: 'pat-035' },
+    { name: 'Víctor Santos Ibáñez', phone: '667 890 145', age: 41, id: 'pat-036' },
+    { name: 'Marina Flores Pardo', phone: '678 901 256', age: 27, id: 'pat-037' },
+    { name: 'Andrés Benítez Rojas', phone: '689 012 367', age: 63, id: 'pat-038' },
+    { name: 'Teresa Montero Arias', phone: '690 123 478', age: 49, id: 'pat-039' },
+    { name: 'Guillermo Lara Méndez', phone: '601 234 589', age: 33, id: 'pat-040' },
+  ]
+
+  const PROFESSIONALS = [
+    'Dr. Antonio Ruiz',
+    'Dra. María García',
+    'Carlos Pérez (Higienista)',
+    'Dra. Laura Martínez',
+    'Javier Herrera (Higienista)',
+    'Laura Sánchez (Higienista)',
+    'Dr. Francisco Moreno',
+  ]
+
+  const TREATMENTS: { reason: string; duration: number; charge: 'Si' | 'No' }[] = [
+    { reason: 'Limpieza dental', duration: 30, charge: 'Si' },
+    { reason: 'Revisión general', duration: 30, charge: 'No' },
+    { reason: 'Empaste composite', duration: 45, charge: 'Si' },
+    { reason: 'Endodoncia', duration: 60, charge: 'Si' },
+    { reason: 'Extracción pieza', duration: 45, charge: 'Si' },
+    { reason: 'Corona dental', duration: 60, charge: 'Si' },
+    { reason: 'Implante dental', duration: 90, charge: 'Si' },
+    { reason: 'Revisión ortodoncia', duration: 30, charge: 'No' },
+    { reason: 'Blanqueamiento dental', duration: 60, charge: 'Si' },
+    { reason: 'Tratamiento periodontal', duration: 45, charge: 'Si' },
+    { reason: 'Radiografía panorámica', duration: 15, charge: 'Si' },
+    { reason: 'Sellador de fisuras', duration: 30, charge: 'Si' },
+    { reason: 'Férula de descarga', duration: 30, charge: 'Si' },
+    { reason: 'Carillas dentales', duration: 60, charge: 'Si' },
+    { reason: 'Prótesis removible', duration: 45, charge: 'Si' },
+    { reason: 'Cirugía de encías', duration: 60, charge: 'Si' },
+    { reason: 'Control post-extracción', duration: 15, charge: 'No' },
+    { reason: 'Ajuste de prótesis', duration: 30, charge: 'No' },
+    { reason: 'Consulta primera visita', duration: 45, charge: 'No' },
+    { reason: 'Recementado bracket', duration: 15, charge: 'No' },
+    { reason: 'Curetaje subgingival', duration: 45, charge: 'Si' },
+    { reason: 'Pulido dental', duration: 30, charge: 'Si' },
+    { reason: 'Aplicación flúor', duration: 15, charge: 'Si' },
+    { reason: 'Tallado para corona', duration: 60, charge: 'Si' },
+    { reason: 'Impresión digital', duration: 30, charge: 'Si' },
+  ]
+
+  const BOXES = ['box 1', 'box 2', 'box 3']
+  const COLORS = [
+    'var(--color-event-teal)',
+    'var(--color-event-coral)',
+    'var(--color-event-purple)',
+    'var(--color-brand-0)',
+    'var(--color-brand-100)',
+  ]
+  const STATUSES: AppointmentStatus[] = ['Confirmada', 'No confirmada', 'Confirmada', 'Confirmada']
+  const VISIT_STATUSES_PAST: VisitStatus[] = ['completed', 'completed', 'completed', 'completed', 'completed']
+  const VISIT_STATUSES_TODAY: VisitStatus[] = ['completed', 'completed', 'in_consultation', 'waiting_room', 'call_patient', 'scheduled', 'scheduled', 'scheduled']
+  const VISIT_STATUSES_FUTURE: VisitStatus[] = ['scheduled', 'scheduled', 'scheduled', 'scheduled']
+
+  const MORNING_SLOTS = [
+    '09:00', '09:15', '09:30', '09:45',
+    '10:00', '10:15', '10:30', '10:45',
+    '11:00', '11:15', '11:30', '11:45',
+    '12:00', '12:15', '12:30', '12:45',
+    '13:00', '13:15',
+  ]
+  const AFTERNOON_SLOTS = [
+    '16:00', '16:15', '16:30', '16:45',
+    '17:00', '17:15', '17:30', '17:45',
+    '18:00', '18:15', '18:30', '18:45',
+    '19:00', '19:15',
+  ]
+
+  const seededRandom = (seed: number) => {
+    let s = seed
+    return () => {
+      s = (s * 1103515245 + 12345) & 0x7fffffff
+      return s / 0x7fffffff
+    }
+  }
+
+  const addMinutes = (time: string, mins: number): string => {
+    const [h, m] = time.split(':').map(Number)
+    const total = h * 60 + m + mins
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+  }
+
+  const todayStr = '2026-02-23'
+
+  const weekdays: string[] = []
+  const startDate = new Date(2026, 1, 9) // Feb 9
+  const endDate = new Date(2026, 2, 13) // Mar 13
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    const dow = d.getDay()
+    if (dow >= 1 && dow <= 5) {
+      const y = d.getFullYear()
+      const mo = String(d.getMonth() + 1).padStart(2, '0')
+      const da = String(d.getDate()).padStart(2, '0')
+      weekdays.push(`${y}-${mo}-${da}`)
+    }
+  }
+
+  const appointments: Appointment[] = []
+  let aptId = 1
+
+  for (const dateStr of weekdays) {
+    const rng = seededRandom(dateStr.split('-').map(Number).reduce((a, b) => a * 31 + b, 0))
+    const isPast = dateStr < todayStr
+    const isToday = dateStr === todayStr
+
+    const visitPool = isToday ? VISIT_STATUSES_TODAY : isPast ? VISIT_STATUSES_PAST : VISIT_STATUSES_FUTURE
+
+    const morningCount = 8 + Math.floor(rng() * 5) // 8-12 morning
+    const afternoonCount = 5 + Math.floor(rng() * 4) // 5-8 afternoon
+
+    const usedSlots = new Set<string>()
+
+    const pickSlot = (pool: string[]): string | null => {
+      const shuffled = [...pool].sort(() => rng() - 0.5)
+      for (const s of shuffled) {
+        const key = s
+        if (!usedSlots.has(key)) {
+          usedSlots.add(key)
+          return s
+        }
+      }
+      return null
+    }
+
+    const createApt = (startTime: string, boxIdx: number): Appointment | null => {
+      const treatIdx = Math.floor(rng() * TREATMENTS.length)
+      const treatment = TREATMENTS[treatIdx]
+      const patIdx = Math.floor(rng() * PATIENTS.length)
+      const patient = PATIENTS[patIdx]
+      const profIdx = Math.floor(rng() * PROFESSIONALS.length)
+      const professional = PROFESSIONALS[profIdx]
+      const endTime = addMinutes(startTime, treatment.duration)
+      const box = BOXES[boxIdx % 3]
+      const colorIdx = Math.floor(rng() * COLORS.length)
+      const statusIdx = Math.floor(rng() * STATUSES.length)
+      const visitIdx = Math.floor(rng() * visitPool.length)
+      const visitStatus = visitPool[visitIdx]
+      const confirmed = STATUSES[statusIdx] === 'Confirmada'
+
+      return {
+        id: `apt-g-${String(aptId++).padStart(4, '0')}`,
+        date: dateStr,
+        startTime,
+        endTime,
+        patientName: patient.name,
+        patientPhone: patient.phone,
+        patientAge: patient.age,
+        patientId: patient.id,
+        professional,
+        reason: treatment.reason,
+        status: STATUSES[statusIdx],
+        box,
+        charge: treatment.charge,
+        tags: confirmed ? ['confirmada'] : undefined,
+        bgColor: COLORS[colorIdx],
+        visitStatus,
+        completed: visitStatus === 'completed',
+        confirmed,
+      }
+    }
+
+    // Morning appointments across all boxes
+    for (let i = 0; i < morningCount; i++) {
+      const slot = pickSlot(MORNING_SLOTS)
+      if (!slot) break
+      const apt = createApt(slot, i)
+      if (apt) appointments.push(apt)
+    }
+
+    // Afternoon appointments across all boxes
+    for (let i = 0; i < afternoonCount; i++) {
+      const slot = pickSlot(AFTERNOON_SLOTS)
+      if (!slot) break
+      const apt = createApt(slot, morningCount + i)
+      if (apt) appointments.push(apt)
+    }
+  }
+
+  return appointments
+}
+
 
 // ============================================
 // DATOS INICIALES DE BLOQUEOS (MOCK DATA)

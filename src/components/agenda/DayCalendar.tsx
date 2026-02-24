@@ -172,33 +172,20 @@ function getOverlayTop(relativeTop: string): string {
 }
 
 function getOverlayLeft(boxId: string, totalBoxes: number = 3): string {
-  // SMART POSITIONING: Place overlay in the OPPOSITE half of the day view
-  // This ensures the overlay never covers the appointment, regardless of how many boxes exist
-  
-  // Extract box number from boxId (e.g., "box1" -> 1, "box-3" -> 3, "box 2" -> 2)
   const boxMatch = boxId.match(/\d+/)
   const boxNumber = boxMatch ? parseInt(boxMatch[0], 10) : 1
-  
-  // Determine if the event is in the first half or second half of boxes
-  // First half: boxes 1 to ceil(totalBoxes/2) -> overlay goes RIGHT
-  // Second half: remaining boxes -> overlay goes LEFT
-  const midpoint = Math.ceil(totalBoxes / 2)
-  const isInFirstHalf = boxNumber <= midpoint
-  
-  // Calculate box width as percentage (each box gets equal width)
   const boxWidthPercent = 100 / totalBoxes
-  
-  if (isInFirstHalf) {
-    // Event is in first half -> place overlay to the RIGHT (after the midpoint)
-    // Position: time column + (midpoint boxes * boxWidth) + gutter
-    const leftPercent = midpoint * boxWidthPercent
-    return `calc(var(--day-time-column-width) + ${leftPercent}% + ${OVERLAY_GUTTER})`
-  } else {
-    // Event is in second half -> place overlay to the LEFT (before the midpoint)
-    // Position: time column + (midpoint * boxWidth) - overlay width - gutter
-    const leftPercent = midpoint * boxWidthPercent
-    return `max(1rem, calc(var(--day-time-column-width) + ${leftPercent}% - var(--scheduler-overlay-width) - ${OVERLAY_GUTTER}))`
+
+  // Position overlay right next to the event's box
+  const boxRightEdgePercent = boxNumber * boxWidthPercent
+  const boxLeftEdgePercent = (boxNumber - 1) * boxWidthPercent
+
+  // If the event is in the right half, place overlay to the LEFT of the box
+  // Otherwise place it to the RIGHT of the box
+  if (boxNumber > totalBoxes / 2) {
+    return `max(1rem, calc(var(--day-time-column-width) + ${boxLeftEdgePercent}% - var(--scheduler-overlay-width) - ${OVERLAY_GUTTER}))`
   }
+  return `calc(var(--day-time-column-width) + ${boxRightEdgePercent}% + ${OVERLAY_GUTTER})`
 }
 
 function getSmartOverlayPosition(
@@ -336,29 +323,83 @@ type TimeSlot = {
   boxes: BoxColumn[]
 }
 
-// Helper function to create event details
-function createEventDetail(title: string, box: string): EventDetail {
+// ============================================
+// DATOS REALISTAS PARA VISTA DIARIA
+// ============================================
+
+const DAY_PROFESSIONALS = {
+  antonioRuiz: 'Dr. Antonio Ruiz García',
+  elenaNava: 'Dra. Elena Navarro Pérez',
+  lauraSanchez: 'Laura Sánchez (Higienista)',
+  franciscoMoreno: 'Dr. Francisco Moreno',
+  carmenDiaz: 'Dra. Carmen Díaz López'
+}
+
+const DAY_PATIENTS = {
+  mariaGarcia: { name: 'María García López', phone: '+34 612 345 678', email: 'maria.garcia@gmail.com' },
+  carlosRodriguez: { name: 'Carlos Rodríguez Fernández', phone: '+34 623 456 789', email: 'carlos.rodriguez@hotmail.com' },
+  anaMartinez: { name: 'Ana Martínez Sánchez', phone: '+34 634 567 890', email: 'ana.martinez@yahoo.es' },
+  pabloLopez: { name: 'Pablo López García', phone: '+34 645 678 901', email: 'pablo.lopez@gmail.com' },
+  lauraFernandez: { name: 'Laura Fernández Ruiz', phone: '+34 656 789 012', email: 'laura.fernandez@outlook.com' },
+  javierMoreno: { name: 'Javier Moreno Torres', phone: '+34 667 890 123', email: 'javier.moreno@gmail.com' },
+  sofiaNavarro: { name: 'Sofía Navarro Díaz', phone: '+34 678 901 234', email: 'sofia.navarro@icloud.com' },
+  davidSanchez: { name: 'David Sánchez Martín', phone: '+34 689 012 345', email: 'david.sanchez@gmail.com' },
+  carmenRuiz: { name: 'Carmen Ruiz Jiménez', phone: '+34 690 123 456', email: 'carmen.ruiz@hotmail.com' },
+  miguelGomez: { name: 'Miguel Gómez Hernández', phone: '+34 601 234 567', email: 'miguel.gomez@gmail.com' },
+  elenaVega: { name: 'Elena Vega Castillo', phone: '+34 612 345 678', email: 'elena.vega@yahoo.es' },
+  antonioPerez: { name: 'Antonio Pérez Molina', phone: '+34 623 456 789', email: 'antonio.perez@gmail.com' },
+  martaAlonso: { name: 'Marta Alonso Blanco', phone: '+34 634 567 890', email: 'marta.alonso@outlook.com' },
+  fernandoDiaz: { name: 'Fernando Díaz Ortega', phone: '+34 645 678 901', email: 'fernando.diaz@gmail.com' },
+  beatrizMuñoz: { name: 'Beatriz Muñoz Serrano', phone: '+34 656 789 012', email: 'beatriz.munoz@icloud.com' },
+  ramonCastro: { name: 'Ramón Castro Vidal', phone: '+34 667 890 123', email: 'ramon.castro@hotmail.com' },
+  patriciaRomero: { name: 'Patricia Romero Nieto', phone: '+34 678 901 234', email: 'patricia.romero@gmail.com' },
+  albertoGil: { name: 'Alberto Gil Ramos', phone: '+34 689 012 345', email: 'alberto.gil@yahoo.es' }
+}
+
+const DAY_TREATMENTS = {
+  limpieza: 'Limpieza dental',
+  revision: 'Revisión general',
+  empaste: 'Empaste / Obturación',
+  endodoncia: 'Endodoncia',
+  corona: 'Corona dental',
+  implante: 'Implante dental',
+  ortodoncia: 'Revisión ortodoncia',
+  blanqueamiento: 'Blanqueamiento',
+  periodoncia: 'Tratamiento periodontal',
+  radiografia: 'Radiografía panorámica',
+  sellador: 'Sellador de fisuras',
+  ferula: 'Férula de descarga'
+}
+
+function createEventDetail(
+  title: string,
+  box: string,
+  overrides?: Partial<EventDetail>
+): EventDetail {
   return {
     title,
-    date: 'Lunes, 20 de Noviembre 2025',
-    duration: '12:30 - 13:00 (30 minutos)',
+    date: 'Lunes, 23 de Febrero 2026',
+    duration: '09:00 - 09:30 (30 minutos)',
     patientFull: 'Juan Pérez González',
     patientPhone: '+34 666 777 888',
     patientEmail: 'juan.perez@gmail.com',
-    referredBy: 'Familiar de Xus',
-    professional: 'Nombre apellidos',
-    economicAmount: '100 €',
+    referredBy: 'Recomendación familiar',
+    professional: DAY_PROFESSIONALS.antonioRuiz,
+    economicAmount: '85 €',
     economicStatus: 'Pendiente de pago',
-    notes: 'Primera limpieza del paciente',
+    notes: 'Paciente con sensibilidad moderada',
     locationLabel: 'Fecha y ubicación',
     patientLabel: 'Paciente',
     professionalLabel: 'Profesional',
     economicLabel: 'Económico',
-    notesLabel: 'Notas'
+    notesLabel: 'Notas',
+    ...overrides
   }
 }
 
-// Datos de ejemplo basados en Figma
+// Datos realistas de clínica dental para vista diaria (fallback)
+// Posicionamiento: top = slotIndex * SLOT_REM (2.5), height = numSlots * SLOT_REM
+// slotIndex = (hour - 9) * 4 + (minutes / 15)
 const TIME_SLOTS: TimeSlot[] = [
   {
     time: '9:00',
@@ -368,16 +409,87 @@ const TIME_SLOTS: TimeSlot[] = [
         events: [
           {
             id: 'e1',
-            label: '9:30 Consulta médica',
-            top: '3.9375rem', // 63px
-            bgColor: 'var(--color-event-coral)',
-            detail: createEventDetail('9:30 Consulta médica', 'Box 1'),
-            box: 'Box 1'
+            label: `${DAY_TREATMENTS.limpieza}\n${DAY_PATIENTS.mariaGarcia.name}`,
+            top: '0rem',
+            height: '5rem',
+            bgColor: 'var(--color-event-teal)',
+            box: 'Box 1',
+            visitStatus: 'completed',
+            completed: true,
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.limpieza, 'Box 1', {
+              patientFull: DAY_PATIENTS.mariaGarcia.name,
+              patientPhone: DAY_PATIENTS.mariaGarcia.phone,
+              patientEmail: DAY_PATIENTS.mariaGarcia.email,
+              professional: DAY_PROFESSIONALS.lauraSanchez,
+              duration: '09:00 - 09:30 (30 minutos)',
+              economicAmount: '65 €',
+              economicStatus: 'Pagado',
+              notes: 'Limpieza rutinaria semestral. Sin problemas previos.'
+            })
           }
         ]
       },
-      { id: 'box2', events: [] },
+      {
+        id: 'box2',
+        events: [
+          {
+            id: 'e2',
+            label: `${DAY_TREATMENTS.empaste}\n${DAY_PATIENTS.carlosRodriguez.name}`,
+            top: '0rem',
+            height: '7.5rem',
+            bgColor: 'var(--color-event-coral)',
+            box: 'Box 2',
+            visitStatus: 'completed',
+            completed: true,
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.empaste, 'Box 2', {
+              patientFull: DAY_PATIENTS.carlosRodriguez.name,
+              patientPhone: DAY_PATIENTS.carlosRodriguez.phone,
+              patientEmail: DAY_PATIENTS.carlosRodriguez.email,
+              professional: DAY_PROFESSIONALS.antonioRuiz,
+              duration: '09:00 - 09:45 (45 minutos)',
+              economicAmount: '95 €',
+              economicStatus: 'Pendiente de pago',
+              notes: 'Caries en molar inferior derecho (36). Empaste composite.'
+            })
+          }
+        ]
+      },
       { id: 'box3', events: [] }
+    ]
+  },
+  {
+    time: '9:30',
+    boxes: [
+      { id: 'box1', events: [] },
+      { id: 'box2', events: [] },
+      {
+        id: 'box3',
+        events: [
+          {
+            id: 'e3',
+            label: `${DAY_TREATMENTS.revision}\n${DAY_PATIENTS.pabloLopez.name}`,
+            top: '5rem',
+            height: '5rem',
+            bgColor: 'var(--color-brand-0)',
+            box: 'Box 3',
+            visitStatus: 'completed',
+            completed: true,
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.revision, 'Box 3', {
+              patientFull: DAY_PATIENTS.pabloLopez.name,
+              patientPhone: DAY_PATIENTS.pabloLopez.phone,
+              patientEmail: DAY_PATIENTS.pabloLopez.email,
+              professional: DAY_PROFESSIONALS.antonioRuiz,
+              duration: '09:30 - 10:00 (30 minutos)',
+              economicAmount: '45 €',
+              economicStatus: 'Pagado',
+              notes: 'Revisión anual. Última visita hace 11 meses.'
+            })
+          }
+        ]
+      }
     ]
   },
   {
@@ -387,34 +499,26 @@ const TIME_SLOTS: TimeSlot[] = [
         id: 'box1',
         events: [
           {
-            id: 'e2',
-            label: '13:00 Consulta médica',
-            top: '3.96469rem', // 63.43px
-            bgColor: 'var(--color-brand-0)'
-          }
-        ]
-      },
-      { id: 'box2', events: [] },
-      { id: 'box3', events: [] }
-    ]
-  },
-  {
-    time: '11:00',
-    boxes: [
-      {
-        id: 'box1',
-        events: [
-          {
-            id: 'e3',
-            label: '13:00 Consulta médica',
-            top: '1.11625rem', // 17.86px
-            bgColor: 'var(--color-event-coral)'
-          },
-          {
             id: 'e4',
-            label: '13:00 Consulta médica',
-            top: '3.92875rem', // 62.86px
-            bgColor: 'var(--color-brand-0)'
+            label: `${DAY_TREATMENTS.endodoncia}\n${DAY_PATIENTS.anaMartinez.name}`,
+            top: '10rem',
+            height: '10rem',
+            bgColor: 'var(--color-event-purple)',
+            box: 'Box 1',
+            visitStatus: 'in_consultation',
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.endodoncia, 'Box 1', {
+              patientFull: DAY_PATIENTS.anaMartinez.name,
+              patientPhone: DAY_PATIENTS.anaMartinez.phone,
+              patientEmail: DAY_PATIENTS.anaMartinez.email,
+              professional: DAY_PROFESSIONALS.franciscoMoreno,
+              duration: '10:00 - 11:00 (60 minutos)',
+              economicAmount: '320 €',
+              economicStatus: 'Financiado (3 pagos)',
+              notes: 'Endodoncia pieza 15. Segunda sesión. Paciente con ansiedad leve.',
+              paymentInfo: { totalAmount: 320, paidAmount: 106.67, pendingAmount: 213.33, currency: '€' },
+              installmentPlan: { totalInstallments: 3, currentInstallment: 2, amountPerInstallment: 106.67 }
+            })
           }
         ]
       },
@@ -423,9 +527,87 @@ const TIME_SLOTS: TimeSlot[] = [
         events: [
           {
             id: 'e5',
-            label: '13:00 Consulta médica',
-            top: '3.92875rem', // 62.86px
-            bgColor: 'var(--color-event-purple)'
+            label: `${DAY_TREATMENTS.ortodoncia}\n${DAY_PATIENTS.lauraFernandez.name}`,
+            top: '12.5rem',
+            height: '7.5rem',
+            bgColor: 'var(--color-event-teal)',
+            box: 'Box 2',
+            visitStatus: 'waiting_room',
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.ortodoncia, 'Box 2', {
+              patientFull: DAY_PATIENTS.lauraFernandez.name,
+              patientPhone: DAY_PATIENTS.lauraFernandez.phone,
+              patientEmail: DAY_PATIENTS.lauraFernandez.email,
+              professional: DAY_PROFESSIONALS.elenaNava,
+              duration: '10:15 - 11:00 (45 minutos)',
+              economicAmount: '0 € (incluido en tratamiento)',
+              economicStatus: 'Plan activo',
+              notes: 'Revisión mensual Invisalign. Cambio de alineadores semana 18.'
+            })
+          }
+        ]
+      },
+      { id: 'box3', events: [] }
+    ]
+  },
+  {
+    time: '10:30',
+    boxes: [
+      { id: 'box1', events: [] },
+      { id: 'box2', events: [] },
+      {
+        id: 'box3',
+        events: [
+          {
+            id: 'e6',
+            label: `${DAY_TREATMENTS.radiografia}\n${DAY_PATIENTS.sofiaNavarro.name}`,
+            top: '15rem',
+            height: '5rem',
+            bgColor: 'var(--color-event-coral)',
+            box: 'Box 3',
+            visitStatus: 'call_patient',
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.radiografia, 'Box 3', {
+              patientFull: DAY_PATIENTS.sofiaNavarro.name,
+              patientPhone: DAY_PATIENTS.sofiaNavarro.phone,
+              patientEmail: DAY_PATIENTS.sofiaNavarro.email,
+              professional: DAY_PROFESSIONALS.antonioRuiz,
+              duration: '10:30 - 11:00 (30 minutos)',
+              economicAmount: '35 €',
+              economicStatus: 'Pagado',
+              notes: 'Radiografía panorámica previa a valoración de implantes.'
+            })
+          }
+        ]
+      }
+    ]
+  },
+  {
+    time: '11:00',
+    boxes: [
+      { id: 'box1', events: [] },
+      {
+        id: 'box2',
+        events: [
+          {
+            id: 'e7',
+            label: `${DAY_TREATMENTS.limpieza}\n${DAY_PATIENTS.javierMoreno.name}`,
+            top: '20rem',
+            height: '5rem',
+            bgColor: 'var(--color-event-teal)',
+            box: 'Box 2',
+            visitStatus: 'scheduled',
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.limpieza, 'Box 2', {
+              patientFull: DAY_PATIENTS.javierMoreno.name,
+              patientPhone: DAY_PATIENTS.javierMoreno.phone,
+              patientEmail: DAY_PATIENTS.javierMoreno.email,
+              professional: DAY_PROFESSIONALS.lauraSanchez,
+              duration: '11:00 - 11:30 (30 minutos)',
+              economicAmount: '65 €',
+              economicStatus: 'Pagado',
+              notes: 'Limpieza profunda. Acumulación de sarro zona inferior.'
+            })
           }
         ]
       },
@@ -433,13 +615,60 @@ const TIME_SLOTS: TimeSlot[] = [
         id: 'box3',
         events: [
           {
-            id: 'e6',
-            label: '13:00 Consulta médica',
-            top: '1.11625rem', // 17.86px
-            bgColor: 'var(--color-brand-0)'
+            id: 'e8',
+            label: `${DAY_TREATMENTS.periodoncia}\n${DAY_PATIENTS.davidSanchez.name}`,
+            top: '20rem',
+            height: '10rem',
+            bgColor: 'var(--color-event-purple)',
+            box: 'Box 3',
+            visitStatus: 'scheduled',
+            confirmed: false,
+            detail: createEventDetail(DAY_TREATMENTS.periodoncia, 'Box 3', {
+              patientFull: DAY_PATIENTS.davidSanchez.name,
+              patientPhone: DAY_PATIENTS.davidSanchez.phone,
+              patientEmail: DAY_PATIENTS.davidSanchez.email,
+              professional: DAY_PROFESSIONALS.carmenDiaz,
+              duration: '11:00 - 12:00 (60 minutos)',
+              economicAmount: '180 €',
+              economicStatus: 'Pendiente de pago',
+              notes: 'Tratamiento periodontal cuadrante superior derecho. Gingivitis avanzada.',
+              paymentInfo: { totalAmount: 180, paidAmount: 50, pendingAmount: 130, currency: '€' }
+            })
           }
         ]
       }
+    ]
+  },
+  {
+    time: '11:30',
+    boxes: [
+      {
+        id: 'box1',
+        events: [
+          {
+            id: 'e9',
+            label: `${DAY_TREATMENTS.revision}\n${DAY_PATIENTS.carmenRuiz.name}`,
+            top: '25rem',
+            height: '5rem',
+            bgColor: 'var(--color-brand-0)',
+            box: 'Box 1',
+            visitStatus: 'scheduled',
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.revision, 'Box 1', {
+              patientFull: DAY_PATIENTS.carmenRuiz.name,
+              patientPhone: DAY_PATIENTS.carmenRuiz.phone,
+              patientEmail: DAY_PATIENTS.carmenRuiz.email,
+              professional: DAY_PROFESSIONALS.antonioRuiz,
+              duration: '11:30 - 12:00 (30 minutos)',
+              economicAmount: '45 €',
+              economicStatus: 'Pagado',
+              notes: 'Control post-endodoncia pieza 26. Evolución favorable.'
+            })
+          }
+        ]
+      },
+      { id: 'box2', events: [] },
+      { id: 'box3', events: [] }
     ]
   },
   {
@@ -449,15 +678,87 @@ const TIME_SLOTS: TimeSlot[] = [
         id: 'box1',
         events: [
           {
-            id: 'e7',
-            label: '13:00 Consulta médica',
-            top: '3.95563rem', // 63.29px
-            bgColor: 'var(--color-event-coral)'
+            id: 'e10',
+            label: `${DAY_TREATMENTS.limpieza}\n${DAY_PATIENTS.elenaVega.name}`,
+            top: '30rem',
+            height: '5rem',
+            bgColor: 'var(--color-event-teal)',
+            box: 'Box 1',
+            visitStatus: 'scheduled',
+            confirmed: false,
+            detail: createEventDetail(DAY_TREATMENTS.limpieza, 'Box 1', {
+              patientFull: DAY_PATIENTS.elenaVega.name,
+              patientPhone: DAY_PATIENTS.elenaVega.phone,
+              patientEmail: DAY_PATIENTS.elenaVega.email,
+              professional: DAY_PROFESSIONALS.lauraSanchez,
+              duration: '12:00 - 12:30 (30 minutos)',
+              economicAmount: '65 €',
+              economicStatus: 'Pendiente de pago',
+              notes: 'Primera visita. Derivada por dentista anterior.'
+            })
           }
         ]
       },
-      { id: 'box2', events: [] },
+      {
+        id: 'box2',
+        events: [
+          {
+            id: 'e11',
+            label: `${DAY_TREATMENTS.corona}\n${DAY_PATIENTS.miguelGomez.name}`,
+            top: '30rem',
+            height: '7.5rem',
+            bgColor: 'var(--color-event-coral)',
+            box: 'Box 2',
+            visitStatus: 'scheduled',
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.corona, 'Box 2', {
+              patientFull: DAY_PATIENTS.miguelGomez.name,
+              patientPhone: DAY_PATIENTS.miguelGomez.phone,
+              patientEmail: DAY_PATIENTS.miguelGomez.email,
+              professional: DAY_PROFESSIONALS.franciscoMoreno,
+              duration: '12:00 - 12:45 (45 minutos)',
+              economicAmount: '450 €',
+              economicStatus: 'Financiado (4 pagos)',
+              notes: 'Colocación corona zirconio pieza 46. Toma de impresiones.',
+              paymentInfo: { totalAmount: 450, paidAmount: 112.5, pendingAmount: 337.5, currency: '€' },
+              installmentPlan: { totalInstallments: 4, currentInstallment: 2, amountPerInstallment: 112.5 }
+            })
+          }
+        ]
+      },
       { id: 'box3', events: [] }
+    ]
+  },
+  {
+    time: '12:30',
+    boxes: [
+      { id: 'box1', events: [] },
+      { id: 'box2', events: [] },
+      {
+        id: 'box3',
+        events: [
+          {
+            id: 'e12',
+            label: `${DAY_TREATMENTS.revision}\n${DAY_PATIENTS.antonioPerez.name}`,
+            top: '35rem',
+            height: '5rem',
+            bgColor: 'var(--color-brand-0)',
+            box: 'Box 3',
+            visitStatus: 'scheduled',
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.revision, 'Box 3', {
+              patientFull: DAY_PATIENTS.antonioPerez.name,
+              patientPhone: DAY_PATIENTS.antonioPerez.phone,
+              patientEmail: DAY_PATIENTS.antonioPerez.email,
+              professional: DAY_PROFESSIONALS.elenaNava,
+              duration: '12:30 - 13:00 (30 minutos)',
+              economicAmount: '45 €',
+              economicStatus: 'Pagado',
+              notes: 'Revisión post-blanqueamiento. Sensibilidad controlada.'
+            })
+          }
+        ]
+      }
     ]
   },
   {
@@ -467,10 +768,63 @@ const TIME_SLOTS: TimeSlot[] = [
         id: 'box1',
         events: [
           {
-            id: 'e8',
-            label: '13:00 Consulta médica',
-            top: '3.91938rem', // 62.71px
-            bgColor: 'var(--color-event-purple)'
+            id: 'e13',
+            label: `${DAY_TREATMENTS.sellador}\n${DAY_PATIENTS.martaAlonso.name}`,
+            top: '40rem',
+            height: '5rem',
+            bgColor: 'var(--color-event-purple)',
+            box: 'Box 1',
+            visitStatus: 'scheduled',
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.sellador, 'Box 1', {
+              patientFull: DAY_PATIENTS.martaAlonso.name,
+              patientPhone: DAY_PATIENTS.martaAlonso.phone,
+              patientEmail: DAY_PATIENTS.martaAlonso.email,
+              professional: DAY_PROFESSIONALS.carmenDiaz,
+              duration: '13:00 - 13:30 (30 minutos)',
+              economicAmount: '40 €',
+              economicStatus: 'Pendiente de pago',
+              notes: 'Sellador de fisuras en premolares. Paciente joven, 14 años.'
+            })
+          }
+        ]
+      },
+      { id: 'box2', events: [] },
+      { id: 'box3', events: [] }
+    ]
+  },
+  { time: '13:30', boxes: [{ id: 'box1', events: [] }, { id: 'box2', events: [] }, { id: 'box3', events: [] }] },
+  { time: '14:00', boxes: [{ id: 'box1', events: [] }, { id: 'box2', events: [] }, { id: 'box3', events: [] }] },
+  { time: '14:30', boxes: [{ id: 'box1', events: [] }, { id: 'box2', events: [] }, { id: 'box3', events: [] }] },
+  { time: '15:00', boxes: [{ id: 'box1', events: [] }, { id: 'box2', events: [] }, { id: 'box3', events: [] }] },
+  { time: '15:30', boxes: [{ id: 'box1', events: [] }, { id: 'box2', events: [] }, { id: 'box3', events: [] }] },
+  {
+    time: '16:00',
+    boxes: [
+      {
+        id: 'box1',
+        events: [
+          {
+            id: 'e14',
+            label: `${DAY_TREATMENTS.implante}\n${DAY_PATIENTS.fernandoDiaz.name}`,
+            top: '70rem',
+            height: '15rem',
+            bgColor: 'var(--color-event-purple)',
+            box: 'Box 1',
+            visitStatus: 'scheduled',
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.implante, 'Box 1', {
+              patientFull: DAY_PATIENTS.fernandoDiaz.name,
+              patientPhone: DAY_PATIENTS.fernandoDiaz.phone,
+              patientEmail: DAY_PATIENTS.fernandoDiaz.email,
+              professional: DAY_PROFESSIONALS.franciscoMoreno,
+              duration: '16:00 - 17:30 (90 minutos)',
+              economicAmount: '1.200 €',
+              economicStatus: 'Financiado (6 pagos)',
+              notes: 'Implante unitario pieza 36. Fase quirúrgica. Paciente ASA I.',
+              paymentInfo: { totalAmount: 1200, paidAmount: 400, pendingAmount: 800, currency: '€' },
+              installmentPlan: { totalInstallments: 6, currentInstallment: 3, amountPerInstallment: 200 }
+            })
           }
         ]
       },
@@ -478,10 +832,24 @@ const TIME_SLOTS: TimeSlot[] = [
         id: 'box2',
         events: [
           {
-            id: 'e9',
-            label: '13:00 Consulta médica',
-            top: '3.91938rem', // 62.71px
-            bgColor: 'var(--color-brand-0)'
+            id: 'e15',
+            label: `${DAY_TREATMENTS.revision}\n${DAY_PATIENTS.beatrizMuñoz.name}`,
+            top: '70rem',
+            height: '5rem',
+            bgColor: 'var(--color-event-teal)',
+            box: 'Box 2',
+            visitStatus: 'scheduled',
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.revision, 'Box 2', {
+              patientFull: DAY_PATIENTS.beatrizMuñoz.name,
+              patientPhone: DAY_PATIENTS.beatrizMuñoz.phone,
+              patientEmail: DAY_PATIENTS.beatrizMuñoz.email,
+              professional: DAY_PROFESSIONALS.antonioRuiz,
+              duration: '16:00 - 16:30 (30 minutos)',
+              economicAmount: '45 €',
+              economicStatus: 'Pagado',
+              notes: 'Revisión rutinaria. Paciente sin molestias.'
+            })
           }
         ]
       },
@@ -489,7 +857,7 @@ const TIME_SLOTS: TimeSlot[] = [
     ]
   },
   {
-    time: '14:00',
+    time: '16:30',
     boxes: [
       { id: 'box1', events: [] },
       { id: 'box2', events: [] },
@@ -497,66 +865,24 @@ const TIME_SLOTS: TimeSlot[] = [
         id: 'box3',
         events: [
           {
-            id: 'e10',
-            label: '13:00 Consulta médica',
-            top: '1.13375rem', // 18.14px
-            bgColor: 'var(--color-event-purple)'
-          }
-        ]
-      }
-    ]
-  },
-  {
-    time: '15:00',
-    boxes: [
-      {
-        id: 'box1',
-        events: [
-          {
-            id: 'e11',
-            label: '15:00 Revisión ortodoncia',
-            top: '2.5rem',
-            bgColor: 'var(--color-brand-0)'
-          }
-        ]
-      },
-      {
-        id: 'box2',
-        events: [
-          {
-            id: 'e12',
-            label: '15:30 Limpieza dental',
-            top: '4.5rem',
-            bgColor: 'var(--color-event-purple)'
-          }
-        ]
-      },
-      { id: 'box3', events: [] }
-    ]
-  },
-  {
-    time: '16:00',
-    boxes: [
-      { id: 'box1', events: [] },
-      {
-        id: 'box2',
-        events: [
-          {
-            id: 'e13',
-            label: '16:00 Consulta médica',
-            top: '1.5rem',
-            bgColor: 'var(--color-event-teal)'
-          }
-        ]
-      },
-      {
-        id: 'box3',
-        events: [
-          {
-            id: 'e14',
-            label: '16:15 Extracción',
-            top: '2.8rem',
-            bgColor: 'var(--color-event-coral)'
+            id: 'e16',
+            label: `${DAY_TREATMENTS.blanqueamiento}\n${DAY_PATIENTS.ramonCastro.name}`,
+            top: '75rem',
+            height: '7.5rem',
+            bgColor: 'var(--color-event-coral)',
+            box: 'Box 3',
+            visitStatus: 'scheduled',
+            confirmed: false,
+            detail: createEventDetail(DAY_TREATMENTS.blanqueamiento, 'Box 3', {
+              patientFull: DAY_PATIENTS.ramonCastro.name,
+              patientPhone: DAY_PATIENTS.ramonCastro.phone,
+              patientEmail: DAY_PATIENTS.ramonCastro.email,
+              professional: DAY_PROFESSIONALS.elenaNava,
+              duration: '16:30 - 17:15 (45 minutos)',
+              economicAmount: '280 €',
+              economicStatus: 'Pendiente de pago',
+              notes: 'Blanqueamiento con lámpara LED. Segunda sesión.'
+            })
           }
         ]
       }
@@ -565,29 +891,65 @@ const TIME_SLOTS: TimeSlot[] = [
   {
     time: '17:00',
     boxes: [
+      { id: 'box1', events: [] },
       {
-        id: 'box1',
+        id: 'box2',
         events: [
           {
-            id: 'e15',
-            label: '17:00 Consulta médica',
-            top: '1.2rem',
-            bgColor: 'var(--color-event-purple)'
+            id: 'e17',
+            label: `${DAY_TREATMENTS.limpieza}\n${DAY_PATIENTS.patriciaRomero.name}`,
+            top: '80rem',
+            height: '5rem',
+            bgColor: 'var(--color-event-teal)',
+            box: 'Box 2',
+            visitStatus: 'scheduled',
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.limpieza, 'Box 2', {
+              patientFull: DAY_PATIENTS.patriciaRomero.name,
+              patientPhone: DAY_PATIENTS.patriciaRomero.phone,
+              patientEmail: DAY_PATIENTS.patriciaRomero.email,
+              professional: DAY_PROFESSIONALS.lauraSanchez,
+              duration: '17:00 - 17:30 (30 minutos)',
+              economicAmount: '65 €',
+              economicStatus: 'Pagado',
+              notes: 'Limpieza dental rutinaria. Encías sanas.'
+            })
           }
         ]
       },
-      { id: 'box2', events: [] },
+      { id: 'box3', events: [] }
+    ]
+  },
+  {
+    time: '17:30',
+    boxes: [
+      { id: 'box1', events: [] },
       {
-        id: 'box3',
+        id: 'box2',
         events: [
           {
-            id: 'e16',
-            label: '17:30 Revisión',
-            top: '4.8rem',
-            bgColor: 'var(--color-brand-0)'
+            id: 'e18',
+            label: `${DAY_TREATMENTS.radiografia}\n${DAY_PATIENTS.albertoGil.name}`,
+            top: '85rem',
+            height: '5rem',
+            bgColor: 'var(--color-brand-0)',
+            box: 'Box 2',
+            visitStatus: 'scheduled',
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.radiografia, 'Box 2', {
+              patientFull: DAY_PATIENTS.albertoGil.name,
+              patientPhone: DAY_PATIENTS.albertoGil.phone,
+              patientEmail: DAY_PATIENTS.albertoGil.email,
+              professional: DAY_PROFESSIONALS.antonioRuiz,
+              duration: '17:30 - 18:00 (30 minutos)',
+              economicAmount: '35 €',
+              economicStatus: 'Pagado',
+              notes: 'RX periapical zona 15-17. Control evolución implante.'
+            })
           }
         ]
-      }
+      },
+      { id: 'box3', events: [] }
     ]
   },
   {
@@ -597,27 +959,56 @@ const TIME_SLOTS: TimeSlot[] = [
         id: 'box1',
         events: [
           {
-            id: 'e17',
-            label: '18:00 Limpieza dental',
-            top: '1.8rem',
-            bgColor: 'var(--color-event-teal)'
+            id: 'e19',
+            label: `${DAY_TREATMENTS.empaste}\n${DAY_PATIENTS.mariaGarcia.name}`,
+            top: '90rem',
+            height: '7.5rem',
+            bgColor: 'var(--color-event-coral)',
+            box: 'Box 1',
+            visitStatus: 'scheduled',
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.empaste, 'Box 1', {
+              patientFull: DAY_PATIENTS.mariaGarcia.name,
+              patientPhone: DAY_PATIENTS.mariaGarcia.phone,
+              patientEmail: DAY_PATIENTS.mariaGarcia.email,
+              professional: DAY_PROFESSIONALS.antonioRuiz,
+              duration: '18:00 - 18:45 (45 minutos)',
+              economicAmount: '95 €',
+              economicStatus: 'Pendiente de pago',
+              notes: 'Empaste composite pieza 24. Caries interproximal.'
+            })
           }
         ]
       },
+      { id: 'box2', events: [] },
       {
-        id: 'box2',
+        id: 'box3',
         events: [
           {
-            id: 'e18',
-            label: '18:15 Consulta médica',
-            top: '3.2rem',
-            bgColor: 'var(--color-event-coral)'
+            id: 'e20',
+            label: `${DAY_TREATMENTS.ferula}\n${DAY_PATIENTS.lauraFernandez.name}`,
+            top: '90rem',
+            height: '5rem',
+            bgColor: 'var(--color-event-teal)',
+            box: 'Box 3',
+            visitStatus: 'scheduled',
+            confirmed: true,
+            detail: createEventDetail(DAY_TREATMENTS.ferula, 'Box 3', {
+              patientFull: DAY_PATIENTS.lauraFernandez.name,
+              patientPhone: DAY_PATIENTS.lauraFernandez.phone,
+              patientEmail: DAY_PATIENTS.lauraFernandez.email,
+              professional: DAY_PROFESSIONALS.elenaNava,
+              duration: '18:00 - 18:30 (30 minutos)',
+              economicAmount: '160 €',
+              economicStatus: 'Pagado',
+              notes: 'Entrega de férula de descarga. Ajuste oclusal.'
+            })
           }
         ]
-      },
-      { id: 'box3', events: [] }
+      }
     ]
   },
+  { time: '18:30', boxes: [{ id: 'box1', events: [] }, { id: 'box2', events: [] }, { id: 'box3', events: [] }] },
   {
     time: '19:00',
     boxes: [
@@ -626,44 +1017,32 @@ const TIME_SLOTS: TimeSlot[] = [
         id: 'box2',
         events: [
           {
-            id: 'e19',
-            label: '19:00 Revisión ortodoncia',
-            top: '2rem',
-            bgColor: 'var(--color-event-purple)'
-          }
-        ]
-      },
-      {
-        id: 'box3',
-        events: [
-          {
-            id: 'e20',
-            label: '19:30 Consulta médica',
-            top: '5rem',
-            bgColor: 'var(--color-brand-0)'
-          }
-        ]
-      }
-    ]
-  },
-  {
-    time: '20:00',
-    boxes: [
-      {
-        id: 'box1',
-        events: [
-          {
             id: 'e21',
-            label: '20:00 Última consulta',
-            top: '1.5rem',
-            bgColor: 'var(--color-event-coral)'
+            label: `${DAY_TREATMENTS.revision}\n${DAY_PATIENTS.carlosRodriguez.name}`,
+            top: '100rem',
+            height: '5rem',
+            bgColor: 'var(--color-brand-0)',
+            box: 'Box 2',
+            visitStatus: 'scheduled',
+            confirmed: false,
+            detail: createEventDetail(DAY_TREATMENTS.revision, 'Box 2', {
+              patientFull: DAY_PATIENTS.carlosRodriguez.name,
+              patientPhone: DAY_PATIENTS.carlosRodriguez.phone,
+              patientEmail: DAY_PATIENTS.carlosRodriguez.email,
+              professional: DAY_PROFESSIONALS.carmenDiaz,
+              duration: '19:00 - 19:30 (30 minutos)',
+              economicAmount: '45 €',
+              economicStatus: 'Pendiente de pago',
+              notes: 'Control post-empaste. Verificar adaptación.'
+            })
           }
         ]
       },
-      { id: 'box2', events: [] },
       { id: 'box3', events: [] }
     ]
-  }
+  },
+  { time: '19:30', boxes: [{ id: 'box1', events: [] }, { id: 'box2', events: [] }, { id: 'box3', events: [] }] },
+  { time: '20:00', boxes: [{ id: 'box1', events: [] }, { id: 'box2', events: [] }, { id: 'box3', events: [] }] }
 ]
 
 function TimeColumn({ period = 'full' }: { period?: DayPeriodType }) {
@@ -1741,9 +2120,13 @@ type ExternalAppointment = {
   title?: string
   box?: string
   bgColor?: string
-  detail?: EventDetail // Incluye notas y otra información del evento
-  createdByVoiceAgent?: boolean // Indica si fue creada por el agente de voz (IA)
-  voiceAgentCallId?: string // ID de la llamada vinculada
+  detail?: EventDetail
+  professional?: string
+  visitStatus?: VisitStatus
+  completed?: boolean
+  confirmed?: boolean
+  createdByVoiceAgent?: boolean
+  voiceAgentCallId?: string
 }
 
 // Tipo para bandas de profesionales dinámicas
@@ -1859,18 +2242,30 @@ function buildEventsFromAppointments(
     const patient = appt.patient ?? ''
     const label = patient ? `${title}\n${patient}` : `${appt.start} ${title}`
 
+    const overrides: Partial<EventDetail> = {}
+    if (appt.professional) overrides.professional = appt.professional
+    if (patient) {
+      overrides.patientFull = patient
+      overrides.title = title
+    }
+
     const event: DayEvent = {
       id: appt.id,
       label,
       top,
       bgColor: appt.bgColor ?? 'var(--color-event-purple)',
-      // Usar el detail de la cita si existe, sino crear uno básico
       detail:
         appt.detail ??
-        createEventDetail(`${appt.start} ${title}`, appt.box ?? 'Box 1'),
+        createEventDetail(
+          `${appt.start} ${title}`,
+          appt.box ?? 'Box 1',
+          overrides
+        ),
       box: appt.box ?? boxId,
       height,
-      // Propiedades del agente de voz (IA)
+      visitStatus: appt.visitStatus,
+      completed: appt.completed,
+      confirmed: appt.confirmed,
       createdByVoiceAgent: appt.createdByVoiceAgent,
       voiceAgentCallId: appt.voiceAgentCallId
     }
@@ -2026,6 +2421,7 @@ export default function DayCalendar({
     eventId: string
     originBoxId: BoxId
     type: 'move' | 'resize'
+    startClientX: number
     startClientY: number
     startSlot: number
     startHeightSlots: number
@@ -2552,20 +2948,17 @@ export default function DayCalendar({
     clientX: number,
     clientY: number
   ) => {
-    // Ocultar overlays mientras se arrastra (igual que vista semanal)
-    isDraggingRef.current = true
+    // Don't set isDraggingRef until actual movement surpasses threshold (in useEffect)
     setHovered(null)
-    setActive(null)
 
-    // Calcular slot inicial desde la posición top del evento
     const startSlot = toSlots(event.top)
-    // Calcular altura en slots
     const startHeightSlots = Math.max(1, toSlots(event.height))
 
     setDragState({
       eventId: event.id,
       originBoxId: boxId,
       type,
+      startClientX: clientX,
       startClientY: clientY,
       startSlot,
       startHeightSlots,
@@ -2578,8 +2971,21 @@ export default function DayCalendar({
   useEffect(() => {
     if (!dragState) return
 
+    const DRAG_THRESHOLD_PX = 5
+    let hasDragStarted = false
+
     const handleMove = (e: MouseEvent) => {
       dragPointerRef.current = { x: e.clientX, y: e.clientY }
+
+      if (!hasDragStarted) {
+        const dx = Math.abs(e.clientX - dragState.startClientX)
+        const dy = Math.abs(e.clientY - dragState.startClientY)
+        if (dx < DRAG_THRESHOLD_PX && dy < DRAG_THRESHOLD_PX) return
+        hasDragStarted = true
+        isDraggingRef.current = true
+        setActive(null)
+      }
+
       if (dragRafRef.current !== null) return
 
       dragRafRef.current = requestAnimationFrame(() => {
@@ -2703,6 +3109,11 @@ export default function DayCalendar({
 
     const handleUp = () => {
       isDraggingRef.current = false
+
+      if (!hasDragStarted) {
+        setDragState(null)
+        return
+      }
 
       // Obtener posición final (igual que vista semanal)
       const { x, y } = dragPointerRef.current

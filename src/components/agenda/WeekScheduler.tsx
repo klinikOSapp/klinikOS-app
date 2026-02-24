@@ -3839,7 +3839,7 @@ const MONTH_EVENTS = MONTH_EVENTS_EXTENDED.map((e) => ({
 
 // Datos de ejemplo para la vista diaria con casos realistas de clínica dental
 const DAY_VIEW_FALLBACK_APPOINTMENTS = [
-  // MAÑANA
+  // MAÑANA - Citas tempranas ya completadas o en curso
   {
     id: 'day-fallback-1',
     start: '09:00',
@@ -3847,134 +3847,222 @@ const DAY_VIEW_FALLBACK_APPOINTMENTS = [
     title: TREATMENTS.limpieza,
     patient: PATIENTS.mariaGarcia.name,
     box: 'BOX 1',
-    bgColor: 'var(--color-event-teal)'
+    bgColor: 'var(--color-event-teal)',
+    visitStatus: 'completed' as VisitStatus,
+    completed: true,
+    confirmed: true
   },
   {
     id: 'day-fallback-2',
-    start: '09:30',
-    end: '10:15',
+    start: '09:00',
+    end: '09:45',
     title: TREATMENTS.empaste,
     patient: PATIENTS.carlosRodriguez.name,
     box: 'BOX 2',
-    bgColor: 'var(--color-event-coral)'
+    bgColor: 'var(--color-event-coral)',
+    visitStatus: 'completed' as VisitStatus,
+    completed: true,
+    confirmed: true
   },
   {
     id: 'day-fallback-3',
+    start: '09:30',
+    end: '10:00',
+    title: TREATMENTS.revision,
+    patient: PATIENTS.pabloLopez.name,
+    box: 'BOX 3',
+    bgColor: 'var(--color-event-purple)',
+    visitStatus: 'completed' as VisitStatus,
+    completed: true,
+    confirmed: true
+  },
+  {
+    id: 'day-fallback-4',
     start: '10:00',
     end: '11:00',
     title: TREATMENTS.endodoncia,
     patient: PATIENTS.anaMartinez.name,
     box: 'BOX 1',
-    bgColor: 'var(--color-event-purple)'
-  },
-  {
-    id: 'day-fallback-4',
-    start: '10:30',
-    end: '11:00',
-    title: TREATMENTS.revision,
-    patient: PATIENTS.pabloLopez.name,
-    box: 'BOX 2',
-    bgColor: 'var(--color-event-teal)'
+    bgColor: 'var(--color-event-purple)',
+    visitStatus: 'in_consultation' as VisitStatus,
+    confirmed: true
   },
   {
     id: 'day-fallback-5',
-    start: '11:00',
-    end: '11:45',
+    start: '10:15',
+    end: '11:00',
     title: TREATMENTS.ortodoncia,
     patient: PATIENTS.lauraFernandez.name,
-    box: 'BOX 1',
-    bgColor: 'var(--color-event-purple)'
+    box: 'BOX 2',
+    bgColor: 'var(--color-event-teal)',
+    visitStatus: 'waiting_room' as VisitStatus,
+    confirmed: true
   },
   {
     id: 'day-fallback-6',
-    start: '11:30',
-    end: '12:00',
-    title: TREATMENTS.limpieza,
-    patient: PATIENTS.javierMoreno.name,
-    box: 'BOX 2',
-    bgColor: 'var(--color-event-teal)'
+    start: '10:30',
+    end: '11:00',
+    title: TREATMENTS.radiografia,
+    patient: PATIENTS.sofiaNavarro.name,
+    box: 'BOX 3',
+    bgColor: 'var(--color-event-coral)',
+    visitStatus: 'call_patient' as VisitStatus,
+    confirmed: true
   },
   {
     id: 'day-fallback-7',
-    start: '12:00',
-    end: '12:30',
-    title: TREATMENTS.radiografia,
-    patient: PATIENTS.sofiaNavarro.name,
-    box: 'BOX 1',
-    bgColor: 'var(--color-event-coral)'
+    start: '11:00',
+    end: '11:30',
+    title: TREATMENTS.limpieza,
+    patient: PATIENTS.javierMoreno.name,
+    box: 'BOX 2',
+    bgColor: 'var(--color-event-teal)',
+    visitStatus: 'scheduled' as VisitStatus,
+    confirmed: true
   },
   {
     id: 'day-fallback-8',
-    start: '12:00',
-    end: '12:45',
+    start: '11:00',
+    end: '12:00',
     title: TREATMENTS.periodoncia,
     patient: PATIENTS.davidSanchez.name,
-    box: 'BOX 2',
-    bgColor: 'var(--color-event-purple)'
+    box: 'BOX 3',
+    bgColor: 'var(--color-event-purple)',
+    visitStatus: 'scheduled' as VisitStatus,
+    confirmed: false
   },
   {
     id: 'day-fallback-9',
-    start: '13:00',
-    end: '13:30',
+    start: '11:30',
+    end: '12:00',
     title: TREATMENTS.revision,
     patient: PATIENTS.carmenRuiz.name,
     box: 'BOX 1',
-    bgColor: 'var(--color-event-teal)'
+    bgColor: 'var(--color-event-teal)',
+    visitStatus: 'scheduled' as VisitStatus,
+    confirmed: true
   },
-  // TARDE
   {
     id: 'day-fallback-10',
-    start: '16:00',
-    end: '17:30',
-    title: TREATMENTS.implante,
-    patient: PATIENTS.miguelGomez.name,
+    start: '12:00',
+    end: '12:30',
+    title: TREATMENTS.limpieza,
+    patient: PATIENTS.elenaVega.name,
     box: 'BOX 1',
-    bgColor: 'var(--color-event-purple)'
+    bgColor: 'var(--color-event-teal)',
+    visitStatus: 'scheduled' as VisitStatus,
+    confirmed: false
   },
   {
     id: 'day-fallback-11',
-    start: '16:30',
-    end: '17:30',
-    title: TREATMENTS.blanqueamiento,
-    patient: PATIENTS.elenaVega.name,
+    start: '12:00',
+    end: '12:45',
+    title: TREATMENTS.corona,
+    patient: PATIENTS.miguelGomez.name,
     box: 'BOX 2',
-    bgColor: 'var(--color-event-teal)'
+    bgColor: 'var(--color-event-coral)',
+    visitStatus: 'scheduled' as VisitStatus,
+    confirmed: true
   },
   {
     id: 'day-fallback-12',
-    start: '17:30',
-    end: '18:00',
-    title: TREATMENTS.limpieza,
-    patient: PATIENTS.antonioPerez.name,
-    box: 'BOX 2',
-    bgColor: 'var(--color-event-teal)'
-  },
-  {
-    id: 'day-fallback-13',
-    start: '18:00',
-    end: '18:45',
-    title: TREATMENTS.empaste,
+    start: '13:00',
+    end: '13:30',
+    title: TREATMENTS.sellador,
     patient: PATIENTS.martaAlonso.name,
     box: 'BOX 1',
-    bgColor: 'var(--color-event-coral)'
+    bgColor: 'var(--color-event-purple)',
+    visitStatus: 'scheduled' as VisitStatus,
+    confirmed: true
+  },
+  // TARDE
+  {
+    id: 'day-fallback-13',
+    start: '16:00',
+    end: '17:30',
+    title: TREATMENTS.implante,
+    patient: PATIENTS.fernandoDiaz.name,
+    box: 'BOX 1',
+    bgColor: 'var(--color-event-purple)',
+    visitStatus: 'scheduled' as VisitStatus,
+    confirmed: true
   },
   {
     id: 'day-fallback-14',
-    start: '18:30',
-    end: '19:15',
-    title: TREATMENTS.ferula,
-    patient: PATIENTS.fernandoDiaz.name,
+    start: '16:00',
+    end: '16:30',
+    title: TREATMENTS.revision,
+    patient: PATIENTS.beatrizMuñoz.name,
     box: 'BOX 2',
-    bgColor: 'var(--color-event-purple)'
+    bgColor: 'var(--color-event-teal)',
+    visitStatus: 'scheduled' as VisitStatus,
+    confirmed: true
   },
   {
     id: 'day-fallback-15',
+    start: '16:30',
+    end: '17:15',
+    title: TREATMENTS.blanqueamiento,
+    patient: PATIENTS.ramonCastro.name,
+    box: 'BOX 3',
+    bgColor: 'var(--color-event-coral)',
+    visitStatus: 'scheduled' as VisitStatus,
+    confirmed: false
+  },
+  {
+    id: 'day-fallback-16',
+    start: '17:00',
+    end: '17:30',
+    title: TREATMENTS.limpieza,
+    patient: PATIENTS.patriciaRomero.name,
+    box: 'BOX 2',
+    bgColor: 'var(--color-event-teal)',
+    visitStatus: 'scheduled' as VisitStatus,
+    confirmed: true
+  },
+  {
+    id: 'day-fallback-17',
+    start: '17:30',
+    end: '18:00',
+    title: TREATMENTS.radiografia,
+    patient: PATIENTS.albertoGil.name,
+    box: 'BOX 2',
+    bgColor: 'var(--color-event-teal)',
+    visitStatus: 'scheduled' as VisitStatus,
+    confirmed: true
+  },
+  {
+    id: 'day-fallback-18',
+    start: '18:00',
+    end: '18:45',
+    title: TREATMENTS.empaste,
+    patient: PATIENTS.antonioPerez.name,
+    box: 'BOX 1',
+    bgColor: 'var(--color-event-coral)',
+    visitStatus: 'scheduled' as VisitStatus,
+    confirmed: true
+  },
+  {
+    id: 'day-fallback-19',
+    start: '18:00',
+    end: '18:30',
+    title: TREATMENTS.ferula,
+    patient: PATIENTS.elenaVega.name,
+    box: 'BOX 3',
+    bgColor: 'var(--color-event-teal)',
+    visitStatus: 'scheduled' as VisitStatus,
+    confirmed: true
+  },
+  {
+    id: 'day-fallback-20',
     start: '19:00',
     end: '19:30',
     title: TREATMENTS.revision,
-    patient: PATIENTS.beatrizMuñoz.name,
-    box: 'BOX 1',
-    bgColor: 'var(--color-event-teal)'
+    patient: PATIENTS.carlosRodriguez.name,
+    box: 'BOX 2',
+    bgColor: 'var(--color-event-purple)',
+    visitStatus: 'scheduled' as VisitStatus,
+    confirmed: false
   }
 ]
 
@@ -3996,6 +4084,7 @@ export default function WeekScheduler() {
     addAppointment,
     deleteAppointment,
     updateAppointment,
+    getAppointmentsByDate,
     getAppointmentsByDateRange,
     getBlocksByDateRange,
     deleteBlock,
@@ -4051,6 +4140,13 @@ export default function WeekScheduler() {
       title?: string
       box?: string
       bgColor?: string
+      detail?: EventDetail
+      professional?: string
+      visitStatus?: VisitStatus
+      completed?: boolean
+      confirmed?: boolean
+      createdByVoiceAgent?: boolean
+      voiceAgentCallId?: string
     }[]
   >([])
 
@@ -4212,14 +4308,14 @@ export default function WeekScheduler() {
   }, [openDropdown])
 
   // Sync day view appointments whenever we are in day view or data changes
-  // Usa MONTH_EVENTS_EXTENDED directamente para obtener los eventos del día seleccionado
+  // Checks AppointmentsContext first (date-specific), fallback to EVENT_DATA (weekday-based)
   useEffect(() => {
     if (viewOption !== 'dia') return
     const targetDate = selectedDate ?? currentWeekStart
     const appointments = getAppointmentsForDate(targetDate)
     setSelectedDayAppointments(appointments)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewOption, selectedDate, currentWeekStart])
+  }, [viewOption, selectedDate, currentWeekStart, getAppointmentsByDate])
 
   // Only show overlay on click (active), not on hover
   // IMPORTANTE: Buscar el evento actualizado en dayColumnsState para obtener datos frescos
@@ -4699,23 +4795,46 @@ export default function WeekScheduler() {
   }
 
   // Obtener appointments para una fecha específica
-  // Siempre usa dayColumnsState basándose en el día de la semana para mostrar los mismos datos que la vista semanal
+  // Primero busca en AppointmentsContext (datos por fecha concreta),
+  // luego fallback a dayColumnsState (datos por día de la semana)
   const getAppointmentsForDate = (date: Date | null) => {
     if (!date) return []
 
-    const dayOfWeek = date.getDay() // 0=Sunday, 1=Monday, ...
+    // Intentar obtener citas del contexto para la fecha exacta
+    const isoDate = date.toLocaleDateString('en-CA') // 'YYYY-MM-DD'
+    const contextAppointments = getAppointmentsByDate(isoDate)
+
+    if (contextAppointments.length > 0) {
+      return contextAppointments.map((apt) => ({
+        id: apt.id,
+        start: apt.startTime,
+        end: apt.endTime,
+        patient: apt.patientName,
+        title: apt.reason,
+        box: apt.box?.toUpperCase().replace('BOX ', 'BOX ') ?? 'BOX 1',
+        bgColor: apt.bgColor ?? 'var(--color-event-teal)',
+        professional: apt.professional,
+        visitStatus: apt.visitStatus,
+        completed: apt.completed,
+        confirmed: apt.confirmed,
+        createdByVoiceAgent: apt.createdByVoiceAgent,
+        voiceAgentCallId: apt.voiceAgentCallId
+      }))
+    }
+
+    // Fallback: usar datos de dayColumnsState por día de la semana
+    const dayOfWeek = date.getDay()
     const weekdayMapping: Record<number, Weekday | null> = {
-      0: null, // Sunday - no hay citas
+      0: null,
       1: 'monday',
       2: 'tuesday',
       3: 'wednesday',
       4: 'thursday',
       5: 'friday',
-      6: null // Saturday - no hay citas
+      6: null
     }
     const weekday = weekdayMapping[dayOfWeek]
 
-    // Si es un día laboral (lunes-viernes), usar los datos de dayColumnsState
     if (weekday) {
       const dayColumn = dayColumnsState.find((c) => c.id === weekday)
       if (dayColumn && dayColumn.events.length > 0) {
@@ -4723,7 +4842,6 @@ export default function WeekScheduler() {
       }
     }
 
-    // Si es fin de semana o no hay eventos, retornar array vacío
     return []
   }
 
@@ -4792,11 +4910,18 @@ export default function WeekScheduler() {
       const [startRaw, endRaw] = (ev.timeRange ?? '').split('-')
       const start = startRaw?.trim() || '09:00'
       const end = endRaw?.trim() || '09:30'
-      const bgColor = ev.backgroundClass?.includes('coral')
+      const bg = ev.backgroundClass ?? ''
+      const bgColor = bg.includes('coral')
         ? 'var(--color-event-coral)'
-        : ev.backgroundClass?.includes('brand')
-        ? 'var(--color-event-purple)'
-        : 'var(--color-event-teal)'
+        : bg.includes('fbf3e9')
+          ? 'var(--color-event-coral)'
+          : bg.includes('f0e9fb') || bg.includes('e9fbf9')
+            ? 'var(--color-event-teal)'
+            : bg.includes('fbe9f0') || bg.includes('fbe9')
+              ? 'var(--color-event-coral)'
+              : bg.includes('brand')
+                ? 'var(--color-event-purple)'
+                : 'var(--color-event-teal)'
 
       return {
         id: ev.id ?? `day-${column.id}-${idx}`,
@@ -4806,8 +4931,12 @@ export default function WeekScheduler() {
         title: ev.title,
         box: ev.box,
         bgColor,
-        // Pasar el detail completo con notas para la vista diaria
-        detail: ev.detail
+        detail: ev.detail,
+        visitStatus: ev.visitStatus,
+        completed: ev.completed,
+        confirmed: ev.confirmed,
+        createdByVoiceAgent: ev.createdByVoiceAgent,
+        voiceAgentCallId: ev.voiceAgentCallId
       }
     })
   }
@@ -5822,12 +5951,14 @@ export default function WeekScheduler() {
       <header className='relative z-30 flex h-[var(--scheduler-toolbar-height)] w-full shrink-0 items-center justify-between border-b border-[var(--color-border-default)] bg-[var(--color-neutral-100)] px-3 lg:px-4'>
         {/* Grupo izquierdo: Navegación */}
         <div className='flex items-center gap-3'>
-          {/* Segmented control solo para vista diaria */}
+          {/* Segmented control solo para vista diaria - oculto en pantallas < 1700px */}
           {viewOption === 'dia' && (
-            <DayPeriodSegmentedControl
-              selected={dayPeriod}
-              onSelect={setDayPeriod}
-            />
+            <div className='hidden min-[1700px]:block'>
+              <DayPeriodSegmentedControl
+                selected={dayPeriod}
+                onSelect={setDayPeriod}
+              />
+            </div>
           )}
           {/* Selector de fecha condicional según la vista */}
           {viewOption === 'mes' ? (
@@ -6080,7 +6211,10 @@ export default function WeekScheduler() {
             bands={getDayBands(selectedDate ?? currentWeekStart)}
             onAppointmentMove={handleDayAppointmentMove}
             selectedBoxes={selectedBoxes}
-            selectedProfessionals={selectedProfessionals}
+            selectedProfessionals={selectedProfessionals.map(
+              (id) =>
+                professionalOptions.find((opt) => opt.id === id)?.label ?? id
+            )}
             onOpenCreateAppointment={(prefill) =>
               openCreateAppointmentModal(prefill)
             }
