@@ -2,16 +2,20 @@
 
 import { useClinic } from '@/context/ClinicContext'
 import { AllPermissions, PermissionAction, RoleContext, UserRole } from '@/context/role-context'
+import {
+  ArticleRounded,
+  BadgeRounded,
+  BarChartRounded,
+  CalendarMonthRounded,
+  SellRounded,
+  SettingsRounded,
+  SupportAgentRounded
+} from '@/components/icons/md3'
 import { getSignedUrl } from '@/lib/storage'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { LayoutProps } from '@/types/layout'
-import BadgeRounded from '@mui/icons-material/BadgeRounded'
-import BarChartRounded from '@mui/icons-material/BarChartRounded'
-import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
-import RecordVoiceOverRounded from '@mui/icons-material/RecordVoiceOverRounded'
-import SettingsRounded from '@mui/icons-material/SettingsRounded'
-import SellRounded from '@mui/icons-material/SellRounded'
 import type { User } from '@supabase/supabase-js'
+import { usePathname, useRouter } from 'next/navigation'
 import React from 'react'
 import AccountPanel from './AccountPanel'
 import Sidebar from './Sidebar'
@@ -40,13 +44,21 @@ type RoleInfoResponse = {
   permissions: AllPermissions
 }
 
-export default function Layout({ children }: LayoutProps) {
+export default function Layout({ children, ctaMenuItems }: LayoutProps) {
   const baseItemsTop = [
     {
       id: 'agenda',
       label: 'Agenda',
       href: '/agenda',
-      icon: <CalendarMonthRounded />
+      icon: <CalendarMonthRounded />,
+      children: [
+        {
+          id: 'parte-diario',
+          label: 'Parte Diario',
+          href: '/parte-diario',
+          icon: <ArticleRounded fontSize='small' />
+        }
+      ]
     },
     { id: 'caja', label: 'Caja', href: '/caja', icon: <SellRounded /> },
     {
@@ -68,7 +80,7 @@ export default function Layout({ children }: LayoutProps) {
       id: 'agente-voz',
       label: 'Agente de Voz',
       href: '/agente-voz',
-      icon: <RecordVoiceOverRounded />
+      icon: <SupportAgentRounded />
     },
     {
       id: 'configuracion',
@@ -79,13 +91,16 @@ export default function Layout({ children }: LayoutProps) {
   ]
 
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
+  const router = useRouter()
+  const pathname = usePathname()
   const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
   const [user, setUser] = React.useState<User | null>(null)
   const [staffProfile, setStaffProfile] = React.useState<StaffProfile | null>(null)
   const [displayName, setDisplayName] = React.useState('Usuario')
   const [avatarUrl, setAvatarUrl] = React.useState<string | undefined>(undefined)
   const [accountOpen, setAccountOpen] = React.useState(false)
-  const [isManager, setIsManager] = React.useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
+  const [isSidebarHydrated, setIsSidebarHydrated] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(true)
   
   // New permission-based state
@@ -109,7 +124,6 @@ export default function Layout({ children }: LayoutProps) {
         setStaffProfile(null)
         setDisplayName('Usuario')
         setAvatarUrl(undefined)
-        setIsManager(false)
         setIsLoading(false)
         return
       }
@@ -172,16 +186,15 @@ export default function Layout({ children }: LayoutProps) {
 
       if (!activeClinicId) {
         if (!active) return
-        setRoleInfo({
-          roleId: null,
-          roleName: null,
-          roleDisplayName: null,
-          isSystemRole: false,
-          permissions: {}
-        })
-        setIsManager(false)
-        setIsLoading(false)
-        return
+          setRoleInfo({
+              roleId: null,
+              roleName: null,
+              roleDisplayName: null,
+              isSystemRole: false,
+              permissions: {}
+            })
+            setIsLoading(false)
+            return
       }
 
       setIsLoading(true)
@@ -208,7 +221,6 @@ export default function Layout({ children }: LayoutProps) {
               isSystemRole: true,
               permissions: fallbackPerms
             })
-            setIsManager(Boolean((fallbackPerms as any)?.settings?.view))
           } else {
             setRoleInfo({
               roleId: null,
@@ -217,7 +229,6 @@ export default function Layout({ children }: LayoutProps) {
               isSystemRole: false,
               permissions: {}
             })
-            setIsManager(false)
           }
           return
         }
@@ -229,11 +240,9 @@ export default function Layout({ children }: LayoutProps) {
           isSystemRole: data.is_system_role,
           permissions: data.permissions || {}
         })
-        setIsManager(Boolean((data.permissions as any)?.settings?.view))
       } catch (error) {
         if (active) {
           console.error('Error loading role info:', error)
-          setIsManager(false)
         }
       } finally {
         if (active) {
@@ -299,6 +308,58 @@ export default function Layout({ children }: LayoutProps) {
   )
 
   const showCta = roleContextValue.canManageAppointments
+
+  const handleOpenCreateAppointment = React.useCallback(() => {
+    if (pathname === '/agenda') {
+      window.dispatchEvent(new CustomEvent('agenda:open-create-appointment'))
+      return
+    }
+    router.push('/agenda?openCreate=1')
+  }, [pathname, router])
+
+  const handleOpenCreatePatient = React.useCallback(() => {
+    router.push('/pacientes?openCreate=1')
+  }, [router])
+
+  const menuItems = React.useMemo(
+    () =>
+      ctaMenuItems ?? [
+        {
+          id: 'nueva-cita',
+          label: 'Nueva cita',
+          onClick: handleOpenCreateAppointment
+        },
+        { id: 'nuevo-presupuesto', label: 'Nuevo presupuesto' },
+        {
+          id: 'nuevo-paciente',
+          label: 'Nuevo paciente',
+          onClick: handleOpenCreatePatient
+        }
+      ],
+    [ctaMenuItems, handleOpenCreateAppointment, handleOpenCreatePatient]
+  )
+
+  React.useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem('klinikos.sidebar.collapsed')
+      if (stored === '1') setSidebarCollapsed(true)
+      if (stored === '0') setSidebarCollapsed(false)
+    } catch {
+      // Ignore storage access errors.
+    } finally {
+      setIsSidebarHydrated(true)
+    }
+  }, [])
+
+  const handleToggleSidebarCollapsed = React.useCallback((next: boolean) => {
+    setSidebarCollapsed(next)
+    try {
+      window.localStorage.setItem('klinikos.sidebar.collapsed', next ? '1' : '0')
+    } catch {
+      // Ignore storage access errors.
+    }
+  }, [])
+
   const itemsTop = React.useMemo(() => {
     return baseItemsTop.filter((item) => {
       if (item.id === 'agenda') return can('appointments', 'view')
@@ -330,6 +391,10 @@ export default function Layout({ children }: LayoutProps) {
             itemsTop={itemsTop}
             itemsBottom={itemsBottom}
             cta={showCta ? { label: 'Añadir' } : undefined}
+            ctaMenuItems={menuItems}
+            collapsed={sidebarCollapsed}
+            onToggleCollapsed={handleToggleSidebarCollapsed}
+            isHydrated={isSidebarHydrated}
           />
           <main className='bg-white rounded-tl-[var(--radius-xl)] w-full h-[calc(100dvh-var(--spacing-topbar))] min-h-0 overflow-hidden'>
             {children}
@@ -340,7 +405,6 @@ export default function Layout({ children }: LayoutProps) {
           onClose={() => setAccountOpen(false)}
           user={user}
           staff={staffProfile}
-          canManage={isManager}
           onProfileUpdated={handleProfileUpdated}
         />
       </RoleContext.Provider>

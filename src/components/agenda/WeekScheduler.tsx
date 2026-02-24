@@ -2415,6 +2415,7 @@ export default function WeekScheduler() {
 
     // Extract pre-fill data from URL parameters
     const paciente = searchParams.get('paciente') || undefined
+    const pacienteId = searchParams.get('pacienteId') || undefined
     const pacientePhone = searchParams.get('pacientePhone') || undefined
     const observaciones = searchParams.get('observaciones') || undefined
     const createdByVoiceAgent =
@@ -2424,6 +2425,7 @@ export default function WeekScheduler() {
     // Build prefill object - we'll store voiceAgent info for the form submission
     const prefill: Partial<AppointmentFormData> = {
       paciente: paciente || '',
+      pacienteId: pacienteId || '',
       observaciones: observaciones || ''
     }
 

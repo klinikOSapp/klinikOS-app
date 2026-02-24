@@ -287,7 +287,8 @@ export async function GET(req: Request) {
       summary,
       donut: {
         value: donutValue,
-        target: donutTarget
+        target: donutTarget,
+        pendingToCollect: Math.max(toCollect, 0)
       }
     })
   } catch (error: any) {
@@ -295,4 +296,3 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error?.message ?? 'Unexpected error' }, { status: 500 })
   }
 }
-

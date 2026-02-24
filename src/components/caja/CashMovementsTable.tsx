@@ -46,21 +46,18 @@ type CashMovement = {
 
 // MOVEMENTS removed - now fetched from API
 
-const TABLE_WIDTH_REM = 104.3125 // total of column widths in rem
-const TABLE_HEIGHT_REM = 27.5 // 440px ÷ 16
-const SEARCH_WIDTH_REM = 17 // closer to /dev layout
 const CONTROL_HEIGHT_REM = 2 // 32px ÷ 16
 
-const COLUMN_WIDTHS_REM = {
-  time: 8.5, // keeps full DD MMM. YYYY date visible
-  patient: 17.875, // 286px
-  concept: 25.75, // 412px
-  amount: 10.375, // 166px
-  status: 7.0625, // 113px
-  produced: 10.5625, // 169px
-  method: 12.5, // 200px
-  insurer: 8.6875, // 139px
-  actions: 3 // ~48px
+const COLUMN_WIDTHS_PERCENT = {
+  time: 8,
+  patient: 17,
+  concept: 24,
+  amount: 9,
+  status: 8,
+  produced: 10,
+  method: 12,
+  insurer: 9,
+  actions: 3
 } as const
 
 type ColumnId =
@@ -77,7 +74,7 @@ type ColumnId =
 type ColumnDefinition = {
   id: ColumnId
   label: string
-  widthRem: number
+  widthPercent: number
   align?: 'left' | 'right'
   render: (movement: CashMovement) => React.ReactNode
 }
@@ -100,7 +97,7 @@ const columns: ColumnDefinition[] = [
   {
     id: 'time',
     label: 'Día',
-    widthRem: COLUMN_WIDTHS_REM.time,
+    widthPercent: COLUMN_WIDTHS_PERCENT.time,
     render: (movement) => (
       <span className='whitespace-nowrap'>{formatMovementDay(movement.day)}</span>
     )
@@ -108,49 +105,49 @@ const columns: ColumnDefinition[] = [
   {
     id: 'patient',
     label: 'Paciente',
-    widthRem: COLUMN_WIDTHS_REM.patient,
+    widthPercent: COLUMN_WIDTHS_PERCENT.patient,
     render: (movement) => movement.patient
   },
   {
     id: 'concept',
     label: 'Concepto',
-    widthRem: COLUMN_WIDTHS_REM.concept,
+    widthPercent: COLUMN_WIDTHS_PERCENT.concept,
     render: (movement) => movement.concept
   },
   {
     id: 'amount',
     label: 'Cantidad',
-    widthRem: COLUMN_WIDTHS_REM.amount,
+    widthPercent: COLUMN_WIDTHS_PERCENT.amount,
     render: (movement) => movement.amount
   },
   {
     id: 'status',
     label: 'Estado',
-    widthRem: COLUMN_WIDTHS_REM.status,
+    widthPercent: COLUMN_WIDTHS_PERCENT.status,
     render: (movement) => <StatusCell movement={movement} />
   },
   {
     id: 'produced',
     label: 'Producido',
-    widthRem: COLUMN_WIDTHS_REM.produced,
+    widthPercent: COLUMN_WIDTHS_PERCENT.produced,
     render: (movement) => <ProductionBadge movement={movement} />
   },
   {
     id: 'method',
     label: 'Método',
-    widthRem: COLUMN_WIDTHS_REM.method,
+    widthPercent: COLUMN_WIDTHS_PERCENT.method,
     render: (movement) => movement.method
   },
   {
     id: 'insurer',
     label: 'Aseguradora',
-    widthRem: COLUMN_WIDTHS_REM.insurer,
+    widthPercent: COLUMN_WIDTHS_PERCENT.insurer,
     render: (movement) => movement.insurer?.trim() ? movement.insurer : 'N/A'
   },
   {
     id: 'actions',
     label: '',
-    widthRem: COLUMN_WIDTHS_REM.actions,
+    widthPercent: COLUMN_WIDTHS_PERCENT.actions,
     align: 'right',
     render: (movement) => <ActionsMenu movement={movement} />
   }
@@ -170,6 +167,42 @@ const getBodyCellClasses = (index: number, align: 'left' | 'right' = 'left') => 
     index < totalColumns - 1 ? 'border-hairline-b border-hairline-r' : 'border-hairline-b'
   const textAlign = align === 'right' ? 'text-right' : 'text-left'
   return `${borders} overflow-hidden py-[calc(var(--spacing-gapsm)/2)] pl-[0.5rem] pr-[0.75rem] text-body-md text-neutral-900 ${textAlign}`
+}
+
+function formatDateInput(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8)
+  if (digits.length <= 2) return digits
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
+}
+
+function parseDDMMYYYYToISO(value: string): string {
+  const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (!match) return ''
+  const [, dd, mm, yyyy] = match
+  const day = Number(dd)
+  const month = Number(mm)
+  const year = Number(yyyy)
+  if (!day || !month || !year) return ''
+  if (month < 1 || month > 12 || day < 1 || day > 31) return ''
+
+  const candidate = new Date(Date.UTC(year, month - 1, day))
+  if (
+    candidate.getUTCFullYear() !== year ||
+    candidate.getUTCMonth() !== month - 1 ||
+    candidate.getUTCDate() !== day
+  ) {
+    return ''
+  }
+
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function formatISOToDDMMYYYY(value: string): string {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return ''
+  const [, yyyy, mm, dd] = match
+  return `${dd}/${mm}/${yyyy}`
 }
 
 const PAYMENT_FILTERS: Array<Exclude<PaymentCategory, 'Pendiente'>> = [
@@ -195,12 +228,13 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
     []
   )
   const [isSuggesting, setIsSuggesting] = useState(false)
+  const [fromDateInput, setFromDateInput] = useState('')
+  const [toDateInput, setToDateInput] = useState('')
   const [fromDate, setFromDate] = useState<string>('')
   const [toDate, setToDate] = useState<string>('')
   const [paymentMethod, setPaymentMethod] = useState<'' | PaymentCategory>('')
   const [paymentStatus, setPaymentStatus] = useState<'' | CollectionStatus>('')
   const tableContainerRef = useRef<HTMLDivElement>(null)
-  const [scaleFactor, setScaleFactor] = useState(1)
   const [movements, setMovements] = useState<CashMovement[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
@@ -370,11 +404,19 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
   // Reset date-range when toolbar changes (v2 Phase 1 default behavior)
   useEffect(() => {
     const range = computeRangeFromToolbar(date, timeScale)
-    setFromDate(range.from)
-    setToDate(range.to)
+    setFromDateInput(formatISOToDDMMYYYY(range.from))
+    setToDateInput(formatISOToDDMMYYYY(range.to))
     setCurrentPage(1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, timeScale])
+
+  useEffect(() => {
+    setFromDate(parseDDMMYYYYToISO(fromDateInput))
+  }, [fromDateInput])
+
+  useEffect(() => {
+    setToDate(parseDDMMYYYYToISO(toDateInput))
+  }, [toDateInput])
 
   // Trend drilldown (Phase 2.3): clicking chart point sets date range
   useEffect(() => {
@@ -382,8 +424,8 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       const from = e?.detail?.from as string | undefined
       const to = e?.detail?.to as string | undefined
       if (!from || !to) return
-      setFromDate(from)
-      setToDate(to)
+      setFromDateInput(formatISOToDDMMYYYY(from))
+      setToDateInput(formatISOToDDMMYYYY(to))
       setCurrentPage(1)
       // bring table into view
       setTimeout(() => {
@@ -619,30 +661,6 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, timeScale, fromDate, toDate, paymentMethod, paymentStatus, query, activeClinicId])
-
-  useEffect(() => {
-    const container = tableContainerRef.current
-    if (!container || typeof window === 'undefined') return
-
-    const updateScale = () => {
-      const { width } = container.getBoundingClientRect()
-      const rootFontSize =
-        parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-      const availableRem = width / rootFontSize
-      const nextScale = Math.min(1, availableRem / TABLE_WIDTH_REM)
-
-      setScaleFactor((prev) => (Math.abs(prev - nextScale) < 0.001 ? prev : nextScale))
-    }
-
-    updateScale()
-
-    const resizeObserver = new ResizeObserver(updateScale)
-    resizeObserver.observe(container)
-
-    return () => {
-      resizeObserver.disconnect()
-    }
-  }, [])
 
   const openPaymentsModal = async (movement: CashMovement) => {
     setPaymentsModal({ open: true, movement, loading: true })
@@ -1007,15 +1025,13 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
       }}
     >
       <div className='flex flex-wrap items-center justify-between gap-gapsm'>
-        <div className='flex items-center gap-gapsm'>
-          <div className='text-body-sm text-[var(--color-neutral-700)]'>
-            Desde&nbsp;&nbsp;DD/MM/AAAA
-          </div>
-          <div className='text-body-sm text-[var(--color-neutral-700)]'>
-            Hasta&nbsp;&nbsp;DD/MM/AAAA
-          </div>
-        </div>
-        <div className='flex flex-wrap items-center gap-gapsm'>
+        <DateRangeFilter
+          fromValue={fromDateInput}
+          toValue={toDateInput}
+          onFromChange={setFromDateInput}
+          onToChange={setToDateInput}
+        />
+        <div className='flex flex-wrap items-center gap-2'>
           <SearchInput
             value={query}
             onChange={setQuery}
@@ -1023,38 +1039,26 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
             loading={isSuggesting}
             onPickSuggestion={(name) => setQuery(name)}
           />
-          {[
-            { id: '', label: 'Todos' },
-            { id: 'Efectivo', label: 'Efectivo' },
-            { id: 'TPV', label: 'TPV' },
-            { id: 'Transferencia', label: 'Transfer' },
-            { id: 'Financiación', label: 'Financiación' }
-          ].map((option) => {
-            const isActive = paymentMethod === option.id
-            return (
-              <button
-                key={option.label}
-                type='button'
-                onClick={() =>
-                  setPaymentMethod(option.id as '' | PaymentCategory)
-                }
-                className={[
-                  'px-2 py-1 rounded-[32px] text-body-sm border cursor-pointer transition-colors',
-                  isActive
-                    ? 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
-                    : 'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)] hover:bg-[#D3F7F3] hover:border-[#7DE7DC]'
-                ].join(' ')}
-              >
-                {option.label}
-              </button>
-            )
-          })}
+          <FilterChip
+            label='Todos'
+            icon='filter_alt'
+            active={!paymentMethod}
+            onClick={() => setPaymentMethod('')}
+          />
+          {PAYMENT_FILTERS.map((filter) => (
+            <FilterChip
+              key={filter}
+              label={filter === 'Transferencia' ? 'Transfer' : filter}
+              active={paymentMethod === filter}
+              onClick={() => setPaymentMethod(filter)}
+            />
+          ))}
         </div>
       </div>
 
       <div ref={tableContainerRef} className='mt-6 flex-1 overflow-hidden rounded-lg'>
         <div className='h-full overflow-y-auto table-scroll-x'>
-          <table className='w-full table-fixed border-collapse text-left'>
+          <table className='w-full min-w-[50rem] table-fixed border-collapse text-left'>
             <thead className='sticky top-0 z-10 bg-[var(--color-neutral-50)]'>
               <tr>
                 {columns.map((column, index) => (
@@ -1062,7 +1066,7 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
                     key={column.id}
                     className={getHeaderCellClasses(index, column.align)}
                     scope='col'
-                    style={{ width: `${column.widthRem * scaleFactor}rem` }}
+                    style={{ width: `${column.widthPercent}%` }}
                   >
                     {column.label}
                   </th>
@@ -1089,7 +1093,7 @@ export default function CashMovementsTable({ date, timeScale }: CashMovementsTab
                     <td
                       key={column.id}
                       className={getBodyCellClasses(colIndex, column.align)}
-                      style={{ width: `${column.widthRem * scaleFactor}rem` }}
+                      style={{ width: `${column.widthPercent}%` }}
                     >
                       {column.render(movement)}
                     </td>
@@ -1560,25 +1564,26 @@ function SearchInput({
   }
 
   return (
-    <div className='relative' style={{ width: `min(${SEARCH_WIDTH_REM}rem, 100%)` }}>
+    <div className='relative'>
       <form
         onSubmit={handleSubmit}
-        className='flex items-center rounded-full border border-border bg-surface px-[0.75rem] text-neutral-600 focus-within:ring-2 focus-within:ring-brandSemantic'
+        className='flex items-center gap-2 border-b border-[var(--color-neutral-900)] px-2 py-1 text-[var(--color-neutral-900)]'
         style={{
-          width: '100%',
           height: `${CONTROL_HEIGHT_REM}rem`
         }}
       >
-        <span className='material-symbols-rounded text-[1rem] text-neutral-500'>search</span>
+        <span className='material-symbols-rounded text-[1rem] text-[var(--color-neutral-900)]'>
+          search
+        </span>
         <input
-          className='ml-[0.5rem] w-full bg-transparent text-body-sm text-neutral-800 placeholder:text-neutral-500 focus:outline-none'
-          placeholder='Buscar paciente'
+          className='w-[14rem] bg-transparent outline-none text-body-sm text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-900)]'
+          placeholder='Buscar por paciente, concepto,...'
           aria-label='Buscar paciente'
           value={value}
           onChange={(event) => onChange(event.target.value)}
         />
         {loading ? (
-          <span className='material-symbols-rounded ml-[0.25rem] text-[1rem] text-neutral-400'>
+          <span className='material-symbols-rounded ml-[0.25rem] text-[1rem] text-neutral-500'>
             progress_activity
           </span>
         ) : null}
@@ -1605,56 +1610,46 @@ function SearchInput({
   )
 }
 
-function DateField({
-  label,
-  value,
-  onChange
+function DateRangeFilter({
+  fromValue,
+  toValue,
+  onFromChange,
+  onToChange
 }: {
-  label: string
-  value: string
-  onChange: (value: string) => void
+  fromValue: string
+  toValue: string
+  onFromChange: (value: string) => void
+  onToChange: (value: string) => void
 }) {
   return (
-    <label className='flex items-center gap-[0.5rem] text-label-sm text-neutral-600'>
-      <span className='whitespace-nowrap'>{label}</span>
-      <input
-        type='date'
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className='h-full rounded-full border border-border bg-surface px-[0.75rem] text-body-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-brandSemantic'
-        style={{ height: `${CONTROL_HEIGHT_REM}rem` }}
-      />
-    </label>
-  )
-}
-
-function SelectField({
-  label,
-  value,
-  options,
-  onChange
-}: {
-  label: string
-  value: string
-  options: Array<{ value: string; label: string }>
-  onChange: (value: string) => void
-}) {
-  return (
-    <label className='flex items-center gap-[0.5rem] text-label-sm text-neutral-600'>
-      <span className='whitespace-nowrap'>{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className='h-full rounded-full border border-border bg-surface px-[0.75rem] text-body-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-brandSemantic'
-        style={{ height: `${CONTROL_HEIGHT_REM}rem` }}
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className='flex flex-wrap items-center gap-gapsm'>
+      <label className='flex items-center gap-2 px-1 py-1 text-body-sm text-[var(--color-neutral-900)]'>
+        <span className='text-body-sm leading-[1.25rem]'>Desde</span>
+        <input
+          className='w-[8rem] bg-transparent text-body-sm leading-[1.25rem] text-[var(--color-neutral-900)] placeholder:[color:var(--color-neutral-900)] focus:outline-none'
+          placeholder='DD/MM/AAAA'
+          value={fromValue}
+          onChange={(event) => onFromChange(formatDateInput(event.target.value))}
+          inputMode='numeric'
+          autoComplete='off'
+          aria-label='Filtrar desde fecha'
+          style={{ height: `${CONTROL_HEIGHT_REM}rem` }}
+        />
+      </label>
+      <label className='flex items-center gap-2 px-1 py-1 text-body-sm text-[var(--color-neutral-900)]'>
+        <span className='text-body-sm leading-[1.25rem]'>Hasta</span>
+        <input
+          className='w-[8rem] bg-transparent text-body-sm leading-[1.25rem] text-[var(--color-neutral-900)] placeholder:[color:var(--color-neutral-900)] focus:outline-none'
+          placeholder='DD/MM/AAAA'
+          value={toValue}
+          onChange={(event) => onToChange(formatDateInput(event.target.value))}
+          inputMode='numeric'
+          autoComplete='off'
+          aria-label='Filtrar hasta fecha'
+          style={{ height: `${CONTROL_HEIGHT_REM}rem` }}
+        />
+      </label>
+    </div>
   )
 }
 
@@ -1670,10 +1665,10 @@ function FilterChip({
   onClick: () => void
 }) {
   const baseClass =
-    'inline-flex items-center justify-center gap-[0.375rem] rounded-full border px-[0.75rem] text-label-sm font-medium transition-colors'
-
-  const activeClass = 'border-brand-200 bg-brand-50 text-brand-900'
-  const inactiveClass = 'border-border text-neutral-600 hover:bg-neutral-50'
+    'inline-flex items-center justify-center gap-2 rounded-[32px] px-2 py-1 text-body-sm border cursor-pointer transition-colors'
+  const activeClass = 'bg-[#1E4947] border-[#1E4947] text-[#F8FAFB]'
+  const inactiveClass =
+    'border-[var(--color-neutral-700)] text-[var(--color-neutral-700)] hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-[#F8FAFB] active:border-[#1E4947]'
 
   return (
     <button

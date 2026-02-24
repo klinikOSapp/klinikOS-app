@@ -18,6 +18,9 @@ import CatalogoTratamientos from '@/components/pacientes/shared/CatalogoTratamie
 import ExpandedTextInput from '@/components/pacientes/shared/ExpandedTextInput'
 import OdontogramaCompacto from '@/components/pacientes/shared/OdontogramaCompacto'
 import { RowActionsMenu } from '@/components/pacientes/shared/RowActionsMenu'
+import { useClinic } from '@/context/ClinicContext'
+import { useConfiguration } from '@/context/ConfigurationContext'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type {
   OdontogramaState,
   TreatmentCatalogEntry,
@@ -231,6 +234,7 @@ function EditableCell({
 // ============================================
 type TreatmentRowProps = {
   treatment: TreatmentV2
+  doctorOptions: Array<{ value: string; label: string }>
   onToggleSelection: () => void
   onOpenMenu: (event: React.MouseEvent<HTMLButtonElement>) => void
   onUpdateField: (
@@ -244,6 +248,7 @@ type TreatmentRowProps = {
 
 function TreatmentRow({
   treatment,
+  doctorOptions,
   onToggleSelection,
   onOpenMenu,
   onUpdateField,
@@ -329,6 +334,13 @@ function TreatmentRow({
       onUpdateField('codigo', value)
     }
   }
+
+  const effectiveDoctorOptions = React.useMemo(() => {
+    if (!treatment.doctor) return doctorOptions
+    const exists = doctorOptions.some((option) => option.value === treatment.doctor)
+    if (exists) return doctorOptions
+    return [{ value: treatment.doctor, label: treatment.doctor }, ...doctorOptions]
+  }, [doctorOptions, treatment.doctor])
 
   return (
     <tr ref={rowRef} className={`${rowBg} transition-colors`}>
@@ -445,12 +457,12 @@ function TreatmentRow({
       {/* Doctor - Select */}
       <TableBodyCell width='14.1875rem'>
         <select
-          value={treatment.doctor}
+          value={treatment.doctor || doctorOptions[0]?.value || ''}
           onChange={(e) => onUpdateField('doctor', e.target.value)}
           className='w-full bg-transparent border-none outline-none text-[0.6875rem] leading-[1rem] text-[#24282C] 
             focus:bg-[var(--color-neutral-50)] rounded px-1 py-0.5 cursor-pointer'
         >
-          {PROFESSIONALS.map((prof) => (
+          {effectiveDoctorOptions.map((prof) => (
             <option key={prof.value} value={prof.value}>
               {prof.label}
             </option>
@@ -563,6 +575,8 @@ export type BudgetInfo = {
   total: number
 }
 
+const EMPTY_TREATMENTS: TreatmentV2[] = []
+
 // ============================================
 // Main Component
 // ============================================
@@ -584,10 +598,13 @@ export default function AddTreatmentsToBudgetModal({
   onClose,
   onCreateBudget,
   onCreateBudgetType,
-  treatments: initialTreatments = PENDING_TREATMENTS_V2,
+  treatments: initialTreatments = EMPTY_TREATMENTS,
   initialBudgetName = '',
   mode = 'budget'
 }: AddTreatmentsToBudgetModalProps) {
+  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
+  const { activeClinicId } = useClinic()
+  const { activeProfessionals } = useConfiguration()
   const [mounted, setMounted] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState('')
   const [showSearch, setShowSearch] = React.useState(false)
@@ -632,7 +649,91 @@ export default function AddTreatmentsToBudgetModal({
     type: 'percentage' | 'fixed'
     value: number
   }>({ type: 'percentage', value: 0 })
+  const [clinicDoctorOptions, setClinicDoctorOptions] = React.useState<
+    Array<{ value: string; label: string }>
+  >([])
   const budgetNameInputRef = React.useRef<HTMLInputElement>(null)
+  const latestInitialTreatmentsRef = React.useRef<TreatmentV2[]>(initialTreatments)
+  const latestInitialBudgetNameRef = React.useRef(initialBudgetName)
+  const generatedDocumentRef = React.useRef<GeneratedDocument | null>(null)
+
+  React.useEffect(() => {
+    latestInitialTreatmentsRef.current = initialTreatments
+  }, [initialTreatments])
+
+  React.useEffect(() => {
+    latestInitialBudgetNameRef.current = initialBudgetName
+  }, [initialBudgetName])
+
+  React.useEffect(() => {
+    generatedDocumentRef.current = generatedDocument
+  }, [generatedDocument])
+
+  React.useEffect(() => {
+    let cancelled = false
+
+    async function loadClinicDoctors() {
+      if (!open || !activeClinicId) {
+        if (!cancelled) setClinicDoctorOptions([])
+        return
+      }
+
+      try {
+        const { data: clinicStaffRows, error: clinicStaffError } = await supabase.rpc(
+          'get_clinic_staff',
+          { clinic: activeClinicId }
+        )
+        if (clinicStaffError) throw clinicStaffError
+
+        const options = Array.isArray(clinicStaffRows)
+          ? clinicStaffRows
+              .map((row) => {
+                const id = String((row as { id?: string }).id || '').trim()
+                const name = String((row as { full_name?: string }).full_name || '').trim()
+                if (!id || !name) return null
+                return { value: name, label: name }
+              })
+              .filter(
+                (item): item is { value: string; label: string } => item !== null
+              )
+          : []
+
+        // Deduplicate by doctor name
+        const deduped = Array.from(new Map(options.map((o) => [o.value, o])).values())
+
+        if (!cancelled) setClinicDoctorOptions(deduped)
+      } catch (error) {
+        console.warn('No se pudo cargar lista real de doctores para presupuesto', error)
+        if (!cancelled) setClinicDoctorOptions([])
+      }
+    }
+
+    void loadClinicDoctors()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeClinicId, open, supabase])
+
+  const doctorOptions = React.useMemo(() => {
+    if (clinicDoctorOptions.length > 0) return clinicDoctorOptions
+
+    const fromConfig = activeProfessionals
+      .filter((professional) => professional.status === 'Activo')
+      .map((professional) => ({
+        value: professional.name,
+        label: professional.name
+      }))
+      .filter((option) => option.value.trim().length > 0)
+
+    if (fromConfig.length > 0) {
+      return Array.from(new Map(fromConfig.map((option) => [option.value, option])).values())
+    }
+
+    return PROFESSIONALS
+  }, [activeProfessionals, clinicDoctorOptions])
+
+  const defaultDoctor = doctorOptions[0]?.value || ''
 
   // Mount state
   React.useEffect(() => {
@@ -642,9 +743,10 @@ export default function AddTreatmentsToBudgetModal({
   // Reset state when modal closes
   React.useEffect(() => {
     if (!open) {
+      const baseTreatments = latestInitialTreatmentsRef.current
       setSearchQuery('')
       setShowSearch(false)
-      setTreatments(initialTreatments)
+      setTreatments(baseTreatments)
       setOdontogramaState({})
       setFilterByTeeth([])
       setSelectedCatalogTreatment(null)
@@ -653,8 +755,8 @@ export default function AddTreatmentsToBudgetModal({
       setShowConfirmModal(false)
       setActiveMenu(null)
       // Reset preview state
-      if (generatedDocument?.url) {
-        URL.revokeObjectURL(generatedDocument.url)
+      if (generatedDocumentRef.current?.url) {
+        URL.revokeObjectURL(generatedDocumentRef.current.url)
       }
       setGeneratedDocument(null)
       setIsPreviewMode(false)
@@ -664,7 +766,7 @@ export default function AddTreatmentsToBudgetModal({
       setIsEditingName(false)
       setGeneralDiscount({ type: 'percentage', value: 0 })
     }
-  }, [open, initialTreatments, generatedDocument])
+  }, [open])
 
   // Focus search input when opened
   React.useEffect(() => {
@@ -683,12 +785,14 @@ export default function AddTreatmentsToBudgetModal({
   // Initialize treatments, odontograma and budget name when modal opens
   React.useEffect(() => {
     if (open) {
+      const baseTreatments = latestInitialTreatmentsRef.current
+      const baseBudgetName = latestInitialBudgetNameRef.current
       // Set treatments from props
-      setTreatments(initialTreatments)
+      setTreatments(baseTreatments)
 
       // Initialize odontograma with teeth from treatments
       const initialOdontogramaState: OdontogramaState = {}
-      initialTreatments.forEach((t) => {
+      baseTreatments.forEach((t) => {
         if (t.pieza) {
           initialOdontogramaState[t.pieza] = 'pendiente'
         }
@@ -696,11 +800,11 @@ export default function AddTreatmentsToBudgetModal({
       setOdontogramaState(initialOdontogramaState)
 
       // Set budget name from prop (for budget type templates)
-      if (initialBudgetName) {
-        setBudgetName(initialBudgetName)
+      if (baseBudgetName) {
+        setBudgetName(baseBudgetName)
       }
     }
-  }, [open, initialTreatments, initialBudgetName])
+  }, [open])
 
   // Escape key handler
   React.useEffect(() => {
@@ -787,7 +891,7 @@ export default function AddTreatmentsToBudgetModal({
       importe: entry.amount,
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: PROFESSIONALS[0].value,
+      doctor: defaultDoctor,
       selected: true // Seleccionar automáticamente para el presupuesto
     }
 
@@ -819,7 +923,7 @@ export default function AddTreatmentsToBudgetModal({
       importe: entry.amount,
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: PROFESSIONALS[0].value,
+      doctor: defaultDoctor,
       selected: true // Seleccionar automáticamente los nuevos
     }))
 
@@ -879,7 +983,7 @@ export default function AddTreatmentsToBudgetModal({
       importe: '0 €',
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: PROFESSIONALS[0].value,
+      doctor: defaultDoctor,
       selected: false
     }
     setTreatments((prev) => [...prev, newTreatment])
@@ -1506,6 +1610,7 @@ export default function AddTreatmentsToBudgetModal({
                                 <TreatmentRow
                                   key={treatment._internalId}
                                   treatment={treatment}
+                                  doctorOptions={doctorOptions}
                                   onToggleSelection={() =>
                                     toggleSelection(treatment._internalId)
                                   }

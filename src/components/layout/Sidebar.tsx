@@ -38,7 +38,7 @@ export default function Sidebar({
         'h-[calc(100dvh-var(--spacing-topbar))]',
         'pt-6',
         'relative',
-        'z-30',
+        'z-40',
         'flex flex-col',
         isHydrated ? 'transition-[width] duration-300 ease-in-out opacity-100' : 'opacity-0'
       ].join(' ')}

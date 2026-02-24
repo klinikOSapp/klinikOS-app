@@ -17,6 +17,8 @@ import {
 } from './modalDimensions'
 import MedicamentoAutocomplete, { mapViaToOption } from '@/components/ui/MedicamentoAutocomplete'
 import { useConfiguration } from '@/context/ConfigurationContext'
+import { useClinic } from '@/context/ClinicContext'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 // HU-021: Type for a single medication entry
 export type MedicationEntry = {
@@ -46,6 +48,12 @@ type PrescriptionCreationModalProps = {
     medicamentos?: MedicationEntry[]
   }) => void
   patientName?: string
+}
+
+type SpecialistOption = {
+  id: string
+  name: string
+  professionalLicenseId?: string
 }
 
 const TITLE_LEFT_REM = 14.3125
@@ -262,7 +270,12 @@ export default function PrescriptionCreationModal({
   onContinue,
   patientName
 }: PrescriptionCreationModalProps) {
+  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
+  const { activeClinicId } = useClinic()
   const { activeProfessionals } = useConfiguration()
+  const [clinicSpecialists, setClinicSpecialists] = React.useState<
+    SpecialistOption[]
+  >([])
   // Nombre del paciente para mostrar (usa prop o mock)
   const displayPatientName = patientName || 'María García López'
   const [mounted, setMounted] = React.useState(false)
@@ -273,25 +286,139 @@ export default function PrescriptionCreationModal({
   // HU-021: State for multiple medications
   const [medicamentos, setMedicamentos] = React.useState<MedicationEntry[]>([createEmptyMedication()])
 
+  React.useEffect(() => {
+    let cancelled = false
+
+    async function loadClinicSpecialists() {
+      if (!open || !activeClinicId) {
+        if (!cancelled) setClinicSpecialists([])
+        return
+      }
+
+      try {
+        const { data: clinicStaffRows, error: clinicStaffError } = await supabase.rpc(
+          'get_clinic_staff',
+          { clinic: activeClinicId }
+        )
+        if (clinicStaffError) throw clinicStaffError
+
+        const clinicStaffById = new Map<
+          string,
+          { name: string }
+        >(
+          Array.isArray(clinicStaffRows)
+            ? clinicStaffRows
+                .map((row) => {
+                  const id = String((row as { id?: string }).id || '')
+                  const name = String((row as { full_name?: string }).full_name || '').trim()
+                  if (!id || !name) return null
+                  return [id, { name }] as const
+                })
+                .filter((entry): entry is readonly [string, { name: string }] => Boolean(entry))
+            : []
+        )
+
+        const clinicStaffIds = Array.isArray(clinicStaffRows)
+          ? clinicStaffRows
+              .map((row) => String((row as { id?: string }).id || ''))
+              .filter(Boolean)
+          : []
+
+        if (clinicStaffIds.length === 0) {
+          if (!cancelled) setClinicSpecialists([])
+          return
+        }
+
+        const { data: staffRows, error: staffRowsError } = await supabase
+          .from('staff')
+          .select('id, full_name, professional_license_id, is_active')
+          .in('id', clinicStaffIds)
+
+        if (staffRowsError) {
+          console.warn(
+            'No se pudo ampliar especialistas con datos de staff (usando fallback RPC)',
+            staffRowsError
+          )
+        }
+
+        const staffById = new Map<
+          string,
+          {
+            fullName?: string
+            isActive?: boolean
+            professionalLicenseId?: string
+          }
+        >(
+          Array.isArray(staffRows)
+            ? staffRows.map((row) => [
+                String((row as { id?: string }).id || ''),
+                {
+                  fullName: String((row as { full_name?: string }).full_name || '').trim() || undefined,
+                  isActive: (row as { is_active?: boolean }).is_active,
+                  professionalLicenseId:
+                    (row as { professional_license_id?: string | null }).professional_license_id || undefined
+                }
+              ])
+            : []
+        )
+
+        const mapped = clinicStaffIds
+          .map((id) => {
+            const rpcRow = clinicStaffById.get(id)
+            const staffRow = staffById.get(id)
+            const isActive = staffRow?.isActive !== false
+            if (!isActive) return null
+            const name = staffRow?.fullName || rpcRow?.name || ''
+            if (!name) return null
+            const specialist: SpecialistOption = { id, name }
+            if (staffRow?.professionalLicenseId) {
+              specialist.professionalLicenseId = staffRow.professionalLicenseId
+            }
+            return specialist
+          })
+          .filter((row): row is SpecialistOption => row !== null)
+
+        if (!cancelled) setClinicSpecialists(mapped)
+      } catch (error) {
+        console.warn('No se pudieron cargar especialistas para recetas', error)
+        if (!cancelled) setClinicSpecialists([])
+      }
+    }
+
+    void loadClinicSpecialists()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeClinicId, open, supabase])
+
+  const availableProfessionals = React.useMemo(() => {
+    if (clinicSpecialists.length > 0) return clinicSpecialists
+    return activeProfessionals
+      .filter((professional) => professional.status === 'Activo')
+      .map((professional) => ({
+        id: professional.id,
+        name: professional.name,
+        professionalLicenseId: professional.professionalLicenseId
+      }))
+  }, [activeProfessionals, clinicSpecialists])
+
   const specialistOptions = React.useMemo(() => {
-    const names = activeProfessionals
-      .filter((p) => p.status === 'Activo')
-      .map((p) => p.name)
+    const names = availableProfessionals
+      .map((professional) => professional.name)
       .filter(Boolean)
     return Array.from(new Set(names))
-  }, [activeProfessionals])
+  }, [availableProfessionals])
 
   React.useEffect(() => {
     if (!open) return
     if (especialista) return
-    const firstProfessional = activeProfessionals.find(
-      (professional) => professional.status === 'Activo'
-    )
+    const firstProfessional = availableProfessionals[0]
     if (!firstProfessional) return
     setEspecialista(firstProfessional.name)
     setEspecialistaId(firstProfessional.id)
     setEspecialistaLicense(firstProfessional.professionalLicenseId)
-  }, [activeProfessionals, especialista, open])
+  }, [availableProfessionals, especialista, open])
   
   // Helper to update a specific medication field
   const updateMedication = (id: string, field: keyof MedicationEntry, value: string) => {
@@ -316,17 +443,17 @@ export default function PrescriptionCreationModal({
   const firstMed = medicamentos[0] || createEmptyMedication()
   const selectedProfessional = React.useMemo(() => {
     if (especialistaId) {
-      return activeProfessionals.find(
+      return availableProfessionals.find(
         (professional) => professional.id === especialistaId
       )
     }
     if (!especialista.trim()) return undefined
-    return activeProfessionals.find(
+    return availableProfessionals.find(
       (professional) =>
         professional.name.trim().toLowerCase() ===
         especialista.trim().toLowerCase()
     )
-  }, [activeProfessionals, especialista, especialistaId])
+  }, [availableProfessionals, especialista, especialistaId])
 
   React.useEffect(() => {
     setMounted(true)
@@ -441,7 +568,7 @@ export default function PrescriptionCreationModal({
                           setEspecialistaLicense(undefined)
                         }}
                         onSelectOption={(selectedName) => {
-                          const selectedProfessional = activeProfessionals.find(
+                          const selectedProfessional = availableProfessionals.find(
                             (professional) => professional.name === selectedName
                           )
                           setEspecialista(selectedName)

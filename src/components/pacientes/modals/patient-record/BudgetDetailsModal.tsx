@@ -125,12 +125,12 @@ export default function BudgetDetailsModal({
             <div className='flex flex-col gap-1'>
               <div className='flex items-center gap-3'>
                 <h2 className='text-[1.125rem] font-semibold text-[#24282C]'>
-                  Presupuesto {budget.id}
+                  {budget.description}
                 </h2>
                 <StatusBadge status={budget.status} />
               </div>
               <p className='text-[0.9375rem] text-[#535C66]'>
-                {budget.description}
+                Código: {budget.id}
               </p>
             </div>
             <button

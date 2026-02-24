@@ -1,0 +1,4 @@
+[GET] http://localhost:3000/api/gestion/overview?timeScale=week&date=2026-02-23 => [401] Unauthorized
+[GET] http://localhost:3000/api/gestion/overview?timeScale=week&date=2026-02-16 => [401] Unauthorized
+[GET] http://localhost:3000/api/gestion/overview?timeScale=week&date=2026-02-23 => [401] Unauthorized
+[GET] http://localhost:3000/api/gestion/overview?timeScale=month&date=2026-02-23 => [401] Unauthorized

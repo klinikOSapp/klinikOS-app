@@ -1,6 +1,8 @@
 'use client'
 
 import { KeyboardArrowDownRounded, SearchRounded } from '@/components/icons/md3'
+import { useClinic } from '@/context/ClinicContext'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import React from 'react'
 import {
   PROFESSIONALS,
@@ -122,10 +124,92 @@ export default function CatalogoTratamientos({
   const [showFamilyDropdown, setShowFamilyDropdown] = React.useState(false)
   const [showDoctorDropdown, setShowDoctorDropdown] = React.useState(false)
   const [showAreaDropdown, setShowAreaDropdown] = React.useState(false)
+  const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
+  const [dbCatalog, setDbCatalog] = React.useState<Array<[string, TreatmentCatalogEntry]>>([])
+
+  React.useEffect(() => {
+    let isMounted = true
+
+    async function hydrateCatalogFromDb() {
+      try {
+        if (!isClinicInitialized || !activeClinicId) {
+          if (isMounted) setDbCatalog([])
+          return
+        }
+
+        const supabase = createSupabaseBrowserClient()
+        const { data: clinicRow, error: clinicError } = await supabase
+          .from('clinics')
+          .select('organization_id')
+          .eq('id', activeClinicId)
+          .maybeSingle()
+
+        const organizationId = String(clinicRow?.organization_id || '').trim()
+        if (clinicError || !organizationId) {
+          if (isMounted) setDbCatalog([])
+          return
+        }
+
+        const { data: services, error: servicesError } = await supabase
+          .from('service_catalog')
+          .select('id, treatment_code, name, standard_price')
+          .eq('organization_id', organizationId)
+          .eq('is_active', true)
+          .order('name', { ascending: true })
+
+        if (servicesError) {
+          console.warn('No se pudo cargar service_catalog, usando catálogo local', servicesError)
+          if (isMounted) setDbCatalog([])
+          return
+        }
+
+        const mappedCatalog = (services || [])
+          .map((row: any) => {
+            const id = Number(row?.id)
+            const code = String(row?.treatment_code || '').trim() || `SVC-${id}`
+            const name = String(row?.name || '').trim()
+            if (!name) return null
+
+            const numericPrice = Number(row?.standard_price ?? 0)
+            const amount = `${numericPrice.toLocaleString('es-ES', {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 2
+            })} €`
+
+            return [
+              code,
+              {
+                description: name,
+                amount
+              }
+            ] as [string, TreatmentCatalogEntry]
+          })
+          .filter(
+            (entry): entry is [string, TreatmentCatalogEntry] => entry !== null
+          )
+
+        if (isMounted) setDbCatalog(mappedCatalog)
+      } catch (error) {
+        console.warn('Error cargando catálogo de tratamientos desde DB', error)
+        if (isMounted) setDbCatalog([])
+      }
+    }
+
+    void hydrateCatalogFromDb()
+
+    return () => {
+      isMounted = false
+    }
+  }, [activeClinicId, isClinicInitialized])
+
+  const sourceCatalog = React.useMemo(
+    () => (dbCatalog.length > 0 ? dbCatalog : Object.entries(TREATMENT_CATALOG)),
+    [dbCatalog]
+  )
 
   // Filtrar el catálogo
   const filteredCatalog = React.useMemo(() => {
-    return Object.entries(TREATMENT_CATALOG).filter(([codigo, entry]) => {
+    return sourceCatalog.filter(([codigo, entry]) => {
       // Filtro por búsqueda
       const matchesSearch =
         searchTerm === '' ||
@@ -134,11 +218,11 @@ export default function CatalogoTratamientos({
 
       // Filtro por familia
       const matchesFamily =
-        familyFilter === '' || entry.familia === familyFilter
+        familyFilter === '' || !entry.familia || entry.familia === familyFilter
 
       return matchesSearch && matchesFamily
     })
-  }, [searchTerm, familyFilter])
+  }, [sourceCatalog, searchTerm, familyFilter])
 
   const handleTreatmentClick = (
     codigo: string,

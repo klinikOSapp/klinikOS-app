@@ -654,7 +654,7 @@ export default function Treatments({
 
   // State
   const [odontogramaState, setOdontogramaState] =
-    React.useState<OdontogramaState>(MOCK_ODONTOGRAMA_STATE)
+    React.useState<OdontogramaState>({})
   const [pendingTreatments, setPendingTreatments] = React.useState<
     TreatmentV2[]
   >([])

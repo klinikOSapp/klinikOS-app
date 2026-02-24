@@ -3,7 +3,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import ClientLayout from '@/app/client-layout'
-import { type ContextMenuAction } from '@/components/agenda/AppointmentContextMenu'
 import VisitStatusCounters from '@/components/agenda/VisitStatusCounters'
 import VisitStatusMenu from '@/components/agenda/VisitStatusMenu'
 import { TableTimerCell } from '@/components/agenda/WaitTimeDisplay'
@@ -30,10 +29,12 @@ import {
   type PaymentInfo
 } from '@/context/AppointmentsContext'
 import { useWaitTimer } from '@/hooks/useWaitTimer'
+import { useRouter } from 'next/navigation'
 import React from 'react'
 
 const CTA_WIDTH_REM = 7.3125 // 117px ÷ 16
 const CTA_HEIGHT_REM = 2.5 // 40px ÷ 16
+const WEEKLY_PATIENT_TARGET = 75
 const DAILY_BANDS = [
   {
     id: 'odontologo',
@@ -149,6 +150,7 @@ function TableBodyCell({
 // Tipo para las filas de la tabla (derivado de Appointment)
 type DailyRow = {
   id: string
+  patientId?: string
   day: string
   hour: string
   name: string
@@ -185,6 +187,7 @@ function getArrivalTime(history?: VisitStatusLog[]): string | undefined {
 function appointmentToRow(apt: Appointment): DailyRow {
   return {
     id: apt.id,
+    patientId: apt.patientId,
     day: formatDateToShort(apt.date),
     hour: apt.startTime,
     name: apt.patientName,
@@ -204,6 +207,22 @@ function appointmentToRow(apt: Appointment): DailyRow {
     // Timer durations
     waitingDuration: apt.waitingDuration,
     consultationDuration: apt.consultationDuration
+  }
+}
+
+function getWeekBoundsISO(date: Date) {
+  const start = new Date(date)
+  const day = start.getDay() || 7 // Sunday -> 7
+  start.setDate(start.getDate() - (day - 1)) // Monday
+  start.setHours(0, 0, 0, 0)
+
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  end.setHours(23, 59, 59, 999)
+
+  return {
+    startISO: formatDateToISO(start),
+    endISO: formatDateToISO(end)
   }
 }
 
@@ -807,6 +826,7 @@ function ConfirmationToggle({
 }
 
 export default function ParteDiarioPage() {
+  const router = useRouter()
   // Hook del contexto de citas compartido
   const {
     appointments,
@@ -837,6 +857,12 @@ export default function ParteDiarioPage() {
     | 'Recetas'
   >('Resumen')
   const [openBudgetCreation, setOpenBudgetCreation] = React.useState(false)
+  const [openPrescriptionCreation, setOpenPrescriptionCreation] =
+    React.useState(false)
+  const [selectedPatientIdForRecord, setSelectedPatientIdForRecord] =
+    React.useState<string | undefined>(undefined)
+  const [selectedPatientNameForRecord, setSelectedPatientNameForRecord] =
+    React.useState<string | undefined>(undefined)
 
   // Estado para el menú de acciones por fila
   const [openRowMenuId, setOpenRowMenuId] = React.useState<string | null>(null)
@@ -936,6 +962,29 @@ export default function ParteDiarioPage() {
     .map(appointmentToRow)
     .sort((a, b) => a.hour.localeCompare(b.hour))
 
+  const { startISO: selectedWeekStartISO, endISO: selectedWeekEndISO } =
+    React.useMemo(() => getWeekBoundsISO(selectedDate), [selectedDate])
+
+  const appointmentsForSelectedWeek = React.useMemo(
+    () =>
+      appointments.filter(
+        (apt) => apt.date >= selectedWeekStartISO && apt.date <= selectedWeekEndISO
+      ),
+    [appointments, selectedWeekEndISO, selectedWeekStartISO]
+  )
+
+  const patientsForSelectedWeekCount = React.useMemo(() => {
+    const uniquePatients = new Set<string>()
+    appointmentsForSelectedWeek.forEach((apt) => {
+      const key =
+        String(apt.patientId || '').trim() ||
+        String(apt.patientName || '').trim().toLowerCase() ||
+        String(apt.id)
+      uniquePatients.add(key)
+    })
+    return uniquePatients.size
+  }, [appointmentsForSelectedWeek])
+
   const isPatientSelected = (patientId: string) =>
     selectedPatientIds.includes(patientId)
 
@@ -958,6 +1007,55 @@ export default function ParteDiarioPage() {
     setSelectedProfessionals([])
     setActiveVisitStatusFilters(null)
   }
+
+  const openPatientRecordFromRow = React.useCallback(
+    (
+      row: DailyRow,
+      config?: {
+        tab?:
+          | 'Resumen'
+          | 'Información General'
+          | 'Historial clínico'
+          | 'Tratamientos'
+          | 'Imágenes RX'
+          | 'Finanzas'
+          | 'Documentos'
+          | 'Recetas'
+        openBudgetCreation?: boolean
+        openPrescriptionCreation?: boolean
+      }
+    ) => {
+      if (!row.patientId) {
+        console.warn(
+          'No se pudo abrir ficha/acción: cita sin patientId',
+          row.id,
+          row.name
+        )
+        return
+      }
+
+      setSelectedPatientIdForRecord(row.patientId)
+      setSelectedPatientNameForRecord(row.name)
+      setInitialTab(config?.tab || 'Resumen')
+      setOpenBudgetCreation(Boolean(config?.openBudgetCreation))
+      setOpenPrescriptionCreation(Boolean(config?.openPrescriptionCreation))
+      setIsFichaModalOpen(true)
+    },
+    []
+  )
+
+  const openCreateAppointmentFromRow = React.useCallback(
+    (row: DailyRow) => {
+      const params = new URLSearchParams()
+      params.set('action', 'create')
+      params.set('paciente', row.name || '')
+      if (row.patientId) {
+        params.set('pacienteId', row.patientId)
+      }
+      router.push(`/agenda?${params.toString()}`)
+    },
+    [router]
+  )
 
   // Verificar si hay algún filtro activo (para el botón "Todos")
   const hasActiveFilters =
@@ -1000,40 +1098,6 @@ export default function ParteDiarioPage() {
     // Limpiar selección después de aplicar el cambio
     setSelectedPatientIds([])
     setIsBulkStatusMenuOpen(false)
-  }
-
-  // Función para manejar las acciones del menú contextual
-  const handleContextMenuAction = (action: ContextMenuAction) => {
-    switch (action) {
-      case 'view-patient':
-        setInitialTab('Resumen')
-        setOpenBudgetCreation(false)
-        setIsFichaModalOpen(true)
-        break
-      case 'view-appointment':
-        setInitialTab('Historial clínico')
-        setOpenBudgetCreation(false)
-        setIsFichaModalOpen(true)
-        break
-      case 'new-appointment':
-        // TODO: Abrir modal de nueva cita
-        console.log('Nueva cita')
-        break
-      case 'new-budget':
-        setInitialTab('Finanzas')
-        setOpenBudgetCreation(true)
-        setIsFichaModalOpen(true)
-        break
-      case 'new-prescription':
-        setInitialTab('Recetas')
-        setOpenBudgetCreation(false)
-        setIsFichaModalOpen(true)
-        break
-      case 'report':
-        // TODO: Implementar reportar
-        console.log('Reportar')
-        break
-    }
   }
 
   // Handlers para pagos
@@ -1098,9 +1162,15 @@ export default function ParteDiarioPage() {
             setIsFichaModalOpen(false)
             setInitialTab('Resumen')
             setOpenBudgetCreation(false)
+            setOpenPrescriptionCreation(false)
+            setSelectedPatientIdForRecord(undefined)
+            setSelectedPatientNameForRecord(undefined)
           }}
           initialTab={initialTab}
           openBudgetCreation={openBudgetCreation}
+          openPrescriptionCreation={openPrescriptionCreation}
+          patientId={selectedPatientIdForRecord}
+          patientName={selectedPatientNameForRecord}
         />
         <ParteDiarioModal
           isOpen={isParteModalOpen}
@@ -1143,7 +1213,7 @@ export default function ParteDiarioPage() {
             }}
             onPaymentSubmit={handleBudgetPaymentSubmit}
             patientName={selectedRowForPayment.name}
-            patientId={selectedRowForPayment.id}
+            patientId={selectedRowForPayment.patientId || ''}
             budgets={patientBudgets}
           />
         )}
@@ -1243,10 +1313,13 @@ export default function ParteDiarioPage() {
         >
           <KpiCard
             title='Pacientes semana'
-            value={`${appointments.length}/75`}
+            value={`${patientsForSelectedWeekCount}/${WEEKLY_PATIENT_TARGET}`}
             badge={
               <span className='text-body-md text-[var(--color-success-600)]'>
-                {Math.round((appointments.length / 75) * 100)}%
+                {Math.round(
+                  (patientsForSelectedWeekCount / WEEKLY_PATIENT_TARGET) * 100
+                )}
+                %
               </span>
             }
           />
@@ -1873,19 +1946,24 @@ export default function ParteDiarioPage() {
                               setRowMenuTriggerRect(null)
                             }}
                             onViewAppointment={() => {
-                              setIsFichaModalOpen(true)
+                              openPatientRecordFromRow(row, {
+                                tab: 'Resumen'
+                              })
                             }}
                             onNewAppointment={() => {
-                              // TODO: Abrir modal de nueva cita
-                              console.log('Nueva cita para:', row.name)
+                              openCreateAppointmentFromRow(row)
                             }}
                             onNewBudget={() => {
-                              // TODO: Abrir modal de nuevo presupuesto
-                              console.log('Nuevo presupuesto para:', row.name)
+                              openPatientRecordFromRow(row, {
+                                tab: 'Finanzas',
+                                openBudgetCreation: true
+                              })
                             }}
                             onNewPrescription={() => {
-                              // TODO: Abrir modal de nueva receta
-                              console.log('Nueva receta para:', row.name)
+                              openPatientRecordFromRow(row, {
+                                tab: 'Recetas',
+                                openPrescriptionCreation: true
+                              })
                             }}
                             onVisitStatusChange={(status) => {
                               handleStatusChange(row.id, status)

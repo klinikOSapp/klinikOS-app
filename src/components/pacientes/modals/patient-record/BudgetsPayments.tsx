@@ -33,6 +33,7 @@ import {
 } from '@/components/pacientes/shared/budgetTypeData'
 import type { TreatmentV2 } from '@/components/pacientes/shared/treatmentTypes'
 import { useClinic } from '@/context/ClinicContext'
+import { usePatients, type PatientTreatment } from '@/context/PatientsContext'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { BudgetInstallmentPlan, BudgetPayment } from '@/types/payments'
 import { setPendingAppointmentData } from '@/utils/appointmentPrefill'
@@ -613,6 +614,7 @@ export type BudgetRow = {
   patientId?: string
   patientName?: string
   quoteId?: number
+  planId?: number
   // Campos extendidos para detalles
   treatments?: BudgetTreatment[]
   generalDiscount?: BudgetGeneralDiscount
@@ -646,6 +648,7 @@ type InvoiceRow = {
 
 type DbQuoteRow = {
   id: number
+  plan_id: number | null
   quote_number: string | null
   status: string | null
   total_amount: number | null
@@ -654,6 +657,36 @@ type DbQuoteRow = {
   signed_at: string | null
   production_status: string | null
   production_date: string | null
+}
+
+type DbQuoteItemRow = {
+  id: number
+  quote_id: number | null
+  service_id: number | null
+  description: string | null
+  quantity: number | null
+  unit_price: number | null
+  discount_percentage: number | null
+  final_price: number | null
+}
+
+type DbTreatmentPlanRow = {
+  id: number
+  name: string | null
+}
+
+type DbTreatmentPlanItemRow = {
+  id: number
+  plan_id: number | null
+  service_id: number | null
+  tooth_number: number | null
+  notes: string | null
+}
+
+type DbServiceCatalogRow = {
+  id: number
+  treatment_code: string | null
+  name: string | null
 }
 
 type DbInvoiceRow = {
@@ -752,6 +785,54 @@ function parseEuroAmount(value: string | number | null | undefined): number {
     .replace(',', '.')
   const parsed = Number(normalized)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+function parsePlanItemNotes(
+  value: string | null | undefined
+): {
+  cara?: string
+  doctor?: string
+  codigo?: string
+  importeSeguro?: string
+} {
+  if (!value) return {}
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>
+    return {
+      cara: typeof parsed.cara === 'string' ? parsed.cara : undefined,
+      doctor: typeof parsed.doctor === 'string' ? parsed.doctor : undefined,
+      codigo: typeof parsed.codigo === 'string' ? parsed.codigo : undefined,
+      importeSeguro:
+        typeof parsed.importeSeguro === 'string'
+          ? parsed.importeSeguro
+          : undefined
+    }
+  } catch {
+    return {}
+  }
+}
+
+function convertPatientTreatmentToBudgetTreatment(
+  treatment: PatientTreatment
+): TreatmentV2 {
+  const toothNumber = treatment.tooth
+    ? parseInt(String(treatment.tooth).split(',')[0].trim(), 10)
+    : undefined
+
+  return {
+    _internalId: treatment.id,
+    pieza: Number.isFinite(toothNumber) ? toothNumber : undefined,
+    cara: (treatment.toothFace as TreatmentV2['cara']) || undefined,
+    codigo: treatment.code || '',
+    tratamiento: treatment.description || 'Tratamiento',
+    precio: treatment.amountFormatted || '0 €',
+    importe: treatment.amountFormatted || '0 €',
+    descuento: '0 €',
+    porcentajeDescuento: 0,
+    descripcionAnotaciones: treatment.notes || '',
+    doctor: treatment.professional || 'Sin asignar',
+    selected: Boolean(treatment.markedForNextAppointment)
+  }
 }
 
 const INITIAL_INVOICE_ROWS: InvoiceRow[] = [
@@ -2168,6 +2249,7 @@ export default function BudgetsPayments({
 }: BudgetsPaymentsProps) {
   const router = useRouter()
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
+  const { getPendingTreatments } = usePatients()
   const { activeClinicId, isInitialized: isClinicInitialized } = useClinic()
   const shouldUseDbSource = Boolean(patientId && activeClinicId)
 
@@ -2284,7 +2366,7 @@ export default function BudgetsPayments({
           supabase
             .from('quotes')
             .select(
-              'id, quote_number, status, total_amount, issue_date, expiry_date, signed_at, production_status, production_date'
+              'id, plan_id, quote_number, status, total_amount, issue_date, expiry_date, signed_at, production_status, production_date'
             )
             .eq('clinic_id', activeClinicId)
             .eq('patient_id', patientId)
@@ -2310,6 +2392,12 @@ export default function BudgetsPayments({
       const typedInvoices = (invoiceRowsDb || []) as DbInvoiceRow[]
       const invoiceIds = typedInvoices.map((row) => row.id)
       const insurer = String(insuranceRows?.[0]?.provider || '').trim()
+      const quoteIds = typedQuotes
+        .map((row) => Number(row.id))
+        .filter((id) => Number.isFinite(id))
+      const planIds = typedQuotes
+        .map((row) => Number(row.plan_id))
+        .filter((id) => Number.isFinite(id))
 
       let typedPayments: DbPaymentRow[] = []
       if (invoiceIds.length > 0) {
@@ -2322,6 +2410,73 @@ export default function BudgetsPayments({
           .order('transaction_date', { ascending: false })
         typedPayments = (paymentRows || []) as DbPaymentRow[]
       }
+
+      const [{ data: quoteItemRows }, { data: planRows }, { data: planItemRows }] =
+        await Promise.all([
+        quoteIds.length > 0
+          ? supabase
+              .from('quote_items')
+              .select(
+                'id, quote_id, service_id, description, quantity, unit_price, discount_percentage, final_price'
+              )
+              .in('quote_id', quoteIds)
+              .order('id', { ascending: true })
+          : Promise.resolve({ data: [], error: null }),
+        planIds.length > 0
+          ? supabase.from('treatment_plans').select('id, name').in('id', planIds)
+          : Promise.resolve({ data: [], error: null }),
+        planIds.length > 0
+          ? supabase
+              .from('treatment_plan_items')
+              .select('id, plan_id, service_id, tooth_number, notes')
+              .in('plan_id', planIds)
+              .order('id', { ascending: true })
+          : Promise.resolve({ data: [], error: null })
+      ])
+
+      const serviceIds = ((quoteItemRows || []) as DbQuoteItemRow[])
+        .map((item) => Number(item.service_id))
+        .filter((id) => Number.isFinite(id))
+      const { data: serviceRows } =
+        serviceIds.length > 0
+          ? await supabase
+              .from('service_catalog')
+              .select('id, treatment_code, name')
+              .in('id', serviceIds)
+          : { data: [] as DbServiceCatalogRow[] }
+
+      const quoteItemsByQuoteId = new Map<number, DbQuoteItemRow[]>()
+      ;((quoteItemRows || []) as DbQuoteItemRow[]).forEach((item) => {
+        const quoteId = Number(item.quote_id)
+        if (!Number.isFinite(quoteId)) return
+        const currentRows = quoteItemsByQuoteId.get(quoteId) || []
+        currentRows.push(item)
+        quoteItemsByQuoteId.set(quoteId, currentRows)
+      })
+
+      const planNameById = new Map<number, string>()
+      ;((planRows || []) as DbTreatmentPlanRow[]).forEach((plan) => {
+        const planId = Number(plan.id)
+        if (!Number.isFinite(planId)) return
+        const name = String(plan.name || '').trim()
+        if (name) planNameById.set(planId, name)
+      })
+
+      const planItemsByPlanId = new Map<number, DbTreatmentPlanItemRow[]>()
+      ;((planItemRows || []) as DbTreatmentPlanItemRow[]).forEach((row) => {
+        const planId = Number(row.plan_id)
+        if (!Number.isFinite(planId)) return
+        const currentRows = planItemsByPlanId.get(planId) || []
+        currentRows.push(row)
+        planItemsByPlanId.set(planId, currentRows)
+      })
+
+      const serviceById = new Map<number, DbServiceCatalogRow>()
+      ;((serviceRows || []) as DbServiceCatalogRow[]).forEach((row) => {
+        const serviceId = Number(row.id)
+        if (!Number.isFinite(serviceId)) return
+        serviceById.set(serviceId, row)
+      })
 
       const paymentsByInvoice = new Map<number, DbPaymentRow[]>()
       for (const payment of typedPayments) {
@@ -2374,12 +2529,76 @@ export default function BudgetsPayments({
       const budgetRowsMapped: BudgetRow[] = typedQuotes.map((quote) => {
         const budgetInvoices = invoicesByQuoteId.get(quote.id) || []
         const hasAcceptedInvoice = budgetInvoices.some((invoice) => invoice.status === 'Cobrado')
+        const planName =
+          (quote.plan_id ? planNameById.get(Number(quote.plan_id)) : undefined) || ''
+        const quoteItems = quoteItemsByQuoteId.get(quote.id) || []
+        const planItemsForQuote =
+          quote.plan_id && Number.isFinite(Number(quote.plan_id))
+            ? planItemsByPlanId.get(Number(quote.plan_id)) || []
+            : []
+        const planItemsQueueByServiceId = new Map<number, DbTreatmentPlanItemRow[]>()
+        planItemsForQuote.forEach((planItem) => {
+          const serviceId = Number(planItem.service_id)
+          if (!Number.isFinite(serviceId)) return
+          const currentRows = planItemsQueueByServiceId.get(serviceId) || []
+          currentRows.push(planItem)
+          planItemsQueueByServiceId.set(serviceId, currentRows)
+        })
+        const mappedTreatments: BudgetTreatment[] = quoteItems.map((item) => {
+          const serviceId = Number(item.service_id)
+          const matchingPlanItems = Number.isFinite(serviceId)
+            ? planItemsQueueByServiceId.get(serviceId) || []
+            : []
+          const matchedPlanItem = matchingPlanItems.shift()
+          if (Number.isFinite(serviceId)) {
+            planItemsQueueByServiceId.set(serviceId, matchingPlanItems)
+          }
+          const notes = parsePlanItemNotes(matchedPlanItem?.notes)
+          const service = Number.isFinite(serviceId)
+            ? serviceById.get(serviceId)
+            : undefined
+          const quantity = Number(item.quantity || 1)
+          const unitPrice = Number(item.unit_price || 0)
+          const finalPrice =
+            Number(item.final_price ?? quantity * unitPrice) || 0
+          const discountPct = Number(item.discount_percentage || 0)
+          const discountAmount = Math.max(quantity * unitPrice - finalPrice, 0)
+          return {
+            pieza:
+              matchedPlanItem && Number.isFinite(Number(matchedPlanItem.tooth_number))
+                ? Number(matchedPlanItem.tooth_number)
+                : undefined,
+            cara: notes.cara,
+            codigo: notes.codigo || String(service?.treatment_code || '').trim() || undefined,
+            tratamiento:
+              String(item.description || '').trim() ||
+              String(service?.name || '').trim() ||
+              'Tratamiento',
+            precio: formatEuroAmount(quantity * unitPrice),
+            porcentajeDescuento: discountPct,
+            descuento: formatEuroAmount(discountAmount),
+            importe: formatEuroAmount(finalPrice),
+            doctor: notes.doctor
+          }
+        })
+        const subtotalFromItems = mappedTreatments.reduce(
+          (sum, item) => sum + parseEuroAmount(item.importe),
+          0
+        )
+        const subtotal =
+          mappedTreatments.length > 0
+            ? subtotalFromItems
+            : Number(quote.total_amount || 0)
+
         return {
           id: quote.quote_number || `PRE-${quote.id}`,
           quoteId: quote.id,
-          description: quote.quote_number
-            ? `Presupuesto ${quote.quote_number}`
-            : `Presupuesto #${quote.id}`,
+          planId: Number.isFinite(Number(quote.plan_id)) ? Number(quote.plan_id) : undefined,
+          description:
+            planName ||
+            (quote.quote_number
+              ? `Presupuesto ${quote.quote_number}`
+              : `Presupuesto #${quote.id}`),
           amount: formatEuroAmount(Number(quote.total_amount || 0)),
           date: formatShortDate(quote.issue_date || quote.signed_at) || '—',
           status: hasAcceptedInvoice
@@ -2389,7 +2608,8 @@ export default function BudgetsPayments({
           insurer,
           patientId,
           patientName: displayPatientName,
-          subtotal: Number(quote.total_amount || 0),
+          treatments: mappedTreatments,
+          subtotal,
           validUntil: formatShortDate(quote.expiry_date) || undefined
         }
       })
@@ -2435,6 +2655,252 @@ export default function BudgetsPayments({
   React.useEffect(() => {
     void refreshFinanceData()
   }, [refreshFinanceData])
+
+  const createQuoteWithItems = React.useCallback(
+    async ({
+      selectedTreatments,
+      totalAmount,
+      productionPending = false,
+      budgetName
+    }: {
+      selectedTreatments: TreatmentV2[]
+      totalAmount: number
+      productionPending?: boolean
+      budgetName?: string
+    }): Promise<{ ok: true; quoteId: number } | { ok: false; error: string }> => {
+      if (!activeClinicId || !patientId) {
+        return { ok: false, error: 'Missing clinic/patient context' }
+      }
+
+      const issueDate = new Date().toISOString().slice(0, 10)
+      const expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10)
+      const quoteNumber = `PRE-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+      const normalizedBudgetName = String(budgetName || '').trim()
+
+      let planId: number | null = null
+      let planFailureMessage: string | null = null
+      try {
+        if (!normalizedBudgetName) {
+          const { data: latestPlan, error: latestPlanError } = await supabase
+            .from('treatment_plans')
+            .select('id')
+            .eq('patient_id', patientId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          if (latestPlanError) {
+            planFailureMessage = latestPlanError.message
+          }
+
+          if (latestPlan?.id) {
+            planId = Number((latestPlan as { id: number }).id)
+          }
+        }
+
+        if (!planId) {
+          const {
+            data: { user }
+          } = await supabase.auth.getUser()
+          if (!user?.id) {
+            return {
+              ok: false,
+              error: 'No authenticated user available to create treatment plan'
+            }
+          }
+
+          if (user?.id) {
+            const { data: createdPlan, error: createPlanError } = await supabase
+              .from('treatment_plans')
+              .insert({
+                patient_id: patientId,
+                staff_id: user.id,
+                name: normalizedBudgetName || `Plan ${quoteNumber}`,
+                status: 'draft'
+              })
+              .select('id')
+              .single()
+            if (createPlanError) {
+              return {
+                ok: false,
+                error: `No se pudo crear plan de tratamiento: ${createPlanError.message}`
+              }
+            }
+
+            if (!createPlanError && createdPlan?.id) {
+              planId = Number((createdPlan as { id: number }).id)
+            }
+          }
+        }
+      } catch (error) {
+        planFailureMessage =
+          error instanceof Error ? error.message : 'Unknown plan creation error'
+      }
+
+      if (!planId) {
+        return {
+          ok: false,
+          error:
+            planFailureMessage ||
+            'No se pudo obtener un plan de tratamiento (quotes.plan_id es obligatorio)'
+        }
+      }
+
+      const quotePayload: Record<string, unknown> = {
+        clinic_id: activeClinicId,
+        patient_id: patientId,
+        quote_number: quoteNumber,
+        status: 'sent',
+        total_amount: Number.isFinite(totalAmount) ? totalAmount : 0,
+        issue_date: issueDate,
+        expiry_date: expiryDate
+      }
+
+      if (productionPending) {
+        quotePayload.production_status = 'Pending'
+      }
+      if (planId) {
+        quotePayload.plan_id = planId
+      }
+
+      const { data: createdQuote, error: createQuoteError } = await supabase
+        .from('quotes')
+        .insert(quotePayload)
+        .select('id')
+        .single()
+
+      if (createQuoteError || !createdQuote?.id) {
+        return {
+          ok: false,
+          error: createQuoteError?.message || 'No quote id returned after insert'
+        }
+      }
+
+      const quoteId = Number((createdQuote as { id: number }).id)
+      if (!Number.isFinite(quoteId)) {
+        return { ok: false, error: 'Invalid quote id returned after insert' }
+      }
+
+      const normalizedCodes = Array.from(
+        new Set(
+          selectedTreatments
+            .map((t) => String(t.codigo || '').trim())
+            .filter((code) => code.length > 0)
+        )
+      )
+      const normalizedNames = Array.from(
+        new Set(
+          selectedTreatments
+            .map((t) => String(t.tratamiento || '').trim())
+            .filter((name) => name.length > 0)
+        )
+      )
+
+      const [servicesByCode, servicesByName] = await Promise.all([
+        normalizedCodes.length
+          ? supabase
+              .from('service_catalog')
+              .select('id, treatment_code, name')
+              .in('treatment_code', normalizedCodes)
+          : Promise.resolve({ data: [], error: null }),
+        normalizedNames.length
+          ? supabase
+              .from('service_catalog')
+              .select('id, treatment_code, name')
+              .in('name', normalizedNames)
+          : Promise.resolve({ data: [], error: null })
+      ])
+
+      const serviceByCode = new Map<string, number>()
+      const serviceByName = new Map<string, number>()
+      ;(servicesByCode.data || []).forEach((row: any) => {
+        if (row?.treatment_code) serviceByCode.set(String(row.treatment_code), Number(row.id))
+        if (row?.name) serviceByName.set(String(row.name), Number(row.id))
+      })
+      ;(servicesByName.data || []).forEach((row: any) => {
+        if (row?.treatment_code) serviceByCode.set(String(row.treatment_code), Number(row.id))
+        if (row?.name) serviceByName.set(String(row.name), Number(row.id))
+      })
+
+      const resolvedTreatmentRows = selectedTreatments
+        .map((treatment) => {
+          const treatmentCode = String(treatment.codigo || '').trim()
+          const treatmentName = String(treatment.tratamiento || '').trim()
+          const serviceId =
+            serviceByCode.get(treatmentCode) ?? serviceByName.get(treatmentName) ?? null
+          if (!serviceId) return null
+
+          const unitPrice = parseEuroAmount(treatment.precio || treatment.importe)
+          const discountPercentage =
+            Number.isFinite(Number(treatment.porcentajeDescuento))
+              ? Number(treatment.porcentajeDescuento)
+              : 0
+          const toothNumber = Number(treatment.pieza)
+          const notesPayload = {
+            cara: treatment.cara ? String(treatment.cara) : undefined,
+            doctor: treatment.doctor ? String(treatment.doctor) : undefined,
+            codigo: treatmentCode || undefined,
+            importeSeguro: treatment.importeSeguro
+              ? String(treatment.importeSeguro)
+              : undefined
+          }
+          const notesJson = JSON.stringify(notesPayload)
+
+          return {
+            service_id: serviceId,
+            quoteItem: {
+              quote_id: quoteId,
+              service_id: serviceId,
+              description: treatmentName || treatmentCode || 'Tratamiento',
+              quantity: 1,
+              unit_price: unitPrice,
+              discount_percentage: discountPercentage
+            },
+            planItem: {
+              plan_id: planId,
+              service_id: serviceId,
+              tooth_number: Number.isFinite(toothNumber) && toothNumber > 0 ? toothNumber : null,
+              notes: notesJson
+            }
+          }
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null)
+
+      const quoteItems = resolvedTreatmentRows.map((row) => row.quoteItem)
+      const planItems = resolvedTreatmentRows.map((row) => row.planItem)
+
+      if (selectedTreatments.length > 0 && quoteItems.length === 0) {
+        return {
+          ok: false,
+          error:
+            'No se pudieron vincular los tratamientos al catálogo (service_catalog). Revisa códigos/nombres de tratamientos.'
+        }
+      }
+
+      if (quoteItems.length > 0) {
+        const { error: insertItemsError } = await supabase
+          .from('quote_items')
+          .insert(quoteItems)
+        if (insertItemsError) {
+          return { ok: false, error: insertItemsError.message }
+        }
+      }
+
+      if (planItems.length > 0) {
+        const { error: insertPlanItemsError } = await supabase
+          .from('treatment_plan_items')
+          .insert(planItems)
+        if (insertPlanItemsError) {
+          return { ok: false, error: insertPlanItemsError.message }
+        }
+      }
+
+      return { ok: true, quoteId }
+    },
+    [activeClinicId, patientId, supabase]
+  )
 
   const resolvePatientEmail = React.useCallback(async (): Promise<string | null> => {
     if (!patientId) return null
@@ -2781,6 +3247,13 @@ export default function BudgetsPayments({
     TreatmentV2[] | undefined
   >(undefined)
   const [budgetTypeName, setBudgetTypeName] = React.useState<string>('')
+
+  const pendingTreatmentsForBudgetModal = React.useMemo(() => {
+    if (!patientId) return []
+    return getPendingTreatments(patientId).map(
+      convertPatientTreatmentToBudgetTreatment
+    )
+  }, [getPendingTreatments, patientId])
 
   // Handler for selecting a budget type from the list modal
   const handleBudgetTypeSelect = React.useCallback(
@@ -4839,28 +5312,31 @@ export default function BudgetsPayments({
           setBudgetTypeTreatments(undefined)
           setBudgetTypeName('')
         }}
-        treatments={budgetTypeTreatments}
+        treatments={budgetTypeTreatments || pendingTreatmentsForBudgetModal}
         initialBudgetName={budgetTypeName}
         onCreateBudget={(selectedTreatments, budgetInfo) => {
           if (shouldUseDbSource && activeClinicId && patientId) {
             void (async () => {
               try {
-                const { error } = await supabase.from('quotes').insert({
-                  clinic_id: activeClinicId,
-                  patient_id: patientId,
-                  quote_number: null,
-                  status: 'sent',
-                  total_amount: Number(budgetInfo.total || 0),
-                  issue_date: new Date().toISOString().slice(0, 10)
+                const result = await createQuoteWithItems({
+                  selectedTreatments,
+                  totalAmount: Number(budgetInfo.total || 0),
+                  budgetName: budgetInfo.name
                 })
-                if (error) throw error
+                if (!result.ok) throw new Error(result.error)
+                showNotice('Presupuesto guardado en base de datos', 'success')
+                setShowAddTreatmentsModal(false)
               } catch (error) {
                 console.warn('Error creating quote', error)
+                const message =
+                  error instanceof Error
+                    ? error.message
+                    : 'No se pudo guardar el presupuesto'
+                showNotice(message, 'error')
               } finally {
                 await refreshFinanceData()
               }
             })()
-            setShowAddTreatmentsModal(false)
             return
           }
 
@@ -4943,6 +5419,7 @@ export default function BudgetsPayments({
         onClose={() => setShowCreateBudgetTypeModal(false)}
         onCreateBudget={() => {}}
         onCreateBudgetType={handleSaveBudgetType}
+        treatments={pendingTreatmentsForBudgetModal}
         mode='budgetType'
       />
       <AddProductionModal
@@ -4957,21 +5434,24 @@ export default function BudgetsPayments({
             )
             void (async () => {
               try {
-                const { error } = await supabase.from('quotes').insert({
-                  clinic_id: activeClinicId,
-                  patient_id: patientId,
-                  status: 'sent',
-                  total_amount: Number.isFinite(parsedAmount) ? parsedAmount : 0,
-                  issue_date: new Date().toISOString().slice(0, 10),
-                  production_status: 'Pending'
+                const result = await createQuoteWithItems({
+                  selectedTreatments: [],
+                  totalAmount: Number.isFinite(parsedAmount) ? parsedAmount : 0,
+                  productionPending: true
                 })
-                if (error) throw error
+                if (!result.ok) {
+                  throw new Error(result.error)
+                }
+                showNotice('Producción creada en base de datos', 'success')
+                setShowAddProductionModal(false)
               } catch (error) {
                 console.warn('Error creating production quote', error)
+                showNotice('No se pudo crear la producción', 'error')
               } finally {
                 await refreshFinanceData()
               }
             })()
+            return
           }
           setShowAddProductionModal(false)
         }}
@@ -5266,18 +5746,38 @@ export default function BudgetsPayments({
           if (shouldUseDbSource && activeClinicId && updatedBudget.quoteId) {
             void (async () => {
               try {
-                const { error } = await supabase
-                  .from('quotes')
-                  .update({
+                const totalAmount =
+                  parseEuroAmount(updatedBudget.amount) ||
+                  Number(updatedBudget.subtotal || 0)
+                const response = await fetch('/api/pacientes/budgets/update', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    clinicId: activeClinicId,
+                    quoteId: updatedBudget.quoteId,
                     status: mapUiBudgetStatusToDb(updatedBudget.status),
-                    total_amount: Number(updatedBudget.subtotal || 0),
-                    expiry_date: updatedBudget.validUntil || null
+                    totalAmount,
+                    validUntil: updatedBudget.validUntil || null,
+                    planId: updatedBudget.planId || null,
+                    planName: String(updatedBudget.description || '').trim(),
+                    treatments: updatedBudget.treatments || []
                   })
-                  .eq('id', updatedBudget.quoteId)
-                  .eq('clinic_id', activeClinicId)
-                if (error) throw error
+                })
+
+                const payload: { ok?: boolean; error?: string } =
+                  await response.json().catch(() => ({}))
+
+                if (!response.ok || !payload?.ok) {
+                  throw new Error(payload?.error || 'No se pudo actualizar el presupuesto')
+                }
+                showNotice('Presupuesto actualizado en base de datos', 'success')
               } catch (error) {
                 console.warn('Error updating quote', error)
+                const message =
+                  error instanceof Error
+                    ? error.message
+                    : 'No se pudo actualizar el presupuesto'
+                showNotice(message, 'error')
               } finally {
                 await refreshFinanceData()
               }
