@@ -3867,12 +3867,14 @@ export default function WeekScheduler() {
       <header className='relative z-30 flex h-[var(--scheduler-toolbar-height)] w-full shrink-0 items-center justify-between border-b border-[var(--color-border-default)] bg-[var(--color-neutral-100)] px-3 lg:px-4'>
         {/* Grupo izquierdo: Navegación */}
         <div className='flex items-center gap-3'>
-          {/* Segmented control solo para vista diaria */}
+          {/* Segmented control solo para vista diaria - oculto en pantallas < 1700px */}
           {viewOption === 'dia' && (
-            <DayPeriodSegmentedControl
-              selected={dayPeriod}
-              onSelect={setDayPeriod}
-            />
+            <div className='hidden min-[1700px]:block'>
+              <DayPeriodSegmentedControl
+                selected={dayPeriod}
+                onSelect={setDayPeriod}
+              />
+            </div>
           )}
           {/* Selector de fecha condicional según la vista */}
           {viewOption === 'mes' ? (
