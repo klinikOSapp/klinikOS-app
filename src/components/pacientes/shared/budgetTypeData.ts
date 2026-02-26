@@ -130,7 +130,7 @@ export const BUDGET_TYPES_DATA: BudgetTypeData[] = [
 
 export function convertBudgetTypeToTreatmentsV2(
   budgetType: BudgetTypeData,
-  defaultDoctor: string = 'Dr. Guillermo'
+  defaultDoctor?: string
 ): TreatmentV2[] {
   return budgetType.treatments.map((treatment, index) => {
     const precioStr = `${treatment.precio.toLocaleString('es-ES')} €`
@@ -148,7 +148,7 @@ export function convertBudgetTypeToTreatmentsV2(
       importeSeguro: '',
       descripcionAnotaciones: '',
       doctor: defaultDoctor,
-      selected: true // Pre-seleccionados para añadir al presupuesto
+      selected: true
     }
   })
 }

@@ -23,7 +23,10 @@ import type {
   TreatmentCatalogEntry,
   TreatmentV2
 } from '@/components/pacientes/shared/treatmentTypes'
-import { TREATMENT_CATALOG } from '@/components/pacientes/shared/treatmentTypes'
+import {
+  FAMILY_TO_SPECIALTY,
+  TREATMENT_CATALOG
+} from '@/components/pacientes/shared/treatmentTypes'
 import { useConfiguration } from '@/context/ConfigurationContext'
 import { usePatients, type PatientTreatment } from '@/context/PatientsContext'
 import { setPendingAppointmentData } from '@/utils/appointmentPrefill'
@@ -551,11 +554,15 @@ function TreatmentRow({
       {/* Doctor - Select */}
       <TableBodyCell width='14.1875rem'>
         <select
-          value={treatment.doctor}
-          onChange={(e) => onUpdateField('doctor', e.target.value)}
-          className='w-full bg-transparent border-none outline-none text-[0.875rem] leading-[1.25rem] text-[#24282C] 
-            focus:bg-[var(--color-neutral-50)] rounded px-1 py-0.5 cursor-pointer'
+          value={treatment.doctor || ''}
+          onChange={(e) =>
+            onUpdateField('doctor', e.target.value || undefined)
+          }
+          className={`w-full bg-transparent border-none outline-none text-[0.875rem] leading-[1.25rem] 
+            focus:bg-[var(--color-neutral-50)] rounded px-1 py-0.5 cursor-pointer
+            ${treatment.doctor ? 'text-[#24282C]' : 'text-[var(--color-neutral-400)]'}`}
         >
+          <option value=''>Sin asignar</option>
           {professionals.map((prof) => (
             <option key={prof.value} value={prof.value}>
               {prof.label}
@@ -611,8 +618,21 @@ export default function Treatments({
   const router = useRouter()
 
   // Contexto de configuración
-  const { professionalNameOptions, addBudgetType } = useConfiguration()
-  const defaultDoctor = professionalNameOptions[0]?.value || ''
+  const { professionalNameOptions, activeProfessionals, addBudgetType } =
+    useConfiguration()
+
+  const getSmartDoctor = React.useCallback(
+    (familia?: string): string | undefined => {
+      if (!familia) return undefined
+      const compatibleSpecialties = FAMILY_TO_SPECIALTY[familia]
+      if (!compatibleSpecialties) return undefined
+      const matches = activeProfessionals.filter((p) =>
+        compatibleSpecialties.includes(p.role)
+      )
+      return matches.length === 1 ? matches[0].name : undefined
+    },
+    [activeProfessionals]
+  )
 
   // Contexto de pacientes
   const {
@@ -776,6 +796,7 @@ export default function Treatments({
     const { codigo, entry } = selectedCatalogTreatment
 
     // Crear un tratamiento por cada pieza seleccionada
+    const smartDoctor = getSmartDoctor(entry.familia)
     const newTreatments: TreatmentV2[] = selectedTeeth.map((toothId) => ({
       _internalId: `new-${Date.now()}-${Math.random()}-${toothId}`,
       pieza: toothId,
@@ -783,7 +804,7 @@ export default function Treatments({
       tratamiento: entry.description,
       precio: entry.amount,
       importe: entry.amount,
-      doctor: defaultDoctor,
+      doctor: smartDoctor,
       selected: false
     }))
 
@@ -834,14 +855,14 @@ export default function Treatments({
   ) => {
     const newTreatment: TreatmentV2 = {
       _internalId: `new-${Date.now()}-${Math.random()}`,
-      pieza: undefined, // Sin pieza asignada
+      pieza: undefined,
       codigo,
       tratamiento: entry.description,
       precio: entry.amount,
       importe: entry.amount,
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: defaultDoctor,
+      doctor: getSmartDoctor(entry.familia),
       selected: false
     }
 
@@ -937,12 +958,12 @@ export default function Treatments({
       importe: '0 €',
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: defaultDoctor,
+      doctor: undefined,
       selected: false
     }
     setPendingTreatments((prev) => [...prev, newTreatment])
     setNewRowId(newId)
-  }, [defaultDoctor])
+  }, [])
 
   // Effect to auto-add empty row when navigating from Resumen with "add treatment" action
   React.useEffect(() => {
@@ -1060,7 +1081,7 @@ export default function Treatments({
         (t) =>
           t.codigo.toLowerCase().includes(term) ||
           t.tratamiento.toLowerCase().includes(term) ||
-          t.doctor.toLowerCase().includes(term)
+          (t.doctor?.toLowerCase().includes(term) ?? false)
       )
     }
 
@@ -1082,7 +1103,7 @@ export default function Treatments({
         (t) =>
           t.codigo.toLowerCase().includes(term) ||
           t.tratamiento.toLowerCase().includes(term) ||
-          t.doctor.toLowerCase().includes(term)
+          (t.doctor?.toLowerCase().includes(term) ?? false)
       )
     }
 
@@ -1431,7 +1452,7 @@ export default function Treatments({
             date: 'Sin fecha',
             amount: activeMenu.treatment.precio,
             status: 'Aceptado',
-            professional: activeMenu.treatment.doctor,
+            professional: activeMenu.treatment.doctor || '',
             selected: false
           }}
           onClose={() => setActiveMenu(null)}

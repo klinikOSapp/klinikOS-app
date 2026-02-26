@@ -23,7 +23,10 @@ import type {
   TreatmentCatalogEntry,
   TreatmentV2
 } from '@/components/pacientes/shared/treatmentTypes'
-import { TREATMENT_CATALOG } from '@/components/pacientes/shared/treatmentTypes'
+import {
+  FAMILY_TO_SPECIALTY,
+  TREATMENT_CATALOG
+} from '@/components/pacientes/shared/treatmentTypes'
 import { useConfiguration } from '@/context/ConfigurationContext'
 import {
   downloadDocument,
@@ -445,11 +448,15 @@ function TreatmentRow({
       {/* Doctor - Select */}
       <TableBodyCell width='14.1875rem'>
         <select
-          value={treatment.doctor}
-          onChange={(e) => onUpdateField('doctor', e.target.value)}
-          className='w-full bg-transparent border-none outline-none text-[0.6875rem] leading-[1rem] text-[#24282C] 
-            focus:bg-[var(--color-neutral-50)] rounded px-1 py-0.5 cursor-pointer'
+          value={treatment.doctor || ''}
+          onChange={(e) =>
+            onUpdateField('doctor', e.target.value || undefined)
+          }
+          className={`w-full bg-transparent border-none outline-none text-[0.6875rem] leading-[1rem]
+            focus:bg-[var(--color-neutral-50)] rounded px-1 py-0.5 cursor-pointer
+            ${treatment.doctor ? 'text-[#24282C]' : 'text-[var(--color-neutral-400)]'}`}
         >
+          <option value=''>Sin asignar</option>
           {professionals.map((prof) => (
             <option key={prof.value} value={prof.value}>
               {prof.label}
@@ -588,8 +595,20 @@ export default function AddTreatmentsToBudgetModal({
   initialBudgetName = '',
   mode = 'budget'
 }: AddTreatmentsToBudgetModalProps) {
-  const { professionalNameOptions } = useConfiguration()
-  const defaultDoctor = professionalNameOptions[0]?.value || ''
+  const { professionalNameOptions, activeProfessionals } = useConfiguration()
+
+  const getSmartDoctor = React.useCallback(
+    (familia?: string): string | undefined => {
+      if (!familia) return undefined
+      const compatibleSpecialties = FAMILY_TO_SPECIALTY[familia]
+      if (!compatibleSpecialties) return undefined
+      const matches = activeProfessionals.filter((p) =>
+        compatibleSpecialties.includes(p.role)
+      )
+      return matches.length === 1 ? matches[0].name : undefined
+    },
+    [activeProfessionals]
+  )
 
   const [mounted, setMounted] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState('')
@@ -783,15 +802,15 @@ export default function AddTreatmentsToBudgetModal({
       .substr(2, 9)}`
     const newTreatment: TreatmentV2 = {
       _internalId: newId,
-      pieza: undefined, // Sin pieza asignada
+      pieza: undefined,
       codigo,
       tratamiento: entry.description,
       precio: entry.amount,
       importe: entry.amount,
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: defaultDoctor,
-      selected: true // Seleccionar automáticamente para el presupuesto
+      doctor: getSmartDoctor(entry.familia),
+      selected: true
     }
 
     // Añadir a la lista de tratamientos
@@ -822,8 +841,8 @@ export default function AddTreatmentsToBudgetModal({
       importe: entry.amount,
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: defaultDoctor,
-      selected: true // Seleccionar automáticamente los nuevos
+      doctor: getSmartDoctor(entry.familia),
+      selected: true
     }))
 
     // Añadir a la lista de tratamientos
@@ -882,7 +901,7 @@ export default function AddTreatmentsToBudgetModal({
       importe: '0 €',
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: defaultDoctor,
+      doctor: undefined,
       selected: false
     }
     setTreatments((prev) => [...prev, newTreatment])
@@ -937,7 +956,7 @@ export default function AddTreatmentsToBudgetModal({
         (t) =>
           t.codigo.toLowerCase().includes(query) ||
           t.tratamiento.toLowerCase().includes(query) ||
-          t.doctor.toLowerCase().includes(query)
+          (t.doctor?.toLowerCase().includes(query) ?? false)
       )
     }
 
@@ -1017,7 +1036,7 @@ export default function AddTreatmentsToBudgetModal({
         importe: t.importe,
         importeSeguro: t.importeSeguro,
         descripcionAnotaciones: t.descripcionAnotaciones,
-        doctor: t.doctor
+        doctor: t.doctor || ''
       }))
 
       // Prepare budget options with name and general discount
@@ -1653,7 +1672,7 @@ export default function AddTreatmentsToBudgetModal({
                       date: 'Sin fecha',
                       amount: activeMenu.treatment.precio,
                       status: 'Aceptado',
-                      professional: activeMenu.treatment.doctor,
+                      professional: activeMenu.treatment.doctor || '',
                       selected: false
                     }}
                     onClose={() => setActiveMenu(null)}
