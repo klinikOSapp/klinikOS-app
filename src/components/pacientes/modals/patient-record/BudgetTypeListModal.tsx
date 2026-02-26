@@ -1,10 +1,8 @@
 'use client'
 
 import { AddRounded, CloseRounded, SearchRounded } from '@/components/icons/md3'
-import {
-  getBudgetTypes,
-  type BudgetTypeData
-} from '@/components/pacientes/shared/budgetTypeData'
+import type { BudgetTypeData } from '@/components/pacientes/shared/budgetTypeData'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import React from 'react'
 import { createPortal } from 'react-dom'
 
@@ -73,6 +71,7 @@ export default function BudgetTypeListModal({
   onSelect,
   onCreateNew
 }: BudgetTypeListModalProps) {
+  const { budgetTypes } = useConfiguration()
   const [mounted, setMounted] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState('')
 
@@ -97,9 +96,6 @@ export default function BudgetTypeListModal({
   }, [open])
 
   if (!open || !mounted) return null
-
-  // Get current budget types (including newly created ones)
-  const budgetTypes = getBudgetTypes()
 
   // Filter budget types by search term and only show active ones
   const filteredBudgetTypes = budgetTypes.filter((bt) => {

@@ -12,10 +12,13 @@ export default function VoiceAgentKPICard({
   value,
   changePercent,
   changeDirection,
+  invertTrend,
   comparisonValue,
   comparisonLabel
 }: VoiceAgentKPICardProps) {
-  const isPositive = changeDirection === 'up'
+  const isPositive = invertTrend
+    ? changeDirection === 'down'
+    : changeDirection === 'up'
 
   return (
     <div className='bg-surface rounded-lg w-[min(10.25rem,100%)] h-[min(5rem,100%)] px-2 py-2'>

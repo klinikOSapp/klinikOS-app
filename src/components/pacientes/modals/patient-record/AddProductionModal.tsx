@@ -1,13 +1,11 @@
 'use client'
 
-import {
-  CloseRounded,
-  InfoRounded
-} from '@/components/icons/md3'
+import { CloseRounded, InfoRounded } from '@/components/icons/md3'
 import {
   SelectInput,
   TextInput
 } from '@/components/pacientes/modals/add-patient/AddPatientInputs'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import React from 'react'
 import { createPortal } from 'react-dom'
 
@@ -37,11 +35,6 @@ const TREATMENTS = [
   { value: 'blanqueamiento', label: 'Blanqueamiento dental' }
 ]
 
-const PROFESSIONALS = [
-  { value: 'dr-guillermo', label: 'Dr. Guillermo' },
-  { value: 'dra-andrea', label: 'Dra. Andrea' }
-]
-
 const INSURERS = [
   { value: 'ninguna', label: 'Ninguna' },
   { value: 'adeslas', label: 'Adeslas' },
@@ -60,6 +53,7 @@ export default function AddProductionModal({
   onClose,
   onSubmit
 }: AddProductionModalProps) {
+  const { professionalNameOptions } = useConfiguration()
   const [formData, setFormData] = React.useState<ProductionFormData>({
     treatment: '',
     professional: '',
@@ -161,7 +155,7 @@ export default function AddProductionModal({
                   placeholder='Seleccionar profesional'
                   value={formData.professional}
                   onChange={(v) => handleChange('professional', v)}
-                  options={PROFESSIONALS}
+                  options={professionalNameOptions}
                 />
                 <span className='text-[0.6875rem] font-medium leading-4 text-neutral-600'>
                   Texto descriptivo

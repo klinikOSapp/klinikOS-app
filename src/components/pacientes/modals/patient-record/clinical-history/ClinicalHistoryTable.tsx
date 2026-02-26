@@ -16,12 +16,12 @@ import {
   VisibilityRounded
 } from '@/components/icons/md3'
 import ExpandedTextInput from '@/components/pacientes/shared/ExpandedTextInput'
-import { PROFESSIONALS } from '@/components/pacientes/shared/treatmentTypes'
 import type {
   Appointment,
   VisitSOAPNotes,
   VisitStatus
 } from '@/context/AppointmentsContext'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import React from 'react'
 import {
   calculateDurationMinutes,
@@ -150,6 +150,7 @@ function ProfessionalDropdown({
   onToggle,
   onSelect
 }: ProfessionalDropdownProps) {
+  const { professionalNameOptions } = useConfiguration()
   const dropdownRef = React.useRef<HTMLDivElement>(null)
 
   // Close on outside click
@@ -168,7 +169,7 @@ function ProfessionalDropdown({
   }, [isOpen, onToggle])
 
   const currentLabel =
-    PROFESSIONALS.find((p) => p.value === value)?.label || value
+    professionalNameOptions.find((p) => p.value === value)?.label || value
 
   return (
     <div className='relative inline-flex' ref={dropdownRef}>
@@ -188,7 +189,7 @@ function ProfessionalDropdown({
 
       {isOpen && (
         <div className='absolute left-0 top-[calc(100%+0.25rem)] z-20 min-w-[10rem] max-h-[12rem] overflow-y-auto rounded-lg border border-[var(--color-neutral-200)] bg-white shadow-lg'>
-          {PROFESSIONALS.map((prof) => (
+          {professionalNameOptions.map((prof) => (
             <button
               key={prof.value}
               type='button'

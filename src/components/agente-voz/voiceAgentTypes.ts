@@ -49,6 +49,7 @@ export interface VoiceAgentKPI {
   value: string | number
   changePercent: string
   changeDirection: 'up' | 'down'
+  invertTrend?: boolean // When true, 'down' = positive (green), 'up' = negative (red)
   comparisonValue: string | number
   comparisonLabel: string
 }

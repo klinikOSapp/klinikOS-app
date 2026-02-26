@@ -95,7 +95,6 @@ export default function CashToolbar({
     SCALE_OPTIONS.find(({ id }) => id === timeScale)?.label ?? ''
 
   const ctaStyles: CSSProperties = {
-    width: `min(${CTA_WIDTH_REM}rem, 100%)`,
     minHeight: `min(${CTA_HEIGHT_REM}rem, 6vh)`
   }
 
@@ -145,8 +144,8 @@ export default function CashToolbar({
   }
 
   return (
-    <div className='mt-[var(--spacing-plnav)] flex flex-col gap-fluid-sm xl:flex-row xl:items-center xl:justify-between'>
-      <div className='w-full xl:w-auto'>
+    <div className='mt-[var(--spacing-plnav)] flex items-center justify-between gap-fluid-sm'>
+      <div className='min-w-0'>
         <div className='flex flex-wrap items-center gap-gapmd'>
           <DateNavigator
             dateLabel={dateLabel}
@@ -231,12 +230,12 @@ export default function CashToolbar({
       </div>
 
       {showClosingButton ? (
-        <div className='flex items-center gap-3'>
+        <div className='flex shrink-0 items-center gap-3'>
           <button
             type='button'
-            className='inline-flex items-center justify-center rounded-full bg-brand-500 px-[1rem] py-[0.5rem] text-title-sm font-medium text-neutral-900 shadow-cta transition-colors hover:bg-brand-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-surface-app'
+            className='inline-flex items-center justify-center whitespace-nowrap rounded-full bg-brand-500 px-[1.25rem] py-[0.625rem] text-title-sm font-medium text-neutral-900 shadow-cta transition-colors hover:bg-brand-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brandSemantic focus-visible:ring-offset-2 focus-visible:ring-offset-surface-app'
             style={ctaStyles}
-            onClick={() => handleOpenClosingModal(dateToCheck)}
+            onClick={() => handleOpenClosingModal()}
             aria-haspopup='dialog'
             aria-expanded={isClosingModalOpen}
           >
