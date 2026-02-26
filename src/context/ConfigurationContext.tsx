@@ -2,14 +2,23 @@
 
 import {
   createContext,
+  Dispatch,
   ReactNode,
+  SetStateAction,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useState
 } from 'react'
+import {
+  BUDGET_TYPES_DATA,
+  type BudgetTypeData
+} from '@/components/pacientes/shared/budgetTypeData'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import type { ConfigExpense } from '@/types/configExpenses'
+import type { ConfigPermission, ConfigRole } from '@/types/configRoles'
+import type { ConfigCategory, ConfigDiscount } from '@/types/treatments'
 import { useClinic } from './ClinicContext'
 
 // ============================================
@@ -53,6 +62,8 @@ export type ProfessionalColorTone =
   | 'azul'
   | 'rojo'
 
+export type EmploymentType = 'autonomo' | 'nomina'
+
 export type Professional = {
   id: string
   name: string
@@ -62,7 +73,9 @@ export type Professional = {
   email: string
   colorLabel: string
   colorTone: ProfessionalColorTone
+  employmentType?: EmploymentType
   commission: string
+  salary?: string
   status: 'Activo' | 'Inactivo'
   photoUrl?: string
 }
@@ -733,6 +746,8 @@ type ConfigurationContextType = {
 
   // Professional options for dropdowns (agenda)
   professionalOptions: Array<{ id: string; label: string; color: string }>
+  professionalNames: string[]
+  professionalNameOptions: Array<{ value: string; label: string }>
 
   // Boxes
   boxes: Box[]
@@ -780,6 +795,29 @@ type ConfigurationContextType = {
   isProfessionalAvailable: (professionalId: string, date: Date, time: string) => boolean
   getProfessionalScheduleForDate: (professionalId: string, date: Date) => DaySchedule | null
   getAvailableProfessionalsForDate: (date: Date) => Professional[]
+
+  // Treatments, discounts, budget types
+  treatmentCategories: ConfigCategory[]
+  setTreatmentCategories: Dispatch<SetStateAction<ConfigCategory[]>>
+  discounts: ConfigDiscount[]
+  setDiscounts: Dispatch<SetStateAction<ConfigDiscount[]>>
+  discountOptions: string[]
+  budgetTypes: BudgetTypeData[]
+  setBudgetTypes: Dispatch<SetStateAction<BudgetTypeData[]>>
+  addBudgetType: (budgetType: Omit<BudgetTypeData, 'id'>) => BudgetTypeData
+  updateBudgetType: (id: string, updates: Partial<BudgetTypeData>) => void
+  deleteBudgetType: (id: string) => void
+
+  // Finances
+  expenses: ConfigExpense[]
+  setExpenses: Dispatch<SetStateAction<ConfigExpense[]>>
+
+  // Roles and permissions
+  roles: ConfigRole[]
+  setRoles: Dispatch<SetStateAction<ConfigRole[]>>
+  toggleRolePermission: (roleId: string, permissionId: string) => void
+  permissions: ConfigPermission[]
+  setPermissions: Dispatch<SetStateAction<ConfigPermission[]>>
 }
 
 // ============================================
@@ -814,6 +852,15 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const [scheduleTemplates] = useState<ScheduleTemplate[]>(
     DEFAULT_SCHEDULE_TEMPLATES
   )
+  const [treatmentCategories, setTreatmentCategories] = useState<ConfigCategory[]>(
+    []
+  )
+  const [discounts, setDiscountsState] = useState<ConfigDiscount[]>([])
+  const [budgetTypesState, setBudgetTypesState] =
+    useState<BudgetTypeData[]>(BUDGET_TYPES_DATA)
+  const [expenses, setExpensesState] = useState<ConfigExpense[]>([])
+  const [roles, setRolesState] = useState<ConfigRole[]>([])
+  const [permissions, setPermissionsState] = useState<ConfigPermission[]>([])
   const {
     activeClinicId,
     clinics: clinicOptions,
@@ -1266,7 +1313,10 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (error) {
-        console.warn('ConfigurationContext DB hydration failed, using mock data', error)
+        console.warn(
+          'ConfigurationContext DB hydration failed; preserving current in-memory state',
+          error
+        )
       }
     }
 
@@ -1275,7 +1325,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false
     }
-  }, [activeClinicId, isClinicInitialized])
+  }, [activeClinicId, clinicOptions, isClinicInitialized])
 
   useEffect(() => {
     setProfessionalSchedules((previous) => {
@@ -1649,6 +1699,18 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         color: professionalColorStyles[p.colorTone]?.hex || '#6b7280'
       })),
     [activeProfessionals]
+  )
+  const professionalNames = useMemo(
+    () => activeProfessionals.map((p) => p.name).filter(Boolean),
+    [activeProfessionals]
+  )
+  const professionalNameOptions = useMemo(
+    () => professionalNames.map((name) => ({ value: name, label: name })),
+    [professionalNames]
+  )
+  const discountOptions = useMemo(
+    () => discounts.filter((d) => d.isActive).map((d) => d.name),
+    [discounts]
   )
 
   // ====== BOXES ======
@@ -2284,6 +2346,65 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     [activeProfessionals, getProfessionalScheduleForDate]
   )
 
+  const setDiscounts = useCallback(
+    (discountsOrUpdater: SetStateAction<ConfigDiscount[]>) => {
+      setDiscountsState(discountsOrUpdater)
+    },
+    []
+  )
+
+  const addBudgetType = useCallback((budgetType: Omit<BudgetTypeData, 'id'>) => {
+    const created: BudgetTypeData = {
+      ...budgetType,
+      id: `bt-${Date.now()}`
+    }
+    setBudgetTypesState((prev) => [created, ...prev])
+    return created
+  }, [])
+
+  const updateBudgetType = useCallback((id: string, updates: Partial<BudgetTypeData>) => {
+    setBudgetTypesState((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
+    )
+  }, [])
+
+  const deleteBudgetType = useCallback((id: string) => {
+    setBudgetTypesState((prev) => prev.filter((item) => item.id !== id))
+  }, [])
+
+  const setExpenses = useCallback(
+    (expensesOrUpdater: SetStateAction<ConfigExpense[]>) => {
+      setExpensesState(expensesOrUpdater)
+    },
+    []
+  )
+
+  const setRoles = useCallback((rolesOrUpdater: SetStateAction<ConfigRole[]>) => {
+    setRolesState(rolesOrUpdater)
+  }, [])
+
+  const toggleRolePermission = useCallback((roleId: string, permissionId: string) => {
+    setRolesState((prev) =>
+      prev.map((role) =>
+        role.id !== roleId
+          ? role
+          : {
+              ...role,
+              permisos: role.permisos.includes(permissionId)
+                ? role.permisos.filter((id) => id !== permissionId)
+                : [...role.permisos, permissionId]
+            }
+      )
+    )
+  }, [])
+
+  const setPermissions = useCallback(
+    (permissionsOrUpdater: SetStateAction<ConfigPermission[]>) => {
+      setPermissionsState(permissionsOrUpdater)
+    },
+    []
+  )
+
   // ====== CONTEXT VALUE ======
   const value = useMemo<ConfigurationContextType>(
     () => ({
@@ -2301,6 +2422,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       getProfessionalById,
       getProfessionalByName,
       professionalOptions,
+      professionalNames,
+      professionalNameOptions,
       boxes,
       activeBoxes,
       addBox,
@@ -2327,7 +2450,24 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       copySchedule,
       isProfessionalAvailable,
       getProfessionalScheduleForDate,
-      getAvailableProfessionalsForDate
+      getAvailableProfessionalsForDate,
+      treatmentCategories,
+      setTreatmentCategories,
+      discounts,
+      setDiscounts,
+      discountOptions,
+      budgetTypes: budgetTypesState,
+      setBudgetTypes: setBudgetTypesState,
+      addBudgetType,
+      updateBudgetType,
+      deleteBudgetType,
+      expenses,
+      setExpenses,
+      roles,
+      setRoles,
+      toggleRolePermission,
+      permissions,
+      setPermissions
     }),
     [
       clinicInfo,
@@ -2344,6 +2484,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       getProfessionalById,
       getProfessionalByName,
       professionalOptions,
+      professionalNames,
+      professionalNameOptions,
       boxes,
       activeBoxes,
       addBox,
@@ -2370,7 +2512,23 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       copySchedule,
       isProfessionalAvailable,
       getProfessionalScheduleForDate,
-      getAvailableProfessionalsForDate
+      getAvailableProfessionalsForDate,
+      treatmentCategories,
+      setTreatmentCategories,
+      discounts,
+      setDiscounts,
+      discountOptions,
+      budgetTypesState,
+      addBudgetType,
+      updateBudgetType,
+      deleteBudgetType,
+      expenses,
+      setExpenses,
+      roles,
+      setRoles,
+      toggleRolePermission,
+      permissions,
+      setPermissions
     ]
   )
 
