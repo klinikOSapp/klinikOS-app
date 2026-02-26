@@ -37,7 +37,7 @@ type CallsTableProps = {
 
 const ITEMS_PER_PAGE = 9
 const CALLS_FETCH_LIMIT = 500
-const CALLS_RPC_LIMIT = 1200
+const CALLS_RPC_LIMIT = 800
 
 type VoiceAgentRpcCallRow = {
   call_id: string | number
@@ -738,6 +738,7 @@ export default function CallsTable({
   const [currentPage, setCurrentPage] = useState(1)
   const [viewMode, setViewMode] = useState<ViewMode>('table')
   const [refreshTick, setRefreshTick] = useState(0)
+  const rpcRouteSchemaMismatchRef = useRef(false)
 
   // Local state for call records (to allow status updates from appointment sync)
   const [localCalls, setLocalCalls] = useState<CallRecord[]>(data ?? [])
@@ -795,6 +796,9 @@ export default function CallsTable({
             params.set('weekStart', formatDateParam(weekStart))
           }
           params.set('limit', String(CALLS_RPC_LIMIT))
+          if (rpcRouteSchemaMismatchRef.current) {
+            params.set('skipRpc', '1')
+          }
 
           const response = await fetch(`/api/agente-voz/calls?${params.toString()}`, {
             cache: 'no-store'
@@ -802,7 +806,12 @@ export default function CallsTable({
 
           if (response.ok) {
             const payload = (await response.json()) as {
+              source?: 'rpc' | 'fallback'
+              rpcError?: { code?: string | null; message?: string | null } | null
               calls?: VoiceAgentRpcCallRow[]
+            }
+            if (payload.source === 'fallback' && payload.rpcError?.code === '42804') {
+              rpcRouteSchemaMismatchRef.current = true
             }
             if (Array.isArray(payload.calls)) {
               const normalizedCalls = hydrateCallsFromRpcRows(payload.calls)

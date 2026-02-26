@@ -97,6 +97,14 @@ const JS_DAY_TO_WEEKDAY: Record<number, Weekday | null> = {
   6: null
 }
 
+const PROFESSIONAL_DOT_PALETTE = [
+  '#7725eb',
+  '#d97706',
+  '#2e7d5b',
+  '#0369a1',
+  '#dc2626'
+]
+
 const normalizeTimeLabel = (label: string): string => {
   const [hoursPart = '00', minutesPart = '00'] = label.split(':')
   const hours = hoursPart.padStart(2, '0')
@@ -1487,6 +1495,50 @@ export default function WeekScheduler() {
     },
     [inferredProfessionalOptions, professionalOptions]
   )
+  const dotColorByProfessionalId = useMemo(() => {
+    const groupedByColor = new Map<string, Array<{ id: string; color: string }>>()
+    for (const option of effectiveProfessionalOptions) {
+      const colorKey = String(option.color || '').trim().toLowerCase() || '__empty__'
+      const existing = groupedByColor.get(colorKey) || []
+      existing.push({ id: option.id, color: option.color })
+      groupedByColor.set(colorKey, existing)
+    }
+
+    const byId = new Map<string, string>()
+    for (const group of groupedByColor.values()) {
+      if (group.length <= 1) {
+        const single = group[0]
+        if (single) {
+          byId.set(single.id, single.color || PROFESSIONAL_DOT_PALETTE[0])
+        }
+        continue
+      }
+
+      const sorted = [...group].sort((a, b) => a.id.localeCompare(b.id))
+      sorted.forEach((entry, index) => {
+        byId.set(
+          entry.id,
+          PROFESSIONAL_DOT_PALETTE[index % PROFESSIONAL_DOT_PALETTE.length]
+        )
+      })
+    }
+
+    for (const option of effectiveProfessionalOptions) {
+      if (!byId.has(option.id)) {
+        byId.set(option.id, option.color || PROFESSIONAL_DOT_PALETTE[0])
+      }
+    }
+
+    return byId
+  }, [effectiveProfessionalOptions])
+  const dotProfessionalOptions = useMemo(
+    () =>
+      effectiveProfessionalOptions.map((option) => ({
+        ...option,
+        color: dotColorByProfessionalId.get(option.id) || option.color
+      })),
+    [dotColorByProfessionalId, effectiveProfessionalOptions]
+  )
   const effectiveBoxOptions = useMemo(
     () =>
       (boxOptions.length > 0 ? boxOptions : DEFAULT_BOX_OPTIONS).map((opt) => ({
@@ -2702,7 +2754,7 @@ export default function WeekScheduler() {
     if (dayAppointments.length === 0) return []
 
     const optionsByLabel = new Map(
-      effectiveProfessionalOptions.map((opt) => [opt.label.toLowerCase(), opt])
+      dotProfessionalOptions.map((opt) => [opt.label.toLowerCase(), opt])
     )
     const selectedSet = new Set(selectedProfessionals)
     const uniqueProfessionalNames: string[] = []
@@ -2733,7 +2785,7 @@ export default function WeekScheduler() {
       }
     })
   }, [
-    effectiveProfessionalOptions,
+    dotProfessionalOptions,
     getAppointmentsByDateRange,
     selectedProfessionals
   ])
@@ -2970,26 +3022,89 @@ export default function WeekScheduler() {
     const startIso = formatDateInAgendaTimezone(monthStart)
     const endIso = formatDateInAgendaTimezone(monthEnd)
     const appointmentsForMonth = getAppointmentsByDateRange(startIso, endIso)
+    const selectedBoxLabels = new Set(
+      effectiveBoxOptions
+        .filter((option) => selectedBoxes.includes(option.id))
+        .map((option) => normalizeBoxLabel(option.label))
+    )
+    const professionalIdByName = new Map(
+      effectiveProfessionalOptions.map((option) => [
+        option.label.toLowerCase(),
+        option.id
+      ])
+    )
+    const fallbackBoxLabel = effectiveBoxOptions[0]?.label || 'Box 1'
 
-    return appointmentsForMonth.map((apt) => {
-      const linkedLabel = apt.linkedTreatments
-        ?.map((t) => t.description)
-        .filter(Boolean)
-        .join(', ')
-      const title = linkedLabel || apt.reason || 'Consulta'
-      return {
-        id: apt.id,
-        date: apt.date,
-        title,
-        patient: apt.patientName || 'Paciente',
-        timeRange: `${apt.startTime} - ${apt.endTime}`,
-        box: apt.box || 'Box 1',
-        bgColor: apt.createdByVoiceAgent
-          ? 'var(--color-event-ai-bg)'
-          : apt.bgColor || 'var(--color-event-teal)'
-      }
-    })
-  }, [currentMonth, getAppointmentsByDateRange])
+    return appointmentsForMonth
+      .filter((apt) => {
+        const resolvedBoxLabel = resolveBoxLabel(apt.box || fallbackBoxLabel)
+        const normalizedBoxLabel = normalizeBoxLabel(resolvedBoxLabel)
+        const boxMatch =
+          selectedBoxLabels.size === 0 ||
+          selectedBoxLabels.has(normalizedBoxLabel)
+
+        const professionalName = (apt.professional || '').trim().toLowerCase()
+        const resolvedProfessionalId =
+          apt.professionalId || professionalIdByName.get(professionalName) || null
+        const professionalMatch =
+          !resolvedProfessionalId ||
+          selectedProfessionals.includes(resolvedProfessionalId)
+
+        const confirmedMatch = !showConfirmedOnly || apt.confirmed === true
+        const aiMatch = !showAIOnly || apt.createdByVoiceAgent === true
+        const visitStatus = apt.visitStatus ?? 'scheduled'
+        const visitStatusMatch =
+          !activeVisitStatusFilter ||
+          activeVisitStatusFilter.includes(visitStatus)
+
+        return (
+          boxMatch &&
+          professionalMatch &&
+          confirmedMatch &&
+          aiMatch &&
+          visitStatusMatch
+        )
+      })
+      .map((apt) => {
+        const linkedLabel = apt.linkedTreatments
+          ?.map((t) => t.description)
+          .filter(Boolean)
+          .join(', ')
+        const title = linkedLabel || apt.reason || 'Consulta'
+        const professionalName = (apt.professional || DEFAULT_PROFESSIONAL).trim()
+        const resolvedProfessionalId =
+          apt.professionalId ||
+          professionalIdByName.get(professionalName.toLowerCase()) ||
+          undefined
+
+        return {
+          id: apt.id,
+          date: apt.date,
+          title,
+          patient: apt.patientName || 'Paciente',
+          timeRange: `${apt.startTime} - ${apt.endTime}`,
+          box: resolveBoxLabel(apt.box || fallbackBoxLabel),
+          professional: professionalName,
+          professionalId: resolvedProfessionalId,
+          confirmed: apt.confirmed === true,
+          createdByVoiceAgent: apt.createdByVoiceAgent === true,
+          bgColor: apt.createdByVoiceAgent
+            ? 'var(--color-event-ai-bg)'
+            : apt.bgColor || 'var(--color-event-teal)'
+        }
+      })
+  }, [
+    activeVisitStatusFilter,
+    currentMonth,
+    effectiveBoxOptions,
+    effectiveProfessionalOptions,
+    getAppointmentsByDateRange,
+    selectedBoxes,
+    selectedProfessionals,
+    showAIOnly,
+    showConfirmedOnly,
+    resolveBoxLabel
+  ])
 
   const capitalize = (value: string): string =>
     value ? value.charAt(0).toUpperCase() + value.slice(1) : value
@@ -3025,7 +3140,7 @@ export default function WeekScheduler() {
             )
           : availableProfessionals
 
-      return visibleProfessionals.slice(0, 2).map((professional) => {
+      return visibleProfessionals.map((professional) => {
         const daySchedule = getProfessionalScheduleForDate(professional.id, date)
         const timeRange =
           daySchedule?.isWorking && daySchedule.shifts.length > 0
@@ -3034,8 +3149,10 @@ export default function WeekScheduler() {
                 .join(', ')
             : ''
         const color =
+          dotColorByProfessionalId.get(professional.id) ||
           effectiveProfessionalOptions.find((opt) => opt.id === professional.id)
-            ?.color || 'var(--color-neutral-400)'
+            ?.color ||
+          'var(--color-neutral-400)'
 
         return {
           id: professional.id,
@@ -3046,6 +3163,7 @@ export default function WeekScheduler() {
       })
     },
     [
+      dotColorByProfessionalId,
       effectiveProfessionalOptions,
       getAvailableProfessionalsForDate,
       getProfessionalScheduleForDate,
@@ -4095,6 +4213,8 @@ export default function WeekScheduler() {
             currentWeekStart={currentWeekStart}
             monthEvents={monthEvents}
             disableMockFallback
+            selectedProfessionals={selectedProfessionals}
+            professionalOptions={dotProfessionalOptions}
             weekEvents={dayColumnsState.flatMap((col) =>
               col.events.map((ev) => ({
                 id: ev.id,

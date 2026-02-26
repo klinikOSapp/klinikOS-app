@@ -9,6 +9,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from 'react'
 import {
@@ -78,6 +79,11 @@ export type Professional = {
   salary?: string
   status: 'Activo' | 'Inactivo'
   photoUrl?: string
+}
+
+type StaffSchemaSupport = {
+  employmentTypeColumn: 'employment_type' | null
+  salaryColumn: 'salary_amount' | 'salary' | null
 }
 
 // Color styles for professionals
@@ -654,12 +660,75 @@ const DAY_NAME_TO_INDEX: Record<DayOfWeek, number> = {
 }
 
 function parseHexToTone(hex?: string | null): ProfessionalColorTone {
-  const value = (hex || '').toLowerCase()
-  if (value === '#d97706') return 'naranja'
-  if (value === '#2e7d5b') return 'verde'
-  if (value === '#0369a1') return 'azul'
-  if (value === '#dc2626') return 'rojo'
-  return 'morado'
+  const raw = String(hex || '').trim().toLowerCase()
+  if (!raw) return 'morado'
+
+  if (raw.includes('orange') || raw.includes('naranja')) return 'naranja'
+  if (raw.includes('green') || raw.includes('verde') || raw.includes('teal'))
+    return 'verde'
+  if (raw.includes('blue') || raw.includes('azul')) return 'azul'
+  if (raw.includes('red') || raw.includes('rojo') || raw.includes('coral'))
+    return 'rojo'
+  if (raw.includes('purple') || raw.includes('morado')) return 'morado'
+
+  const normalizedHex = (() => {
+    if (/^#[0-9a-f]{3}$/i.test(raw)) {
+      return `#${raw[1]}${raw[1]}${raw[2]}${raw[2]}${raw[3]}${raw[3]}`
+    }
+    if (/^[0-9a-f]{6}$/i.test(raw)) return `#${raw}`
+    if (/^#[0-9a-f]{6}$/i.test(raw)) return raw
+    return ''
+  })()
+
+  const toneByHex: Record<string, ProfessionalColorTone> = {
+    '#7725eb': 'morado',
+    '#8b5cf6': 'morado',
+    '#d97706': 'naranja',
+    '#f59e0b': 'naranja',
+    '#2e7d5b': 'verde',
+    '#10b981': 'verde',
+    '#51d6c7': 'verde',
+    '#0369a1': 'azul',
+    '#0ea5e9': 'azul',
+    '#2563eb': 'azul',
+    '#dc2626': 'rojo',
+    '#ef4444': 'rojo'
+  }
+  if (normalizedHex && toneByHex[normalizedHex]) return toneByHex[normalizedHex]
+
+  const parseRgbHex = (value: string): [number, number, number] | null => {
+    if (!/^#[0-9a-f]{6}$/i.test(value)) return null
+    return [
+      parseInt(value.slice(1, 3), 16),
+      parseInt(value.slice(3, 5), 16),
+      parseInt(value.slice(5, 7), 16)
+    ]
+  }
+
+  const target = parseRgbHex(normalizedHex)
+  if (!target) return 'morado'
+
+  const palette = (
+    Object.keys(professionalColorStyles) as ProfessionalColorTone[]
+  ).map((tone) => ({
+    tone,
+    rgb: parseRgbHex(professionalColorStyles[tone].hex) || [0, 0, 0]
+  }))
+
+  let bestTone: ProfessionalColorTone = 'morado'
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (const entry of palette) {
+    const distance =
+      (target[0] - entry.rgb[0]) ** 2 +
+      (target[1] - entry.rgb[1]) ** 2 +
+      (target[2] - entry.rgb[2]) ** 2
+    if (distance < bestDistance) {
+      bestDistance = distance
+      bestTone = entry.tone
+    }
+  }
+
+  return bestTone
 }
 
 function toneToLabel(tone: ProfessionalColorTone): string {
@@ -690,6 +759,46 @@ function formatCommissionPercentage(value: unknown): string {
   if (value == null) return '0%'
   const numeric = Number(value)
   return Number.isFinite(numeric) ? `${numeric}%` : '0%'
+}
+
+function parseEmploymentType(value: unknown): EmploymentType | undefined {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (normalized === 'autonomo' || normalized === 'autónomo') return 'autonomo'
+  if (normalized === 'nomina' || normalized === 'nómina') return 'nomina'
+  return undefined
+}
+
+function parseSalaryAmount(value: string | undefined): number | null {
+  const numeric = Number(String(value || '').replace(',', '.').trim())
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+function formatSalaryAmount(value: unknown): string | undefined {
+  if (value == null) return undefined
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? String(numeric) : undefined
+}
+
+type SupabaseLikeError = {
+  code?: string | null
+  message?: string | null
+  details?: string | null
+  hint?: string | null
+} | null | undefined
+
+function isMissingColumnError(error: SupabaseLikeError): boolean {
+  if (!error) return false
+  const code = String(error.code || '')
+  const message = String(error.message || '').toLowerCase()
+  const details = String(error.details || '').toLowerCase()
+  const hint = String(error.hint || '').toLowerCase()
+  if (code === '42703' || code === 'PGRST204') return true
+  return (
+    message.includes('does not exist') ||
+    message.includes('could not find') ||
+    details.includes('does not exist') ||
+    hint.includes('does not exist')
+  )
 }
 
 function mapProfessionalRoleToUserRole(
@@ -861,6 +970,12 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const [expenses, setExpensesState] = useState<ConfigExpense[]>([])
   const [roles, setRolesState] = useState<ConfigRole[]>([])
   const [permissions, setPermissionsState] = useState<ConfigPermission[]>([])
+  const [staffSchemaSupport, setStaffSchemaSupport] =
+    useState<StaffSchemaSupport>({
+      employmentTypeColumn: null,
+      salaryColumn: null
+    })
+  const staffSchemaResolvedRef = useRef(true)
   const {
     activeClinicId,
     clinics: clinicOptions,
@@ -1025,18 +1140,60 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
               .filter(Boolean)
           : []
         const staffIds = Array.from(new Set([...rpcStaffIds, ...relationStaffIds]))
+        const staffBaseSelect =
+          'id, full_name, specialties, professional_license_id, phone, email, calendar_color, commission_percentage, is_active, avatar_url'
+        let detectedStaffSchemaSupport: StaffSchemaSupport = {
+          employmentTypeColumn: null,
+          salaryColumn: null
+        }
+        let staffRows: Array<Record<string, unknown>> = []
+        let staffRowsError: { code?: string; message?: string } | null = null
+        if (staffIds.length > 0) {
+          const selectAttempts: Array<{
+            select: string
+            support: StaffSchemaSupport
+          }> = [
+            {
+              select: [
+                staffBaseSelect,
+                staffSchemaSupport.employmentTypeColumn,
+                staffSchemaSupport.salaryColumn
+              ]
+                .filter(Boolean)
+                .join(', '),
+              support: staffSchemaSupport
+            }
+          ]
 
-        const { data: staffRows, error: staffRowsError } =
-          staffIds.length > 0
-            ? await supabase
-                .from('staff')
-                .select(
-                  'id, full_name, specialties, professional_license_id, phone, email, calendar_color, commission_percentage, is_active, avatar_url'
-                )
-                .in('id', staffIds)
-            : { data: [] as Array<Record<string, unknown>> }
+          for (const attempt of selectAttempts) {
+            const response = await supabase
+              .from('staff')
+              .select(attempt.select)
+              .in('id', staffIds)
+            if (response.error) {
+              staffRowsError = {
+                code: response.error.code,
+                message: response.error.message
+              }
+              if (isMissingColumnError(response.error)) {
+                continue
+              }
+            } else {
+              staffRows = (response.data || []) as unknown as Array<
+                Record<string, unknown>
+              >
+              detectedStaffSchemaSupport = attempt.support
+              staffRowsError = null
+              staffSchemaResolvedRef.current = true
+              break
+            }
+          }
+        }
         if (staffRowsError) {
-          console.warn('No se pudo cargar detalle de especialistas en ConfigurationContext', staffRowsError)
+          console.warn(
+            'No se pudo cargar detalle de especialistas en ConfigurationContext',
+            staffRowsError
+          )
         }
 
         let resolvedBoxRows: Array<{
@@ -1120,6 +1277,16 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
               const tone = parseHexToTone(
                 typeof row.calendar_color === 'string' ? row.calendar_color : null
               )
+              const employmentRaw =
+                detectedStaffSchemaSupport.employmentTypeColumn
+                  ? row[detectedStaffSchemaSupport.employmentTypeColumn]
+                  : undefined
+              const salaryRaw =
+                detectedStaffSchemaSupport.salaryColumn
+                  ? row[detectedStaffSchemaSupport.salaryColumn]
+                  : undefined
+              const employmentType = parseEmploymentType(employmentRaw)
+              const salaryAmount = formatSalaryAmount(salaryRaw)
               return {
                 id: String(row.id),
                 name: String(row.full_name || 'Profesional'),
@@ -1134,10 +1301,12 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
                 email: String(row.email || ''),
                 colorLabel: toneToLabel(tone),
                 colorTone: tone,
+                employmentType,
                 commission:
                   row.commission_percentage != null
                     ? `${Number(row.commission_percentage)}%`
                     : '0%',
+                salary: salaryAmount,
                 status: row.is_active === false ? 'Inactivo' : 'Activo',
                 photoUrl:
                   typeof row.avatar_url === 'string' ? row.avatar_url : undefined
@@ -1274,6 +1443,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
 
         if (isMounted) {
           if (mappedClinics.length > 0) setClinics(mappedClinics)
+          setStaffSchemaSupport(detectedStaffSchemaSupport)
           setProfessionals(mappedProfessionals)
           setBoxes(mappedBoxes)
           setWorkingHours(newWorkingHours)
@@ -1325,7 +1495,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false
     }
-  }, [activeClinicId, clinicOptions, isClinicInitialized])
+  }, [activeClinicId, clinicOptions, isClinicInitialized, staffSchemaSupport])
 
   useEffect(() => {
     setProfessionalSchedules((previous) => {
@@ -1543,24 +1713,63 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             .limit(1)
             .maybeSingle()
 
-          const { data: insertedStaff, error: staffError } = await supabase
+          const baseStaffPayload: Record<string, unknown> = {
+            full_name: professional.name || 'Profesional',
+            specialties: professional.role ? [professional.role] : [],
+            phone: professional.phone || null,
+            email: professional.email || null,
+            calendar_color: toneToHex(professional.colorTone),
+            commission_percentage: parseCommissionPercentage(
+              professional.commission
+            ),
+            is_active: professional.status === 'Activo',
+            avatar_url: professional.photoUrl || null
+          }
+          const payloadWithOptional: Record<string, unknown> = {
+            ...baseStaffPayload
+          }
+          if (staffSchemaSupport.employmentTypeColumn) {
+            payloadWithOptional[staffSchemaSupport.employmentTypeColumn] =
+              professional.employmentType || null
+          }
+          if (staffSchemaSupport.salaryColumn) {
+            payloadWithOptional[staffSchemaSupport.salaryColumn] =
+              parseSalaryAmount(professional.salary)
+          }
+
+          const staffBaseSelect =
+            'id, full_name, specialties, phone, email, calendar_color, commission_percentage, is_active, avatar_url'
+          const selectWithOptional = [
+            staffBaseSelect,
+            staffSchemaSupport.employmentTypeColumn,
+            staffSchemaSupport.salaryColumn
+          ]
+            .filter(Boolean)
+            .join(', ')
+
+          let insertResponse = await supabase
             .from('staff')
-            .insert({
-              full_name: professional.name || 'Profesional',
-              specialties: professional.role ? [professional.role] : [],
-              phone: professional.phone || null,
-              email: professional.email || null,
-              calendar_color: toneToHex(professional.colorTone),
-              commission_percentage: parseCommissionPercentage(
-                professional.commission
-              ),
-              is_active: professional.status === 'Activo',
-              avatar_url: professional.photoUrl || null
-            })
-            .select(
-              'id, full_name, specialties, phone, email, calendar_color, commission_percentage, is_active, avatar_url'
-            )
+            .insert(payloadWithOptional)
+            .select(selectWithOptional || staffBaseSelect)
             .single()
+
+          let insertedStaff = insertResponse.data as Record<string, unknown> | null
+          let staffError = insertResponse.error
+          if (staffError?.code === '42703') {
+            insertResponse = await supabase
+              .from('staff')
+              .insert(baseStaffPayload)
+              .select(staffBaseSelect)
+              .single()
+            insertedStaff = insertResponse.data as Record<string, unknown> | null
+            staffError = insertResponse.error
+            if (!staffError) {
+              setStaffSchemaSupport({
+                employmentTypeColumn: null,
+                salaryColumn: null
+              })
+            }
+          }
 
           if (staffError || !insertedStaff) {
             console.warn('No se pudo crear profesional en DB', staffError)
@@ -1599,9 +1808,21 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             email: String(insertedStaff.email || professional.email || ''),
             colorLabel: toneToLabel(tone),
             colorTone: tone,
+            employmentType:
+              parseEmploymentType(
+                staffSchemaSupport.employmentTypeColumn
+                  ? insertedStaff[staffSchemaSupport.employmentTypeColumn]
+                  : undefined
+              ) || professional.employmentType,
             commission: formatCommissionPercentage(
               insertedStaff.commission_percentage
             ),
+            salary:
+              formatSalaryAmount(
+                staffSchemaSupport.salaryColumn
+                  ? insertedStaff[staffSchemaSupport.salaryColumn]
+                  : undefined
+              ) || professional.salary,
             status: insertedStaff.is_active === false ? 'Inactivo' : 'Activo',
             photoUrl:
               typeof insertedStaff.avatar_url === 'string'
@@ -1615,47 +1836,65 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         }
       })()
     },
-    [activeClinicId]
+    [activeClinicId, staffSchemaSupport]
   )
 
   const updateProfessional = useCallback(
     (id: string, updates: Partial<Professional>) => {
-      setProfessionals((prev) => {
-        const current = prev.find((professional) => professional.id === id)
-        if (!current) return prev
-        const merged = { ...current, ...updates }
+      const current = professionals.find((professional) => professional.id === id)
+      if (!current) return
+      const merged = { ...current, ...updates }
 
-        void (async () => {
-          try {
-            const supabase = createSupabaseBrowserClient()
-            const { error } = await supabase
-              .from('staff')
-              .update({
-                full_name: merged.name || null,
-                specialties: merged.role ? [merged.role] : [],
-                phone: merged.phone || null,
-                email: merged.email || null,
-                calendar_color: toneToHex(merged.colorTone),
-                commission_percentage: parseCommissionPercentage(merged.commission),
-                is_active: merged.status === 'Activo',
-                avatar_url: merged.photoUrl || null,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', id)
-            if (error) {
-              console.warn('No se pudo actualizar profesional en DB', error)
+      setProfessionals((prev) =>
+        prev.map((professional) => (professional.id === id ? merged : professional))
+      )
+
+      void (async () => {
+        try {
+          const response = await fetch(`/api/configuration/staff/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              updates: {
+                name: merged.name,
+                role: merged.role,
+                phone: merged.phone,
+                email: merged.email,
+                colorTone: merged.colorTone,
+                commission: merged.commission,
+                status: merged.status,
+                photoUrl: merged.photoUrl
+              },
+              previousRole: current.role
+            })
+          })
+          if (!response.ok) {
+            const payload = (await response.json().catch(() => null)) as
+              | {
+                  error?: string
+                  code?: string | null
+                  details?: Record<string, unknown>
+                }
+              | null
+            throw {
+              code: payload?.code || null,
+              details: payload?.details || null,
+              message:
+                payload?.error ||
+                `update-professional failed with status ${response.status}`
             }
-          } catch (error) {
-            console.warn('Error actualizando profesional en DB', error)
           }
-        })()
-
-        return prev.map((professional) =>
-          professional.id === id ? merged : professional
-        )
-      })
+        } catch (error) {
+          console.warn('Error actualizando profesional en DB', error)
+          setProfessionals((state) =>
+            state.map((professional) =>
+              professional.id === id ? current : professional
+            )
+          )
+        }
+      })()
     },
-    []
+    [professionals]
   )
 
   const deleteProfessional = useCallback((id: string) => {

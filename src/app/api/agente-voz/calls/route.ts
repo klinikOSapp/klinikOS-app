@@ -267,6 +267,7 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url)
     const weekStartUtc = parseWeekStartUtc(searchParams.get('weekStart'))
+    const skipRpc = searchParams.get('skipRpc') === '1'
     const weekEndUtcExclusive = new Date(weekStartUtc)
     weekEndUtcExclusive.setUTCDate(weekEndUtcExclusive.getUTCDate() + 7)
 
@@ -276,27 +277,36 @@ export async function GET(req: Request) {
         ? Math.min(Math.floor(requestedLimit), 2000)
         : 1200
 
-    const { data, error } = await supabase.rpc('get_voice_agent_calls_feed', {
-      p_clinic_id: clinicId,
-      p_start_time: weekStartUtc.toISOString(),
-      p_end_time: weekEndUtcExclusive.toISOString(),
-      p_limit: safeLimit,
-      p_offset: 0
-    })
-
-    if (!error && Array.isArray(data)) {
-      return NextResponse.json({
-        weekStart: toDateString(weekStartUtc),
-        source: 'rpc',
-        calls: data as VoiceAgentCallRow[]
+    let rpcError: { code?: string; message: string; hint?: string | null } | null =
+      null
+    if (!skipRpc) {
+      const { data, error } = await supabase.rpc('get_voice_agent_calls_feed', {
+        p_clinic_id: clinicId,
+        p_start_time: weekStartUtc.toISOString(),
+        p_end_time: weekEndUtcExclusive.toISOString(),
+        p_limit: safeLimit,
+        p_offset: 0
       })
-    }
 
-    if (error) {
-      console.warn('[voice-agent/calls] RPC failed, switching to fallback', {
-        code: error.code,
-        message: error.message
-      })
+      if (!error && Array.isArray(data)) {
+        return NextResponse.json({
+          weekStart: toDateString(weekStartUtc),
+          source: 'rpc',
+          calls: data as VoiceAgentCallRow[]
+        })
+      }
+
+      if (error) {
+        rpcError = {
+          code: error.code || undefined,
+          message: error.message,
+          hint: error.hint || null
+        }
+        console.warn('[voice-agent/calls] RPC failed, switching to fallback', {
+          code: error.code,
+          message: error.message
+        })
+      }
     }
 
     const fallbackCalls = await fetchCallsFallback(
@@ -310,13 +320,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       weekStart: toDateString(weekStartUtc),
       source: 'fallback',
-      rpcError: error
-        ? {
-            code: error.code || null,
-            message: error.message,
-            hint: error.hint || null
-          }
-        : null,
+      rpcError,
       calls: fallbackCalls
     })
   } catch (error) {

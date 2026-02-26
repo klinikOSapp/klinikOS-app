@@ -71,6 +71,9 @@ type MonthEvent = {
   bgColor: string
   detail?: EventDetail
   box?: string
+  professional?: string
+  professionalId?: string
+  confirmed?: boolean
   createdByVoiceAgent?: boolean
 }
 
@@ -637,6 +640,10 @@ type MonthEventInput = {
   patient: string
   timeRange: string
   box: string
+  professional?: string
+  professionalId?: string
+  confirmed?: boolean
+  createdByVoiceAgent?: boolean
   bgColor: string
 }
 
@@ -646,6 +653,8 @@ interface MonthCalendarProps {
   weekEvents?: WeekEvent[]
   monthEvents?: MonthEventInput[]
   disableMockFallback?: boolean
+  selectedProfessionals?: string[]
+  professionalOptions?: Array<{ id: string; label: string; color: string }>
 }
 
 export default function MonthCalendar({
@@ -653,17 +662,21 @@ export default function MonthCalendar({
   currentWeekStart,
   weekEvents = [],
   monthEvents = [],
-  disableMockFallback = true
+  disableMockFallback = true,
+  selectedProfessionals = [],
+  professionalOptions: overrideProfessionalOptions
 }: MonthCalendarProps) {
   const [hovered, setHovered] = useState<MonthEventSelection>(null)
   const [active, setActive] = useState<MonthEventSelection>(null)
 
   // Configuration context for dynamic specialist availability
   const {
-    getAvailableProfessionalsForDate,
-    getProfessionalScheduleForDate,
-    professionalOptions
+    professionalOptions: contextProfessionalOptions
   } = useConfiguration()
+  const effectiveProfessionalOptions =
+    overrideProfessionalOptions && overrideProfessionalOptions.length > 0
+      ? overrideProfessionalOptions
+      : contextProfessionalOptions
 
   // Use prop if provided, otherwise use internal state
   const [internalMonth] = useState<Date>(() => {
@@ -733,7 +746,11 @@ export default function MonthCalendar({
         ev.patient,
         ev.timeRange ? `${ev.timeRange} (60 minutos)` : undefined
       ),
-      box: ev.box
+      box: ev.box,
+      professional: ev.professional,
+      professionalId: ev.professionalId,
+      confirmed: ev.confirmed,
+      createdByVoiceAgent: ev.createdByVoiceAgent
     }
   }
 
@@ -1012,26 +1029,67 @@ export default function MonthCalendar({
         }
       }
 
-      // Get dynamic specialist availability for this date
+      // Dots should represent professionals with appointments on this day.
       let specialists: SpecialistAvailability[] = []
-      if (!isSunday && cellDate) {
-        const availableProfessionals = getAvailableProfessionalsForDate(cellDate)
-        specialists = availableProfessionals.map((prof) => {
-          const daySchedule = getProfessionalScheduleForDate(prof.id, cellDate)
-          const timeRange =
-            daySchedule?.isWorking && daySchedule.shifts.length > 0
-              ? daySchedule.shifts
-                  .map((shift) => `${shift.start} - ${shift.end}`)
-                  .join(', ')
-              : ''
-          const profOption = professionalOptions.find((p) => p.id === prof.id)
-          return {
-            id: prof.id,
-            name: prof.name,
-            timeRange,
-            color: profOption?.color || 'var(--color-neutral-400)'
+      if (!isSunday && dayEvents.length > 0) {
+        const optionById = new Map(
+          effectiveProfessionalOptions.map((option) => [option.id, option])
+        )
+        const optionByLabel = new Map(
+          effectiveProfessionalOptions.map((option) => [
+            option.label.trim().toLowerCase(),
+            option
+          ])
+        )
+        const selectedSet = new Set(selectedProfessionals)
+        const specialistById = new Map<
+          string,
+          { id: string; name: string; color: string; ranges: Set<string> }
+        >()
+
+        for (const event of dayEvents) {
+          const professionalName = (event.professional || '').trim()
+          const optionFromId = event.professionalId
+            ? optionById.get(event.professionalId)
+            : undefined
+          const optionFromLabel = professionalName
+            ? optionByLabel.get(professionalName.toLowerCase())
+            : undefined
+          const resolvedId =
+            optionFromId?.id ||
+            optionFromLabel?.id ||
+            event.professionalId ||
+            (professionalName ? professionalName.toLowerCase() : '')
+          if (!resolvedId) continue
+          if (selectedSet.size > 0 && !selectedSet.has(resolvedId)) continue
+
+          const resolvedName =
+            optionFromId?.label ||
+            optionFromLabel?.label ||
+            professionalName ||
+            'Profesional'
+          const resolvedColor =
+            optionFromId?.color ||
+            optionFromLabel?.color ||
+            'var(--color-neutral-400)'
+          const entry = specialistById.get(resolvedId) || {
+            id: resolvedId,
+            name: resolvedName,
+            color: resolvedColor,
+            ranges: new Set<string>()
           }
-        })
+          if (event.detail?.duration) {
+            entry.ranges.add(event.detail.duration)
+          }
+          specialistById.set(resolvedId, entry)
+        }
+
+        specialists = Array.from(specialistById.values()).map((entry) => ({
+          id: entry.id,
+          name: entry.name,
+          timeRange: Array.from(entry.ranges).slice(0, 2).join(', '),
+          color: entry.color
+        }))
       }
 
       currentWeekArr.push({
