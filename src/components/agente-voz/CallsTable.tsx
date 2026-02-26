@@ -37,6 +37,41 @@ type CallsTableProps = {
 
 const ITEMS_PER_PAGE = 9
 const CALLS_FETCH_LIMIT = 500
+const CALLS_RPC_LIMIT = 1200
+
+type VoiceAgentRpcCallRow = {
+  call_id: string | number
+  external_call_id: string | null
+  status: string | null
+  management_status: string | null
+  from_number: string | null
+  started_at: string | null
+  duration_seconds: number | null
+  call_outcome: string | null
+  is_urgent: boolean | null
+  patient_id: string | null
+  caller_contact_id: string | null
+  metadata: unknown
+  recording_url: string | null
+  intent_summary: string | null
+  patient_full_name: string | null
+  patient_phone: string | null
+  contact_full_name: string | null
+  contact_phone: string | null
+  call_log_transcript: string | null
+  call_log_summary: string | null
+  call_log_duration_seconds: number | null
+  call_log_started_at: string | null
+  webhook_payload: unknown
+  appointment_id: string | null
+}
+
+function formatDateParam(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 function safeJson(value: unknown): Record<string, unknown> | null {
   if (!value) return null
@@ -239,9 +274,10 @@ function getCallTimestamp(call: CallRecord): number {
 
 function dedupeAndFilterCalls(calls: CallRecord[]): CallRecord[] {
   const filtered = calls.filter(hasMedia)
+  const sourceCalls = filtered.length > 0 ? filtered : calls
   const deduped = new Map<string, CallRecord>()
 
-  for (const call of filtered) {
+  for (const call of sourceCalls) {
     const key =
       (call.externalCallId && call.externalCallId.trim()) ||
       (call.recordingUrl && call.recordingUrl.trim()) ||
@@ -283,6 +319,185 @@ function dedupeAndFilterCalls(calls: CallRecord[]): CallRecord[] {
   return Array.from(deduped.values()).sort(
     (a, b) => getCallTimestamp(b) - getCallTimestamp(a)
   )
+}
+
+function mapCallStatus(
+  rawLifecycleStatus: string,
+  urgent: boolean,
+  managementStatusRaw?: string
+): CallRecord['status'] {
+  const lifecycleStatus = rawLifecycleStatus.toLowerCase()
+  const managementStatus = normalizeText(managementStatusRaw || '')
+
+  if (
+    managementStatus.includes('resuelt') ||
+    managementStatus.includes('resolved')
+  ) {
+    return 'resuelta'
+  }
+  if (
+    managementStatus.includes('en curso') ||
+    managementStatus.includes('in_progress')
+  ) {
+    return 'en_curso'
+  }
+  if (
+    managementStatus.includes('pend') ||
+    managementStatus.includes('pending') ||
+    managementStatus.includes('queue') ||
+    managementStatus.includes('earring')
+  ) {
+    return urgent ? 'urgente' : 'pendiente'
+  }
+  if (
+    managementStatus.includes('nueva') ||
+    managementStatus.includes('new') ||
+    managementStatus.includes('created') ||
+    managementStatus.includes('initiated')
+  ) {
+    return urgent ? 'urgente' : 'nueva'
+  }
+
+  if (lifecycleStatus.includes('resolved')) return 'resuelta'
+  if (lifecycleStatus.includes('in_progress')) return 'en_curso'
+  if (
+    lifecycleStatus.includes('new') ||
+    lifecycleStatus.includes('created') ||
+    lifecycleStatus.includes('initiated')
+  ) {
+    return urgent ? 'urgente' : 'nueva'
+  }
+  if (
+    lifecycleStatus.includes('pending') ||
+    lifecycleStatus.includes('queue') ||
+    lifecycleStatus.includes('earring') ||
+    lifecycleStatus.includes('completed')
+  ) {
+    return urgent ? 'urgente' : 'pendiente'
+  }
+  return urgent ? 'urgente' : 'pendiente'
+}
+
+function hydrateCallsFromRpcRows(rows: VoiceAgentRpcCallRow[]): CallRecord[] {
+  const hydrated = rows.map((row) => {
+    const callId = String(row.call_id)
+    const webhookPayload = safeJson(row.webhook_payload)
+    const payloadStartedAt = parseStartedAtFromPayload(webhookPayload)
+    const startedAtRaw =
+      asString(row.started_at).trim() ||
+      asString(row.call_log_started_at).trim() ||
+      payloadStartedAt ||
+      null
+    const startedAt = startedAtRaw ? new Date(startedAtRaw) : new Date()
+    const payloadDuration = parseDurationFromPayload(webhookPayload)
+    const durationSeconds = Math.max(
+      parseDurationSeconds(row.duration_seconds),
+      parseDurationSeconds(row.call_log_duration_seconds),
+      payloadDuration
+    )
+    const metadata =
+      row.metadata && typeof row.metadata === 'object'
+        ? (row.metadata as Record<string, unknown>)
+        : null
+    const managementStatusSource = asString(row.management_status).trim()
+    const payloadCall = safeJson(webhookPayload?.call)
+    const payloadCustomAnalysis = safeJson(
+      safeJson(payloadCall?.call_analysis)?.custom_analysis_data
+    )
+    const metadataPatientName =
+      (typeof metadata?.patient_name === 'string' && metadata.patient_name.trim()) ||
+      (typeof metadata?.patient_full_name === 'string' &&
+        metadata.patient_full_name.trim()) ||
+      (typeof metadata?.full_name === 'string' && metadata.full_name.trim()) ||
+      (typeof metadata?.caller_name === 'string' && metadata.caller_name.trim()) ||
+      null
+    const payloadPatientName =
+      asString(payloadCustomAnalysis?.full_name).trim() ||
+      asString(payloadCustomAnalysis?.patient_name).trim() ||
+      asString(safeJson(payloadCall?.retell_llm_dynamic_variables)?.name).trim() ||
+      asString(safeJson(payloadCall?.collected_dynamic_variables)?.patient_name).trim() ||
+      null
+    const patientName =
+      asString(row.patient_full_name).trim() ||
+      asString(row.contact_full_name).trim() ||
+      metadataPatientName ||
+      payloadPatientName ||
+      null
+    const phone =
+      asString(row.from_number).trim() ||
+      asString(row.patient_phone).trim() ||
+      asString(row.contact_phone).trim() ||
+      (typeof metadata?.caller_phone === 'string' ? metadata.caller_phone.trim() : '') ||
+      asString(safeJson(payloadCall?.retell_llm_dynamic_variables)?.from_number).trim() ||
+      '—'
+    const extractedSummary = extractSummary(webhookPayload)
+    const callLogSummary = asString(row.call_log_summary).trim()
+    const rowSummaryRaw = asString(row.call_outcome).trim()
+    const rowSummary = isPlaceholderSummary(rowSummaryRaw) ? '' : rowSummaryRaw
+    const summaryRaw = rowSummary || callLogSummary || extractedSummary
+    const summary = isPlaceholderSummary(summaryRaw)
+      ? 'Sin resumen disponible.'
+      : summaryRaw
+    const callLogTranscript = asString(row.call_log_transcript).trim()
+    const payloadTranscript = extractTranscript(webhookPayload)
+    const transcript = callLogTranscript || payloadTranscript || null
+    const recordingUrl =
+      asString(row.recording_url).trim() ||
+      asString(metadata?.recording_url).trim() ||
+      extractRecordingUrl(webhookPayload) ||
+      null
+    const intentSource = [
+      asString(metadata?.call_reason),
+      asString(payloadCustomAnalysis?.call_reason),
+      asString(payloadCall?.call_reason),
+      asString(metadata?.intent),
+      asString(metadata?.call_intent),
+      asString(metadata?.reason),
+      asString(row.intent_summary),
+      asString(row.call_outcome)
+    ]
+      .map((value) => value.trim())
+      .find(Boolean)
+    const mappedIntent = mapIntent(intentSource || '')
+    const sentimentSource = [
+      asString(metadata?.feeling),
+      asString(metadata?.sentiment),
+      asString(metadata?.emotion),
+      asString(payloadCustomAnalysis?.feeling),
+      asString(payloadCustomAnalysis?.sentiment),
+      asString(payloadCustomAnalysis?.emotion)
+    ]
+      .map((value) => value.trim())
+      .find(Boolean)
+    const appointmentId = asString(row.appointment_id).trim()
+
+    return {
+      id: callId,
+      externalCallId: asString(row.external_call_id).trim() || null,
+      startedAt: startedAtRaw,
+      status: mapCallStatus(
+        asString(row.status),
+        Boolean(row.is_urgent),
+        managementStatusSource
+      ),
+      time: startedAt.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      patient: patientName,
+      phone,
+      intent: mappedIntent,
+      intentDisplay: getIntentDisplay(intentSource || '', mappedIntent),
+      duration: durationTextFromSeconds(durationSeconds),
+      summary,
+      transcript,
+      recordingUrl,
+      sentiment: mapSentiment(sentimentSource || ''),
+      appointmentId: appointmentId || undefined
+    } satisfies CallRecord
+  })
+
+  return dedupeAndFilterCalls(hydrated)
 }
 
 // Quick Actions Menu Item
@@ -574,6 +789,38 @@ export default function CallsTable({
           weekEnd.setDate(weekEnd.getDate() + 7)
         }
 
+        try {
+          const params = new URLSearchParams()
+          if (weekStart) {
+            params.set('weekStart', formatDateParam(weekStart))
+          }
+          params.set('limit', String(CALLS_RPC_LIMIT))
+
+          const response = await fetch(`/api/agente-voz/calls?${params.toString()}`, {
+            cache: 'no-store'
+          })
+
+          if (response.ok) {
+            const payload = (await response.json()) as {
+              calls?: VoiceAgentRpcCallRow[]
+            }
+            if (Array.isArray(payload.calls)) {
+              const normalizedCalls = hydrateCallsFromRpcRows(payload.calls)
+              if (isMounted) {
+                setLocalCalls(normalizedCalls)
+                setTotalCallsAvailable(normalizedCalls.length)
+              }
+              return
+            }
+          } else {
+            console.warn('CallsTable RPC route unavailable, falling back to client hydration', {
+              status: response.status
+            })
+          }
+        } catch (rpcError) {
+          console.warn('CallsTable RPC route failed, falling back to client hydration', rpcError)
+        }
+
         let callsQuery = supabase.current
           .from('calls')
           .select(
@@ -718,61 +965,6 @@ export default function CallsTable({
           ])
         )
 
-        const mapStatus = (
-          raw: string,
-          urgent: boolean,
-          managementStatusRaw?: string
-        ): CallRecord['status'] => {
-          const v = raw.toLowerCase()
-          const managementStatus = normalizeText(managementStatusRaw || '')
-
-          // Management status from metadata has priority over call lifecycle status
-          if (
-            managementStatus.includes('resuelt') ||
-            managementStatus.includes('resolved')
-          ) {
-            return 'resuelta'
-          }
-          if (
-            managementStatus.includes('en curso') ||
-            managementStatus.includes('in_progress')
-          ) {
-            return 'en_curso'
-          }
-          if (
-            managementStatus.includes('pend') ||
-            managementStatus.includes('pending') ||
-            managementStatus.includes('queue') ||
-            managementStatus.includes('earring')
-          ) {
-            return urgent ? 'urgente' : 'pendiente'
-          }
-          if (
-            managementStatus.includes('nueva') ||
-            managementStatus.includes('new') ||
-            managementStatus.includes('created') ||
-            managementStatus.includes('initiated')
-          ) {
-            return urgent ? 'urgente' : 'nueva'
-          }
-
-          // Fallback to lifecycle status from calls.status
-          if (v.includes('resolved')) return 'resuelta'
-          if (v.includes('in_progress')) return 'en_curso'
-          if (v.includes('new') || v.includes('created') || v.includes('initiated')) {
-            return urgent ? 'urgente' : 'nueva'
-          }
-          if (
-            v.includes('pending') ||
-            v.includes('queue') ||
-            v.includes('earring') ||
-            v.includes('completed')
-          ) {
-            return urgent ? 'urgente' : 'pendiente'
-          }
-          return urgent ? 'urgente' : 'pendiente'
-        }
-
         const hydrated: CallRecord[] = allCallRows.map((row) => {
           const callId = String(row.id)
           const webhookPayload = payloadByCallId.get(callId) || null
@@ -872,7 +1064,7 @@ export default function CallsTable({
             id: callId,
             externalCallId: asString(row.external_call_id).trim() || null,
             startedAt: startedAtRaw,
-            status: mapStatus(
+            status: mapCallStatus(
               String(row.status || ''),
               Boolean(row.is_urgent),
               managementStatusSource

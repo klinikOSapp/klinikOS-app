@@ -329,7 +329,6 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
           label: 'Nueva cita',
           onClick: handleOpenCreateAppointment
         },
-        { id: 'nuevo-presupuesto', label: 'Nuevo presupuesto' },
         {
           id: 'nuevo-paciente',
           label: 'Nuevo paciente',

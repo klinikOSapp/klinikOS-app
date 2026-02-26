@@ -1,7 +1,7 @@
 'use client'
 
-import { initialSpecialistsData } from '@/components/configuracion/SpecialistsListPage'
 import Portal from '@/components/ui/Portal'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import CallStatusBadge from './CallStatusBadge'
 import type { CallRecord } from './voiceAgentTypes'
@@ -23,21 +23,22 @@ export default function AssignProfessionalModal({
   onClose,
   onAssign
 }: AssignProfessionalModalProps) {
+  const { activeProfessionals } = useConfiguration()
   const displayIntent = call.intentDisplay?.trim() || CALL_INTENT_LABELS[call.intent]
   const modalRef = useRef<HTMLDivElement>(null)
   const [selectedProfessional, setSelectedProfessional] = useState<string>('')
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Get active specialists from configuration
+  // Get active specialists from DB-backed configuration context.
   const specialists = useMemo(() => {
-    return initialSpecialistsData
-      .map((specialist, index) => ({
-        ...specialist,
-        id: `specialist-${index}`
-      }))
-      .filter((specialist) => specialist.status === 'Activo')
-  }, [])
+    return activeProfessionals.map((professional) => ({
+      id: professional.id,
+      name: professional.name,
+      role: professional.role,
+      status: professional.status
+    }))
+  }, [activeProfessionals])
 
   // Handle escape key and click outside
   useEffect(() => {

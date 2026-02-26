@@ -50,3 +50,5 @@ next-env.d.ts
 
 UI changes/*
 sql/*
+
+/.playwright-cli/*

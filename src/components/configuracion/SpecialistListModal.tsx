@@ -87,25 +87,11 @@ function Avatar({ name, url }: { name: string; url?: string }) {
   )
 }
 
-// Sample specialists data
-const sampleSpecialists: Specialist[] = [
-  { id: 's1', nombre: 'Fernandino Fernández', especialidad: 'Odontólogo', color: 'Morado', estado: 'inactivo' },
-  { id: 's2', nombre: 'Carlos Pérez', especialidad: 'Ortodoncista', color: 'Naranja', estado: 'activo' },
-  { id: 's3', nombre: 'Fernandino Fernández', especialidad: 'Odontólogo', color: 'Morado', estado: 'activo' },
-  { id: 's4', nombre: 'Javier Herrera', especialidad: 'Higienista', color: 'Verde', estado: 'activo' },
-  { id: 's5', nombre: 'Javier Herrera', especialidad: 'Higienista', color: 'Verde', estado: 'activo' },
-  { id: 's6', nombre: 'Javier Herrera', especialidad: 'Higienista', color: 'Verde', estado: 'activo' },
-  { id: 's7', nombre: 'Carlos Pérez', especialidad: 'Ortodoncista', color: 'Naranja', estado: 'activo' },
-  { id: 's8', nombre: 'Fernandino Fernández', especialidad: 'Odontólogo', color: 'Morado', estado: 'activo' },
-  { id: 's9', nombre: 'Fernandino Fernández', especialidad: 'Odontólogo', color: 'Morado', estado: 'activo' },
-  { id: 's10', nombre: 'Carlos Pérez', especialidad: 'Ortodoncista', color: 'Naranja', estado: 'activo' }
-]
-
 export default function SpecialistListModal({
   open,
   onClose,
   roleName,
-  specialists = sampleSpecialists
+  specialists = []
 }: SpecialistListModalProps) {
   const [search, setSearch] = useState('')
 
