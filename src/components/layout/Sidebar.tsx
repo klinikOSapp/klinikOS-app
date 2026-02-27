@@ -48,6 +48,7 @@ export default function Sidebar({
       className={[
         'bg-[var(--color-brand-0)]',
         widthClass,
+        'shrink-0',
         'h-[calc(100dvh-var(--spacing-topbar))]',
         'pt-6',
         'relative',
@@ -78,7 +79,7 @@ export default function Sidebar({
               collapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'
             }
             aria-pressed={collapsed}
-            className='size-10 rounded-full border border-[var(--color-brand-200)] bg-[var(--color-neutral-50)] text-[var(--color-brand-900)] flex items-center justify-center shadow-[0px_1px_2px_0px_rgba(0,0,0,0.15)] hover:bg-[var(--color-brand-50)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] transition-colors duration-150 ease-out'
+            className='relative z-40 size-10 rounded-full border border-[var(--color-brand-200)] bg-[var(--color-neutral-50)] text-[var(--color-brand-900)] flex items-center justify-center shadow-[0px_1px_2px_0px_rgba(0,0,0,0.15)] hover:bg-[var(--color-brand-50)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] transition-colors duration-150 ease-out'
           >
             {collapsed ? (
               <ChevronRightRounded fontSize='small' />

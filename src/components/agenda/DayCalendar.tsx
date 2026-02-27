@@ -3274,11 +3274,15 @@ export default function DayCalendar({
           ? resizeHeightSlots
           : dragState.startHeightSlots
 
-      // Detectar box final (igual que vista semanal)
-      const boxWidth = gridRect.width / 3
+      // Detect final box from visible columns (dynamic count/order).
+      const effectiveBoxCount = Math.max(1, boxCount)
+      const boxWidth = gridRect.width / effectiveBoxCount
       const relX = x - gridRect.left
-      const boxIndex = Math.max(0, Math.min(2, Math.floor(relX / boxWidth)))
-      const targetBox = DEFAULT_BOX_HEADERS[boxIndex]?.label ?? 'BOX 1'
+      const boxIndex = Math.max(
+        0,
+        Math.min(effectiveBoxCount - 1, Math.floor(relX / boxWidth))
+      )
+      const targetBox = visibleBoxes[boxIndex]?.label ?? visibleBoxes[0]?.label ?? 'Box 1'
 
       // Calcular tiempos finales (igual que vista semanal)
       const startTime = slotToTime(newSlot)

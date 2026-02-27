@@ -52,3 +52,5 @@ UI changes/*
 sql/*
 
 /.playwright-cli/*
+
+/clinics-data/*

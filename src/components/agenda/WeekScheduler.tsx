@@ -5647,6 +5647,13 @@ export default function WeekScheduler() {
     setSelectedDayAppointments((prev) =>
       prev.map((appt) => (appt.id === id ? { ...appt, start, end, box } : appt))
     )
+
+    updateAppointment(id, {
+      date: targetDate,
+      startTime: start,
+      endTime: end,
+      box
+    })
   }
 
   const handleProfessionalToggle = (value: string) => {
@@ -6889,9 +6896,7 @@ export default function WeekScheduler() {
           <DayCalendar
             period={dayPeriod}
             appointments={selectedDayAppointments}
-            currentDate={
-              (selectedDate ?? currentWeekStart).toISOString().split('T')[0]
-            }
+            currentDate={formatDateInAgendaTimezone(selectedDate ?? currentWeekStart)}
             bands={getDayBands(selectedDate ?? currentWeekStart)}
             onAppointmentMove={handleDayAppointmentMove}
             selectedBoxes={selectedBoxes}

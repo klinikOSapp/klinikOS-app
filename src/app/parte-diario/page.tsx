@@ -30,6 +30,7 @@ import {
   type PaymentInfo
 } from '@/context/AppointmentsContext'
 import { useWaitTimer } from '@/hooks/useWaitTimer'
+import { useRouter } from 'next/navigation'
 import React from 'react'
 
 const CTA_WIDTH_REM = 7.3125 // 117px ÷ 16
@@ -149,6 +150,7 @@ function TableBodyCell({
 // Tipo para las filas de la tabla (derivado de Appointment)
 type DailyRow = {
   id: string
+  patientId?: string
   day: string
   hour: string
   name: string
@@ -185,6 +187,7 @@ function getArrivalTime(history?: VisitStatusLog[]): string | undefined {
 function appointmentToRow(apt: Appointment): DailyRow {
   return {
     id: apt.id,
+    patientId: apt.patientId,
     day: formatDateToShort(apt.date),
     hour: apt.startTime,
     name: apt.patientName,
@@ -807,6 +810,8 @@ function ConfirmationToggle({
 }
 
 export default function ParteDiarioPage() {
+  const router = useRouter()
+
   // Hook del contexto de citas compartido
   const {
     appointments,
@@ -826,6 +831,12 @@ export default function ParteDiarioPage() {
   )
   const [isFichaModalOpen, setIsFichaModalOpen] = React.useState(false)
   const [isParteModalOpen, setIsParteModalOpen] = React.useState(false)
+  const [selectedPatientId, setSelectedPatientId] = React.useState<
+    string | undefined
+  >(undefined)
+  const [selectedPatientName, setSelectedPatientName] = React.useState<
+    string | undefined
+  >(undefined)
   const [initialTab, setInitialTab] = React.useState<
     | 'Resumen'
     | 'Información General'
@@ -837,6 +848,10 @@ export default function ParteDiarioPage() {
     | 'Recetas'
   >('Resumen')
   const [openBudgetCreation, setOpenBudgetCreation] = React.useState(false)
+  const [openPrescriptionCreation, setOpenPrescriptionCreation] =
+    React.useState(false)
+  const [openClinicalHistoryEdit, setOpenClinicalHistoryEdit] =
+    React.useState(false)
 
   // Estado para el menú de acciones por fila
   const [openRowMenuId, setOpenRowMenuId] = React.useState<string | null>(null)
@@ -1002,36 +1017,78 @@ export default function ParteDiarioPage() {
     setIsBulkStatusMenuOpen(false)
   }
 
+  const openPatientRecord = React.useCallback(
+    (
+      row?: DailyRow,
+      options?: {
+        initialTab?:
+          | 'Resumen'
+          | 'Información General'
+          | 'Historial clínico'
+          | 'Tratamientos'
+          | 'Imágenes RX'
+          | 'Finanzas'
+          | 'Documentos'
+          | 'Recetas'
+        openBudgetCreation?: boolean
+        openPrescriptionCreation?: boolean
+        openClinicalHistoryEdit?: boolean
+      }
+    ) => {
+      if (row) {
+        setSelectedPatientId(row.patientId)
+        setSelectedPatientName(row.name)
+      } else {
+        setSelectedPatientId(undefined)
+        setSelectedPatientName(undefined)
+      }
+      setInitialTab(options?.initialTab ?? 'Resumen')
+      setOpenBudgetCreation(Boolean(options?.openBudgetCreation))
+      setOpenPrescriptionCreation(Boolean(options?.openPrescriptionCreation))
+      setOpenClinicalHistoryEdit(Boolean(options?.openClinicalHistoryEdit))
+      setIsFichaModalOpen(true)
+    },
+    []
+  )
+
   // Función para manejar las acciones del menú contextual
-  const handleContextMenuAction = (action: ContextMenuAction) => {
+  const handleContextMenuAction = (
+    action: ContextMenuAction,
+    row?: DailyRow
+  ) => {
     switch (action) {
       case 'view-patient':
-        setInitialTab('Resumen')
-        setOpenBudgetCreation(false)
-        setIsFichaModalOpen(true)
+        openPatientRecord(row, { initialTab: 'Resumen' })
         break
       case 'view-appointment':
-        setInitialTab('Historial clínico')
-        setOpenBudgetCreation(false)
-        setIsFichaModalOpen(true)
+        openPatientRecord(row, { initialTab: 'Historial clínico' })
         break
       case 'new-appointment':
-        // TODO: Abrir modal de nueva cita
-        console.log('Nueva cita')
+        if (row?.name) {
+          router.push(
+            `/agenda?action=create&paciente=${encodeURIComponent(row.name)}`
+          )
+        } else {
+          router.push('/agenda?openCreate=1')
+        }
         break
       case 'new-budget':
-        setInitialTab('Finanzas')
-        setOpenBudgetCreation(true)
-        setIsFichaModalOpen(true)
+        openPatientRecord(row, {
+          initialTab: 'Finanzas',
+          openBudgetCreation: true
+        })
         break
       case 'new-prescription':
-        setInitialTab('Recetas')
-        setOpenBudgetCreation(false)
-        setIsFichaModalOpen(true)
+        openPatientRecord(row, {
+          initialTab: 'Recetas',
+          openPrescriptionCreation: true
+        })
         break
       case 'report':
-        // TODO: Implementar reportar
-        console.log('Reportar')
+        openPatientRecord(row, {
+          initialTab: 'Historial clínico',
+          openClinicalHistoryEdit: true
+        })
         break
     }
   }
@@ -1096,11 +1153,19 @@ export default function ParteDiarioPage() {
           open={isFichaModalOpen}
           onClose={() => {
             setIsFichaModalOpen(false)
+            setSelectedPatientId(undefined)
+            setSelectedPatientName(undefined)
             setInitialTab('Resumen')
             setOpenBudgetCreation(false)
+            setOpenPrescriptionCreation(false)
+            setOpenClinicalHistoryEdit(false)
           }}
           initialTab={initialTab}
           openBudgetCreation={openBudgetCreation}
+          openPrescriptionCreation={openPrescriptionCreation}
+          openClinicalHistoryEdit={openClinicalHistoryEdit}
+          patientId={selectedPatientId}
+          patientName={selectedPatientName}
         />
         <ParteDiarioModal
           isOpen={isParteModalOpen}
@@ -1873,19 +1938,16 @@ export default function ParteDiarioPage() {
                               setRowMenuTriggerRect(null)
                             }}
                             onViewAppointment={() => {
-                              setIsFichaModalOpen(true)
+                              handleContextMenuAction('view-appointment', row)
                             }}
                             onNewAppointment={() => {
-                              // TODO: Abrir modal de nueva cita
-                              console.log('Nueva cita para:', row.name)
+                              handleContextMenuAction('new-appointment', row)
                             }}
                             onNewBudget={() => {
-                              // TODO: Abrir modal de nuevo presupuesto
-                              console.log('Nuevo presupuesto para:', row.name)
+                              handleContextMenuAction('new-budget', row)
                             }}
                             onNewPrescription={() => {
-                              // TODO: Abrir modal de nueva receta
-                              console.log('Nueva receta para:', row.name)
+                              handleContextMenuAction('new-prescription', row)
                             }}
                             onVisitStatusChange={(status) => {
                               handleStatusChange(row.id, status)

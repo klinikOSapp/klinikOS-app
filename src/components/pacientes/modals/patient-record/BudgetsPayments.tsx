@@ -5582,12 +5582,7 @@ export default function BudgetsPayments({
                       ...row,
                       status: 'Producido' as StatusType,
                       date: formattedDate,
-                      professional:
-                        data.professional === 'dr-guillermo'
-                          ? 'Dr. Guillermo'
-                          : data.professional === 'dra-andrea'
-                          ? 'Dra. Andrea'
-                          : row.professional
+                      professional: data.professional || row.professional
                     }
                   : row
               )

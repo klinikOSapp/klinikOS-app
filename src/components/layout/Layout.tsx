@@ -395,7 +395,7 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
             onToggleCollapsed={handleToggleSidebarCollapsed}
             isHydrated={isSidebarHydrated}
           />
-          <main className='bg-white rounded-tl-[var(--radius-xl)] w-full h-[calc(100dvh-var(--spacing-topbar))] min-h-0 overflow-hidden'>
+          <main className='relative z-0 isolate bg-white rounded-tl-[var(--radius-xl)] flex-1 min-w-0 h-[calc(100dvh-var(--spacing-topbar))] min-h-0 overflow-hidden'>
             {children}
           </main>
         </div>
