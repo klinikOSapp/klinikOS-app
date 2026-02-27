@@ -237,8 +237,51 @@ const DEFAULT_BOX_HEADERS = [
   { id: 'box-3', label: 'BOX 3', tone: 'neutral' as const }
 ]
 
-// Helper to convert box id to box name (e.g., 'box-1' -> 'box 1')
-const boxIdToName = (boxId: string): string => boxId.replace('-', ' ')
+const normalizeBoxLabel = (value: string): string =>
+  value.trim().toLowerCase().replace(/\s+/g, ' ')
+
+const extractBoxNumber = (value?: string | null): string | null => {
+  if (!value) return null
+  const match = value.match(/\d+/)
+  return match ? match[0] : null
+}
+
+const toInternalBoxId = (value?: string | null): BoxId | null => {
+  const num = extractBoxNumber(value)
+  if (num === '1') return 'box1'
+  if (num === '2') return 'box2'
+  if (num === '3') return 'box3'
+  return null
+}
+
+const resolveSelectedBoxHeaders = (
+  selectedBoxes: string[],
+  boxHeaders: Array<{
+    id: string
+    label: string
+    tone: string
+  }>
+) => {
+  if (selectedBoxes.length === 0) return boxHeaders
+  const byId = new Map(boxHeaders.map((header) => [header.id, header]))
+  const byLabel = new Map(
+    boxHeaders.map((header) => [normalizeBoxLabel(header.label), header])
+  )
+  const resolved = selectedBoxes
+    .map((value) => byId.get(value) || byLabel.get(normalizeBoxLabel(value)))
+    .filter(
+      (
+        header
+      ): header is {
+        id: string
+        label: string
+        tone: string
+      } => Boolean(header)
+    )
+
+  if (resolved.length === 0) return boxHeaders
+  return Array.from(new Map(resolved.map((header) => [header.id, header])).values())
+}
 
 // Function to calculate dynamic box layout based on selected boxes
 const getBoxLayout = (
@@ -249,10 +292,7 @@ const getBoxLayout = (
     tone: string
   }> = DEFAULT_BOX_HEADERS
 ): Record<string, { left: string; width: string }> => {
-  // Filter to only include boxes that exist in boxHeaders
-  const validBoxes = selectedBoxes.filter((id) =>
-    boxHeaders.some((opt) => opt.id === id)
-  )
+  const validBoxes = resolveSelectedBoxHeaders(selectedBoxes, boxHeaders)
 
   if (validBoxes.length === 0) {
     // Default 3-box layout
@@ -267,8 +307,8 @@ const getBoxLayout = (
 
   const layout: Record<string, { left: string; width: string }> = {}
 
-  validBoxes.forEach((boxId, index) => {
-    const boxName = boxIdToName(boxId)
+  validBoxes.forEach((box, index) => {
+    const boxName = normalizeBoxLabel(box.label)
     const left = index * boxWidth
     layout[boxName] = {
       left: `${left}%`,
@@ -1630,8 +1670,9 @@ function DayGrid({
   onEventDragStart,
   gridRef,
   boxRefs,
-  selectedBoxes,
+  selectedBoxIds,
   boxLayout,
+  boxLayoutKeyById,
   boxCount,
   visibleSlotCount,
   selectedProfessionals,
@@ -1676,8 +1717,9 @@ function DayGrid({
   ) => void
   gridRef?: React.Ref<HTMLDivElement>
   boxRefs?: React.MutableRefObject<Record<BoxId, HTMLDivElement | null>>
-  selectedBoxes: string[]
+  selectedBoxIds: BoxId[]
   boxLayout: Record<string, { left: string; width: string }>
+  boxLayoutKeyById: Partial<Record<BoxId, string>>
   boxCount: number
   visibleSlotCount: number // Número de slots de 30 min visibles según el período
   selectedProfessionals: string[]
@@ -1758,9 +1800,7 @@ function DayGrid({
   const allEvents: { event: DayEvent; boxId: BoxId }[] = []
   sourceSlots.forEach((slot) => {
     slot.boxes.forEach((box) => {
-      // Convert box id (box1, box2, box3) to filter format (box-1, box-2, box-3)
-      const boxFilterId = box.id.replace('box', 'box-')
-      if (selectedBoxes.includes(boxFilterId)) {
+      if (selectedBoxIds.includes(box.id as BoxId)) {
         box.events.forEach((event) => {
           // Filter by period (time range)
           if (!isEventInPeriod(event)) return
@@ -1801,14 +1841,13 @@ function DayGrid({
 
   // Calcular posición left basada en el box usando el layout dinámico
   const getEventLeft = (boxId: BoxId): string => {
-    // Convert boxId (box1, box2, box3) to box name (box 1, box 2, box 3)
-    const boxName = boxId.replace('box', 'box ')
+    const boxName = boxLayoutKeyById[boxId] || boxId.replace('box', 'box ')
     return boxLayout[boxName]?.left ?? '0'
   }
 
   // Get event width based on dynamic layout
   const getEventWidth = (boxId: BoxId): string => {
-    const boxName = boxId.replace('box', 'box ')
+    const boxName = boxLayoutKeyById[boxId] || boxId.replace('box', 'box ')
     return boxLayout[boxName]?.width ?? '33.33%'
   }
 
@@ -1830,7 +1869,7 @@ function DayGrid({
 
   // Get box ID from mouse X position
   const getBoxFromX = (clientX: number): BoxId => {
-    if (!localGridRef.current) return 'box1'
+    if (!localGridRef.current) return selectedBoxIds[0] || 'box1'
     const rect = localGridRef.current.getBoundingClientRect()
     const relativeX = clientX - rect.left
     const boxWidth = rect.width / boxCount
@@ -1838,7 +1877,7 @@ function DayGrid({
       0,
       Math.min(boxCount - 1, Math.floor(relativeX / boxWidth))
     )
-    return (['box1', 'box2', 'box3'] as const)[boxIndex] || 'box1'
+    return selectedBoxIds[boxIndex] || selectedBoxIds[0] || 'box1'
   }
 
   // Handle mouse move for time indicator
@@ -1948,7 +1987,9 @@ function DayGrid({
           )
           const durationMinutes = slotCount * MINUTES_STEP
           // Get the width based on the selected box
-          const boxName = slotDragState.columnId.replace('box', 'box ')
+          const boxName =
+            boxLayoutKeyById[slotDragState.columnId as BoxId] ||
+            slotDragState.columnId.replace('box', 'box ')
           const selectionLayout = boxLayout[boxName]
           return (
             <SlotDragSelection
@@ -2017,7 +2058,7 @@ function DayGrid({
       <div className='absolute inset-0 z-[1]'>
         {blocks.map((block) => {
           // Get box layout for block positioning
-          const boxName = block.box || ''
+          const boxName = normalizeBoxLabel(block.box || '')
           const blockLayout = boxLayout[boxName]
           if (!blockLayout && block.box) return null // Skip if box not visible
 
@@ -2177,7 +2218,16 @@ function timeToMinutes(time: string): number {
 function buildEventsFromAppointments(
   appointments: ExternalAppointment[]
 ): TimeSlot[] {
-  if (!appointments.length) return TIME_SLOTS
+  if (!appointments.length) {
+    return TIME_LABELS.map((time) => ({
+      time,
+      boxes: [
+        { id: 'box1', events: [] },
+        { id: 'box2', events: [] },
+        { id: 'box3', events: [] }
+      ]
+    }))
+  }
 
   // Helper to map appointment box to internal boxId
   const getBoxId = (apptBox: string | undefined, index: number): string => {
@@ -2326,10 +2376,34 @@ export default function DayCalendar({
     selectedBoxesProp ?? effectiveBoxHeaders.map((b) => b.id)
 
   // Get visible boxes based on filter
-  const visibleBoxes = effectiveBoxHeaders.filter((box) =>
-    selectedBoxes.includes(box.id)
+  const visibleBoxes = useMemo(
+    () => resolveSelectedBoxHeaders(selectedBoxes, effectiveBoxHeaders),
+    [effectiveBoxHeaders, selectedBoxes]
   )
-  const boxCount = visibleBoxes.length || 1
+  const visibleBoxIds = useMemo<BoxId[]>(
+    () =>
+      visibleBoxes.map((box, index) => {
+        const fromLabel = toInternalBoxId(box.label)
+        const fromId = toInternalBoxId(box.id)
+        const fallback = (['box1', 'box2', 'box3'] as const)[index]
+        return fromLabel || fromId || fallback || 'box1'
+      }),
+    [visibleBoxes]
+  )
+  const selectedBoxNumberSet = useMemo(
+    () => new Set(visibleBoxIds.map((id) => id.replace('box', ''))),
+    [visibleBoxIds]
+  )
+  const boxLayoutKeyById = useMemo<Partial<Record<BoxId, string>>>(
+    () =>
+      visibleBoxIds.reduce((acc, boxId, index) => {
+        const label = visibleBoxes[index]?.label || `Box ${index + 1}`
+        acc[boxId] = normalizeBoxLabel(label)
+        return acc
+      }, {} as Partial<Record<BoxId, string>>),
+    [visibleBoxIds, visibleBoxes]
+  )
+  const boxCount = visibleBoxIds.length || 1
   const boxLayout = getBoxLayout(selectedBoxes, effectiveBoxHeaders)
   const [hovered, setHovered] = useState<DayEventSelection>(null)
   const [active, setActive] = useState<DayEventSelection>(null)
@@ -2437,7 +2511,16 @@ export default function DayCalendar({
     if (appointments.length) {
       setLocalEvents(buildEventsFromAppointments(appointments))
     } else {
-      setLocalEvents(TIME_SLOTS)
+      setLocalEvents(
+        TIME_LABELS.map((time) => ({
+          time,
+          boxes: [
+            { id: 'box1', events: [] },
+            { id: 'box2', events: [] },
+            { id: 'box3', events: [] }
+          ]
+        }))
+      )
     }
   }, [appointments])
 
@@ -2613,7 +2696,7 @@ export default function DayCalendar({
           setPatientRecordConfig({
             open: true,
             initialTab: 'Resumen',
-            patientId: event.id,
+            patientId: detail?.patientId,
             patientName: detail?.patientFull || 'Paciente'
           })
           break
@@ -2639,7 +2722,7 @@ export default function DayCalendar({
             open: true,
             initialTab: 'Finanzas',
             openBudgetCreation: true,
-            patientId: event.id,
+            patientId: detail?.patientId,
             patientName: detail?.patientFull || 'Paciente'
           })
           break
@@ -2650,7 +2733,7 @@ export default function DayCalendar({
             open: true,
             initialTab: 'Recetas',
             openPrescriptionCreation: true,
-            patientId: event.id,
+            patientId: detail?.patientId,
             patientName: detail?.patientFull || 'Paciente'
           })
           break
@@ -2661,7 +2744,7 @@ export default function DayCalendar({
             open: true,
             initialTab: 'Historial clínico',
             openClinicalHistoryEdit: true,
-            patientId: event.id,
+            patientId: detail?.patientId,
             patientName: detail?.patientFull || 'Paciente'
           })
           break
@@ -2786,10 +2869,21 @@ export default function DayCalendar({
 
   const filteredTimeLabels = getFilteredTimeLabels()
   const visibleSlotCount = filteredTimeLabels.length
+  const periodConfig = getPeriodConfig(period)
+  const periodTotalSlots = periodConfig.totalSlots
 
   // Filtrar eventos según el período seleccionado
   const getFilteredEvents = (): TimeSlot[] => {
-    if (!localEvents.length) return TIME_SLOTS
+    if (!localEvents.length) {
+      return filteredTimeLabels.map((time) => ({
+        time,
+        boxes: [
+          { id: 'box1', events: [] },
+          { id: 'box2', events: [] },
+          { id: 'box3', events: [] }
+        ]
+      }))
+    }
 
     // Crear un Set con las horas visibles para filtrado rápido
     const visibleTimes = new Set(filteredTimeLabels)
@@ -2810,8 +2904,14 @@ export default function DayCalendar({
       .filter((block) => {
         // Filter by selected boxes
         if (block.box) {
-          const boxFilterId = block.box.replace(' ', '-')
-          if (!selectedBoxes.includes(boxFilterId)) return false
+          const boxNum = extractBoxNumber(block.box)
+          if (
+            boxNum &&
+            selectedBoxNumberSet.size > 0 &&
+            !selectedBoxNumberSet.has(boxNum)
+          ) {
+            return false
+          }
         }
 
         // Filter by period - check if block overlaps with period time range
@@ -3189,10 +3289,6 @@ export default function DayCalendar({
     }
   }, [dragState, onAppointmentMove])
 
-  // Obtener configuración del período actual
-  const periodConfig = getPeriodConfig(period)
-  const periodTotalSlots = periodConfig.totalSlots
-
   // Altura basada en slots del período seleccionado
   const bandsTotalHeight = `${bands.length * DAILY_BAND_HEIGHT_REM}rem`
   const dayOffsetTop = `calc(var(--scheduler-day-header-height) + ${bandsTotalHeight})`
@@ -3257,8 +3353,9 @@ export default function DayCalendar({
         onEventDragStart={handleEventDragStart}
         gridRef={gridRef}
         boxRefs={boxRefs}
-        selectedBoxes={selectedBoxes}
+        selectedBoxIds={visibleBoxIds}
         boxLayout={boxLayout}
+        boxLayoutKeyById={boxLayoutKeyById}
         boxCount={boxCount}
         visibleSlotCount={visibleSlotCount}
         selectedProfessionals={selectedProfessionals}

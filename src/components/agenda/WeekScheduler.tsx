@@ -11,7 +11,7 @@ import type {
   ReactElement,
   MouseEvent as ReactMouseEvent
 } from 'react'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import type {
   AppointmentFormData,
@@ -20,7 +20,7 @@ import type {
 
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import RegisterPaymentModal from '@/components/pacientes/modals/patient-record/RegisterPaymentModal'
-import type { BlockType } from '@/context/AppointmentsContext'
+import type { Appointment, BlockType } from '@/context/AppointmentsContext'
 import { BLOCK_TYPE_CONFIG } from '@/context/AppointmentsContext'
 import AgendaBlockCard from './AgendaBlockCard'
 import AppointmentContextMenu, {
@@ -74,6 +74,7 @@ const END_HOUR = 20 // exclusive upper bound for slots (lines stop at 20:00)
 const MINUTES_STEP = 15
 const SLOTS_PER_HOUR = 60 / MINUTES_STEP // 4
 const TOTAL_SLOTS = (END_HOUR - START_HOUR) * SLOTS_PER_HOUR // 44 slots (9:00 → 20:00)
+const SLOT_REM = 2.5
 const HOUR_LABELS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => {
   const hour = START_HOUR + i
   return `${hour.toString().padStart(2, '0')}:00`
@@ -87,12 +88,43 @@ const WEEKDAY_ORDER: Weekday[] = [
   'friday'
 ]
 
+const PROFESSIONAL_DOT_PALETTE = [
+  '#7725eb',
+  '#d97706',
+  '#2e7d5b',
+  '#0369a1',
+  '#dc2626'
+]
+
 const normalizeTimeLabel = (label: string): string => {
   const [hoursPart = '00', minutesPart = '00'] = label.split(':')
   const hours = hoursPart.padStart(2, '0')
   const minutes = minutesPart.padStart(2, '0')
   return `${hours}:${minutes}`
 }
+
+const formatDateInAgendaTimezone = (date: Date): string => {
+  const year = String(date.getFullYear())
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const parseIsoDateLocal = (isoDate: string): Date => {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  if (!year || !month || !day) return new Date(isoDate)
+  return new Date(year, month - 1, day, 0, 0, 0, 0)
+}
+
+const normalizeBoxFilterValue = (value: string): string =>
+  value.trim().toLowerCase().replace(/\s+/g, ' ')
+
+const toProfessionalOptionId = (name: string): string =>
+  `prof-${name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')}`
 
 const HEADER_CELLS: HeaderCell[] = [
   {
@@ -156,18 +188,14 @@ const BOX_COLUMN_LAYOUT: Record<string, { left: string; width: string }> = {
   'box 2': { left: '52%', width: '46%' }
 }
 
-// Helper to convert box id to box name (e.g., 'box-1' -> 'box 1')
-const boxIdToName = (boxId: string): string => boxId.replace('-', ' ')
-
 // Function to calculate dynamic box layout based on selected boxes
 const getBoxLayout = (
   selectedBoxes: string[],
   boxOptions: Array<{ id: string; label: string }> = DEFAULT_BOX_OPTIONS
 ): Record<string, { left: string; width: string }> => {
-  // Filter to only include boxes that exist in boxOptions
-  const validBoxes = selectedBoxes.filter((id) =>
-    boxOptions.some((opt) => opt.id === id)
-  )
+  const validBoxes = selectedBoxes
+    .map((id) => boxOptions.find((opt) => opt.id === id))
+    .filter((opt): opt is { id: string; label: string } => Boolean(opt))
 
   if (validBoxes.length === 0) {
     return BOX_COLUMN_LAYOUT // fallback to default
@@ -180,8 +208,8 @@ const getBoxLayout = (
 
   const layout: Record<string, { left: string; width: string }> = {}
 
-  validBoxes.forEach((boxId, index) => {
-    const boxName = boxIdToName(boxId)
+  validBoxes.forEach((box, index) => {
+    const boxName = normalizeBoxFilterValue(box.label)
     const left = 2 + index * (boxWidth + gap)
     layout[boxName] = {
       left: `${left}%`,
@@ -556,6 +584,216 @@ const timeToTop = (hour: number, minutes: number): string => {
 const durationToHeight = (minutes: number): string => {
   const slots = Math.ceil(minutes / 15)
   return `${slots * 2.5}rem`
+}
+
+function toWeekdayFromIsoDate(dateIso: string): Weekday | null {
+  const [yearRaw, monthRaw, dayRaw] = String(dateIso || '').split('-')
+  const year = Number(yearRaw)
+  const month = Number(monthRaw)
+  const day = Number(dayRaw)
+  if (!year || !month || !day) return null
+  const parsed = new Date(year, month - 1, day, 12, 0, 0, 0)
+  const weekday = parsed.getDay()
+  switch (weekday) {
+    case 1:
+      return 'monday'
+    case 2:
+      return 'tuesday'
+    case 3:
+      return 'wednesday'
+    case 4:
+      return 'thursday'
+    case 5:
+      return 'friday'
+    default:
+      return null
+  }
+}
+
+function normalizeBoxLabel(box: string | undefined): string {
+  const match = String(box || '').match(/\d+/)
+  return `Box ${match?.[0] || '1'}`
+}
+
+function toBackgroundClass(
+  bgColor: string | undefined,
+  createdByVoiceAgent: boolean | undefined
+): string {
+  if (createdByVoiceAgent) return 'bg-[var(--color-event-ai-bg)]'
+  const color = String(bgColor || '').toLowerCase()
+  if (color.includes('ai')) return 'bg-[var(--color-event-ai-bg)]'
+  if (color.includes('coral')) return 'bg-[var(--color-event-coral)]'
+  if (color.includes('purple') || color.includes('brand')) {
+    return 'bg-[var(--color-event-purple)]'
+  }
+  return 'bg-[var(--color-event-teal)]'
+}
+
+function toWeekAgendaEvent(appointment: Appointment): AgendaEvent {
+  const normalizedStart = normalizeTimeLabel(appointment.startTime || '09:00')
+  const normalizedEnd = normalizeTimeLabel(appointment.endTime || '09:30')
+  const [startH = '09', startM = '00'] = normalizedStart.split(':')
+  const [endH = '09', endM = '30'] = normalizedEnd.split(':')
+
+  const startMinutes =
+    Number(startH) * 60 + Number(startM)
+  const endMinutesRaw = Number(endH) * 60 + Number(endM)
+  const minRangeStart = START_HOUR * 60
+  const clampedStart = Math.max(minRangeStart, startMinutes)
+  const endMinutes = Math.max(clampedStart + MINUTES_STEP, endMinutesRaw)
+
+  const slotFromStart = Math.max(
+    0,
+    Math.floor((clampedStart - minRangeStart) / MINUTES_STEP)
+  )
+  const slotCount = Math.max(
+    1,
+    Math.ceil((endMinutes - clampedStart) / MINUTES_STEP)
+  )
+  const durationMinutes = Math.max(MINUTES_STEP, endMinutes - clampedStart)
+
+  const patientName = appointment.patientName || 'Paciente'
+  const reason = appointment.reason || 'Consulta'
+  const professionalName = appointment.professional || 'Profesional'
+  const normalizedBox = normalizeBoxLabel(appointment.box)
+
+  const pendingAmount = appointment.paymentInfo?.pendingAmount
+  const totalAmount = appointment.paymentInfo?.totalAmount
+  const paidAmount = appointment.paymentInfo?.paidAmount
+
+  const economicAmount =
+    typeof pendingAmount === 'number'
+      ? `${pendingAmount.toLocaleString('es-ES', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        })} € pendiente`
+      : undefined
+  const economicStatus =
+    typeof pendingAmount === 'number' && typeof totalAmount === 'number'
+      ? pendingAmount <= 0
+        ? 'Pagado'
+        : typeof paidAmount === 'number' && paidAmount > 0
+          ? `Pago parcial (${paidAmount.toLocaleString('es-ES', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+            })} € de ${totalAmount.toLocaleString('es-ES', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+            })} €)`
+          : 'Pendiente de pago'
+      : undefined
+
+  return {
+    id: String(appointment.id),
+    top: `${slotFromStart * SLOT_REM}rem`,
+    height: `${slotCount * SLOT_REM}rem`,
+    title: reason,
+    patient: patientName,
+    box: normalizedBox,
+    timeRange: `${normalizedStart} - ${normalizedEnd}`,
+    backgroundClass: toBackgroundClass(
+      appointment.bgColor,
+      appointment.createdByVoiceAgent
+    ),
+    detail: {
+      title: `${reason} ${normalizedStart}`,
+      date: appointment.date,
+      duration: `${normalizedStart} - ${normalizedEnd} (${durationMinutes} minutos)`,
+      patientFull: patientName,
+      patientPhone: appointment.patientPhone || undefined,
+      professional: professionalName,
+      economicAmount,
+      economicStatus,
+      notes: appointment.notes || undefined,
+      locationLabel: LOCATION_LABEL,
+      patientLabel: PATIENT_LABEL,
+      professionalLabel: PROFESSIONAL_LABEL,
+      economicLabel: ECONOMIC_LABEL,
+      notesLabel: NOTES_LABEL,
+      patientId: appointment.patientId,
+      appointmentId: String(appointment.id),
+      invoiceId: appointment.invoiceId,
+      invoiceNumber: appointment.invoiceNumber,
+      treatmentDescription: reason,
+      paymentInfo: appointment.paymentInfo,
+      installmentPlan: appointment.installmentPlan
+    },
+    professionalId: appointment.professionalId,
+    completed: appointment.completed,
+    confirmed: appointment.confirmed,
+    visitStatus: appointment.visitStatus,
+    visitStatusHistory: appointment.visitStatusHistory,
+    waitingDuration: appointment.waitingDuration,
+    consultationDuration: appointment.consultationDuration,
+    linkedTreatments: appointment.linkedTreatments?.map((treatment) => ({
+      id: treatment.id,
+      description: treatment.description,
+      amount: treatment.amount
+    })),
+    createdByVoiceAgent: appointment.createdByVoiceAgent,
+    voiceAgentCallId: appointment.voiceAgentCallId,
+    voiceAgentData: appointment.voiceAgentData
+  }
+}
+
+function getInitialDayColumns(): DayColumn[] {
+  return [
+    {
+      id: 'monday',
+      leftVar: '--scheduler-day-left-mon',
+      widthVar: '--scheduler-day-width-first',
+      events: []
+    },
+    {
+      id: 'tuesday',
+      leftVar: '--scheduler-day-left-tue',
+      widthVar: '--scheduler-day-width',
+      events: []
+    },
+    {
+      id: 'wednesday',
+      leftVar: '--scheduler-day-left-wed',
+      widthVar: '--scheduler-day-width',
+      events: []
+    },
+    {
+      id: 'thursday',
+      leftVar: '--scheduler-day-left-thu',
+      widthVar: '--scheduler-day-width',
+      events: []
+    },
+    {
+      id: 'friday',
+      leftVar: '--scheduler-day-left-fri',
+      widthVar: '--scheduler-day-width',
+      events: []
+    }
+  ]
+}
+
+function buildWeekColumnsFromAppointments(appointments: Appointment[]): DayColumn[] {
+  const columns = getInitialDayColumns()
+  const byWeekday = new Map<Weekday, DayColumn>(
+    columns.map((column) => [column.id, column])
+  )
+
+  for (const appointment of appointments) {
+    const weekday = toWeekdayFromIsoDate(appointment.date)
+    if (!weekday) continue
+    const column = byWeekday.get(weekday)
+    if (!column) continue
+    column.events.push(toWeekAgendaEvent(appointment))
+  }
+
+  for (const column of columns) {
+    column.events.sort((a, b) => {
+      const aTop = Number.parseFloat(a.top) || 0
+      const bTop = Number.parseFloat(b.top) || 0
+      return aTop - bTop
+    })
+  }
+
+  return columns
 }
 
 const EVENT_DATA: Record<Weekday, AgendaEvent[]> = {
@@ -2045,31 +2283,31 @@ const INITIAL_DAY_COLUMNS: DayColumn[] = [
     id: 'monday',
     leftVar: '--scheduler-day-left-mon',
     widthVar: '--scheduler-day-width-first',
-    events: EVENT_DATA.monday
+    events: []
   },
   {
     id: 'tuesday',
     leftVar: '--scheduler-day-left-tue',
     widthVar: '--scheduler-day-width',
-    events: EVENT_DATA.tuesday
+    events: []
   },
   {
     id: 'wednesday',
     leftVar: '--scheduler-day-left-wed',
     widthVar: '--scheduler-day-width',
-    events: EVENT_DATA.wednesday
+    events: []
   },
   {
     id: 'thursday',
     leftVar: '--scheduler-day-left-thu',
     widthVar: '--scheduler-day-width',
-    events: EVENT_DATA.thursday
+    events: []
   },
   {
     id: 'friday',
     leftVar: '--scheduler-day-left-fri',
     widthVar: '--scheduler-day-width',
-    events: EVENT_DATA.friday
+    events: []
   }
 ]
 
@@ -2349,10 +2587,12 @@ function ToolbarAction({
 
 function HeaderLabels({
   cells,
-  selectedBoxes
+  selectedBoxes,
+  boxOptions
 }: {
   cells: typeof HEADER_CELLS
   selectedBoxes: string[]
+  boxOptions: Array<{ id: string; label: string }>
 }) {
   const [activeSpecId, setActiveSpecId] = useState<string | null>(null)
   const [activeDay, setActiveDay] = useState<Weekday | null>(null)
@@ -2384,10 +2624,7 @@ function HeaderLabels({
     }
   }, [activeSpecId])
 
-  // Get visible boxes sorted by their original order
-  const visibleBoxes = DEFAULT_BOX_OPTIONS.filter((opt) =>
-    selectedBoxes.includes(opt.id)
-  )
+  const visibleBoxes = boxOptions.filter((opt) => selectedBoxes.includes(opt.id))
   const boxCount = visibleBoxes.length || 1
 
   return (
@@ -2583,7 +2820,9 @@ function DayGrid({
   draggingEventId,
   onClearSelection,
   selectedBoxes,
+  boxOptions,
   selectedProfessionals,
+  activeVisitStatusFilter,
   completedEvents,
   onToggleComplete,
   onEventContextMenu,
@@ -2627,7 +2866,9 @@ function DayGrid({
   draggingEventId?: string | null
   onClearSelection: () => void
   selectedBoxes: string[]
+  boxOptions: Array<{ id: string; label: string }>
   selectedProfessionals: string[]
+  activeVisitStatusFilter?: VisitStatus[] | null
   completedEvents?: Record<string, boolean>
   onToggleComplete?: (eventId: string, completed: boolean) => void
   onEventContextMenu?: (
@@ -2670,14 +2911,19 @@ function DayGrid({
   onSlotDragEnd?: () => void
 }) {
   // Calculate dynamic box layout based on selected boxes
-  const boxLayout = getBoxLayout(selectedBoxes)
+  const boxLayout = getBoxLayout(selectedBoxes, boxOptions)
+  const selectedBoxLabels = new Set(
+    boxOptions
+      .filter((opt) => selectedBoxes.includes(opt.id))
+      .map((opt) => normalizeBoxFilterValue(opt.label))
+  )
 
-  // Filter events to only show those in selected boxes AND selected professionals AND confirmed (if filter active)
+  // Filter events to only show those in selected boxes, professionals and active status filters.
   const filteredEvents = column.events.filter((event) => {
     // Filter by box
-    const boxName = event.box?.toLowerCase() ?? ''
-    const boxId = boxName.replace(' ', '-')
-    const boxMatch = selectedBoxes.includes(boxId)
+    const boxName = normalizeBoxFilterValue(event.box || '')
+    const boxMatch =
+      selectedBoxLabels.size === 0 ? true : selectedBoxLabels.has(boxName)
 
     // Filter by professional (if event has professionalId)
     const professionalMatch =
@@ -2692,7 +2938,20 @@ function DayGrid({
     const isAICreated = event.createdByVoiceAgent === true
     const aiMatch = !showAIOnly || isAICreated
 
-    return boxMatch && professionalMatch && confirmedMatch && aiMatch
+    // Filter by visit status (if active)
+    const currentVisitStatus =
+      visitStatusMap?.[event.id] ?? event.visitStatus ?? 'scheduled'
+    const visitStatusMatch =
+      !activeVisitStatusFilter ||
+      activeVisitStatusFilter.includes(currentVisitStatus)
+
+    return (
+      boxMatch &&
+      professionalMatch &&
+      confirmedMatch &&
+      aiMatch &&
+      visitStatusMatch
+    )
   })
   // Domingo con patrón de puntos SVG
   const isSunday = column.id === 'sunday'
@@ -4084,7 +4343,6 @@ export default function WeekScheduler() {
     addAppointment,
     deleteAppointment,
     updateAppointment,
-    getAppointmentsByDate,
     getAppointmentsByDateRange,
     getBlocksByDateRange,
     deleteBlock,
@@ -4101,19 +4359,163 @@ export default function WeekScheduler() {
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
   const [viewOption, setViewOption] = useState<ViewOption>('semana')
   const [dayPeriod, setDayPeriod] = useState<DayPeriod>('full')
+  const [inferredProfessionalOptions, setInferredProfessionalOptions] =
+    useState<Array<{ id: string; label: string; color: string }>>([])
 
   // Use configuration context for professional and box options
-  const effectiveBoxOptions =
-    boxOptions.length > 0 ? boxOptions : DEFAULT_BOX_OPTIONS
+  const effectiveProfessionalOptions = useMemo(() => {
+    const byId = new Map<string, { id: string; label: string; color: string }>()
+    for (const option of professionalOptions) byId.set(option.id, option)
+    for (const option of inferredProfessionalOptions) {
+      if (!byId.has(option.id)) byId.set(option.id, option)
+    }
+    return Array.from(byId.values())
+  }, [inferredProfessionalOptions, professionalOptions])
+
+  const dotColorByProfessionalId = useMemo(() => {
+    const groupedByColor = new Map<string, Array<{ id: string; color: string }>>()
+    for (const option of effectiveProfessionalOptions) {
+      const colorKey = String(option.color || '').trim().toLowerCase() || '__empty__'
+      const existing = groupedByColor.get(colorKey) || []
+      existing.push({ id: option.id, color: option.color })
+      groupedByColor.set(colorKey, existing)
+    }
+
+    const byId = new Map<string, string>()
+    for (const group of groupedByColor.values()) {
+      if (group.length <= 1) {
+        const single = group[0]
+        if (single) {
+          byId.set(single.id, single.color || PROFESSIONAL_DOT_PALETTE[0])
+        }
+        continue
+      }
+
+      const sorted = [...group].sort((a, b) => a.id.localeCompare(b.id))
+      sorted.forEach((entry, index) => {
+        byId.set(
+          entry.id,
+          PROFESSIONAL_DOT_PALETTE[index % PROFESSIONAL_DOT_PALETTE.length]
+        )
+      })
+    }
+
+    for (const option of effectiveProfessionalOptions) {
+      if (!byId.has(option.id)) {
+        byId.set(option.id, option.color || PROFESSIONAL_DOT_PALETTE[0])
+      }
+    }
+
+    return byId
+  }, [effectiveProfessionalOptions])
+
+  const dotProfessionalOptions = useMemo(
+    () =>
+      effectiveProfessionalOptions.map((option) => ({
+        ...option,
+        color: dotColorByProfessionalId.get(option.id) || option.color
+      })),
+    [dotColorByProfessionalId, effectiveProfessionalOptions]
+  )
+
+  const effectiveBoxOptions = useMemo(
+    () =>
+      (boxOptions.length > 0 ? boxOptions : DEFAULT_BOX_OPTIONS).map((opt) => ({
+        id: opt.id || normalizeBoxFilterValue(opt.label),
+        label: opt.label
+      })),
+    [boxOptions]
+  )
+
+  const professionalOptionIds = useMemo(
+    () => effectiveProfessionalOptions.map((opt) => opt.id),
+    [effectiveProfessionalOptions]
+  )
+  const boxOptionIds = useMemo(
+    () => effectiveBoxOptions.map((opt) => opt.id),
+    [effectiveBoxOptions]
+  )
 
   const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>(
-    () => professionalOptions.map((opt) => opt.id) // All professionals selected by default
+    () => professionalOptionIds
   )
-  const [selectedBoxes, setSelectedBoxes] = useState<string[]>(() =>
-    effectiveBoxOptions.map((option) => option.id)
+  const [selectedBoxes, setSelectedBoxes] = useState<string[]>(
+    () => boxOptionIds
   )
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(false)
   const [showAIOnly, setShowAIOnly] = useState(false) // Filter for AI-created appointments
+  const previousProfessionalOptionIdsRef = useRef<string[]>([])
+  const initializedDefaultFiltersRef = useRef(false)
+
+  useEffect(() => {
+    setSelectedProfessionals((previous) => {
+      const previousOptionIds = previousProfessionalOptionIdsRef.current
+      const kept = previous.filter((id) => professionalOptionIds.includes(id))
+      const hadAllPreviousSelected =
+        previousOptionIds.length > 0 &&
+        previousOptionIds.every((id) => previous.includes(id))
+
+      let next = kept.length > 0 ? kept : professionalOptionIds
+      if (hadAllPreviousSelected) {
+        const addedIds = professionalOptionIds.filter(
+          (id) => !previousOptionIds.includes(id)
+        )
+        if (addedIds.length > 0) {
+          next = [...kept, ...addedIds]
+        }
+      }
+
+      if (
+        previous.length === next.length &&
+        previous.every((id, index) => id === next[index])
+      ) {
+        return previous
+      }
+      return next
+    })
+    previousProfessionalOptionIdsRef.current = professionalOptionIds
+  }, [professionalOptionIds])
+
+  useEffect(() => {
+    setSelectedBoxes((previous) => {
+      const kept = previous.filter((id) => boxOptionIds.includes(id))
+      const next = kept.length > 0 ? kept : boxOptionIds
+      if (
+        previous.length === next.length &&
+        previous.every((id, index) => id === next[index])
+      ) {
+        return previous
+      }
+      return next
+    })
+  }, [boxOptionIds])
+
+  useEffect(() => {
+    if (initializedDefaultFiltersRef.current) return
+    if (professionalOptionIds.length === 0 || boxOptionIds.length === 0) return
+    setSelectedProfessionals(professionalOptionIds)
+    setSelectedBoxes(boxOptionIds)
+    initializedDefaultFiltersRef.current = true
+  }, [boxOptionIds, professionalOptionIds])
+
+  const resolveBoxLabel = useCallback(
+    (value?: string | null): string => {
+      if (!value) return effectiveBoxOptions[0]?.label || 'Box 1'
+      const raw = value.trim()
+      const key = normalizeBoxFilterValue(raw)
+      const valueNumber = raw.match(/\d+/)?.[0]
+      const matched =
+        effectiveBoxOptions.find((opt) => opt.id === raw) ||
+        effectiveBoxOptions.find((opt) => normalizeBoxFilterValue(opt.label) === key) ||
+        (valueNumber
+          ? effectiveBoxOptions.find(
+              (opt) => opt.label.match(/\d+/)?.[0] === valueNumber
+            )
+          : undefined)
+      return matched?.label || raw
+    },
+    [effectiveBoxOptions]
+  )
 
   // Estado para filtro de estado de visita (null = mostrar todos)
   const [activeVisitStatusFilter, setActiveVisitStatusFilter] = useState<
@@ -4128,8 +4530,9 @@ export default function WeekScheduler() {
     useState(false)
   const [appointmentPrefill, setAppointmentPrefill] =
     useState<Partial<AppointmentFormData> | null>(null)
-  const [dayColumnsState, setDayColumnsState] =
-    useState<DayColumn[]>(INITIAL_DAY_COLUMNS)
+  const [dayColumnsState, setDayColumnsState] = useState<DayColumn[]>(
+    () => getInitialDayColumns()
+  )
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedDayAppointments, setSelectedDayAppointments] = useState<
     {
@@ -4243,6 +4646,112 @@ export default function WeekScheduler() {
     return new Date(today.getFullYear(), today.getMonth(), 1)
   })
 
+  useEffect(() => {
+    const weekStart = new Date(currentWeekStart)
+    weekStart.setHours(0, 0, 0, 0)
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekStart.getDate() + 4)
+
+    const startIso = formatDateInAgendaTimezone(weekStart)
+    const endIso = formatDateInAgendaTimezone(weekEnd)
+    const weekAppointments = getAppointmentsByDateRange(startIso, endIso)
+    const optionsStart = new Date(weekStart)
+    optionsStart.setDate(optionsStart.getDate() - 180)
+    const optionsEnd = new Date(weekEnd)
+    optionsEnd.setDate(optionsEnd.getDate() + 180)
+    const optionsStartIso = formatDateInAgendaTimezone(optionsStart)
+    const optionsEndIso = formatDateInAgendaTimezone(optionsEnd)
+    const appointmentsForOptions = getAppointmentsByDateRange(
+      optionsStartIso,
+      optionsEndIso
+    )
+
+    const configuredProfessionalByName = new Map(
+      professionalOptions.map((opt) => [opt.label.toLowerCase(), opt])
+    )
+    const inferredByName = new Map<
+      string,
+      { id: string; label: string; color: string }
+    >()
+    for (const apt of appointmentsForOptions) {
+      const professionalName = (apt.professional || '').trim()
+      if (!professionalName) continue
+      const key = professionalName.toLowerCase()
+      if (configuredProfessionalByName.has(key) || inferredByName.has(key)) continue
+      inferredByName.set(key, {
+        id: toProfessionalOptionId(professionalName),
+        label: professionalName,
+        color: 'var(--color-neutral-400)'
+      })
+    }
+    const nextInferredOptions = Array.from(inferredByName.values())
+    setInferredProfessionalOptions((previous) => {
+      if (
+        previous.length === nextInferredOptions.length &&
+        previous.every((option, index) => {
+          const next = nextInferredOptions[index]
+          return (
+            option.id === next.id &&
+            option.label === next.label &&
+            option.color === next.color
+          )
+        })
+      ) {
+        return previous
+      }
+      return nextInferredOptions
+    })
+
+    const professionalIdByName = new Map(
+      effectiveProfessionalOptions.map((opt) => [opt.label.toLowerCase(), opt.id])
+    )
+    const fallbackBox = effectiveBoxOptions[0]?.label || 'Box 1'
+    const freshColumns: DayColumn[] = getInitialDayColumns().map((col) => ({
+      ...col,
+      events: []
+    }))
+
+    for (const apt of weekAppointments) {
+      const weekday = toWeekdayFromIsoDate(apt.date)
+      if (!weekday) continue
+
+      const column = freshColumns.find((col) => col.id === weekday)
+      if (!column) continue
+
+      const professionalName = (apt.professional || DEFAULT_PROFESSIONAL).trim()
+      const professionalId =
+        apt.professionalId ||
+        professionalIdByName.get(professionalName.toLowerCase()) ||
+        toProfessionalOptionId(professionalName)
+
+      const agendaEvent = toWeekAgendaEvent({
+        ...apt,
+        box: resolveBoxLabel(apt.box || fallbackBox)
+      })
+      agendaEvent.professionalId = professionalId
+      agendaEvent.box = resolveBoxLabel(apt.box || fallbackBox)
+
+      column.events.push(agendaEvent)
+    }
+
+    freshColumns.forEach((col) => {
+      col.events.sort((a, b) => {
+        const aStart = a.timeRange.split('-')[0]?.trim() || '09:00'
+        const bStart = b.timeRange.split('-')[0]?.trim() || '09:00'
+        return timeToMinutes(aStart) - timeToMinutes(bStart)
+      })
+    })
+
+    setDayColumnsState(freshColumns)
+  }, [
+    currentWeekStart,
+    effectiveBoxOptions,
+    effectiveProfessionalOptions,
+    getAppointmentsByDateRange,
+    professionalOptions,
+    resolveBoxLabel
+  ])
+
   const viewDropdownRef = useRef<HTMLDivElement | null>(null)
   const professionalDropdownRef = useRef<HTMLDivElement | null>(null)
   const boxDropdownRef = useRef<HTMLDivElement | null>(null)
@@ -4306,16 +4815,6 @@ export default function WeekScheduler() {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [openDropdown])
-
-  // Sync day view appointments whenever we are in day view or data changes
-  // Checks AppointmentsContext first (date-specific), fallback to EVENT_DATA (weekday-based)
-  useEffect(() => {
-    if (viewOption !== 'dia') return
-    const targetDate = selectedDate ?? currentWeekStart
-    const appointments = getAppointmentsForDate(targetDate)
-    setSelectedDayAppointments(appointments)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewOption, selectedDate, currentWeekStart, getAppointmentsByDate])
 
   // Only show overlay on click (active), not on hover
   // IMPORTANTE: Buscar el evento actualizado en dayColumnsState para obtener datos frescos
@@ -4397,6 +4896,19 @@ export default function WeekScheduler() {
       setSelectedDate(new Date())
     }
   }
+
+  const resolveEventPatient = useCallback(
+    (event: AgendaEvent) => {
+      const detail = event.detail
+      const appointmentId = detail?.appointmentId ?? event.id
+      const appointment = getAppointmentById(appointmentId)
+      const patientId = detail?.patientId || appointment?.patientId
+      const patientName =
+        detail?.patientFull || appointment?.patientName || event.patient || 'Paciente'
+      return { patientId, patientName }
+    },
+    [getAppointmentById]
+  )
 
   // Handler para abrir modal de pago desde acciones rápidas
   const handlePaymentAction = useCallback(() => {
@@ -4717,13 +5229,23 @@ export default function WeekScheduler() {
 
       switch (action) {
         case 'view-patient':
-          // Abrir modal de ficha del paciente
-          setPatientRecordConfig({
-            open: true,
-            initialTab: 'Resumen',
-            patientId: event.id,
-            patientName: detail?.patientFull || 'Paciente'
-          })
+          {
+            const { patientId, patientName } = resolveEventPatient(event)
+            if (!patientId) {
+              console.warn(
+                'No se pudo abrir ficha: cita sin patientId',
+                detail?.appointmentId ?? event.id
+              )
+              break
+            }
+            // Abrir modal de ficha del paciente
+            setPatientRecordConfig({
+              open: true,
+              initialTab: 'Resumen',
+              patientId,
+              patientName
+            })
+          }
           break
 
         case 'view-appointment':
@@ -4744,36 +5266,66 @@ export default function WeekScheduler() {
           break
 
         case 'new-budget':
-          // Abrir modal de ficha del paciente en tab Finanzas con creación abierta
-          setPatientRecordConfig({
-            open: true,
-            initialTab: 'Finanzas',
-            openBudgetCreation: true,
-            patientId: event.id, // Mock: usando event.id como patientId
-            patientName: detail?.patientFull || 'Paciente'
-          })
+          {
+            const { patientId, patientName } = resolveEventPatient(event)
+            if (!patientId) {
+              console.warn(
+                'No se pudo abrir presupuesto: cita sin patientId',
+                detail?.appointmentId ?? event.id
+              )
+              break
+            }
+            // Abrir modal de ficha del paciente en tab Finanzas con creación abierta
+            setPatientRecordConfig({
+              open: true,
+              initialTab: 'Finanzas',
+              openBudgetCreation: true,
+              patientId,
+              patientName
+            })
+          }
           break
 
         case 'new-prescription':
-          // Abrir modal de ficha del paciente en tab Recetas con creación abierta
-          setPatientRecordConfig({
-            open: true,
-            initialTab: 'Recetas',
-            openPrescriptionCreation: true,
-            patientId: event.id,
-            patientName: detail?.patientFull || 'Paciente'
-          })
+          {
+            const { patientId, patientName } = resolveEventPatient(event)
+            if (!patientId) {
+              console.warn(
+                'No se pudo abrir receta: cita sin patientId',
+                detail?.appointmentId ?? event.id
+              )
+              break
+            }
+            // Abrir modal de ficha del paciente en tab Recetas con creación abierta
+            setPatientRecordConfig({
+              open: true,
+              initialTab: 'Recetas',
+              openPrescriptionCreation: true,
+              patientId,
+              patientName
+            })
+          }
           break
 
         case 'report':
-          // Abrir modal de ficha del paciente en Historial clínico en modo edición
-          setPatientRecordConfig({
-            open: true,
-            initialTab: 'Historial clínico',
-            openClinicalHistoryEdit: true,
-            patientId: event.id,
-            patientName: detail?.patientFull || 'Paciente'
-          })
+          {
+            const { patientId, patientName } = resolveEventPatient(event)
+            if (!patientId) {
+              console.warn(
+                'No se pudo abrir historial clínico: cita sin patientId',
+                detail?.appointmentId ?? event.id
+              )
+              break
+            }
+            // Abrir modal de ficha del paciente en Historial clínico en modo edición
+            setPatientRecordConfig({
+              open: true,
+              initialTab: 'Historial clínico',
+              openClinicalHistoryEdit: true,
+              patientId,
+              patientName
+            })
+          }
           break
 
         case 'view-voice-call':
@@ -4786,7 +5338,13 @@ export default function WeekScheduler() {
 
       setContextMenu(null)
     },
-    [contextMenu, dayColumnsState, openCreateAppointmentModal, router]
+    [
+      contextMenu,
+      dayColumnsState,
+      openCreateAppointmentModal,
+      resolveEventPatient,
+      router
+    ]
   )
 
   const timeToMinutes = (time: string): number => {
@@ -4794,117 +5352,157 @@ export default function WeekScheduler() {
     return Number(hh) * 60 + Number(mm)
   }
 
-  // Obtener appointments para una fecha específica
-  // Primero busca en AppointmentsContext (datos por fecha concreta),
-  // luego fallback a dayColumnsState (datos por día de la semana)
-  const getAppointmentsForDate = (date: Date | null) => {
-    if (!date) return []
+  const mapAppointmentToDayView = useCallback(
+    (apt: Appointment) => {
+      const linkedLabel = apt.linkedTreatments
+        ?.map((t) => t.description)
+        .filter(Boolean)
+        .join(', ')
+      const title = linkedLabel || apt.reason || 'Consulta'
+      const bgColor = apt.createdByVoiceAgent
+        ? 'var(--color-event-ai-bg)'
+        : apt.bgColor?.includes('coral')
+        ? 'var(--color-event-coral)'
+        : apt.bgColor?.includes('brand') || apt.bgColor?.includes('purple')
+        ? 'var(--color-event-purple)'
+        : 'var(--color-event-teal)'
+      const durationMinutes = Math.max(
+        MINUTES_STEP,
+        timeToMinutes(apt.endTime) - timeToMinutes(apt.startTime)
+      )
+      const economicStatus =
+        apt.paymentInfo && apt.paymentInfo.pendingAmount > 0
+          ? 'Pago parcial'
+          : 'Pendiente de pago'
+      const economicAmount = apt.paymentInfo
+        ? `${apt.paymentInfo.pendingAmount.toLocaleString('es-ES', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          })} € pendiente`
+        : 'Pendiente'
+      const professionalName = (apt.professional || DEFAULT_PROFESSIONAL).trim()
+      const professionalId =
+        apt.professionalId ||
+        effectiveProfessionalOptions.find(
+          (option) => option.label.toLowerCase() === professionalName.toLowerCase()
+        )?.id ||
+        toProfessionalOptionId(professionalName)
 
-    // Intentar obtener citas del contexto para la fecha exacta
-    const isoDate = date.toLocaleDateString('en-CA') // 'YYYY-MM-DD'
-    const contextAppointments = getAppointmentsByDate(isoDate)
-
-    if (contextAppointments.length > 0) {
-      return contextAppointments.map((apt) => ({
+      return {
         id: apt.id,
         start: apt.startTime,
         end: apt.endTime,
-        patient: apt.patientName,
-        title: apt.reason,
-        box: apt.box?.toUpperCase().replace('BOX ', 'BOX ') ?? 'BOX 1',
-        bgColor: apt.bgColor ?? 'var(--color-event-teal)',
-        professional: apt.professional,
-        visitStatus: apt.visitStatus,
-        completed: apt.completed,
+        patient: apt.patientName || 'Paciente',
+        title,
+        box: resolveBoxLabel(apt.box),
+        bgColor,
+        professionalId,
         confirmed: apt.confirmed,
         createdByVoiceAgent: apt.createdByVoiceAgent,
-        voiceAgentCallId: apt.voiceAgentCallId
-      }))
-    }
-
-    // Fallback: usar datos de dayColumnsState por día de la semana
-    const dayOfWeek = date.getDay()
-    const weekdayMapping: Record<number, Weekday | null> = {
-      0: null,
-      1: 'monday',
-      2: 'tuesday',
-      3: 'wednesday',
-      4: 'thursday',
-      5: 'friday',
-      6: null
-    }
-    const weekday = weekdayMapping[dayOfWeek]
-
-    if (weekday) {
-      const dayColumn = dayColumnsState.find((c) => c.id === weekday)
-      if (dayColumn && dayColumn.events.length > 0) {
-        return mapColumnToDayAppointments(dayColumn, false)
-      }
-    }
-
-    return []
-  }
-
-  // Obtener bandas de profesionales para una fecha específica
-  // Siempre usa dayColumnsState basándose en el día de la semana
-  // Limitado a 2 especialistas como máximo
-  const getDayBands = (date: Date | null) => {
-    if (!date) return []
-
-    const dayOfWeek = date.getDay()
-    const weekdayMapping: Record<number, Weekday | null> = {
-      0: null,
-      1: 'monday',
-      2: 'tuesday',
-      3: 'wednesday',
-      4: 'thursday',
-      5: 'friday',
-      6: null
-    }
-    const weekday = weekdayMapping[dayOfWeek]
-
-    if (weekday) {
-      const dayColumn = dayColumnsState.find((c) => c.id === weekday)
-      if (dayColumn && dayColumn.events.length > 0) {
-        // Extraer profesionales únicos de los eventos del día
-        const professionals = new Set<string>()
-        dayColumn.events.forEach((ev) => {
-          if (ev.detail?.professional) {
-            professionals.add(ev.detail.professional)
-          }
-        })
-
-        // Generar bandas para cada profesional con colores asignados
-        const profColors: Record<string, string> = {
-          'Laura Sánchez (Higienista)': '#f0fafa',
-          'Dr. Antonio Ruiz García': '#fbe9fb',
-          'Dr. Francisco Moreno': '#fff4e6',
-          'Dra. Elena Navarro Pérez': '#e6f4ff',
-          'Dr. Miguel Á. Torres': '#ffe6f0',
-          'Dra. Carmen Díaz López': '#e6ffe6'
+        voiceAgentCallId: apt.voiceAgentCallId,
+        visitStatus: apt.visitStatus,
+        completed: apt.completed,
+        detail: {
+          title,
+          date: apt.date,
+          duration: `${apt.startTime} - ${apt.endTime} (${durationMinutes} minutos)`,
+          patientFull: apt.patientName || 'Paciente',
+          patientPhone: apt.patientPhone || DEFAULT_PATIENT_PHONE,
+          professional: professionalName,
+          economicAmount,
+          economicStatus,
+          notes: apt.notes || DEFAULT_NOTES,
+          locationLabel: LOCATION_LABEL,
+          patientLabel: PATIENT_LABEL,
+          professionalLabel: PROFESSIONAL_LABEL,
+          economicLabel: ECONOMIC_LABEL,
+          notesLabel: NOTES_LABEL,
+          patientId: apt.patientId,
+          appointmentId: apt.id,
+          invoiceId: apt.invoiceId || undefined,
+          invoiceNumber: apt.invoiceNumber || undefined,
+          treatmentDescription: apt.reason,
+          paymentInfo: apt.paymentInfo,
+          installmentPlan: apt.installmentPlan
         }
-
-        // Solo mostrar 2 especialistas como máximo
-        return Array.from(professionals)
-          .slice(0, 2)
-          .map((prof, idx) => ({
-            id: `band-${idx}`,
-            label: prof,
-            background: profColors[prof] || '#f0fafa'
-          }))
       }
-    }
+    },
+    [effectiveProfessionalOptions, resolveBoxLabel]
+  )
 
-    // Si es fin de semana, retornar array vacío
-    return []
-  }
+  // Obtener appointments para una fecha específica usando fecha absoluta (DB/context).
+  const getAppointmentsForDate = useCallback(
+    (date: Date | null) => {
+      if (!date) return []
+
+      const dateIso = formatDateInAgendaTimezone(date)
+      const dayAppointments = getAppointmentsByDateRange(dateIso, dateIso)
+
+      return dayAppointments
+        .map((apt) => mapAppointmentToDayView(apt))
+        .sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start))
+    },
+    [getAppointmentsByDateRange, mapAppointmentToDayView]
+  )
+
+  // Obtener bandas de profesionales para una fecha específica (basado en citas reales).
+  const getDayBands = useCallback(
+    (date: Date | null) => {
+      if (!date) return []
+
+      const dateIso = formatDateInAgendaTimezone(date)
+      const dayAppointments = getAppointmentsByDateRange(dateIso, dateIso)
+      if (dayAppointments.length === 0) return []
+
+      const optionsByLabel = new Map(
+        dotProfessionalOptions.map((opt) => [opt.label.toLowerCase(), opt])
+      )
+      const selectedSet = new Set(selectedProfessionals)
+      const uniqueProfessionalNames: string[] = []
+
+      for (const apt of dayAppointments) {
+        const professionalName = (apt.professional || '').trim()
+        if (!professionalName) continue
+        if (uniqueProfessionalNames.includes(professionalName)) continue
+
+        const option =
+          optionsByLabel.get(professionalName.toLowerCase()) ||
+          ({
+            id: toProfessionalOptionId(professionalName),
+            label: professionalName,
+            color: 'var(--color-neutral-400)'
+          } as const)
+
+        if (selectedSet.size > 0 && !selectedSet.has(option.id)) continue
+        uniqueProfessionalNames.push(professionalName)
+      }
+
+      return uniqueProfessionalNames.slice(0, 2).map((name, idx) => {
+        const option = optionsByLabel.get(name.toLowerCase())
+        return {
+          id: `band-${idx}-${toProfessionalOptionId(name)}`,
+          label: name,
+          background: option?.color || 'var(--color-neutral-400)'
+        }
+      })
+    },
+    [dotProfessionalOptions, getAppointmentsByDateRange, selectedProfessionals]
+  )
+
+  // Sync day view appointments whenever we are in day view or data changes.
+  useEffect(() => {
+    if (viewOption !== 'dia') return
+    const targetDate = selectedDate ?? currentWeekStart
+    const appointments = getAppointmentsForDate(targetDate)
+    setSelectedDayAppointments(appointments)
+  }, [currentWeekStart, getAppointmentsForDate, selectedDate, viewOption])
 
   const mapColumnToDayAppointments = (
     column?: DayColumn,
     useFallback = true
   ) => {
     if (!column || column.events.length === 0) {
-      return useFallback ? DAY_VIEW_FALLBACK_APPOINTMENTS : []
+      return []
     }
     return column.events.map((ev, idx) => {
       const [startRaw, endRaw] = (ev.timeRange ?? '').split('-')
@@ -4947,7 +5545,7 @@ export default function WeekScheduler() {
       const custom = event as CustomEvent<{ date?: string }>
       const isoDate = custom.detail?.date
       if (!isoDate) return
-      const target = new Date(isoDate)
+      const target = parseIsoDateLocal(isoDate)
       if (Number.isNaN(target.getTime())) return
 
       // Set week anchored to Monday of target date
@@ -4962,35 +5560,13 @@ export default function WeekScheduler() {
       setViewOption('dia')
       setDayPeriod('full')
 
-      // Obtener appointments basándose en el día de la semana (mismos datos que vista semanal)
-      const weekdayMap: Record<number, Weekday | null> = {
-        0: null,
-        1: 'monday',
-        2: 'tuesday',
-        3: 'wednesday',
-        4: 'thursday',
-        5: 'friday',
-        6: null
-      }
-      const weekday = weekdayMap[dayOfWeekNum]
-
-      if (weekday) {
-        const dayColumn = dayColumnsState.find((c) => c.id === weekday)
-        if (dayColumn && dayColumn.events.length > 0) {
-          setSelectedDayAppointments(
-            mapColumnToDayAppointments(dayColumn, false)
-          )
-          return
-        }
-      }
-
-      // Si es fin de semana o no hay datos, mostrar array vacío
-      setSelectedDayAppointments([])
+      // Load day appointments by absolute date.
+      setSelectedDayAppointments(getAppointmentsForDate(target))
     }
 
     window.addEventListener('agenda:open-day-view', handler)
     return () => window.removeEventListener('agenda:open-day-view', handler)
-  }, [dayColumnsState])
+  }, [getAppointmentsForDate])
 
   const handleDayAppointmentMove = ({
     id,
@@ -5004,8 +5580,8 @@ export default function WeekScheduler() {
     box: string
   }) => {
     const targetDate =
-      selectedDate?.toLocaleDateString('en-CA') ??
-      currentWeekStart.toLocaleDateString('en-CA')
+      (selectedDate && formatDateInAgendaTimezone(selectedDate)) ||
+      formatDateInAgendaTimezone(currentWeekStart)
     const targetWeekday = getWeekdayFromDate(targetDate)
 
     const startSlot = getSlotIndexFromTime(start)
@@ -5165,6 +5741,105 @@ export default function WeekScheduler() {
     return `${day} ${month} ${year}`
   }
 
+  const monthEvents = useMemo(() => {
+    const monthStart = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth(),
+      1
+    )
+    const monthEnd = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth() + 1,
+      0
+    )
+
+    const startIso = formatDateInAgendaTimezone(monthStart)
+    const endIso = formatDateInAgendaTimezone(monthEnd)
+    const appointmentsForMonth = getAppointmentsByDateRange(startIso, endIso)
+    const selectedBoxLabels = new Set(
+      effectiveBoxOptions
+        .filter((option) => selectedBoxes.includes(option.id))
+        .map((option) => normalizeBoxFilterValue(option.label))
+    )
+    const professionalIdByName = new Map(
+      effectiveProfessionalOptions.map((option) => [
+        option.label.toLowerCase(),
+        option.id
+      ])
+    )
+    const fallbackBoxLabel = effectiveBoxOptions[0]?.label || 'Box 1'
+
+    return appointmentsForMonth
+      .filter((apt) => {
+        const resolvedBoxLabel = resolveBoxLabel(apt.box || fallbackBoxLabel)
+        const normalizedBoxLabel = normalizeBoxFilterValue(resolvedBoxLabel)
+        const boxMatch =
+          selectedBoxLabels.size === 0 ||
+          selectedBoxLabels.has(normalizedBoxLabel)
+
+        const professionalName = (apt.professional || '').trim().toLowerCase()
+        const resolvedProfessionalId =
+          apt.professionalId || professionalIdByName.get(professionalName) || null
+        const professionalMatch =
+          !resolvedProfessionalId ||
+          selectedProfessionals.includes(resolvedProfessionalId)
+
+        const confirmedMatch = !showConfirmedOnly || apt.confirmed === true
+        const aiMatch = !showAIOnly || apt.createdByVoiceAgent === true
+        const visitStatus = apt.visitStatus ?? 'scheduled'
+        const visitStatusMatch =
+          !activeVisitStatusFilter ||
+          activeVisitStatusFilter.includes(visitStatus)
+
+        return (
+          boxMatch &&
+          professionalMatch &&
+          confirmedMatch &&
+          aiMatch &&
+          visitStatusMatch
+        )
+      })
+      .map((apt) => {
+        const linkedLabel = apt.linkedTreatments
+          ?.map((t) => t.description)
+          .filter(Boolean)
+          .join(', ')
+        const title = linkedLabel || apt.reason || 'Consulta'
+        const professionalName = (apt.professional || DEFAULT_PROFESSIONAL).trim()
+        const resolvedProfessionalId =
+          apt.professionalId ||
+          professionalIdByName.get(professionalName.toLowerCase()) ||
+          undefined
+
+        return {
+          id: apt.id,
+          date: apt.date,
+          title,
+          patient: apt.patientName || 'Paciente',
+          timeRange: `${apt.startTime} - ${apt.endTime}`,
+          box: resolveBoxLabel(apt.box || fallbackBoxLabel),
+          professional: professionalName,
+          professionalId: resolvedProfessionalId,
+          confirmed: apt.confirmed === true,
+          createdByVoiceAgent: apt.createdByVoiceAgent === true,
+          bgColor: apt.createdByVoiceAgent
+            ? 'var(--color-event-ai-bg)'
+            : apt.bgColor || 'var(--color-event-teal)'
+        }
+      })
+  }, [
+    activeVisitStatusFilter,
+    currentMonth,
+    effectiveBoxOptions,
+    effectiveProfessionalOptions,
+    getAppointmentsByDateRange,
+    selectedBoxes,
+    selectedProfessionals,
+    showAIOnly,
+    showConfirmedOnly,
+    resolveBoxLabel
+  ])
+
   const capitalize = (value: string): string =>
     value ? value.charAt(0).toUpperCase() + value.slice(1) : value
 
@@ -5207,14 +5882,22 @@ export default function WeekScheduler() {
 
     const allBlocks = getBlocksByDateRange(startDate, endDate)
     const blocksForDay = allBlocks.filter((block) => block.date === dateStr)
+    const selectedBoxLabels = new Set(
+      effectiveBoxOptions
+        .filter((option) => selectedBoxes.includes(option.id))
+        .map((option) => normalizeBoxFilterValue(option.label))
+    )
+    const boxLayout = getBoxLayout(selectedBoxes, effectiveBoxOptions)
 
     // Convert to visual format with position calculation
     return blocksForDay
       .filter((block) => {
         // Filter by selected boxes
         if (block.box) {
-          const boxFilterId = block.box.replace(' ', '-')
-          if (!selectedBoxes.includes(boxFilterId)) return false
+          const boxLabel = normalizeBoxFilterValue(resolveBoxLabel(block.box))
+          if (selectedBoxLabels.size > 0 && !selectedBoxLabels.has(boxLabel)) {
+            return false
+          }
         }
         return true
       })
@@ -5243,8 +5926,7 @@ export default function WeekScheduler() {
         const height = `${heightSlots * SLOT_REM}rem`
 
         // Calculate left/width based on box layout
-        const boxLayout = getBoxLayout(selectedBoxes)
-        const boxName = block.box?.toLowerCase() ?? ''
+        const boxName = normalizeBoxFilterValue(resolveBoxLabel(block.box))
         const layout = boxLayout[boxName]
 
         return {
@@ -5299,7 +5981,13 @@ export default function WeekScheduler() {
 
       // Get available professionals for this date dynamically
       const availableProfessionals = getAvailableProfessionalsForDate(date)
-      const specialists: SpecialistAvailability[] = availableProfessionals.map(
+      const visibleProfessionals =
+        selectedProfessionals.length > 0
+          ? availableProfessionals.filter((professional) =>
+              selectedProfessionals.includes(professional.id)
+            )
+          : availableProfessionals
+      const specialists: SpecialistAvailability[] = visibleProfessionals.map(
         (prof) => {
           const daySchedule = getProfessionalScheduleForDate(prof.id, date)
           let timeRange = ''
@@ -5308,12 +5996,17 @@ export default function WeekScheduler() {
               .map((s) => `${s.start} - ${s.end}`)
               .join(', ')
           }
-          const profOption = professionalOptions.find((p) => p.id === prof.id)
+          const profOption = effectiveProfessionalOptions.find(
+            (p) => p.id === prof.id
+          )
           return {
             id: prof.id,
             name: prof.name,
             timeRange,
-            color: profOption?.color || 'var(--color-neutral-400)'
+            color:
+              dotColorByProfessionalId.get(prof.id) ||
+              profOption?.color ||
+              'var(--color-neutral-400)'
           }
         }
       )
@@ -5424,7 +6117,7 @@ export default function WeekScheduler() {
       const idx = WEEKDAY_ORDER.indexOf(weekday)
       const date = new Date(currentWeekStart)
       date.setDate(currentWeekStart.getDate() + Math.max(0, idx))
-      return date.toLocaleDateString('en-CA')
+      return formatDateInAgendaTimezone(date)
     },
     [currentWeekStart]
   )
@@ -5501,9 +6194,9 @@ export default function WeekScheduler() {
             : dragState.startHeightSlots
 
         // Calcular el box objetivo dinámicamente basándose en los boxes seleccionados
-        const validBoxes = selectedBoxes
-          .filter((id) => DEFAULT_BOX_OPTIONS.some((opt) => opt.id === id))
-          .sort() // Ordenar para mantener consistencia (box-1, box-2, box-3)
+        const validBoxes = effectiveBoxOptions.filter((opt) =>
+          selectedBoxes.includes(opt.id)
+        )
         const numBoxes = validBoxes.length || 1
         const boxWidthPx = rect.width / numBoxes
         const relX = x - rect.left
@@ -5511,9 +6204,8 @@ export default function WeekScheduler() {
           numBoxes - 1,
           Math.max(0, Math.floor(relX / boxWidthPx))
         )
-        const targetBoxId = validBoxes[boxIndex] ?? 'box-1'
-        // Convertir 'box-1' a 'Box 1' (formato usado en los eventos)
-        const targetBox = targetBoxId.replace('box-', 'Box ')
+        const targetBox =
+          validBoxes[boxIndex]?.label || effectiveBoxOptions[0]?.label || 'Box 1'
 
         const startTime = slotToTime(newSlot)
         const endTime = slotToTime(newSlot + newHeightSlots)
@@ -5584,7 +6276,7 @@ export default function WeekScheduler() {
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
     }
-  }, [dragState, getDateFromWeekday, selectedBoxes])
+  }, [dragState, effectiveBoxOptions, getDateFromWeekday, selectedBoxes])
 
   const getSlotIndexFromTime = (time: string): number => {
     const [h = '09', m = '00'] = time.split(':')
@@ -5796,7 +6488,7 @@ export default function WeekScheduler() {
       slotDate.setDate(currentWeekStart.getDate() + safeOffset)
 
       openCreateAppointmentModal({
-        fecha: slotDate.toLocaleDateString('en-CA'),
+        fecha: formatDateInAgendaTimezone(slotDate),
         hora: normalizedTime
       })
     },
@@ -5876,7 +6568,7 @@ export default function WeekScheduler() {
 
     // Open modal with pre-filled data including box
     openCreateAppointmentModal({
-      fecha: slotDate.toLocaleDateString('en-CA'),
+      fecha: formatDateInAgendaTimezone(slotDate),
       hora: startTime,
       duracion: durationMinutes.toString(),
       box: boxId || undefined
@@ -6033,7 +6725,7 @@ export default function WeekScheduler() {
                 <MultiSelectDropdown
                   id={professionalDropdownId}
                   selected={selectedProfessionals}
-                  options={professionalOptions}
+                  options={effectiveProfessionalOptions}
                   onToggle={handleProfessionalToggle}
                 />
               ) : null}
@@ -6177,26 +6869,10 @@ export default function WeekScheduler() {
           <MonthCalendar
             currentMonth={currentMonth}
             currentWeekStart={currentWeekStart}
-            weekEvents={dayColumnsState.flatMap((col) =>
-              col.events.map((ev) => ({
-                id: ev.id,
-                weekday: col.id as
-                  | 'monday'
-                  | 'tuesday'
-                  | 'wednesday'
-                  | 'thursday'
-                  | 'friday',
-                title: ev.title,
-                patient: ev.patient,
-                timeRange: ev.timeRange,
-                box: ev.box,
-                bgColor: ev.backgroundClass?.includes('coral')
-                  ? 'var(--color-event-coral)'
-                  : ev.backgroundClass?.includes('brand')
-                  ? 'var(--color-event-purple)'
-                  : 'var(--color-event-teal)'
-              }))
-            )}
+            monthEvents={monthEvents}
+            selectedProfessionals={selectedProfessionals}
+            professionalOptions={dotProfessionalOptions}
+            disableMockFallback
           />
         </div>
       ) : viewOption === 'dia' ? (
@@ -6213,7 +6889,8 @@ export default function WeekScheduler() {
             selectedBoxes={selectedBoxes}
             selectedProfessionals={selectedProfessionals.map(
               (id) =>
-                professionalOptions.find((opt) => opt.id === id)?.label ?? id
+                effectiveProfessionalOptions.find((opt) => opt.id === id)
+                  ?.label ?? id
             )}
             onOpenCreateAppointment={(prefill) =>
               openCreateAppointmentModal(prefill)
@@ -6229,6 +6906,7 @@ export default function WeekScheduler() {
           <HeaderLabels
             cells={getHeaderCells()}
             selectedBoxes={selectedBoxes}
+            boxOptions={effectiveBoxOptions}
           />
 
           {/* Scrollable Content Area */}
@@ -6258,7 +6936,9 @@ export default function WeekScheduler() {
                     setActive(null)
                   }}
                   selectedBoxes={selectedBoxes}
+                  boxOptions={effectiveBoxOptions}
                   selectedProfessionals={selectedProfessionals}
+                  activeVisitStatusFilter={activeVisitStatusFilter}
                   completedEvents={completedEvents}
                   onToggleComplete={handleToggleComplete}
                   onEventContextMenu={handleEventContextMenu}
