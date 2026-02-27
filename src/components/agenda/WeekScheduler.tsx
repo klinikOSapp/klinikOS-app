@@ -193,9 +193,8 @@ const getBoxLayout = (
   selectedBoxes: string[],
   boxOptions: Array<{ id: string; label: string }> = DEFAULT_BOX_OPTIONS
 ): Record<string, { left: string; width: string }> => {
-  const validBoxes = selectedBoxes
-    .map((id) => boxOptions.find((opt) => opt.id === id))
-    .filter((opt): opt is { id: string; label: string } => Boolean(opt))
+  // Keep canonical box order from configuration, independent from toggle order.
+  const validBoxes = boxOptions.filter((opt) => selectedBoxes.includes(opt.id))
 
   if (validBoxes.length === 0) {
     return BOX_COLUMN_LAYOUT // fallback to default

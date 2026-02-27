@@ -263,24 +263,20 @@ const resolveSelectedBoxHeaders = (
   }>
 ) => {
   if (selectedBoxes.length === 0) return boxHeaders
+  const selectedSet = new Set(selectedBoxes.map((value) => normalizeBoxLabel(value)))
   const byId = new Map(boxHeaders.map((header) => [header.id, header]))
   const byLabel = new Map(
     boxHeaders.map((header) => [normalizeBoxLabel(header.label), header])
   )
-  const resolved = selectedBoxes
-    .map((value) => byId.get(value) || byLabel.get(normalizeBoxLabel(value)))
-    .filter(
-      (
-        header
-      ): header is {
-        id: string
-        label: string
-        tone: string
-      } => Boolean(header)
-    )
+  const resolvedIds = new Set<string>()
+  for (const selected of selectedSet) {
+    const header = byId.get(selected) || byLabel.get(selected)
+    if (header) resolvedIds.add(header.id)
+  }
 
-  if (resolved.length === 0) return boxHeaders
-  return Array.from(new Map(resolved.map((header) => [header.id, header])).values())
+  if (resolvedIds.size === 0) return boxHeaders
+  // Keep canonical order from configuration to avoid reflow when toggling boxes.
+  return boxHeaders.filter((header) => resolvedIds.has(header.id))
 }
 
 // Function to calculate dynamic box layout based on selected boxes
