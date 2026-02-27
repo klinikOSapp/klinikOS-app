@@ -2353,7 +2353,7 @@ export default function DayCalendar({
   const router = useRouter()
 
   // Get blocks from context
-  const { getBlocksByDate, deleteBlock } = useAppointments()
+  const { getBlocksByDate, deleteBlock, getAppointmentById } = useAppointments()
 
   // Get boxes from configuration context
   const { activeBoxes } = useConfiguration()
@@ -2537,6 +2537,22 @@ export default function DayCalendar({
     setActive(null)
   }
 
+  const resolveEventPatient = useCallback(
+    (event: DayEvent) => {
+      const detail = event.detail
+      const appointmentId = detail?.appointmentId ?? event.id
+      const appointment = getAppointmentById(appointmentId)
+      const patientId = detail?.patientId || appointment?.patientId
+      const patientName =
+        detail?.patientFull ||
+        appointment?.patientName ||
+        event.label.split('\n')[1] ||
+        'Paciente'
+      return { patientId, patientName }
+    },
+    [getAppointmentById]
+  )
+
   // Handler para abrir modal de pago desde acciones rápidas
   const handlePaymentAction = useCallback(() => {
     if (!active?.event) return
@@ -2592,15 +2608,24 @@ export default function DayCalendar({
 
   // Handler para ver ficha del paciente - Abre el modal directamente
   const handleViewPatient = useCallback(() => {
-    if (!active?.event?.detail) return
+    if (!active?.event) return
+    const { patientId, patientName } = resolveEventPatient(active.event)
+    if (!patientId) {
+      console.warn(
+        'No se pudo abrir ficha: cita sin patientId',
+        active.event.detail?.appointmentId ?? active.event.id
+      )
+      return
+    }
 
-    // Abrir el modal de ficha del paciente
     setPatientRecordConfig({
       open: true,
-      initialTab: 'Resumen'
+      initialTab: 'Resumen',
+      patientId,
+      patientName
     })
     setActive(null) // Cerrar overlay
-  }, [active])
+  }, [active, resolveEventPatient])
 
   // Handler para marcar cita como completada/pendiente
   const handleToggleComplete = useCallback(

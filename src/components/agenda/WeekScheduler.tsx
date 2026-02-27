@@ -5066,15 +5066,24 @@ export default function WeekScheduler() {
 
   // Handler para ver ficha del paciente - Abre el modal directamente
   const handleViewPatient = useCallback(() => {
-    if (!active?.event?.detail) return
+    if (!active?.event) return
+    const { patientId, patientName } = resolveEventPatient(active.event)
+    if (!patientId) {
+      console.warn(
+        'No se pudo abrir ficha: cita sin patientId',
+        active.event.detail?.appointmentId ?? active.event.id
+      )
+      return
+    }
 
-    // Abrir el modal de ficha del paciente
     setPatientRecordConfig({
       open: true,
-      initialTab: 'Resumen'
+      initialTab: 'Resumen',
+      patientId,
+      patientName
     })
     setActive(null) // Cerrar overlay
-  }, [active])
+  }, [active, resolveEventPatient])
 
   // Handler para marcar cita como completada/pendiente
   const handleToggleComplete = useCallback(
