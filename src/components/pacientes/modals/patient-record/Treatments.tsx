@@ -29,6 +29,7 @@ import {
   PROFESSIONALS,
   TREATMENT_CATALOG
 } from '@/components/pacientes/shared/treatmentTypes'
+import { useClinic } from '@/context/ClinicContext'
 import { usePatients, type PatientTreatment } from '@/context/PatientsContext'
 import { setPendingAppointmentData } from '@/utils/appointmentPrefill'
 import { useRouter } from 'next/navigation'
@@ -641,6 +642,7 @@ export default function Treatments({
   onAddTreatmentOpened
 }: TreatmentsProps) {
   const router = useRouter()
+  const { activeClinicId } = useClinic()
 
   // Contexto de pacientes
   const {
@@ -1799,16 +1801,19 @@ export default function Treatments({
           setBudgetTypeName('')
         }}
         treatments={budgetTypeTreatments || pendingTreatments}
+        patientName={patientName}
         initialBudgetName={budgetTypeName}
         onCreateBudget={(treatments, budgetInfo) => {
-          // Create budget row and add to the budgets table
-          if (onAddBudget) {
+          const createLocalBudgetRow = (
+            overrides?: Partial<Pick<BudgetRow, 'id' | 'quoteId'>>
+          ): BudgetRow => {
             // Calculate validity date (30 days from now)
             const validUntilDate = new Date()
             validUntilDate.setDate(validUntilDate.getDate() + 30)
 
-            const newBudget: BudgetRow = {
-              id: `PRE-${Date.now().toString().slice(-6)}`,
+            return {
+              id: overrides?.id || `PRE-${Date.now().toString().slice(-6)}`,
+              quoteId: overrides?.quoteId,
               description: budgetInfo.name,
               amount: `${budgetInfo.total.toLocaleString('es-ES', {
                 minimumFractionDigits: 2,
@@ -1858,13 +1863,69 @@ export default function Treatments({
                 }
               ]
             }
-            onAddBudget(newBudget)
           }
-          // Also call the legacy callback if provided
+
+          if (patientId && activeClinicId) {
+            void (async () => {
+              try {
+                const response = await fetch('/api/pacientes/budgets/create', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    clinicId: activeClinicId,
+                    patientId,
+                    budgetName: budgetInfo.name,
+                    totalAmount: budgetInfo.total,
+                    treatments: treatments.map((t) => ({
+                      pieza: t.pieza,
+                      cara: t.cara,
+                      codigo: t.codigo,
+                      tratamiento: t.tratamiento,
+                      precio: t.precio,
+                      porcentajeDescuento: t.porcentajeDescuento,
+                      importe: t.importe,
+                      importeSeguro: t.importeSeguro,
+                      doctor: t.doctor
+                    }))
+                  })
+                })
+
+                const payload = (await response.json()) as {
+                  error?: string
+                  quoteId?: number
+                  quoteNumber?: string
+                }
+                if (!response.ok) {
+                  throw new Error(payload.error || 'No se pudo crear el presupuesto')
+                }
+
+                const persistedBudget = createLocalBudgetRow({
+                  id: payload.quoteNumber || undefined,
+                  quoteId:
+                    Number.isFinite(Number(payload.quoteId)) &&
+                    Number(payload.quoteId) > 0
+                      ? Number(payload.quoteId)
+                      : undefined
+                })
+
+                onAddBudget?.(persistedBudget)
+                onCreateBudget?.(treatments)
+                setShowBudgetModal(false)
+                setBudgetTypeTreatments(undefined)
+                setBudgetTypeName('')
+              } catch (error) {
+                console.error('Error creating budget from Treatments tab', error)
+              }
+            })()
+            return
+          }
+
+          const newBudget = createLocalBudgetRow()
+          onAddBudget?.(newBudget)
           onCreateBudget?.(treatments)
-          // Close the modal
           setShowBudgetModal(false)
-          // Clear budget type data
           setBudgetTypeTreatments(undefined)
           setBudgetTypeName('')
         }}
@@ -1885,6 +1946,7 @@ export default function Treatments({
         onCreateBudget={() => {}}
         onCreateBudgetType={handleSaveBudgetType}
         treatments={pendingTreatments}
+        patientName={patientName}
         mode='budgetType'
       />
     </div>

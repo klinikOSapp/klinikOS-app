@@ -28,6 +28,7 @@ export type PatientRecordTab =
 type PatientRecordModalProps = {
   open: boolean
   onClose: () => void
+  onPatientUpdated?: () => void
   initialTab?: PatientRecordTab
   openBudgetCreation?: boolean
   openInEditMode?: boolean
@@ -40,6 +41,7 @@ type PatientRecordModalProps = {
 export default function PatientRecordModal({
   open,
   onClose,
+  onPatientUpdated,
   initialTab = 'Resumen',
   openBudgetCreation = false,
   openInEditMode = false,
@@ -364,6 +366,7 @@ export default function PatientRecordModal({
                       patientId={patientId}
                       initialEditMode={shouldOpenEdit}
                       onEditModeOpened={() => setShouldOpenEdit(false)}
+                      onPatientUpdated={onPatientUpdated}
                     />
                   )}
                   {active === 'Historial clínico' && (

@@ -201,59 +201,43 @@ export async function POST(req: Request) {
         if (row?.name) serviceByName.set(String(row.name), Number(row.id))
       })
 
-      const resolvedRows = treatments
-        .map((treatment) => {
-          const treatmentCode = String(treatment.codigo || '').trim()
-          const treatmentName = String(treatment.tratamiento || '').trim()
-          const serviceId =
-            serviceByCode.get(treatmentCode) ?? serviceByName.get(treatmentName) ?? null
-          if (!serviceId) return null
+      const resolvedRows = treatments.map((treatment) => {
+        const treatmentCode = String(treatment.codigo || '').trim()
+        const treatmentName = String(treatment.tratamiento || '').trim()
+        const serviceId = serviceByCode.get(treatmentCode) ?? serviceByName.get(treatmentName) ?? null
 
-          const unitPrice = parseAmount(treatment.precio ?? treatment.importe)
-          const discountPercentage = Number(treatment.porcentajeDescuento)
-          const toothNumber = Number(treatment.pieza)
-          const notes = JSON.stringify({
-            cara: treatment.cara ? String(treatment.cara) : undefined,
-            doctor: treatment.doctor ? String(treatment.doctor) : undefined,
-            codigo: treatmentCode || undefined,
-            importeSeguro: treatment.importeSeguro
-              ? String(treatment.importeSeguro)
-              : undefined
-          })
-
-          return {
-            quoteItem: {
-              quote_id: quoteId,
-              service_id: serviceId,
-              description: treatmentName || treatmentCode || 'Tratamiento',
-              quantity: 1,
-              unit_price: unitPrice,
-              discount_percentage: Number.isFinite(discountPercentage)
-                ? discountPercentage
-                : 0
-            },
-            planItem: effectivePlanId
-              ? {
-                  plan_id: effectivePlanId,
-                  service_id: serviceId,
-                  tooth_number:
-                    Number.isFinite(toothNumber) && toothNumber > 0 ? toothNumber : null,
-                  notes
-                }
-              : null
-          }
+        const unitPrice = parseAmount(treatment.precio ?? treatment.importe)
+        const discountPercentage = Number(treatment.porcentajeDescuento)
+        const toothNumber = Number(treatment.pieza)
+        const notes = JSON.stringify({
+          cara: treatment.cara ? String(treatment.cara) : undefined,
+          doctor: treatment.doctor ? String(treatment.doctor) : undefined,
+          codigo: treatmentCode || undefined,
+          importeSeguro: treatment.importeSeguro ? String(treatment.importeSeguro) : undefined
         })
-        .filter((row): row is NonNullable<typeof row> => row !== null)
 
-      if (resolvedRows.length === 0) {
-        return NextResponse.json(
-          {
-            error:
-              'No se pudieron vincular tratamientos editados al catálogo (service_catalog)'
+        return {
+          quoteItem: {
+            quote_id: quoteId,
+            service_id: serviceId,
+            description: treatmentName || treatmentCode || 'Tratamiento',
+            quantity: 1,
+            unit_price: unitPrice,
+            discount_percentage: Number.isFinite(discountPercentage)
+              ? discountPercentage
+              : 0
           },
-          { status: 400 }
-        )
-      }
+          planItem: effectivePlanId && serviceId
+            ? {
+                plan_id: effectivePlanId,
+                service_id: serviceId,
+                tooth_number:
+                  Number.isFinite(toothNumber) && toothNumber > 0 ? toothNumber : null,
+                notes
+              }
+            : null
+        }
+      })
 
       const quoteItemsPayload = resolvedRows.map((row) => row.quoteItem)
       const { error: insertQuoteItemsError } = await supabase

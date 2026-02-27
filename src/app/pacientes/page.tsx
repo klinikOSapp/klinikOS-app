@@ -304,6 +304,12 @@ type DbPatient = {
   last_name: string
   phone_number: string | null
   email: string | null
+  status?: string | null
+  patient_status?: string | null
+  registration_status?: string | null
+  onboarding_status?: string | null
+  pre_registration_complete?: boolean | null
+  created_at?: string | null
   preferred_financing_option?: string | null
   national_id?: string | null
   primary_contact_id?: string | null
@@ -418,22 +424,24 @@ function PacientesPageInner() {
       return
     }
 
-    const { data, error } = await supabase
+    const { data: patientRows, error: patientsLoadError } = await supabase
       .from('patients')
-      .select(`
-        id, first_name, last_name, phone_number, email, preferred_financing_option, national_id, primary_contact_id,
-        contacts!primary_contact_id (phone_primary, email)
-      `)
+      .select('*')
       .eq('clinic_id', clinicId)
       .limit(500)
 
-    if (error) {
+    if (patientsLoadError) {
       setRows([])
       setIsLoading(false)
       return
     }
 
-    const patients = (data as unknown as DbPatient[]) ?? []
+    const patients = ((patientRows as unknown as DbPatient[]) ?? []).sort((a, b) => {
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0
+      return bTime - aTime
+    })
+
     const patientIds = patients.map((patient) => patient.id)
 
     if (patientIds.length === 0) {
@@ -531,10 +539,6 @@ function PacientesPageInner() {
     }
 
     const mappedRows: PatientRow[] = patients.map((patient) => {
-      const contact = Array.isArray(patient.contacts)
-        ? patient.contacts[0]
-        : patient.contacts
-
       const debt = debtByPatient.get(patient.id)
       const hasDebt = typeof debt === 'number' && debt > 0
       const lastVisit = lastVisitByPatient.get(patient.id)
@@ -543,7 +547,55 @@ function PacientesPageInner() {
           ? lastVisit.getTime() >= oneYearAgo.getTime()
           : false
 
-      const status: 'Activo' | 'Inactivo' = isActive ? 'Activo' : 'Inactivo'
+      const rawStatus = String(
+        patient.status ??
+          patient.patient_status ??
+          patient.registration_status ??
+          patient.onboarding_status ??
+          ''
+      )
+        .toLowerCase()
+        .trim()
+      const statusFromDb: 'Activo' | 'Inactivo' | null = (() => {
+        if (!rawStatus) return null
+        if (
+          rawStatus === 'active' ||
+          rawStatus === 'activo' ||
+          rawStatus === 'registered'
+        ) {
+          return 'Activo'
+        }
+        if (
+          rawStatus === 'inactive' ||
+          rawStatus === 'inactivo' ||
+          rawStatus === 'discharged' ||
+          rawStatus === 'alta'
+        ) {
+          return 'Inactivo'
+        }
+        if (rawStatus === 'pre_registration' || rawStatus === 'pre-registro') {
+          return 'Inactivo'
+        }
+        return null
+      })()
+
+      const createdAtDate = patient.created_at
+        ? new Date(patient.created_at)
+        : null
+      const isRecentlyCreated =
+        createdAtDate !== null &&
+        !Number.isNaN(createdAtDate.getTime()) &&
+        Date.now() - createdAtDate.getTime() <= 1000 * 60 * 60 * 24
+
+      const status: 'Activo' | 'Inactivo' =
+        statusFromDb ||
+        (isActive
+          ? 'Activo'
+          : isRecentlyCreated
+          ? 'Activo'
+          : patient.pre_registration_complete === false
+          ? 'Inactivo'
+          : 'Inactivo')
       const hasFinancing =
         financingRequestByPatient.has(patient.id) ||
         Boolean(patient.preferred_financing_option?.trim())
@@ -563,8 +615,8 @@ function PacientesPageInner() {
         name:
           [patient.first_name, patient.last_name].filter(Boolean).join(' ') ||
           'Paciente sin nombre',
-        phone: contact?.phone_primary ?? patient.phone_number ?? 'Sin teléfono',
-        email: contact?.email ?? patient.email ?? '',
+        phone: patient.phone_number ?? 'Sin teléfono',
+        email: patient.email ?? '',
         nextDate: nextByPatient.get(patient.id) ?? 'Sin cita',
         status,
         hasFinancing,
@@ -756,6 +808,10 @@ function PacientesPageInner() {
             setOpenBudgetCreation(false)
             setOpenEditMode(false)
             setSelectedPatientForModal(null)
+            void loadPatients()
+          }}
+          onPatientUpdated={() => {
+            void loadPatients()
           }}
           initialTab={openBudgetCreation ? 'Finanzas' : 'Resumen'}
           openBudgetCreation={openBudgetCreation}

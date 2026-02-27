@@ -589,6 +589,7 @@ type AddTreatmentsToBudgetModalProps = {
   ) => void
   onCreateBudgetType?: (budgetType: Omit<BudgetTypeData, 'id'>) => void
   treatments?: TreatmentV2[]
+  patientName?: string
   initialBudgetName?: string
   mode?: 'budget' | 'budgetType'
 }
@@ -599,6 +600,7 @@ export default function AddTreatmentsToBudgetModal({
   onCreateBudget,
   onCreateBudgetType,
   treatments: initialTreatments = EMPTY_TREATMENTS,
+  patientName,
   initialBudgetName = '',
   mode = 'budget'
 }: AddTreatmentsToBudgetModalProps) {
@@ -1048,6 +1050,10 @@ export default function AddTreatmentsToBudgetModal({
   // Get selected treatments
   const selectedTreatments = treatments.filter((t) => t.selected)
   const selectedCount = selectedTreatments.length
+  const displayPatientName = React.useMemo(() => {
+    const normalized = String(patientName || '').trim()
+    return normalized.length > 0 ? normalized : 'Paciente'
+  }, [patientName])
 
   // === Cálculos financieros del presupuesto ===
   // Helper para parsear precios (remove € y espacios, convertir comas a puntos)
@@ -1103,9 +1109,6 @@ export default function AddTreatmentsToBudgetModal({
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     try {
-      // Use "Paciente" as placeholder - ideally this would be passed as prop
-      const patientName = 'Paciente'
-
       // Convert TreatmentV2 to BudgetTreatment format
       const budgetTreatments = selectedTreatments.map((t) => ({
         pieza: t.pieza,
@@ -1133,17 +1136,17 @@ export default function AddTreatmentsToBudgetModal({
 
       const blob = generateBudgetPDF(
         budgetTreatments,
-        patientName,
+        displayPatientName,
         budgetOptions
       )
       const url = URL.createObjectURL(blob)
       const filename = formatBudgetFilename(
-        patientName,
+        displayPatientName,
         budgetName || undefined
       )
 
       setGeneratedDocument({
-        professional: budgetName || patientName,
+        professional: budgetName || displayPatientName,
         filename,
         blob,
         url
@@ -1158,6 +1161,7 @@ export default function AddTreatmentsToBudgetModal({
     selectedCount,
     selectedTreatments,
     budgetName,
+    displayPatientName,
     generalDiscount,
     subtotal,
     generalDiscountAmount,

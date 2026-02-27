@@ -19,6 +19,7 @@ type ClientSummaryProps = {
   patientId?: string
   initialEditMode?: boolean
   onEditModeOpened?: () => void
+  onPatientUpdated?: () => void
   /** When true, hides edit buttons and disables all editing functionality */
   readOnly?: boolean
 }
@@ -116,6 +117,32 @@ function formatPatientStatus(statusValue: unknown, preRegistrationComplete: unkn
   return '—'
 }
 
+function mapDisplayStatusToDbStatus(value: string): {
+  canonical: 'active' | 'inactive' | 'discharged' | 'pre_registration' | null
+  preRegistrationComplete: boolean | null
+} {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (!normalized || normalized === '—') {
+    return { canonical: null, preRegistrationComplete: null }
+  }
+  if (normalized === 'activo' || normalized === 'active') {
+    return { canonical: 'active', preRegistrationComplete: true }
+  }
+  if (normalized === 'inactivo' || normalized === 'inactive') {
+    return { canonical: 'inactive', preRegistrationComplete: true }
+  }
+  if (normalized === 'alta' || normalized === 'discharged') {
+    return { canonical: 'discharged', preRegistrationComplete: true }
+  }
+  if (normalized === 'pre-registro' || normalized === 'pre_registration') {
+    return { canonical: 'pre_registration', preRegistrationComplete: false }
+  }
+  if (normalized === 'pendiente' || normalized === 'pending') {
+    return { canonical: 'pre_registration', preRegistrationComplete: false }
+  }
+  return { canonical: null, preRegistrationComplete: null }
+}
+
 function splitFullName(fullName: string): { firstName: string; lastName: string } {
   const parts = fullName.trim().split(/\s+/).filter(Boolean)
   if (parts.length <= 1) {
@@ -143,6 +170,56 @@ function computeAgeLabel(dateOfBirth: unknown): string {
   return `${Math.max(0, age)} años`
 }
 
+function parseUiDateToIso(value: string): string | null {
+  const raw = String(value || '').trim()
+  if (!raw || raw === '—') return null
+
+  const isoDateMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (isoDateMatch) {
+    return raw
+  }
+
+  const esDateMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (esDateMatch) {
+    const day = Number(esDateMatch[1])
+    const month = Number(esDateMatch[2])
+    const year = Number(esDateMatch[3])
+    if (
+      Number.isFinite(day) &&
+      Number.isFinite(month) &&
+      Number.isFinite(year) &&
+      day >= 1 &&
+      day <= 31 &&
+      month >= 1 &&
+      month <= 12 &&
+      year >= 1900 &&
+      year <= 2100
+    ) {
+      const yyyy = String(year).padStart(4, '0')
+      const mm = String(month).padStart(2, '0')
+      const dd = String(day).padStart(2, '0')
+      return `${yyyy}-${mm}-${dd}`
+    }
+  }
+
+  const parsed = new Date(raw)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed.toISOString().slice(0, 10)
+}
+
+function parseAgeNumber(value: string): number | null {
+  const digits = String(value || '').replace(/[^\d]/g, '')
+  if (!digits) return null
+  const parsed = Number(digits)
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 130) return null
+  return parsed
+}
+
+function computeAgeLabelFromIso(isoDate: string | null): string {
+  if (!isoDate) return '—'
+  return computeAgeLabel(isoDate)
+}
+
 function emptyValueToNull(value: string): string | null {
   const normalized = value.trim()
   if (!normalized || normalized === '—') return null
@@ -153,6 +230,7 @@ export default function ClientSummary({
   patientId,
   initialEditMode = false,
   onEditModeOpened,
+  onPatientUpdated,
   readOnly = false
 }: ClientSummaryProps) {
   type MedicalAlertRow = {
@@ -264,7 +342,12 @@ export default function ClientSummary({
               timeZone: 'Europe/Madrid'
             })
           : '—',
-        edad: computeAgeLabel(patient.date_of_birth),
+        edad:
+          computeAgeLabel(patient.date_of_birth) !== '—'
+            ? computeAgeLabel(patient.date_of_birth)
+            : patient.age != null
+            ? `${Number(patient.age)} años`
+            : '—',
         dni: toDisplayText(patient.national_id),
         pais: toDisplayText(primaryContact?.address_country ?? patient.address_country),
         estado: formatPatientStatus(
@@ -367,6 +450,8 @@ export default function ClientSummary({
       const normalizedEmail = emptyValueToNull(tempFormData.email)
       const normalizedPhone = emptyValueToNull(tempFormData.telefono)
       const normalizedCountry = emptyValueToNull(tempFormData.pais)
+      const normalizedBirthDate = parseUiDateToIso(tempFormData.fechaNacimiento)
+      const normalizedAge = parseAgeNumber(tempFormData.edad)
 
       const patientPayload: Record<string, unknown> = {
         first_name: firstName || null,
@@ -384,6 +469,17 @@ export default function ClientSummary({
       }
 
       const columns = patientColumnsRef.current
+      if (columns.has('date_of_birth')) {
+        patientPayload.date_of_birth = normalizedBirthDate
+      }
+      if (columns.has('age')) {
+        if (normalizedBirthDate) {
+          const computedFromBirth = computeAgeLabelFromIso(normalizedBirthDate)
+          patientPayload.age = parseAgeNumber(computedFromBirth)
+        } else {
+          patientPayload.age = normalizedAge
+        }
+      }
       if (columns.has('lead_source')) {
         patientPayload.lead_source =
           tempFormData.origenCliente === '—'
@@ -403,6 +499,33 @@ export default function ClientSummary({
       if (columns.has('referrer_name')) {
         patientPayload.referrer_name =
           tempFormData.recomendadoPor === '—' ? null : tempFormData.recomendadoPor
+      }
+      if (columns.has('recommended_by')) {
+        patientPayload.recommended_by =
+          tempFormData.recomendadoPor === '—' ? null : tempFormData.recomendadoPor
+      }
+
+      const mappedStatus = mapDisplayStatusToDbStatus(tempFormData.estado)
+      if (mappedStatus.canonical) {
+        if (columns.has('status')) {
+          patientPayload.status = mappedStatus.canonical
+        }
+        if (columns.has('patient_status')) {
+          patientPayload.patient_status = mappedStatus.canonical
+        }
+        if (columns.has('registration_status')) {
+          patientPayload.registration_status = mappedStatus.canonical
+        }
+        if (columns.has('onboarding_status')) {
+          patientPayload.onboarding_status = mappedStatus.canonical
+        }
+        if (
+          columns.has('pre_registration_complete') &&
+          mappedStatus.preRegistrationComplete !== null
+        ) {
+          patientPayload.pre_registration_complete =
+            mappedStatus.preRegistrationComplete
+        }
       }
 
       const alertsPayload = tempFormData.alergias.map((label) => ({
@@ -442,8 +565,16 @@ export default function ClientSummary({
         throw new Error(saveError?.error || 'No se pudo guardar la ficha')
       }
 
-      setFormData(tempFormData)
+      const nextData = {
+        ...tempFormData,
+        edad: normalizedBirthDate
+          ? computeAgeLabelFromIso(normalizedBirthDate)
+          : tempFormData.edad
+      }
+      setFormData(nextData)
+      setTempFormData(nextData)
       setIsEditing(false)
+      onPatientUpdated?.()
     } catch (error) {
       console.error('Error saving patient summary', error)
     } finally {
@@ -460,7 +591,16 @@ export default function ClientSummary({
     field: keyof typeof formData,
     value: string | string[]
   ) => {
-    setTempFormData((prev) => ({ ...prev, [field]: value }))
+    setTempFormData((prev) => {
+      const next = { ...prev, [field]: value }
+      if (field === 'fechaNacimiento' && typeof value === 'string') {
+        const iso = parseUiDateToIso(value)
+        if (iso) {
+          next.edad = computeAgeLabelFromIso(iso)
+        }
+      }
+      return next
+    })
   }
   return (
     <div

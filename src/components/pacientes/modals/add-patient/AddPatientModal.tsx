@@ -372,16 +372,57 @@ export default function AddPatientModal({
       notes: adminNotas || null,
       preferred_payment_method: preferredPaymentMethod || null,
       preferred_financing_option: preferredFinancingOption || null,
-      billing_preferences: billingPrefs
+      billing_preferences: billingPrefs,
+      status: 'active',
+      patient_status: 'active',
+      registration_status: 'active',
+      onboarding_status: 'active',
+      pre_registration_complete: true
     }
 
     try {
-      const { data: insertedPatient, error } = await supabase
-        .from('patients')
-        .insert(payload)
-        .select('id')
-        .single()
-      if (error) throw error
+      const optionalStatusColumns = new Set([
+        'status',
+        'patient_status',
+        'registration_status',
+        'onboarding_status',
+        'pre_registration_complete'
+      ])
+      const payloadToInsert: Record<string, any> = { ...payload }
+      let insertedPatient: { id?: string } | null = null
+      let lastInsertError: { code?: string; message?: string } | null = null
+
+      for (let attempt = 0; attempt < optionalStatusColumns.size + 1; attempt += 1) {
+        const { data, error } = await supabase
+          .from('patients')
+          .insert(payloadToInsert)
+          .select('id')
+          .single()
+        if (!error) {
+          insertedPatient = data as { id?: string }
+          lastInsertError = null
+          break
+        }
+
+        lastInsertError = { code: error.code, message: error.message }
+        const isMissingColumn =
+          error.code === '42703' || error.code === 'PGRST204'
+        if (!isMissingColumn) break
+
+        const missingColumn =
+          error.message.match(/column ["']?([a-zA-Z0-9_]+)["']?/i)?.[1] ||
+          error.message.match(/Could not find the ['"]([a-zA-Z0-9_]+)['"] column/i)?.[1] ||
+          null
+        if (!missingColumn || !optionalStatusColumns.has(missingColumn)) break
+
+        delete payloadToInsert[missingColumn]
+        optionalStatusColumns.delete(missingColumn)
+      }
+
+      if (lastInsertError || !insertedPatient) {
+        throw new Error(lastInsertError?.message || 'No se pudo crear el paciente')
+      }
+
       const patientId = insertedPatient?.id
       const followUp: Promise<any>[] = []
 

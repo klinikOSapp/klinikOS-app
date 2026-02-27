@@ -2798,86 +2798,138 @@ export default function BudgetsPayments({
         )
       )
 
-      const [servicesByCode, servicesByName] = await Promise.all([
-        normalizedCodes.length
-          ? supabase
-              .from('service_catalog')
-              .select('id, treatment_code, name')
-              .in('treatment_code', normalizedCodes)
-          : Promise.resolve({ data: [], error: null }),
-        normalizedNames.length
-          ? supabase
-              .from('service_catalog')
-              .select('id, treatment_code, name')
-              .in('name', normalizedNames)
-          : Promise.resolve({ data: [], error: null })
-      ])
+      const loadServiceLookup = async () => {
+        const [servicesByCode, servicesByName] = await Promise.all([
+          normalizedCodes.length
+            ? supabase
+                .from('service_catalog')
+                .select('id, treatment_code, name')
+                .in('treatment_code', normalizedCodes)
+            : Promise.resolve({ data: [], error: null }),
+          normalizedNames.length
+            ? supabase
+                .from('service_catalog')
+                .select('id, treatment_code, name')
+                .in('name', normalizedNames)
+            : Promise.resolve({ data: [], error: null })
+        ])
 
-      const serviceByCode = new Map<string, number>()
-      const serviceByName = new Map<string, number>()
-      ;(servicesByCode.data || []).forEach((row: any) => {
-        if (row?.treatment_code) serviceByCode.set(String(row.treatment_code), Number(row.id))
-        if (row?.name) serviceByName.set(String(row.name), Number(row.id))
+        const serviceByCode = new Map<string, number>()
+        const serviceByName = new Map<string, number>()
+        ;(servicesByCode.data || []).forEach((row: any) => {
+          if (row?.treatment_code) serviceByCode.set(String(row.treatment_code), Number(row.id))
+          if (row?.name) serviceByName.set(String(row.name), Number(row.id))
+        })
+        ;(servicesByName.data || []).forEach((row: any) => {
+          if (row?.treatment_code) serviceByCode.set(String(row.treatment_code), Number(row.id))
+          if (row?.name) serviceByName.set(String(row.name), Number(row.id))
+        })
+        return { serviceByCode, serviceByName }
+      }
+
+      let { serviceByCode, serviceByName } = await loadServiceLookup()
+      const unresolvedTreatments = selectedTreatments.filter((treatment) => {
+        const treatmentCode = String(treatment.codigo || '').trim()
+        const treatmentName = String(treatment.tratamiento || '').trim()
+        return !(serviceByCode.get(treatmentCode) ?? serviceByName.get(treatmentName))
       })
-      ;(servicesByName.data || []).forEach((row: any) => {
-        if (row?.treatment_code) serviceByCode.set(String(row.treatment_code), Number(row.id))
-        if (row?.name) serviceByName.set(String(row.name), Number(row.id))
-      })
 
-      const resolvedTreatmentRows = selectedTreatments
-        .map((treatment) => {
-          const treatmentCode = String(treatment.codigo || '').trim()
-          const treatmentName = String(treatment.tratamiento || '').trim()
-          const serviceId =
-            serviceByCode.get(treatmentCode) ?? serviceByName.get(treatmentName) ?? null
-          if (!serviceId) return null
+      if (unresolvedTreatments.length > 0) {
+        const { data: clinicRow } = await supabase
+          .from('clinics')
+          .select('organization_id')
+          .eq('id', activeClinicId)
+          .maybeSingle()
+        const organizationId = String(
+          (clinicRow as { organization_id?: string | null } | null)?.organization_id || ''
+        ).trim()
 
-          const unitPrice = parseEuroAmount(treatment.precio || treatment.importe)
-          const discountPercentage =
-            Number.isFinite(Number(treatment.porcentajeDescuento))
-              ? Number(treatment.porcentajeDescuento)
-              : 0
-          const toothNumber = Number(treatment.pieza)
-          const notesPayload = {
-            cara: treatment.cara ? String(treatment.cara) : undefined,
-            doctor: treatment.doctor ? String(treatment.doctor) : undefined,
-            codigo: treatmentCode || undefined,
-            importeSeguro: treatment.importeSeguro
-              ? String(treatment.importeSeguro)
-              : undefined
-          }
-          const notesJson = JSON.stringify(notesPayload)
+        if (organizationId) {
+          const missingCatalogRows = unresolvedTreatments
+            .map((treatment) => {
+              const treatmentCode = String(treatment.codigo || '').trim() || null
+              const treatmentName = String(treatment.tratamiento || '').trim()
+              const name = treatmentName || treatmentCode || ''
+              if (!name) return null
+              return {
+                organization_id: organizationId,
+                name,
+                treatment_code: treatmentCode,
+                category: 'General',
+                standard_price: parseEuroAmount(treatment.precio || treatment.importe),
+                default_duration_minutes: null,
+                is_active: true
+              }
+            })
+            .filter((row): row is NonNullable<typeof row> => row !== null)
 
-          return {
-            service_id: serviceId,
-            quoteItem: {
-              quote_id: quoteId,
-              service_id: serviceId,
-              description: treatmentName || treatmentCode || 'Tratamiento',
-              quantity: 1,
-              unit_price: unitPrice,
-              discount_percentage: discountPercentage
-            },
-            planItem: {
-              plan_id: planId,
-              service_id: serviceId,
-              tooth_number: Number.isFinite(toothNumber) && toothNumber > 0 ? toothNumber : null,
-              notes: notesJson
+          const dedupedRows = Array.from(
+            missingCatalogRows.reduce(
+              (map, row) => map.set(`${row.treatment_code || ''}::${row.name}`, row),
+              new Map<string, (typeof missingCatalogRows)[number]>()
+            ).values()
+          )
+
+          if (dedupedRows.length > 0) {
+            const { error: insertMissingServicesError } = await supabase
+              .from('service_catalog')
+              .insert(dedupedRows)
+            if (insertMissingServicesError) {
+              console.warn(
+                'No se pudieron crear tratamientos faltantes en service_catalog',
+                insertMissingServicesError
+              )
+            } else {
+              const reloadedLookup = await loadServiceLookup()
+              serviceByCode = reloadedLookup.serviceByCode
+              serviceByName = reloadedLookup.serviceByName
             }
           }
-        })
-        .filter((item): item is NonNullable<typeof item> => item !== null)
-
-      const quoteItems = resolvedTreatmentRows.map((row) => row.quoteItem)
-      const planItems = resolvedTreatmentRows.map((row) => row.planItem)
-
-      if (selectedTreatments.length > 0 && quoteItems.length === 0) {
-        return {
-          ok: false,
-          error:
-            'No se pudieron vincular los tratamientos al catálogo (service_catalog). Revisa códigos/nombres de tratamientos.'
         }
       }
+
+      const resolvedTreatmentRows = selectedTreatments.map((treatment) => {
+        const treatmentCode = String(treatment.codigo || '').trim()
+        const treatmentName = String(treatment.tratamiento || '').trim()
+        const serviceId = serviceByCode.get(treatmentCode) ?? serviceByName.get(treatmentName) ?? null
+
+        const unitPrice = parseEuroAmount(treatment.precio || treatment.importe)
+        const discountPercentage = Number.isFinite(Number(treatment.porcentajeDescuento))
+          ? Number(treatment.porcentajeDescuento)
+          : 0
+        const toothNumber = Number(treatment.pieza)
+        const notesPayload = {
+          cara: treatment.cara ? String(treatment.cara) : undefined,
+          doctor: treatment.doctor ? String(treatment.doctor) : undefined,
+          codigo: treatmentCode || undefined,
+          importeSeguro: treatment.importeSeguro ? String(treatment.importeSeguro) : undefined
+        }
+        const notesJson = JSON.stringify(notesPayload)
+
+        return {
+          quoteItem: {
+            quote_id: quoteId,
+            service_id: serviceId,
+            description: treatmentName || treatmentCode || 'Tratamiento',
+            quantity: 1,
+            unit_price: unitPrice,
+            discount_percentage: discountPercentage
+          },
+          planItem: serviceId
+            ? {
+                plan_id: planId,
+                service_id: serviceId,
+                tooth_number: Number.isFinite(toothNumber) && toothNumber > 0 ? toothNumber : null,
+                notes: notesJson
+              }
+            : null
+        }
+      })
+
+      const quoteItems = resolvedTreatmentRows.map((row) => row.quoteItem)
+      const planItems = resolvedTreatmentRows
+        .map((row) => row.planItem)
+        .filter((row): row is NonNullable<typeof row> => row !== null)
 
       if (quoteItems.length > 0) {
         const { error: insertItemsError } = await supabase
@@ -4028,7 +4080,7 @@ export default function BudgetsPayments({
   const PROD_COL_ID = 'w-24 shrink-0' // Fixed
 
   // Column widths for PRESUPUESTOS - flexible layout
-  const BUDGET_COL_ID = 'w-20 shrink-0' // Fixed
+  const BUDGET_COL_ID = 'w-28 shrink-0' // Fixed
   const BUDGET_COL_DESC = 'flex-1 min-w-0' // Flexible - expands
   const BUDGET_COL_MONTO = 'w-24 shrink-0' // Fixed
   const BUDGET_COL_FECHA = 'w-24 shrink-0' // Fixed
@@ -4765,23 +4817,33 @@ export default function BudgetsPayments({
                   >
                     <div
                       className={`${BUDGET_COL_ID} px-2 text-body-md font-semibold text-brand-700`}
+                      title={row.id}
                     >
-                      {row.id}
+                      <span className='block truncate whitespace-nowrap'>
+                        {row.id}
+                      </span>
                     </div>
                     <div
                       className={`${BUDGET_COL_DESC} px-2 text-body-md text-neutral-900`}
+                      title={row.description}
                     >
-                      {row.description}
+                      <span className='block truncate whitespace-nowrap'>
+                        {row.description}
+                      </span>
                     </div>
                     <div
                       className={`${BUDGET_COL_MONTO} px-2 text-body-md text-neutral-900`}
                     >
-                      {row.amount}
+                      <span className='block truncate whitespace-nowrap'>
+                        {row.amount}
+                      </span>
                     </div>
                     <div
                       className={`${BUDGET_COL_FECHA} px-2 text-body-md text-neutral-900`}
                     >
-                      {row.date}
+                      <span className='block truncate whitespace-nowrap'>
+                        {row.date}
+                      </span>
                     </div>
                     <div
                       className={`${BUDGET_COL_ESTADO} px-2`}
@@ -4795,13 +4857,19 @@ export default function BudgetsPayments({
                     </div>
                     <div
                       className={`${BUDGET_COL_PROFESIONAL} px-2 text-body-md text-neutral-900`}
+                      title={row.professional}
                     >
-                      {row.professional}
+                      <span className='block truncate whitespace-nowrap'>
+                        {row.professional}
+                      </span>
                     </div>
                     <div
                       className={`${BUDGET_COL_INSURER} px-2 text-body-md text-neutral-900`}
+                      title={row.insurer}
                     >
-                      {row.insurer}
+                      <span className='block truncate whitespace-nowrap'>
+                        {row.insurer}
+                      </span>
                     </div>
                     {/* More actions menu */}
                     <div
@@ -5313,6 +5381,7 @@ export default function BudgetsPayments({
           setBudgetTypeName('')
         }}
         treatments={budgetTypeTreatments || pendingTreatmentsForBudgetModal}
+        patientName={displayPatientName}
         initialBudgetName={budgetTypeName}
         onCreateBudget={(selectedTreatments, budgetInfo) => {
           if (shouldUseDbSource && activeClinicId && patientId) {
@@ -5420,6 +5489,7 @@ export default function BudgetsPayments({
         onCreateBudget={() => {}}
         onCreateBudgetType={handleSaveBudgetType}
         treatments={pendingTreatmentsForBudgetModal}
+        patientName={displayPatientName}
         mode='budgetType'
       />
       <AddProductionModal
