@@ -29,6 +29,7 @@ const MOCK_DATA: CallRecord[] = [
   {
     id: '1',
     status: 'nueva',
+    date: '2026-02-24',
     time: '09:00',
     patient: 'Carlos Martínez Pérez',
     phone: '+34 667 890 111',
@@ -42,6 +43,7 @@ const MOCK_DATA: CallRecord[] = [
   {
     id: '2',
     status: 'nueva',
+    date: '2026-02-24',
     time: '09:30',
     patient: 'Nacho Nieto Iniesta',
     phone: '+34 658 478 512',
@@ -55,6 +57,7 @@ const MOCK_DATA: CallRecord[] = [
   {
     id: '3',
     status: 'pendiente',
+    date: '2026-02-23',
     time: '10:00',
     patient: 'Sofia Rodríguez López',
     phone: '+34 667 890 111',
@@ -68,6 +71,7 @@ const MOCK_DATA: CallRecord[] = [
   {
     id: '4',
     status: 'en_curso',
+    date: '2026-02-24',
     time: '10:30',
     patient: null,
     phone: '+34 658 478 512',
@@ -81,6 +85,7 @@ const MOCK_DATA: CallRecord[] = [
   {
     id: '5',
     status: 'resuelta',
+    date: '2026-02-21',
     time: '11:00',
     patient: 'Javier Fernández Torres',
     phone: '+34 658 478 512',
@@ -94,6 +99,7 @@ const MOCK_DATA: CallRecord[] = [
   {
     id: '6',
     status: 'resuelta',
+    date: '2026-02-20',
     time: '11:30',
     patient: 'Lucía Pérez Gómez',
     phone: '+34 667 890 111',
@@ -107,6 +113,7 @@ const MOCK_DATA: CallRecord[] = [
   {
     id: '7',
     status: 'pendiente',
+    date: '2026-02-23',
     time: '12:00',
     patient: null,
     phone: '+34 658 478 512',
@@ -120,6 +127,7 @@ const MOCK_DATA: CallRecord[] = [
   {
     id: '8',
     status: 'en_curso',
+    date: '2026-02-24',
     time: '12:30',
     patient: null,
     phone: '+34 667 890 111',
@@ -132,6 +140,7 @@ const MOCK_DATA: CallRecord[] = [
   {
     id: '9',
     status: 'urgente',
+    date: '2026-02-22',
     time: '13:00',
     patient: 'Pablo Sánchez Delgado',
     phone: '+34 667 890 111',
@@ -143,6 +152,22 @@ const MOCK_DATA: CallRecord[] = [
     appointmentId: 'apt-ai-008'
   }
 ]
+
+function formatCallDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T00:00:00')
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  if (date.getTime() === today.getTime()) return 'Hoy'
+  if (date.getTime() === yesterday.getTime()) return 'Ayer'
+
+  return date.toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'short'
+  })
+}
 
 const ITEMS_PER_PAGE = 9
 
@@ -907,8 +932,17 @@ export default function CallsTable({
                       <span>Hora</span>
                     </div>
                   </th>
+                  {/* Fecha - Sticky left */}
+                  <th className='px-2 py-2 text-left text-body-md font-normal text-neutral-700 w-[6.5rem] sticky left-[12.5625rem] z-30 bg-surface-app'>
+                    <div className='flex items-center gap-1.5'>
+                      <span className='material-symbols-rounded text-lg text-neutral-500'>
+                        calendar_today
+                      </span>
+                      <span>Fecha</span>
+                    </div>
+                  </th>
                   {/* Paciente - Sticky left */}
-                  <th className='px-2 py-2 text-left text-body-md font-normal text-neutral-700 w-[14.625rem] sticky left-[12.5625rem] z-30 bg-surface-app border-r border-neutral-300'>
+                  <th className='px-2 py-2 text-left text-body-md font-normal text-neutral-700 w-[14.625rem] sticky left-[19.0625rem] z-30 bg-surface-app border-r border-neutral-300'>
                     <div className='flex items-center gap-1.5'>
                       <span className='material-symbols-rounded text-lg text-neutral-500'>
                         person
@@ -977,8 +1011,13 @@ export default function CallsTable({
                       {row.time}
                     </td>
 
+                    {/* Fecha - Sticky left */}
+                    <td className='px-2 py-2 text-body-md text-neutral-900 border-r border-neutral-300 sticky left-[12.5625rem] z-10 bg-surface-app group-hover:bg-neutral-50 transition-colors'>
+                      {formatCallDate(row.date)}
+                    </td>
+
                     {/* Paciente - Sticky left */}
-                    <td className='px-2 py-2 border-r border-neutral-300 sticky left-[12.5625rem] z-10 bg-surface-app group-hover:bg-neutral-50 transition-colors'>
+                    <td className='px-2 py-2 border-r border-neutral-300 sticky left-[19.0625rem] z-10 bg-surface-app group-hover:bg-neutral-50 transition-colors'>
                       <span
                         className={`text-body-md ${
                           row.patient ? 'text-neutral-900' : 'text-neutral-400'

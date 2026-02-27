@@ -13,6 +13,7 @@ import {
 } from '@/context/PatientsContext'
 import { useRouter, useSearchParams } from 'next/navigation'
 import React, { Suspense, useEffect, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 
 /* ─────────────────────────────────────────────────────────────
    PatientActionsMenu - Dropdown de acciones por paciente
@@ -108,7 +109,7 @@ function PatientActionsMenu({
     }
   }, [onClose])
 
-  return (
+  return createPortal(
     <div
       ref={menuRef}
       className='fixed z-[9999] min-w-[14rem] overflow-hidden rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] py-1 shadow-lg'
@@ -182,7 +183,8 @@ function PatientActionsMenu({
           <span>Eliminar paciente</span>
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

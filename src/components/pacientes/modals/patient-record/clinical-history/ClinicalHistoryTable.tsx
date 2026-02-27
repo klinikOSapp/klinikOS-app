@@ -719,7 +719,7 @@ export default function ClinicalHistoryTable({
   return (
     <div className='bg-white rounded-[0.5rem] overflow-hidden h-full flex flex-col'>
       <div className='table-scroll-x flex-1'>
-        <table className='w-full border-collapse min-w-[85rem]'>
+        <table className='w-full border-collapse min-w-[85rem] table-fixed'>
           <thead className='sticky top-0 z-10'>
             <tr className='bg-[#F8FAFB]'>
               <TableHeaderCell width='7rem'>

@@ -28,6 +28,7 @@ export type Sentiment =
 export interface CallRecord {
   id: string
   status: CallStatus
+  date: string // Format: "YYYY-MM-DD"
   time: string
   patient: string | null // null = "Pendiente de asignar"
   phone: string
