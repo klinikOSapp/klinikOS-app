@@ -124,7 +124,7 @@ export type PatientTreatment = {
   status: TreatmentStatus
   paymentStatus: TreatmentPaymentStatus
   paidAmount: number // Cantidad ya pagada
-  professional: string // Profesional asignado
+  professional?: string // Profesional asignado (opcional hasta que se agenda la cita)
   professionalId?: string // ID del profesional
   budgetId?: string // ID del presupuesto asociado
   notes?: string // Notas del tratamiento

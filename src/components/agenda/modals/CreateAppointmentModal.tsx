@@ -603,6 +603,25 @@ export default function CreateAppointmentModal({
       }))
   }, [pendingTreatments])
 
+  // Auto-fill professional when all selected treatments share the same doctor
+  useEffect(() => {
+    const selected = pendingTreatments.filter((t) => t.selected)
+    if (selected.length === 0) return
+
+    const profNames = selected
+      .map((t) => t.professional)
+      .filter((p): p is string => !!p)
+    if (profNames.length === 0) return
+
+    const allSame = profNames.every((n) => n === profNames[0])
+    if (allSame) {
+      const match = activeProfessionals.find((p) => p.name === profNames[0])
+      if (match) {
+        setFormData((prev) => ({ ...prev, responsable: match.id }))
+      }
+    }
+  }, [pendingTreatments, activeProfessionals])
+
   const hasTimeSlotConflict = useMemo(() => {
     if (isBlockMode) return false
     if (!formData.fecha || !formData.hora) return false
@@ -697,10 +716,22 @@ export default function CreateAppointmentModal({
       }
       onSubmit?.(dataWithTreatments)
 
-      // Update treatment status to 'En curso' for all selected treatments
+      // Update treatment status and backfill professional for selected treatments
       if (formData.pacienteId && selectedTreatments.length > 0) {
+        const assignedProf = formData.responsable
+          ? getProfessionalById(formData.responsable)
+          : undefined
+
         selectedTreatments.forEach((t) => {
-          updateTreatment(formData.pacienteId, t.id, { status: 'En curso' })
+          const treatment = pendingTreatments.find((pt) => pt.id === t.id)
+          const updates: Partial<PatientTreatment> = { status: 'En curso' }
+
+          if (assignedProf && !treatment?.professional) {
+            updates.professional = assignedProf.name
+            updates.professionalId = assignedProf.id
+          }
+
+          updateTreatment(formData.pacienteId, t.id, updates)
         })
       }
 
@@ -1106,8 +1137,10 @@ export default function CreateAppointmentModal({
                               <p className='text-sm font-medium text-gray-900 truncate'>
                                 {treatment.description}
                               </p>
-                              <p className='text-xs text-gray-500'>
-                                {treatment.professional}
+                              <p
+                                className={`text-xs ${treatment.professional ? 'text-gray-500' : 'text-gray-400 italic'}`}
+                              >
+                                {treatment.professional || 'Sin profesional asignado'}
                               </p>
                             </div>
                             <div className='text-right'>

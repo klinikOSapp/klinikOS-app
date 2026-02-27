@@ -59,7 +59,7 @@ function convertPatientTreatmentToV2(
     descuento: '0 €',
     porcentajeDescuento: 0,
     descripcionAnotaciones: treatment.notes || '',
-    doctor: treatment.professional,
+    doctor: treatment.professional || '',
     selected: treatment.markedForNextAppointment || false,
     // Campos para historial
     estado:
