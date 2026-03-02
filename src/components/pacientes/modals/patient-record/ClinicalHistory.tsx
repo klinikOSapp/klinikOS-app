@@ -15,6 +15,7 @@ import type {
 } from '@/context/AppointmentsContext'
 import { useAppointments } from '@/context/AppointmentsContext'
 import { usePatientFiles } from '@/context/PatientFilesContext'
+import { usePatients } from '@/context/PatientsContext'
 import React from 'react'
 import UploadFileModal, { type UploadFileType } from './UploadFileModal'
 import ClinicalHistoryTable from './clinical-history/ClinicalHistoryTable'
@@ -59,6 +60,8 @@ export default function ClinicalHistory({
 
   const { addDocumentFromClinicalHistory, addOdontogramFromClinicalHistory } =
     usePatientFiles()
+
+  const { updateTreatment } = usePatients()
 
   // Filter state
   const [filter, setFilter] = React.useState<ClinicalHistoryFilter>('todas')
@@ -244,6 +247,24 @@ export default function ClinicalHistory({
     setEditedNotes((prev) => ({ ...prev, [field]: value }))
   }
 
+  const syncTreatmentWithPatient = (
+    treatmentId: string,
+    status: LinkedTreatmentStatus
+  ) => {
+    if (!patientId) return
+    if (status === 'completed') {
+      updateTreatment(patientId, treatmentId, {
+        status: 'Completado',
+        completedDate: new Date().toISOString().split('T')[0]
+      })
+    } else if (status === 'in_progress') {
+      updateTreatment(patientId, treatmentId, {
+        status: 'En curso',
+        completedDate: undefined
+      })
+    }
+  }
+
   const handleTreatmentStatusChange = (
     treatmentId: string,
     status: LinkedTreatmentStatus
@@ -255,7 +276,22 @@ export default function ClinicalHistory({
         status,
         'Dr. Usuario'
       )
+      syncTreatmentWithPatient(treatmentId, status)
     }
+  }
+
+  const handleTableTreatmentStatusChange = (
+    appointmentId: string,
+    treatmentId: string,
+    status: LinkedTreatmentStatus
+  ) => {
+    updateLinkedTreatmentStatus(
+      appointmentId,
+      treatmentId,
+      status,
+      'Dr. Usuario'
+    )
+    syncTreatmentWithPatient(treatmentId, status)
   }
 
   const handleUploadAttachment = () => {
@@ -556,22 +592,20 @@ export default function ClinicalHistory({
               }}
               isUpcoming={isUpcoming}
               onViewDetails={(appointmentId) => {
-                // Switch to timeline view and select the appointment
                 setSelectedAppointmentId(appointmentId)
                 setViewMode('timeline')
               }}
               onUploadFile={(appointmentId) => {
-                // Select the appointment and open type selector
                 setSelectedAppointmentId(appointmentId)
                 setIsUploadTypeSelectorOpen(true)
               }}
               onMarkComplete={(appointmentId) => {
-                // Mark the appointment as completed
                 updateAppointment(appointmentId, {
                   visitStatus: 'completed',
                   completed: true
                 })
               }}
+              onTreatmentStatusChange={handleTableTreatmentStatusChange}
             />
           </div>
         )}

@@ -35,6 +35,21 @@ type CallsTableProps = {
   canCallActions?: boolean
 }
 
+function formatCallDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T00:00:00')
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  if (date.getTime() === today.getTime()) return 'Hoy'
+  if (date.getTime() === yesterday.getTime()) return 'Ayer'
+
+  return date.toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'short'
+  })
+}
 const ITEMS_PER_PAGE = 9
 const CALLS_FETCH_LIMIT = 500
 const CALLS_RPC_LIMIT = 800
@@ -474,6 +489,7 @@ function hydrateCallsFromRpcRows(rows: VoiceAgentRpcCallRow[]): CallRecord[] {
     return {
       id: callId,
       externalCallId: asString(row.external_call_id).trim() || null,
+      date: formatDateParam(startedAt),
       startedAt: startedAtRaw,
       status: mapCallStatus(
         asString(row.status),
@@ -1072,6 +1088,7 @@ export default function CallsTable({
           return {
             id: callId,
             externalCallId: asString(row.external_call_id).trim() || null,
+            date: formatDateParam(startedAt),
             startedAt: startedAtRaw,
             status: mapCallStatus(
               String(row.status || ''),
@@ -1211,11 +1228,17 @@ export default function CallsTable({
           // Only transition 'nueva' calls
           if (call.status !== 'nueva') return call
 
-          // Parse call time (assuming today's date for mock data)
-          // In production, CallRecord should include a full timestamp
-          const [hours, minutes] = call.time.split(':').map(Number)
-          const callTime = new Date()
-          callTime.setHours(hours, minutes, 0, 0)
+          // Prefer persisted timestamp; fallback to date+time fields.
+          const startedMs = call.startedAt ? new Date(call.startedAt).getTime() : NaN
+          let callTime = new Date()
+          if (Number.isFinite(startedMs)) {
+            callTime = new Date(startedMs)
+          } else {
+            const [hours, minutes] = call.time.split(':').map(Number)
+            const fallbackDate = call.date ? new Date(`${call.date}T00:00:00`) : new Date()
+            callTime = fallbackDate
+            callTime.setHours(hours || 0, minutes || 0, 0, 0)
+          }
 
           // Calculate hours since call
           const hoursSinceCall =
@@ -1692,8 +1715,17 @@ export default function CallsTable({
                       <span>Hora</span>
                     </div>
                   </th>
+                  {/* Fecha - Sticky left */}
+                  <th className='px-2 py-2 text-left text-body-md font-normal text-neutral-700 w-[6.5rem] sticky left-[12.5625rem] z-30 bg-surface-app'>
+                    <div className='flex items-center gap-1.5'>
+                      <span className='material-symbols-rounded text-lg text-neutral-500'>
+                        calendar_today
+                      </span>
+                      <span>Fecha</span>
+                    </div>
+                  </th>
                   {/* Paciente - Sticky left */}
-                  <th className='px-2 py-2 text-left text-body-md font-normal text-neutral-700 w-[14.625rem] sticky left-[12.5625rem] z-30 bg-surface-app border-r border-neutral-300'>
+                  <th className='px-2 py-2 text-left text-body-md font-normal text-neutral-700 w-[14.625rem] sticky left-[19.0625rem] z-30 bg-surface-app border-r border-neutral-300'>
                     <div className='flex items-center gap-1.5'>
                       <span className='material-symbols-rounded text-lg text-neutral-500'>
                         person
@@ -1762,8 +1794,13 @@ export default function CallsTable({
                       {row.time}
                     </td>
 
+                    {/* Fecha - Sticky left */}
+                    <td className='px-2 py-2 text-body-md text-neutral-900 border-r border-neutral-300 sticky left-[12.5625rem] z-10 bg-surface-app group-hover:bg-neutral-50 transition-colors'>
+                      {formatCallDate(row.date)}
+                    </td>
+
                     {/* Paciente - Sticky left */}
-                    <td className='px-2 py-2 border-r border-neutral-300 sticky left-[12.5625rem] z-10 bg-surface-app group-hover:bg-neutral-50 transition-colors'>
+                    <td className='px-2 py-2 border-r border-neutral-300 sticky left-[19.0625rem] z-10 bg-surface-app group-hover:bg-neutral-50 transition-colors'>
                       <span
                         className={`text-body-md ${
                           row.patient ? 'text-neutral-900' : 'text-neutral-400'

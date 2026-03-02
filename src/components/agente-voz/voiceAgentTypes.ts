@@ -30,6 +30,7 @@ export interface CallRecord {
   id: string
   externalCallId?: string | null
   status: CallStatus
+  date: string // Format: "YYYY-MM-DD"
   time: string
   startedAt?: string | null
   patient: string | null // null = "Pendiente de asignar"

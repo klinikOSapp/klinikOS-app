@@ -5,6 +5,8 @@ import {
   AccessTimeFilledRounded,
   AddRounded,
   CalendarMonthRounded,
+  CheckBoxOutlineBlankRounded,
+  CheckBoxRounded,
   CheckRounded,
   CloseRounded,
   DeleteRounded,
@@ -293,45 +295,87 @@ export default function VisitDetailPanel({
             Tratamientos vinculados
           </h4>
           <span className='text-label-sm text-[var(--color-neutral-500)]'>
-            {treatments.length} tratamiento{treatments.length !== 1 ? 's' : ''}
+            {treatments.filter((t) => t.status === 'completed').length}/
+            {treatments.length} realizado
+            {treatments.length !== 1 ? 's' : ''}
           </span>
         </div>
 
         {treatments.length > 0 ? (
           <div className='space-y-2'>
-            {treatments.map((treatment) => (
-              <div
-                key={treatment.id}
-                className='flex items-center justify-between p-3 bg-white border border-[var(--color-neutral-200)] rounded-lg'
-              >
-                <div className='flex-1'>
-                  <div className='flex items-center gap-2 mb-1'>
-                    <span className="font-['Inter:Medium',_sans-serif] text-[var(--color-neutral-900)] text-body-sm">
-                      {treatment.description}
-                    </span>
-                    {treatment.pieceNumber && (
-                      <span className='px-1.5 py-0.5 bg-[var(--color-neutral-100)] rounded text-label-sm text-[var(--color-neutral-600)]'>
-                        Pieza {treatment.pieceNumber}
-                      </span>
+            {treatments.map((treatment) => {
+              const isDone = treatment.status === 'completed'
+              const isCancelled = treatment.status === 'cancelled'
+
+              return (
+                <div
+                  key={treatment.id}
+                  className={`flex items-center gap-3 p-3 border rounded-lg transition-colors ${
+                    isDone
+                      ? 'bg-[#E9FBF9] border-[var(--color-brand-200)]'
+                      : 'bg-white border-[var(--color-neutral-200)]'
+                  }`}
+                >
+                  {/* Checkbox */}
+                  <button
+                    type='button'
+                    onClick={() => {
+                      if (isCancelled) return
+                      onTreatmentStatusChange(
+                        treatment.id,
+                        isDone ? 'in_progress' : 'completed'
+                      )
+                    }}
+                    disabled={isCancelled}
+                    className={`shrink-0 transition-colors ${
+                      isCancelled
+                        ? 'opacity-40 cursor-not-allowed'
+                        : 'cursor-pointer hover:opacity-80'
+                    }`}
+                    aria-label={
+                      isDone
+                        ? 'Desmarcar como realizado'
+                        : 'Marcar como realizado'
+                    }
+                  >
+                    {isDone ? (
+                      <CheckBoxRounded className='size-5 text-[var(--color-brand-500)]' />
+                    ) : (
+                      <CheckBoxOutlineBlankRounded className='size-5 text-[var(--color-neutral-400)]' />
                     )}
-                  </div>
-                  <div className='flex items-center gap-3 text-label-sm text-[var(--color-neutral-500)]'>
-                    <span>{treatment.amount}</span>
-                    {treatment.completedBy &&
-                      treatment.status === 'completed' && (
+                  </button>
+
+                  {/* Treatment info */}
+                  <div className='flex-1 min-w-0'>
+                    <div className='flex items-center gap-2 mb-0.5'>
+                      <span
+                        className={`font-['Inter:Medium',_sans-serif] text-body-sm ${
+                          isDone
+                            ? 'text-[var(--color-brand-700)]'
+                            : 'text-[var(--color-neutral-900)]'
+                        }`}
+                      >
+                        {treatment.description}
+                      </span>
+                      {treatment.pieceNumber && (
+                        <span className='px-1.5 py-0.5 bg-[var(--color-neutral-100)] rounded text-label-sm text-[var(--color-neutral-600)]'>
+                          Pieza {treatment.pieceNumber}
+                        </span>
+                      )}
+                    </div>
+                    <div className='flex items-center gap-3 text-label-sm text-[var(--color-neutral-500)]'>
+                      <span>{treatment.amount}</span>
+                      {treatment.completedBy && isDone && (
                         <span>• Realizado por {treatment.completedBy}</span>
                       )}
+                    </div>
                   </div>
+
+                  {/* Status badge */}
+                  <TreatmentStatusBadge status={treatment.status} />
                 </div>
-                <TreatmentStatusBadge
-                  status={treatment.status}
-                  showDropdown={isEditing}
-                  onStatusChange={(newStatus) =>
-                    onTreatmentStatusChange(treatment.id, newStatus)
-                  }
-                />
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <div className='p-4 bg-[var(--color-neutral-50)] rounded-lg text-center'>

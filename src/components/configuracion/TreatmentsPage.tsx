@@ -2,10 +2,10 @@
 
 import {
   AddRounded,
-  CheckBoxOutlineBlankRounded,
-  CheckBoxRounded,
   ChevronLeftRounded,
   ChevronRightRounded,
+  CheckBoxOutlineBlankRounded,
+  CheckBoxRounded,
   CloseRounded,
   DeleteRounded,
   FilterAltRounded,
@@ -18,6 +18,7 @@ import { type BudgetTypeData } from '@/components/pacientes/shared/budgetTypeDat
 import { useClinic } from '@/context/ClinicContext'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import AddTreatmentModal, { type TreatmentFormData } from './AddTreatmentModal'
 import BudgetTypeEditorModal from './BudgetTypeEditorModal'
 
 // ============================================
@@ -379,6 +380,110 @@ function Pagination({
 }
 
 // ============================================
+// NOTES CELL - Hover to preview, click to edit
+// ============================================
+
+function NotesCell({
+  value,
+  onChange
+}: {
+  value: string
+  onChange: (newValue: string) => void
+}) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const [isHovered, setIsHovered] = useState(false)
+
+  const handleOpen = () => {
+    setDraft(value)
+    setIsEditing(true)
+  }
+
+  const handleSave = () => {
+    onChange(draft)
+    setIsEditing(false)
+  }
+
+  const handleCancel = () => {
+    setDraft(value)
+    setIsEditing(false)
+  }
+
+  return (
+    <div
+      className='relative flex items-center border-b border-neutral-200 px-2 py-2 min-h-[3.5rem] min-w-0 cursor-pointer'
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={handleOpen}
+    >
+      <p className='text-body-sm text-[var(--color-neutral-900)] truncate'>
+        {value || <span className='italic text-[var(--color-neutral-400)]'>Añadir nota...</span>}
+      </p>
+
+      {/* Hover preview card */}
+      {isHovered && !isEditing && value && (
+        <div className='absolute left-0 top-full mt-1 z-30 w-[min(20rem,90vw)] rounded-lg bg-[var(--color-neutral-50)] border border-[var(--color-neutral-200)] p-3 shadow-lg'>
+          <p className='text-body-sm italic text-[var(--color-neutral-600)] whitespace-pre-wrap'>
+            {value}
+          </p>
+        </div>
+      )}
+
+      {/* Edit popover */}
+      {isEditing && (
+        <>
+          <div
+            className='fixed inset-0 z-40'
+            onClick={(e) => {
+              e.stopPropagation()
+              handleCancel()
+            }}
+          />
+          <div
+            className='absolute left-0 top-full mt-1 z-50 w-[min(22rem,90vw)] rounded-lg bg-[var(--color-surface)] border border-[var(--color-neutral-300)] shadow-xl'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder='Escribe una nota...'
+              rows={4}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') handleCancel()
+                if (e.key === 'Enter' && e.metaKey) handleSave()
+              }}
+              className='w-full rounded-t-lg border-0 bg-transparent px-3 py-3 text-body-sm text-[var(--color-neutral-900)] placeholder:text-[var(--color-neutral-400)] outline-none resize-none'
+            />
+            <div className='flex items-center justify-between border-t border-[var(--color-neutral-200)] px-3 py-2'>
+              <span className='text-[0.6875rem] text-[var(--color-neutral-400)]'>
+                ⌘ Enter para guardar
+              </span>
+              <div className='flex items-center gap-2'>
+                <button
+                  type='button'
+                  onClick={handleCancel}
+                  className='px-3 py-1 rounded-full text-body-sm text-[var(--color-neutral-700)] hover:bg-[var(--color-neutral-100)] transition-colors'
+                >
+                  Cancelar
+                </button>
+                <button
+                  type='button'
+                  onClick={handleSave}
+                  className='px-3 py-1 rounded-full bg-[var(--color-brand-500)] text-body-sm font-medium text-[var(--color-brand-900)] hover:bg-[var(--color-brand-400)] transition-colors'
+                >
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ============================================
 // DISCOUNTS TABLE COMPONENTS
 // ============================================
 
@@ -413,10 +518,10 @@ function DiscountsTableHeader() {
 
 function DiscountsTableRow({
   discount,
-  onOpenNotes
+  onNotesChange
 }: {
   discount: Discount
-  onOpenNotes: () => void
+  onNotesChange: (newNotes: string) => void
 }) {
   return (
     <div
@@ -446,18 +551,7 @@ function DiscountsTableRow({
         </p>
       </div>
       {/* Notes */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
-        <button type='button' className='px-2 py-0.5' onClick={onOpenNotes}>
-          <span
-            className='text-body-md text-[var(--color-neutral-900)] truncate'
-            title={discount.notes}
-          >
-            {discount.notes.length > 40
-              ? `${discount.notes.substring(0, 40)}...`
-              : discount.notes}
-          </span>
-        </button>
-      </div>
+      <NotesCell value={discount.notes || ''} onChange={onNotesChange} />
       {/* Status */}
       <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] px-2 py-1.5 h-[2.5rem] min-w-0'>
         {discount.isActive ? (
@@ -481,29 +575,32 @@ function DiscountsTableRow({
 // Grid template: checkbox(fixed) | code(flex) | name(flex) | price(flex) | time(flex)
 // Note: IVA column hidden but data maintained internally for invoicing (dental=0%, estética=10%)
 const TABLE_GRID_CLASSES =
-  'grid grid-cols-[2.5rem_minmax(0,0.8fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.2fr)] w-full'
+  'grid grid-cols-[2.5rem_0.8fr_2fr_0.8fr_1fr] w-full'
 
 function TableHeader() {
-  const headers = [
-    '', // Checkbox column
-    'Código interno',
-    'Nombre del tratamiento',
-    'Precio Base',
-    'Tiempo estimado'
-  ]
-
   return (
-    <div className={TABLE_GRID_CLASSES}>
-      {headers.map((label, i) => (
-        <div
-          key={`header-${i}`}
-          className='flex items-center border-b border-neutral-300 px-2 py-2 h-10 min-w-0'
-        >
-          <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
-            {label}
-          </p>
-        </div>
-      ))}
+    <div className={`${TABLE_GRID_CLASSES} sticky top-0 z-10 bg-[var(--color-surface)]`}>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]' />
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
+        <p className='text-body-sm text-[var(--color-neutral-600)]'>
+          Código
+        </p>
+      </div>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
+        <p className='text-body-sm text-[var(--color-neutral-600)]'>
+          Nombre del tratamiento
+        </p>
+      </div>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
+        <p className='text-body-sm text-[var(--color-neutral-600)]'>
+          Precio base
+        </p>
+      </div>
+      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-[3rem]'>
+        <p className='text-body-sm text-[var(--color-neutral-600)]'>
+          Tiempo estimado
+        </p>
+      </div>
     </div>
   )
 }
@@ -517,7 +614,11 @@ function TableRow({
 }) {
   return (
     <div
-      className={`${TABLE_GRID_CLASSES} hover:bg-[var(--color-neutral-50)] transition-colors`}
+      className={`${TABLE_GRID_CLASSES} min-h-[3.5rem] cursor-pointer transition-colors ${
+        treatment.selected
+          ? 'bg-[var(--color-brand-50)] border-l-2 border-l-[var(--color-brand-500)]'
+          : 'hover:bg-[var(--color-neutral-50)] border-l-2 border-l-transparent'
+      }`}
     >
       {/* Checkbox */}
       <div className='flex items-center border-b border-r border-neutral-300 px-2 py-2 h-10'>
@@ -583,6 +684,7 @@ export default function TreatmentsPage() {
   const [isLoadingData, setIsLoadingData] = useState(false)
   const [searchVisible, setSearchVisible] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [showAddTreatment, setShowAddTreatment] = useState(false)
 
   // Budget Types state
   const [budgetTypes, setBudgetTypes] = useState<BudgetTypeRow[]>([])
@@ -990,30 +1092,29 @@ export default function TreatmentsPage() {
     )
   }, [])
 
-  const handleAddTreatment = useCallback(() => {
+  // All existing treatment codes across all categories (for uniqueness check)
+  const allExistingCodes = useMemo(
+    () => categories.flatMap((c) => c.treatments.map((t) => t.code)),
+    [categories]
+  )
+
+  // Add treatment to current category in DB, then reload from source of truth
+  const handleAddTreatment = useCallback((data: TreatmentFormData) => {
     if (!organizationId) {
       alert('No se pudo resolver la organización de la clínica activa.')
       return
     }
 
-    const treatmentName = window.prompt('Nombre del tratamiento:')
-    if (!treatmentName?.trim()) return
-
-    const treatmentCode = (
-      window.prompt('Código del tratamiento:', treatmentName.slice(0, 6)) || ''
-    )
-      .trim()
-      .toUpperCase()
-
-    const price = Number(window.prompt('Precio base (€):', '0') || 0)
+    const treatmentName = data.name.trim()
+    if (!treatmentName) return
+    const treatmentCode = data.code.trim().toUpperCase()
+    const price = Number(data.basePrice || 0)
     if (!Number.isFinite(price) || price < 0) {
       alert('El precio no es válido.')
       return
     }
 
-    const duration = Number(
-      window.prompt('Duración estimada (minutos):', '30') || 30
-    )
+    const duration = Number.parseInt(String(data.estimatedTime || '').replace(/[^\d]/g, ''), 10)
     const categoryName = currentCategory?.name || 'General'
 
     const createTreatment = async () => {
@@ -1032,6 +1133,7 @@ export default function TreatmentsPage() {
         return
       }
       await loadConfigurationData()
+      setShowAddTreatment(false)
     }
 
     void createTreatment()
@@ -1312,15 +1414,37 @@ export default function TreatmentsPage() {
     return Math.ceil(filteredDiscounts.length / discItemsPerPage)
   }, [filteredDiscounts.length, discItemsPerPage])
 
-  // Open discount notes
-  const handleOpenDiscountNotes = useCallback(
-    (discountId: string) => {
-      const discount = discounts.find((d) => d.id === discountId)
-      if (discount) {
-        alert(`Notas: ${discount.notes}`)
+  // Update discount notes
+  const handleDiscountNotesChange = useCallback(
+    (discountId: string, newNotes: string) => {
+      setDiscounts((prev) =>
+        prev.map((d) => (d.id === discountId ? { ...d, notes: newNotes } : d))
+      )
+
+      const persistNotes = async () => {
+        if (!activeClinicId) return
+        const payload = { notes: newNotes || null }
+        const { error } = await supabase
+          .from('clinic_discounts')
+          .update(payload)
+          .eq('id', discountId)
+          .eq('clinic_id', activeClinicId)
+        if (!error) return
+
+        const { error: fallbackError } = await supabase
+          .from('discounts')
+          .update(payload)
+          .eq('id', discountId)
+          .eq('clinic_id', activeClinicId)
+        if (fallbackError) {
+          console.warn('No se pudieron actualizar notas del descuento', fallbackError)
+          void loadConfigurationData()
+        }
       }
+
+      void persistNotes()
     },
-    [discounts]
+    [activeClinicId, loadConfigurationData, supabase]
   )
 
   // Add new discount
@@ -1501,7 +1625,7 @@ export default function TreatmentsPage() {
                     {/* Add Treatment */}
                     <button
                       type='button'
-                      onClick={handleAddTreatment}
+                      onClick={() => setShowAddTreatment(true)}
                       className='flex items-center gap-2 h-8 px-4 rounded-full border border-neutral-300 bg-[var(--color-page-bg)] hover:bg-neutral-100 transition-colors'
                     >
                       <AddRounded className='size-6 text-[var(--color-neutral-900)]' />
@@ -1729,7 +1853,7 @@ export default function TreatmentsPage() {
                   <DiscountsTableRow
                     key={discount.id}
                     discount={discount}
-                    onOpenNotes={() => handleOpenDiscountNotes(discount.id)}
+                    onNotesChange={(newNotes) => handleDiscountNotesChange(discount.id, newNotes)}
                   />
                 ))}
               </div>
@@ -1766,6 +1890,15 @@ export default function TreatmentsPage() {
         onSave={handleSaveBudgetType}
         editingBudgetType={editingBudgetType}
         availableTreatments={budgetEditorTreatmentOptions}
+      />
+
+      {/* Add Treatment Modal */}
+      <AddTreatmentModal
+        open={showAddTreatment}
+        onClose={() => setShowAddTreatment(false)}
+        onSubmit={handleAddTreatment}
+        categoryName={currentCategory?.name}
+        existingCodes={allExistingCodes}
       />
     </>
   )

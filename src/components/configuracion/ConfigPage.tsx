@@ -783,20 +783,20 @@ export default function ConfigPage() {
                 <table className='w-full border-collapse table-fixed'>
                   <thead className='sticky top-0 bg-[var(--color-surface)] z-10'>
                     <tr>
-                      <th className='w-[3rem] h-10 text-center text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'></th>
-                      <th className='w-[22%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                      <th className='w-[3rem] h-10 text-center text-body-sm font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'></th>
+                      <th className='w-[22%] h-10 text-left px-2 text-body-sm font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
                         Nombre de la clínica
                       </th>
-                      <th className='w-[25%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                      <th className='w-[25%] h-10 text-left px-2 text-body-sm font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
                         Dirección completa
                       </th>
-                      <th className='w-[15%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                      <th className='w-[15%] h-10 text-left px-2 text-body-sm font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
                         Horario
                       </th>
-                      <th className='w-[13%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                      <th className='w-[13%] h-10 text-left px-2 text-body-sm font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
                         Teléfono
                       </th>
-                      <th className='w-[22%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
+                      <th className='w-[22%] h-10 text-left px-2 text-body-sm font-normal text-[var(--color-neutral-600)] border-b border-neutral-200'>
                         Email
                       </th>
                     </tr>
@@ -806,7 +806,7 @@ export default function ConfigPage() {
                       <tr>
                         <td colSpan={6} className='py-12 text-center'>
                           <div className='flex flex-col items-center gap-2'>
-                            <p className='text-body-lg text-[var(--color-neutral-500)]'>
+                            <p className='text-body-sm text-[var(--color-neutral-500)]'>
                               {search
                                 ? 'No se encontraron clínicas'
                                 : 'No hay clínicas registradas'}
@@ -844,28 +844,28 @@ export default function ConfigPage() {
                                 className='flex-none size-8 rounded-full bg-neutral-100'
                                 aria-hidden
                               />
-                              <span className='text-body-md text-[var(--color-neutral-900)] truncate'>
+                              <span className='text-body-sm text-[var(--color-neutral-900)] truncate'>
                                 {clinica.nombre}
                               </span>
                             </div>
                           </td>
                           <td className='px-2 border-b border-neutral-300'>
-                            <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                            <span className='text-body-sm text-[var(--color-neutral-900)] truncate block'>
                               {clinica.direccion}
                             </span>
                           </td>
                           <td className='px-2 border-b border-neutral-300'>
-                            <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                            <span className='text-body-sm text-[var(--color-neutral-900)] truncate block'>
                               {clinica.horario}
                             </span>
                           </td>
                           <td className='px-2 border-b border-neutral-300'>
-                            <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                            <span className='text-body-sm text-[var(--color-neutral-900)] truncate block'>
                               {clinica.telefono}
                             </span>
                           </td>
                           <td className='px-2 border-b border-neutral-300'>
-                            <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                            <span className='text-body-sm text-[var(--color-neutral-900)] truncate block'>
                               {clinica.email}
                             </span>
                           </td>

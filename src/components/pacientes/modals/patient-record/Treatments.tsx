@@ -11,6 +11,7 @@ import {
   SearchRounded
 } from '@/components/icons/md3'
 import CatalogoTratamientos from '@/components/pacientes/shared/CatalogoTratamientos'
+import CellSelect from '@/components/pacientes/shared/CellSelect'
 import ExpandedTextInput from '@/components/pacientes/shared/ExpandedTextInput'
 import OdontogramaCompacto from '@/components/pacientes/shared/OdontogramaCompacto'
 import { RowActionsMenu } from '@/components/pacientes/shared/RowActionsMenu'
@@ -458,23 +459,23 @@ function TreatmentRow({
           placeholder='-'
         />
       </TableBodyCell>
-      {/* Cara - Select */}
+      {/* Cara - Custom Select */}
       <TableBodyCell width='6.625rem'>
-        <select
+        <CellSelect
           value={treatment.cara || ''}
-          onChange={(e) => onUpdateField('cara', e.target.value || undefined)}
-          className='w-full bg-transparent border-none outline-none text-[0.875rem] leading-[1.25rem] text-[#24282C] 
-            focus:bg-[var(--color-neutral-50)] rounded px-1 py-0.5 cursor-pointer'
-        >
-          <option value=''>-</option>
-          <option value='Vestibular'>Vestibular</option>
-          <option value='Oclusal'>Oclusal</option>
-          <option value='Mesial'>Mesial</option>
-          <option value='Distal'>Distal</option>
-          <option value='Lingual'>Lingual</option>
-          <option value='Palatino'>Palatino</option>
-          <option value='Incisal'>Incisal</option>
-        </select>
+          onChange={(v) => onUpdateField('cara', v || undefined)}
+          placeholder='-'
+          options={[
+            { value: '', label: '-' },
+            { value: 'Vestibular', label: 'Vestibular' },
+            { value: 'Oclusal', label: 'Oclusal' },
+            { value: 'Mesial', label: 'Mesial' },
+            { value: 'Distal', label: 'Distal' },
+            { value: 'Lingual', label: 'Lingual' },
+            { value: 'Palatino', label: 'Palatino' },
+            { value: 'Incisal', label: 'Incisal' }
+          ]}
+        />
       </TableBodyCell>
       {/* Código - Editable con autocompletado del catálogo */}
       <TableBodyCell width='5.875rem'>
@@ -581,7 +582,7 @@ function TreatmentRow({
           placeholder='Añadir anotaciones...'
         />
       </TableBodyCell>
-      {/* Doctor - Select */}
+      {/* Doctor - Custom Select */}
       <TableBodyCell width='14.1875rem'>
         <select
           value={treatment.doctor}

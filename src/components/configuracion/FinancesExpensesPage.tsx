@@ -2,6 +2,7 @@
 
 import {
   AddRounded,
+  CancelRounded,
   ChevronLeftRounded,
   ChevronRightRounded,
   CloseRounded,
@@ -54,6 +55,107 @@ type ExpenseDbRow = {
     | { name?: string | null }
     | Array<{ name?: string | null }>
     | null
+}
+
+// Notes cell: hover to preview, click to edit (for <table> layouts)
+function NotesCellTd({
+  value,
+  onChange
+}: {
+  value: string
+  onChange: (newValue: string) => void
+}) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const [isHovered, setIsHovered] = useState(false)
+
+  const handleOpen = () => {
+    setDraft(value)
+    setIsEditing(true)
+  }
+
+  const handleSave = () => {
+    onChange(draft)
+    setIsEditing(false)
+  }
+
+  const handleCancel = () => {
+    setDraft(value)
+    setIsEditing(false)
+  }
+
+  return (
+    <td
+      className='px-2 py-1.5 border-b border-r border-neutral-300 relative cursor-pointer'
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={handleOpen}
+    >
+      <p className='text-body-sm text-[var(--color-neutral-900)] truncate'>
+        {value || <span className='italic text-[var(--color-neutral-400)]'>Añadir nota...</span>}
+      </p>
+
+      {/* Hover preview card */}
+      {isHovered && !isEditing && value && (
+        <div className='absolute left-0 top-full mt-1 z-30 w-[min(20rem,90vw)] rounded-lg bg-[var(--color-neutral-50)] border border-[var(--color-neutral-200)] p-3 shadow-lg'>
+          <p className='text-body-sm italic text-[var(--color-neutral-600)] whitespace-pre-wrap'>
+            {value}
+          </p>
+        </div>
+      )}
+
+      {/* Edit popover */}
+      {isEditing && (
+        <>
+          <div
+            className='fixed inset-0 z-40'
+            onClick={(e) => {
+              e.stopPropagation()
+              handleCancel()
+            }}
+          />
+          <div
+            className='absolute left-0 top-full mt-1 z-50 w-[min(22rem,90vw)] rounded-lg bg-[var(--color-surface)] border border-[var(--color-neutral-300)] shadow-xl'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder='Escribe una nota...'
+              rows={4}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') handleCancel()
+                if (e.key === 'Enter' && e.metaKey) handleSave()
+              }}
+              className='w-full rounded-t-lg border-0 bg-transparent px-3 py-3 text-body-sm text-[var(--color-neutral-900)] placeholder:text-[var(--color-neutral-400)] outline-none resize-none'
+            />
+            <div className='flex items-center justify-between border-t border-[var(--color-neutral-200)] px-3 py-2'>
+              <span className='text-[0.6875rem] text-[var(--color-neutral-400)]'>
+                ⌘ Enter para guardar
+              </span>
+              <div className='flex items-center gap-2'>
+                <button
+                  type='button'
+                  onClick={handleCancel}
+                  className='px-3 py-1 rounded-full text-body-sm text-[var(--color-neutral-700)] hover:bg-[var(--color-neutral-100)] transition-colors'
+                >
+                  Cancelar
+                </button>
+                <button
+                  type='button'
+                  onClick={handleSave}
+                  className='px-3 py-1 rounded-full bg-[var(--color-brand-500)] text-body-sm font-medium text-[var(--color-brand-900)] hover:bg-[var(--color-brand-400)] transition-colors'
+                >
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </td>
+  )
 }
 
 // StatusBadge component
@@ -617,6 +719,35 @@ export default function FinancesExpensesPage() {
   const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [showArchived, setShowArchived] = useState(false)
+  const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>('all')
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
+  const categoryBtnRef = React.useRef<HTMLButtonElement>(null)
+  const categoryDropdownRef = React.useRef<HTMLDivElement>(null)
+
+  const ALL_CATEGORIES: ExpenseCategory[] = [
+    'Servicios',
+    'Material',
+    'Nóminas',
+    'Alquiler',
+    'Suministros',
+    'Otros'
+  ]
+
+  React.useEffect(() => {
+    if (!showCategoryDropdown) return
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        categoryDropdownRef.current &&
+        !categoryDropdownRef.current.contains(e.target as Node) &&
+        categoryBtnRef.current &&
+        !categoryBtnRef.current.contains(e.target as Node)
+      ) {
+        setShowCategoryDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showCategoryDropdown])
 
   // Actions menu state
   const [activeMenu, setActiveMenu] = useState<{
@@ -694,6 +825,11 @@ export default function FinancesExpensesPage() {
       filtered = filtered.filter((e) => e.estado === 'activo')
     }
 
+    // Filter by category
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter((e) => e.categoria === categoryFilter)
+    }
+
     // Filter by search term
     if (term) {
       filtered = filtered.filter(
@@ -705,7 +841,7 @@ export default function FinancesExpensesPage() {
     }
 
     return filtered
-  }, [expenses, search, showArchived])
+  }, [expenses, search, showArchived, categoryFilter])
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredExpenses.length / ITEMS_PER_PAGE))
@@ -880,11 +1016,40 @@ export default function FinancesExpensesPage() {
     await loadExpenses()
   }, [activeClinicId, expenseToDelete, loadExpenses, supabase])
 
+  const handleUpdateExpenseNotes = useCallback(
+    async (expense: Expense, newNotes: string) => {
+      if (!activeClinicId) return
+
+      const previousNotes = expense.notas || ''
+      setExpenses((prev) =>
+        prev.map((entry) =>
+          entry.id === expense.id ? { ...entry, notas: newNotes } : entry
+        )
+      )
+
+      const { error } = await supabase
+        .from('expenses')
+        .update({ notes: newNotes || null })
+        .eq('id', Number(expense.id))
+        .eq('clinic_id', activeClinicId)
+
+      if (error) {
+        console.warn('No se pudo actualizar notas de gasto', error)
+        setExpenses((prev) =>
+          prev.map((entry) =>
+            entry.id === expense.id ? { ...entry, notas: previousNotes } : entry
+          )
+        )
+      }
+    },
+    [activeClinicId, supabase]
+  )
+
   return (
     <>
       {/* Section Header */}
-      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] h-[min(2.5rem,4vh)]'>
-        <p className='text-headline-sm font-normal text-[var(--color-neutral-900)]'>
+      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] min-h-[min(2.5rem,4vh)]'>
+        <p className='text-title-lg font-normal text-[var(--color-neutral-900)]'>
           Finanzas, gastos fijos y nóminas
         </p>
         <button
@@ -925,16 +1090,83 @@ export default function FinancesExpensesPage() {
                   />
                 </div>
 
-                {/* Filter */}
-                <button
-                  type='button'
-                  className='flex items-center gap-0.5 px-2 py-1 rounded-full border border-[var(--color-neutral-700)] hover:bg-neutral-100 transition-colors cursor-pointer'
-                >
-                  <FilterAltRounded className='size-6 text-[var(--color-neutral-700)]' />
-                  <span className='text-body-sm text-[var(--color-neutral-700)]'>
-                    Todos
-                  </span>
-                </button>
+                {/* Category Filter */}
+                <div className='relative'>
+                  <button
+                    ref={categoryBtnRef}
+                    type='button'
+                    onClick={() => setShowCategoryDropdown((v) => !v)}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-full border transition-colors cursor-pointer ${
+                      categoryFilter !== 'all'
+                        ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-50)]'
+                        : 'border-[var(--color-neutral-700)] hover:bg-neutral-100'
+                    }`}
+                  >
+                    <FilterAltRounded className={`size-5 ${
+                      categoryFilter !== 'all'
+                        ? 'text-[var(--color-brand-700)]'
+                        : 'text-[var(--color-neutral-700)]'
+                    }`} />
+                    <span className={`text-body-sm ${
+                      categoryFilter !== 'all'
+                        ? 'text-[var(--color-brand-700)] font-medium'
+                        : 'text-[var(--color-neutral-700)]'
+                    }`}>
+                      {categoryFilter === 'all' ? 'Categoría' : categoryFilter}
+                    </span>
+                    {categoryFilter !== 'all' && (
+                      <CancelRounded
+                        className='ml-0.5 size-4 text-[var(--color-brand-700)] hover:text-[var(--color-brand-900)] cursor-pointer transition-colors'
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation()
+                          setCategoryFilter('all')
+                          setCurrentPage(1)
+                        }}
+                      />
+                    )}
+                  </button>
+
+                  {showCategoryDropdown && (
+                    <div
+                      ref={categoryDropdownRef}
+                      className='absolute right-0 top-full mt-1 z-30 min-w-[10rem] rounded-lg border border-[var(--color-neutral-200)] bg-[var(--color-surface)] py-1 shadow-lg'
+                    >
+                      <button
+                        type='button'
+                        onClick={() => {
+                          setCategoryFilter('all')
+                          setShowCategoryDropdown(false)
+                          setCurrentPage(1)
+                        }}
+                        className={`w-full text-left px-3 py-1.5 text-body-sm transition-colors cursor-pointer ${
+                          categoryFilter === 'all'
+                            ? 'bg-[var(--color-brand-50)] text-[var(--color-brand-700)] font-medium'
+                            : 'text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-50)]'
+                        }`}
+                      >
+                        Todas
+                      </button>
+                      {ALL_CATEGORIES.map((cat) => (
+                        <button
+                          key={cat}
+                          type='button'
+                          onClick={() => {
+                            setCategoryFilter(cat)
+                            setShowCategoryDropdown(false)
+                            setCurrentPage(1)
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-body-sm transition-colors cursor-pointer ${
+                            categoryFilter === cat
+                              ? 'bg-[var(--color-brand-50)] text-[var(--color-brand-700)] font-medium'
+                              : 'text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-50)]'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {/* Toggle archived */}
                 <button
@@ -958,28 +1190,28 @@ export default function FinancesExpensesPage() {
             <table className='w-full border-collapse table-fixed'>
               <thead className='sticky top-0 bg-[var(--color-surface)] z-10'>
                 <tr>
-                  <th className='w-[20%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                  <th className='w-[20%] h-10 text-left px-2 text-body-sm font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
                     Nombre del gasto
                   </th>
-                  <th className='w-[10%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                  <th className='w-[10%] h-10 text-left px-2 text-body-sm font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
                     Importe
                   </th>
-                  <th className='w-[10%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                  <th className='w-[10%] h-10 text-left px-2 text-body-sm font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
                     Frecuencia
                   </th>
-                  <th className='w-[12%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                  <th className='w-[12%] h-10 text-left px-2 text-body-sm font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
                     Categoría
                   </th>
-                  <th className='w-[16%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                  <th className='w-[16%] h-10 text-left px-2 text-body-sm font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
                     Fecha inicio/fin
                   </th>
-                  <th className='w-[10%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                  <th className='w-[10%] h-10 text-left px-2 text-body-sm font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
                     Notas
                   </th>
-                  <th className='w-[10%] h-10 text-left px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                  <th className='w-[10%] h-10 text-left px-2 text-body-sm font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
                     Estado
                   </th>
-                  <th className='w-[4%] h-10 text-center px-2 text-body-md font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
+                  <th className='w-[4%] h-10 text-center px-2 text-body-sm font-normal text-[var(--color-neutral-600)] border-b border-neutral-300'>
                     <span className='sr-only'>Acciones</span>
                   </th>
                 </tr>
@@ -997,7 +1229,7 @@ export default function FinancesExpensesPage() {
                   <tr>
                     <td colSpan={8} className='py-12 text-center'>
                       <div className='flex flex-col items-center gap-2'>
-                        <p className='text-body-lg text-[var(--color-neutral-500)]'>
+                        <p className='text-body-sm text-[var(--color-neutral-500)]'>
                           {search
                             ? 'No se encontraron gastos'
                             : 'No hay gastos registrados'}
@@ -1017,39 +1249,34 @@ export default function FinancesExpensesPage() {
                       className='h-10 bg-white hover:bg-[var(--color-neutral-50)] transition-colors'
                     >
                       <td className='px-2 border-b border-r border-neutral-300'>
-                        <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                        <span className='text-body-sm text-[var(--color-neutral-900)] truncate block'>
                           {expense.nombre}
                         </span>
                       </td>
                       <td className='px-2 border-b border-r border-neutral-300'>
-                        <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                        <span className='text-body-sm text-[var(--color-neutral-900)] truncate block'>
                           {formatCurrency(expense.importe)}
                         </span>
                       </td>
                       <td className='px-2 border-b border-r border-neutral-300'>
-                        <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                        <span className='text-body-sm text-[var(--color-neutral-900)] truncate block'>
                           {expense.frecuencia}
                         </span>
                       </td>
                       <td className='px-2 border-b border-r border-neutral-300'>
-                        <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                        <span className='text-body-sm text-[var(--color-neutral-900)] truncate block'>
                           {expense.categoria}
                         </span>
                       </td>
                       <td className='px-2 border-b border-r border-neutral-300'>
-                        <span className='text-body-md text-[var(--color-neutral-900)] truncate block'>
+                        <span className='text-body-sm text-[var(--color-neutral-900)] truncate block'>
                           {expense.fechaInicio || '—'} - {expense.fechaFin || '—'}
                         </span>
                       </td>
-                      <td className='px-2 border-b border-r border-neutral-300'>
-                        <button
-                          type='button'
-                          onClick={() => alert(expense.notas || 'Sin notas')}
-                          className='text-body-md font-medium text-[var(--color-brand-600)] hover:underline cursor-pointer'
-                        >
-                          Ver nota
-                        </button>
-                      </td>
+                      <NotesCellTd
+                        value={expense.notas || ''}
+                        onChange={(newNotes) => void handleUpdateExpenseNotes(expense, newNotes)}
+                      />
                       <td className='px-2 border-b border-r border-neutral-300'>
                         <StatusBadge status={expense.estado} />
                       </td>

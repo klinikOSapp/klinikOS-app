@@ -26,6 +26,7 @@ import ReceiptLongRounded from '@mui/icons-material/ReceiptLongRounded'
 import SearchRounded from '@mui/icons-material/SearchRounded'
 import { useRouter, useSearchParams } from 'next/navigation'
 import React from 'react'
+import { createPortal } from 'react-dom'
 
 export default function PacientesPage() {
   // Next.js 15 requires useSearchParams() to be under a Suspense boundary.
@@ -130,7 +131,7 @@ function PatientActionsMenu({
     }
   }, [onClose])
 
-  return (
+  return createPortal(
     <div
       ref={menuRef}
       className='fixed z-[9999] min-w-[14rem] overflow-hidden rounded-lg border border-[var(--color-border-default)] bg-[var(--color-neutral-0)] py-1 shadow-lg'
@@ -185,7 +186,8 @@ function PatientActionsMenu({
           <span>Eliminar paciente</span>
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

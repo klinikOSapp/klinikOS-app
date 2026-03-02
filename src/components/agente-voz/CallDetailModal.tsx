@@ -198,8 +198,8 @@ export default function CallDetailModal({
     }
   }, [onClose])
 
-  // Get formatted date
-  const today = new Date()
+  // Format the call date from the record
+  const callDate = new Date(call.date + 'T00:00:00')
   const dayNames = [
     'Domingo',
     'Lunes',
@@ -209,8 +209,8 @@ export default function CallDetailModal({
     'Viernes',
     'Sábado'
   ]
-  const formattedDate = `${dayNames[today.getDay()]} ${today.getDate()}/${(
-    today.getMonth() + 1
+  const formattedDate = `${dayNames[callDate.getDay()]} ${callDate.getDate()}/${(
+    callDate.getMonth() + 1
   )
     .toString()
     .padStart(2, '0')}`

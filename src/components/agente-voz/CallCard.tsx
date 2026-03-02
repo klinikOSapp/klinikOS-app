@@ -5,6 +5,22 @@ import AudioWaveform from './AudioWaveform'
 import type { CallRecord, CallStatus, VoiceAgentTier } from './voiceAgentTypes'
 import { SENTIMENT_LABELS, isAppointmentIntent } from './voiceAgentTypes'
 
+function formatCardDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T00:00:00')
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  if (date.getTime() === today.getTime()) return 'Hoy'
+  if (date.getTime() === yesterday.getTime()) return 'Ayer'
+
+  return date.toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'short'
+  })
+}
+
 type CallCardProps = {
   call: CallRecord
   onCall: () => void
@@ -65,8 +81,7 @@ export default function CallCard({
   onAssignProfessional,
   voiceAgentTier = 'advanced'
 }: CallCardProps) {
-  // Calculate time ago (mock for now)
-  const timeAgo = 'Hace 12 minutos'
+  const dateLabel = formatCardDate(call.date)
 
   // Quick actions menu state
   const [showQuickActions, setShowQuickActions] = useState(false)
@@ -163,7 +178,9 @@ export default function CallCard({
           <span className='text-lg font-medium text-[#24282c]'>
             {STATUS_LABELS[call.status]}
           </span>
-          <span className='text-xs text-[#24282c]/60'>{timeAgo}</span>
+          <span className='text-xs text-[#24282c]/60'>
+            {dateLabel} · {call.time}
+          </span>
         </div>
 
         {/* Right: Duration + Quick Actions */}
