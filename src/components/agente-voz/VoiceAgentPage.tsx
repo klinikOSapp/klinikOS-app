@@ -279,6 +279,22 @@ async function fetchVoiceStats(
     .map((row) => Number(row.id))
     .filter((id) => Number.isFinite(id))
 
+  // Fetch call_logs duration as fallback (calls.duration_seconds is often NULL
+  // because it is only written by the call_ended webhook handler)
+  const { data: logRows } =
+    dedupedCallIds.length > 0
+      ? await supabase
+          .from('call_logs')
+          .select('call_id, duration_seconds')
+          .in('call_id', dedupedCallIds)
+      : { data: [] }
+  const logDurationMap = new Map<number, number>(
+    (logRows ?? []).map((l: { call_id: number; duration_seconds: number | null }) => [
+      l.call_id,
+      l.duration_seconds ?? 0
+    ])
+  )
+
   const { count: appointmentsCreatedCount, error: apptError } =
     dedupedCallIds.length > 0
       ? await supabase
@@ -305,7 +321,11 @@ async function fetchVoiceStats(
       pendingCalls += 1
     }
     const metadata = safeJson(row.metadata)
-    const duration = parseDurationSeconds(row.duration_seconds)
+    const callId = Number(row.id)
+    const duration = Math.max(
+      parseDurationSeconds(row.duration_seconds),
+      parseDurationSeconds(logDurationMap.get(callId) ?? 0)
+    )
     totalDurationSeconds += duration
 
     const waitCandidate =

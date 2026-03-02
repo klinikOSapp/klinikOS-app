@@ -666,7 +666,7 @@ export default function Treatments({
   >([])
   const [searchPending, setSearchPending] = React.useState('')
   const [searchHistory, setSearchHistory] = React.useState('')
-  const [dateFilter, setDateFilter] = React.useState('Últimos 6 meses')
+  const [dateFilter, setDateFilter] = React.useState('Todos')
   const [onlyWithBudget, setOnlyWithBudget] = React.useState(false)
   const persistTimersRef = React.useRef<Record<string, ReturnType<typeof setTimeout>>>(
     {}

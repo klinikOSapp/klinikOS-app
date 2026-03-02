@@ -131,6 +131,7 @@ export type PatientTreatment = {
   createdAt: string // Fecha creación (ISO)
   updatedAt?: string // Fecha última actualización (ISO)
   markedForNextAppointment?: boolean // Marcado para incluir en próxima cita
+  appointmentId?: string // ID de la cita en la que se realizó el tratamiento
 }
 
 // ============================================
@@ -397,6 +398,7 @@ type DbPatientTreatmentRow = {
   marked_for_next_appointment: boolean | null
   created_at: string | null
   updated_at: string | null
+  appointment_id: number | null
 }
 
 function toIsoDate(input?: string | null): string | undefined {
@@ -456,7 +458,8 @@ function mapDbTreatmentRowToUi(row: DbPatientTreatmentRow): PatientTreatment {
     notes: row.notes || undefined,
     createdAt: toIsoDate(row.created_at) || new Date().toISOString().split('T')[0],
     updatedAt: toIsoDate(row.updated_at),
-    markedForNextAppointment: Boolean(row.marked_for_next_appointment)
+    markedForNextAppointment: Boolean(row.marked_for_next_appointment),
+    appointmentId: row.appointment_id != null ? String(row.appointment_id) : undefined
   }
 }
 
@@ -1741,7 +1744,7 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
             supabase
               .from('patient_treatments')
               .select(
-                'id, clinic_id, patient_id, treatment_code, treatment_name, tooth_number, tooth_face, amount, final_amount, paid_amount, status, payment_status, scheduled_date, completed_at, completed_by, completed_by_name, budget_id, notes, marked_for_next_appointment, created_at, updated_at'
+                'id, clinic_id, patient_id, treatment_code, treatment_name, tooth_number, tooth_face, amount, final_amount, paid_amount, status, payment_status, scheduled_date, completed_at, completed_by, completed_by_name, budget_id, notes, marked_for_next_appointment, created_at, updated_at, appointment_id'
               )
               .eq('clinic_id', clinicId)
               .order('created_at', { ascending: false })

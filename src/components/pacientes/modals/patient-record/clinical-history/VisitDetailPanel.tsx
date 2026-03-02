@@ -20,6 +20,7 @@ import type {
   LinkedTreatmentStatus,
   VisitSOAPNotes
 } from '@/context/AppointmentsContext'
+import { usePatients } from '@/context/PatientsContext'
 import React from 'react'
 import SOAPNotesEditor from './SOAPNotesEditor'
 import TreatmentStatusBadge from './TreatmentStatusBadge'
@@ -68,6 +69,9 @@ export default function VisitDetailPanel({
   // State for showing immutability warning
   const [showImmutabilityWarning, setShowImmutabilityWarning] =
     React.useState(false)
+  // Must be called unconditionally before any early return (Rules of Hooks)
+  const { getTreatmentsByPatient } = usePatients()
+
   if (!appointment) {
     return (
       <div className='h-full flex items-center justify-center'>
@@ -87,7 +91,23 @@ export default function VisitDetailPanel({
   const visitStatus = appointment.visitStatus || 'scheduled'
   const statusConfig = VISIT_STATUS_CONFIG[visitStatus]
   const isCompleted = visitStatus === 'completed'
-  const treatments = appointment.linkedTreatments || []
+  const snapshotTreatments = appointment.linkedTreatments || []
+  const ptTreatments = getTreatmentsByPatient(appointment.patientId ?? '')
+    .filter((t) => t.appointmentId === String(appointment.id))
+    .map((t) => ({
+      id: t.id,
+      description: t.description,
+      amount: t.amountFormatted,
+      status: (t.status === 'Completado'
+        ? 'completed'
+        : t.status === 'Cancelado'
+          ? 'cancelled'
+          : 'pending') as LinkedTreatmentStatus
+    }))
+  const treatments = [
+    ...snapshotTreatments,
+    ...ptTreatments.filter((pt) => !snapshotTreatments.some((s) => s.id === pt.id))
+  ]
   const attachments = appointment.attachments || []
 
   // Check if notes are finalized (completed visit with non-draft notes)

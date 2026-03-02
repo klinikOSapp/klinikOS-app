@@ -18,6 +18,7 @@ import { type BudgetTypeData } from '@/components/pacientes/shared/budgetTypeDat
 import { useClinic } from '@/context/ClinicContext'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import AddDiscountModal, { type DiscountFormData } from './AddDiscountModal'
 import AddTreatmentModal, { type TreatmentFormData } from './AddTreatmentModal'
 import BudgetTypeEditorModal from './BudgetTypeEditorModal'
 
@@ -41,7 +42,7 @@ type Category = {
   treatments: Treatment[]
 }
 
-type TabKey = 'treatments' | 'budgetType' | 'discounts' | 'medications'
+type TabKey = 'treatments' | 'budgetType' | 'discounts'
 
 // Budget type row extends the shared BudgetTypeData with selected state
 type BudgetTypeRow = BudgetTypeData & { selected: boolean }
@@ -83,6 +84,17 @@ function toCategoryLabel(value: unknown): string {
   return normalized.length > 0 ? normalized : 'General'
 }
 
+const DENTAL_CATEGORIES = [
+  'Cirugía',
+  'Conservadora',
+  'Endodoncia',
+  'Estética',
+  'Implantes',
+  'Odontopediatría',
+  'Ortodoncia',
+  'Periodoncia'
+]
+
 function frequencyToDurationText(minutes?: number | null): string {
   if (!minutes || !Number.isFinite(minutes)) return '-'
   return `${minutes} min`
@@ -92,7 +104,6 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: 'treatments', label: 'Lista de tratamientos' },
   { key: 'budgetType', label: 'Presupuestos tipo' },
   { key: 'discounts', label: 'Descuentos (convenios)' },
-  { key: 'medications', label: 'Medicamentos con autoguardado' }
 ]
 
 // ============================================
@@ -685,6 +696,7 @@ export default function TreatmentsPage() {
   const [searchVisible, setSearchVisible] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [showAddTreatment, setShowAddTreatment] = useState(false)
+  const [showAddDiscount, setShowAddDiscount] = useState(false)
 
   // Budget Types state
   const [budgetTypes, setBudgetTypes] = useState<BudgetTypeRow[]>([])
@@ -825,8 +837,15 @@ export default function TreatmentsPage() {
         }
       }
 
-      if (serviceRows.length > 0) {
+      {
         const grouped = new Map<string, Category>()
+
+        // Seed all standard dental categories so they always appear, even when empty
+        DENTAL_CATEGORIES.forEach((name) => {
+          const id = slugCategoryId(name) || name.toLowerCase()
+          grouped.set(id, { id, name, treatments: [] })
+        })
+
         serviceRows.forEach((row) => {
           const categoryName = toCategoryLabel(row.category)
           const categoryId = slugCategoryId(categoryName) || 'general'
@@ -848,15 +867,21 @@ export default function TreatmentsPage() {
           })
         })
 
-        const mappedCategories = Array.from(grouped.values())
+        const mappedCategories = Array.from(grouped.values()).sort((a, b) => {
+          const ai = DENTAL_CATEGORIES.indexOf(a.name)
+          const bi = DENTAL_CATEGORIES.indexOf(b.name)
+          if (ai === -1 && bi === -1) return a.name.localeCompare(b.name)
+          if (ai === -1) return 1
+          if (bi === -1) return -1
+          return ai - bi
+        })
+
         setCategories(mappedCategories)
         setSelectedCategoryId((prev) =>
           mappedCategories.some((category) => category.id === prev)
             ? prev
             : mappedCategories[0]?.id || ''
         )
-      } else {
-        setSelectedCategoryId('')
       }
 
       // Load budget templates from quote_templates if available, fallback to service_packages.
@@ -1447,57 +1472,48 @@ export default function TreatmentsPage() {
     [activeClinicId, loadConfigurationData, supabase]
   )
 
-  // Add new discount
+  // Add new discount — open modal
   const handleAddDiscount = useCallback(() => {
     if (!activeClinicId) return
+    setShowAddDiscount(true)
+  }, [activeClinicId])
 
-    const name = window.prompt('Nombre del descuento:')
-    if (!name?.trim()) return
-    const typeInput = window.prompt(
-      'Tipo (percentage/fixed):',
-      'percentage'
-    )
-    const discountType = typeInput === 'fixed' ? 'fixed' : 'percentage'
-    const valueInput = window.prompt('Valor del descuento:', '10')
-    const value = Number(valueInput || 0)
-    if (!Number.isFinite(value) || value < 0) {
-      alert('El valor del descuento no es válido.')
-      return
-    }
-    const notes = window.prompt('Notas (opcional):', '') || ''
+  // Handle discount form submission
+  const handleSubmitDiscount = useCallback(
+    (data: DiscountFormData) => {
+      if (!activeClinicId) return
+      setShowAddDiscount(false)
 
-    const createDiscount = async () => {
-      const payload = {
-        clinic_id: activeClinicId,
-        name: name.trim(),
-        discount_type: discountType,
-        value,
-        notes: notes || null,
-        is_active: true
-      }
-
-      const { error } = await supabase.from('clinic_discounts').insert(payload)
-      if (error) {
-        const { error: fallbackError } = await supabase
-          .from('discounts')
-          .insert(payload)
-        if (fallbackError) {
-          console.warn('No se pudo crear descuento', fallbackError)
-          alert('No se pudo crear el descuento.')
-          return
+      const createDiscount = async () => {
+        const payload = {
+          clinic_id: activeClinicId,
+          name: data.name.trim(),
+          discount_type: data.discountType,
+          value: Number(data.value),
+          notes: data.notes.trim() || null,
+          is_active: true
         }
+
+        const { error } = await supabase.from('clinic_discounts').insert(payload)
+        if (error) {
+          const { error: fallbackError } = await supabase
+            .from('discounts')
+            .insert(payload)
+          if (fallbackError) {
+            console.warn('No se pudo crear descuento', fallbackError)
+            return
+          }
+        }
+        await loadConfigurationData()
       }
-      await loadConfigurationData()
-    }
-    void createDiscount()
-  }, [activeClinicId, loadConfigurationData, supabase])
+      void createDiscount()
+    },
+    [activeClinicId, loadConfigurationData, supabase]
+  )
 
   // Configure discount limits
   const handleConfigureDiscountLimits = useCallback(() => {
-    const goToRoles = window.confirm(
-      'Los límites de descuento por rol se configuran en Roles y permisos. ¿Quieres abrir esa sección?'
-    )
-    if (goToRoles) window.location.href = '/configuracion/roles'
+    window.location.href = '/configuracion/roles'
   }, [])
 
   return (
@@ -1869,14 +1885,7 @@ export default function TreatmentsPage() {
                 </div>
               )}
             </div>
-          ) : (
-            <div className='flex items-center justify-center py-20'>
-              <p className='text-body-md text-[var(--color-neutral-600)]'>
-                {activeTab === 'medications' &&
-                  'Contenido de Medicamentos con autoguardado - Por implementar'}
-              </p>
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -1899,6 +1908,13 @@ export default function TreatmentsPage() {
         onSubmit={handleAddTreatment}
         categoryName={currentCategory?.name}
         existingCodes={allExistingCodes}
+      />
+
+      {/* Add Discount Modal */}
+      <AddDiscountModal
+        open={showAddDiscount}
+        onClose={() => setShowAddDiscount(false)}
+        onSubmit={handleSubmitDiscount}
       />
     </>
   )
