@@ -4721,7 +4721,7 @@ export default function WeekScheduler() {
       const professionalId =
         apt.professionalId ||
         professionalIdByName.get(professionalName.toLowerCase()) ||
-        toProfessionalOptionId(professionalName)
+        undefined // appointments without a configured professional are always visible
 
       const agendaEvent = toWeekAgendaEvent({
         ...apt,
@@ -5394,7 +5394,7 @@ export default function WeekScheduler() {
         effectiveProfessionalOptions.find(
           (option) => option.label.toLowerCase() === professionalName.toLowerCase()
         )?.id ||
-        toProfessionalOptionId(professionalName)
+        undefined // appointments without a configured professional are always visible
 
       return {
         id: apt.id,
