@@ -98,6 +98,10 @@ export default function VisitDetailPanel({
       id: t.id,
       description: t.description,
       amount: t.amountFormatted,
+      pieceNumber: t.tooth ? Number(t.tooth) : undefined,
+      completedAt: t.completedDate ?? undefined,
+      completedBy: t.professional ?? undefined,
+      notes: t.notes ?? undefined,
       status: (t.status === 'Completado'
         ? 'completed'
         : t.status === 'Cancelado'
