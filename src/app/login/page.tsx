@@ -64,7 +64,7 @@ export default function LoginPage() {
       if (error) {
         setErrorMessage(error.message)
       } else {
-        router.push('/agente-voz')
+        router.push('/')
       }
     } catch (err: any) {
       setErrorMessage(err?.message ?? 'Error al iniciar sesión.')

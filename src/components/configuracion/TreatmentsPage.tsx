@@ -84,6 +84,14 @@ function toCategoryLabel(value: unknown): string {
   return normalized.length > 0 ? normalized : 'General'
 }
 
+function normalizeCategoryName(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
 const DENTAL_CATEGORIES = [
   'Cirugía',
   'Conservadora',
@@ -876,11 +884,19 @@ export default function TreatmentsPage() {
           return ai - bi
         })
 
+        const defaultOdontologiaId =
+          mappedCategories.find(
+            (category) => normalizeCategoryName(category.name) === 'odontologia'
+          )?.id ||
+          mappedCategories.find((category) =>
+            normalizeCategoryName(category.name).includes('odontologia')
+          )?.id
+
         setCategories(mappedCategories)
         setSelectedCategoryId((prev) =>
           mappedCategories.some((category) => category.id === prev)
             ? prev
-            : mappedCategories[0]?.id || ''
+            : defaultOdontologiaId || mappedCategories[0]?.id || ''
         )
       }
 

@@ -44,6 +44,8 @@ type RoleInfoResponse = {
   permissions: AllPermissions
 }
 
+const CLINIC_ID_HIDE_VOICE_AGENT = '0a62cf76-bfd0-4125-b8fe-860a1700da39'
+
 export default function Layout({ children, ctaMenuItems }: LayoutProps) {
   const baseItemsTop = [
     {
@@ -371,11 +373,14 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
   const itemsBottom = React.useMemo(() => {
     return baseItemsBottom.filter((item) => {
       if (item.id === 'gestion') return can('reports', 'view')
-      if (item.id === 'agente-voz') return can('calls', 'view')
+      if (item.id === 'agente-voz') {
+        if (activeClinicId === CLINIC_ID_HIDE_VOICE_AGENT) return false
+        return can('calls', 'view')
+      }
       if (item.id === 'configuracion') return can('settings', 'view')
       return true
     })
-  }, [baseItemsBottom, can])
+  }, [activeClinicId, baseItemsBottom, can])
 
   return (
     <div className='bg-[var(--color-brand-0)] h-dvh overflow-hidden'>
