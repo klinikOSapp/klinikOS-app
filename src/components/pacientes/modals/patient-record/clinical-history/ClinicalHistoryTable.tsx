@@ -5,6 +5,8 @@ import {
   AccessTimeFilledRounded,
   AttachFileRounded,
   CalendarMonthRounded,
+  CheckBoxOutlineBlankRounded,
+  CheckBoxRounded,
   CheckCircleRounded,
   CheckRounded,
   DescriptionRounded,
@@ -18,6 +20,7 @@ import {
 import ExpandedTextInput from '@/components/pacientes/shared/ExpandedTextInput'
 import type {
   Appointment,
+  LinkedTreatmentStatus,
   VisitSOAPNotes,
   VisitStatus
 } from '@/context/AppointmentsContext'
@@ -214,10 +217,16 @@ function ProfessionalDropdown({
 }
 
 // ============================================
-// Treatments Hover Card Component
+// Treatments Popover Component (with checkboxes)
 // ============================================
-type TreatmentsHoverCardProps = {
+type TreatmentsPopoverProps = {
+  appointmentId: string
   treatments: Appointment['linkedTreatments']
+  onTreatmentStatusChange?: (
+    appointmentId: string,
+    treatmentId: string,
+    status: LinkedTreatmentStatus
+  ) => void
 }
 
 const TREATMENT_STATUS_COLORS: Record<
@@ -237,7 +246,7 @@ const TREATMENT_STATUS_COLORS: Record<
   completed: {
     bg: 'bg-[var(--color-success-100)]',
     text: 'text-[var(--color-success-700)]',
-    label: 'Completado'
+    label: 'Realizado'
   },
   cancelled: {
     bg: 'bg-[var(--color-neutral-200)]',
@@ -246,47 +255,67 @@ const TREATMENT_STATUS_COLORS: Record<
   }
 }
 
-function TreatmentsHoverCard({ treatments }: TreatmentsHoverCardProps) {
+function TreatmentsPopover({
+  appointmentId,
+  treatments,
+  onTreatmentStatusChange
+}: TreatmentsPopoverProps) {
   const [isOpen, setIsOpen] = React.useState(false)
   const [position, setPosition] = React.useState<{
     top: number
     left: number
   } | null>(null)
   const triggerRef = React.useRef<HTMLDivElement>(null)
-  const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+  const popoverRef = React.useRef<HTMLDivElement>(null)
 
   const treatmentCount = treatments?.length || 0
+  const completedCount =
+    treatments?.filter((t) => t.status === 'completed').length || 0
 
-  const handleMouseEnter = () => {
-    if (treatmentCount === 0) return
-    hoverTimeoutRef.current = setTimeout(() => {
-      if (triggerRef.current) {
-        const rect = triggerRef.current.getBoundingClientRect()
-        setPosition({
-          top: rect.bottom + 4,
-          left: rect.left
-        })
-        setIsOpen(true)
+  React.useEffect(() => {
+    if (!isOpen) return
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        triggerRef.current &&
+        !triggerRef.current.contains(event.target as Node) &&
+        popoverRef.current &&
+        !popoverRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false)
       }
-    }, 300)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
+  const handleToggle = () => {
+    if (treatmentCount === 0) return
+    if (!isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setPosition({
+        top: rect.bottom + 4,
+        left: rect.left
+      })
+    }
+    setIsOpen((prev) => !prev)
   }
 
-  const handleMouseLeave = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current)
-    }
-    setIsOpen(false)
+  const handleCheckboxClick = (
+    treatmentId: string,
+    currentStatus: LinkedTreatmentStatus
+  ) => {
+    if (!onTreatmentStatusChange || currentStatus === 'cancelled') return
+    const newStatus: LinkedTreatmentStatus =
+      currentStatus === 'completed' ? 'in_progress' : 'completed'
+    onTreatmentStatusChange(appointmentId, treatmentId, newStatus)
   }
 
   return (
-    <div
-      ref={triggerRef}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      className='relative'
-    >
-      <div
-        className={`flex items-center gap-1 ${treatmentCount > 0 ? 'cursor-pointer' : ''}`}
+    <div ref={triggerRef} className='relative'>
+      <button
+        type='button'
+        onClick={handleToggle}
+        className={`flex items-center gap-1 ${treatmentCount > 0 ? 'cursor-pointer hover:opacity-80' : ''}`}
       >
         <MedicalServicesRounded
           className={`w-[1rem] h-[1rem] ${
@@ -302,51 +331,78 @@ function TreatmentsHoverCard({ treatments }: TreatmentsHoverCardProps) {
               : 'text-[var(--color-neutral-400)]'
           }`}
         >
-          {treatmentCount > 0 ? treatmentCount : '—'}
+          {treatmentCount > 0 ? `${completedCount}/${treatmentCount}` : '—'}
         </span>
-      </div>
+      </button>
 
-      {/* Hover card */}
       {isOpen && position && treatments && treatments.length > 0 && (
         <div
-          className='fixed z-50 bg-white rounded-lg shadow-lg border border-[var(--color-neutral-200)] p-3 min-w-[280px] max-w-[360px]'
+          ref={popoverRef}
+          className='fixed z-50 bg-white rounded-lg shadow-lg border border-[var(--color-neutral-200)] p-3 min-w-[300px] max-w-[380px]'
           style={{ top: position.top, left: position.left }}
-          onMouseEnter={() => {
-            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
-          }}
-          onMouseLeave={handleMouseLeave}
         >
-          <p className="font-['Inter:Medium',_sans-serif] text-[var(--color-neutral-900)] text-body-sm mb-2">
-            Tratamientos ({treatments.length})
-          </p>
-          <div className='flex flex-col gap-2 max-h-[200px] overflow-y-auto'>
+          <div className='flex items-center justify-between mb-2'>
+            <p className="font-['Inter:Medium',_sans-serif] text-[var(--color-neutral-900)] text-body-sm">
+              Tratamientos ({completedCount}/{treatments.length})
+            </p>
+            <span className='text-label-sm text-[var(--color-neutral-400)]'>
+              Marcar realizados
+            </span>
+          </div>
+          <div className='flex flex-col gap-1.5 max-h-[240px] overflow-y-auto'>
             {treatments.map((treatment) => {
+              const isDone = treatment.status === 'completed'
+              const isCancelled = treatment.status === 'cancelled'
               const statusConfig =
                 TREATMENT_STATUS_COLORS[treatment.status] ||
                 TREATMENT_STATUS_COLORS.pending
+
               return (
                 <div
                   key={treatment.id}
-                  className='flex items-start justify-between gap-2 p-2 bg-[var(--color-neutral-50)] rounded-lg'
+                  className={`flex items-center gap-2.5 p-2 rounded-lg transition-colors ${
+                    isDone
+                      ? 'bg-[#E9FBF9]'
+                      : 'bg-[var(--color-neutral-50)] hover:bg-[var(--color-neutral-100)]'
+                  }`}
                 >
+                  <button
+                    type='button'
+                    onClick={() =>
+                      handleCheckboxClick(treatment.id, treatment.status)
+                    }
+                    disabled={isCancelled}
+                    className={`shrink-0 ${
+                      isCancelled
+                        ? 'opacity-40 cursor-not-allowed'
+                        : 'cursor-pointer hover:opacity-80'
+                    }`}
+                    aria-label={
+                      isDone
+                        ? 'Desmarcar como realizado'
+                        : 'Marcar como realizado'
+                    }
+                  >
+                    {isDone ? (
+                      <CheckBoxRounded className='size-[1.125rem] text-[var(--color-brand-500)]' />
+                    ) : (
+                      <CheckBoxOutlineBlankRounded className='size-[1.125rem] text-[var(--color-neutral-400)]' />
+                    )}
+                  </button>
                   <div className='flex-1 min-w-0'>
-                    <div className='flex items-center gap-2'>
-                      <p className="font-['Inter:Medium',_sans-serif] text-[var(--color-neutral-800)] text-label-md truncate">
+                    <div className='flex items-center gap-1.5'>
+                      <p
+                        className={`font-['Inter:Medium',_sans-serif] text-label-md truncate ${
+                          isDone
+                            ? 'text-[var(--color-brand-700)]'
+                            : 'text-[var(--color-neutral-800)]'
+                        }`}
+                      >
                         {treatment.description}
                       </p>
                       {treatment.pieceNumber && (
                         <span className='shrink-0 px-1.5 py-0.5 bg-[var(--color-neutral-200)] rounded text-[0.625rem] text-[var(--color-neutral-600)]'>
                           #{treatment.pieceNumber}
-                        </span>
-                      )}
-                    </div>
-                    <div className='flex items-center gap-2 mt-1'>
-                      <span className='text-label-sm text-[var(--color-neutral-500)]'>
-                        {treatment.amount}
-                      </span>
-                      {treatment.completedBy && (
-                        <span className='text-label-sm text-[var(--color-neutral-400)]'>
-                          • {treatment.completedBy}
                         </span>
                       )}
                     </div>
@@ -476,6 +532,11 @@ type VisitRowProps = {
   onUpdateAppointment: (updates: Partial<Appointment>) => void
   onUpdateSOAPNotes: (notes: Partial<VisitSOAPNotes>) => void
   onOpenMenu: (event: React.MouseEvent<HTMLButtonElement>) => void
+  onTreatmentStatusChange?: (
+    appointmentId: string,
+    treatmentId: string,
+    status: LinkedTreatmentStatus
+  ) => void
 }
 
 function VisitRow({
@@ -483,7 +544,8 @@ function VisitRow({
   isUpcoming,
   onUpdateAppointment,
   onUpdateSOAPNotes,
-  onOpenMenu
+  onOpenMenu,
+  onTreatmentStatusChange
 }: VisitRowProps) {
   const visitStatus = appointment.visitStatus || 'scheduled'
   const attachmentCount = appointment.attachments?.length || 0
@@ -611,9 +673,13 @@ function VisitRow({
         </span>
       </TableBodyCell>
 
-      {/* Tratamientos - Hover card */}
+      {/* Tratamientos - Interactive popover */}
       <TableBodyCell width='5rem'>
-        <TreatmentsHoverCard treatments={appointment.linkedTreatments} />
+        <TreatmentsPopover
+          appointmentId={appointment.id}
+          treatments={appointment.linkedTreatments}
+          onTreatmentStatusChange={onTreatmentStatusChange}
+        />
       </TableBodyCell>
 
       {/* S/O (Notas) - ExpandedTextInput */}
@@ -682,6 +748,11 @@ type ClinicalHistoryTableProps = {
   onViewDetails?: (appointmentId: string) => void
   onUploadFile?: (appointmentId: string) => void
   onMarkComplete?: (appointmentId: string) => void
+  onTreatmentStatusChange?: (
+    appointmentId: string,
+    treatmentId: string,
+    status: LinkedTreatmentStatus
+  ) => void
 }
 
 export default function ClinicalHistoryTable({
@@ -691,7 +762,8 @@ export default function ClinicalHistoryTable({
   isUpcoming,
   onViewDetails,
   onUploadFile,
-  onMarkComplete
+  onMarkComplete,
+  onTreatmentStatusChange
 }: ClinicalHistoryTableProps) {
   // Menu state
   const [activeMenu, setActiveMenu] = React.useState<{
@@ -788,6 +860,7 @@ export default function ClinicalHistoryTable({
                     triggerRect: rect
                   })
                 }}
+                onTreatmentStatusChange={onTreatmentStatusChange}
               />
             ))}
           </tbody>
