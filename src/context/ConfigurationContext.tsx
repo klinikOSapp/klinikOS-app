@@ -1441,6 +1441,204 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           }
         }
 
+        // ── Treatments (service_catalog) ──
+        const DENTAL_CATEGORIES = [
+          'Cirugía', 'Conservadora', 'Endodoncia', 'Estética',
+          'Implantes', 'Odontopediatría', 'Ortodoncia', 'Periodoncia'
+        ]
+
+        const slugCatId = (v: string) =>
+          v.trim().toLowerCase().normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+
+        const toCatLabel = (v: unknown) => {
+          if (typeof v !== 'string') return 'General'
+          const n = v.trim()
+          return n.length > 0 ? n : 'General'
+        }
+
+        const durationText = (m?: number | null) => {
+          if (!m || !Number.isFinite(m)) return '-'
+          return `${m} min`
+        }
+
+        type ServiceRow = {
+          id: number; name: string; treatment_code: string | null
+          standard_price: number | string; category: string | null
+          default_duration_minutes: number | null; organization_id?: string | null
+        }
+
+        let serviceRows: ServiceRow[] = []
+        const baseSvcSelect =
+          'id, name, treatment_code, standard_price, category, default_duration_minutes'
+
+        if (selectedOrganizationId) {
+          const { data, error } = await supabase
+            .from('service_catalog')
+            .select(`${baseSvcSelect}, organization_id`)
+            .eq('organization_id', selectedOrganizationId)
+            .order('category', { ascending: true })
+            .order('name', { ascending: true })
+          if (!error) {
+            serviceRows = (data || []) as ServiceRow[]
+          } else if (String((error as { code?: string })?.code || '') === '42703') {
+            const { data: legacy } = await supabase
+              .from('service_catalog').select(baseSvcSelect)
+              .order('category', { ascending: true }).order('name', { ascending: true })
+            serviceRows = (legacy || []) as ServiceRow[]
+          }
+        }
+
+        if (!selectedOrganizationId || serviceRows.length === 0) {
+          const { data, error } = await supabase
+            .from('service_catalog')
+            .select(`${baseSvcSelect}, organization_id`)
+            .order('category', { ascending: true })
+            .order('name', { ascending: true })
+          if (!error) {
+            serviceRows = (data || []) as ServiceRow[]
+          } else if (String((error as { code?: string })?.code || '') === '42703') {
+            const { data: legacy } = await supabase
+              .from('service_catalog').select(baseSvcSelect)
+              .order('category', { ascending: true }).order('name', { ascending: true })
+            serviceRows = (legacy || []) as ServiceRow[]
+          }
+        }
+
+        const grouped = new Map<string, ConfigCategory>()
+        DENTAL_CATEGORIES.forEach((name) => {
+          const id = slugCatId(name) || name.toLowerCase()
+          grouped.set(id, { id, name, treatments: [] })
+        })
+        serviceRows.forEach((row) => {
+          const catName = toCatLabel(row.category)
+          const catId = slugCatId(catName) || 'general'
+          if (!grouped.has(catId)) grouped.set(catId, { id: catId, name: catName, treatments: [] })
+          grouped.get(catId)?.treatments.push({
+            id: String(row.id),
+            code: String(row.treatment_code || `TRT-${row.id}`),
+            name: String(row.name || ''),
+            basePrice: Number(row.standard_price || 0),
+            estimatedTime: durationText(row.default_duration_minutes),
+            iva: '0%',
+            selected: false
+          })
+        })
+        const mappedTreatmentCategories = Array.from(grouped.values()).sort((a, b) => {
+          const ai = DENTAL_CATEGORIES.indexOf(a.name)
+          const bi = DENTAL_CATEGORIES.indexOf(b.name)
+          if (ai === -1 && bi === -1) return a.name.localeCompare(b.name)
+          if (ai === -1) return 1
+          if (bi === -1) return -1
+          return ai - bi
+        })
+
+        // ── Discounts (clinic_discounts / discounts fallback) ──
+        let mappedDiscounts: ConfigDiscount[] = []
+        const { data: discountRows, error: discountError } = await supabase
+          .from('clinic_discounts')
+          .select('id, name, discount_type, value, notes, is_active')
+          .eq('clinic_id', selectedClinicId)
+          .order('name', { ascending: true })
+
+        if (!discountError) {
+          mappedDiscounts = ((discountRows || []) as Array<Record<string, unknown>>).map((row) => ({
+            id: String(row.id),
+            name: String(row.name || ''),
+            type: String(row.discount_type || 'percentage') === 'fixed' ? 'fixed' as const : 'percentage' as const,
+            value: Number(row.value || 0),
+            notes: String(row.notes || ''),
+            isActive: row.is_active !== false
+          }))
+        } else {
+          const { data: fallback, error: fallbackErr } = await supabase
+            .from('discounts')
+            .select('id, name, discount_type, value, notes, is_active')
+            .eq('clinic_id', selectedClinicId)
+            .order('name', { ascending: true })
+          if (!fallbackErr) {
+            mappedDiscounts = ((fallback || []) as Array<Record<string, unknown>>).map((row) => ({
+              id: String(row.id),
+              name: String(row.name || ''),
+              type: String(row.discount_type || 'percentage') === 'fixed' ? 'fixed' as const : 'percentage' as const,
+              value: Number(row.value || 0),
+              notes: String(row.notes || ''),
+              isActive: row.is_active !== false
+            }))
+          }
+        }
+
+        // ── Budget types (quote_templates / service_packages fallback) ──
+        let mappedBudgetTypes: BudgetTypeData[] = []
+        const { data: templateRows, error: templateError } = await supabase
+          .from('quote_templates')
+          .select(
+            'id, name, notes, is_active, quote_template_items(quantity, override_unit_price, service_id, service_catalog:service_id(id, name, treatment_code, standard_price))'
+          )
+          .eq('clinic_id', selectedClinicId)
+          .order('name', { ascending: true })
+
+        if (!templateError) {
+          mappedBudgetTypes = ((templateRows || []) as Array<Record<string, unknown>>).map((row) => {
+            const items = (row.quote_template_items as Array<Record<string, unknown>> | null) || []
+            const treatments = items.map((item) => {
+              const svc = Array.isArray(item.service_catalog) ? item.service_catalog[0] : item.service_catalog
+              const qty = Number(item.quantity || 1)
+              const unitPrice = Number(
+                item.override_unit_price ?? (svc as { standard_price?: number | string } | undefined)?.standard_price ?? 0
+              )
+              return {
+                codigo: String((svc as { treatment_code?: string } | undefined)?.treatment_code || item.service_id || ''),
+                tratamiento: String((svc as { name?: string } | undefined)?.name || ''),
+                precio: unitPrice * qty
+              }
+            })
+            return {
+              id: String(row.id),
+              name: String(row.name || ''),
+              description: String(row.notes || ''),
+              treatments,
+              totalPrice: treatments.reduce((s, t) => s + Number(t.precio || 0), 0),
+              isActive: row.is_active !== false
+            }
+          })
+        } else if (selectedOrganizationId) {
+          const { data: pkgRows, error: pkgError } = await supabase
+            .from('service_packages')
+            .select(
+              'id, name, description, is_active, service_package_items(quantity, custom_price, service_id, service_catalog:service_id(id, name, treatment_code, standard_price))'
+            )
+            .eq('organization_id', selectedOrganizationId)
+            .order('name', { ascending: true })
+          if (!pkgError) {
+            mappedBudgetTypes = ((pkgRows || []) as Array<Record<string, unknown>>).map((row) => {
+              const items = (row.service_package_items as Array<Record<string, unknown>> | null) || []
+              const treatments = items.map((item) => {
+                const svc = Array.isArray(item.service_catalog) ? item.service_catalog[0] : item.service_catalog
+                const qty = Number(item.quantity || 1)
+                const unitPrice = Number(
+                  item.custom_price ?? (svc as { standard_price?: number | string } | undefined)?.standard_price ?? 0
+                )
+                return {
+                  codigo: String((svc as { treatment_code?: string } | undefined)?.treatment_code || item.service_id || ''),
+                  tratamiento: String((svc as { name?: string } | undefined)?.name || ''),
+                  precio: unitPrice * qty
+                }
+              })
+              return {
+                id: String(row.id),
+                name: String(row.name || ''),
+                description: String(row.description || ''),
+                treatments,
+                totalPrice: treatments.reduce((s, t) => s + Number(t.precio || 0), 0),
+                isActive: row.is_active !== false
+              }
+            })
+          }
+        }
+
         if (isMounted) {
           if (mappedClinics.length > 0) setClinics(mappedClinics)
           setStaffSchemaSupport(detectedStaffSchemaSupport)
@@ -1450,6 +1648,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           if (!documentTemplateRowsError) {
             setDocumentTemplates(mappedDocumentTemplates)
           }
+          setTreatmentCategories(mappedTreatmentCategories)
+          setDiscountsState(mappedDiscounts)
+          if (mappedBudgetTypes.length > 0) setBudgetTypesState(mappedBudgetTypes)
 
           if (selectedClinicRow) {
             setClinicInfo({
