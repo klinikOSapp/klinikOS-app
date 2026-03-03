@@ -1686,7 +1686,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
 
         // ── Roles & permissions (roles + permissions + modules tables) ──
         let mappedRoles: ConfigRole[] = []
-        let mappedPermissions: ConfigPermission[] = []
+        const mappedPermissions: ConfigPermission[] = []
 
         let roleQuery = supabase
           .from('roles')
