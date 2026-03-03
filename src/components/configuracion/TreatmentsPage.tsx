@@ -4,8 +4,6 @@ import {
   AddRounded,
   ChevronLeftRounded,
   ChevronRightRounded,
-  CheckBoxOutlineBlankRounded,
-  CheckBoxRounded,
   CloseRounded,
   DeleteRounded,
   FilterAltRounded,
@@ -14,104 +12,3707 @@ import {
   MoreHorizRounded,
   SearchRounded
 } from '@/components/icons/md3'
-import { type BudgetTypeData } from '@/components/pacientes/shared/budgetTypeData'
-import { useClinic } from '@/context/ClinicContext'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import AddDiscountModal, { type DiscountFormData } from './AddDiscountModal'
+import {
+  type BudgetTypeData
+} from '@/components/pacientes/shared/budgetTypeData'
+import { useConfiguration } from '@/context/ConfigurationContext'
+import type { ConfigCategory, ConfigDiscount, ConfigTreatment } from '@/types/treatments'
+import { useCallback, useMemo, useState } from 'react'
 import AddTreatmentModal, { type TreatmentFormData } from './AddTreatmentModal'
 import BudgetTypeEditorModal from './BudgetTypeEditorModal'
+
+// Re-export types for consumers that still import from here
+export type { ConfigCategory, ConfigDiscount, ConfigTreatment, DiscountType } from '@/types/treatments'
 
 // ============================================
 // TYPES
 // ============================================
-
-type Treatment = {
-  id: string
-  name: string
-  code: string
-  basePrice: number
-  estimatedTime: string
-  iva: string
-  selected: boolean
-}
-
-type Category = {
-  id: string
-  name: string
-  treatments: Treatment[]
-}
 
 type TabKey = 'treatments' | 'budgetType' | 'discounts'
 
 // Budget type row extends the shared BudgetTypeData with selected state
 type BudgetTypeRow = BudgetTypeData & { selected: boolean }
 
-type DiscountType = 'percentage' | 'fixed'
+// Keep local aliases for backward compat within this file
+type Treatment = ConfigTreatment
+type Category = ConfigCategory
+type Discount = ConfigDiscount
 
-type Discount = {
-  id: string
-  name: string
-  type: DiscountType
-  value: number
-  notes: string
-  isActive: boolean
-}
+// ============================================
+// DATA
+// ============================================
 
-type ServiceCatalogRow = {
-  id: number
-  name: string
-  treatment_code: string | null
-  standard_price: number | string
-  category: string | null
-  default_duration_minutes: number | null
-  organization_id?: string | null
-}
+// ============================================
+// MOCK DATA - Discounts (Descuentos/Convenios)
+// Structure: id, name, type (percentage/fixed), value, notes, isActive
+// ============================================
 
-function slugCategoryId(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
+// Discounts initial data imported from shared data file
+// (now managed via ConfigurationContext)
 
-function toCategoryLabel(value: unknown): string {
-  if (typeof value !== 'string') return 'General'
-  const normalized = value.trim()
-  return normalized.length > 0 ? normalized : 'General'
-}
+// Budget types now come from ConfigurationContext
 
-function normalizeCategoryName(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-}
+// ============================================
+// MOCK DATA - Ready for database connection
+// Structure: id (uuid), code (unique), name, basePrice (cents recommended for DB),
+// estimatedTime (minutes for DB), iva (percentage), categoryId (FK)
+// ============================================
 
-const DENTAL_CATEGORIES = [
-  'Cirugía',
-  'Conservadora',
-  'Endodoncia',
-  'Estética',
-  'Implantes',
-  'Odontopediatría',
-  'Ortodoncia',
-  'Periodoncia'
+export const initialCategories: Category[] = [
+  {
+    id: 'cirugia',
+    name: 'Cirugía',
+    treatments: [
+      {
+        id: 'cir-001',
+        code: 'CIR001',
+        name: 'Extracción simple',
+        basePrice: 80,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-002',
+        code: 'CIR002',
+        name: 'Extracción compleja',
+        basePrice: 150,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-003',
+        code: 'CIR003',
+        name: 'Extracción de cordal incluido',
+        basePrice: 250,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-004',
+        code: 'CIR004',
+        name: 'Extracción de cordal semi-incluido',
+        basePrice: 200,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-005',
+        code: 'CIR005',
+        name: 'Extracción múltiple (2-4 piezas)',
+        basePrice: 280,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-006',
+        code: 'CIR006',
+        name: 'Alveoloplastia simple',
+        basePrice: 120,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-007',
+        code: 'CIR007',
+        name: 'Alveoloplastia compleja',
+        basePrice: 200,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-008',
+        code: 'CIR008',
+        name: 'Frenectomía labial',
+        basePrice: 180,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-009',
+        code: 'CIR009',
+        name: 'Frenectomía lingual',
+        basePrice: 200,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-010',
+        code: 'CIR010',
+        name: 'Biopsia de tejidos blandos',
+        basePrice: 150,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-011',
+        code: 'CIR011',
+        name: 'Biopsia ósea',
+        basePrice: 220,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-012',
+        code: 'CIR012',
+        name: 'Quistectomía simple',
+        basePrice: 300,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-013',
+        code: 'CIR013',
+        name: 'Quistectomía compleja',
+        basePrice: 450,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-014',
+        code: 'CIR014',
+        name: 'Apicectomía unirradicular',
+        basePrice: 280,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-015',
+        code: 'CIR015',
+        name: 'Apicectomía birradicular',
+        basePrice: 350,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-016',
+        code: 'CIR016',
+        name: 'Apicectomía multirradicular',
+        basePrice: 420,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-017',
+        code: 'CIR017',
+        name: 'Hemisección radicular',
+        basePrice: 200,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-018',
+        code: 'CIR018',
+        name: 'Reimplante dentario',
+        basePrice: 180,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-019',
+        code: 'CIR019',
+        name: 'Trasplante dentario',
+        basePrice: 350,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-020',
+        code: 'CIR020',
+        name: 'Regularización de reborde alveolar',
+        basePrice: 250,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-021',
+        code: 'CIR021',
+        name: 'Exéresis de torus palatino',
+        basePrice: 400,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-022',
+        code: 'CIR022',
+        name: 'Exéresis de torus mandibular',
+        basePrice: 350,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-023',
+        code: 'CIR023',
+        name: 'Exéresis de exostosis',
+        basePrice: 280,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-024',
+        code: 'CIR024',
+        name: 'Drenaje de absceso',
+        basePrice: 100,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-025',
+        code: 'CIR025',
+        name: 'Incisión y drenaje intraoral',
+        basePrice: 120,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-026',
+        code: 'CIR026',
+        name: 'Fenestración de diente incluido',
+        basePrice: 220,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-027',
+        code: 'CIR027',
+        name: 'Tracción ortodóncica quirúrgica',
+        basePrice: 280,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-028',
+        code: 'CIR028',
+        name: 'Gingivectomía por cuadrante',
+        basePrice: 200,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-029',
+        code: 'CIR029',
+        name: 'Alargamiento coronario',
+        basePrice: 250,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-030',
+        code: 'CIR030',
+        name: 'Sutura de herida intraoral',
+        basePrice: 80,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-031',
+        code: 'CIR031',
+        name: 'Extracción de raíz residual',
+        basePrice: 100,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-032',
+        code: 'CIR032',
+        name: 'Extracción con odontosección',
+        basePrice: 180,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-033',
+        code: 'CIR033',
+        name: 'Cirugía preprotésica menor',
+        basePrice: 200,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-034',
+        code: 'CIR034',
+        name: 'Cirugía preprotésica mayor',
+        basePrice: 400,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-035',
+        code: 'CIR035',
+        name: 'Eliminación de secuestro óseo',
+        basePrice: 150,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-036',
+        code: 'CIR036',
+        name: 'Legrado alveolar',
+        basePrice: 80,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-037',
+        code: 'CIR037',
+        name: 'Curetaje periapical',
+        basePrice: 120,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-038',
+        code: 'CIR038',
+        name: 'Marsupialización de quiste',
+        basePrice: 200,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-039',
+        code: 'CIR039',
+        name: 'Coronectomía',
+        basePrice: 220,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-040',
+        code: 'CIR040',
+        name: 'Extracción de supernumerario',
+        basePrice: 180,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-041',
+        code: 'CIR041',
+        name: 'Extracción de odontoma',
+        basePrice: 250,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-042',
+        code: 'CIR042',
+        name: 'Cirugía de comunicación oroantral',
+        basePrice: 350,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-043',
+        code: 'CIR043',
+        name: 'Cierre de fístula oroantral',
+        basePrice: 400,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-044',
+        code: 'CIR044',
+        name: 'Plastia vestibular',
+        basePrice: 280,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-045',
+        code: 'CIR045',
+        name: 'Profundización de vestíbulo',
+        basePrice: 300,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-046',
+        code: 'CIR046',
+        name: 'Retirada de material de osteosíntesis',
+        basePrice: 200,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-047',
+        code: 'CIR047',
+        name: 'Cirugía de épulis',
+        basePrice: 180,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-048',
+        code: 'CIR048',
+        name: 'Exéresis de mucocele',
+        basePrice: 150,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-049',
+        code: 'CIR049',
+        name: 'Exéresis de fibroma',
+        basePrice: 160,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'cir-050',
+        code: 'CIR050',
+        name: 'Exéresis de papiloma',
+        basePrice: 140,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      }
+    ]
+  },
+  {
+    id: 'conservadora',
+    name: 'Conservadora',
+    treatments: [
+      {
+        id: 'con-001',
+        code: 'CON001',
+        name: 'Obturación composite 1 superficie',
+        basePrice: 50,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-002',
+        code: 'CON002',
+        name: 'Obturación composite 2 superficies',
+        basePrice: 70,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-003',
+        code: 'CON003',
+        name: 'Obturación composite 3 superficies',
+        basePrice: 90,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-004',
+        code: 'CON004',
+        name: 'Obturación composite 4+ superficies',
+        basePrice: 110,
+        estimatedTime: '50 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-005',
+        code: 'CON005',
+        name: 'Reconstrucción con poste prefabricado',
+        basePrice: 150,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-006',
+        code: 'CON006',
+        name: 'Reconstrucción con poste colado',
+        basePrice: 200,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-007',
+        code: 'CON007',
+        name: 'Reconstrucción con poste de fibra',
+        basePrice: 180,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-008',
+        code: 'CON008',
+        name: 'Reconstrucción de gran destrucción',
+        basePrice: 120,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-009',
+        code: 'CON009',
+        name: 'Incrustación de composite (inlay)',
+        basePrice: 250,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-010',
+        code: 'CON010',
+        name: 'Incrustación de composite (onlay)',
+        basePrice: 300,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-011',
+        code: 'CON011',
+        name: 'Incrustación de composite (overlay)',
+        basePrice: 350,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-012',
+        code: 'CON012',
+        name: 'Incrustación cerámica (inlay)',
+        basePrice: 400,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-013',
+        code: 'CON013',
+        name: 'Incrustación cerámica (onlay)',
+        basePrice: 450,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-014',
+        code: 'CON014',
+        name: 'Incrustación cerámica (overlay)',
+        basePrice: 500,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-015',
+        code: 'CON015',
+        name: 'Tratamiento de hipersensibilidad',
+        basePrice: 40,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-016',
+        code: 'CON016',
+        name: 'Aplicación de flúor tópico',
+        basePrice: 30,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-017',
+        code: 'CON017',
+        name: 'Sellado de fisuras por diente',
+        basePrice: 35,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-018',
+        code: 'CON018',
+        name: 'Recubrimiento pulpar directo',
+        basePrice: 60,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-019',
+        code: 'CON019',
+        name: 'Recubrimiento pulpar indirecto',
+        basePrice: 50,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-020',
+        code: 'CON020',
+        name: 'Pulpotomía vital',
+        basePrice: 80,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-021',
+        code: 'CON021',
+        name: 'Ferulización con composite (por diente)',
+        basePrice: 45,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-022',
+        code: 'CON022',
+        name: 'Ferulización con fibra (por diente)',
+        basePrice: 60,
+        estimatedTime: '25 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-023',
+        code: 'CON023',
+        name: 'Reparación de fractura coronaria',
+        basePrice: 80,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-024',
+        code: 'CON024',
+        name: 'Cierre de diastema con composite',
+        basePrice: 100,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-025',
+        code: 'CON025',
+        name: 'Eliminación de caries profunda',
+        basePrice: 70,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-026',
+        code: 'CON026',
+        name: 'Obturación provisional',
+        basePrice: 25,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-027',
+        code: 'CON027',
+        name: 'Obturación de amalgama (retirada)',
+        basePrice: 60,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-028',
+        code: 'CON028',
+        name: 'Sustitución de amalgama por composite',
+        basePrice: 80,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-029',
+        code: 'CON029',
+        name: 'Ajuste oclusal',
+        basePrice: 40,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-030',
+        code: 'CON030',
+        name: 'Pulido de restauraciones',
+        basePrice: 30,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-031',
+        code: 'CON031',
+        name: 'Reconstrucción de ángulo incisal',
+        basePrice: 90,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-032',
+        code: 'CON032',
+        name: 'Reconstrucción de borde incisal',
+        basePrice: 85,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-033',
+        code: 'CON033',
+        name: 'Restauración de cuello dental',
+        basePrice: 55,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-034',
+        code: 'CON034',
+        name: 'Restauración de abrasión',
+        basePrice: 50,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-035',
+        code: 'CON035',
+        name: 'Restauración de erosión',
+        basePrice: 55,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-036',
+        code: 'CON036',
+        name: 'Restauración de abfracción',
+        basePrice: 60,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-037',
+        code: 'CON037',
+        name: 'Obturación con ionómero de vidrio',
+        basePrice: 45,
+        estimatedTime: '25 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-038',
+        code: 'CON038',
+        name: 'Base cavitaria',
+        basePrice: 20,
+        estimatedTime: '10 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-039',
+        code: 'CON039',
+        name: 'Tratamiento remineralizante',
+        basePrice: 50,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-040',
+        code: 'CON040',
+        name: 'Infiltración de resina (ICON)',
+        basePrice: 120,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-041',
+        code: 'CON041',
+        name: 'Composite estratificado anterior',
+        basePrice: 130,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-042',
+        code: 'CON042',
+        name: 'Composite estratificado posterior',
+        basePrice: 140,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-043',
+        code: 'CON043',
+        name: 'Reconstrucción con composite bulk fill',
+        basePrice: 75,
+        estimatedTime: '35 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-044',
+        code: 'CON044',
+        name: 'Matriz individualizada',
+        basePrice: 30,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-045',
+        code: 'CON045',
+        name: 'Aislamiento absoluto con dique',
+        basePrice: 25,
+        estimatedTime: '10 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-046',
+        code: 'CON046',
+        name: 'Eliminación de tinción',
+        basePrice: 35,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-047',
+        code: 'CON047',
+        name: 'Restauración MOD compleja',
+        basePrice: 100,
+        estimatedTime: '50 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-048',
+        code: 'CON048',
+        name: 'Tallado para incrustación',
+        basePrice: 80,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-049',
+        code: 'CON049',
+        name: 'Cementado de incrustación',
+        basePrice: 60,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'con-050',
+        code: 'CON050',
+        name: 'Reparación de incrustación',
+        basePrice: 70,
+        estimatedTime: '35 min',
+        iva: '0%',
+        selected: false
+      }
+    ]
+  },
+  {
+    id: 'endodoncia',
+    name: 'Endodoncia',
+    treatments: [
+      {
+        id: 'end-001',
+        code: 'END001',
+        name: 'Endodoncia unirradicular',
+        basePrice: 180,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-002',
+        code: 'END002',
+        name: 'Endodoncia birradicular',
+        basePrice: 250,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-003',
+        code: 'END003',
+        name: 'Endodoncia multirradicular (3 conductos)',
+        basePrice: 320,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-004',
+        code: 'END004',
+        name: 'Endodoncia multirradicular (4+ conductos)',
+        basePrice: 380,
+        estimatedTime: '120 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-005',
+        code: 'END005',
+        name: 'Reendodoncia unirradicular',
+        basePrice: 250,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-006',
+        code: 'END006',
+        name: 'Reendodoncia birradicular',
+        basePrice: 320,
+        estimatedTime: '105 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-007',
+        code: 'END007',
+        name: 'Reendodoncia multirradicular',
+        basePrice: 400,
+        estimatedTime: '120 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-008',
+        code: 'END008',
+        name: 'Tratamiento de conducto calcificado',
+        basePrice: 350,
+        estimatedTime: '120 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-009',
+        code: 'END009',
+        name: 'Desobturación de conducto',
+        basePrice: 150,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-010',
+        code: 'END010',
+        name: 'Localización de conducto adicional',
+        basePrice: 80,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-011',
+        code: 'END011',
+        name: 'Extracción de instrumento fracturado',
+        basePrice: 200,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-012',
+        code: 'END012',
+        name: 'Extracción de poste',
+        basePrice: 100,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-013',
+        code: 'END013',
+        name: 'Perforación y reparación con MTA',
+        basePrice: 180,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-014',
+        code: 'END014',
+        name: 'Apicoformación',
+        basePrice: 200,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-015',
+        code: 'END015',
+        name: 'Apexificación',
+        basePrice: 180,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-016',
+        code: 'END016',
+        name: 'Revascularización pulpar',
+        basePrice: 250,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-017',
+        code: 'END017',
+        name: 'Pulpotomía parcial',
+        basePrice: 100,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-018',
+        code: 'END018',
+        name: 'Pulpotomía total',
+        basePrice: 120,
+        estimatedTime: '50 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-019',
+        code: 'END019',
+        name: 'Pulpectomía',
+        basePrice: 140,
+        estimatedTime: '55 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-020',
+        code: 'END020',
+        name: 'Tratamiento de urgencia endodóntica',
+        basePrice: 80,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-021',
+        code: 'END021',
+        name: 'Drenaje de absceso periapical',
+        basePrice: 70,
+        estimatedTime: '25 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-022',
+        code: 'END022',
+        name: 'Medicación intraconducto',
+        basePrice: 50,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-023',
+        code: 'END023',
+        name: 'Apertura cameral',
+        basePrice: 60,
+        estimatedTime: '25 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-024',
+        code: 'END024',
+        name: 'Conductometría',
+        basePrice: 40,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-025',
+        code: 'END025',
+        name: 'Obturación de conductos con gutapercha',
+        basePrice: 100,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-026',
+        code: 'END026',
+        name: 'Obturación con técnica de onda continua',
+        basePrice: 130,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-027',
+        code: 'END027',
+        name: 'Blanqueamiento interno',
+        basePrice: 80,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-028',
+        code: 'END028',
+        name: 'Segunda sesión de blanqueamiento interno',
+        basePrice: 50,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-029',
+        code: 'END029',
+        name: 'Sellado apical con MTA',
+        basePrice: 150,
+        estimatedTime: '50 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-030',
+        code: 'END030',
+        name: 'Bypass de instrumento',
+        basePrice: 120,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-031',
+        code: 'END031',
+        name: 'Tratamiento de reabsorción interna',
+        basePrice: 220,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-032',
+        code: 'END032',
+        name: 'Tratamiento de reabsorción externa',
+        basePrice: 200,
+        estimatedTime: '70 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-033',
+        code: 'END033',
+        name: 'Endodoncia con microscopio',
+        basePrice: 400,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-034',
+        code: 'END034',
+        name: 'Endodoncia rotatoria mecanizada',
+        basePrice: 280,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-035',
+        code: 'END035',
+        name: 'Endodoncia con sistema reciprocante',
+        basePrice: 300,
+        estimatedTime: '80 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-036',
+        code: 'END036',
+        name: 'Irrigación con ultrasonidos',
+        basePrice: 60,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-037',
+        code: 'END037',
+        name: 'Activación sónica de irrigantes',
+        basePrice: 50,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-038',
+        code: 'END038',
+        name: 'CBCT endodóntico',
+        basePrice: 100,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-039',
+        code: 'END039',
+        name: 'Diagnóstico de fisura/fractura',
+        basePrice: 80,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-040',
+        code: 'END040',
+        name: 'Test de vitalidad pulpar',
+        basePrice: 30,
+        estimatedTime: '10 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-041',
+        code: 'END041',
+        name: 'Tratamiento de traumatismo dental',
+        basePrice: 150,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-042',
+        code: 'END042',
+        name: 'Ferulización post-traumática',
+        basePrice: 100,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-043',
+        code: 'END043',
+        name: 'Control post-endodoncia',
+        basePrice: 40,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-044',
+        code: 'END044',
+        name: 'Radiografía periapical endodoncia',
+        basePrice: 20,
+        estimatedTime: '5 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-045',
+        code: 'END045',
+        name: 'Endodoncia de diente temporal',
+        basePrice: 120,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-046',
+        code: 'END046',
+        name: 'Endodoncia de premolar',
+        basePrice: 220,
+        estimatedTime: '70 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-047',
+        code: 'END047',
+        name: 'Endodoncia de molar superior',
+        basePrice: 350,
+        estimatedTime: '100 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-048',
+        code: 'END048',
+        name: 'Endodoncia de molar inferior',
+        basePrice: 320,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-049',
+        code: 'END049',
+        name: 'Endodoncia de incisivo/canino',
+        basePrice: 180,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'end-050',
+        code: 'END050',
+        name: 'Endodoncia de diente con anatomía compleja',
+        basePrice: 420,
+        estimatedTime: '120 min',
+        iva: '0%',
+        selected: false
+      }
+    ]
+  },
+  {
+    id: 'estetica',
+    name: 'Estética',
+    treatments: [
+      {
+        id: 'est-001',
+        code: 'EST001',
+        name: 'Limpieza bucal profesional',
+        basePrice: 60,
+        estimatedTime: '45 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-002',
+        code: 'EST002',
+        name: 'Limpieza con ultrasonidos',
+        basePrice: 70,
+        estimatedTime: '50 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-003',
+        code: 'EST003',
+        name: 'Profilaxis con aeropulidor',
+        basePrice: 80,
+        estimatedTime: '45 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-004',
+        code: 'EST004',
+        name: 'Blanqueamiento en clínica',
+        basePrice: 300,
+        estimatedTime: '90 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-005',
+        code: 'EST005',
+        name: 'Blanqueamiento con lámpara LED',
+        basePrice: 350,
+        estimatedTime: '75 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-006',
+        code: 'EST006',
+        name: 'Blanqueamiento combinado',
+        basePrice: 400,
+        estimatedTime: '90 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-007',
+        code: 'EST007',
+        name: 'Kit blanqueamiento domiciliario',
+        basePrice: 200,
+        estimatedTime: '30 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-008',
+        code: 'EST008',
+        name: 'Férulas de blanqueamiento',
+        basePrice: 120,
+        estimatedTime: '30 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-009',
+        code: 'EST009',
+        name: 'Recarga gel blanqueamiento',
+        basePrice: 40,
+        estimatedTime: '10 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-010',
+        code: 'EST010',
+        name: 'Carilla de composite por pieza',
+        basePrice: 200,
+        estimatedTime: '60 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-011',
+        code: 'EST011',
+        name: 'Carilla de porcelana por pieza',
+        basePrice: 500,
+        estimatedTime: '90 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-012',
+        code: 'EST012',
+        name: 'Carilla de disilicato de litio',
+        basePrice: 600,
+        estimatedTime: '90 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-013',
+        code: 'EST013',
+        name: 'Carilla ultrafina (lumineers)',
+        basePrice: 700,
+        estimatedTime: '90 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-014',
+        code: 'EST014',
+        name: 'Reparación de carilla',
+        basePrice: 150,
+        estimatedTime: '45 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-015',
+        code: 'EST015',
+        name: 'Contorneado estético (stripping)',
+        basePrice: 80,
+        estimatedTime: '30 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-016',
+        code: 'EST016',
+        name: 'Gingivoplastia estética',
+        basePrice: 200,
+        estimatedTime: '60 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-017',
+        code: 'EST017',
+        name: 'Diseño de sonrisa digital (DSD)',
+        basePrice: 150,
+        estimatedTime: '45 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-018',
+        code: 'EST018',
+        name: 'Mock-up dental',
+        basePrice: 100,
+        estimatedTime: '45 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-019',
+        code: 'EST019',
+        name: 'Encerado diagnóstico',
+        basePrice: 120,
+        estimatedTime: '60 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-020',
+        code: 'EST020',
+        name: 'Fotografía dental profesional',
+        basePrice: 50,
+        estimatedTime: '20 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-021',
+        code: 'EST021',
+        name: 'Joyería dental (brillante)',
+        basePrice: 80,
+        estimatedTime: '20 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-022',
+        code: 'EST022',
+        name: 'Eliminación de manchas tabaco',
+        basePrice: 90,
+        estimatedTime: '45 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-023',
+        code: 'EST023',
+        name: 'Eliminación de manchas café/té',
+        basePrice: 80,
+        estimatedTime: '40 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-024',
+        code: 'EST024',
+        name: 'Microabrasión del esmalte',
+        basePrice: 100,
+        estimatedTime: '45 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-025',
+        code: 'EST025',
+        name: 'Tratamiento de fluorosis',
+        basePrice: 150,
+        estimatedTime: '60 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-026',
+        code: 'EST026',
+        name: 'Corona estética de zirconio',
+        basePrice: 450,
+        estimatedTime: '90 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-027',
+        code: 'EST027',
+        name: 'Corona estética de disilicato',
+        basePrice: 500,
+        estimatedTime: '90 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-028',
+        code: 'EST028',
+        name: 'Corona de cerámica pura',
+        basePrice: 550,
+        estimatedTime: '90 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-029',
+        code: 'EST029',
+        name: 'Puente estético anterior',
+        basePrice: 1200,
+        estimatedTime: '120 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-030',
+        code: 'EST030',
+        name: 'Cierre de diastemas con composite',
+        basePrice: 120,
+        estimatedTime: '45 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-031',
+        code: 'EST031',
+        name: 'Reconformación dental estética',
+        basePrice: 100,
+        estimatedTime: '40 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-032',
+        code: 'EST032',
+        name: 'Alargamiento coronario estético',
+        basePrice: 250,
+        estimatedTime: '60 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-033',
+        code: 'EST033',
+        name: 'Despigmentación gingival',
+        basePrice: 200,
+        estimatedTime: '45 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-034',
+        code: 'EST034',
+        name: 'Tratamiento de sonrisa gingival',
+        basePrice: 350,
+        estimatedTime: '75 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-035',
+        code: 'EST035',
+        name: 'Ácido hialurónico labial',
+        basePrice: 300,
+        estimatedTime: '30 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-036',
+        code: 'EST036',
+        name: 'Ácido hialurónico peribucal',
+        basePrice: 350,
+        estimatedTime: '45 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-037',
+        code: 'EST037',
+        name: 'Bótox para sonrisa gingival',
+        basePrice: 250,
+        estimatedTime: '30 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-038',
+        code: 'EST038',
+        name: 'Bótox para bruxismo',
+        basePrice: 300,
+        estimatedTime: '30 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-039',
+        code: 'EST039',
+        name: 'Composite inyectado estético',
+        basePrice: 180,
+        estimatedTime: '60 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-040',
+        code: 'EST040',
+        name: 'Restauración de incisivos estética',
+        basePrice: 150,
+        estimatedTime: '50 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-041',
+        code: 'EST041',
+        name: 'Corrección de forma dental',
+        basePrice: 100,
+        estimatedTime: '40 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-042',
+        code: 'EST042',
+        name: 'Corrección de tamaño dental',
+        basePrice: 120,
+        estimatedTime: '45 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-043',
+        code: 'EST043',
+        name: 'Snap-on smile (férula estética)',
+        basePrice: 400,
+        estimatedTime: '60 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-044',
+        code: 'EST044',
+        name: 'Estudio estético completo',
+        basePrice: 100,
+        estimatedTime: '45 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-045',
+        code: 'EST045',
+        name: 'Planificación digital de carillas',
+        basePrice: 200,
+        estimatedTime: '60 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-046',
+        code: 'EST046',
+        name: 'Provisionales estéticos por pieza',
+        basePrice: 80,
+        estimatedTime: '30 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-047',
+        code: 'EST047',
+        name: 'Cementado de carillas',
+        basePrice: 100,
+        estimatedTime: '45 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-048',
+        code: 'EST048',
+        name: 'Retoque de color (shade matching)',
+        basePrice: 50,
+        estimatedTime: '20 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-049',
+        code: 'EST049',
+        name: 'Pulido y acabado estético',
+        basePrice: 40,
+        estimatedTime: '20 min',
+        iva: '10%',
+        selected: false
+      },
+      {
+        id: 'est-050',
+        code: 'EST050',
+        name: 'Mantenimiento de carillas',
+        basePrice: 60,
+        estimatedTime: '30 min',
+        iva: '10%',
+        selected: false
+      }
+    ]
+  },
+  {
+    id: 'implantes',
+    name: 'Implantes',
+    treatments: [
+      {
+        id: 'imp-001',
+        code: 'IMP001',
+        name: 'Implante dental unitario',
+        basePrice: 1200,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-002',
+        code: 'IMP002',
+        name: 'Implante de carga inmediata',
+        basePrice: 1500,
+        estimatedTime: '120 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-003',
+        code: 'IMP003',
+        name: 'Corona sobre implante metal-cerámica',
+        basePrice: 450,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-004',
+        code: 'IMP004',
+        name: 'Corona sobre implante zirconio',
+        basePrice: 600,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-005',
+        code: 'IMP005',
+        name: 'Corona sobre implante cerámica pura',
+        basePrice: 700,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-006',
+        code: 'IMP006',
+        name: 'Pilar de implante estándar',
+        basePrice: 200,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-007',
+        code: 'IMP007',
+        name: 'Pilar de implante personalizado',
+        basePrice: 350,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-008',
+        code: 'IMP008',
+        name: 'Pilar de implante angulado',
+        basePrice: 280,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-009',
+        code: 'IMP009',
+        name: 'Elevación de seno maxilar abierta',
+        basePrice: 1500,
+        estimatedTime: '120 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-010',
+        code: 'IMP010',
+        name: 'Elevación de seno maxilar cerrada',
+        basePrice: 800,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-011',
+        code: 'IMP011',
+        name: 'Injerto óseo en bloque',
+        basePrice: 1200,
+        estimatedTime: '120 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-012',
+        code: 'IMP012',
+        name: 'Injerto óseo particulado',
+        basePrice: 600,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-013',
+        code: 'IMP013',
+        name: 'Regeneración ósea guiada (ROG)',
+        basePrice: 800,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-014',
+        code: 'IMP014',
+        name: 'Membrana de colágeno',
+        basePrice: 300,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-015',
+        code: 'IMP015',
+        name: 'Membrana PTFE',
+        basePrice: 400,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-016',
+        code: 'IMP016',
+        name: 'Expansión crestal',
+        basePrice: 500,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-017',
+        code: 'IMP017',
+        name: 'Split crest',
+        basePrice: 600,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-018',
+        code: 'IMP018',
+        name: 'Prótesis híbrida sobre implantes',
+        basePrice: 5000,
+        estimatedTime: '180 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-019',
+        code: 'IMP019',
+        name: 'Sobredentadura sobre 2 implantes',
+        basePrice: 3500,
+        estimatedTime: '120 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-020',
+        code: 'IMP020',
+        name: 'Sobredentadura sobre 4 implantes',
+        basePrice: 5500,
+        estimatedTime: '150 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-021',
+        code: 'IMP021',
+        name: 'All-on-4 arcada completa',
+        basePrice: 8000,
+        estimatedTime: '240 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-022',
+        code: 'IMP022',
+        name: 'All-on-6 arcada completa',
+        basePrice: 10000,
+        estimatedTime: '300 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-023',
+        code: 'IMP023',
+        name: 'Puente sobre implantes (3 piezas)',
+        basePrice: 2000,
+        estimatedTime: '120 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-024',
+        code: 'IMP024',
+        name: 'Puente sobre implantes (4+ piezas)',
+        basePrice: 2800,
+        estimatedTime: '150 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-025',
+        code: 'IMP025',
+        name: 'Tornillo de cicatrización',
+        basePrice: 80,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-026',
+        code: 'IMP026',
+        name: 'Tapa de implante',
+        basePrice: 50,
+        estimatedTime: '10 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-027',
+        code: 'IMP027',
+        name: 'Segunda fase quirúrgica',
+        basePrice: 200,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-028',
+        code: 'IMP028',
+        name: 'Cirugía guiada por ordenador',
+        basePrice: 500,
+        estimatedTime: '120 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-029',
+        code: 'IMP029',
+        name: 'Férula quirúrgica guiada',
+        basePrice: 400,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-030',
+        code: 'IMP030',
+        name: 'Planificación digital 3D',
+        basePrice: 200,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-031',
+        code: 'IMP031',
+        name: 'CBCT para implantes',
+        basePrice: 120,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-032',
+        code: 'IMP032',
+        name: 'Implante cigomático',
+        basePrice: 3000,
+        estimatedTime: '180 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-033',
+        code: 'IMP033',
+        name: 'Implante pterigomaxilar',
+        basePrice: 2500,
+        estimatedTime: '150 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-034',
+        code: 'IMP034',
+        name: 'Mini-implante',
+        basePrice: 400,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-035',
+        code: 'IMP035',
+        name: 'Implante corto',
+        basePrice: 1000,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-036',
+        code: 'IMP036',
+        name: 'Implante estrecho',
+        basePrice: 1100,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-037',
+        code: 'IMP037',
+        name: 'Extracción e implante inmediato',
+        basePrice: 1400,
+        estimatedTime: '120 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-038',
+        code: 'IMP038',
+        name: 'Injerto de tejido conectivo',
+        basePrice: 500,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-039',
+        code: 'IMP039',
+        name: 'Injerto gingival libre',
+        basePrice: 400,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-040',
+        code: 'IMP040',
+        name: 'Aumento de tejido queratinizado',
+        basePrice: 350,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-041',
+        code: 'IMP041',
+        name: 'Tratamiento periimplantitis',
+        basePrice: 300,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-042',
+        code: 'IMP042',
+        name: 'Mantenimiento de implantes',
+        basePrice: 80,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-043',
+        code: 'IMP043',
+        name: 'Reapriete de tornillo protésico',
+        basePrice: 60,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-044',
+        code: 'IMP044',
+        name: 'Cambio de tornillo protésico',
+        basePrice: 100,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-045',
+        code: 'IMP045',
+        name: 'Reparación de prótesis sobre implantes',
+        basePrice: 200,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-046',
+        code: 'IMP046',
+        name: 'Rebase de sobredentadura',
+        basePrice: 250,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-047',
+        code: 'IMP047',
+        name: 'Cambio de attachment',
+        basePrice: 80,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-048',
+        code: 'IMP048',
+        name: 'Retiro de implante fracasado',
+        basePrice: 300,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-049',
+        code: 'IMP049',
+        name: 'Provisional sobre implante',
+        basePrice: 250,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'imp-050',
+        code: 'IMP050',
+        name: 'Estudio implantológico completo',
+        basePrice: 150,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      }
+    ]
+  },
+  {
+    id: 'odontopediatria',
+    name: 'Odontopediatría',
+    treatments: [
+      {
+        id: 'ped-001',
+        code: 'PED001',
+        name: 'Primera visita infantil',
+        basePrice: 30,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-002',
+        code: 'PED002',
+        name: 'Revisión pediátrica',
+        basePrice: 25,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-003',
+        code: 'PED003',
+        name: 'Sellado de fisuras por diente',
+        basePrice: 35,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-004',
+        code: 'PED004',
+        name: 'Aplicación de flúor tópico',
+        basePrice: 30,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-005',
+        code: 'PED005',
+        name: 'Aplicación de barniz de flúor',
+        basePrice: 35,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-006',
+        code: 'PED006',
+        name: 'Limpieza dental infantil',
+        basePrice: 40,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-007',
+        code: 'PED007',
+        name: 'Obturación en diente temporal',
+        basePrice: 45,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-008',
+        code: 'PED008',
+        name: 'Pulpotomía en diente temporal',
+        basePrice: 80,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-009',
+        code: 'PED009',
+        name: 'Pulpectomía en diente temporal',
+        basePrice: 100,
+        estimatedTime: '50 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-010',
+        code: 'PED010',
+        name: 'Extracción de diente temporal',
+        basePrice: 50,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-011',
+        code: 'PED011',
+        name: 'Corona de acero inoxidable',
+        basePrice: 120,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-012',
+        code: 'PED012',
+        name: 'Corona estética pediátrica',
+        basePrice: 150,
+        estimatedTime: '50 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-013',
+        code: 'PED013',
+        name: 'Mantenedor de espacio fijo',
+        basePrice: 200,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-014',
+        code: 'PED014',
+        name: 'Mantenedor de espacio removible',
+        basePrice: 180,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-015',
+        code: 'PED015',
+        name: 'Banda y ansa',
+        basePrice: 220,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-016',
+        code: 'PED016',
+        name: 'Arco lingual',
+        basePrice: 250,
+        estimatedTime: '50 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-017',
+        code: 'PED017',
+        name: 'Botón de Nance',
+        basePrice: 230,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-018',
+        code: 'PED018',
+        name: 'Tratamiento de traumatismo dental',
+        basePrice: 80,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-019',
+        code: 'PED019',
+        name: 'Ferulización dental pediátrica',
+        basePrice: 100,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-020',
+        code: 'PED020',
+        name: 'Reimplante de diente avulsionado',
+        basePrice: 150,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-021',
+        code: 'PED021',
+        name: 'Recubrimiento pulpar directo',
+        basePrice: 50,
+        estimatedTime: '25 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-022',
+        code: 'PED022',
+        name: 'Recubrimiento pulpar indirecto',
+        basePrice: 45,
+        estimatedTime: '25 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-023',
+        code: 'PED023',
+        name: 'Tratamiento de caries de biberón',
+        basePrice: 60,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-024',
+        code: 'PED024',
+        name: 'Educación en higiene oral',
+        basePrice: 25,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-025',
+        code: 'PED025',
+        name: 'Control de placa bacteriana',
+        basePrice: 30,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-026',
+        code: 'PED026',
+        name: 'Tratamiento de gingivitis infantil',
+        basePrice: 50,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-027',
+        code: 'PED027',
+        name: 'Frenectomía labial pediátrica',
+        basePrice: 150,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-028',
+        code: 'PED028',
+        name: 'Frenectomía lingual pediátrica',
+        basePrice: 170,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-029',
+        code: 'PED029',
+        name: 'Sedación consciente con óxido nitroso',
+        basePrice: 80,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-030',
+        code: 'PED030',
+        name: 'Tratamiento bajo sedación profunda',
+        basePrice: 500,
+        estimatedTime: '120 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-031',
+        code: 'PED031',
+        name: 'Tratamiento bajo anestesia general',
+        basePrice: 800,
+        estimatedTime: '180 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-032',
+        code: 'PED032',
+        name: 'Radiografía oclusal pediátrica',
+        basePrice: 20,
+        estimatedTime: '5 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-033',
+        code: 'PED033',
+        name: 'Radiografía panorámica pediátrica',
+        basePrice: 40,
+        estimatedTime: '10 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-034',
+        code: 'PED034',
+        name: 'Ortopantomografía infantil',
+        basePrice: 45,
+        estimatedTime: '10 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-035',
+        code: 'PED035',
+        name: 'Tratamiento de hipomineralización',
+        basePrice: 60,
+        estimatedTime: '35 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-036',
+        code: 'PED036',
+        name: 'Tratamiento de amelogénesis imperfecta',
+        basePrice: 80,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-037',
+        code: 'PED037',
+        name: 'Tratamiento de dentinogénesis imperfecta',
+        basePrice: 80,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-038',
+        code: 'PED038',
+        name: 'Control de hábitos (succión digital)',
+        basePrice: 70,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-039',
+        code: 'PED039',
+        name: 'Aparato para dejar el chupete',
+        basePrice: 150,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-040',
+        code: 'PED040',
+        name: 'Rejilla lingual para deglución atípica',
+        basePrice: 200,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-041',
+        code: 'PED041',
+        name: 'Placa Hawley pediátrica',
+        basePrice: 180,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-042',
+        code: 'PED042',
+        name: 'Protector bucal deportivo',
+        basePrice: 100,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-043',
+        code: 'PED043',
+        name: 'Férula de descarga pediátrica',
+        basePrice: 150,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-044',
+        code: 'PED044',
+        name: 'Tratamiento de bruxismo infantil',
+        basePrice: 60,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-045',
+        code: 'PED045',
+        name: 'Ajuste de mantenedor de espacio',
+        basePrice: 40,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-046',
+        code: 'PED046',
+        name: 'Reparación de mantenedor',
+        basePrice: 60,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-047',
+        code: 'PED047',
+        name: 'Extracción de diente supernumerario',
+        basePrice: 120,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-048',
+        code: 'PED048',
+        name: 'Ulectomía',
+        basePrice: 80,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-049',
+        code: 'PED049',
+        name: 'Gingivectomía pediátrica',
+        basePrice: 100,
+        estimatedTime: '35 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ped-050',
+        code: 'PED050',
+        name: 'Control post-tratamiento pediátrico',
+        basePrice: 20,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      }
+    ]
+  },
+  {
+    id: 'ortodoncia',
+    name: 'Ortodoncia',
+    treatments: [
+      {
+        id: 'ort-001',
+        code: 'ORT001',
+        name: 'Estudio ortodóncico completo',
+        basePrice: 150,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-002',
+        code: 'ORT002',
+        name: 'Fotografías intraorales y extraorales',
+        basePrice: 50,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-003',
+        code: 'ORT003',
+        name: 'Modelos de estudio',
+        basePrice: 60,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-004',
+        code: 'ORT004',
+        name: 'Cefalometría',
+        basePrice: 80,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-005',
+        code: 'ORT005',
+        name: 'Escáner intraoral 3D',
+        basePrice: 100,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-006',
+        code: 'ORT006',
+        name: 'Brackets metálicos arcada completa',
+        basePrice: 2500,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-007',
+        code: 'ORT007',
+        name: 'Brackets estéticos (cerámica) arcada',
+        basePrice: 3200,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-008',
+        code: 'ORT008',
+        name: 'Brackets de zafiro arcada completa',
+        basePrice: 3500,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-009',
+        code: 'ORT009',
+        name: 'Brackets autoligables metálicos',
+        basePrice: 3000,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-010',
+        code: 'ORT010',
+        name: 'Brackets autoligables estéticos',
+        basePrice: 3800,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-011',
+        code: 'ORT011',
+        name: 'Ortodoncia lingual',
+        basePrice: 5000,
+        estimatedTime: '120 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-012',
+        code: 'ORT012',
+        name: 'Invisalign Lite',
+        basePrice: 3000,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-013',
+        code: 'ORT013',
+        name: 'Invisalign Full',
+        basePrice: 4500,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-014',
+        code: 'ORT014',
+        name: 'Invisalign Comprehensive',
+        basePrice: 5500,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-015',
+        code: 'ORT015',
+        name: 'Alineadores transparentes (otra marca)',
+        basePrice: 2500,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-016',
+        code: 'ORT016',
+        name: 'Revisión mensual ortodoncia fija',
+        basePrice: 80,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-017',
+        code: 'ORT017',
+        name: 'Revisión mensual alineadores',
+        basePrice: 60,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-018',
+        code: 'ORT018',
+        name: 'Cambio de arco ortodóncico',
+        basePrice: 50,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-019',
+        code: 'ORT019',
+        name: 'Cambio de ligaduras',
+        basePrice: 30,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-020',
+        code: 'ORT020',
+        name: 'Reposición de bracket',
+        basePrice: 40,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-021',
+        code: 'ORT021',
+        name: 'Reposición de tubo',
+        basePrice: 50,
+        estimatedTime: '25 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-022',
+        code: 'ORT022',
+        name: 'Colocación de cadena elástica',
+        basePrice: 25,
+        estimatedTime: '10 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-023',
+        code: 'ORT023',
+        name: 'Colocación de elásticos intermaxilares',
+        basePrice: 20,
+        estimatedTime: '10 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-024',
+        code: 'ORT024',
+        name: 'Stripping (por arcada)',
+        basePrice: 60,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-025',
+        code: 'ORT025',
+        name: 'Attachment para alineadores',
+        basePrice: 30,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-026',
+        code: 'ORT026',
+        name: 'Microtornillo ortodóncico',
+        basePrice: 200,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-027',
+        code: 'ORT027',
+        name: 'Disyuntor palatino',
+        basePrice: 400,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-028',
+        code: 'ORT028',
+        name: 'Quad-helix',
+        basePrice: 350,
+        estimatedTime: '50 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-029',
+        code: 'ORT029',
+        name: 'Bi-helix',
+        basePrice: 300,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-030',
+        code: 'ORT030',
+        name: 'Arco transpalatino',
+        basePrice: 280,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-031',
+        code: 'ORT031',
+        name: 'Barra transpalatina',
+        basePrice: 260,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-032',
+        code: 'ORT032',
+        name: 'Péndulo de Hilgers',
+        basePrice: 450,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-033',
+        code: 'ORT033',
+        name: 'Distalador molar',
+        basePrice: 400,
+        estimatedTime: '55 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-034',
+        code: 'ORT034',
+        name: 'Aparato de Herbst',
+        basePrice: 600,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-035',
+        code: 'ORT035',
+        name: 'Máscara facial de Delaire',
+        basePrice: 350,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-036',
+        code: 'ORT036',
+        name: 'Mentonera',
+        basePrice: 200,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-037',
+        code: 'ORT037',
+        name: 'Tracción extraoral (arco facial)',
+        basePrice: 300,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-038',
+        code: 'ORT038',
+        name: 'Retenedor fijo (por arcada)',
+        basePrice: 150,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-039',
+        code: 'ORT039',
+        name: 'Retenedor removible Essix',
+        basePrice: 100,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-040',
+        code: 'ORT040',
+        name: 'Retenedor removible Hawley',
+        basePrice: 120,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-041',
+        code: 'ORT041',
+        name: 'Retenedor Vivera (Invisalign)',
+        basePrice: 250,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-042',
+        code: 'ORT042',
+        name: 'Reparación de retenedor fijo',
+        basePrice: 80,
+        estimatedTime: '25 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-043',
+        code: 'ORT043',
+        name: 'Retirada de aparatología fija',
+        basePrice: 100,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-044',
+        code: 'ORT044',
+        name: 'Pulido post-ortodoncia',
+        basePrice: 60,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-045',
+        code: 'ORT045',
+        name: 'Ortodoncia interceptiva (fase 1)',
+        basePrice: 1500,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-046',
+        code: 'ORT046',
+        name: 'Placa activa removible',
+        basePrice: 300,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-047',
+        code: 'ORT047',
+        name: 'Activador ortopédico',
+        basePrice: 400,
+        estimatedTime: '50 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-048',
+        code: 'ORT048',
+        name: 'Twin-block',
+        basePrice: 500,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-049',
+        code: 'ORT049',
+        name: 'Regulador de función de Fränkel',
+        basePrice: 550,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'ort-050',
+        code: 'ORT050',
+        name: 'Control de retención anual',
+        basePrice: 50,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      }
+    ]
+  },
+  {
+    id: 'periodoncia',
+    name: 'Periodoncia',
+    treatments: [
+      {
+        id: 'per-001',
+        code: 'PER001',
+        name: 'Estudio periodontal completo',
+        basePrice: 80,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-002',
+        code: 'PER002',
+        name: 'Periodontograma',
+        basePrice: 60,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-003',
+        code: 'PER003',
+        name: 'Índice de placa',
+        basePrice: 30,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-004',
+        code: 'PER004',
+        name: 'Índice de sangrado',
+        basePrice: 30,
+        estimatedTime: '15 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-005',
+        code: 'PER005',
+        name: 'Tartrectomía supragingival',
+        basePrice: 60,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-006',
+        code: 'PER006',
+        name: 'Raspado y alisado radicular (por cuadrante)',
+        basePrice: 100,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-007',
+        code: 'PER007',
+        name: 'Raspado y alisado (boca completa)',
+        basePrice: 350,
+        estimatedTime: '120 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-008',
+        code: 'PER008',
+        name: 'Curetaje subgingival (por cuadrante)',
+        basePrice: 120,
+        estimatedTime: '50 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-009',
+        code: 'PER009',
+        name: 'Curetaje subgingival (boca completa)',
+        basePrice: 400,
+        estimatedTime: '150 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-010',
+        code: 'PER010',
+        name: 'Cirugía periodontal de acceso',
+        basePrice: 250,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-011',
+        code: 'PER011',
+        name: 'Cirugía periodontal regenerativa',
+        basePrice: 400,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-012',
+        code: 'PER012',
+        name: 'Cirugía mucogingival',
+        basePrice: 350,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-013',
+        code: 'PER013',
+        name: 'Injerto de encía libre',
+        basePrice: 400,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-014',
+        code: 'PER014',
+        name: 'Injerto de tejido conectivo',
+        basePrice: 500,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-015',
+        code: 'PER015',
+        name: 'Colgajo de reposición coronal',
+        basePrice: 350,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-016',
+        code: 'PER016',
+        name: 'Colgajo de reposición lateral',
+        basePrice: 300,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-017',
+        code: 'PER017',
+        name: 'Técnica de túnel',
+        basePrice: 450,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-018',
+        code: 'PER018',
+        name: 'Gingivectomía (por cuadrante)',
+        basePrice: 180,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-019',
+        code: 'PER019',
+        name: 'Gingivoplastia',
+        basePrice: 200,
+        estimatedTime: '50 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-020',
+        code: 'PER020',
+        name: 'Alargamiento coronario',
+        basePrice: 250,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-021',
+        code: 'PER021',
+        name: 'Frenectomía',
+        basePrice: 180,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-022',
+        code: 'PER022',
+        name: 'Vestibuloplastia',
+        basePrice: 300,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-023',
+        code: 'PER023',
+        name: 'Regeneración tisular guiada (RTG)',
+        basePrice: 600,
+        estimatedTime: '90 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-024',
+        code: 'PER024',
+        name: 'Aplicación de Emdogain',
+        basePrice: 350,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-025',
+        code: 'PER025',
+        name: 'Injerto óseo periodontal',
+        basePrice: 400,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-026',
+        code: 'PER026',
+        name: 'Membrana reabsorbible',
+        basePrice: 250,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-027',
+        code: 'PER027',
+        name: 'Membrana no reabsorbible',
+        basePrice: 300,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-028',
+        code: 'PER028',
+        name: 'Plasma rico en plaquetas (PRP)',
+        basePrice: 200,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-029',
+        code: 'PER029',
+        name: 'Plasma rico en fibrina (PRF)',
+        basePrice: 200,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-030',
+        code: 'PER030',
+        name: 'Ferulización periodontal',
+        basePrice: 150,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-031',
+        code: 'PER031',
+        name: 'Tratamiento de periimplantitis',
+        basePrice: 300,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-032',
+        code: 'PER032',
+        name: 'Tratamiento de mucositis periimplantaria',
+        basePrice: 150,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-033',
+        code: 'PER033',
+        name: 'Descontaminación de implantes',
+        basePrice: 180,
+        estimatedTime: '50 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-034',
+        code: 'PER034',
+        name: 'Terapia fotodinámica periodontal',
+        basePrice: 120,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-035',
+        code: 'PER035',
+        name: 'Láser periodontal',
+        basePrice: 150,
+        estimatedTime: '45 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-036',
+        code: 'PER036',
+        name: 'Aplicación local de antibiótico',
+        basePrice: 80,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-037',
+        code: 'PER037',
+        name: 'Irrigación subgingival',
+        basePrice: 50,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-038',
+        code: 'PER038',
+        name: 'Test microbiológico periodontal',
+        basePrice: 100,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-039',
+        code: 'PER039',
+        name: 'Test genético periodontal',
+        basePrice: 150,
+        estimatedTime: '20 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-040',
+        code: 'PER040',
+        name: 'Mantenimiento periodontal trimestral',
+        basePrice: 80,
+        estimatedTime: '40 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-041',
+        code: 'PER041',
+        name: 'Mantenimiento periodontal semestral',
+        basePrice: 70,
+        estimatedTime: '35 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-042',
+        code: 'PER042',
+        name: 'Reevaluación periodontal',
+        basePrice: 50,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-043',
+        code: 'PER043',
+        name: 'Tratamiento de halitosis',
+        basePrice: 60,
+        estimatedTime: '30 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-044',
+        code: 'PER044',
+        name: 'Tratamiento de recesión gingival',
+        basePrice: 400,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-045',
+        code: 'PER045',
+        name: 'Tratamiento de hiperplasia gingival',
+        basePrice: 200,
+        estimatedTime: '50 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-046',
+        code: 'PER046',
+        name: 'Cirugía de bolsa periodontal',
+        basePrice: 280,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-047',
+        code: 'PER047',
+        name: 'Cirugía ósea resectiva',
+        basePrice: 350,
+        estimatedTime: '75 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-048',
+        code: 'PER048',
+        name: 'Tratamiento de defecto de furca',
+        basePrice: 300,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-049',
+        code: 'PER049',
+        name: 'Hemisección radicular',
+        basePrice: 200,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      },
+      {
+        id: 'per-050',
+        code: 'PER050',
+        name: 'Amputación radicular',
+        basePrice: 220,
+        estimatedTime: '60 min',
+        iva: '0%',
+        selected: false
+      }
+    ]
+  }
 ]
-
-function frequencyToDurationText(minutes?: number | null): string {
-  if (!minutes || !Number.isFinite(minutes)) return '-'
-  return `${minutes} min`
-}
 
 const tabs: { key: TabKey; label: string }[] = [
   { key: 'treatments', label: 'Lista de tratamientos' },
   { key: 'budgetType', label: 'Presupuestos tipo' },
-  { key: 'discounts', label: 'Descuentos (convenios)' },
+  { key: 'discounts', label: 'Descuentos (convenios)' }
 ]
 
 // ============================================
@@ -160,13 +3761,13 @@ function BudgetTypeTableHeader() {
   ]
 
   return (
-    <div className={BUDGET_TYPE_GRID_CLASSES}>
+    <div className={`${BUDGET_TYPE_GRID_CLASSES} sticky top-0 z-10 bg-[var(--color-surface)]`}>
       {headers.map((label, i) => (
         <div
           key={`bt-header-${i}`}
-          className='flex items-center border-b border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'
+          className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'
         >
-          <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+          <p className='text-body-sm text-[var(--color-neutral-600)]'>
             {label}
           </p>
         </div>
@@ -192,43 +3793,43 @@ function BudgetTypeTableRow({
       onClick={onToggleSelect}
     >
       {/* Name */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
         <p
-          className='text-body-md text-[var(--color-neutral-900)] truncate'
+          className='text-body-sm font-medium text-[var(--color-neutral-900)] truncate'
           title={budget.name}
         >
           {budget.name}
         </p>
       </div>
       {/* Description */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
         <p
-          className='text-body-md text-[var(--color-neutral-600)] truncate'
+          className='text-body-sm text-[var(--color-neutral-600)] truncate'
           title={budget.description}
         >
           {budget.description}
         </p>
       </div>
       {/* Treatments Count */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)]'>
           {budget.treatments.length}
         </p>
       </div>
       {/* Total Price */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)]'>
           {budget.totalPrice.toLocaleString('es-ES')} €
         </p>
       </div>
       {/* Status */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] px-2 py-1.5 h-[2.5rem] min-w-0'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
         {budget.isActive ? (
-          <span className='bg-[#D3F7F3] text-[#1E4947] px-2 py-0.5 rounded text-body-md'>
+          <span className='bg-[#D3F7F3] text-[#1E4947] px-2 py-0.5 rounded-sm text-body-sm'>
             Activo
           </span>
         ) : (
-          <span className='bg-[var(--color-neutral-200)] text-[var(--color-neutral-600)] px-2 py-0.5 rounded text-body-md'>
+          <span className='bg-[var(--color-neutral-200)] text-[var(--color-neutral-600)] px-2 py-0.5 rounded-sm text-body-sm'>
             Inactivo
           </span>
         )}
@@ -520,13 +4121,13 @@ function DiscountsTableHeader() {
   ]
 
   return (
-    <div className={DISCOUNTS_GRID_CLASSES}>
+    <div className={`${DISCOUNTS_GRID_CLASSES} sticky top-0 z-10 bg-[var(--color-surface)]`}>
       {headers.map((label, i) => (
         <div
           key={`disc-header-${i}`}
-          className='flex items-center border-b border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'
+          className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'
         >
-          <p className='text-body-md text-[var(--color-neutral-600)] truncate'>
+          <p className='text-body-sm text-[var(--color-neutral-600)]'>
             {label}
           </p>
         </div>
@@ -547,23 +4148,23 @@ function DiscountsTableRow({
       className={`${DISCOUNTS_GRID_CLASSES} hover:bg-[var(--color-neutral-50)] transition-colors`}
     >
       {/* Name */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
         <p
-          className='text-body-md text-[var(--color-neutral-900)] truncate'
+          className='text-body-sm font-medium text-[var(--color-neutral-900)] truncate'
           title={discount.name}
         >
           {discount.name}
         </p>
       </div>
       {/* Type */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)]'>
           {discount.type === 'percentage' ? '%' : 'Precio fijo'}
         </p>
       </div>
       {/* Value */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] p-2 h-[2.5rem] min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)]'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)]'>
           {discount.type === 'percentage'
             ? `${discount.value}%`
             : `${discount.value}€`}
@@ -572,13 +4173,13 @@ function DiscountsTableRow({
       {/* Notes */}
       <NotesCell value={discount.notes || ''} onChange={onNotesChange} />
       {/* Status */}
-      <div className='flex items-center border-b border-r border-[var(--color-neutral-300)] px-2 py-1.5 h-[2.5rem] min-w-0'>
+      <div className='flex items-center border-b border-neutral-200 px-3 py-2 h-10 min-w-0'>
         {discount.isActive ? (
-          <span className='bg-[#E0F2FE] text-[#075985] px-2 py-0.5 rounded text-body-md'>
+          <span className='bg-[#E0F2FE] text-[#075985] px-2 py-0.5 rounded-sm text-body-sm'>
             Activo
           </span>
         ) : (
-          <span className='bg-[var(--color-neutral-300)] text-[var(--color-neutral-900)] px-2 py-0.5 rounded text-body-md'>
+          <span className='bg-[var(--color-neutral-200)] text-[var(--color-neutral-600)] px-2 py-0.5 rounded-sm text-body-sm'>
             Inactivo
           </span>
         )}
@@ -639,49 +4240,38 @@ function TableRow({
           : 'hover:bg-[var(--color-neutral-50)] border-l-2 border-l-transparent'
       }`}
     >
-      {/* Checkbox */}
-      <div className='flex items-center border-b border-r border-neutral-300 px-2 py-2 h-10'>
-        <button
-          type='button'
-          onClick={onToggle}
-          className='text-[var(--color-brand-500)] hover:text-[var(--color-brand-600)] transition-colors'
-          aria-label={
-            treatment.selected
-              ? `Deseleccionar ${treatment.name}`
-              : `Seleccionar ${treatment.name}`
-          }
-        >
-          {treatment.selected ? (
-            <CheckBoxRounded className='size-[1.125rem]' />
-          ) : (
-            <CheckBoxOutlineBlankRounded className='size-[1.125rem]' />
-          )}
-        </button>
+      <div
+        className='flex items-center border-b border-neutral-200 px-2 py-2'
+        onClick={(e) => e.stopPropagation()}
+      >
+        <input
+          type='checkbox'
+          checked={treatment.selected}
+          onChange={onToggle}
+          className='size-4 accent-[var(--color-brand-500)] cursor-pointer'
+          aria-label={`Seleccionar ${treatment.name}`}
+        />
       </div>
-      {/* Code */}
-      <div className='flex items-center border-b border-r border-neutral-300 px-2 py-2 h-10 min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
+      <div className='flex items-center border-b border-neutral-200 px-2 py-2 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)] truncate'>
           {treatment.code}
         </p>
       </div>
-      {/* Name */}
-      <div className='flex items-center border-b border-r border-neutral-300 px-2 py-2 h-10 min-w-0'>
+      <div className='flex items-center border-b border-neutral-200 px-2 py-2 min-w-0'>
         <p
-          className='text-body-md text-[var(--color-neutral-900)] truncate'
+          className='text-body-sm font-medium text-[var(--color-neutral-900)] truncate'
           title={treatment.name}
         >
           {treatment.name}
         </p>
       </div>
-      {/* Price */}
-      <div className='flex items-center border-b border-r border-neutral-300 px-2 py-2 h-10 min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
+      <div className='flex items-center border-b border-neutral-200 px-2 py-2 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)] truncate'>
           {treatment.basePrice}€
         </p>
       </div>
-      {/* Estimated Time */}
-      <div className='flex items-center border-b border-neutral-300 px-2 py-2 h-10 min-w-0'>
-        <p className='text-body-md text-[var(--color-neutral-900)] truncate'>
+      <div className='flex items-center border-b border-neutral-200 px-2 py-2 min-w-0'>
+        <p className='text-body-sm text-[var(--color-neutral-900)] truncate'>
           {treatment.estimatedTime}
         </p>
       </div>
@@ -694,20 +4284,41 @@ function TableRow({
 // ============================================
 
 export default function TreatmentsPage() {
-  const { activeClinicId } = useClinic()
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  // Use ConfigurationContext for shared state
+  const {
+    treatmentCategories: categories,
+    setTreatmentCategories: setCategories,
+    discounts,
+    setDiscounts,
+    budgetTypes: budgetTypesFromCtx,
+    setBudgetTypes: setBudgetTypesCtx,
+    addBudgetType: addBudgetTypeCtx,
+    updateBudgetType: updateBudgetTypeCtx,
+    deleteBudgetType: deleteBudgetTypeCtx
+  } = useConfiguration()
+
   const [activeTab, setActiveTab] = useState<TabKey>('treatments')
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('')
-  const [categories, setCategories] = useState<Category[]>([])
-  const [organizationId, setOrganizationId] = useState<string | null>(null)
-  const [isLoadingData, setIsLoadingData] = useState(false)
+  const [selectedCategoryId, setSelectedCategoryId] =
+    useState<string>('estetica')
   const [searchVisible, setSearchVisible] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [showAddTreatment, setShowAddTreatment] = useState(false)
-  const [showAddDiscount, setShowAddDiscount] = useState(false)
 
-  // Budget Types state
-  const [budgetTypes, setBudgetTypes] = useState<BudgetTypeRow[]>([])
+  // Budget Types state - derive from context, add local 'selected' state
+  const [budgetTypeSelections, setBudgetTypeSelections] = useState<Record<string, boolean>>({})
+  const budgetTypes: BudgetTypeRow[] = useMemo(
+    () => budgetTypesFromCtx.map((bt) => ({ ...bt, selected: budgetTypeSelections[bt.id] || false })),
+    [budgetTypesFromCtx, budgetTypeSelections]
+  )
+  const setBudgetTypes = useCallback((rows: BudgetTypeRow[]) => {
+    // Update context with core data (without 'selected')
+    setBudgetTypesCtx(rows.map(({ selected, ...rest }) => rest))
+    // Update local selection state
+    const selections: Record<string, boolean> = {}
+    rows.forEach((r) => { selections[r.id] = r.selected })
+    setBudgetTypeSelections(selections)
+  }, [setBudgetTypesCtx])
+
   const [qbSearchVisible, setQbSearchVisible] = useState(false)
   const [qbSearchTerm, setQbSearchTerm] = useState('')
   const [qbCurrentPage, setQbCurrentPage] = useState(1)
@@ -717,352 +4328,10 @@ export default function TreatmentsPage() {
   const [showBudgetTypeEditor, setShowBudgetTypeEditor] = useState(false)
   const [editingBudgetType, setEditingBudgetType] =
     useState<BudgetTypeData | null>(null)
-
-  // Discounts state
-  const [discounts, setDiscounts] = useState<Discount[]>([])
   const [discSearchVisible, setDiscSearchVisible] = useState(false)
   const [discSearchTerm, setDiscSearchTerm] = useState('')
   const [discCurrentPage, setDiscCurrentPage] = useState(1)
   const discItemsPerPage = 5
-
-  const serviceRowsByCode = useMemo(() => {
-    const map = new Map<string, ServiceCatalogRow>()
-    categories.forEach((category) => {
-      category.treatments.forEach((treatment) => {
-        const normalizedCode = treatment.code.trim().toUpperCase()
-        if (!normalizedCode || map.has(normalizedCode)) return
-        map.set(normalizedCode, {
-          id: Number(treatment.id),
-          name: treatment.name,
-          treatment_code: normalizedCode,
-          standard_price: treatment.basePrice,
-          category: category.name,
-          default_duration_minutes: Number.parseInt(
-            treatment.estimatedTime.replace(/[^\d]/g, ''),
-            10
-          )
-        })
-      })
-    })
-    return map
-  }, [categories])
-
-  const loadConfigurationData = useCallback(async () => {
-    if (!activeClinicId) {
-      setCategories([])
-      setBudgetTypes([])
-      setDiscounts([])
-      setOrganizationId(null)
-      setSelectedCategoryId('')
-      return
-    }
-
-    setIsLoadingData(true)
-    setCategories([])
-    setBudgetTypes([])
-    setDiscounts([])
-    try {
-      let resolvedOrganizationId: string | null = null
-
-      const { data: clinicRow, error: clinicError } = await supabase
-        .from('clinics')
-        .select('organization_id')
-        .eq('id', activeClinicId)
-        .single()
-
-      if (clinicError) {
-        console.warn('No se pudo cargar organización de clínica', clinicError)
-      } else {
-        const orgId = String(
-          (clinicRow as { organization_id?: string | null })?.organization_id || ''
-        )
-        if (orgId) {
-          resolvedOrganizationId = orgId
-          setOrganizationId(orgId)
-        }
-      }
-
-      let serviceRows: ServiceCatalogRow[] = []
-      const baseServiceSelect =
-        'id, name, treatment_code, standard_price, category, default_duration_minutes'
-      if (resolvedOrganizationId) {
-        const { data, error } = await supabase
-          .from('service_catalog')
-          .select(`${baseServiceSelect}, organization_id`)
-          .eq('organization_id', resolvedOrganizationId)
-          .order('category', { ascending: true })
-          .order('name', { ascending: true })
-        if (error) {
-          console.warn('No se pudieron cargar tratamientos por organización', error)
-          if (String((error as { code?: string })?.code || '') === '42703') {
-            const { data: legacyRows, error: legacyError } = await supabase
-              .from('service_catalog')
-              .select(baseServiceSelect)
-              .order('category', { ascending: true })
-              .order('name', { ascending: true })
-            if (legacyError) {
-              console.warn('No se pudieron cargar tratamientos (schema legacy)', legacyError)
-            } else {
-              serviceRows = (legacyRows || []) as ServiceCatalogRow[]
-            }
-          }
-        } else {
-          serviceRows = (data || []) as ServiceCatalogRow[]
-        }
-      }
-
-      if (!resolvedOrganizationId || serviceRows.length === 0) {
-        const { data, error } = await supabase
-          .from('service_catalog')
-          .select(`${baseServiceSelect}, organization_id`)
-          .order('category', { ascending: true })
-          .order('name', { ascending: true })
-
-        if (error) {
-          if (String((error as { code?: string })?.code || '') === '42703') {
-            const { data: legacyRows, error: legacyError } = await supabase
-              .from('service_catalog')
-              .select(baseServiceSelect)
-              .order('category', { ascending: true })
-              .order('name', { ascending: true })
-            if (legacyError) {
-              console.warn('No se pudieron cargar tratamientos', legacyError)
-            } else {
-              serviceRows = (legacyRows || []) as ServiceCatalogRow[]
-            }
-          } else {
-            console.warn('No se pudieron cargar tratamientos', error)
-          }
-        } else {
-          serviceRows = (data || []) as ServiceCatalogRow[]
-          if (!resolvedOrganizationId) {
-            const inferredOrg = String(serviceRows[0]?.organization_id || '')
-            if (inferredOrg) {
-              resolvedOrganizationId = inferredOrg
-              setOrganizationId(inferredOrg)
-            }
-          }
-        }
-      }
-
-      {
-        const grouped = new Map<string, Category>()
-
-        // Seed all standard dental categories so they always appear, even when empty
-        DENTAL_CATEGORIES.forEach((name) => {
-          const id = slugCategoryId(name) || name.toLowerCase()
-          grouped.set(id, { id, name, treatments: [] })
-        })
-
-        serviceRows.forEach((row) => {
-          const categoryName = toCategoryLabel(row.category)
-          const categoryId = slugCategoryId(categoryName) || 'general'
-          if (!grouped.has(categoryId)) {
-            grouped.set(categoryId, {
-              id: categoryId,
-              name: categoryName,
-              treatments: []
-            })
-          }
-          grouped.get(categoryId)?.treatments.push({
-            id: String(row.id),
-            code: String(row.treatment_code || `TRT-${row.id}`),
-            name: String(row.name || ''),
-            basePrice: Number(row.standard_price || 0),
-            estimatedTime: frequencyToDurationText(row.default_duration_minutes),
-            iva: '0%',
-            selected: false
-          })
-        })
-
-        const mappedCategories = Array.from(grouped.values()).sort((a, b) => {
-          const ai = DENTAL_CATEGORIES.indexOf(a.name)
-          const bi = DENTAL_CATEGORIES.indexOf(b.name)
-          if (ai === -1 && bi === -1) return a.name.localeCompare(b.name)
-          if (ai === -1) return 1
-          if (bi === -1) return -1
-          return ai - bi
-        })
-
-        const defaultOdontologiaId =
-          mappedCategories.find(
-            (category) => normalizeCategoryName(category.name) === 'odontologia'
-          )?.id ||
-          mappedCategories.find((category) =>
-            normalizeCategoryName(category.name).includes('odontologia')
-          )?.id
-
-        setCategories(mappedCategories)
-        setSelectedCategoryId((prev) =>
-          mappedCategories.some((category) => category.id === prev)
-            ? prev
-            : defaultOdontologiaId || mappedCategories[0]?.id || ''
-        )
-      }
-
-      // Load budget templates from quote_templates if available, fallback to service_packages.
-      const { data: templateRows, error: templateError } = await supabase
-        .from('quote_templates')
-        .select(
-          'id, name, notes, is_active, quote_template_items(quantity, override_unit_price, service_id, service_catalog:service_id(id, name, treatment_code, standard_price))'
-        )
-        .eq('clinic_id', activeClinicId)
-        .order('name', { ascending: true })
-
-      if (!templateError) {
-        const mappedBudgetTypes = ((templateRows || []) as Array<Record<string, unknown>>).map(
-          (row) => {
-            const items = (row.quote_template_items as Array<Record<string, unknown>> | null) || []
-            const treatments = items.map((item) => {
-              const serviceInfo = Array.isArray(item.service_catalog)
-                ? item.service_catalog[0]
-                : item.service_catalog
-              const quantity = Number(item.quantity || 1)
-              const unitPrice = Number(
-                item.override_unit_price ??
-                  (serviceInfo as { standard_price?: number | string } | undefined)
-                    ?.standard_price ??
-                  0
-              )
-              return {
-                codigo: String(
-                  (serviceInfo as { treatment_code?: string } | undefined)
-                    ?.treatment_code || item.service_id || ''
-                ),
-                tratamiento: String(
-                  (serviceInfo as { name?: string } | undefined)?.name || ''
-                ),
-                precio: unitPrice * quantity
-              }
-            })
-            return {
-              id: String(row.id),
-              name: String(row.name || ''),
-              description: String(row.notes || ''),
-              treatments,
-              totalPrice: treatments.reduce((sum, t) => sum + Number(t.precio || 0), 0),
-              isActive: row.is_active !== false,
-              selected: false
-            } satisfies BudgetTypeRow
-          }
-        )
-        setBudgetTypes(mappedBudgetTypes)
-      } else {
-        if (!resolvedOrganizationId) {
-          console.warn(
-            'No se pudo resolver organization_id para cargar service_packages.'
-          )
-          return
-        }
-        const { data: packageRows, error: packageError } = await supabase
-          .from('service_packages')
-          .select(
-            'id, name, description, is_active, service_package_items(quantity, custom_price, service_id, service_catalog:service_id(id, name, treatment_code, standard_price))'
-          )
-          .eq('organization_id', resolvedOrganizationId)
-          .order('name', { ascending: true })
-
-        if (packageError) {
-          console.warn('No se pudieron cargar presupuestos tipo', packageError)
-        } else {
-          const mappedPackages = ((packageRows || []) as Array<Record<string, unknown>>).map(
-            (row) => {
-              const items = (row.service_package_items as Array<Record<string, unknown>> | null) || []
-              const treatments = items.map((item) => {
-                const serviceInfo = Array.isArray(item.service_catalog)
-                  ? item.service_catalog[0]
-                  : item.service_catalog
-                const quantity = Number(item.quantity || 1)
-                const unitPrice = Number(
-                  item.custom_price ??
-                    (serviceInfo as { standard_price?: number | string } | undefined)
-                      ?.standard_price ??
-                    0
-                )
-                return {
-                  codigo: String(
-                    (serviceInfo as { treatment_code?: string } | undefined)
-                      ?.treatment_code || item.service_id || ''
-                  ),
-                  tratamiento: String(
-                    (serviceInfo as { name?: string } | undefined)?.name || ''
-                  ),
-                  precio: unitPrice * quantity
-                }
-              })
-              return {
-                id: String(row.id),
-                name: String(row.name || ''),
-                description: String(row.description || ''),
-                treatments,
-                totalPrice: treatments.reduce(
-                  (sum, treatment) => sum + Number(treatment.precio || 0),
-                  0
-                ),
-                isActive: row.is_active !== false,
-                selected: false
-              } satisfies BudgetTypeRow
-            }
-          )
-          setBudgetTypes(mappedPackages)
-        }
-      }
-
-      const { data: discountRows, error: discountError } = await supabase
-        .from('clinic_discounts')
-        .select('id, name, discount_type, value, notes, is_active')
-        .eq('clinic_id', activeClinicId)
-        .order('name', { ascending: true })
-
-      if (discountError) {
-        const { data: fallbackDiscountRows, error: fallbackDiscountError } =
-          await supabase
-            .from('discounts')
-            .select('id, name, discount_type, value, notes, is_active')
-            .eq('clinic_id', activeClinicId)
-            .order('name', { ascending: true })
-
-        if (fallbackDiscountError) {
-          console.warn('No se pudieron cargar descuentos', fallbackDiscountError)
-        } else {
-          const mappedFallbackDiscounts = (
-            (fallbackDiscountRows || []) as Array<Record<string, unknown>>
-          ).map((row) => ({
-            id: String(row.id),
-            name: String(row.name || ''),
-            type:
-              String(row.discount_type || 'percentage') === 'fixed'
-                ? 'fixed'
-                : 'percentage',
-            value: Number(row.value || 0),
-            notes: String(row.notes || ''),
-            isActive: row.is_active !== false
-          })) as Discount[]
-          if (mappedFallbackDiscounts.length > 0) {
-            setDiscounts(mappedFallbackDiscounts)
-          }
-        }
-      } else {
-        const mappedDiscounts = (
-          (discountRows || []) as Array<Record<string, unknown>>
-        ).map((row) => ({
-          id: String(row.id),
-          name: String(row.name || ''),
-          type: String(row.discount_type || 'percentage') === 'fixed' ? 'fixed' : 'percentage',
-          value: Number(row.value || 0),
-          notes: String(row.notes || ''),
-          isActive: row.is_active !== false
-        })) as Discount[]
-        setDiscounts(mappedDiscounts)
-      }
-    } finally {
-      setIsLoadingData(false)
-    }
-  }, [activeClinicId, supabase])
-
-  useEffect(() => {
-    void loadConfigurationData()
-  }, [loadConfigurationData])
 
   // Get current category
   const currentCategory = useMemo(
@@ -1073,28 +4342,6 @@ export default function TreatmentsPage() {
   // Get selected treatments for filter tags
   const selectedTreatments = useMemo(() => {
     return categories.flatMap((c) => c.treatments).filter((t) => t.selected)
-  }, [categories])
-
-  const budgetEditorTreatmentOptions = useMemo(() => {
-    const byCode = new Map<
-      string,
-      { code: string; description: string; price: number; familia?: string }
-    >()
-    categories.forEach((category) => {
-      category.treatments.forEach((treatment) => {
-        const code = String(treatment.code || '')
-          .trim()
-          .toUpperCase()
-        if (!code || byCode.has(code)) return
-        byCode.set(code, {
-          code,
-          description: treatment.name,
-          price: Number(treatment.basePrice || 0),
-          familia: category.name
-        })
-      })
-    })
-    return Array.from(byCode.values())
   }, [categories])
 
   // Filter treatments by search term
@@ -1139,46 +4386,29 @@ export default function TreatmentsPage() {
     [categories]
   )
 
-  // Add treatment to current category in DB, then reload from source of truth
-  const handleAddTreatment = useCallback((data: TreatmentFormData) => {
-    if (!organizationId) {
-      alert('No se pudo resolver la organización de la clínica activa.')
-      return
-    }
-
-    const treatmentName = data.name.trim()
-    if (!treatmentName) return
-    const treatmentCode = data.code.trim().toUpperCase()
-    const price = Number(data.basePrice || 0)
-    if (!Number.isFinite(price) || price < 0) {
-      alert('El precio no es válido.')
-      return
-    }
-
-    const duration = Number.parseInt(String(data.estimatedTime || '').replace(/[^\d]/g, ''), 10)
-    const categoryName = currentCategory?.name || 'General'
-
-    const createTreatment = async () => {
-      const { error } = await supabase.from('service_catalog').insert({
-        organization_id: organizationId,
-        name: treatmentName.trim(),
-        treatment_code: treatmentCode || null,
-        category: categoryName,
-        standard_price: price,
-        default_duration_minutes: Number.isFinite(duration) ? duration : null,
-        is_active: true
-      })
-      if (error) {
-        console.warn('No se pudo crear tratamiento', error)
-        alert('No se pudo crear el tratamiento.')
-        return
+  // Add treatment to current category
+  const handleAddTreatment = useCallback(
+    (data: TreatmentFormData) => {
+      const newTreatment: Treatment = {
+        id: `treat-${Date.now()}`,
+        name: data.name,
+        code: data.code,
+        basePrice: parseFloat(data.basePrice) || 0,
+        estimatedTime: data.estimatedTime,
+        iva: data.iva,
+        selected: false
       }
-      await loadConfigurationData()
+      setCategories((prev) =>
+        prev.map((cat) =>
+          cat.id === selectedCategoryId
+            ? { ...cat, treatments: [...cat.treatments, newTreatment] }
+            : cat
+        )
+      )
       setShowAddTreatment(false)
-    }
-
-    void createTreatment()
-  }, [currentCategory?.name, loadConfigurationData, organizationId, supabase])
+    },
+    [selectedCategoryId, setCategories]
+  )
 
   // ============================================
   // BUDGET TYPES FUNCTIONS
@@ -1211,13 +4441,12 @@ export default function TreatmentsPage() {
     return Math.ceil(filteredBudgetTypes.length / qbItemsPerPage)
   }, [filteredBudgetTypes.length, qbItemsPerPage])
 
-  // Toggle budget type selection
+  // Toggle budget type selection (only updates local selection state, not context)
   const toggleBudgetTypeSelect = useCallback((budgetId: string) => {
-    setBudgetTypes((prev) =>
-      prev.map((bt) =>
-        bt.id === budgetId ? { ...bt, selected: !bt.selected } : bt
-      )
-    )
+    setBudgetTypeSelections((prev) => ({
+      ...prev,
+      [budgetId]: !prev[budgetId]
+    }))
   }, [])
 
   // Budget type actions
@@ -1232,88 +4461,27 @@ export default function TreatmentsPage() {
   }, [selectedBudgetTypes])
 
   const handleBtDuplicate = useCallback(() => {
-    if (!activeClinicId) return
-
-    const duplicateTemplates = async () => {
-      for (const bt of selectedBudgetTypes) {
-        const { data: templateRow, error: templateError } = await supabase
-          .from('quote_templates')
-          .insert({
-            clinic_id: activeClinicId,
-            name: `${bt.name} (copia)`,
-            notes: bt.description || null,
-            is_active: bt.isActive
-          })
-          .select('id')
-          .single()
-
-        if (templateError || !templateRow?.id) {
-          console.warn('No se pudo duplicar presupuesto tipo', templateError)
-          continue
-        }
-
-        const templateId = Number(templateRow.id)
-        const itemPayload: Array<Record<string, unknown>> = []
-        for (const treatment of bt.treatments) {
-          const normalizedCode = String(treatment.codigo || '')
-            .trim()
-            .toUpperCase()
-          const serviceMatch = serviceRowsByCode.get(normalizedCode)
-          if (!serviceMatch?.id) continue
-          itemPayload.push({
-            template_id: templateId,
-            service_id: serviceMatch.id,
-            quantity: 1,
-            override_unit_price: Number(treatment.precio || 0)
-          })
-        }
-        if (itemPayload.length > 0) {
-          const { error: itemError } = await supabase
-            .from('quote_template_items')
-            .insert(itemPayload)
-          if (itemError) {
-            console.warn('No se pudieron duplicar items de plantilla', itemError)
-          }
-        }
-      }
-      await loadConfigurationData()
-    }
-
-    void duplicateTemplates()
-  }, [
-    activeClinicId,
-    loadConfigurationData,
-    selectedBudgetTypes,
-    serviceRowsByCode,
-    supabase
-  ])
+    selectedBudgetTypes.forEach((bt) => {
+      const { id, selected, ...rest } = bt
+      addBudgetTypeCtx({
+        ...rest,
+        name: `${bt.name} (copia)`
+      })
+    })
+  }, [selectedBudgetTypes, addBudgetTypeCtx])
 
   const handleBtDelete = useCallback(() => {
-    const deleteTemplates = async () => {
-      const selectedIds = selectedBudgetTypes
-        .map((bt) => Number(bt.id))
-        .filter((id) => Number.isFinite(id))
-      if (selectedIds.length === 0) return
-      const { error } = await supabase
-        .from('quote_templates')
-        .delete()
-        .in('id', selectedIds)
-      if (error) {
-        console.warn('No se pudieron eliminar plantillas', error)
-        alert('No se pudieron eliminar las plantillas seleccionadas.')
-        return
-      }
-      await loadConfigurationData()
-    }
-    void deleteTemplates()
-  }, [loadConfigurationData, selectedBudgetTypes, supabase])
+    selectedBudgetTypes.forEach((bt) => {
+      deleteBudgetTypeCtx(bt.id)
+    })
+  }, [selectedBudgetTypes, deleteBudgetTypeCtx])
 
   const handleBtMore = useCallback(() => {
-    alert(
-      `Plantillas seleccionadas: ${selectedBudgetTypes
-        .map((bt) => bt.name)
-        .join(', ')}`
+    console.log(
+      'More options for:',
+      selectedBudgetTypes.map((bt) => bt.id)
     )
+    // TODO: Implement more options dropdown
   }, [selectedBudgetTypes])
 
   const handleAddTemplate = useCallback(() => {
@@ -1324,109 +4492,17 @@ export default function TreatmentsPage() {
   // Handle save from editor modal
   const handleSaveBudgetType = useCallback(
     (budgetTypeData: Omit<BudgetTypeData, 'id'> | BudgetTypeData) => {
-      if (!activeClinicId) return
-
-      const persistTemplate = async () => {
-        let templateId: number | null = null
-
-        if ('id' in budgetTypeData && budgetTypeData.id) {
-          templateId = Number(budgetTypeData.id)
-          const { error: templateError } = await supabase
-            .from('quote_templates')
-            .update({
-              name: budgetTypeData.name,
-              notes: budgetTypeData.description || null,
-              is_active: budgetTypeData.isActive
-            })
-            .eq('id', templateId)
-            .eq('clinic_id', activeClinicId)
-          if (templateError) {
-            console.warn('No se pudo actualizar plantilla', templateError)
-            alert('No se pudo actualizar la plantilla.')
-            return
-          }
-
-          await supabase
-            .from('quote_template_items')
-            .delete()
-            .eq('template_id', templateId)
-        } else {
-          const { data: insertedTemplate, error: insertedTemplateError } =
-            await supabase
-              .from('quote_templates')
-              .insert({
-                clinic_id: activeClinicId,
-                name: budgetTypeData.name,
-                notes: budgetTypeData.description || null,
-                is_active: budgetTypeData.isActive
-              })
-              .select('id')
-              .single()
-          if (insertedTemplateError || !insertedTemplate?.id) {
-            console.warn(
-              'No se pudo crear plantilla de presupuesto',
-              insertedTemplateError
-            )
-            alert('No se pudo crear la plantilla.')
-            return
-          }
-          templateId = Number(insertedTemplate.id)
-        }
-
-        if (!templateId) return
-
-        const itemPayload: Array<Record<string, unknown>> = []
-        for (const treatment of budgetTypeData.treatments) {
-          const normalizedCode = String(treatment.codigo || '')
-            .trim()
-            .toUpperCase()
-          let serviceId = serviceRowsByCode.get(normalizedCode)?.id || null
-
-          if (!serviceId && organizationId) {
-            const { data: createdService, error: createdServiceError } =
-              await supabase
-                .from('service_catalog')
-                .insert({
-                  organization_id: organizationId,
-                  name: treatment.tratamiento,
-                  category: 'General',
-                  standard_price: Number(treatment.precio || 0),
-                  treatment_code: normalizedCode || null
-                })
-                .select('id')
-                .single()
-            if (createdServiceError) {
-              console.warn('No se pudo crear tratamiento faltante', createdServiceError)
-            } else if (createdService?.id) {
-              serviceId = Number(createdService.id)
-            }
-          }
-
-          if (!serviceId) continue
-
-          itemPayload.push({
-            template_id: templateId,
-            service_id: serviceId,
-            quantity: 1,
-            override_unit_price: Number(treatment.precio || 0)
-          })
-        }
-
-        if (itemPayload.length > 0) {
-          const { error: itemInsertError } = await supabase
-            .from('quote_template_items')
-            .insert(itemPayload)
-          if (itemInsertError) {
-            console.warn('No se pudieron guardar items de plantilla', itemInsertError)
-          }
-        }
-
-        await loadConfigurationData()
+      if ('id' in budgetTypeData && budgetTypeData.id) {
+        // Update existing via context
+        updateBudgetTypeCtx(budgetTypeData.id, budgetTypeData)
+      } else {
+        // Create new via context
+        addBudgetTypeCtx(budgetTypeData as Omit<BudgetTypeData, 'id'>)
       }
-
-      void persistTemplate()
+      setShowBudgetTypeEditor(false)
+      setEditingBudgetType(null)
     },
-    [activeClinicId, loadConfigurationData, organizationId, serviceRowsByCode, supabase]
+    [addBudgetTypeCtx, updateBudgetTypeCtx]
   )
 
   // ============================================
@@ -1459,83 +4535,25 @@ export default function TreatmentsPage() {
   const handleDiscountNotesChange = useCallback(
     (discountId: string, newNotes: string) => {
       setDiscounts((prev) =>
-        prev.map((d) => (d.id === discountId ? { ...d, notes: newNotes } : d))
+        prev.map((d) =>
+          d.id === discountId ? { ...d, notes: newNotes } : d
+        )
       )
-
-      const persistNotes = async () => {
-        if (!activeClinicId) return
-        const payload = { notes: newNotes || null }
-        const { error } = await supabase
-          .from('clinic_discounts')
-          .update(payload)
-          .eq('id', discountId)
-          .eq('clinic_id', activeClinicId)
-        if (!error) return
-
-        const { error: fallbackError } = await supabase
-          .from('discounts')
-          .update(payload)
-          .eq('id', discountId)
-          .eq('clinic_id', activeClinicId)
-        if (fallbackError) {
-          console.warn('No se pudieron actualizar notas del descuento', fallbackError)
-          void loadConfigurationData()
-        }
-      }
-
-      void persistNotes()
     },
-    [activeClinicId, loadConfigurationData, supabase]
+    [setDiscounts]
   )
 
-  // Add new discount — open modal
+  // Add new discount
   const handleAddDiscount = useCallback(() => {
-    if (!activeClinicId) return
-    setShowAddDiscount(true)
-  }, [activeClinicId])
-
-  // Handle discount form submission
-  const handleSubmitDiscount = useCallback(
-    (data: DiscountFormData) => {
-      if (!activeClinicId) return
-      setShowAddDiscount(false)
-
-      const createDiscount = async () => {
-        const payload = {
-          clinic_id: activeClinicId,
-          name: data.name.trim(),
-          discount_type: data.discountType,
-          value: Number(data.value),
-          notes: data.notes.trim() || null,
-          is_active: true
-        }
-
-        const { error } = await supabase.from('clinic_discounts').insert(payload)
-        if (error) {
-          const { error: fallbackError } = await supabase
-            .from('discounts')
-            .insert(payload)
-          if (fallbackError) {
-            console.warn('No se pudo crear descuento', fallbackError)
-            return
-          }
-        }
-        await loadConfigurationData()
-      }
-      void createDiscount()
-    },
-    [activeClinicId, loadConfigurationData, supabase]
-  )
-
-  // Configure discount limits
-  const handleConfigureDiscountLimits = useCallback(() => {
-    window.location.href = '/configuracion/roles'
+    console.log('Add new discount')
+    // TODO: Implement add discount modal
   }, [])
+
 
   return (
     <>
       {/* Section Header */}
-      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] h-[min(2.5rem,4vh)]'>
+      <div className='flex-none flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-[min(2rem,3vw)] min-h-[min(2.5rem,4vh)]'>
         <p className='text-title-lg font-normal text-[var(--color-neutral-900)]'>
           Tratamientos, precios, presupuestos y descuentos
         </p>
@@ -1543,9 +4561,9 @@ export default function TreatmentsPage() {
 
       {/* Content Card */}
       <div className='flex-1 mx-[min(2rem,3vw)] mt-[min(1.5rem,2vh)] mb-0 min-h-0'>
-        <div className='bg-[var(--color-surface)] border border-neutral-200 rounded-t-lg h-full overflow-auto'>
+        <div className='bg-[var(--color-surface)] border border-neutral-200 rounded-t-lg h-full overflow-hidden flex flex-col'>
           {/* Tabs */}
-          <div className='sticky top-0 z-10 bg-[var(--color-surface)] px-[min(2.5rem,3vw)] pt-[min(1.5rem,2vh)] pb-2 min-h-[min(4rem,6vh)]'>
+          <div className='flex-none bg-[var(--color-surface)] px-[min(2.5rem,3vw)] pt-[min(1.5rem,2vh)] pb-2 min-h-[min(4rem,6vh)]'>
             <div className='flex gap-6 items-center overflow-x-auto'>
               {tabs.map((tab) => (
                 <button
@@ -1573,17 +4591,10 @@ export default function TreatmentsPage() {
           </div>
 
           {/* Tab Content */}
-          {isLoadingData && (
-            <div className='px-[min(2.5rem,3vw)] py-3'>
-              <p className='text-body-sm text-[var(--color-neutral-600)]'>
-                Cargando datos de configuración...
-              </p>
-            </div>
-          )}
           {activeTab === 'treatments' ? (
-            <div className='flex min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)]'>
+            <div className='flex flex-1 min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)]'>
               {/* Categories Sidebar */}
-              <aside className='w-[min(11.5rem,18vw)] flex-none border border-neutral-200 rounded-lg ml-[min(2.5rem,3vw)] mr-[min(1.5rem,2vw)] overflow-hidden'>
+              <aside className='w-[min(11.5rem,18vw)] flex-none min-h-0 self-stretch border border-neutral-200 rounded-lg ml-[min(2.5rem,3vw)] mr-[min(1.5rem,2vw)] overflow-y-auto'>
                 <nav className='flex flex-col'>
                   {categories.map((category) => (
                     <button
@@ -1604,9 +4615,9 @@ export default function TreatmentsPage() {
               </aside>
 
               {/* Treatments Content */}
-              <div className='flex-1 flex flex-col min-w-0 pr-[min(2.5rem,3vw)] overflow-hidden'>
+              <div className='flex-1 flex flex-col min-w-0 min-h-0 pr-[min(2.5rem,3vw)] overflow-hidden'>
                 {/* Category Header */}
-                <div className='flex items-center justify-between mb-4'>
+                <div className='flex-none flex items-center justify-between mb-4'>
                   <p className='text-title-lg font-medium text-[var(--color-neutral-900)]'>
                     {currentCategory?.name || ''}
                   </p>
@@ -1670,7 +4681,7 @@ export default function TreatmentsPage() {
 
                 {/* Filter Tags */}
                 {selectedTreatments.length > 0 && (
-                  <div className='flex flex-wrap gap-2 mb-4'>
+                  <div className='flex-none flex flex-wrap gap-2 mb-4'>
                     {selectedTreatments.map((t) => (
                       <FilterTag
                         key={t.id}
@@ -1682,7 +4693,7 @@ export default function TreatmentsPage() {
                 )}
 
                 {/* Treatments Table */}
-                <div className='flex-1 overflow-y-auto overflow-x-hidden'>
+                <div className='flex-1 min-h-0 overflow-y-auto overflow-x-hidden'>
                   <TableHeader />
                   {filteredTreatments.map((treatment) => (
                     <TableRow
@@ -1695,9 +4706,9 @@ export default function TreatmentsPage() {
               </div>
             </div>
           ) : activeTab === 'budgetType' ? (
-            <div className='flex flex-col min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)] px-[min(2.5rem,3vw)]'>
+            <div className='flex-1 flex flex-col min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)] px-[min(2.5rem,3vw)]'>
               {/* Action Bar */}
-              <div className='flex items-end justify-between mb-6'>
+              <div className='flex-none flex items-end justify-between mb-6'>
                 {/* Selection Actions */}
                 {selectedBudgetTypes.length > 0 ? (
                   <SelectionActionBar
@@ -1759,17 +4770,6 @@ export default function TreatmentsPage() {
                       Todos
                     </span>
                   </button>
-                  {/* Configure Discount Limits */}
-                  <button
-                    type='button'
-                    onClick={handleConfigureDiscountLimits}
-                    className='flex items-center gap-2 h-8 px-4 rounded-full border border-neutral-300 bg-[var(--color-neutral-50)] hover:bg-neutral-100 transition-colors'
-                  >
-                    <AddRounded className='size-6 text-[var(--color-neutral-900)]' />
-                    <span className='text-body-md font-medium text-[var(--color-neutral-900)] whitespace-nowrap'>
-                      Configurar límites de descuento
-                    </span>
-                  </button>
                   {/* Add Template */}
                   <button
                     type='button'
@@ -1785,7 +4785,7 @@ export default function TreatmentsPage() {
               </div>
 
               {/* Budget Types Table */}
-              <div className='flex-1 overflow-y-auto overflow-x-hidden'>
+              <div className='flex-1 min-h-0 overflow-y-auto overflow-x-hidden'>
                 <BudgetTypeTableHeader />
                 {paginatedBudgetTypes.map((budget) => (
                   <BudgetTypeTableRow
@@ -1798,7 +4798,7 @@ export default function TreatmentsPage() {
 
               {/* Pagination */}
               {qbTotalPages > 1 && (
-                <div className='flex justify-end mt-6'>
+                <div className='flex-none flex justify-end mt-6'>
                   <Pagination
                     currentPage={qbCurrentPage}
                     totalPages={qbTotalPages}
@@ -1808,9 +4808,9 @@ export default function TreatmentsPage() {
               )}
             </div>
           ) : activeTab === 'discounts' ? (
-            <div className='flex flex-col min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)] px-[min(2.5rem,3vw)]'>
+            <div className='flex-1 flex flex-col min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)] px-[min(2.5rem,3vw)]'>
               {/* Action Bar */}
-              <div className='flex items-end justify-between mb-6'>
+              <div className='flex-none flex items-end justify-between mb-6'>
                 {/* Results Counter */}
                 <p className='text-label-sm text-[var(--color-neutral-500)]'>
                   {filteredDiscounts.length} Resultados totales
@@ -1879,7 +4879,7 @@ export default function TreatmentsPage() {
               </div>
 
               {/* Discounts Table */}
-              <div className='flex-1 overflow-y-auto overflow-x-hidden'>
+              <div className='flex-1 min-h-0 overflow-y-auto overflow-x-hidden'>
                 <DiscountsTableHeader />
                 {paginatedDiscounts.map((discount) => (
                   <DiscountsTableRow
@@ -1892,7 +4892,7 @@ export default function TreatmentsPage() {
 
               {/* Pagination */}
               {discTotalPages > 1 && (
-                <div className='flex justify-end mt-6'>
+                <div className='flex-none flex justify-end mt-6'>
                   <Pagination
                     currentPage={discCurrentPage}
                     totalPages={discTotalPages}
@@ -1914,7 +4914,6 @@ export default function TreatmentsPage() {
         }}
         onSave={handleSaveBudgetType}
         editingBudgetType={editingBudgetType}
-        availableTreatments={budgetEditorTreatmentOptions}
       />
 
       {/* Add Treatment Modal */}
@@ -1924,13 +4923,6 @@ export default function TreatmentsPage() {
         onSubmit={handleAddTreatment}
         categoryName={currentCategory?.name}
         existingCodes={allExistingCodes}
-      />
-
-      {/* Add Discount Modal */}
-      <AddDiscountModal
-        open={showAddDiscount}
-        onClose={() => setShowAddDiscount(false)}
-        onSubmit={handleSubmitDiscount}
       />
     </>
   )

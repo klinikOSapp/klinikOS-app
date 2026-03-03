@@ -147,7 +147,7 @@ export function convertBudgetTypeToTreatmentsV2(
       importe: precioStr,
       importeSeguro: '',
       descripcionAnotaciones: '',
-      doctor: defaultDoctor || '',
+      doctor: defaultDoctor,
       selected: true
     }
   })

@@ -75,7 +75,7 @@ export type TreatmentV2 = {
   importe: string // Precio final después de descuento
   importeSeguro?: string // Monto cubierto por seguro
   descripcionAnotaciones?: string // Notas adicionales
-  doctor: string // Nombre del profesional
+  doctor?: string // Nombre del profesional (opcional, se asigna automáticamente si hay un único especialista compatible)
   selected?: boolean // Selección para crear presupuesto
 
   // HU-011: Campos para historial de tratamientos
@@ -123,12 +123,6 @@ export const TREATMENT_AREAS = [
   { value: 'mandibular', label: 'Mandibular' },
   { value: 'anterior', label: 'Anterior' },
   { value: 'posterior', label: 'Posterior' }
-]
-
-// Legacy dropdown options used by treatment/budget modals.
-export const PROFESSIONALS = [
-  { value: 'Dr. Guillermo', label: 'Dr. Guillermo' },
-  { value: 'Dra. Andrea', label: 'Dra. Andrea' }
 ]
 
 // Catálogo de tratamientos por acrónimo
@@ -230,6 +224,20 @@ export const TREATMENT_CATALOG: TreatmentCatalog = {
     amount: '350 €',
     familia: 'estetica'
   }
+}
+
+// Mapeo familia de tratamiento → especialidades profesionales compatibles
+// Se usa para auto-asignar doctor cuando solo hay un especialista compatible
+export const FAMILY_TO_SPECIALTY: Record<string, string[]> = {
+  corona: ['Odontólogo'],
+  endodoncia: ['Odontólogo'],
+  ortodoncia: ['Ortodoncista'],
+  periodoncia: ['Odontólogo', 'Higienista'],
+  cirugia: ['Cirujano', 'Odontólogo'],
+  estetica: ['Odontólogo'],
+  protesis: ['Implantólogo', 'Odontólogo'],
+  diagnostico: ['Odontólogo', 'Higienista'],
+  general: ['Higienista', 'Odontólogo']
 }
 
 // PROFESSIONALS removed - now sourced from ConfigurationContext

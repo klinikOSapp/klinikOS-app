@@ -17,45 +17,13 @@ import {
   VisibilityOutlined
 } from '@/components/icons/md3'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
-import { useClinic } from '@/context/ClinicContext'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useConfiguration } from '@/context/ConfigurationContext'
+import type { ConfigExpense, ExpenseCategory, ExpenseStatus } from '@/types/configExpenses'
+import React, { useCallback, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-// Types
-type ExpenseStatus = 'activo' | 'inactivo'
-type ExpenseCategory = string
-
-type Expense = {
-  id: string
-  nombre: string
-  importe: number
-  frecuencia: string
-  categoria: ExpenseCategory
-  fechaInicio: string
-  fechaFin: string
-  notas: string
-  estado: ExpenseStatus
-  categoryId?: number | null
-  expenseType?: 'fixed' | 'variable'
-}
-
-type ExpenseDbRow = {
-  id: number
-  category_id: number | null
-  expense_type: 'fixed' | 'variable'
-  description: string
-  amount: number | string
-  frequency: string | null
-  start_date: string | null
-  end_date: string | null
-  notes: string | null
-  is_active: boolean | null
-  expense_categories?:
-    | { name?: string | null }
-    | Array<{ name?: string | null }>
-    | null
-}
+// Local alias
+type Expense = ConfigExpense
 
 // Notes cell: hover to preview, click to edit (for <table> layouts)
 function NotesCellTd({
@@ -272,57 +240,6 @@ function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
-function normalizeDateInput(value?: string | null): string {
-  if (!value) return ''
-  // DB date is YYYY-MM-DD, keep compatible with <input type="date" />
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toISOString().slice(0, 10)
-}
-
-function frequencyDbToUi(value?: string | null): string {
-  switch (value) {
-    case 'monthly':
-      return 'Mensual'
-    case 'quarterly':
-      return 'Trimestral'
-    case 'annual':
-      return 'Anual'
-    case 'one_time':
-      return 'Puntual'
-    default:
-      return 'Puntual'
-  }
-}
-
-function frequencyUiToDb(value: string): 'monthly' | 'quarterly' | 'annual' | 'one_time' {
-  const normalized = value.trim().toLowerCase()
-  if (normalized.startsWith('mens')) return 'monthly'
-  if (normalized.startsWith('trim')) return 'quarterly'
-  if (normalized.startsWith('anual')) return 'annual'
-  return 'one_time'
-}
-
-function mapDbRowToExpense(row: ExpenseDbRow): Expense {
-  const categoryRecord = Array.isArray(row.expense_categories)
-    ? row.expense_categories[0]
-    : row.expense_categories
-  return {
-    id: String(row.id),
-    nombre: row.description || '',
-    importe: Number(row.amount || 0),
-    frecuencia: frequencyDbToUi(row.frequency),
-    categoria: String(categoryRecord?.name || 'Otros'),
-    fechaInicio: normalizeDateInput(row.start_date),
-    fechaFin: normalizeDateInput(row.end_date),
-    notas: String(row.notes || ''),
-    estado: row.is_active === false ? 'inactivo' : 'activo',
-    categoryId: row.category_id,
-    expenseType: row.expense_type
-  }
-}
-
 // Row Actions Menu component
 function ExpenseActionsMenu({
   expense,
@@ -456,14 +373,12 @@ function EditExpenseModal({
   open,
   onClose,
   expense,
-  onSave,
-  categoryOptions
+  onSave
 }: {
   open: boolean
   onClose: () => void
   expense: Expense | null
-  onSave: (updatedExpense: Expense, isNew: boolean) => Promise<boolean>
-  categoryOptions: string[]
+  onSave: (updatedExpense: Expense, isNew: boolean) => void
 }) {
   const isNew = expense === null
   const [formData, setFormData] = useState<Expense | null>(null)
@@ -492,13 +407,22 @@ function EditExpenseModal({
 
   if (!open || !formData) return null
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (formData) {
-      const saved = await onSave(formData, isNew)
-      if (saved) onClose()
+      onSave(formData, isNew)
+      onClose()
     }
   }
+
+  const categories: ExpenseCategory[] = [
+    'Servicios',
+    'Material',
+    'Nóminas',
+    'Alquiler',
+    'Suministros',
+    'Otros'
+  ]
 
   return createPortal(
     <div className='fixed inset-0 z-[9999] flex items-center justify-center'>
@@ -583,7 +507,7 @@ function EditExpenseModal({
                 onChange={(e) =>
                   setFormData({ ...formData, frecuencia: e.target.value })
                 }
-                placeholder='Mensual / Trimestral / Anual / Puntual'
+                placeholder='Ej: Mensual, 3 días...'
                 className='h-10 px-3 rounded-lg border border-neutral-300 text-body-md text-neutral-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent'
                 required
               />
@@ -609,7 +533,7 @@ function EditExpenseModal({
               }
               className='h-10 px-3 rounded-lg border border-neutral-300 text-body-md text-neutral-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white cursor-pointer'
             >
-              {categoryOptions.map((cat) => (
+              {categories.map((cat) => (
                 <option key={cat} value={cat}>
                   {cat}
                 </option>
@@ -628,11 +552,12 @@ function EditExpenseModal({
               </label>
               <input
                 id='expense-start-date'
-                type='date'
+                type='text'
                 value={formData.fechaInicio}
                 onChange={(e) =>
                   setFormData({ ...formData, fechaInicio: e.target.value })
                 }
+                placeholder='DD/MM/AA'
                 className='h-10 px-3 rounded-lg border border-neutral-300 text-body-md text-neutral-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent'
               />
             </div>
@@ -645,11 +570,12 @@ function EditExpenseModal({
               </label>
               <input
                 id='expense-end-date'
-                type='date'
+                type='text'
                 value={formData.fechaFin}
                 onChange={(e) =>
                   setFormData({ ...formData, fechaFin: e.target.value })
                 }
+                placeholder='DD/MM/AA'
                 className='h-10 px-3 rounded-lg border border-neutral-300 text-body-md text-neutral-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent'
               />
             </div>
@@ -698,24 +624,12 @@ function EditExpenseModal({
   )
 }
 
-// DB-first: local fallback list intentionally empty
-const initialExpenses: Expense[] = []
+// Sample data moved to src/data/expensesData.ts, loaded via ConfigurationContext
 
 const ITEMS_PER_PAGE = 15
 
 export default function FinancesExpensesPage() {
-  const { activeClinicId } = useClinic()
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
-  const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)
-  const [categoryOptions, setCategoryOptions] = useState<string[]>([
-    'Servicios',
-    'Material',
-    'Nóminas',
-    'Alquiler',
-    'Suministros',
-    'Otros'
-  ])
-  const [isLoading, setIsLoading] = useState(false)
+  const { expenses, setExpenses } = useConfiguration()
   const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [showArchived, setShowArchived] = useState(false)
@@ -763,58 +677,6 @@ export default function FinancesExpensesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null)
 
-  const loadExpenses = useCallback(async () => {
-    if (!activeClinicId) {
-      setExpenses([])
-      return
-    }
-
-    setIsLoading(true)
-    try {
-      const { data: categoriesRows, error: categoriesError } = await supabase
-        .from('expense_categories')
-        .select('id, name')
-        .eq('clinic_id', activeClinicId)
-        .order('name', { ascending: true })
-
-      if (categoriesError) {
-        console.warn('No se pudieron cargar categorías de gastos', categoriesError)
-      } else {
-        const names = Array.from(
-          new Set(
-            (categoriesRows || [])
-              .map((row) => String((row as { name?: string }).name || '').trim())
-              .filter(Boolean)
-          )
-        )
-        if (names.length > 0) {
-          setCategoryOptions(names)
-        }
-      }
-
-      const { data: expenseRows, error: expenseRowsError } = await supabase
-        .from('expenses')
-        .select(
-          'id, category_id, expense_type, description, amount, frequency, start_date, end_date, notes, is_active, expense_categories(name)'
-        )
-        .eq('clinic_id', activeClinicId)
-        .order('created_at', { ascending: false })
-
-      if (expenseRowsError) {
-        console.warn('No se pudieron cargar gastos', expenseRowsError)
-        setExpenses([])
-      } else {
-        setExpenses(((expenseRows || []) as ExpenseDbRow[]).map(mapDbRowToExpense))
-      }
-    } finally {
-      setIsLoading(false)
-    }
-  }, [activeClinicId, supabase])
-
-  useEffect(() => {
-    void loadExpenses()
-  }, [loadExpenses])
-
   // Filter expenses
   const filteredExpenses = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -844,17 +706,11 @@ export default function FinancesExpensesPage() {
   }, [expenses, search, showArchived, categoryFilter])
 
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(filteredExpenses.length / ITEMS_PER_PAGE))
+  const totalPages = Math.ceil(filteredExpenses.length / ITEMS_PER_PAGE)
   const paginatedExpenses = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE
     return filteredExpenses.slice(start, start + ITEMS_PER_PAGE)
   }, [filteredExpenses, currentPage])
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages)
-    }
-  }, [currentPage, totalPages])
 
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page)
@@ -888,108 +744,28 @@ export default function FinancesExpensesPage() {
 
   // Handler to save edited or new expense
   const handleSaveExpense = useCallback(
-    async (updatedExpense: Expense, isNew: boolean): Promise<boolean> => {
-      if (!activeClinicId) return false
-
-      const normalizedCategory = updatedExpense.categoria.trim() || 'Otros'
-      let categoryId = updatedExpense.categoryId || null
-
-      if (!categoryId) {
-        const { data: existingCategory } = await supabase
-          .from('expense_categories')
-          .select('id, name')
-          .eq('clinic_id', activeClinicId)
-          .ilike('name', normalizedCategory)
-          .maybeSingle()
-
-        if (existingCategory?.id) {
-          categoryId = Number(existingCategory.id)
-        } else {
-          const { data: insertedCategory, error: insertedCategoryError } =
-            await supabase
-              .from('expense_categories')
-              .insert({
-                clinic_id: activeClinicId,
-                name: normalizedCategory,
-                is_system: false
-              })
-              .select('id')
-              .single()
-          if (insertedCategoryError) {
-            console.warn(
-              'No se pudo crear categoría de gasto',
-              insertedCategoryError
-            )
-          } else if (insertedCategory?.id) {
-            categoryId = Number(insertedCategory.id)
-            setCategoryOptions((prev) =>
-              prev.includes(normalizedCategory)
-                ? prev
-                : [...prev, normalizedCategory].sort((a, b) =>
-                    a.localeCompare(b, 'es')
-                  )
-            )
-          }
-        }
-      }
-
-      const payload = {
-        clinic_id: activeClinicId,
-        category_id: categoryId,
-        expense_type: updatedExpense.expenseType || 'fixed',
-        description: updatedExpense.nombre.trim(),
-        amount: updatedExpense.importe,
-        frequency: frequencyUiToDb(updatedExpense.frecuencia),
-        start_date: updatedExpense.fechaInicio || null,
-        end_date: updatedExpense.fechaFin || null,
-        notes: updatedExpense.notas || null,
-        is_active: updatedExpense.estado === 'activo'
-      }
-
+    (updatedExpense: Expense, isNew: boolean) => {
       if (isNew) {
-        const { error } = await supabase.from('expenses').insert(payload)
-        if (error) {
-          console.warn('No se pudo crear gasto', error)
-          alert('No se pudo guardar el gasto.')
-          return false
-        }
+        setExpenses((prev) => [...prev, updatedExpense])
       } else {
-        const { error } = await supabase
-          .from('expenses')
-          .update(payload)
-          .eq('id', Number(updatedExpense.id))
-          .eq('clinic_id', activeClinicId)
-        if (error) {
-          console.warn('No se pudo actualizar gasto', error)
-          alert('No se pudo actualizar el gasto.')
-          return false
-        }
+        setExpenses((prev) =>
+          prev.map((e) => (e.id === updatedExpense.id ? updatedExpense : e))
+        )
       }
-
-      await loadExpenses()
-      return true
     },
-    [activeClinicId, loadExpenses, supabase]
+    []
   )
 
   // Handler to toggle archive status
-  const handleToggleArchive = useCallback(
-    async (expense: Expense) => {
-      if (!activeClinicId) return
-      const { error } = await supabase
-        .from('expenses')
-        .update({ is_active: expense.estado !== 'activo' })
-        .eq('id', Number(expense.id))
-        .eq('clinic_id', activeClinicId)
-      if (error) {
-        console.warn('No se pudo actualizar estado de gasto', error)
-        alert('No se pudo actualizar el estado del gasto.')
-        return
-      }
-      await loadExpenses()
-    },
-    [activeClinicId, loadExpenses, supabase]
-  )
+  const handleToggleArchive = useCallback((expense: Expense) => {
+    setExpenses((prev) =>
+      prev.map((e) =>
+        e.id === expense.id
+          ? { ...e, estado: e.estado === 'activo' ? 'inactivo' : 'activo' }
+          : e
+      )
+    )
+  }, [])
 
   // Handler to open delete confirmation dialog
   const handleDeleteExpense = useCallback((expense: Expense) => {
@@ -999,51 +775,12 @@ export default function FinancesExpensesPage() {
   }, [])
 
   // Handler to confirm deletion
-  const confirmDeleteExpense = useCallback(async () => {
-    if (!expenseToDelete || !activeClinicId) return
-    const { error } = await supabase
-      .from('expenses')
-      .delete()
-      .eq('id', Number(expenseToDelete.id))
-      .eq('clinic_id', activeClinicId)
-    if (error) {
-      console.warn('No se pudo eliminar gasto', error)
-      alert('No se pudo eliminar el gasto.')
-      return
+  const confirmDeleteExpense = useCallback(() => {
+    if (expenseToDelete) {
+      setExpenses((prev) => prev.filter((e) => e.id !== expenseToDelete.id))
+      setExpenseToDelete(null)
     }
-    setExpenseToDelete(null)
-    setDeleteDialogOpen(false)
-    await loadExpenses()
-  }, [activeClinicId, expenseToDelete, loadExpenses, supabase])
-
-  const handleUpdateExpenseNotes = useCallback(
-    async (expense: Expense, newNotes: string) => {
-      if (!activeClinicId) return
-
-      const previousNotes = expense.notas || ''
-      setExpenses((prev) =>
-        prev.map((entry) =>
-          entry.id === expense.id ? { ...entry, notas: newNotes } : entry
-        )
-      )
-
-      const { error } = await supabase
-        .from('expenses')
-        .update({ notes: newNotes || null })
-        .eq('id', Number(expense.id))
-        .eq('clinic_id', activeClinicId)
-
-      if (error) {
-        console.warn('No se pudo actualizar notas de gasto', error)
-        setExpenses((prev) =>
-          prev.map((entry) =>
-            entry.id === expense.id ? { ...entry, notas: previousNotes } : entry
-          )
-        )
-      }
-    },
-    [activeClinicId, supabase]
-  )
+  }, [expenseToDelete])
 
   return (
     <>
@@ -1075,19 +812,14 @@ export default function FinancesExpensesPage() {
               </p>
               <div className='flex items-center gap-2'>
                 {/* Search */}
-                <div className='relative'>
-                  <SearchRounded className='size-5 text-[var(--color-neutral-700)] absolute left-2 top-1/2 -translate-y-1/2' />
-                  <input
-                    type='search'
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value)
-                      setCurrentPage(1)
-                    }}
-                    placeholder='Buscar gasto...'
-                    className='h-8 w-44 rounded-full pl-8 pr-3 text-body-sm border border-[var(--color-neutral-700)] outline-none bg-[var(--color-page-bg)] focus:border-[var(--color-brand-500)] focus:ring-1 focus:ring-[var(--color-brand-500)] transition-colors'
-                    aria-label='Buscar gastos'
-                  />
+                <div className='flex items-center'>
+                  <button
+                    type='button'
+                    className='p-1 hover:bg-neutral-100 rounded transition-colors cursor-pointer'
+                    aria-label='Buscar'
+                  >
+                    <SearchRounded className='size-6 text-[var(--color-neutral-700)]' />
+                  </button>
                 </div>
 
                 {/* Category Filter */}
@@ -1217,15 +949,7 @@ export default function FinancesExpensesPage() {
                 </tr>
               </thead>
               <tbody>
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={8} className='py-12 text-center'>
-                      <p className='text-body-md text-[var(--color-neutral-500)]'>
-                        Cargando gastos...
-                      </p>
-                    </td>
-                  </tr>
-                ) : paginatedExpenses.length === 0 ? (
+                {paginatedExpenses.length === 0 ? (
                   <tr>
                     <td colSpan={8} className='py-12 text-center'>
                       <div className='flex flex-col items-center gap-2'>
@@ -1270,12 +994,18 @@ export default function FinancesExpensesPage() {
                       </td>
                       <td className='px-2 border-b border-r border-neutral-300'>
                         <span className='text-body-sm text-[var(--color-neutral-900)] truncate block'>
-                          {expense.fechaInicio || '—'} - {expense.fechaFin || '—'}
+                          {expense.fechaInicio} - {expense.fechaFin}
                         </span>
                       </td>
                       <NotesCellTd
                         value={expense.notas || ''}
-                        onChange={(newNotes) => void handleUpdateExpenseNotes(expense, newNotes)}
+                        onChange={(newNotes) => {
+                          setExpenses((prev) =>
+                            prev.map((e) =>
+                              e.id === expense.id ? { ...e, notas: newNotes } : e
+                            )
+                          )
+                        }}
                       />
                       <td className='px-2 border-b border-r border-neutral-300'>
                         <StatusBadge status={expense.estado} />
@@ -1329,7 +1059,6 @@ export default function FinancesExpensesPage() {
         }}
         expense={editingExpense}
         onSave={handleSaveExpense}
-        categoryOptions={categoryOptions}
       />
 
       {/* Delete Confirmation Dialog */}
