@@ -19,18 +19,16 @@ import CellSelect from '@/components/pacientes/shared/CellSelect'
 import ExpandedTextInput from '@/components/pacientes/shared/ExpandedTextInput'
 import OdontogramaCompacto from '@/components/pacientes/shared/OdontogramaCompacto'
 import { RowActionsMenu } from '@/components/pacientes/shared/RowActionsMenu'
-import { useClinic } from '@/context/ClinicContext'
-import { useConfiguration } from '@/context/ConfigurationContext'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type {
   OdontogramaState,
   TreatmentCatalogEntry,
   TreatmentV2
 } from '@/components/pacientes/shared/treatmentTypes'
 import {
-  PROFESSIONALS,
+  FAMILY_TO_SPECIALTY,
   TREATMENT_CATALOG
 } from '@/components/pacientes/shared/treatmentTypes'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import {
   downloadDocument,
   formatBudgetFilename,
@@ -235,7 +233,6 @@ function EditableCell({
 // ============================================
 type TreatmentRowProps = {
   treatment: TreatmentV2
-  doctorOptions: Array<{ value: string; label: string }>
   onToggleSelection: () => void
   onOpenMenu: (event: React.MouseEvent<HTMLButtonElement>) => void
   onUpdateField: (
@@ -245,17 +242,18 @@ type TreatmentRowProps = {
   onUpdateMultipleFields?: (updates: Partial<TreatmentV2>) => void
   isNewRow?: boolean
   onNewRowMounted?: () => void
+  professionals: Array<{ value: string; label: string }>
 }
 
 function TreatmentRow({
   treatment,
-  doctorOptions,
   onToggleSelection,
   onOpenMenu,
   onUpdateField,
   onUpdateMultipleFields,
   isNewRow,
-  onNewRowMounted
+  onNewRowMounted,
+  professionals
 }: TreatmentRowProps) {
   const rowRef = React.useRef<HTMLTableRowElement>(null)
   const firstInputRef = React.useRef<HTMLInputElement>(null)
@@ -276,8 +274,8 @@ function TreatmentRow({
   const rowBg = treatment.selected
     ? 'bg-[#E9FBF9]'
     : isNewRow
-    ? 'bg-[#FEF9C3] animate-pulse'
-    : 'bg-white hover:bg-[var(--color-neutral-50)]'
+      ? 'bg-[#FEF9C3] animate-pulse'
+      : 'bg-white hover:bg-[var(--color-neutral-50)]'
 
   // Parsear precio para cálculos (remove € y espacios)
   const parsePrice = (price: string): number => {
@@ -335,13 +333,6 @@ function TreatmentRow({
       onUpdateField('codigo', value)
     }
   }
-
-  const effectiveDoctorOptions = React.useMemo(() => {
-    if (!treatment.doctor) return doctorOptions
-    const exists = doctorOptions.some((option) => option.value === treatment.doctor)
-    if (exists) return doctorOptions
-    return [{ value: treatment.doctor, label: treatment.doctor }, ...doctorOptions]
-  }, [doctorOptions, treatment.doctor])
 
   return (
     <tr ref={rowRef} className={`${rowBg} transition-colors`}>
@@ -458,18 +449,16 @@ function TreatmentRow({
       </TableBodyCell>
       {/* Doctor - Custom Select */}
       <TableBodyCell width='14.1875rem'>
-        <select
-          value={treatment.doctor || doctorOptions[0]?.value || ''}
-          onChange={(e) => onUpdateField('doctor', e.target.value)}
-          className='w-full bg-transparent border-none outline-none text-[0.6875rem] leading-[1rem] text-[#24282C] 
-            focus:bg-[var(--color-neutral-50)] rounded px-1 py-0.5 cursor-pointer'
-        >
-          {effectiveDoctorOptions.map((prof) => (
-            <option key={prof.value} value={prof.value}>
-              {prof.label}
-            </option>
-          ))}
-        </select>
+        <CellSelect
+          value={treatment.doctor || ''}
+          onChange={(v) => onUpdateField('doctor', v || undefined)}
+          placeholder='Sin asignar'
+          compact
+          options={[
+            { value: '', label: 'Sin asignar' },
+            ...professionals
+          ]}
+        />
       </TableBodyCell>
       {/* Acciones - Sticky right */}
       <TableBodyCell
@@ -577,8 +566,6 @@ export type BudgetInfo = {
   total: number
 }
 
-const EMPTY_TREATMENTS: TreatmentV2[] = []
-
 // ============================================
 // Main Component
 // ============================================
@@ -591,7 +578,6 @@ type AddTreatmentsToBudgetModalProps = {
   ) => void
   onCreateBudgetType?: (budgetType: Omit<BudgetTypeData, 'id'>) => void
   treatments?: TreatmentV2[]
-  patientName?: string
   initialBudgetName?: string
   mode?: 'budget' | 'budgetType'
 }
@@ -601,14 +587,25 @@ export default function AddTreatmentsToBudgetModal({
   onClose,
   onCreateBudget,
   onCreateBudgetType,
-  treatments: initialTreatments = EMPTY_TREATMENTS,
-  patientName,
+  treatments: initialTreatments = PENDING_TREATMENTS_V2,
   initialBudgetName = '',
   mode = 'budget'
 }: AddTreatmentsToBudgetModalProps) {
-  const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
-  const { activeClinicId } = useClinic()
-  const { activeProfessionals } = useConfiguration()
+  const { professionalNameOptions, activeProfessionals } = useConfiguration()
+
+  const getSmartDoctor = React.useCallback(
+    (familia?: string): string | undefined => {
+      if (!familia) return undefined
+      const compatibleSpecialties = FAMILY_TO_SPECIALTY[familia]
+      if (!compatibleSpecialties) return undefined
+      const matches = activeProfessionals.filter((p) =>
+        compatibleSpecialties.includes(p.role)
+      )
+      return matches.length === 1 ? matches[0].name : undefined
+    },
+    [activeProfessionals]
+  )
+
   const [mounted, setMounted] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState('')
   const [showSearch, setShowSearch] = React.useState(false)
@@ -653,91 +650,7 @@ export default function AddTreatmentsToBudgetModal({
     type: 'percentage' | 'fixed'
     value: number
   }>({ type: 'percentage', value: 0 })
-  const [clinicDoctorOptions, setClinicDoctorOptions] = React.useState<
-    Array<{ value: string; label: string }>
-  >([])
   const budgetNameInputRef = React.useRef<HTMLInputElement>(null)
-  const latestInitialTreatmentsRef = React.useRef<TreatmentV2[]>(initialTreatments)
-  const latestInitialBudgetNameRef = React.useRef(initialBudgetName)
-  const generatedDocumentRef = React.useRef<GeneratedDocument | null>(null)
-
-  React.useEffect(() => {
-    latestInitialTreatmentsRef.current = initialTreatments
-  }, [initialTreatments])
-
-  React.useEffect(() => {
-    latestInitialBudgetNameRef.current = initialBudgetName
-  }, [initialBudgetName])
-
-  React.useEffect(() => {
-    generatedDocumentRef.current = generatedDocument
-  }, [generatedDocument])
-
-  React.useEffect(() => {
-    let cancelled = false
-
-    async function loadClinicDoctors() {
-      if (!open || !activeClinicId) {
-        if (!cancelled) setClinicDoctorOptions([])
-        return
-      }
-
-      try {
-        const { data: clinicStaffRows, error: clinicStaffError } = await supabase.rpc(
-          'get_clinic_staff',
-          { clinic: activeClinicId }
-        )
-        if (clinicStaffError) throw clinicStaffError
-
-        const options = Array.isArray(clinicStaffRows)
-          ? clinicStaffRows
-              .map((row) => {
-                const id = String((row as { id?: string }).id || '').trim()
-                const name = String((row as { full_name?: string }).full_name || '').trim()
-                if (!id || !name) return null
-                return { value: name, label: name }
-              })
-              .filter(
-                (item): item is { value: string; label: string } => item !== null
-              )
-          : []
-
-        // Deduplicate by doctor name
-        const deduped = Array.from(new Map(options.map((o) => [o.value, o])).values())
-
-        if (!cancelled) setClinicDoctorOptions(deduped)
-      } catch (error) {
-        console.warn('No se pudo cargar lista real de doctores para presupuesto', error)
-        if (!cancelled) setClinicDoctorOptions([])
-      }
-    }
-
-    void loadClinicDoctors()
-
-    return () => {
-      cancelled = true
-    }
-  }, [activeClinicId, open, supabase])
-
-  const doctorOptions = React.useMemo(() => {
-    if (clinicDoctorOptions.length > 0) return clinicDoctorOptions
-
-    const fromConfig = activeProfessionals
-      .filter((professional) => professional.status === 'Activo')
-      .map((professional) => ({
-        value: professional.name,
-        label: professional.name
-      }))
-      .filter((option) => option.value.trim().length > 0)
-
-    if (fromConfig.length > 0) {
-      return Array.from(new Map(fromConfig.map((option) => [option.value, option])).values())
-    }
-
-    return PROFESSIONALS
-  }, [activeProfessionals, clinicDoctorOptions])
-
-  const defaultDoctor = doctorOptions[0]?.value || ''
 
   // Mount state
   React.useEffect(() => {
@@ -747,10 +660,9 @@ export default function AddTreatmentsToBudgetModal({
   // Reset state when modal closes
   React.useEffect(() => {
     if (!open) {
-      const baseTreatments = latestInitialTreatmentsRef.current
       setSearchQuery('')
       setShowSearch(false)
-      setTreatments(baseTreatments)
+      setTreatments(initialTreatments)
       setOdontogramaState({})
       setFilterByTeeth([])
       setSelectedCatalogTreatment(null)
@@ -759,8 +671,8 @@ export default function AddTreatmentsToBudgetModal({
       setShowConfirmModal(false)
       setActiveMenu(null)
       // Reset preview state
-      if (generatedDocumentRef.current?.url) {
-        URL.revokeObjectURL(generatedDocumentRef.current.url)
+      if (generatedDocument?.url) {
+        URL.revokeObjectURL(generatedDocument.url)
       }
       setGeneratedDocument(null)
       setIsPreviewMode(false)
@@ -770,7 +682,7 @@ export default function AddTreatmentsToBudgetModal({
       setIsEditingName(false)
       setGeneralDiscount({ type: 'percentage', value: 0 })
     }
-  }, [open])
+  }, [open, initialTreatments, generatedDocument])
 
   // Focus search input when opened
   React.useEffect(() => {
@@ -789,14 +701,12 @@ export default function AddTreatmentsToBudgetModal({
   // Initialize treatments, odontograma and budget name when modal opens
   React.useEffect(() => {
     if (open) {
-      const baseTreatments = latestInitialTreatmentsRef.current
-      const baseBudgetName = latestInitialBudgetNameRef.current
       // Set treatments from props
-      setTreatments(baseTreatments)
+      setTreatments(initialTreatments)
 
       // Initialize odontograma with teeth from treatments
       const initialOdontogramaState: OdontogramaState = {}
-      baseTreatments.forEach((t) => {
+      initialTreatments.forEach((t) => {
         if (t.pieza) {
           initialOdontogramaState[t.pieza] = 'pendiente'
         }
@@ -804,11 +714,11 @@ export default function AddTreatmentsToBudgetModal({
       setOdontogramaState(initialOdontogramaState)
 
       // Set budget name from prop (for budget type templates)
-      if (baseBudgetName) {
-        setBudgetName(baseBudgetName)
+      if (initialBudgetName) {
+        setBudgetName(initialBudgetName)
       }
     }
-  }, [open])
+  }, [open, initialTreatments, initialBudgetName])
 
   // Escape key handler
   React.useEffect(() => {
@@ -888,15 +798,15 @@ export default function AddTreatmentsToBudgetModal({
       .substr(2, 9)}`
     const newTreatment: TreatmentV2 = {
       _internalId: newId,
-      pieza: undefined, // Sin pieza asignada
+      pieza: undefined,
       codigo,
       tratamiento: entry.description,
       precio: entry.amount,
       importe: entry.amount,
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: defaultDoctor,
-      selected: true // Seleccionar automáticamente para el presupuesto
+      doctor: getSmartDoctor(entry.familia),
+      selected: true
     }
 
     // Añadir a la lista de tratamientos
@@ -927,8 +837,8 @@ export default function AddTreatmentsToBudgetModal({
       importe: entry.amount,
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: defaultDoctor,
-      selected: true // Seleccionar automáticamente los nuevos
+      doctor: getSmartDoctor(entry.familia),
+      selected: true
     }))
 
     // Añadir a la lista de tratamientos
@@ -987,7 +897,7 @@ export default function AddTreatmentsToBudgetModal({
       importe: '0 €',
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: defaultDoctor,
+      doctor: undefined,
       selected: false
     }
     setTreatments((prev) => [...prev, newTreatment])
@@ -1042,7 +952,7 @@ export default function AddTreatmentsToBudgetModal({
         (t) =>
           t.codigo.toLowerCase().includes(query) ||
           t.tratamiento.toLowerCase().includes(query) ||
-          t.doctor.toLowerCase().includes(query)
+          (t.doctor?.toLowerCase().includes(query) ?? false)
       )
     }
 
@@ -1052,10 +962,6 @@ export default function AddTreatmentsToBudgetModal({
   // Get selected treatments
   const selectedTreatments = treatments.filter((t) => t.selected)
   const selectedCount = selectedTreatments.length
-  const displayPatientName = React.useMemo(() => {
-    const normalized = String(patientName || '').trim()
-    return normalized.length > 0 ? normalized : 'Paciente'
-  }, [patientName])
 
   // === Cálculos financieros del presupuesto ===
   // Helper para parsear precios (remove € y espacios, convertir comas a puntos)
@@ -1111,6 +1017,9 @@ export default function AddTreatmentsToBudgetModal({
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     try {
+      // Use "Paciente" as placeholder - ideally this would be passed as prop
+      const patientName = 'Paciente'
+
       // Convert TreatmentV2 to BudgetTreatment format
       const budgetTreatments = selectedTreatments.map((t) => ({
         pieza: t.pieza,
@@ -1123,7 +1032,7 @@ export default function AddTreatmentsToBudgetModal({
         importe: t.importe,
         importeSeguro: t.importeSeguro,
         descripcionAnotaciones: t.descripcionAnotaciones,
-        doctor: t.doctor
+        doctor: t.doctor || ''
       }))
 
       // Prepare budget options with name and general discount
@@ -1138,17 +1047,17 @@ export default function AddTreatmentsToBudgetModal({
 
       const blob = generateBudgetPDF(
         budgetTreatments,
-        displayPatientName,
+        patientName,
         budgetOptions
       )
       const url = URL.createObjectURL(blob)
       const filename = formatBudgetFilename(
-        displayPatientName,
+        patientName,
         budgetName || undefined
       )
 
       setGeneratedDocument({
-        professional: budgetName || displayPatientName,
+        professional: budgetName || patientName,
         filename,
         blob,
         url
@@ -1163,7 +1072,6 @@ export default function AddTreatmentsToBudgetModal({
     selectedCount,
     selectedTreatments,
     budgetName,
-    displayPatientName,
     generalDiscount,
     subtotal,
     generalDiscountAmount,
@@ -1616,7 +1524,6 @@ export default function AddTreatmentsToBudgetModal({
                                 <TreatmentRow
                                   key={treatment._internalId}
                                   treatment={treatment}
-                                  doctorOptions={doctorOptions}
                                   onToggleSelection={() =>
                                     toggleSelection(treatment._internalId)
                                   }
@@ -1638,6 +1545,7 @@ export default function AddTreatmentsToBudgetModal({
                                   }
                                   isNewRow={treatment._internalId === newRowId}
                                   onNewRowMounted={() => setNewRowId(null)}
+                                  professionals={professionalNameOptions}
                                 />
                               ))
                             )}
@@ -1760,7 +1668,7 @@ export default function AddTreatmentsToBudgetModal({
                       date: 'Sin fecha',
                       amount: activeMenu.treatment.precio,
                       status: 'Aceptado',
-                      professional: activeMenu.treatment.doctor,
+                      professional: activeMenu.treatment.doctor || '',
                       selected: false
                     }}
                     onClose={() => setActiveMenu(null)}
@@ -1907,8 +1815,8 @@ export default function AddTreatmentsToBudgetModal({
                         {isGenerating
                           ? 'Generando...'
                           : mode === 'budgetType'
-                          ? 'Guardar presupuesto tipo'
-                          : 'Crear presupuesto'}
+                            ? 'Guardar presupuesto tipo'
+                            : 'Crear presupuesto'}
                       </button>
                     </div>
                   </div>

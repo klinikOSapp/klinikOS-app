@@ -16,21 +16,19 @@ import ExpandedTextInput from '@/components/pacientes/shared/ExpandedTextInput'
 import OdontogramaCompacto from '@/components/pacientes/shared/OdontogramaCompacto'
 import { RowActionsMenu } from '@/components/pacientes/shared/RowActionsMenu'
 import {
-  addBudgetType,
   convertBudgetTypeToTreatmentsV2,
   type BudgetTypeData
 } from '@/components/pacientes/shared/budgetTypeData'
 import type {
   OdontogramaState,
   TreatmentCatalogEntry,
-  TreatmentV2,
-  TreatmentV2Status
+  TreatmentV2
 } from '@/components/pacientes/shared/treatmentTypes'
 import {
-  PROFESSIONALS,
+  FAMILY_TO_SPECIALTY,
   TREATMENT_CATALOG
 } from '@/components/pacientes/shared/treatmentTypes'
-import { useClinic } from '@/context/ClinicContext'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import { usePatients, type PatientTreatment } from '@/context/PatientsContext'
 import { setPendingAppointmentData } from '@/utils/appointmentPrefill'
 import { useRouter } from 'next/navigation'
@@ -52,7 +50,6 @@ function convertPatientTreatmentToV2(
   return {
     _internalId: treatment.id,
     pieza: toothNumber,
-    cara: treatment.toothFace as TreatmentV2['cara'],
     codigo: treatment.code,
     tratamiento: treatment.description,
     precio: treatment.amountFormatted,
@@ -60,48 +57,19 @@ function convertPatientTreatmentToV2(
     descuento: '0 €',
     porcentajeDescuento: 0,
     descripcionAnotaciones: treatment.notes || '',
-    doctor: treatment.professional || '',
+    doctor: treatment.professional,
     selected: treatment.markedForNextAppointment || false,
     // Campos para historial
     estado:
       treatment.status === 'Completado'
         ? 'completado'
         : treatment.status === 'En curso'
-        ? 'en_progreso'
-        : treatment.status === 'Cancelado'
-        ? 'cancelado'
-        : 'pendiente',
+          ? 'en_progreso'
+          : treatment.status === 'Cancelado'
+            ? 'cancelado'
+            : 'pendiente',
     fechaCreacion: treatment.createdAt,
-    fechaRealizacion: treatment.completedDate,
-    presupuestoId: treatment.budgetId
-  }
-}
-
-function parseEuroToCents(value: string): number {
-  const cleaned = value.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')
-  const parsed = parseFloat(cleaned)
-  if (Number.isNaN(parsed)) return 0
-  return Math.round(parsed * 100)
-}
-
-function formatCentsToEuro(cents: number): string {
-  return `${(cents / 100).toLocaleString('es-ES', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2
-  })} €`
-}
-
-function mapV2StatusToUi(status?: TreatmentV2Status): PatientTreatment['status'] {
-  switch (status) {
-    case 'en_progreso':
-      return 'En curso'
-    case 'completado':
-      return 'Completado'
-    case 'cancelado':
-      return 'Cancelado'
-    case 'pendiente':
-    default:
-      return 'Pendiente'
+    fechaRealizacion: treatment.completedDate
   }
 }
 
@@ -337,6 +305,7 @@ type TreatmentRowProps = {
   isNewRow?: boolean
   onNewRowMounted?: () => void
   isHistoryTable?: boolean // HU-011: Flag to show history-specific columns (fechaRealizacion, facturado)
+  professionals: Array<{ value: string; label: string }>
 }
 
 function TreatmentRow({
@@ -347,7 +316,8 @@ function TreatmentRow({
   onUpdateMultipleFields,
   isNewRow,
   onNewRowMounted,
-  isHistoryTable = false
+  isHistoryTable = false,
+  professionals
 }: TreatmentRowProps) {
   const rowRef = React.useRef<HTMLTableRowElement>(null)
   const firstInputRef = React.useRef<HTMLInputElement>(null)
@@ -369,8 +339,8 @@ function TreatmentRow({
   const rowBg = treatment.selected
     ? 'bg-[#E9FBF9]'
     : isNewRow
-    ? 'bg-[#FEF9C3] animate-pulse'
-    : 'bg-white hover:bg-[var(--color-neutral-50)]'
+      ? 'bg-[#FEF9C3] animate-pulse'
+      : 'bg-white hover:bg-[var(--color-neutral-50)]'
 
   // Parsear precio para cálculos (remove € y espacios)
   const parsePrice = (price: string): number => {
@@ -584,18 +554,15 @@ function TreatmentRow({
       </TableBodyCell>
       {/* Doctor - Custom Select */}
       <TableBodyCell width='14.1875rem'>
-        <select
-          value={treatment.doctor}
-          onChange={(e) => onUpdateField('doctor', e.target.value)}
-          className='w-full bg-transparent border-none outline-none text-[0.875rem] leading-[1.25rem] text-[#24282C] 
-            focus:bg-[var(--color-neutral-50)] rounded px-1 py-0.5 cursor-pointer'
-        >
-          {PROFESSIONALS.map((prof) => (
-            <option key={prof.value} value={prof.value}>
-              {prof.label}
-            </option>
-          ))}
-        </select>
+        <CellSelect
+          value={treatment.doctor || ''}
+          onChange={(v) => onUpdateField('doctor', v || undefined)}
+          placeholder='Sin asignar'
+          options={[
+            { value: '', label: 'Sin asignar' },
+            ...professionals
+          ]}
+        />
       </TableBodyCell>
       {/* Acciones - Sticky right */}
       <TableBodyCell
@@ -643,21 +610,35 @@ export default function Treatments({
   onAddTreatmentOpened
 }: TreatmentsProps) {
   const router = useRouter()
-  const { activeClinicId } = useClinic()
+
+  // Contexto de configuración
+  const { professionalNameOptions, activeProfessionals, addBudgetType } =
+    useConfiguration()
+
+  const getSmartDoctor = React.useCallback(
+    (familia?: string): string | undefined => {
+      if (!familia) return undefined
+      const compatibleSpecialties = FAMILY_TO_SPECIALTY[familia]
+      if (!compatibleSpecialties) return undefined
+      const matches = activeProfessionals.filter((p) =>
+        compatibleSpecialties.includes(p.role)
+      )
+      return matches.length === 1 ? matches[0].name : undefined
+    },
+    [activeProfessionals]
+  )
 
   // Contexto de pacientes
   const {
     getPendingTreatments,
     getTreatmentsByPatient,
-    addTreatment,
-    deleteTreatment,
     toggleTreatmentForNextAppointment,
     updateTreatment
   } = usePatients()
 
   // State
   const [odontogramaState, setOdontogramaState] =
-    React.useState<OdontogramaState>({})
+    React.useState<OdontogramaState>(MOCK_ODONTOGRAMA_STATE)
   const [pendingTreatments, setPendingTreatments] = React.useState<
     TreatmentV2[]
   >([])
@@ -666,11 +647,7 @@ export default function Treatments({
   >([])
   const [searchPending, setSearchPending] = React.useState('')
   const [searchHistory, setSearchHistory] = React.useState('')
-  const [dateFilter, setDateFilter] = React.useState('Todos')
-  const [onlyWithBudget, setOnlyWithBudget] = React.useState(false)
-  const persistTimersRef = React.useRef<Record<string, ReturnType<typeof setTimeout>>>(
-    {}
-  )
+  const [dateFilter, setDateFilter] = React.useState('Últimos 6 meses')
 
   // Cargar tratamientos del contexto cuando hay patientId
   React.useEffect(() => {
@@ -755,12 +732,6 @@ export default function Treatments({
   const [showCreateBudgetTypeModal, setShowCreateBudgetTypeModal] =
     React.useState(false)
 
-  React.useEffect(() => {
-    return () => {
-      Object.values(persistTimersRef.current).forEach((timer) => clearTimeout(timer))
-    }
-  }, [])
-
   // Handler para seleccionar un presupuesto tipo
   const handleBudgetTypeSelect = React.useCallback(
     (budgetType: BudgetTypeData) => {
@@ -785,43 +756,7 @@ export default function Treatments({
       addBudgetType(budgetType)
       setShowCreateBudgetTypeModal(false)
     },
-    []
-  )
-
-  const schedulePersistTreatment = React.useCallback(
-    (row: TreatmentV2) => {
-      if (!patientId) return
-      if (
-        row._internalId.startsWith('new-') ||
-        row._internalId.startsWith('TR-EMPTY-') ||
-        row._internalId.startsWith('budget-type-')
-      ) {
-        return
-      }
-
-      const existingTimer = persistTimersRef.current[row._internalId]
-      if (existingTimer) {
-        clearTimeout(existingTimer)
-      }
-
-      persistTimersRef.current[row._internalId] = setTimeout(() => {
-        const amountCents = parseEuroToCents(row.importe || row.precio)
-        updateTreatment(patientId, row._internalId, {
-          code: row.codigo,
-          description: row.tratamiento || 'Tratamiento',
-          tooth: row.pieza ? String(row.pieza) : undefined,
-          toothFace: row.cara,
-          amount: amountCents,
-          amountFormatted: formatCentsToEuro(amountCents),
-          notes: row.descripcionAnotaciones || undefined,
-          professional: row.doctor || 'Sin asignar',
-          status: mapV2StatusToUi(row.estado),
-          budgetId: row.presupuestoId
-        })
-        delete persistTimersRef.current[row._internalId]
-      }, 450)
-    },
-    [patientId, updateTreatment]
+    [addBudgetType]
   )
 
   // Handlers
@@ -849,12 +784,13 @@ export default function Treatments({
   }
 
   // Confirmar y añadir los tratamientos
-  const handleConfirmTreatments = async () => {
+  const handleConfirmTreatments = () => {
     if (!selectedCatalogTreatment || selectedTeeth.length === 0) return
 
     const { codigo, entry } = selectedCatalogTreatment
 
     // Crear un tratamiento por cada pieza seleccionada
+    const smartDoctor = getSmartDoctor(entry.familia)
     const newTreatments: TreatmentV2[] = selectedTeeth.map((toothId) => ({
       _internalId: `new-${Date.now()}-${Math.random()}-${toothId}`,
       pieza: toothId,
@@ -862,36 +798,12 @@ export default function Treatments({
       tratamiento: entry.description,
       precio: entry.amount,
       importe: entry.amount,
-      doctor: PROFESSIONALS[0].value,
+      doctor: smartDoctor,
       selected: false
     }))
 
-    if (patientId) {
-      const created = await Promise.all(
-        selectedTeeth.map((toothId) =>
-          addTreatment(patientId, {
-            code: codigo,
-            description: entry.description,
-            tooth: String(toothId),
-            amount: parseEuroToCents(entry.amount),
-            amountFormatted: entry.amount,
-            status: 'Pendiente',
-            paymentStatus: 'Sin pagar',
-            paidAmount: 0,
-            professional: PROFESSIONALS[0].value,
-            notes: '',
-            markedForNextAppointment: false
-          })
-        )
-      )
-      const lastCreated = created.filter(Boolean).at(-1)
-      if (lastCreated) {
-        setNewRowId(lastCreated.id)
-      }
-    } else {
-      // Fallback local si no hay patientId
-      setPendingTreatments((prev) => [...prev, ...newTreatments])
-    }
+    // Añadir a tratamientos pendientes
+    setPendingTreatments((prev) => [...prev, ...newTreatments])
 
     // Actualizar el odontograma
     setOdontogramaState((prev) => {
@@ -931,44 +843,28 @@ export default function Treatments({
   }
 
   // Handler para doble clic: añadir tratamiento directamente sin seleccionar pieza
-  const handleDoubleClickTreatmentFromCatalog = async (
+  const handleDoubleClickTreatmentFromCatalog = (
     codigo: string,
     entry: TreatmentCatalogEntry
   ) => {
     const newTreatment: TreatmentV2 = {
       _internalId: `new-${Date.now()}-${Math.random()}`,
-      pieza: undefined, // Sin pieza asignada
+      pieza: undefined,
       codigo,
       tratamiento: entry.description,
       precio: entry.amount,
       importe: entry.amount,
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: PROFESSIONALS[0].value,
+      doctor: getSmartDoctor(entry.familia),
       selected: false
     }
 
-    if (patientId) {
-      const created = await addTreatment(patientId, {
-        code: codigo,
-        description: entry.description,
-        amount: parseEuroToCents(entry.amount),
-        amountFormatted: entry.amount,
-        status: 'Pendiente',
-        paymentStatus: 'Sin pagar',
-        paidAmount: 0,
-        professional: PROFESSIONALS[0].value,
-        notes: '',
-        markedForNextAppointment: false
-      })
-      if (created) {
-        setNewRowId(created.id)
-      }
-    } else {
-      // Fallback local si no hay patientId
-      setPendingTreatments((prev) => [...prev, newTreatment])
-      setNewRowId(newTreatment._internalId)
-    }
+    // Añadir a tratamientos pendientes
+    setPendingTreatments((prev) => [...prev, newTreatment])
+
+    // Marcar como nueva fila para hacer scroll y focus
+    setNewRowId(newTreatment._internalId)
 
     // Limpiar cualquier selección previa del catálogo
     setSelectedCatalogTreatment(null)
@@ -1010,25 +906,13 @@ export default function Treatments({
     if (section === 'pending') {
       setPendingTreatments((prev) =>
         prev.map((t) =>
-          t._internalId === internalId
-            ? (() => {
-                const next = { ...t, [field]: value }
-                schedulePersistTreatment(next)
-                return next
-              })()
-            : t
+          t._internalId === internalId ? { ...t, [field]: value } : t
         )
       )
     } else {
       setHistoryTreatments((prev) =>
         prev.map((t) =>
-          t._internalId === internalId
-            ? (() => {
-                const next = { ...t, [field]: value }
-                schedulePersistTreatment(next)
-                return next
-              })()
-            : t
+          t._internalId === internalId ? { ...t, [field]: value } : t
         )
       )
     }
@@ -1043,52 +927,20 @@ export default function Treatments({
     if (section === 'pending') {
       setPendingTreatments((prev) =>
         prev.map((t) =>
-          t._internalId === internalId
-            ? (() => {
-                const next = { ...t, ...updates }
-                schedulePersistTreatment(next)
-                return next
-              })()
-            : t
+          t._internalId === internalId ? { ...t, ...updates } : t
         )
       )
     } else {
       setHistoryTreatments((prev) =>
         prev.map((t) =>
-          t._internalId === internalId
-            ? (() => {
-                const next = { ...t, ...updates }
-                schedulePersistTreatment(next)
-                return next
-              })()
-            : t
+          t._internalId === internalId ? { ...t, ...updates } : t
         )
       )
     }
   }
 
   // Handler para añadir fila vacía
-  const handleAddEmptyRow = React.useCallback(async () => {
-    if (patientId) {
-      const created = await addTreatment(patientId, {
-        code: '',
-        description: '',
-        amount: 0,
-        amountFormatted: '0 €',
-        status: 'Pendiente',
-        paymentStatus: 'Sin pagar',
-        paidAmount: 0,
-        professional: PROFESSIONALS[0].value,
-        notes: '',
-        markedForNextAppointment: false
-      })
-      if (created) {
-        setNewRowId(created.id)
-        return
-      }
-    }
-
-    // Fallback local si no hay patientId o falló inserción
+  const handleAddEmptyRow = React.useCallback(() => {
     const newId = `TR-EMPTY-${Date.now()}-${Math.random()
       .toString(36)
       .substr(2, 9)}`
@@ -1100,17 +952,17 @@ export default function Treatments({
       importe: '0 €',
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: PROFESSIONALS[0].value,
+      doctor: undefined,
       selected: false
     }
     setPendingTreatments((prev) => [...prev, newTreatment])
     setNewRowId(newId)
-  }, [addTreatment, patientId])
+  }, [])
 
   // Effect to auto-add empty row when navigating from Resumen with "add treatment" action
   React.useEffect(() => {
     if (openAddTreatment) {
-      void handleAddEmptyRow()
+      handleAddEmptyRow()
       onAddTreatmentOpened?.()
     }
   }, [openAddTreatment, handleAddEmptyRow, onAddTreatmentOpened])
@@ -1126,6 +978,16 @@ export default function Treatments({
 
   const handleMenuCreateBudget = () => {
     if (activeMenu) {
+      // Convert TreatmentV2 to legacy Treatment format for compatibility
+      const legacyTreatment = {
+        id: activeMenu.treatment.codigo,
+        description: activeMenu.treatment.tratamiento,
+        date: 'Sin fecha' as const,
+        amount: activeMenu.treatment.precio,
+        status: 'Aceptado' as const,
+        professional: activeMenu.treatment.doctor,
+        selected: false
+      }
       onCreateBudget?.([activeMenu.treatment])
     }
   }
@@ -1152,20 +1014,15 @@ export default function Treatments({
   const handleDeleteTreatment = () => {
     if (!activeMenu) return
     const { treatment, section } = activeMenu
-    const treatmentId = treatment._internalId
 
     if (section === 'pending') {
-      setPendingTreatments((prev) => prev.filter((t) => t._internalId !== treatmentId))
+      setPendingTreatments((prev) =>
+        prev.filter((t) => t._internalId !== treatment._internalId)
+      )
     } else {
-      setHistoryTreatments((prev) => prev.filter((t) => t._internalId !== treatmentId))
-    }
-
-    if (
-      patientId &&
-      !treatmentId.startsWith('new-') &&
-      !treatmentId.startsWith('TR-EMPTY-')
-    ) {
-      void deleteTreatment(patientId, treatmentId)
+      setHistoryTreatments((prev) =>
+        prev.filter((t) => t._internalId !== treatment._internalId)
+      )
     }
     setActiveMenu(null)
   }
@@ -1195,19 +1052,6 @@ export default function Treatments({
     setActiveMenu(null)
   }
 
-  const handleToggleStatus = () => {
-    if (!activeMenu || !patientId) return
-
-    const nextStatus: PatientTreatment['status'] =
-      activeMenu.treatment.estado === 'en_progreso' ? 'Pendiente' : 'En curso'
-
-    updateTreatment(patientId, activeMenu.treatment._internalId, {
-      status: nextStatus
-    })
-
-    setActiveMenu(null)
-  }
-
   const selectedCount = React.useMemo(() => {
     return (
       pendingTreatments.filter((t) => t.selected).length +
@@ -1218,10 +1062,6 @@ export default function Treatments({
   // Filtrado
   const filteredPending = React.useMemo(() => {
     let result = pendingTreatments
-
-    if (onlyWithBudget) {
-      result = result.filter((t) => Boolean(t.presupuestoId))
-    }
 
     // Filtro por piezas seleccionadas en el odontograma
     if (filterByTeeth.length > 0) {
@@ -1235,12 +1075,12 @@ export default function Treatments({
         (t) =>
           t.codigo.toLowerCase().includes(term) ||
           t.tratamiento.toLowerCase().includes(term) ||
-          t.doctor.toLowerCase().includes(term)
+          (t.doctor?.toLowerCase().includes(term) ?? false)
       )
     }
 
     return result
-  }, [pendingTreatments, searchPending, filterByTeeth, onlyWithBudget])
+  }, [pendingTreatments, searchPending, filterByTeeth])
 
   const filteredHistory = React.useMemo(() => {
     let result = historyTreatments
@@ -1257,30 +1097,12 @@ export default function Treatments({
         (t) =>
           t.codigo.toLowerCase().includes(term) ||
           t.tratamiento.toLowerCase().includes(term) ||
-          t.doctor.toLowerCase().includes(term)
+          (t.doctor?.toLowerCase().includes(term) ?? false)
       )
     }
 
-    if (dateFilter !== 'Todos') {
-      const monthsBack =
-        dateFilter === 'Últimos 3 meses'
-          ? 3
-          : dateFilter === 'Último año'
-          ? 12
-          : 6
-      const cutoff = new Date()
-      cutoff.setMonth(cutoff.getMonth() - monthsBack)
-
-      result = result.filter((t) => {
-        const sourceDate = t.fechaRealizacion || t.fechaCreacion
-        if (!sourceDate) return false
-        const parsed = new Date(sourceDate)
-        return !Number.isNaN(parsed.getTime()) && parsed >= cutoff
-      })
-    }
-
     return result
-  }, [historyTreatments, searchHistory, filterByTeeth, dateFilter])
+  }, [historyTreatments, searchHistory, filterByTeeth])
 
   // Abrir el modal de crear presupuesto con los tratamientos pendientes
   const handleOpenBudgetModal = () => {
@@ -1410,13 +1232,7 @@ export default function Treatments({
               {/* Filtro Presupuestos */}
               <button
                 type='button'
-                onClick={() => setOnlyWithBudget((prev) => !prev)}
-                className={[
-                  'flex items-center gap-[0.5rem] px-[1rem] py-[0.375rem] border rounded-[8.5rem] transition-colors cursor-pointer',
-                  onlyWithBudget
-                    ? 'border-[var(--color-brand-500)] bg-[#E9FBF9]'
-                    : 'border-[#CBD3D9] bg-white hover:bg-[var(--color-neutral-50)]'
-                ].join(' ')}
+                className='flex items-center gap-[0.5rem] px-[1rem] py-[0.375rem] border border-[#CBD3D9] rounded-[8.5rem] bg-white hover:bg-[var(--color-neutral-50)] transition-colors cursor-pointer'
               >
                 <FilterListRounded className='w-[1.25rem] h-[1.25rem] text-[#535C66]' />
                 <span className='text-[0.875rem] leading-[1.25rem] text-[#535C66]'>
@@ -1498,6 +1314,7 @@ export default function Treatments({
                       }
                       isNewRow={treatment._internalId === newRowId}
                       onNewRowMounted={() => setNewRowId(null)}
+                      professionals={professionalNameOptions}
                     />
                   ))}
                 </tbody>
@@ -1527,10 +1344,6 @@ export default function Treatments({
               {/* Filtro Todos */}
               <button
                 type='button'
-                onClick={() => {
-                  setDateFilter('Todos')
-                  setSearchHistory('')
-                }}
                 className='flex items-center gap-[0.5rem] px-[1rem] py-[0.375rem] border border-[#CBD3D9] rounded-[8.5rem] bg-white hover:bg-[var(--color-neutral-50)] transition-colors cursor-pointer'
               >
                 <FilterListRounded className='w-[1.25rem] h-[1.25rem] text-[#535C66]' />
@@ -1614,6 +1427,7 @@ export default function Treatments({
                         )
                       }
                       isHistoryTable={true}
+                      professionals={professionalNameOptions}
                     />
                   ))}
                 </tbody>
@@ -1631,18 +1445,15 @@ export default function Treatments({
             description: activeMenu.treatment.tratamiento,
             date: 'Sin fecha',
             amount: activeMenu.treatment.precio,
-            status:
-              activeMenu.treatment.estado === 'en_progreso'
-                ? 'Aceptado'
-                : 'No aceptado',
-            professional: activeMenu.treatment.doctor,
+            status: 'Aceptado',
+            professional: activeMenu.treatment.doctor || '',
             selected: false
           }}
           onClose={() => setActiveMenu(null)}
           triggerRect={activeMenu.triggerRect}
           onCreateBudget={handleMenuCreateBudget}
           onCreateAppointment={handleMenuCreateAppointment}
-          onToggleStatus={handleToggleStatus}
+          onToggleStatus={() => {}}
           onDelete={handleDeleteTreatment}
           // Solo mostrar opciones de completar/cancelar para tratamientos pendientes
           onMarkComplete={
@@ -1767,7 +1578,6 @@ export default function Treatments({
           {/* Botón Imprimir */}
           <button
             type='button'
-            onClick={() => window.print()}
             className='px-[1rem] py-[0.5rem] border border-[#CBD3D9] rounded-full text-[1rem] leading-[1.5rem] font-medium text-[#24282C] hover:bg-[rgba(0,0,0,0.05)] transition-colors cursor-pointer'
           >
             Imprimir
@@ -1802,19 +1612,16 @@ export default function Treatments({
           setBudgetTypeName('')
         }}
         treatments={budgetTypeTreatments || pendingTreatments}
-        patientName={patientName}
         initialBudgetName={budgetTypeName}
         onCreateBudget={(treatments, budgetInfo) => {
-          const createLocalBudgetRow = (
-            overrides?: Partial<Pick<BudgetRow, 'id' | 'quoteId'>>
-          ): BudgetRow => {
+          // Create budget row and add to the budgets table
+          if (onAddBudget) {
             // Calculate validity date (30 days from now)
             const validUntilDate = new Date()
             validUntilDate.setDate(validUntilDate.getDate() + 30)
 
-            return {
-              id: overrides?.id || `PRE-${Date.now().toString().slice(-6)}`,
-              quoteId: overrides?.quoteId,
+            const newBudget: BudgetRow = {
+              id: `PRE-${Date.now().toString().slice(-6)}`,
               description: budgetInfo.name,
               amount: `${budgetInfo.total.toLocaleString('es-ES', {
                 minimumFractionDigits: 2,
@@ -1864,69 +1671,13 @@ export default function Treatments({
                 }
               ]
             }
+            onAddBudget(newBudget)
           }
-
-          if (patientId && activeClinicId) {
-            void (async () => {
-              try {
-                const response = await fetch('/api/pacientes/budgets/create', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify({
-                    clinicId: activeClinicId,
-                    patientId,
-                    budgetName: budgetInfo.name,
-                    totalAmount: budgetInfo.total,
-                    treatments: treatments.map((t) => ({
-                      pieza: t.pieza,
-                      cara: t.cara,
-                      codigo: t.codigo,
-                      tratamiento: t.tratamiento,
-                      precio: t.precio,
-                      porcentajeDescuento: t.porcentajeDescuento,
-                      importe: t.importe,
-                      importeSeguro: t.importeSeguro,
-                      doctor: t.doctor
-                    }))
-                  })
-                })
-
-                const payload = (await response.json()) as {
-                  error?: string
-                  quoteId?: number
-                  quoteNumber?: string
-                }
-                if (!response.ok) {
-                  throw new Error(payload.error || 'No se pudo crear el presupuesto')
-                }
-
-                const persistedBudget = createLocalBudgetRow({
-                  id: payload.quoteNumber || undefined,
-                  quoteId:
-                    Number.isFinite(Number(payload.quoteId)) &&
-                    Number(payload.quoteId) > 0
-                      ? Number(payload.quoteId)
-                      : undefined
-                })
-
-                onAddBudget?.(persistedBudget)
-                onCreateBudget?.(treatments)
-                setShowBudgetModal(false)
-                setBudgetTypeTreatments(undefined)
-                setBudgetTypeName('')
-              } catch (error) {
-                console.error('Error creating budget from Treatments tab', error)
-              }
-            })()
-            return
-          }
-
-          const newBudget = createLocalBudgetRow()
-          onAddBudget?.(newBudget)
+          // Also call the legacy callback if provided
           onCreateBudget?.(treatments)
+          // Close the modal
           setShowBudgetModal(false)
+          // Clear budget type data
           setBudgetTypeTreatments(undefined)
           setBudgetTypeName('')
         }}
@@ -1947,7 +1698,6 @@ export default function Treatments({
         onCreateBudget={() => {}}
         onCreateBudgetType={handleSaveBudgetType}
         treatments={pendingTreatments}
-        patientName={patientName}
         mode='budgetType'
       />
     </div>
