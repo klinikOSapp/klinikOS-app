@@ -1639,6 +1639,145 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           }
         }
 
+        // ── Expenses (expenses table) ──
+        const normDateInput = (v?: string | null) => {
+          if (!v) return ''
+          if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
+          const d = new Date(v)
+          if (Number.isNaN(d.getTime())) return ''
+          return d.toISOString().slice(0, 10)
+        }
+        const freqDbToUi = (v?: string | null) => {
+          switch (v) {
+            case 'monthly': return 'Mensual'
+            case 'quarterly': return 'Trimestral'
+            case 'annual': return 'Anual'
+            default: return 'Puntual'
+          }
+        }
+
+        let mappedExpenses: ConfigExpense[] = []
+        const { data: expenseRows, error: expenseErr } = await supabase
+          .from('expenses')
+          .select(
+            'id, category_id, expense_type, description, amount, frequency, start_date, end_date, notes, is_active, expense_categories(name)'
+          )
+          .eq('clinic_id', selectedClinicId)
+          .order('created_at', { ascending: false })
+
+        if (!expenseErr && expenseRows) {
+          mappedExpenses = (expenseRows as Array<Record<string, unknown>>).map((row) => {
+            const catRec = Array.isArray(row.expense_categories)
+              ? row.expense_categories[0]
+              : row.expense_categories
+            return {
+              id: String(row.id),
+              nombre: String(row.description || ''),
+              importe: Number(row.amount || 0),
+              frecuencia: freqDbToUi(row.frequency as string | null),
+              categoria: (String((catRec as { name?: string } | undefined)?.name || 'Otros')) as ConfigExpense['categoria'],
+              fechaInicio: normDateInput(row.start_date as string | null),
+              fechaFin: normDateInput(row.end_date as string | null),
+              notas: String(row.notes || ''),
+              estado: row.is_active === false ? 'inactivo' as const : 'activo' as const
+            }
+          })
+        }
+
+        // ── Roles & permissions (roles + permissions + modules tables) ──
+        let mappedRoles: ConfigRole[] = []
+        let mappedPermissions: ConfigPermission[] = []
+
+        let roleQuery = supabase
+          .from('roles')
+          .select('id, clinic_id, display_name, name, is_active')
+          .order('display_name', { ascending: true })
+        if (selectedClinicId) {
+          roleQuery = roleQuery.or(`clinic_id.is.null,clinic_id.eq.${selectedClinicId}`)
+        } else {
+          roleQuery = roleQuery.is('clinic_id', null)
+        }
+        const { data: roleRows, error: rolesErr } = await roleQuery
+
+        if (!rolesErr && roleRows) {
+          const activeRoleRows = (roleRows as Array<Record<string, unknown>>).filter(
+            (r) => r.is_active !== false
+          )
+          const roleIds = activeRoleRows.map((r) => Number(r.id))
+
+          const staffCountPromise =
+            selectedClinicId && roleIds.length > 0
+              ? supabase
+                  .from('staff_clinics')
+                  .select('staff_id, role_id')
+                  .eq('clinic_id', selectedClinicId)
+              : Promise.resolve({ data: [], error: null } as const)
+
+          const permPromise =
+            roleIds.length > 0
+              ? supabase
+                  .from('permissions')
+                  .select(
+                    'id, role_id, module_id, can_view, can_create, can_edit, can_delete, modules:module_id(id, name, display_name, description)'
+                  )
+                  .in('role_id', roleIds)
+              : Promise.resolve({ data: [], error: null } as const)
+
+          const [staffCountRes, permRes] = await Promise.all([staffCountPromise, permPromise])
+
+          const userCountByRole = new Map<number, number>()
+          if (!staffCountRes.error && staffCountRes.data) {
+            (staffCountRes.data as Array<{ role_id?: number }>).forEach((row) => {
+              const rid = Number(row.role_id || 0)
+              if (rid) userCountByRole.set(rid, (userCountByRole.get(rid) || 0) + 1)
+            })
+          }
+
+          const permsByRole = new Map<number, string[]>()
+          if (!permRes.error && permRes.data) {
+            const permRows = permRes.data as Array<Record<string, unknown>>
+            const seenPermIds = new Set<string>()
+            permRows.forEach((pRow) => {
+              const roleId = Number(pRow.role_id || 0)
+              const permId = String(pRow.id)
+              if (!permsByRole.has(roleId)) permsByRole.set(roleId, [])
+              permsByRole.get(roleId)?.push(permId)
+
+              if (!seenPermIds.has(permId)) {
+                seenPermIds.add(permId)
+                const mod = Array.isArray(pRow.modules) ? pRow.modules[0] : pRow.modules
+                const modObj = (mod || {}) as Record<string, unknown>
+                const actions = ['view', 'create', 'edit', 'delete'] as const
+                actions.forEach((action) => {
+                  if (pRow[`can_${action}`]) {
+                    const subId = `${permId}-${action}`
+                    if (!seenPermIds.has(subId)) {
+                      seenPermIds.add(subId)
+                      mappedPermissions.push({
+                        id: subId,
+                        nombre: `${String(modObj.display_name || modObj.name || 'Módulo')} - ${action === 'view' ? 'Ver' : action === 'create' ? 'Crear' : action === 'edit' ? 'Editar' : 'Eliminar'}`,
+                        descripcion: String(modObj.description || ''),
+                        modulo: String(modObj.display_name || modObj.name || 'General'),
+                        activo: true
+                      })
+                    }
+                  }
+                })
+              }
+            })
+          }
+
+          mappedRoles = activeRoleRows.map((row) => {
+            const roleId = Number(row.id)
+            return {
+              id: String(roleId),
+              nombre: String(row.display_name || row.name || `Rol ${roleId}`),
+              usuariosAsignados: userCountByRole.get(roleId) || 0,
+              permisos: permsByRole.get(roleId) || []
+            }
+          })
+        }
+
         if (isMounted) {
           if (mappedClinics.length > 0) setClinics(mappedClinics)
           setStaffSchemaSupport(detectedStaffSchemaSupport)
@@ -1651,6 +1790,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           setTreatmentCategories(mappedTreatmentCategories)
           setDiscountsState(mappedDiscounts)
           if (mappedBudgetTypes.length > 0) setBudgetTypesState(mappedBudgetTypes)
+          if (mappedExpenses.length > 0) setExpensesState(mappedExpenses)
+          if (mappedRoles.length > 0) setRolesState(mappedRoles)
+          if (mappedPermissions.length > 0) setPermissionsState(mappedPermissions)
 
           if (selectedClinicRow) {
             setClinicInfo({

@@ -45,147 +45,31 @@ export type Specialist = {
   status: 'Activo' | 'Inactivo'
 }
 
-export const initialSpecialistsData: Array<Omit<Specialist, 'id'>> = [
-  {
-    name: 'Fernandino Fernández',
-    role: 'Odontólogo',
-    phone: '608020203',
-    email: 'fernandino@gmail.com',
-    colorLabel: 'Morado',
-    colorTone: 'morado',
-    employmentType: 'autonomo',
-    commission: '30%',
-    status: 'Inactivo'
-  },
-  {
-    name: 'Carlos Pérez',
-    role: 'Ortodoncista',
-    phone: '608020203',
-    email: 'carlitosperez@gmail.com',
-    colorLabel: 'Naranja',
-    colorTone: 'naranja',
-    employmentType: 'nomina',
-    salary: '2.800',
-    status: 'Activo'
-  },
-  {
-    name: 'Fernandino Fernández',
-    role: 'Odontólogo',
-    phone: '608020203',
-    email: 'fernandino@gmail.com',
-    colorLabel: 'Morado',
-    colorTone: 'morado',
-    employmentType: 'autonomo',
-    commission: '30%',
-    status: 'Activo'
-  },
-  {
-    name: 'Fernandino Fernández',
-    role: 'Odontólogo',
-    phone: '608020203',
-    email: 'fernandino@gmail.com',
-    colorLabel: 'Morado',
-    colorTone: 'morado',
-    employmentType: 'autonomo',
-    commission: '30%',
-    status: 'Activo'
-  },
-  {
-    name: 'Javier Herrera',
-    role: 'Higienista',
-    phone: '608020203',
-    email: 'javier_1890@gmail.com',
-    colorLabel: 'Verde',
-    colorTone: 'verde',
-    employmentType: 'nomina',
-    salary: '1.800',
-    status: 'Activo'
-  },
-  {
-    name: 'Carlos Pérez',
-    role: 'Ortodoncista',
-    phone: '608020203',
-    email: 'carlitosperez@gmail.com',
-    colorLabel: 'Naranja',
-    colorTone: 'naranja',
-    employmentType: 'autonomo',
-    commission: '30%',
-    status: 'Inactivo'
-  },
-  {
-    name: 'Carlos Pérez',
-    role: 'Ortodoncista',
-    phone: '608020203',
-    email: 'carlitosperez@gmail.com',
-    colorLabel: 'Naranja',
-    colorTone: 'naranja',
-    employmentType: 'nomina',
-    salary: '3.200',
-    status: 'Activo'
-  },
-  {
-    name: 'Javier Herrera',
-    role: 'Higienista',
-    phone: '608020203',
-    email: 'javier_1890@gmail.com',
-    colorLabel: 'Verde',
-    colorTone: 'verde',
-    employmentType: 'nomina',
-    salary: '1.800',
-    status: 'Activo'
-  },
-  {
-    name: 'Fernandino Fernández',
-    role: 'Odontólogo',
-    phone: '608020203',
-    email: 'fernandino@gmail.com',
-    colorLabel: 'Morado',
-    colorTone: 'morado',
-    employmentType: 'autonomo',
-    commission: '30%',
-    status: 'Activo'
-  },
-  {
-    name: 'Carlos Pérez',
-    role: 'Ortodoncista',
-    phone: '608020203',
-    email: 'carlitosperez@gmail.com',
-    colorLabel: 'Naranja',
-    colorTone: 'naranja',
-    employmentType: 'autonomo',
-    commission: '30%',
-    status: 'Activo'
-  },
-  {
-    name: 'Carlos Pérez',
-    role: 'Ortodoncista',
-    phone: '608020203',
-    email: 'carlitosperez@gmail.com',
-    colorLabel: 'Naranja',
-    colorTone: 'naranja',
-    employmentType: 'nomina',
-    salary: '2.800',
-    status: 'Activo'
-  },
-  {
-    name: 'Fernandino Fernández',
-    role: 'Odontólogo',
-    phone: '608020203',
-    email: 'fernandino@gmail.com',
-    colorLabel: 'Morado',
-    colorTone: 'morado',
-    employmentType: 'autonomo',
-    commission: '30%',
-    status: 'Activo'
-  }
-]
+function normalizeCommission(value: string | undefined): string {
+  const trimmed = String(value || '').trim()
+  if (!trimmed) return '0%'
+  return trimmed.includes('%') ? trimmed : `${trimmed}%`
+}
 
-const initialSpecialists: Specialist[] = initialSpecialistsData.map(
-  (item, idx) => ({
-    ...item,
-    id: `s${idx + 1}`
-  })
-)
+function mapProfessionalToSpecialist(professional: Professional): Specialist {
+  const employmentType = professional.employmentType || 'autonomo'
+  return {
+    id: professional.id,
+    name: professional.name,
+    role: professional.role,
+    phone: professional.phone || '—',
+    email: professional.email || '—',
+    colorLabel: professional.colorLabel,
+    colorTone: professional.colorTone,
+    employmentType,
+    commission:
+      employmentType === 'autonomo'
+        ? normalizeCommission(professional.commission)
+        : undefined,
+    salary: employmentType === 'nomina' ? professional.salary : undefined,
+    status: professional.status
+  }
+}
 
 const colorToneStyles: Record<
   Specialist['colorTone'],
@@ -402,7 +286,6 @@ function TableRow({
 
 export default function SpecialistsListPage() {
   const [showAddModal, setShowAddModal] = React.useState(false)
-  const [data, setData] = React.useState<Specialist[]>(initialSpecialists)
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
   const [editingId, setEditingId] = React.useState<string | null>(null)
 
@@ -418,8 +301,12 @@ export default function SpecialistsListPage() {
   const [showScheduleModal, setShowScheduleModal] = React.useState(false)
   const [scheduleEditingId, setScheduleEditingId] = React.useState<string | null>(null)
 
-  // Get configuration context for professionals
-  const { professionals } = useConfiguration()
+  const { professionals, addProfessional, updateProfessional, deleteProfessional } =
+    useConfiguration()
+  const data = useMemo(
+    () => professionals.map(mapProfessionalToSpecialist),
+    [professionals]
+  )
 
   // Get unique specialties from data
   const uniqueSpecialties = useMemo(() => {
@@ -526,48 +413,39 @@ export default function SpecialistsListPage() {
   const handleAddProfessional = (form: ProfessionalFormData) => {
     const colorTone = form.color
     const empType = form.employmentType || 'autonomo'
-
-    setData((prev) => [
-      ...prev,
-      {
-        id: `s${prev.length + 1}`,
-        name: form.nombre || 'Nuevo profesional',
-        role: form.especialidad || 'Especialidad',
-        phone: form.telefono || '—',
-        email: form.email || '—',
-        colorLabel: colorToneToLabel[colorTone] || 'Verde',
-        colorTone,
-        employmentType: empType,
-        commission: empType === 'autonomo' && form.comision?.trim() ? form.comision : undefined,
-        salary: empType === 'nomina' && form.salary?.trim() ? form.salary : undefined,
-        status: form.estado
-      }
-    ])
+    addProfessional({
+      name: form.nombre || 'Nuevo profesional',
+      role: form.especialidad || 'Especialidad',
+      phone: form.telefono || '',
+      email: form.email || '',
+      colorLabel: colorToneToLabel[colorTone] || 'Verde',
+      colorTone,
+      employmentType: empType,
+      commission:
+        empType === 'autonomo' ? normalizeCommission(form.comision) : '0%',
+      salary: empType === 'nomina' ? String(form.salary || '').trim() : undefined,
+      status: form.estado
+    })
     setShowAddModal(false)
   }
 
   const handleEditProfessional = (form: ProfessionalFormData) => {
+    if (!editingId) return
     const colorTone = form.color
     const empType = form.employmentType || 'autonomo'
-    setData((prev) =>
-      prev.map((s) =>
-        s.id === editingId
-          ? {
-              ...s,
-              name: form.nombre || s.name,
-              role: form.especialidad || s.role,
-              phone: form.telefono || s.phone,
-              email: form.email || s.email,
-              colorLabel: colorToneToLabel[colorTone] || 'Verde',
-              colorTone,
-              employmentType: empType,
-              commission: empType === 'autonomo' && form.comision?.trim() ? form.comision : undefined,
-              salary: empType === 'nomina' && form.salary?.trim() ? form.salary : undefined,
-              status: form.estado
-            }
-          : s
-      )
-    )
+    updateProfessional(editingId, {
+      name: form.nombre || 'Profesional',
+      role: form.especialidad || 'Profesional',
+      phone: form.telefono || '',
+      email: form.email || '',
+      colorLabel: colorToneToLabel[colorTone] || 'Verde',
+      colorTone,
+      employmentType: empType,
+      commission:
+        empType === 'autonomo' ? normalizeCommission(form.comision) : '0%',
+      salary: empType === 'nomina' ? String(form.salary || '').trim() : undefined,
+      status: form.estado
+    })
     setShowAddModal(false)
     setEditingId(null)
   }
@@ -589,10 +467,8 @@ export default function SpecialistsListPage() {
 
   const handleDeactivateSelected = () => {
     if (selectionCount === 0) return
-    setData((prev) =>
-      prev.map((s) =>
-        selectedIds.has(s.id) ? { ...s, status: 'Inactivo' as const } : s
-      )
+    Array.from(selectedIds).forEach((id) =>
+      updateProfessional(id, { status: 'Inactivo' })
     )
     setSelectedIds(new Set())
   }
@@ -606,7 +482,7 @@ export default function SpecialistsListPage() {
         }?`
       )
     ) {
-      setData((prev) => prev.filter((s) => !selectedIds.has(s.id)))
+      Array.from(selectedIds).forEach((id) => deleteProfessional(id))
       setSelectedIds(new Set())
     }
   }
