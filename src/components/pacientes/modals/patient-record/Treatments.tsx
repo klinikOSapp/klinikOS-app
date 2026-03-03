@@ -65,8 +65,8 @@ function convertPatientTreatmentToV2(
     pieza: toothNumber,
     codigo: treatment.code,
     tratamiento: treatment.description,
-    precio: treatment.amountFormatted,
-    importe: treatment.amountFormatted,
+    precio: treatment.amountFormatted ?? '0 €',
+    importe: treatment.amountFormatted ?? '0 €',
     descuento: '0 €',
     porcentajeDescuento: 0,
     descripcionAnotaciones: treatment.notes || '',
@@ -843,7 +843,7 @@ export default function Treatments({
           amount: parseEuroStringToCents(t.precio),
           paidAmount: 0,
           status: 'Pendiente',
-          paymentStatus: 'Unpaid',
+          paymentStatus: 'Sin pagar',
           professional: t.doctor,
           markedForNextAppointment: false
         })
@@ -917,7 +917,7 @@ export default function Treatments({
           amount: parseEuroStringToCents(entry.amount),
           paidAmount: 0,
           status: 'Pendiente',
-          paymentStatus: 'Unpaid',
+          paymentStatus: 'Sin pagar',
           professional: doctor,
           markedForNextAppointment: false
         })
@@ -1087,7 +1087,7 @@ export default function Treatments({
           amount: 0,
           paidAmount: 0,
           status: 'Pendiente',
-          paymentStatus: 'Unpaid',
+          paymentStatus: 'Sin pagar',
           markedForNextAppointment: false
         })
         if (created) {

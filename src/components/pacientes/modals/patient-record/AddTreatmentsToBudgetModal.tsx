@@ -880,7 +880,7 @@ export default function AddTreatmentsToBudgetModal({
           amount: parseEuroStringToCents(t.precio),
           paidAmount: 0,
           status: 'Pendiente',
-          paymentStatus: 'Unpaid',
+          paymentStatus: 'Sin pagar',
           professional: t.doctor,
           markedForNextAppointment: false
         })

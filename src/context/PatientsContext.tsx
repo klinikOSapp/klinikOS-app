@@ -120,7 +120,7 @@ export type PatientTreatment = {
   scheduledDate?: string // Fecha programada (ISO)
   completedDate?: string // Fecha realización (ISO)
   amount: number // Precio en céntimos o como número
-  amountFormatted: string // Precio formateado (ej: "72 €")
+  amountFormatted?: string // Precio formateado (ej: "72 €") — computed from amount, not required as input
   status: TreatmentStatus
   paymentStatus: TreatmentPaymentStatus
   paidAmount: number // Cantidad ya pagada

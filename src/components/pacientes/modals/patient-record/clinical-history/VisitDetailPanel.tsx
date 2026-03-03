@@ -97,7 +97,7 @@ export default function VisitDetailPanel({
     .map((t) => ({
       id: t.id,
       description: t.description,
-      amount: t.amountFormatted,
+      amount: t.amountFormatted ?? '0 €',
       pieceNumber: t.tooth ? Number(t.tooth) : undefined,
       completedAt: t.completedDate ?? undefined,
       completedBy: t.professional ?? undefined,
