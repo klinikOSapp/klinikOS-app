@@ -200,9 +200,35 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     }
   }, [activeClinicId, supabase])
 
+  // Keep a ref to the latest refreshClinics so the auth subscription
+  // always calls the current version without needing it as a dependency.
+  const latestRefreshClinics = React.useRef(refreshClinics)
+  React.useEffect(() => {
+    latestRefreshClinics.current = refreshClinics
+  })
+
   React.useEffect(() => {
     void refreshClinics()
   }, [refreshClinics])
+
+  // Re-fetch clinics whenever the Supabase auth state changes (e.g. after
+  // signInWithPassword succeeds and the app does a client-side navigation
+  // without remounting providers).
+  React.useEffect(() => {
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        void latestRefreshClinics.current()
+      }
+      if (event === 'SIGNED_OUT') {
+        setClinics([])
+        setActiveClinicIdState(null)
+        setIsInitialized(true)
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [supabase])
 
   const activeClinic = React.useMemo(
     () => clinics.find((clinic) => clinic.id === activeClinicId) || null,
