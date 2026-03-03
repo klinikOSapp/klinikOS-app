@@ -76,6 +76,7 @@ type BudgetsPaymentsProps = {
   budgetRows?: BudgetRow[]
   onAddBudget?: (budget: BudgetRow) => void
   onUpdateBudgetRows?: (rows: BudgetRow[]) => void
+  onPatientUpdated?: () => void
 }
 
 type ActionMenuItem = {
@@ -2245,7 +2246,8 @@ export default function BudgetsPayments({
   patientName,
   budgetRows: externalBudgetRows,
   onAddBudget,
-  onUpdateBudgetRows
+  onUpdateBudgetRows,
+  onPatientUpdated
 }: BudgetsPaymentsProps) {
   const router = useRouter()
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
@@ -5712,6 +5714,7 @@ export default function BudgetsPayments({
                 await refreshFinanceData()
                 setShowRegisterPaymentModal(false)
                 setSelectedInvoiceRow(null)
+                onPatientUpdated?.()
                 return { ok: true }
               } catch (error) {
                 return {

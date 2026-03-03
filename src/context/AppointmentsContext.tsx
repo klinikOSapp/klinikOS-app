@@ -1036,27 +1036,35 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
       noteType: string,
       content: string,
       contentJson?: Record<string, unknown> | unknown[]
-    ) => {
+    ): Promise<boolean> => {
       const numericAppointmentId = Number(appointmentId)
       const staffId = staffIdRef.current
-      if (!patientId || !staffId || Number.isNaN(numericAppointmentId)) return
+      if (!patientId || !staffId || Number.isNaN(numericAppointmentId)) return false
 
       try {
         const supabase = createSupabaseBrowserClient()
-        const { error } = await supabase.from('appointment_notes').insert({
-          appointment_id: numericAppointmentId,
-          patient_id: patientId,
-          staff_id: staffId,
-          note_type: noteType,
-          content,
-          content_json: contentJson ?? null
-        })
+        const { error } = await supabase
+          .from('appointment_notes')
+          .upsert(
+            {
+              appointment_id: numericAppointmentId,
+              patient_id: patientId,
+              staff_id: staffId,
+              note_type: noteType,
+              content,
+              content_json: contentJson ?? null
+            },
+            { onConflict: 'appointment_id,note_type' }
+          )
 
         if (error) {
           console.warn(`No se pudo persistir nota ${noteType} en DB`, error)
+          return false
         }
+        return true
       } catch (error) {
         console.warn(`Error persistiendo nota ${noteType} en DB`, error)
+        return false
       }
     },
     []
@@ -2228,15 +2236,22 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
           }
         })
       })
-      console.log(`✅ Notas SOAP actualizadas para cita ${appointmentId}`)
 
-      void persistAppointmentNote(
-        appointmentId,
-        patientId,
-        'soap',
-        'SOAP note',
-        notes as unknown as Record<string, unknown>
-      )
+      void (async () => {
+        const ok = await persistAppointmentNote(
+          appointmentId,
+          patientId,
+          'soap',
+          'SOAP note',
+          notes as unknown as Record<string, unknown>
+        )
+        if (!ok) {
+          console.error(
+            `❌ Notas SOAP de cita ${appointmentId} no se guardaron en DB. ` +
+              'Los cambios son visibles localmente pero se perderán al recargar.'
+          )
+        }
+      })()
     },
     [persistAppointmentNote]
   )

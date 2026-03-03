@@ -44,9 +44,19 @@ export async function POST(req: Request) {
     }
 
     if (patient && Object.keys(patient).length > 0) {
-      const { error: updateError } = await supabase.from('patients').update(patient).eq('id', patientId)
+      const { data: updatedRows, error: updateError } = await supabase
+        .from('patients')
+        .update(patient)
+        .eq('id', patientId)
+        .select('id')
       if (updateError) {
         return NextResponse.json({ error: updateError.message }, { status: 400 })
+      }
+      if (!updatedRows?.length) {
+        return NextResponse.json(
+          { error: 'No se pudo actualizar el paciente (sin filas afectadas)' },
+          { status: 403 }
+        )
       }
     }
 

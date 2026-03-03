@@ -376,6 +376,7 @@ export default function PatientRecordModal({
                       onEditModeOpened={() => setShouldOpenClinicalEdit(false)}
                       patientId={patientId}
                       patientName={patientName}
+                      onPatientUpdated={onPatientUpdated}
                     />
                   )}
                   {active === 'Tratamientos' && (
@@ -388,6 +389,7 @@ export default function PatientRecordModal({
                       onAddTreatmentOpened={() =>
                         setShouldOpenAddTreatment(false)
                       }
+                      onPatientUpdated={onPatientUpdated}
                     />
                   )}
                   {active === 'Imágenes RX' && (
@@ -403,6 +405,7 @@ export default function PatientRecordModal({
                       budgetRows={budgetRows}
                       onAddBudget={handleAddBudget}
                       onUpdateBudgetRows={handleUpdateBudgetRows}
+                      onPatientUpdated={onPatientUpdated}
                     />
                   )}
                   {active === 'Documentos' && (

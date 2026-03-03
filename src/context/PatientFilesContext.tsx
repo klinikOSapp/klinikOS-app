@@ -154,7 +154,7 @@ function mapConsentStatusToDb(status: PatientFile['consentStatus']): string {
 type PatientFilesContextType = {
   files: PatientFile[]
   // CRUD operations
-  addFile: (file: Omit<PatientFile, 'id'>) => string
+  addFile: (file: Omit<PatientFile, 'id'>, onError?: (tempId: string, error: unknown) => void) => string
   updateFile: (id: string, updates: Partial<PatientFile>) => void
   deleteFile: (id: string) => void
   // Query operations
@@ -287,7 +287,8 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
   }, [activeClinicId, isClinicInitialized])
 
   // Add a new file
-  const addFile = useCallback((fileData: Omit<PatientFile, 'id'>): string => {
+  const addFile = useCallback(
+    (fileData: Omit<PatientFile, 'id'>, onError?: (tempId: string, error: unknown) => void): string => {
     const newId = `pf-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     const newFile: PatientFile = {
       ...fileData,
@@ -303,7 +304,11 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
           data: { session }
         } = await supabase.auth.getSession()
 
-        if (!session) return
+        if (!session) {
+          setFiles((prev) => prev.filter((f) => f.id !== newId))
+          onError?.(newId, new Error('No autenticado'))
+          return
+        }
         const staffId = session.user.id
 
         if (fileData.type === 'consent') {
@@ -324,6 +329,8 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
 
           if (error || !inserted) {
             console.warn('No se pudo persistir patient_consent en DB', error)
+            setFiles((prev) => prev.filter((f) => f.id !== newId))
+            onError?.(newId, error ?? new Error('Insert sin datos'))
             return
           }
 
@@ -359,6 +366,8 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
 
         if (error || !inserted) {
           console.warn('No se pudo persistir clinical_attachment en DB', error)
+          setFiles((prev) => prev.filter((f) => f.id !== newId))
+          onError?.(newId, error ?? new Error('Insert sin datos'))
           return
         }
 
@@ -371,6 +380,8 @@ export function PatientFilesProvider({ children }: { children: ReactNode }) {
         )
       } catch (error) {
         console.warn('Error persistiendo archivo en DB', error)
+        setFiles((prev) => prev.filter((f) => f.id !== newId))
+        onError?.(newId, error)
       }
     })()
 

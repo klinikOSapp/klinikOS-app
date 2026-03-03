@@ -250,6 +250,19 @@ export default function ClientSummary({
   // Estado de edición
   const [isEditing, setIsEditing] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
+  const [saveNotice, setSaveNotice] = React.useState<{
+    message: string
+    variant: 'success' | 'error'
+  } | null>(null)
+  const saveNoticeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showSaveNotice = React.useCallback(
+    (message: string, variant: 'success' | 'error') => {
+      if (saveNoticeTimerRef.current) clearTimeout(saveNoticeTimerRef.current)
+      setSaveNotice({ message, variant })
+      saveNoticeTimerRef.current = setTimeout(() => setSaveNotice(null), 3200)
+    },
+    []
+  )
 
   // Estados para todos los campos editables
   const [formData, setFormData] = React.useState(initialPatientData)
@@ -575,8 +588,12 @@ export default function ClientSummary({
       setTempFormData(nextData)
       setIsEditing(false)
       onPatientUpdated?.()
+      showSaveNotice('Guardado correctamente', 'success')
     } catch (error) {
       console.error('Error saving patient summary', error)
+      const message =
+        error instanceof Error ? error.message : 'No se pudo guardar. Inténtalo de nuevo.'
+      showSaveNotice(message, 'error')
     } finally {
       setIsSaving(false)
     }
@@ -1111,30 +1128,46 @@ export default function ClientSummary({
           </button>
         ) : (
           <div
-            className='absolute flex gap-[0.5rem] top-[14.125rem]'
+            className='absolute flex flex-col gap-[0.5rem] top-[14.125rem]'
             style={{ left: 'calc(80% + 1rem)' }}
           >
-            <button
-              type='button'
-              onClick={handleCancel}
-              className='bg-[#f8fafb] box-border flex gap-[0.5rem] items-center justify-center px-[0.75rem] py-[0.25rem] rounded-[1rem] cursor-pointer hover:bg-[var(--color-neutral-100)] transition-colors border border-[var(--color-neutral-300)]'
-            >
-              <CloseRounded className='size-4 text-[var(--color-neutral-700)]' />
-              <span className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] text-[var(--color-neutral-700)] text-[0.875rem]">
-                Cancelar
-              </span>
-            </button>
-            <button
-              type='button'
-              onClick={handleSave}
-              disabled={isSaving}
-              className='bg-[var(--color-brand-500)] box-border flex gap-[0.5rem] items-center justify-center px-[0.75rem] py-[0.25rem] rounded-[1rem] cursor-pointer hover:bg-[var(--color-brand-600)] transition-colors'
-            >
-              <CheckRounded className='size-4 text-white' />
-              <span className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] text-white text-[0.875rem]">
-                {isSaving ? 'Guardando...' : 'Guardar'}
-              </span>
-            </button>
+            <div className='flex gap-[0.5rem]'>
+              <button
+                type='button'
+                onClick={handleCancel}
+                className='bg-[#f8fafb] box-border flex gap-[0.5rem] items-center justify-center px-[0.75rem] py-[0.25rem] rounded-[1rem] cursor-pointer hover:bg-[var(--color-neutral-100)] transition-colors border border-[var(--color-neutral-300)]'
+              >
+                <CloseRounded className='size-4 text-[var(--color-neutral-700)]' />
+                <span className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] text-[var(--color-neutral-700)] text-[0.875rem]">
+                  Cancelar
+                </span>
+              </button>
+              <button
+                type='button'
+                onClick={handleSave}
+                disabled={isSaving}
+                className='bg-[var(--color-brand-500)] box-border flex gap-[0.5rem] items-center justify-center px-[0.75rem] py-[0.25rem] rounded-[1rem] cursor-pointer hover:bg-[var(--color-brand-600)] transition-colors disabled:opacity-60'
+              >
+                <CheckRounded className='size-4 text-white' />
+                <span className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] text-white text-[0.875rem]">
+                  {isSaving ? 'Guardando...' : 'Guardar'}
+                </span>
+              </button>
+            </div>
+            {saveNotice && (
+              <div
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-body-sm ${
+                  saveNotice.variant === 'success'
+                    ? 'bg-[var(--color-success-100)] text-[var(--color-success-700)]'
+                    : 'bg-[var(--color-error-100)] text-[var(--color-error-700)]'
+                }`}
+              >
+                <span className='material-symbols-rounded text-base'>
+                  {saveNotice.variant === 'success' ? 'check_circle' : 'error'}
+                </span>
+                <span>{saveNotice.message}</span>
+              </div>
+            )}
           </div>
         ))}
     </div>

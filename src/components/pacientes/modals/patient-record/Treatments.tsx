@@ -597,6 +597,7 @@ type TreatmentsProps = {
   patientName?: string
   openAddTreatment?: boolean
   onAddTreatmentOpened?: () => void
+  onPatientUpdated?: () => void
 }
 
 export default function Treatments({
@@ -607,7 +608,8 @@ export default function Treatments({
   patientId,
   patientName,
   openAddTreatment,
-  onAddTreatmentOpened
+  onAddTreatmentOpened,
+  onPatientUpdated
 }: TreatmentsProps) {
   const router = useRouter()
 
@@ -1039,6 +1041,7 @@ export default function Treatments({
     })
 
     setActiveMenu(null)
+    onPatientUpdated?.()
   }
 
   // Handler para cancelar tratamiento

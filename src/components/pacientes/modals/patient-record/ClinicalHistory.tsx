@@ -32,6 +32,7 @@ type ClinicalHistoryProps = {
   onEditModeOpened?: () => void
   patientId?: string
   patientName?: string
+  onPatientUpdated?: () => void
 }
 
 function getTodayInTimezone(timeZone: string): string {
@@ -47,7 +48,8 @@ export default function ClinicalHistory({
   initialEditMode = false,
   onEditModeOpened,
   patientId,
-  patientName
+  patientName,
+  onPatientUpdated
 }: ClinicalHistoryProps) {
   const {
     getAppointmentsByPatient,
@@ -604,6 +606,7 @@ export default function ClinicalHistory({
                   visitStatus: 'completed',
                   completed: true
                 })
+                onPatientUpdated?.()
               }}
               onTreatmentStatusChange={handleTableTreatmentStatusChange}
             />
