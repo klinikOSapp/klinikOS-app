@@ -17,21 +17,35 @@ export function TextInput({
   placeholder = 'Value',
   required,
   value,
-  onChange
+  onChange,
+  onBlur,
+  onKeyDown,
+  type,
+  error
 }: {
   placeholder?: string
   required?: boolean
   value?: string
   onChange?: (v: string) => void
+  onBlur?: () => void
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
+  type?: string
+  error?: string
 }) {
   return (
     <div className='relative'>
       <input
         placeholder={placeholder}
+        type={type}
         className='w-full h-12 rounded-[0.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5 text-body-md text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)] outline-none'
         value={value}
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
       />
+      {error && (
+        <p className='text-label-sm text-[var(--color-error-600)] mt-1'>{error}</p>
+      )}
       {required && (
         <span className='absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-error-600)] text-body-md leading-none'>
           *
@@ -85,9 +99,11 @@ export function SelectInput({
     return undefined
   }, [isOpen])
 
+  const selectedLabel = options?.find((opt) => opt.value === value)?.label ?? ''
+  const isSearching = inputValue !== '' && inputValue !== selectedLabel
   const filteredOptions =
     options?.filter((opt) =>
-      inputValue
+      isSearching
         ? opt.label.toLowerCase().includes(inputValue.toLowerCase())
         : true
     ) ?? []

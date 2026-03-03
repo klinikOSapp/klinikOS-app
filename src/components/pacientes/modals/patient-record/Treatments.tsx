@@ -28,6 +28,7 @@ import {
   FAMILY_TO_SPECIALTY,
   TREATMENT_CATALOG
 } from '@/components/pacientes/shared/treatmentTypes'
+import { useClinic } from '@/context/ClinicContext'
 import { useConfiguration } from '@/context/ConfigurationContext'
 import { usePatients, type PatientTreatment } from '@/context/PatientsContext'
 import { setPendingAppointmentData } from '@/utils/appointmentPrefill'
@@ -36,6 +37,18 @@ import React from 'react'
 import AddTreatmentsToBudgetModal from './AddTreatmentsToBudgetModal'
 import BudgetTypeListModal from './BudgetTypeListModal'
 import type { BudgetRow } from './BudgetsPayments'
+
+// Parse a formatted euro string like "500 €" or "2.300 €" to integer cents
+// Used because TreatmentCatalogEntry.amount is a display string but addTreatment expects cents
+function parseEuroStringToCents(s: string | number | undefined | null): number {
+  if (s == null) return 0
+  if (typeof s === 'number') return Math.round(s * 100)
+  // European format: "." is thousands separator, "," is decimal separator
+  const clean = s.replace(/[€\s]/g, '').replace(/\./g, '').replace(',', '.')
+  const euros = parseFloat(clean)
+  if (isNaN(euros)) return 0
+  return Math.round(euros * 100)
+}
 
 // Helper para convertir PatientTreatment del contexto a TreatmentV2 para la tabla
 function convertPatientTreatmentToV2(
@@ -630,11 +643,15 @@ export default function Treatments({
     [activeProfessionals]
   )
 
+  // Contexto de clínica
+  const { activeClinicId } = useClinic()
+
   // Contexto de pacientes
   const {
     getPendingTreatments,
     getTreatmentsByPatient,
     toggleTreatmentForNextAppointment,
+    addTreatment,
     updateTreatment
   } = usePatients()
 
@@ -804,7 +821,7 @@ export default function Treatments({
       selected: false
     }))
 
-    // Añadir a tratamientos pendientes
+    // Añadir a tratamientos pendientes (optimistic UI)
     setPendingTreatments((prev) => [...prev, ...newTreatments])
 
     // Actualizar el odontograma
@@ -815,6 +832,23 @@ export default function Treatments({
       })
       return newState
     })
+
+    // Persistir cada tratamiento en la DB
+    if (patientId) {
+      newTreatments.forEach((t) => {
+        void addTreatment(patientId, {
+          code: t.codigo,
+          description: t.tratamiento,
+          tooth: t.pieza != null ? String(t.pieza) : undefined,
+          amount: parseEuroStringToCents(t.precio),
+          paidAmount: 0,
+          status: 'Pendiente',
+          paymentStatus: 'Unpaid',
+          professional: t.doctor,
+          markedForNextAppointment: false
+        })
+      })
+    }
 
     // Limpiar estados
     setSelectedTeeth([])
@@ -849,8 +883,10 @@ export default function Treatments({
     codigo: string,
     entry: TreatmentCatalogEntry
   ) => {
+    const tempId = `new-${Date.now()}-${Math.random()}`
+    const doctor = getSmartDoctor(entry.familia)
     const newTreatment: TreatmentV2 = {
-      _internalId: `new-${Date.now()}-${Math.random()}`,
+      _internalId: tempId,
       pieza: undefined,
       codigo,
       tratamiento: entry.description,
@@ -858,7 +894,7 @@ export default function Treatments({
       importe: entry.amount,
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: getSmartDoctor(entry.familia),
+      doctor,
       selected: false
     }
 
@@ -866,11 +902,35 @@ export default function Treatments({
     setPendingTreatments((prev) => [...prev, newTreatment])
 
     // Marcar como nueva fila para hacer scroll y focus
-    setNewRowId(newTreatment._internalId)
+    setNewRowId(tempId)
 
     // Limpiar cualquier selección previa del catálogo
     setSelectedCatalogTreatment(null)
     setSelectedTeeth([])
+
+    // Persist to DB immediately so subsequent cell edits use updateTreatment
+    if (patientId) {
+      void (async () => {
+        const created = await addTreatment(patientId, {
+          code: codigo,
+          description: entry.description,
+          amount: parseEuroStringToCents(entry.amount),
+          paidAmount: 0,
+          status: 'Pendiente',
+          paymentStatus: 'Unpaid',
+          professional: doctor,
+          markedForNextAppointment: false
+        })
+        if (created) {
+          setPendingTreatments((prev) =>
+            prev.map((t) =>
+              t._internalId === tempId ? { ...t, _internalId: created.id } : t
+            )
+          )
+          setNewRowId(created.id)
+        }
+      })()
+    }
   }
 
   const toggleSelection = (
@@ -918,6 +978,46 @@ export default function Treatments({
         )
       )
     }
+
+    // Persist to DB for treatments that have a real DB ID
+    if (
+      patientId &&
+      !internalId.startsWith('TR-EMPTY-') &&
+      !internalId.startsWith('new-')
+    ) {
+      const dbUpdate: Partial<PatientTreatment> = {}
+      switch (field) {
+        case 'codigo':
+          dbUpdate.code = String(value || '')
+          break
+        case 'tratamiento':
+          dbUpdate.description = String(value || 'Tratamiento')
+          break
+        case 'pieza':
+          dbUpdate.tooth = value != null ? String(value) : undefined
+          break
+        case 'cara':
+          dbUpdate.toothFace = value ? String(value) : undefined
+          break
+        case 'precio':
+          dbUpdate.amount = parseEuroStringToCents(String(value || ''))
+          break
+        case 'importe':
+          dbUpdate.amount = parseEuroStringToCents(String(value || ''))
+          break
+        case 'doctor':
+          dbUpdate.professional = value ? String(value) : undefined
+          break
+        case 'descripcionAnotaciones':
+          dbUpdate.notes = value ? String(value) : undefined
+          break
+        default:
+          break
+      }
+      if (Object.keys(dbUpdate).length > 0) {
+        updateTreatment(patientId, internalId, dbUpdate)
+      }
+    }
   }
 
   // Actualizar múltiples campos a la vez (para autocompletado del catálogo)
@@ -939,15 +1039,33 @@ export default function Treatments({
         )
       )
     }
+
+    // Persist to DB for treatments that have a real DB ID
+    if (
+      patientId &&
+      !internalId.startsWith('TR-EMPTY-') &&
+      !internalId.startsWith('new-')
+    ) {
+      const dbUpdate: Partial<PatientTreatment> = {}
+      if (updates.codigo !== undefined) dbUpdate.code = updates.codigo
+      if (updates.tratamiento !== undefined) dbUpdate.description = updates.tratamiento || 'Tratamiento'
+      if (updates.precio !== undefined) dbUpdate.amount = parseEuroStringToCents(updates.precio)
+      if (updates.importe !== undefined) dbUpdate.amount = parseEuroStringToCents(updates.importe)
+      if (updates.doctor !== undefined) dbUpdate.professional = updates.doctor || undefined
+      if (updates.descripcionAnotaciones !== undefined) dbUpdate.notes = updates.descripcionAnotaciones || undefined
+      if (Object.keys(dbUpdate).length > 0) {
+        updateTreatment(patientId, internalId, dbUpdate)
+      }
+    }
   }
 
   // Handler para añadir fila vacía
   const handleAddEmptyRow = React.useCallback(() => {
-    const newId = `TR-EMPTY-${Date.now()}-${Math.random()
+    const tempId = `TR-EMPTY-${Date.now()}-${Math.random()
       .toString(36)
       .substr(2, 9)}`
     const newTreatment: TreatmentV2 = {
-      _internalId: newId,
+      _internalId: tempId,
       codigo: '',
       tratamiento: '',
       precio: '0 €',
@@ -958,8 +1076,32 @@ export default function Treatments({
       selected: false
     }
     setPendingTreatments((prev) => [...prev, newTreatment])
-    setNewRowId(newId)
-  }, [])
+    setNewRowId(tempId)
+
+    // Persist to DB immediately so subsequent cell edits use updateTreatment
+    if (patientId) {
+      void (async () => {
+        const created = await addTreatment(patientId, {
+          code: '',
+          description: 'Tratamiento',
+          amount: 0,
+          paidAmount: 0,
+          status: 'Pendiente',
+          paymentStatus: 'Unpaid',
+          markedForNextAppointment: false
+        })
+        if (created) {
+          // Swap temp ID for real DB ID so updateField will persist edits
+          setPendingTreatments((prev) =>
+            prev.map((t) =>
+              t._internalId === tempId ? { ...t, _internalId: created.id } : t
+            )
+          )
+          setNewRowId(created.id)
+        }
+      })()
+    }
+  }, [patientId, addTreatment])
 
   // Effect to auto-add empty row when navigating from Resumen with "add treatment" action
   React.useEffect(() => {
@@ -1616,10 +1758,47 @@ export default function Treatments({
         }}
         treatments={budgetTypeTreatments || pendingTreatments}
         initialBudgetName={budgetTypeName}
+        patientName={patientName}
+        patientId={patientId}
         onCreateBudget={(treatments, budgetInfo) => {
-          // Create budget row and add to the budgets table
+          // Save budget to DB via API route, then signal BudgetsPayments to refresh
+          if (patientId && activeClinicId) {
+            void (async () => {
+              try {
+                const response = await fetch('/api/pacientes/budgets/create', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    clinicId: activeClinicId,
+                    patientId,
+                    budgetName: budgetInfo.name,
+                    totalAmount: budgetInfo.total,
+                    treatments: treatments.map((t) => ({
+                      codigo: t.codigo,
+                      tratamiento: t.tratamiento,
+                      precio: t.precio,
+                      importe: t.importe,
+                      porcentajeDescuento: t.porcentajeDescuento,
+                      pieza: t.pieza,
+                      cara: t.cara,
+                      doctor: t.doctor,
+                      importeSeguro: t.importeSeguro
+                    }))
+                  })
+                })
+                if (!response.ok) {
+                  const err = await response.json().catch(() => ({}))
+                  console.error('Error saving budget to DB', err)
+                }
+              } catch (error) {
+                console.error('Error calling budget create API', error)
+              }
+            })()
+          }
+
+          // Build a local BudgetRow and call onAddBudget — this increments
+          // financeRefreshKey in PatientRecordModal, causing BudgetsPayments to re-fetch
           if (onAddBudget) {
-            // Calculate validity date (30 days from now)
             const validUntilDate = new Date()
             validUntilDate.setDate(validUntilDate.getDate() + 30)
 
@@ -1638,7 +1817,6 @@ export default function Treatments({
               status: 'Pendiente',
               professional: treatments[0]?.doctor || '',
               insurer: '',
-              // Extended fields
               subtotal: budgetInfo.subtotal,
               generalDiscount:
                 budgetInfo.generalDiscountAmount > 0

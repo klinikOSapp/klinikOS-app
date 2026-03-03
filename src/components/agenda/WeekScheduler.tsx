@@ -4334,7 +4334,8 @@ export default function WeekScheduler() {
     boxOptions,
     getAvailableProfessionalsForDate,
     getProfessionalScheduleForDate,
-    activeProfessionals
+    activeProfessionals,
+    getProfessionalById
   } = useConfiguration()
 
   // Hook del contexto de citas compartido para sincronización con Parte Diario
@@ -6378,13 +6379,23 @@ export default function WeekScheduler() {
       delete (window as unknown as Record<string, unknown>).__voiceAgentPrefill
     }
 
+    // Resolve professional UUID → display name
+    const resolvedProfessionalName = data.responsable
+      ? (getProfessionalById(data.responsable)?.name ?? data.responsable)
+      : 'Profesional'
+
+    // Resolve box UUID → display label (formData.box now stores the box ID)
+    const resolvedBoxLabel = data.box
+      ? (boxOptions.find((b) => b.id === data.box)?.label ?? data.box)
+      : 'Box 1'
+
     const newEvent: AgendaEvent = {
       id: eventId,
       top: `${topRem}rem`,
       height: `${heightRem}rem`,
       title: eventTitle,
       patient: data.paciente || 'Paciente',
-      box: data.box || 'Box 1',
+      box: resolvedBoxLabel,
       timeRange: `${data.hora} - ${endTime}`,
       backgroundClass: voiceAgentPrefill?.createdByVoiceAgent
         ? 'bg-[var(--color-event-ai-bg)]'
@@ -6398,7 +6409,7 @@ export default function WeekScheduler() {
         date: data.fecha,
         duration: `${data.hora} - ${endTime} (${durationMinutes} minutos)`,
         patientFull: data.paciente || 'Paciente',
-        professional: data.responsable || 'Profesional',
+        professional: resolvedProfessionalName,
         notes: data.observaciones || 'Sin notas',
         locationLabel: 'Fecha y ubicación',
         patientLabel: 'Paciente',
@@ -6428,12 +6439,14 @@ export default function WeekScheduler() {
       patientName: data.paciente || 'Paciente',
       patientId: data.pacienteId || undefined,
       patientPhone: voiceAgentPrefill?.pacientePhone || '', // From voice agent or empty
-      professional: data.responsable || 'Profesional',
+      professional: resolvedProfessionalName,
+      professionalId: data.responsable || undefined,
       reason: reason,
       status: voiceAgentPrefill?.createdByVoiceAgent
         ? 'Pendiente IA'
         : 'No confirmada',
-      box: data.box || 'box 1',
+      box: resolvedBoxLabel,
+      boxId: data.box || undefined,
       charge: 'No',
       bgColor: voiceAgentPrefill?.createdByVoiceAgent
         ? 'var(--color-event-ai-bg)'

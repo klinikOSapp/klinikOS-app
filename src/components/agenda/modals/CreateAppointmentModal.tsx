@@ -599,7 +599,7 @@ export default function CreateAppointmentModal({
       .map((t) => ({
         id: t.id,
         description: t.description,
-        amount: String(t.amount)
+        amount: (t.amount / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €'
       }))
   }, [pendingTreatments])
 
@@ -771,10 +771,11 @@ export default function CreateAppointmentModal({
   )
 
   // Boxes from configuration context - MUST be before early return to avoid hooks order change
+  // value = b.id (UUID) so the caller can pass the ID directly to the DB without label lookup
   const boxes = useMemo(
     () =>
       activeBoxes.map((b) => ({
-        value: b.label.toLowerCase(),
+        value: b.id,
         label: b.label
       })),
     [activeBoxes]
@@ -1145,7 +1146,7 @@ export default function CreateAppointmentModal({
                             </div>
                             <div className='text-right'>
                               <p className='text-sm font-semibold text-gray-900'>
-                                {treatment.amount}
+                                {(treatment.amount / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
                               </p>
                             </div>
                           </button>

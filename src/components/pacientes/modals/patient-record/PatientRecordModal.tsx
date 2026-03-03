@@ -68,10 +68,13 @@ export default function PatientRecordModal({
   // === Shared budget state (elevated from BudgetsPayments) ===
   const [budgetRows, setBudgetRows] =
     React.useState<BudgetRow[]>(INITIAL_BUDGET_ROWS)
+  const [financeRefreshKey, setFinanceRefreshKey] = React.useState(0)
 
   // Handler to add a new budget (shared between Treatments and BudgetsPayments)
+  // Also increments financeRefreshKey so BudgetsPayments re-fetches from DB
   const handleAddBudget = React.useCallback((budget: BudgetRow) => {
     setBudgetRows((prev) => [budget, ...prev])
+    setFinanceRefreshKey((k) => k + 1)
   }, [])
 
   // Handler to update all budget rows
@@ -406,6 +409,7 @@ export default function PatientRecordModal({
                       onAddBudget={handleAddBudget}
                       onUpdateBudgetRows={handleUpdateBudgetRows}
                       onPatientUpdated={onPatientUpdated}
+                      refreshKey={financeRefreshKey}
                     />
                   )}
                   {active === 'Documentos' && (

@@ -29,6 +29,7 @@ import {
   TREATMENT_CATALOG
 } from '@/components/pacientes/shared/treatmentTypes'
 import { useConfiguration } from '@/context/ConfigurationContext'
+import { usePatients } from '@/context/PatientsContext'
 import {
   downloadDocument,
   formatBudgetFilename,
@@ -38,6 +39,16 @@ import {
 } from '@/utils/exportUtils'
 import React, { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+
+// Parse a formatted euro string like "500 €" or "2.300 €" to integer cents
+function parseEuroStringToCents(s: string | number | undefined | null): number {
+  if (s == null) return 0
+  if (typeof s === 'number') return Math.round(s * 100)
+  const clean = s.replace(/[€\s]/g, '').replace(/\./g, '').replace(',', '.')
+  const euros = parseFloat(clean)
+  if (isNaN(euros)) return 0
+  return Math.round(euros * 100)
+}
 
 // ============================================
 // Mock Data - Formato TreatmentV2
@@ -580,6 +591,8 @@ type AddTreatmentsToBudgetModalProps = {
   treatments?: TreatmentV2[]
   initialBudgetName?: string
   mode?: 'budget' | 'budgetType'
+  patientName?: string
+  patientId?: string
 }
 
 export default function AddTreatmentsToBudgetModal({
@@ -589,9 +602,12 @@ export default function AddTreatmentsToBudgetModal({
   onCreateBudgetType,
   treatments: initialTreatments = PENDING_TREATMENTS_V2,
   initialBudgetName = '',
-  mode = 'budget'
+  mode = 'budget',
+  patientName: patientNameProp,
+  patientId
 }: AddTreatmentsToBudgetModalProps) {
   const { professionalNameOptions, activeProfessionals } = useConfiguration()
+  const { addTreatment } = usePatients()
 
   const getSmartDoctor = React.useCallback(
     (familia?: string): string | undefined => {
@@ -824,6 +840,7 @@ export default function AddTreatmentsToBudgetModal({
     if (!selectedCatalogTreatment || selectedTeeth.length === 0) return
 
     const { codigo, entry } = selectedCatalogTreatment
+    const doctor = getSmartDoctor(entry.familia)
 
     // Crear un tratamiento por cada pieza seleccionada
     const newTreatments: TreatmentV2[] = selectedTeeth.map((toothId) => ({
@@ -837,7 +854,7 @@ export default function AddTreatmentsToBudgetModal({
       importe: entry.amount,
       descuento: '0 €',
       porcentajeDescuento: 0,
-      doctor: getSmartDoctor(entry.familia),
+      doctor,
       selected: true
     }))
 
@@ -852,6 +869,23 @@ export default function AddTreatmentsToBudgetModal({
       })
       return newState
     })
+
+    // Persist each new treatment to patient_treatments in DB
+    if (patientId) {
+      newTreatments.forEach((t) => {
+        void addTreatment(patientId, {
+          code: t.codigo,
+          description: t.tratamiento,
+          tooth: t.pieza != null ? String(t.pieza) : undefined,
+          amount: parseEuroStringToCents(t.precio),
+          paidAmount: 0,
+          status: 'Pendiente',
+          paymentStatus: 'Unpaid',
+          professional: t.doctor,
+          markedForNextAppointment: false
+        })
+      })
+    }
 
     // Limpiar estados
     setSelectedTeeth([])
@@ -1017,8 +1051,7 @@ export default function AddTreatmentsToBudgetModal({
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     try {
-      // Use "Paciente" as placeholder - ideally this would be passed as prop
-      const patientName = 'Paciente'
+      const patientName = patientNameProp || 'Paciente'
 
       // Convert TreatmentV2 to BudgetTreatment format
       const budgetTreatments = selectedTreatments.map((t) => ({

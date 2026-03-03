@@ -77,6 +77,7 @@ type BudgetsPaymentsProps = {
   onAddBudget?: (budget: BudgetRow) => void
   onUpdateBudgetRows?: (rows: BudgetRow[]) => void
   onPatientUpdated?: () => void
+  refreshKey?: number
 }
 
 type ActionMenuItem = {
@@ -2247,7 +2248,8 @@ export default function BudgetsPayments({
   budgetRows: externalBudgetRows,
   onAddBudget,
   onUpdateBudgetRows,
-  onPatientUpdated
+  onPatientUpdated,
+  refreshKey
 }: BudgetsPaymentsProps) {
   const router = useRouter()
   const supabase = React.useMemo(() => createSupabaseBrowserClient(), [])
@@ -2657,6 +2659,14 @@ export default function BudgetsPayments({
   React.useEffect(() => {
     void refreshFinanceData()
   }, [refreshFinanceData])
+
+  // Re-fetch when an external caller (e.g. Treatments tab) signals a new budget was saved
+  const refreshFinanceDataRef = React.useRef(refreshFinanceData)
+  refreshFinanceDataRef.current = refreshFinanceData
+  React.useEffect(() => {
+    if (!refreshKey) return
+    void refreshFinanceDataRef.current()
+  }, [refreshKey])
 
   const createQuoteWithItems = React.useCallback(
     async ({
@@ -5384,6 +5394,8 @@ export default function BudgetsPayments({
         }}
         treatments={budgetTypeTreatments || pendingTreatmentsForBudgetModal}
         initialBudgetName={budgetTypeName}
+        patientName={displayPatientName}
+        patientId={patientId}
         onCreateBudget={(selectedTreatments, budgetInfo) => {
           if (shouldUseDbSource && activeClinicId && patientId) {
             void (async () => {

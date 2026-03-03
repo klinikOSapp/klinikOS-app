@@ -216,6 +216,7 @@ export type Appointment = {
   status: AppointmentStatus
   // Para vista de día (box)
   box?: string // "box 1", "box 2", "box 3"
+  boxId?: string // DB UUID of the box (preferred for insert; avoids label-lookup fragility)
   // Información adicional
   charge: 'Si' | 'No' // ¿hay algo a cobrar?
   tags?: Array<'deuda' | 'confirmada'>
@@ -1157,7 +1158,9 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
           const boxLabel = (appointmentData.box || '').trim().toLowerCase()
           const normalizedBoxLabel = boxLabel.replace(/\s+/g, '')
           const lookupBoxLabel = normalizeBoxLookupKey(appointmentData.box || '')
+          // Prefer direct UUID from caller (avoids label-lookup fragility)
           const boxId =
+            appointmentData.boxId ||
             boxIdByLabelRef.current[boxLabel] ||
             boxIdByLabelRef.current[normalizedBoxLabel] ||
             boxIdByLabelRef.current[lookupBoxLabel] ||

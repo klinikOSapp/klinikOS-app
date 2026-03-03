@@ -1,42 +1,38 @@
 'use client'
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import React from 'react'
 import { ToggleInput } from './AddPatientInputs'
 
-export default function AddPatientStepConsentimientos() {
-  const [imagenesMarketing, setImagenesMarketing] = React.useState(false)
-  const [derivacionFileName, setDerivacionFileName] = React.useState<string>('')
-  const [informesFileName, setInformesFileName] = React.useState<string>('')
+type Props = {
+  imagenesMarketing: boolean
+  onChangeImagenesMarketing: (v: boolean) => void
+  derivacionFile: File | null
+  onChangeDerivacionFile: (f: File | null) => void
+  informesFile: File | null
+  onChangeInformesFile: (f: File | null) => void
+  rxFile: File | null
+  onChangeRxFile: (f: File | null) => void
+  fotosFile: File | null
+  onChangeFotosFile: (f: File | null) => void
+}
 
+export default function AddPatientStepConsentimientos({
+  imagenesMarketing,
+  onChangeImagenesMarketing,
+  derivacionFile,
+  onChangeDerivacionFile,
+  informesFile,
+  onChangeInformesFile,
+  rxFile,
+  onChangeRxFile,
+  fotosFile,
+  onChangeFotosFile
+}: Props) {
   const derivacionInputRef = React.useRef<HTMLInputElement | null>(null)
   const informesInputRef = React.useRef<HTMLInputElement | null>(null)
   const rxInputRef = React.useRef<HTMLInputElement | null>(null)
   const fotosInputRef = React.useRef<HTMLInputElement | null>(null)
-
-  type Attachment = {
-    id: string
-    url: string
-    name: string
-  }
-  const [rxAttachment, setRxAttachment] = React.useState<Attachment | null>(
-    null
-  )
-  const [fotosAttachment, setFotosAttachment] =
-    React.useState<Attachment | null>(null)
-
-  const handleFileUpload = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    setFile: React.Dispatch<React.SetStateAction<Attachment | null>>
-  ) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    setFile({ id: Date.now().toString(), url, name: file.name })
-    e.target.value = ''
-  }
 
   return (
     <div className='absolute left-[18.375rem] top-[10rem] w-[31.6875rem] h-[43.25rem] overflow-y-auto overflow-x-clip scrollbar-hide'>
@@ -85,7 +81,7 @@ export default function AddPatientStepConsentimientos() {
           <ToggleInput
             ariaLabel='Cesión de imágenes'
             checked={imagenesMarketing}
-            onChange={setImagenesMarketing}
+            onChange={onChangeImagenesMarketing}
           />
           <div>
             <p className='text-body-md text-[var(--color-neutral-900)]'>
@@ -114,12 +110,12 @@ export default function AddPatientStepConsentimientos() {
           >
             <span
               className={
-                derivacionFileName
+                derivacionFile
                   ? 'text-[var(--color-neutral-900)]'
                   : 'text-[var(--color-neutral-400)]'
               }
             >
-              {derivacionFileName || 'Subir documento'}
+              {derivacionFile ? derivacionFile.name : 'Subir documento'}
             </span>
             <MD3Icon
               name='UploadRounded'
@@ -135,8 +131,7 @@ export default function AddPatientStepConsentimientos() {
             type='file'
             className='hidden'
             onChange={(e) => {
-              const f = e.target.files?.[0]
-              setDerivacionFileName(f ? f.name : '')
+              onChangeDerivacionFile(e.target.files?.[0] ?? null)
               if (e.target) e.target.value = ''
             }}
           />
@@ -154,12 +149,12 @@ export default function AddPatientStepConsentimientos() {
           >
             <span
               className={
-                informesFileName
+                informesFile
                   ? 'text-[var(--color-neutral-900)]'
                   : 'text-[var(--color-neutral-400)]'
               }
             >
-              {informesFileName || 'Subir documento'}
+              {informesFile ? informesFile.name : 'Subir documento'}
             </span>
             <MD3Icon
               name='UploadRounded'
@@ -172,8 +167,7 @@ export default function AddPatientStepConsentimientos() {
             type='file'
             className='hidden'
             onChange={(e) => {
-              const f = e.target.files?.[0]
-              setInformesFileName(f ? f.name : '')
+              onChangeInformesFile(e.target.files?.[0] ?? null)
               if (e.target) e.target.value = ''
             }}
           />
@@ -185,7 +179,7 @@ export default function AddPatientStepConsentimientos() {
         </p>
 
         {/* Tile RX uploaded */}
-        {rxAttachment ? (
+        {rxFile ? (
           <div className='absolute left-[12.5625rem] top-[38.875rem] relative w-[4.9375rem] h-[4.9375rem] rounded-[0.5rem] border border-[var(--color-neutral-300)] overflow-hidden bg-[var(--color-neutral-200)]'>
             <button
               type='button'
@@ -225,7 +219,10 @@ export default function AddPatientStepConsentimientos() {
           type='file'
           className='hidden'
           accept='image/*,application/pdf'
-          onChange={(e) => handleFileUpload(e, setRxAttachment)}
+          onChange={(e) => {
+            onChangeRxFile(e.target.files?.[0] ?? null)
+            if (e.target) e.target.value = ''
+          }}
         />
 
         {/* Título Fotos seguro */}
@@ -250,7 +247,10 @@ export default function AddPatientStepConsentimientos() {
           type='file'
           className='hidden'
           accept='image/*'
-          onChange={(e) => handleFileUpload(e, setFotosAttachment)}
+          onChange={(e) => {
+            onChangeFotosFile(e.target.files?.[0] ?? null)
+            if (e.target) e.target.value = ''
+          }}
         />
 
         {/* Scrollbar indicator */}
