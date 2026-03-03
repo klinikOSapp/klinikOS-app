@@ -5,6 +5,8 @@ import React from 'react'
 import DatePicker from './AddPatientDatePicker'
 import { SelectInput, TextInput } from './AddPatientInputs'
 
+type DocumentType = 'DNI' | 'NIE' | 'Pasaporte' | 'Otro'
+
 type Props = {
   nombre?: string
   onChangeNombre?: (v: string) => void
@@ -12,6 +14,8 @@ type Props = {
   onChangeApellidos?: (v: string) => void
   fechaNacimiento?: Date | null
   onChangeFechaNacimiento?: (d: Date) => void
+  tipoDocumento?: DocumentType
+  onChangeTipoDocumento?: (v: DocumentType) => void
   dni?: string
   onChangeDni?: (v: string) => void
   sexo?: string
@@ -28,6 +32,8 @@ export default function AddPatientStepPaciente({
   onChangeApellidos,
   fechaNacimiento,
   onChangeFechaNacimiento,
+  tipoDocumento = 'DNI',
+  onChangeTipoDocumento,
   dni,
   onChangeDni,
   sexo,
@@ -65,7 +71,10 @@ export default function AddPatientStepPaciente({
         Apellidos
       </div>
       <div className='left-[18.375rem] top-[47.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
-        DNI/NIE
+        Tipo de documento
+      </div>
+      <div className='left-[18.375rem] top-[53.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
+        Número de documento
       </div>
       <div className='left-[18.375rem] top-[29.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
         Fecha de nacimiento
@@ -144,8 +153,28 @@ export default function AddPatientStepPaciente({
       </div>
 
       <div className='w-[19.1875rem] left-[30.6875rem] top-[47.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
+        <SelectInput
+          placeholder='Selecciona tipo'
+          value={tipoDocumento}
+          onChange={(v) => onChangeTipoDocumento?.(v as DocumentType)}
+          options={[
+            { label: 'DNI', value: 'DNI' },
+            { label: 'NIE', value: 'NIE' },
+            { label: 'Pasaporte', value: 'Pasaporte' },
+            { label: 'Otro', value: 'Otro' }
+          ]}
+        />
+      </div>
+
+      <div className='w-[19.1875rem] left-[30.6875rem] top-[53.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
         <TextInput
-          placeholder='DNI/NIE'
+          placeholder={
+            tipoDocumento === 'DNI'
+              ? '12345678A'
+              : tipoDocumento === 'NIE'
+              ? 'X1234567A'
+              : 'Número de documento'
+          }
           required
           value={dni}
           onChange={onChangeDni}

@@ -46,22 +46,29 @@ export function SelectInput({
   value,
   onChange,
   options,
-  onCreate: _onCreate,
-  createLabel: _createLabel,
-  createLabelFromInput: _createLabelFromInput
+  onCreate,
+  createLabel = 'Crear',
+  createLabelFromInput
 }: {
   placeholder?: string
   value?: string
   onChange?: (v: string) => void
   options?: { label: string; value: string }[]
-  onCreate?: (text: string) => void
+  onCreate?: (inputValue?: string) => void
   createLabel?: string
-  createLabelFromInput?: (text: string) => string
+  createLabelFromInput?: (inputValue: string) => string
 }) {
   const [isOpen, setIsOpen] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
+  const [inputValue, setInputValue] = React.useState<string>('')
 
-  // Cerrar dropdown al hacer clic fuera
+  // Sync displayed label when value or options change
+  React.useEffect(() => {
+    const selectedOption = options?.find((opt) => opt.value === value)
+    setInputValue(selectedOption?.label ?? '')
+  }, [options, value])
+
+  // Close dropdown on outside click
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -78,43 +85,57 @@ export function SelectInput({
     return undefined
   }, [isOpen])
 
-  const selectedOption = options?.find((opt) => opt.value === value)
-  const displayText = selectedOption?.label || placeholder
+  const filteredOptions =
+    options?.filter((opt) =>
+      inputValue
+        ? opt.label.toLowerCase().includes(inputValue.toLowerCase())
+        : true
+    ) ?? []
 
   return (
     <div className='relative' ref={containerRef}>
-      <button
-        type='button'
-        onClick={() => setIsOpen(!isOpen)}
-        className='w-full h-12 rounded-[0.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5 pr-2 py-2 flex items-center justify-between text-left outline-none hover:border-[var(--color-neutral-400)] transition-colors'
-      >
-        <span
-          className={`text-body-md ${
-            selectedOption
-              ? 'text-[var(--color-neutral-900)]'
-              : 'text-[var(--color-neutral-400)]'
-          }`}
-        >
-          {displayText}
-        </span>
-        <KeyboardArrowDownRounded
-          className={`text-[var(--color-neutral-700)] transition-transform ${
-            isOpen ? 'rotate-180' : ''
-          }`}
+      <div className='relative flex h-12 items-center rounded-[0.5rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] px-2.5'>
+        <input
+          type='text'
+          value={inputValue}
+          placeholder={placeholder}
+          onChange={(e) => {
+            setInputValue(e.target.value)
+            setIsOpen(true)
+          }}
+          onFocus={() => setIsOpen(true)}
+          className='w-full bg-transparent pr-6 text-body-md text-[var(--color-neutral-900)] placeholder-[var(--color-neutral-400)] outline-none'
         />
-      </button>
+        <button
+          type='button'
+          aria-label='Abrir selección'
+          onClick={() => setIsOpen((prev) => !prev)}
+          className='absolute right-2 flex items-center justify-center text-[var(--color-neutral-700)]'
+        >
+          <KeyboardArrowDownRounded
+            className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            style={{ width: 18, height: 18 }}
+          />
+        </button>
+      </div>
 
-      {isOpen && options && options.length > 0 && (
+      {isOpen && (
         <div
           className='absolute z-50 w-full mt-1 bg-[rgba(248,250,251,0.95)] backdrop-blur-[2px] rounded-[0.5rem] shadow-[2px_2px_4px_0px_rgba(0,0,0,0.1)] border border-[var(--color-neutral-300)] py-2 max-h-60 overflow-y-auto'
           style={{ backdropFilter: 'blur(2px)' }}
         >
-          {options.map((opt) => (
+          {filteredOptions.length === 0 && (
+            <div className='px-2 py-1 text-body-md text-[var(--color-neutral-500)]'>
+              Sin resultados
+            </div>
+          )}
+          {filteredOptions.map((opt) => (
             <button
               key={opt.value}
               type='button'
               onClick={() => {
                 onChange?.(opt.value)
+                setInputValue(opt.label)
                 setIsOpen(false)
               }}
               className={`w-full px-2 py-1 text-left text-body-md font-medium text-[var(--color-neutral-900)] hover:bg-[var(--color-brand-50)] transition-colors ${
@@ -124,6 +145,22 @@ export function SelectInput({
               {opt.label}
             </button>
           ))}
+          {filteredOptions.length === 0 && onCreate && (
+            <div className='px-2 pt-2'>
+              <button
+                type='button'
+                onClick={() => {
+                  onCreate(inputValue)
+                  setIsOpen(false)
+                }}
+                className='w-full rounded-[0.5rem] bg-[var(--color-brand-50)] px-3 py-2 text-left text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-100)]'
+              >
+                {createLabelFromInput
+                  ? createLabelFromInput(inputValue)
+                  : createLabel}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
