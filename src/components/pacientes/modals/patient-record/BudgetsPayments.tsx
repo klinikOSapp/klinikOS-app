@@ -5381,7 +5381,6 @@ export default function BudgetsPayments({
           setBudgetTypeName('')
         }}
         treatments={budgetTypeTreatments || pendingTreatmentsForBudgetModal}
-        patientName={displayPatientName}
         initialBudgetName={budgetTypeName}
         onCreateBudget={(selectedTreatments, budgetInfo) => {
           if (shouldUseDbSource && activeClinicId && patientId) {
@@ -5489,7 +5488,6 @@ export default function BudgetsPayments({
         onCreateBudget={() => {}}
         onCreateBudgetType={handleSaveBudgetType}
         treatments={pendingTreatmentsForBudgetModal}
-        patientName={displayPatientName}
         mode='budgetType'
       />
       <AddProductionModal
