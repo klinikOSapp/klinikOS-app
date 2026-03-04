@@ -223,7 +223,7 @@ export default function Documents({
       const { data } = await supabase
         .from('patients')
         .select(
-          'first_name, last_name, national_id, email, phone_number, address_country, date_of_birth, age'
+          'first_name, last_name, national_id, email, phone_number, date_of_birth, biological_sex, address_line1, address_number, address_city, address_postal_code, address_country'
         )
         .eq('id', patientId)
         .single()
@@ -242,18 +242,23 @@ export default function Documents({
                 (365.25 * 24 * 60 * 60 * 1000)
             )
           )
-        : data.age != null
-          ? String(data.age)
-          : undefined
+        : undefined
+      const addressParts = [
+        data.address_line1,
+        data.address_number,
+        data.address_city,
+        data.address_postal_code,
+        data.address_country
+      ].filter(Boolean)
       setPatientData({
         nombre: fullName,
         dni: data.national_id ?? undefined,
         email: data.email ?? undefined,
         telefono: data.phone_number ?? undefined,
-        direccion: data.address_country ?? undefined,
+        direccion: addressParts.length > 0 ? addressParts.join(', ') : undefined,
         fecha_nacimiento: birthDate,
         edad: age,
-        sexo: undefined
+        sexo: data.biological_sex ?? undefined
       })
     })()
   }, [patientId, patientName, supabase])
