@@ -658,7 +658,13 @@ export default function AddPatientModal({
         }
       }
 
-      await Promise.all(followUp)
+      // Follow-up operations are best-effort — a failure here must NOT prevent
+      // the modal from closing (patient is already saved).
+      try {
+        await Promise.all(followUp)
+      } catch (followUpErr) {
+        console.error('Some follow-up operations failed (patient was still created):', followUpErr)
+      }
 
       // Create a contact record and link it as the patient's primary contact.
       // We pre-generate the UUID so we can skip .select() after insert — avoiding
@@ -703,7 +709,8 @@ export default function AddPatientModal({
       onClose()
     } catch (error) {
       console.error('Error creating patient', error)
-      alert('No se pudo crear el paciente. Intenta nuevamente.')
+      const message = error instanceof Error ? error.message : 'No se pudo crear el paciente. Intenta nuevamente.'
+      alert(message)
     }
   }
 
