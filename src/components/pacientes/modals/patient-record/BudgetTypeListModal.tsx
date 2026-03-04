@@ -11,7 +11,6 @@ import { createPortal } from 'react-dom'
 // ============================================
 const MODAL_WIDTH_REM = 50
 const MODAL_HEIGHT_REM = 40
-const MODAL_SCALE_FORMULA = 'min(1, calc(80vh / 40rem))'
 
 // ============================================
 // Types
@@ -107,16 +106,8 @@ export default function BudgetTypeListModal({
   })
 
   const modalFrameStyle = {
-    '--modal-scale': MODAL_SCALE_FORMULA,
-    width: `min(92vw, calc(${MODAL_WIDTH_REM}rem * var(--modal-scale)))`,
-    height: `min(80vh, calc(${MODAL_HEIGHT_REM}rem * var(--modal-scale)))`
-  } as React.CSSProperties
-
-  const modalContentStyle = {
-    width: `${MODAL_WIDTH_REM}rem`,
-    height: `${MODAL_HEIGHT_REM}rem`,
-    transform: 'scale(var(--modal-scale))',
-    transformOrigin: 'top left'
+    width: `min(92vw, ${MODAL_WIDTH_REM}rem)`,
+    height: `min(80vh, ${MODAL_HEIGHT_REM}rem)`
   } as React.CSSProperties
 
   const content = (
@@ -136,8 +127,7 @@ export default function BudgetTypeListModal({
             className='relative flex shrink-0 items-start justify-center'
             style={modalFrameStyle}
           >
-            <div className='relative h-full w-full overflow-hidden rounded-[0.5rem] bg-neutral-50 shadow-xl'>
-              <div className='relative flex flex-col' style={modalContentStyle}>
+            <div className='relative h-full w-full overflow-hidden overflow-y-auto rounded-[0.5rem] bg-neutral-50 shadow-xl flex flex-col'>
                 {/* Header */}
                 <header className='flex h-[3.5rem] shrink-0 items-center justify-between border-b border-neutral-300 px-6'>
                   <h2 className='text-title-md text-neutral-900'>
@@ -237,7 +227,6 @@ export default function BudgetTypeListModal({
                     </button>
                   </div>
                 </footer>
-              </div>
             </div>
           </div>
         </div>

@@ -67,56 +67,42 @@ export default function RxImages({ onClose, patientId }: RxImagesProps) {
   }, [loadImages])
   return (
     <div
-      className='bg-[#f8fafb] relative w-[74.75rem] h-[56.25rem]'
-      data-node-id='457:41'
+      className='bg-[#f8fafb] relative w-full h-full flex flex-col p-8 overflow-hidden'
     >
       <button
         type='button'
         aria-label='Cerrar'
         onClick={onClose}
-        className='absolute size-[24px] top-[16px] cursor-pointer'
-        style={{ left: 'calc(93.75% + 34.75px)' }}
-        data-name='close'
-        data-node-id='457:42'
+        className='absolute size-6 top-4 right-4 cursor-pointer'
       >
         <CloseRounded className='block max-w-none size-full text-[#24282c]' />
       </button>
 
       {/* Header */}
-      <div
-        className='absolute bg-[#f8fafb] content-stretch flex flex-col gap-[8px] items-start left-[32px] top-[40px] w-[568px]'
-        data-name='Header'
-      >
-        <div className='content-stretch flex gap-[8px] items-center relative shrink-0'>
-          <p className="font-['Inter:Regular',_sans-serif] relative shrink-0 text-[#24282c] text-title-lg text-nowrap whitespace-pre">
-            Imágenes RX
-          </p>
-        </div>
-        <p className="font-['Inter:Regular',_sans-serif] min-w-full relative shrink-0 text-[#24282c] text-body-sm w-[min-content]">
+      <div className='flex flex-col gap-2 mb-6 max-w-[568px]'>
+        <p className='text-[#24282c] text-title-lg'>
+          Imágenes RX
+        </p>
+        <p className='text-[#24282c] text-body-sm'>
           Consulta las imágenes radiológicas de tus pacientes, así como añadir
           anotaciones para el resto del equipo.
         </p>
       </div>
 
-      {/* Card - anchor to left/right to avoid rounding overflow */}
-      <div
-        className='absolute bg-white border border-[#e2e7ea] border-solid rounded-[8px]'
-        style={{ left: 32, right: 32, top: 164, height: 683 }}
-        data-node-id='457:95'
-      >
-        <div
-          className='relative rounded-[inherit] px-plnav py-fluid-md'
-          style={{ height: 683 }}
-        >
+      {/* Card */}
+      <div className='flex-1 min-h-0 bg-white border border-[#e2e7ea] rounded-lg flex flex-col overflow-hidden'>
+        <div className='flex-1 min-h-0 relative flex flex-col p-4'>
           {/* Add RX button */}
-          <button
-            type='button'
-            onClick={() => fileInputRef.current?.click()}
-            className='absolute right-4 top-4 bg-[#f8fafb] border border-[#cbd3d9] px-4 py-2 rounded-[136px] inline-flex items-center gap-2 text-body-md text-[#24282c] cursor-pointer'
-          >
-            <AddPhotoAlternateRounded className='size-[24px]' />
-            <span className='text-body-md text-[#24282c]'>Añadir RX</span>
-          </button>
+          <div className='flex justify-end mb-4'>
+            <button
+              type='button'
+              onClick={() => fileInputRef.current?.click()}
+              className='bg-[#f8fafb] border border-[#cbd3d9] px-4 py-2 rounded-[136px] inline-flex items-center gap-2 text-body-md text-[#24282c] cursor-pointer'
+            >
+              <AddPhotoAlternateRounded className='size-6' />
+              <span className='text-body-md text-[#24282c]'>Añadir RX</span>
+            </button>
+          </div>
           <input
             ref={fileInputRef}
             type='file'
@@ -157,9 +143,10 @@ export default function RxImages({ onClose, patientId }: RxImagesProps) {
             }}
           />
 
-          {/* Left thumbnails rail with vertical scroll */}
-          <div className='absolute left-4 top-[72px] bottom-4 w-[208px]'>
-            <div className='h-full overflow-y-auto pr-2 rxThumbs'>
+          {/* Content: thumbnails + viewer */}
+          <div className='flex flex-1 min-h-0 gap-4'>
+            {/* Left thumbnails rail with vertical scroll */}
+            <div className='w-[208px] shrink-0 overflow-y-auto pr-2 rxThumbs'>
               {items.map((it, i) => (
                 <div
                   key={it.id}
@@ -169,7 +156,7 @@ export default function RxImages({ onClose, patientId }: RxImagesProps) {
                     type='button'
                     onClick={() => setActiveIndex(i)}
                     className={[
-                      'h-[190px] w-full rounded-[8px] overflow-hidden grid place-items-center',
+                      'h-[190px] w-full rounded-lg overflow-hidden grid place-items-center',
                       i === activeIndex
                         ? 'bg-[#24282c] border-2 border-[#51d6c7]'
                         : 'bg-[#24282c] border border-[#cbd3d9]'
@@ -183,7 +170,7 @@ export default function RxImages({ onClose, patientId }: RxImagesProps) {
                         className='w-full h-full object-cover'
                       />
                     ) : (
-                      <ImageRounded className='text-white size-[48px]' />
+                      <ImageRounded className='text-white size-12' />
                     )}
                   </button>
                   <div className='mt-1 text-left'>
@@ -195,48 +182,41 @@ export default function RxImages({ onClose, patientId }: RxImagesProps) {
                 </div>
               ))}
             </div>
-          </div>
 
-          {/* Main image viewer */}
-          <div
-            className='absolute rounded-[8px] overflow-hidden border border-[#cbd3d9] bg-[#3d434a]'
-            style={{ left: 240, right: 16, top: 72, height: 448 }}
-          >
-            {items[activeIndex]?.signedUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={items[activeIndex]!.signedUrl}
-                alt={items[activeIndex]?.title ?? 'RX'}
-                className='w-full h-full object-contain bg-[#3d434a]'
-              />
-            ) : (
-              <div className='w-full h-full grid place-items-center'>
-                <ImageRounded className='text-white size-[64px]' />
+            {/* Right side: viewer + info */}
+            <div className='flex-1 min-w-0 flex flex-col gap-4'>
+              {/* Main image viewer */}
+              <div className='flex-1 min-h-0 rounded-lg overflow-hidden border border-[#cbd3d9] bg-[#3d434a]'>
+                {items[activeIndex]?.signedUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={items[activeIndex]!.signedUrl}
+                    alt={items[activeIndex]?.title ?? 'RX'}
+                    className='w-full h-full object-contain bg-[#3d434a]'
+                  />
+                ) : (
+                  <div className='w-full h-full grid place-items-center'>
+                    <ImageRounded className='text-white size-16' />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Title row */}
-          <div
-            className='absolute flex items-center justify-between'
-            style={{ left: 240, right: 16, top: 536 }}
-          >
-            <p className='text-title-lg text-[#24282c]'>
-              {items[activeIndex]?.title ?? 'Radiografía'}
-            </p>
-            <p className='text-label-sm text-[#24282c]'>
-              {items[activeIndex]?.date ?? '—'}
-            </p>
-          </div>
+              {/* Title row */}
+              <div className='flex items-center justify-between'>
+                <p className='text-title-lg text-[#24282c]'>
+                  {items[activeIndex]?.title ?? 'Radiografía'}
+                </p>
+                <p className='text-label-sm text-[#24282c]'>
+                  {items[activeIndex]?.date ?? '—'}
+                </p>
+              </div>
 
-          {/* Description */}
-          <p
-            className='absolute text-body-md text-[#24282c]'
-            style={{ left: 240, right: 16, top: 584 }}
-          >
-            {/* Descripción opcional: se podría almacenar junto al attachment en el futuro */}
-            Vista previa del adjunto seleccionado.
-          </p>
+              {/* Description */}
+              <p className='text-body-md text-[#24282c]'>
+                Vista previa del adjunto seleccionado.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
       {toast && (

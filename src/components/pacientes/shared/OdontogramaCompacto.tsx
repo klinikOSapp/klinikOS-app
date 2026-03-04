@@ -7,10 +7,10 @@ import { TOOTH_STATUS_COLORS } from './treatmentTypes'
 // Cuadrante superior: 18-11 (izq) | 21-28 (der)
 // Cuadrante inferior: 38-31 (izq) | 41-48 (der)
 
-const UPPER_LEFT = [18, 17, 16, 15, 14, 13, 12, 11] // Superior izquierdo
-const UPPER_RIGHT = [21, 22, 23, 24, 25, 26, 27, 28] // Superior derecho
-const LOWER_LEFT = [38, 37, 36, 35, 34, 33, 32, 31] // Inferior izquierdo
-const LOWER_RIGHT = [41, 42, 43, 44, 45, 46, 47, 48] // Inferior derecho
+export const UPPER_LEFT = [18, 17, 16, 15, 14, 13, 12, 11] // Superior izquierdo
+export const UPPER_RIGHT = [21, 22, 23, 24, 25, 26, 27, 28] // Superior derecho
+export const LOWER_LEFT = [38, 37, 36, 35, 34, 33, 32, 31] // Inferior izquierdo
+export const LOWER_RIGHT = [41, 42, 43, 44, 45, 46, 47, 48] // Inferior derecho
 
 type ToothProps = {
   id: number

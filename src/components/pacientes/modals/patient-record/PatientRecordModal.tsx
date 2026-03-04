@@ -53,6 +53,37 @@ export default function PatientRecordModal({
   const [active, setActive] = React.useState<PatientRecordTab>(initialTab)
   const [sidebarVisible, setSidebarVisible] = React.useState(true)
   const [sidebarHovered, setSidebarHovered] = React.useState(false)
+
+  // Compute zoom factor based on screen size.
+  // Uses outerWidth/outerHeight to detect real window resizes
+  // (not browser zoom, which only changes innerWidth/innerHeight).
+  const [modalZoom, setModalZoom] = React.useState(1)
+  React.useEffect(() => {
+    let prevOuterW = window.outerWidth
+    let prevOuterH = window.outerHeight
+
+    function computeZoom() {
+      const rootFs = parseFloat(getComputedStyle(document.documentElement).fontSize)
+      const baseW = 93.75 * rootFs
+      const baseH = 56.25 * rootFs
+      const availW = window.innerWidth - 64
+      const availH = window.innerHeight * 0.85
+      return Math.min(1, availW / baseW, availH / baseH)
+    }
+
+    setModalZoom(computeZoom())
+
+    function onResize() {
+      if (window.outerWidth !== prevOuterW || window.outerHeight !== prevOuterH) {
+        prevOuterW = window.outerWidth
+        prevOuterH = window.outerHeight
+        setModalZoom(computeZoom())
+      }
+    }
+
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
   const [shouldOpenBudget, setShouldOpenBudget] =
     React.useState(openBudgetCreation)
   const [shouldOpenEdit, setShouldOpenEdit] = React.useState(openInEditMode)
@@ -171,24 +202,10 @@ export default function PatientRecordModal({
           <div
             role='dialog'
             aria-modal='true'
-            className='bg-white rounded-xl shadow-xl overflow-hidden w-[93.75rem] h-[56.25rem] max-w-[92vw] max-h-[85vh]'
+            className='bg-white rounded-xl shadow-xl overflow-hidden w-[93.75rem] h-[56.25rem] flex flex-col'
             onClick={(e) => e.stopPropagation()}
-            style={{
-              width:
-                'calc(93.75rem * min(1, calc(85vh / 56.25rem), calc((100vw - 4rem) / 93.75rem), calc(92vw / 93.75rem)))',
-              height:
-                'calc(56.25rem * min(1, calc(85vh / 56.25rem), calc((100vw - 4rem) / 93.75rem), calc(92vw / 93.75rem)))'
-            }}
+            style={{ zoom: modalZoom }}
           >
-            {/* Scaled content to always fit within 85vh without scroll */}
-            <div
-              className='w-[93.75rem] h-[56.25rem]'
-              style={{
-                transform:
-                  'scale(min(1, calc(85vh / 56.25rem), calc((100vw - 4rem) / 93.75rem), calc(92vw / 93.75rem)))',
-                transformOrigin: 'top left'
-              }}
-            >
               {/* Header with patient name */}
               <div className='h-14 border-b border-[var(--color-neutral-200)] flex items-center justify-between px-6 bg-white'>
                 <p className='text-title-lg text-[var(--color-neutral-900)]'>
@@ -209,7 +226,7 @@ export default function PatientRecordModal({
                 </button>
               </div>
               {/* Content split: left navigation (320px) + right summary */}
-              <div className='flex' style={{ height: 'calc(100% - 3.5rem)' }}>
+              <div className='flex flex-1 min-h-0'>
                 {/* Left navigation */}
                 <div
                   className={[
@@ -288,7 +305,7 @@ export default function PatientRecordModal({
                       {sidebarHovered && (
                         <div
                           className='absolute left-0 top-0 w-[19rem] bg-white rounded-tr-lg rounded-br-lg shadow-[-2px_-2px_4px_0px_rgba(0,0,0,0.1),2px_2px_4px_0px_rgba(0,0,0,0.1)] border-r-2 border-[var(--color-neutral-100)] overflow-y-auto overflow-x-hidden'
-                          style={{ height: 'calc(56.25rem - 3.5rem)' }}
+                          style={{ height: '100%' }}
                         >
                           {/* Toggle button inside overlay */}
                           <div className='px-6 pt-6 pb-4'>
@@ -440,7 +457,6 @@ export default function PatientRecordModal({
                     )}
                 </div>
               </div>
-            </div>
           </div>
         </div>
       </div>

@@ -147,7 +147,7 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
     [loadConsents, patientId, supabase]
   )
   return (
-    <div className='relative w-[74.75rem] h-[56.25rem] bg-neutral-50'>
+    <div className='relative w-full h-full bg-neutral-50 flex flex-col p-8 overflow-hidden'>
       {/* Close */}
       <button
         type='button'
@@ -159,7 +159,7 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
       </button>
 
       {/* Header */}
-      <div className='absolute left-8 top-10 w-[35.5rem]'>
+      <div className='mb-6 max-w-[35.5rem]'>
         <p className='text-[28px] leading-[36px] text-neutral-900'>
           Consentimientos
         </p>
@@ -169,7 +169,7 @@ export default function Consents({ onClose, patientId }: ConsentsProps) {
       </div>
 
       {/* Card / List */}
-      <div className='absolute left-8 top-36 w-[70.25rem] h-[45.3125rem] bg-white rounded-xl border border-neutral-200'>
+      <div className='flex-1 min-h-0 bg-white rounded-xl border border-neutral-200'>
         <div className='relative w-full h-full rounded-inherit'>
           {/* Add button */}
           <button

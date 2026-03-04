@@ -12,7 +12,6 @@ import {
 } from '@/components/icons/md3'
 import {
   MODAL_HEIGHT_REM,
-  MODAL_SCALE_FORMULA,
   MODAL_WIDTH_REM
 } from './modalDimensions'
 import MedicamentoAutocomplete, { mapViaToOption } from '@/components/ui/MedicamentoAutocomplete'
@@ -470,21 +469,9 @@ export default function PrescriptionCreationModal({
 
   if (!open || !mounted) return null
 
-  const modalScaleVars = {
-    '--modal-scale': MODAL_SCALE_FORMULA
-  } as React.CSSProperties
-
   const modalFrameStyle = {
-    ...modalScaleVars,
-    width: `min(92vw, calc(${MODAL_WIDTH_REM}rem * var(--modal-scale)))`,
-    height: `min(85vh, calc(${MODAL_HEIGHT_REM}rem * var(--modal-scale)))`
-  } as React.CSSProperties
-
-  const modalContentStyle = {
-    width: `${MODAL_WIDTH_REM}rem`,
-    height: `${MODAL_HEIGHT_REM}rem`,
-    transform: 'scale(var(--modal-scale))',
-    transformOrigin: 'top left'
+    width: `min(92vw, ${MODAL_WIDTH_REM}rem)`,
+    height: `min(85vh, ${MODAL_HEIGHT_REM}rem)`
   } as React.CSSProperties
 
   return createPortal(
@@ -504,11 +491,7 @@ export default function PrescriptionCreationModal({
             className='relative flex shrink-0 items-start justify-center'
             style={modalFrameStyle}
           >
-            <div className='relative h-full w-full overflow-hidden rounded-[0.5rem] bg-neutral-50'>
-              <div
-                className='relative w-[68.25rem] h-[60rem]'
-                style={modalContentStyle}
-              >
+            <div className='relative h-full w-full overflow-hidden overflow-y-auto rounded-[0.5rem] bg-neutral-50'>
                 {/* Header */}
                 <header className='absolute left-0 top-0 flex h-[3.5rem] w-full items-center justify-between border-b border-neutral-300 bg-neutral-50 px-[2rem]'>
                   <p className='text-title-md text-neutral-900'>
@@ -741,7 +724,6 @@ export default function PrescriptionCreationModal({
                     <ArrowForwardRounded className='size-5' />
                   </button>
                 </div>
-              </div>
             </div>
           </div>
         </div>

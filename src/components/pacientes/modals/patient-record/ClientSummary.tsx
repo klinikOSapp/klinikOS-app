@@ -619,6 +619,26 @@ export default function ClientSummary({
       return next
     })
   }
+
+  const [newAllergyInput, setNewAllergyInput] = React.useState('')
+
+  const addAllergy = () => {
+    const name = newAllergyInput.trim()
+    if (!name) return
+    setTempFormData((prev) => ({
+      ...prev,
+      alergias: [...prev.alergias, name]
+    }))
+    setNewAllergyInput('')
+  }
+
+  const removeAllergy = (index: number) => {
+    setTempFormData((prev) => ({
+      ...prev,
+      alergias: prev.alergias.filter((_, i) => i !== index)
+    }))
+  }
+
   return (
     <div
       className='relative bg-[#f8fafb] overflow-hidden w-full h-full'
@@ -743,13 +763,42 @@ export default function ClientSummary({
         {(isEditing ? tempFormData.alergias : formData.alergias).map((allergy, index) => (
           <div
             key={`${allergy}-${index}`}
-            className='bg-[#f7b7ba] box-border content-stretch flex gap-[0.5rem] items-center justify-center px-[0.5rem] py-[0.25rem] rounded-[6rem]'
+            className='bg-[#f7b7ba] box-border content-stretch flex gap-[0.25rem] items-center justify-center px-[0.5rem] py-[0.25rem] rounded-[6rem]'
           >
             <p className="font-['Inter:Medium',_sans-serif] font-medium leading-[1rem] not-italic relative shrink-0 text-[0.75rem] text-nowrap text-red-700 whitespace-pre">
               {allergy}
             </p>
+            {isEditing && (
+              <button
+                type='button'
+                onClick={() => removeAllergy(index)}
+                className='ml-1 text-red-700 hover:text-red-900 text-[0.75rem] font-bold leading-none'
+                aria-label={`Eliminar alergia ${allergy}`}
+              >
+                &times;
+              </button>
+            )}
           </div>
         ))}
+        {isEditing && (
+          <div className='flex items-center gap-[0.25rem]'>
+            <input
+              type='text'
+              value={newAllergyInput}
+              onChange={(e) => setNewAllergyInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addAllergy() } }}
+              placeholder='Nueva alergia'
+              className="text-[0.75rem] px-[0.5rem] py-[0.25rem] rounded-[0.5rem] border border-[var(--color-neutral-300)] bg-[var(--color-neutral-50)] outline-none focus:border-[var(--color-brand-500)] w-[8rem]"
+            />
+            <button
+              type='button'
+              onClick={addAllergy}
+              className='bg-[var(--color-brand-500)] text-white text-[0.75rem] px-[0.5rem] py-[0.25rem] rounded-[0.5rem] hover:bg-[var(--color-brand-600)]'
+            >
+              +
+            </button>
+          </div>
+        )}
       </div>
       <div
         className='absolute bg-[#e2e7ea] h-[3.5rem] overflow-clip rounded-[0.5rem] top-[5.5rem] w-[30.25rem]'
