@@ -881,7 +881,7 @@ export default function AddTreatmentsToBudgetModal({
       // Zona (boca/arcada): crear UN solo tratamiento
       const zoneValue = ZONE_DB_VALUES[selectedZone as Exclude<TreatmentZone, 'diente'>]
       newTreatments = [{
-        _internalId: `TR-NEW-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${zoneValue}`,
+        _internalId: `TR-NEW-${crypto.randomUUID()}-${zoneValue}`,
         pieza: undefined,
         codigo,
         tratamiento: entry.description,
@@ -896,9 +896,7 @@ export default function AddTreatmentsToBudgetModal({
     } else {
       // Por diente: crear un tratamiento por cada pieza seleccionada
       newTreatments = selectedTeeth.map((toothId) => ({
-        _internalId: `TR-NEW-${Date.now()}-${Math.random()
-          .toString(36)
-          .substr(2, 9)}-${toothId}`,
+        _internalId: `TR-NEW-${crypto.randomUUID()}-${toothId}`,
         pieza: toothId,
         codigo,
         tratamiento: entry.description,
@@ -985,9 +983,7 @@ export default function AddTreatmentsToBudgetModal({
 
   // === Handler para añadir fila vacía ===
   const handleAddEmptyRow = () => {
-    const newId = `TR-EMPTY-${Date.now()}-${Math.random()
-      .toString(36)
-      .substr(2, 9)}`
+    const newId = `TR-EMPTY-${crypto.randomUUID()}`
     const newTreatment: TreatmentV2 = {
       _internalId: newId,
       codigo: '',
