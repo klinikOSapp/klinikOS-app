@@ -22,7 +22,6 @@ import { createPortal } from 'react-dom'
 import OdontogramaModal from './OdontogramaModal'
 import {
   MODAL_HEIGHT_REM,
-  MODAL_SCALE_FORMULA,
   MODAL_WIDTH_REM
 } from './modalDimensions'
 
@@ -671,16 +670,8 @@ export default function ProposalCreationModal({
   })
 
   const modalFrameStyle = {
-    '--modal-scale': MODAL_SCALE_FORMULA,
-    width: `min(92vw, calc(${MODAL_WIDTH_REM}rem * var(--modal-scale)))`,
-    height: `min(85vh, calc(${MODAL_HEIGHT_REM}rem * var(--modal-scale)))`
-  } as React.CSSProperties
-
-  const modalContentStyle = {
-    width: `${MODAL_WIDTH_REM}rem`,
-    height: `${MODAL_HEIGHT_REM}rem`,
-    transform: 'scale(var(--modal-scale))',
-    transformOrigin: 'top left'
+    width: `min(92vw, ${MODAL_WIDTH_REM}rem)`,
+    height: `min(85vh, ${MODAL_HEIGHT_REM}rem)`
   } as React.CSSProperties
 
   const handleContinue = () => {
@@ -729,11 +720,7 @@ export default function ProposalCreationModal({
               className='relative flex shrink-0 items-start justify-center'
               style={modalFrameStyle}
             >
-              <div className='relative h-full w-full overflow-hidden rounded-[0.5rem] bg-neutral-50'>
-                <div
-                  className='relative w-[68.25rem] h-[60rem]'
-                  style={modalContentStyle}
-                >
+              <div className='relative h-full w-full overflow-hidden overflow-y-auto rounded-[0.5rem] bg-neutral-50'>
                   <header className='absolute left-0 top-0 flex h-[3.5rem] w-full items-center justify-between border-b border-neutral-300 px-[2rem]'>
                     <p className='text-title-md text-neutral-900'>
                       {headerTitle}
@@ -1399,11 +1386,10 @@ export default function ProposalCreationModal({
                       </button>
                     </>
                   ) : null}
-                </div>
-              </div>
             </div>
           </div>
         </div>
+      </div>
       </div>
       <OdontogramaModal
         open={odontogramaOpen}

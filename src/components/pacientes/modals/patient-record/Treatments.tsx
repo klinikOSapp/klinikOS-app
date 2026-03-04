@@ -22,11 +22,18 @@ import {
 import type {
   OdontogramaState,
   TreatmentCatalogEntry,
-  TreatmentV2
+  TreatmentV2,
+  TreatmentZone
 } from '@/components/pacientes/shared/treatmentTypes'
 import {
+  ALL_TEETH,
   FAMILY_TO_SPECIALTY,
-  TREATMENT_CATALOG
+  LOWER_TEETH,
+  TREATMENT_CATALOG,
+  TREATMENT_ZONE_OPTIONS,
+  UPPER_TEETH,
+  ZONE_DB_VALUES,
+  ZONE_DISPLAY_LABELS
 } from '@/components/pacientes/shared/treatmentTypes'
 import { useClinic } from '@/context/ClinicContext'
 import { useConfiguration } from '@/context/ConfigurationContext'
@@ -36,7 +43,7 @@ import { useRouter } from 'next/navigation'
 import React from 'react'
 import AddTreatmentsToBudgetModal from './AddTreatmentsToBudgetModal'
 import BudgetTypeListModal from './BudgetTypeListModal'
-import type { BudgetRow } from './BudgetsPayments'
+import type { BudgetRow } from './budgetTypes'
 
 // Parse a formatted euro string like "500 €" or "2.300 €" to integer cents
 // Used because TreatmentCatalogEntry.amount is a display string but addTreatment expects cents
@@ -55,14 +62,16 @@ function convertPatientTreatmentToV2(
   treatment: PatientTreatment,
   index: number
 ): TreatmentV2 {
-  // Parsear el diente a número si existe
-  const toothNumber = treatment.tooth
+  // Detectar si es una zona (BOCA, SUP, INF) o un diente numérico
+  const isZone = treatment.tooth && ['BOCA', 'SUP', 'INF'].includes(treatment.tooth)
+  const toothNumber = !isZone && treatment.tooth
     ? parseInt(treatment.tooth.split(',')[0].trim())
     : undefined
 
   return {
     _internalId: treatment.id,
     pieza: toothNumber,
+    zona: isZone ? treatment.tooth! : undefined,
     codigo: treatment.code,
     tratamiento: treatment.description,
     precio: treatment.amountFormatted ?? '0 €',
@@ -435,12 +444,18 @@ function TreatmentRow({
       </TableBodyCell>
       {/* Pieza - Editable */}
       <TableBodyCell width='4.625rem'>
-        <EditableCell
-          value={treatment.pieza?.toString() || ''}
-          onChange={(v) => onUpdateField('pieza', v ? parseInt(v) : undefined)}
-          type='number'
-          placeholder='-'
-        />
+        {treatment.zona ? (
+          <span className='text-[0.8125rem] font-medium text-[var(--color-brand-700)] px-1'>
+            {ZONE_DISPLAY_LABELS[treatment.zona] || treatment.zona}
+          </span>
+        ) : (
+          <EditableCell
+            value={treatment.pieza?.toString() || ''}
+            onChange={(v) => onUpdateField('pieza', v ? parseInt(v) : undefined)}
+            type='number'
+            placeholder='-'
+          />
+        )}
       </TableBodyCell>
       {/* Cara - Custom Select */}
       <TableBodyCell width='6.625rem'>
@@ -720,6 +735,7 @@ export default function Treatments({
 
   // Estado para las piezas seleccionadas temporalmente (antes de confirmar - para añadir tratamientos)
   const [selectedTeeth, setSelectedTeeth] = React.useState<number[]>([])
+  const [selectedZone, setSelectedZone] = React.useState<TreatmentZone>('diente')
 
   // Estado para mostrar el modal de confirmación
   const [showConfirmModal, setShowConfirmModal] = React.useState(false)
@@ -802,36 +818,69 @@ export default function Treatments({
     })
   }
 
+  const handleZoneSelect = (zone: TreatmentZone) => {
+    setSelectedZone(zone)
+    if (zone === 'boca') {
+      setSelectedTeeth(ALL_TEETH)
+    } else if (zone === 'arcada_superior') {
+      setSelectedTeeth(UPPER_TEETH)
+    } else if (zone === 'arcada_inferior') {
+      setSelectedTeeth(LOWER_TEETH)
+    } else {
+      setSelectedTeeth([])
+    }
+  }
+
   // Confirmar y añadir los tratamientos
   const handleConfirmTreatments = () => {
-    if (!selectedCatalogTreatment || selectedTeeth.length === 0) return
+    if (!selectedCatalogTreatment) return
+    const isZone = selectedZone !== 'diente'
+    if (!isZone && selectedTeeth.length === 0) return
 
     const { codigo, entry } = selectedCatalogTreatment
-
-    // Crear un tratamiento por cada pieza seleccionada
     const smartDoctor = getSmartDoctor(entry.familia)
-    const newTreatments: TreatmentV2[] = selectedTeeth.map((toothId) => ({
-      _internalId: `new-${Date.now()}-${Math.random()}-${toothId}`,
-      pieza: toothId,
-      codigo,
-      tratamiento: entry.description,
-      precio: entry.amount,
-      importe: entry.amount,
-      doctor: smartDoctor,
-      selected: false
-    }))
+
+    let newTreatments: TreatmentV2[]
+
+    if (isZone) {
+      const zoneValue = ZONE_DB_VALUES[selectedZone as Exclude<TreatmentZone, 'diente'>]
+      newTreatments = [{
+        _internalId: `new-${Date.now()}-${Math.random()}-${zoneValue}`,
+        pieza: undefined,
+        codigo,
+        tratamiento: entry.description,
+        precio: entry.amount,
+        importe: entry.amount,
+        doctor: smartDoctor,
+        selected: false,
+        zona: zoneValue
+      }]
+    } else {
+      newTreatments = selectedTeeth.map((toothId) => ({
+        _internalId: `new-${Date.now()}-${Math.random()}-${toothId}`,
+        pieza: toothId,
+        codigo,
+        tratamiento: entry.description,
+        precio: entry.amount,
+        importe: entry.amount,
+        doctor: smartDoctor,
+        selected: false
+      }))
+    }
 
     // Añadir a tratamientos pendientes (optimistic UI)
     setPendingTreatments((prev) => [...prev, ...newTreatments])
 
-    // Actualizar el odontograma
-    setOdontogramaState((prev) => {
-      const newState = { ...prev }
-      selectedTeeth.forEach((toothId) => {
-        newState[toothId] = 'pendiente'
+    // Actualizar el odontograma (solo para dientes individuales)
+    if (!isZone) {
+      setOdontogramaState((prev) => {
+        const newState = { ...prev }
+        selectedTeeth.forEach((toothId) => {
+          newState[toothId] = 'pendiente'
+        })
+        return newState
       })
-      return newState
-    })
+    }
 
     // Persistir cada tratamiento en la DB
     if (patientId) {
@@ -839,7 +888,7 @@ export default function Treatments({
         void addTreatment(patientId, {
           code: t.codigo,
           description: t.tratamiento,
-          tooth: t.pieza != null ? String(t.pieza) : undefined,
+          tooth: t.zona || (t.pieza != null ? String(t.pieza) : undefined),
           amount: parseEuroStringToCents(t.precio),
           paidAmount: 0,
           status: 'Pendiente',
@@ -853,6 +902,7 @@ export default function Treatments({
     // Limpiar estados
     setSelectedTeeth([])
     setSelectedCatalogTreatment(null)
+    setSelectedZone('diente')
     setShowConfirmModal(false)
   }
 
@@ -860,6 +910,7 @@ export default function Treatments({
   const handleCancelSelection = () => {
     setSelectedTeeth([])
     setSelectedCatalogTreatment(null)
+    setSelectedZone('diente')
     setShowConfirmModal(false)
   }
 
@@ -1302,8 +1353,29 @@ export default function Treatments({
                     {selectedCatalogTreatment.entry.description}
                   </span>
                 </div>
+                {/* Selector de zona */}
+                <div className='flex gap-[0.25rem] flex-wrap'>
+                  {TREATMENT_ZONE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type='button'
+                      onClick={() => handleZoneSelect(opt.value)}
+                      className={`px-[0.5rem] py-[0.125rem] text-[0.75rem] font-medium rounded-full transition-colors cursor-pointer ${
+                        selectedZone === opt.value
+                          ? 'bg-[var(--color-brand-500)] text-white'
+                          : 'bg-white text-[#535C66] border border-[#CBD3D9] hover:border-[var(--color-brand-400)]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
                 <div className='flex items-center justify-between gap-[0.5rem]'>
-                  {selectedTeeth.length === 0 ? (
+                  {selectedZone !== 'diente' ? (
+                    <span className='text-[0.8125rem] leading-[1.125rem] text-[var(--color-brand-600)]'>
+                      <strong>{TREATMENT_ZONE_OPTIONS.find(o => o.value === selectedZone)?.label}</strong>
+                    </span>
+                  ) : selectedTeeth.length === 0 ? (
                     <span className='text-[0.8125rem] leading-[1.125rem] text-[#535C66]'>
                       → Selecciona las piezas
                     </span>
@@ -1316,13 +1388,13 @@ export default function Treatments({
                     </span>
                   )}
                   <div className='flex items-center gap-[0.375rem]'>
-                    {selectedTeeth.length > 0 && (
+                    {(selectedTeeth.length > 0 || selectedZone !== 'diente') && (
                       <button
                         type='button'
                         onClick={handleConfirmTreatments}
                         className='px-[0.75rem] py-[0.25rem] text-[0.8125rem] font-medium text-white bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] rounded-full transition-colors cursor-pointer'
                       >
-                        Confirmar ({selectedTeeth.length})
+                        {selectedZone !== 'diente' ? 'Confirmar' : `Confirmar (${selectedTeeth.length})`}
                       </button>
                     )}
                     <button

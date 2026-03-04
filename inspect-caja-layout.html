@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caja Layout Inspector</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .info-box {
+            background: #f0f0f0;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #0066cc;
+        }
+        .code {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #0052a3;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        .result-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .label {
+            font-weight: bold;
+            color: #0066cc;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Caja Layout Inspector</h1>
+    <p>This tool will help you inspect the layout of the cash register page.</p>
+    
+    <div class="info-box">
+        <strong>Instructions:</strong>
+        <ol>
+            <li>Make sure <code>http://localhost:3000/caja</code> is running</li>
+            <li>Click the button below to open the page and inspect it</li>
+            <li>The results will show you the grid layout details</li>
+        </ol>
+    </div>
+
+    <button onclick="inspectCajaPage()">🚀 Inspect Caja Page Layout</button>
+
+    <div id="results"></div>
+
+    <script>
+        async function inspectCajaPage() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>Opening page and inspecting layout...</p>';
+
+            try {
+                // Open the page in a new window
+                const cajaWindow = window.open('http://localhost:3000/caja', '_blank', 'width=1512,height=982');
+                
+                if (!cajaWindow) {
+                    resultsDiv.innerHTML = '<div class="result-item" style="border-color: red;"><strong>Error:</strong> Pop-up blocked. Please allow pop-ups and try again.</div>';
+                    return;
+                }
+
+                // Wait for the page to load
+                await new Promise(resolve => setTimeout(resolve, 3000));
+
+                try {
+                    // Try to access the window's document
+                    const doc = cajaWindow.document;
+                    
+                    // Find the grid container
+                    const gridContainer = doc.querySelector('.xl\\:grid');
+                    const allContainers = doc.querySelectorAll('[class*="grid"]');
+                    
+                    let html = '<h2>📊 Layout Inspection Results</h2>';
+                    
+                    // Viewport info
+                    html += `<div class="result-item">
+                        <div class="label">Viewport Size:</div>
+                        ${cajaWindow.innerWidth}px × ${cajaWindow.innerHeight}px
+                    </div>`;
+
+                    // Root font size
+                    const rootFontSize = parseFloat(getComputedStyle(doc.documentElement).fontSize);
+                    html += `<div class="result-item">
+                        <div class="label">Root Font Size:</div>
+                        ${rootFontSize}px (1rem = ${rootFontSize}px)
+                    </div>`;
+
+                    // Grid container info
+                    if (gridContainer) {
+                        const styles = cajaWindow.getComputedStyle(gridContainer);
+                        const rect = gridContainer.getBoundingClientRect();
+                        
+                        html += `<div class="result-item">
+                            <div class="label">Grid Container Found:</div>
+                            <strong>✅ Yes</strong><br>
+                            <strong>Display:</strong> ${styles.display}<br>
+                            <strong>Grid Template Columns:</strong> ${styles.gridTemplateColumns}<br>
+                            <strong>Gap:</strong> ${styles.gap}<br>
+                            <strong>Width:</strong> ${rect.width.toFixed(2)}px (${(rect.width / rootFontSize).toFixed(2)}rem)<br>
+                            <strong>Height:</strong> ${rect.height.toFixed(2)}px (${(rect.height / rootFontSize).toFixed(2)}rem)<br>
+                            <strong>Classes:</strong> ${gridContainer.className}
+                        </div>`;
+
+                        // Check children
+                        const children = gridContainer.children;
+                        html += `<div class="result-item">
+                            <div class="label">Grid Children:</div>
+                            ${children.length} children found<br><br>`;
+                        
+                        Array.from(children).forEach((child, index) => {
+                            const childRect = child.getBoundingClientRect();
+                            const childStyles = cajaWindow.getComputedStyle(child);
+                            html += `<strong>Child ${index + 1}:</strong><br>
+                                Width: ${childRect.width.toFixed(2)}px (${(childRect.width / rootFontSize).toFixed(2)}rem)<br>
+                                Height: ${childRect.height.toFixed(2)}px (${(childRect.height / rootFontSize).toFixed(2)}rem)<br>
+                                Display: ${childStyles.display}<br>
+                                Position: left=${childRect.left.toFixed(0)}px, top=${childRect.top.toFixed(0)}px<br><br>`;
+                        });
+                        
+                        html += '</div>';
+
+                        // Check if cards are side-by-side or stacked
+                        if (children.length >= 2) {
+                            const child1Rect = children[0].getBoundingClientRect();
+                            const child2Rect = children[1].getBoundingClientRect();
+                            const isSideBySide = child2Rect.left > child1Rect.right - 10;
+                            
+                            html += `<div class="result-item" style="border-color: ${isSideBySide ? 'green' : 'orange'};">
+                                <div class="label">Layout Arrangement:</div>
+                                <strong style="font-size: 18px;">${isSideBySide ? '✅ SIDE-BY-SIDE' : '⚠️ STACKED VERTICALLY'}</strong><br><br>
+                                <strong>Analysis:</strong><br>
+                                Card 1 right edge: ${child1Rect.right.toFixed(0)}px<br>
+                                Card 2 left edge: ${child2Rect.left.toFixed(0)}px<br>
+                                ${isSideBySide ? 'Cards are positioned horizontally (grid is working)' : 'Cards are stacked (grid may not be active)'}
+                            </div>`;
+                        }
+                    } else {
+                        html += `<div class="result-item" style="border-color: red;">
+                            <div class="label">Grid Container:</div>
+                            <strong>❌ Not found</strong> - The element with class "xl:grid" was not found.
+                        </div>`;
+                        
+                        html += `<div class="result-item">
+                            <div class="label">All Grid-related Elements:</div>
+                            Found ${allContainers.length} elements with "grid" in their class<br><br>`;
+                        
+                        allContainers.forEach((el, i) => {
+                            const styles = cajaWindow.getComputedStyle(el);
+                            html += `<strong>Element ${i + 1}:</strong><br>
+                                Classes: ${el.className}<br>
+                                Display: ${styles.display}<br><br>`;
+                        });
+                        
+                        html += '</div>';
+                    }
+
+                    // Tailwind breakpoint check
+                    html += `<div class="result-item">
+                        <div class="label">Tailwind XL Breakpoint:</div>
+                        Default: 1280px<br>
+                        Current viewport: ${cajaWindow.innerWidth}px<br>
+                        <strong>${cajaWindow.innerWidth >= 1280 ? '✅ Above XL breakpoint' : '❌ Below XL breakpoint'}</strong>
+                    </div>`;
+
+                    resultsDiv.innerHTML = html;
+
+                } catch (accessError) {
+                    resultsDiv.innerHTML = `<div class="result-item" style="border-color: orange;">
+                        <strong>⚠️ Cross-origin access blocked</strong><br>
+                        The page opened successfully, but browser security prevents inspection from this tool.<br><br>
+                        <strong>Alternative:</strong> Please open the browser DevTools on the caja page and run this in the console:
+                        <div class="code">
+// Inspect grid container
+const gridContainer = document.querySelector('.xl\\\\:grid');
+console.log('Grid Container:', gridContainer);
+console.log('Display:', getComputedStyle(gridContainer).display);
+console.log('Grid Template:', getComputedStyle(gridContainer).gridTemplateColumns);
+console.log('Children:', gridContainer.children.length);
+
+Array.from(gridContainer.children).forEach((child, i) => {
+    const rect = child.getBoundingClientRect();
+    console.log(\`Child \${i + 1}:\`, {
+        width: rect.width,
+        height: rect.height,
+        left: rect.left,
+        top: rect.top
+    });
+});
+                        </div>
+                    </div>`;
+                }
+
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="result-item" style="border-color: red;">
+                    <strong>Error:</strong> ${error.message}
+                </div>`;
+            }
+        }
+    </script>
+</body>
+</html>

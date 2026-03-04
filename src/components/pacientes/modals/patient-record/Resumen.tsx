@@ -5,7 +5,6 @@
 import {
   AddRounded,
   CallRounded,
-  EditRounded,
   MailRounded,
   MoreVertRounded,
   AppsRounded
@@ -320,7 +319,7 @@ export default function Resumen({
             .limit(200),
           supabase
             .from('patient_health_profiles')
-            .select('allergies, medications, main_complaint, motivo_consulta')
+            .select('allergies, medications, conditions, main_complaint, motivo_consulta')
             .eq('patient_id', patientId)
             .maybeSingle(),
           supabase
@@ -433,6 +432,14 @@ export default function Resumen({
           allergyTagsFromAlerts,
           allergyTagsFromProfile
         )
+        const conditionsFromProfile = parseListField(healthProfile?.conditions).map((label) => ({
+          label,
+          severity: 'medium' as AlertSeverity
+        }))
+        const combinedConditionTags = mergeAlertTags(
+          conditionsFromAlerts,
+          conditionsFromProfile
+        )
         const medicationsFromProfile = parseListField(healthProfile?.medications)
         const baseData = createInitialPatientData(fullName)
         const assignedStaff = Array.isArray(nextAppointment?.staff_assigned)
@@ -477,7 +484,7 @@ export default function Resumen({
           informacionCritica: {
             ...baseData.informacionCritica,
             alergias: combinedAllergyTags,
-            enfermedades: conditionsFromAlerts,
+            enfermedades: combinedConditionTags,
             medicacion: medicationsFromProfile,
             notas: clinicalNotes
           },
@@ -619,20 +626,13 @@ export default function Resumen({
             className='bg-white rounded-xl border border-[var(--color-neutral-200)] p-[1.5rem]'
             data-node-id='resumen-proxima-cita-card'
           >
-        <div className='flex items-center justify-between mb-[1rem]'>
+        <div className='mb-[1rem]'>
           <p
             className="font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] not-italic text-[#24282c] text-[1.125rem]"
             data-node-id='resumen-proxima-cita-title'
           >
             Próxima cita
           </p>
-          <button
-            type='button'
-            className='w-6 h-6 cursor-pointer hover:opacity-70 transition-opacity'
-            aria-label='Editar próxima cita'
-          >
-            <EditRounded className='w-6 h-6 text-[#24282c]' />
-          </button>
         </div>
         <div className='space-y-[0.5rem]'>
           <p
@@ -668,97 +668,97 @@ export default function Resumen({
             className='bg-white rounded-xl border border-[var(--color-neutral-200)] p-[1.5rem]'
             data-node-id='resumen-info-critica-card'
           >
-        <div className='flex items-center justify-between mb-[1rem]'>
+        <div className='mb-[1rem]'>
           <p
             className="font-['Inter:Medium',_sans-serif] font-medium leading-[1.5rem] not-italic text-[#24282c] text-[1.125rem]"
           >
             Información crítica
           </p>
-          <button
-            type='button'
-            className='w-6 h-6 cursor-pointer hover:opacity-70 transition-opacity'
-            aria-label='Editar información crítica'
-            onClick={() => onNavigateToInfo?.(true)}
-          >
-            <EditRounded className='w-6 h-6 text-[#24282c]' />
-          </button>
         </div>
-        <div className='space-y-[1rem]'>
+        <div className='space-y-4'>
           {/* Alergias */}
           <div>
-            <p
-              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[0.875rem] mb-[0.5rem]"
-            >
-              Alergias
-            </p>
-            <div className='flex flex-wrap gap-[0.5rem]'>
-              {patientData.informacionCritica.alergias.map((alergia, idx) => (
-                <span
-                  key={idx}
-                  className={`inline-block px-[0.75rem] py-[0.375rem] text-[0.75rem] rounded-full font-medium ${getAlertTagClasses(
-                    alergia.severity
-                  )}`}
-                >
-                  {alergia.label}
-                </span>
-              ))}
+            <div className='flex items-center gap-1.5 mb-2'>
+              <span className='material-symbols-rounded text-base text-red-500'>emergency</span>
+              <p className='font-medium text-sm text-[#24282c]'>Alergias</p>
             </div>
+            {patientData.informacionCritica.alergias.length > 0 ? (
+              <div className='flex flex-wrap gap-2'>
+                {patientData.informacionCritica.alergias.map((alergia, idx) => (
+                  <span
+                    key={idx}
+                    className={`inline-flex items-center gap-1 px-3 py-1 text-xs rounded-full font-medium ${getAlertTagClasses(
+                      alergia.severity
+                    )}`}
+                  >
+                    {alergia.label}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className='text-xs text-[#aeb8c2] italic'>Sin alergias registradas</p>
+            )}
           </div>
+
+          <hr className='border-[var(--color-neutral-100)]' />
 
           {/* Enfermedades */}
           <div>
-            <p
-              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[0.875rem] mb-[0.5rem]"
-            >
-              Enfermedades
-            </p>
-            <div className='flex flex-wrap gap-[0.5rem]'>
-              {patientData.informacionCritica.enfermedades.map((enfermedad, idx) => (
-                <span
-                  key={idx}
-                  className={`inline-block px-[0.75rem] py-[0.375rem] text-[0.75rem] rounded-full font-medium ${getAlertTagClasses(
-                    enfermedad.severity
-                  )}`}
-                >
-                  {enfermedad.label}
-                </span>
-              ))}
+            <div className='flex items-center gap-1.5 mb-2'>
+              <span className='material-symbols-rounded text-base text-amber-500'>cardiology</span>
+              <p className='font-medium text-sm text-[#24282c]'>Enfermedades</p>
             </div>
+            {patientData.informacionCritica.enfermedades.length > 0 ? (
+              <div className='flex flex-wrap gap-2'>
+                {patientData.informacionCritica.enfermedades.map((enfermedad, idx) => (
+                  <span
+                    key={idx}
+                    className={`inline-flex items-center gap-1 px-3 py-1 text-xs rounded-full font-medium ${getAlertTagClasses(
+                      enfermedad.severity
+                    )}`}
+                  >
+                    {enfermedad.label}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className='text-xs text-[#aeb8c2] italic'>Sin enfermedades registradas</p>
+            )}
           </div>
+
+          <hr className='border-[var(--color-neutral-100)]' />
 
           {/* Medicación actual */}
           <div>
-            <p
-              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[0.875rem] mb-[0.5rem]"
-            >
-              Medicación actual
-            </p>
-            <div className='flex flex-wrap gap-[0.5rem]'>
-              {patientData.informacionCritica.medicacion.map((med, idx) => (
-                <span
-                  key={idx}
-                  className={`inline-block px-[0.75rem] py-[0.375rem] text-[0.75rem] rounded-full font-medium ${
-                    idx === 0
-                      ? 'bg-[#f7b7ba] text-red-700'
-                      : 'bg-[var(--color-neutral-200)] text-[#24282c]'
-                  }`}
-                >
-                  {med}
-                </span>
-              ))}
+            <div className='flex items-center gap-1.5 mb-2'>
+              <span className='material-symbols-rounded text-base text-blue-500'>medication</span>
+              <p className='font-medium text-sm text-[#24282c]'>Medicación actual</p>
             </div>
+            {patientData.informacionCritica.medicacion.length > 0 ? (
+              <div className='flex flex-wrap gap-2'>
+                {patientData.informacionCritica.medicacion.map((med, idx) => (
+                  <span
+                    key={idx}
+                    className='inline-flex items-center gap-1 px-3 py-1 text-xs rounded-full font-medium bg-[#EFF6FF] text-[#1D4ED8]'
+                  >
+                    {med}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className='text-xs text-[#aeb8c2] italic'>Sin medicación registrada</p>
+            )}
           </div>
+
+          <hr className='border-[var(--color-neutral-100)]' />
 
           {/* Notas */}
           <div>
-            <p
-              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] not-italic text-[#24282c] text-[0.875rem] mb-[0.5rem]"
-            >
-              Notas
-            </p>
-            <p
-              className="font-['Inter:Regular',_sans-serif] font-normal leading-[1.5rem] italic text-[#aeb8c2] text-[0.875rem]"
-            >
+            <div className='flex items-center gap-1.5 mb-2'>
+              <span className='material-symbols-rounded text-base text-[var(--color-neutral-500)]'>sticky_note_2</span>
+              <p className='font-medium text-sm text-[#24282c]'>Notas</p>
+            </div>
+            <p className='text-sm leading-relaxed italic text-[#aeb8c2]'>
               {patientData.informacionCritica.notas}
             </p>
           </div>

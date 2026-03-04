@@ -42,7 +42,26 @@ const initialPatientData = {
   contactoEmergenciaEmail: '—',
   contactoEmergenciaTelefono: '—',
   alergias: [] as string[],
+  enfermedades: [] as string[],
   comentario: ''
+}
+
+const LANGUAGE_OPTIONS = [
+  { value: 'es', label: 'Español' },
+  { value: 'fr', label: 'Francés' },
+  { value: 'en', label: 'Inglés' },
+  { value: 'ca', label: 'Catalán' },
+  { value: 'val', label: 'Valenciano' }
+]
+
+function languageCodeToLabel(code: string | null | undefined): string {
+  if (!code) return '—'
+  const found = LANGUAGE_OPTIONS.find((o) => o.value === code)
+  if (found) return found.label
+  // Si ya es una etiqueta legible, devolverla tal cual
+  const foundByLabel = LANGUAGE_OPTIONS.find((o) => o.label.toLowerCase() === code.toLowerCase())
+  if (foundByLabel) return foundByLabel.label
+  return code
 }
 
 const LEAD_SOURCE_LABELS: Record<string, string> = {
@@ -315,7 +334,7 @@ export default function ClientSummary({
       const [{ data: healthProfile }, { data: alerts }] = await Promise.all([
         supabase
           .from('patient_health_profiles')
-          .select('allergies, main_complaint, motivo_consulta')
+          .select('allergies, conditions, main_complaint, motivo_consulta')
           .eq('patient_id', patientId)
           .maybeSingle(),
         supabase
@@ -376,13 +395,14 @@ export default function ClientSummary({
             patient.consultation_reason
         ),
         origenCliente: formatLeadSource(patient.lead_source ?? patient.source),
-        recomendadoPor: toDisplayText(patient.referred_by_name ?? patient.referrer_name),
+        recomendadoPor: toDisplayText(patient.recommended_by ?? patient.referred_by_name ?? patient.referrer_name),
         ocupacion: toDisplayText(patient.occupation),
-        idioma: toDisplayText(patient.preferred_language),
+        idioma: patient.preferred_language ? languageCodeToLabel(patient.preferred_language) : '—',
         contactoEmergenciaNombre: toDisplayText(patient.emergency_contact_name),
         contactoEmergenciaEmail: toDisplayText(patient.emergency_contact_email),
         contactoEmergenciaTelefono: toDisplayText(patient.emergency_contact_phone),
         alergias: allergyList,
+        enfermedades: parseListField(healthProfile?.conditions),
         comentario: typeof patient.notes === 'string' ? patient.notes : ''
       }
 
@@ -473,7 +493,12 @@ export default function ClientSummary({
         phone_number: normalizedPhone,
         national_id: emptyValueToNull(tempFormData.dni),
         address_country: normalizedCountry,
-        preferred_language: emptyValueToNull(tempFormData.idioma),
+        preferred_language: (() => {
+          const raw = emptyValueToNull(tempFormData.idioma)
+          if (!raw) return null
+          const found = LANGUAGE_OPTIONS.find((o) => o.label === raw)
+          return found ? found.value : raw
+        })(),
         occupation: emptyValueToNull(tempFormData.ocupacion),
         emergency_contact_name: emptyValueToNull(tempFormData.contactoEmergenciaNombre),
         emergency_contact_email: emptyValueToNull(tempFormData.contactoEmergenciaEmail),
@@ -565,6 +590,7 @@ export default function ClientSummary({
             : undefined,
           healthProfile: {
             allergies: tempFormData.alergias.join(', ') || null,
+            conditions: tempFormData.enfermedades.join(', ') || null,
             main_complaint: emptyValueToNull(tempFormData.motivoConsulta),
             motivo_consulta: emptyValueToNull(tempFormData.motivoConsulta)
           }
@@ -619,6 +645,45 @@ export default function ClientSummary({
       return next
     })
   }
+
+  const [newAllergyInput, setNewAllergyInput] = React.useState('')
+
+  const addAllergy = () => {
+    const name = newAllergyInput.trim()
+    if (!name) return
+    setTempFormData((prev) => ({
+      ...prev,
+      alergias: [...prev.alergias, name]
+    }))
+    setNewAllergyInput('')
+  }
+
+  const removeAllergy = (index: number) => {
+    setTempFormData((prev) => ({
+      ...prev,
+      alergias: prev.alergias.filter((_, i) => i !== index)
+    }))
+  }
+
+  const [newConditionInput, setNewConditionInput] = React.useState('')
+
+  const addCondition = () => {
+    const name = newConditionInput.trim()
+    if (!name) return
+    setTempFormData((prev) => ({
+      ...prev,
+      enfermedades: [...prev.enfermedades, name]
+    }))
+    setNewConditionInput('')
+  }
+
+  const removeCondition = (index: number) => {
+    setTempFormData((prev) => ({
+      ...prev,
+      enfermedades: prev.enfermedades.filter((_, i) => i !== index)
+    }))
+  }
+
   return (
     <div
       className='relative bg-[#f8fafb] overflow-hidden w-full h-full'
@@ -736,47 +801,146 @@ export default function ClientSummary({
         className='absolute left-[2.25rem] top-[11.5rem] w-[70.5rem] border-t border-[#e2e7ea]'
         data-node-id='426:850'
       />
+      {/* Label: Alergias */}
+      <p
+        className="absolute font-medium text-xs text-[#8a95a1] top-[3.25rem]"
+        style={{ left: 'calc(43.75% + 0.797rem)' }}
+      >Alergias:</p>
+
+      {/* Alergias tags */}
       <div
-        className='absolute top-[3rem] flex flex-wrap gap-[0.5rem] max-w-[26rem]'
-        style={{ left: 'calc(50% - 0.25rem)' }}
+        className='absolute top-[3rem] flex flex-wrap gap-1.5 max-w-[30rem] items-center'
+        style={{ left: 'calc(50% + 0.5rem)' }}
       >
         {(isEditing ? tempFormData.alergias : formData.alergias).map((allergy, index) => (
           <div
             key={`${allergy}-${index}`}
-            className='bg-[#f7b7ba] box-border content-stretch flex gap-[0.5rem] items-center justify-center px-[0.5rem] py-[0.25rem] rounded-[6rem]'
+            className='bg-[#FEE2E2] flex gap-1 items-center px-2.5 py-1 rounded-full border border-red-200'
           >
-            <p className="font-['Inter:Medium',_sans-serif] font-medium leading-[1rem] not-italic relative shrink-0 text-[0.75rem] text-nowrap text-red-700 whitespace-pre">
+            <span className='material-symbols-rounded text-red-500 text-xs leading-none'>warning</span>
+            <p className='font-medium leading-none text-xs text-red-700'>
               {allergy}
             </p>
+            {isEditing && (
+              <button
+                type='button'
+                onClick={() => removeAllergy(index)}
+                className='ml-0.5 flex items-center justify-center w-4 h-4 rounded-full text-red-600 hover:bg-red-200 hover:text-red-900 transition-colors'
+                aria-label={`Eliminar alergia ${allergy}`}
+              >
+                <CloseRounded className='w-3 h-3' />
+              </button>
+            )}
           </div>
         ))}
+        {isEditing && (
+          <div className='flex items-center gap-1'>
+            <input
+              type='text'
+              value={newAllergyInput}
+              onChange={(e) => setNewAllergyInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addAllergy() } }}
+              placeholder='Añadir alergia...'
+              className='text-xs px-2.5 py-1 rounded-full border border-dashed border-red-300 bg-[#FFF5F5] outline-none focus:border-red-400 focus:bg-white w-[9rem] text-red-700 placeholder:text-red-300 transition-colors'
+            />
+            {newAllergyInput.trim() && (
+              <button
+                type='button'
+                onClick={addAllergy}
+                className='flex items-center justify-center w-6 h-6 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors shadow-sm'
+              >
+                <span className='text-sm font-bold leading-none'>+</span>
+              </button>
+            )}
+          </div>
+        )}
+        {!isEditing && formData.alergias.length === 0 && (
+          <span className='text-xs text-[#aeb8c2] italic'>Sin alergias registradas</span>
+        )}
       </div>
-      <div
-        className='absolute bg-[#e2e7ea] h-[3.5rem] overflow-clip rounded-[0.5rem] top-[5.5rem] w-[30.25rem]'
-        data-node-id='426:855'
+
+      {/* Label: Enfermedades */}
+      <p
+        className="absolute font-medium text-xs text-[#8a95a1] top-[5.5rem]"
         style={{ left: 'calc(43.75% + 0.797rem)' }}
+      >Enfermedades:</p>
+
+      {/* Enfermedades tags */}
+      <div
+        className='absolute top-[5.25rem] flex flex-wrap gap-1.5 max-w-[30rem] items-center'
+        style={{ left: 'calc(50% + 3rem)' }}
+      >
+        {(isEditing ? tempFormData.enfermedades : formData.enfermedades).map((condition, index) => (
+          <div
+            key={`${condition}-${index}`}
+            className='bg-[#FEF3C7] flex gap-1 items-center px-2.5 py-1 rounded-full border border-amber-200'
+          >
+            <span className='material-symbols-rounded text-amber-600 text-xs leading-none'>cardiology</span>
+            <p className='font-medium leading-none text-xs text-amber-800'>
+              {condition}
+            </p>
+            {isEditing && (
+              <button
+                type='button'
+                onClick={() => removeCondition(index)}
+                className='ml-0.5 flex items-center justify-center w-4 h-4 rounded-full text-amber-700 hover:bg-amber-200 hover:text-amber-900 transition-colors'
+                aria-label={`Eliminar enfermedad ${condition}`}
+              >
+                <CloseRounded className='w-3 h-3' />
+              </button>
+            )}
+          </div>
+        ))}
+        {isEditing && (
+          <div className='flex items-center gap-1'>
+            <input
+              type='text'
+              value={newConditionInput}
+              onChange={(e) => setNewConditionInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCondition() } }}
+              placeholder='Añadir enfermedad...'
+              className='text-xs px-2.5 py-1 rounded-full border border-dashed border-amber-300 bg-[#FFFBEB] outline-none focus:border-amber-400 focus:bg-white w-[9rem] text-amber-800 placeholder:text-amber-400 transition-colors'
+            />
+            {newConditionInput.trim() && (
+              <button
+                type='button'
+                onClick={addCondition}
+                className='flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white hover:bg-amber-600 transition-colors shadow-sm'
+              >
+                <span className='text-sm font-bold leading-none'>+</span>
+              </button>
+            )}
+          </div>
+        )}
+        {!isEditing && formData.enfermedades.length === 0 && (
+          <span className='text-xs text-[#aeb8c2] italic'>Sin enfermedades registradas</span>
+        )}
+      </div>
+
+      {/* Label: Notas */}
+      <p
+        className='absolute font-medium text-xs text-[#8a95a1] top-[8rem]'
+        style={{ left: 'calc(43.75% + 0.797rem)' }}
+      >Notas:</p>
+
+      {/* Notas box */}
+      <div
+        className='absolute bg-[#e2e7ea] h-[3.5rem] overflow-clip rounded-[0.5rem] top-[7.5rem] w-[27rem]'
+        style={{ left: 'calc(46% + 0.797rem)' }}
       >
         {isEditing ? (
           <textarea
             value={tempFormData.comentario}
             onChange={(e) => updateField('comentario', e.target.value)}
             placeholder='Añadir comentario sobre el paciente'
-            className='w-full h-full px-2 py-2 text-[0.875rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded-[0.5rem] outline-none focus:border-[var(--color-brand-500)] resize-none text-[#24282c]'
+            className='w-full h-full px-2.5 py-2 text-xs bg-white border border-[var(--color-neutral-300)] rounded-[0.5rem] outline-none focus:border-[var(--color-brand-500)] resize-none text-[#24282c] placeholder:text-[#aeb8c2]'
           />
         ) : (
-          <p
-            className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1rem] left-[0.5rem] not-italic text-[#aeb8c2] text-[0.75rem] text-nowrap top-[0.5rem] whitespace-pre"
-            data-node-id='426:856'
-          >
-            {formData.comentario || 'Añadir comentario sobre el paciente'}
+          <p className='px-2.5 py-2 text-xs leading-relaxed text-[#535c66]'>
+            {formData.comentario || <span className='italic text-[#aeb8c2]'>Añadir comentario sobre el paciente</span>}
           </p>
         )}
       </div>
-      <p
-        className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[1rem] not-italic text-[#8a95a1] text-[0.75rem] text-nowrap top-[3.25rem] whitespace-pre"
-        data-node-id='426:863'
-        style={{ left: 'calc(43.75% + 0.797rem)' }}
-      >{`Alergias: `}</p>
       <p
         className="absolute font-['Inter:Medium',_sans-serif] font-medium leading-[2rem] left-[2rem] not-italic text-[#24282c] text-[1.5rem] text-nowrap top-[14rem] whitespace-pre"
         data-node-id='426:864'
@@ -1088,11 +1252,10 @@ export default function ClientSummary({
           className="absolute font-['Inter:Regular',_sans-serif] font-normal leading-[1.25rem] not-italic text-[#535c66] text-[0.875rem] top-[36.25rem] bg-[var(--color-neutral-50)] border border-[var(--color-neutral-300)] rounded px-2 py-1 outline-none focus:border-[var(--color-brand-500)] w-[8rem]"
           style={{ left: 'calc(18.75% + 1.922rem)' }}
         >
-          <option value='Español'>Español</option>
-          <option value='Inglés'>Inglés</option>
-          <option value='Francés'>Francés</option>
-          <option value='Valenciano'>Valenciano</option>
-          <option value='Catalán'>Catalán</option>
+          <option value='—'>—</option>
+          {LANGUAGE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.label}>{opt.label}</option>
+          ))}
         </select>
       ) : (
         <p

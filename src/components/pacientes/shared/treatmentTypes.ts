@@ -77,6 +77,7 @@ export type TreatmentV2 = {
   importeSeguro?: string // Monto cubierto por seguro
   descripcionAnotaciones?: string // Notas adicionales
   doctor?: string // Nombre del profesional (opcional, se asigna automáticamente si hay un único especialista compatible)
+  zona?: string // Zona: 'BOCA', 'SUP', 'INF' (si no aplica a un diente específico)
   selected?: boolean // Selección para crear presupuesto
 
   // HU-011: Campos para historial de tratamientos
@@ -104,6 +105,35 @@ export const TOOTH_FACES: { value: ToothFace; label: string }[] = [
   { value: 'Palatino', label: 'Palatino' },
   { value: 'Incisal', label: 'Incisal' }
 ]
+
+// Zonas de aplicación del tratamiento
+export type TreatmentZone = 'diente' | 'boca' | 'arcada_superior' | 'arcada_inferior'
+
+export const TREATMENT_ZONE_OPTIONS: { value: TreatmentZone; label: string }[] = [
+  { value: 'diente', label: 'Por diente' },
+  { value: 'boca', label: 'Boca completa' },
+  { value: 'arcada_superior', label: 'Arc. superior' },
+  { value: 'arcada_inferior', label: 'Arc. inferior' }
+]
+
+// Dientes por arcada (FDI)
+export const UPPER_TEETH = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28]
+export const LOWER_TEETH = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38]
+export const ALL_TEETH = [...UPPER_TEETH, ...LOWER_TEETH]
+
+// Mapeo de zone → valor guardado en tooth_number
+export const ZONE_DB_VALUES: Record<Exclude<TreatmentZone, 'diente'>, string> = {
+  boca: 'BOCA',
+  arcada_superior: 'SUP',
+  arcada_inferior: 'INF'
+}
+
+// Etiquetas legibles para mostrar en la columna "Pieza"
+export const ZONE_DISPLAY_LABELS: Record<string, string> = {
+  BOCA: 'Boca',
+  SUP: 'Sup.',
+  INF: 'Inf.'
+}
 
 // Familias de tratamiento para filtros
 export const TREATMENT_FAMILIES = [

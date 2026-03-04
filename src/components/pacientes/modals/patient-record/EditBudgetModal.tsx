@@ -7,7 +7,7 @@ import type {
   BudgetGeneralDiscount,
   BudgetRow,
   BudgetTreatment
-} from './BudgetsPayments'
+} from './budgetTypes'
 
 type EditBudgetModalProps = {
   open: boolean

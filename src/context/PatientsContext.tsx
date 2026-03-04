@@ -1732,7 +1732,7 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
 
         const clinicId = activeClinicId
 
-        const [{ data: patientRows, error: patientsError }, { data: treatmentRows, error: treatmentsError }] =
+        const [{ data: patientRows, error: patientsError }, { data: treatmentRows, error: treatmentsError }, { data: healthProfileRows }] =
           await Promise.all([
             supabase
               .from('patients')
@@ -1747,7 +1747,10 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
                 'id, clinic_id, patient_id, treatment_code, treatment_name, tooth_number, tooth_face, amount, final_amount, paid_amount, status, payment_status, scheduled_date, completed_at, completed_by, completed_by_name, budget_id, notes, marked_for_next_appointment, created_at, updated_at, appointment_id'
               )
               .eq('clinic_id', clinicId)
-              .order('created_at', { ascending: false })
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('patient_health_profiles')
+              .select('patient_id, allergies, medications, conditions, main_complaint')
           ])
 
         if (patientsError || !patientRows) return
@@ -1764,6 +1767,12 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
           const list = treatmentsByPatient.get(row.patient_id) || []
           list.push(treatment)
           treatmentsByPatient.set(row.patient_id, list)
+        }
+
+        // Map health profiles by patient_id
+        const healthByPatient = new Map<string, { allergies?: string | null; medications?: string | null; conditions?: string | null }>()
+        for (const hp of (healthProfileRows || []) as { patient_id: string; allergies?: string | null; medications?: string | null; conditions?: string | null }[]) {
+          healthByPatient.set(hp.patient_id, hp)
         }
 
         const mappedPatients = (patientRows as DbPatientRow[]).map((row) => {
@@ -1794,11 +1803,23 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
             status: 'Activo' as PatientStatus,
             tags: totalDebtCents > 0 ? (['activo', 'deuda'] as PatientTag[]) : (['activo'] as PatientTag[]),
             source: row.lead_source || undefined,
-            medicalHistory: {
-              allergies: [],
-              medications: [],
-              conditions: []
-            },
+            medicalHistory: (() => {
+              const hp = healthByPatient.get(row.id)
+              const allergies: Allergy[] = hp?.allergies
+                ? hp.allergies.split(',').map((name, i) => ({
+                    id: `alg-${row.id}-${i}`,
+                    name: name.trim(),
+                    severity: 'moderada' as AllergySeverity
+                  })).filter(a => a.name)
+                : []
+              const medications: string[] = hp?.medications
+                ? hp.medications.split(',').map(m => m.trim()).filter(Boolean)
+                : []
+              const conditions: string[] = hp?.conditions
+                ? hp.conditions.split(',').map(c => c.trim()).filter(Boolean)
+                : []
+              return { allergies, medications, conditions }
+            })(),
             treatments,
             consents: [],
             finance: {

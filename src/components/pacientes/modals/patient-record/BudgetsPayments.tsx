@@ -36,6 +36,8 @@ import { useClinic } from '@/context/ClinicContext'
 import { usePatients, type PatientTreatment } from '@/context/PatientsContext'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { BudgetInstallmentPlan, BudgetPayment } from '@/types/payments'
+import type { BudgetRow, BudgetStatusType, BudgetTreatment, BudgetGeneralDiscount, BudgetHistoryEntry } from './budgetTypes'
+import { BUDGET_STATUS_OPTIONS } from './budgetTypes'
 import { setPendingAppointmentData } from '@/utils/appointmentPrefill'
 import {
   downloadBlob,
@@ -569,64 +571,9 @@ type ProductionRow = {
   patientId?: string
 }
 
-// === PRESUPUESTOS TYPES (exported for shared state) ===
-export type BudgetStatusType = 'Aceptado' | 'Pendiente' | 'Rechazado'
-
-export const BUDGET_STATUS_OPTIONS: BudgetStatusType[] = [
-  'Aceptado',
-  'Pendiente',
-  'Rechazado'
-]
-
-// Tipo para tratamientos incluidos en un presupuesto
-export type BudgetTreatment = {
-  pieza?: number
-  cara?: string
-  codigo?: string
-  tratamiento: string
-  precio: string
-  porcentajeDescuento?: number
-  descuento: string
-  importe: string
-  doctor?: string
-}
-
-// Tipo para historial de cambios del presupuesto
-export type BudgetHistoryEntry = {
-  date: string
-  action: string
-  user?: string
-}
-
-// Tipo para descuento general
-export type BudgetGeneralDiscount = {
-  type: 'percentage' | 'fixed'
-  value: number
-}
-
-export type BudgetRow = {
-  id: string
-  description: string
-  amount: string
-  date: string
-  status: BudgetStatusType
-  professional: string
-  insurer?: string
-  // Referencias para conexión a DB
-  patientId?: string
-  patientName?: string
-  quoteId?: number
-  planId?: number
-  // Campos extendidos para detalles
-  treatments?: BudgetTreatment[]
-  generalDiscount?: BudgetGeneralDiscount
-  subtotal?: number
-  validUntil?: string
-  history?: BudgetHistoryEntry[]
-  // Campos para pagos fraccionados
-  installmentPlan?: BudgetInstallmentPlan
-  payments?: BudgetPayment[]
-}
+// === PRESUPUESTOS TYPES (re-exported from budgetTypes.ts) ===
+export type { BudgetStatusType, BudgetTreatment, BudgetHistoryEntry, BudgetGeneralDiscount, BudgetRow } from './budgetTypes'
+export { BUDGET_STATUS_OPTIONS } from './budgetTypes'
 
 // === FACTURAS TYPES ===
 type InvoiceStatusType = 'Cobrado' | 'Pendiente'
