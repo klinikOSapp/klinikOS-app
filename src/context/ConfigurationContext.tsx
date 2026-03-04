@@ -2039,41 +2039,53 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     (professional: Omit<Professional, 'id'>) => {
       void (async () => {
         try {
+          if (!activeClinicId) {
+            console.warn('No se pudo crear profesional: sin clínica activa')
+            return
+          }
+          const supabase = createSupabaseBrowserClient()
           const staffRole = mapProfessionalRoleToUserRole(professional.role)
+          const roleSlug = slugifyRoleName(professional.role)
 
-          const response = await fetch('/api/configuration/staff', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              full_name: professional.name || 'Profesional',
-              specialties: professional.role ? [professional.role] : [],
-              phone: professional.phone || null,
-              email: professional.email || null,
-              calendar_color: toneToHex(professional.colorTone),
-              commission_percentage: parseCommissionPercentage(
+          // Look up role_id for the staff_clinics association
+          let roleQuery = supabase.from('roles').select('id')
+          if (roleSlug) {
+            roleQuery = roleQuery.or(
+              `and(clinic_id.eq.${activeClinicId},name.eq.${roleSlug}),name.eq.${staffRole}`
+            )
+          } else {
+            roleQuery = roleQuery.eq('name', staffRole)
+          }
+          const { data: roleRow } = await roleQuery
+            .order('clinic_id', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          const { data: result, error: rpcError } = await supabase.rpc(
+            'create_staff_for_clinic',
+            {
+              p_clinic_id: activeClinicId,
+              p_full_name: professional.name || 'Profesional',
+              p_specialties: professional.role ? [professional.role] : [],
+              p_phone: professional.phone || null,
+              p_email: professional.email || null,
+              p_calendar_color: toneToHex(professional.colorTone),
+              p_commission_percentage: parseCommissionPercentage(
                 professional.commission
               ),
-              is_active: professional.status === 'Activo',
-              avatar_url: professional.photoUrl || null,
-              role: staffRole
-            })
-          })
+              p_is_active: professional.status === 'Activo',
+              p_avatar_url: professional.photoUrl || null,
+              p_role: staffRole,
+              p_role_id: Number(roleRow?.id || 3)
+            }
+          )
 
-          if (!response.ok) {
-            const errBody = await response.json().catch(() => ({}))
-            console.warn('No se pudo crear profesional en DB', errBody)
+          if (rpcError || !result) {
+            console.warn('No se pudo crear profesional en DB', rpcError)
             return
           }
 
-          const { data: insertedStaff } = (await response.json()) as {
-            data: Record<string, unknown>
-          }
-
-          if (!insertedStaff) {
-            console.warn('No se pudo crear profesional en DB: respuesta vacía')
-            return
-          }
-
+          const insertedStaff = result as Record<string, unknown>
           const tone = parseHexToTone(
             typeof insertedStaff.calendar_color === 'string'
               ? insertedStaff.calendar_color
@@ -2107,7 +2119,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         }
       })()
     },
-    []
+    [activeClinicId]
   )
 
   const updateProfessional = useCallback(
