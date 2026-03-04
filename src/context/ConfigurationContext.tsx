@@ -2066,7 +2066,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
               professional.commission
             ),
             is_active: professional.status === 'Activo',
-            avatar_url: professional.photoUrl || null
+            avatar_url: professional.photoUrl || null,
+            ...(activeClinicId ? { clinic_id: activeClinicId } : {})
           }
           const payloadWithOptional: Record<string, unknown> = {
             ...baseStaffPayload
