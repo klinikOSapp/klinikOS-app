@@ -1750,7 +1750,7 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
               .order('created_at', { ascending: false }),
             supabase
               .from('patient_health_profiles')
-              .select('patient_id, allergies, medications, main_complaint')
+              .select('patient_id, allergies, medications, conditions, main_complaint')
           ])
 
         if (patientsError || !patientRows) return
@@ -1770,8 +1770,8 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
         }
 
         // Map health profiles by patient_id
-        const healthByPatient = new Map<string, { allergies?: string | null; medications?: string | null }>()
-        for (const hp of (healthProfileRows || []) as { patient_id: string; allergies?: string | null; medications?: string | null }[]) {
+        const healthByPatient = new Map<string, { allergies?: string | null; medications?: string | null; conditions?: string | null }>()
+        for (const hp of (healthProfileRows || []) as { patient_id: string; allergies?: string | null; medications?: string | null; conditions?: string | null }[]) {
           healthByPatient.set(hp.patient_id, hp)
         }
 
@@ -1815,7 +1815,10 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
               const medications: string[] = hp?.medications
                 ? hp.medications.split(',').map(m => m.trim()).filter(Boolean)
                 : []
-              return { allergies, medications, conditions: [] as string[] }
+              const conditions: string[] = hp?.conditions
+                ? hp.conditions.split(',').map(c => c.trim()).filter(Boolean)
+                : []
+              return { allergies, medications, conditions }
             })(),
             treatments,
             consents: [],

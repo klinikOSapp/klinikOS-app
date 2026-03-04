@@ -682,6 +682,12 @@ export default function AddTreatmentsToBudgetModal({
   }>({ type: 'percentage', value: 0 })
   const budgetNameInputRef = React.useRef<HTMLInputElement>(null)
 
+  // === Toast de error al guardar tratamientos ===
+  const [toast, setToast] = React.useState<{
+    message: string
+    variant: 'success' | 'error'
+  } | null>(null)
+
   // Mount state
   React.useEffect(() => {
     setMounted(true)
@@ -823,9 +829,7 @@ export default function AddTreatmentsToBudgetModal({
     codigo: string,
     entry: TreatmentCatalogEntry
   ) => {
-    const newId = `TR-NEW-${Date.now()}-${Math.random()
-      .toString(36)
-      .substr(2, 9)}`
+    const newId = `TR-NEW-${crypto.randomUUID()}`
     const newTreatment: TreatmentV2 = {
       _internalId: newId,
       pieza: undefined,
@@ -923,18 +927,26 @@ export default function AddTreatmentsToBudgetModal({
 
     // Persist each new treatment to patient_treatments in DB
     if (patientId) {
-      newTreatments.forEach((t) => {
-        void addTreatment(patientId, {
-          code: t.codigo,
-          description: t.tratamiento,
-          tooth: t.zona || (t.pieza != null ? String(t.pieza) : undefined),
-          amount: parseEuroStringToCents(t.precio),
-          paidAmount: 0,
-          status: 'Pendiente',
-          paymentStatus: 'Sin pagar',
-          professional: t.doctor,
-          markedForNextAppointment: false
+      Promise.all(
+        newTreatments.map((t) =>
+          addTreatment(patientId, {
+            code: t.codigo,
+            description: t.tratamiento,
+            tooth: t.zona || (t.pieza != null ? String(t.pieza) : undefined),
+            amount: parseEuroStringToCents(t.precio),
+            paidAmount: 0,
+            status: 'Pendiente',
+            paymentStatus: 'Sin pagar',
+            professional: t.doctor,
+            markedForNextAppointment: false
+          })
+        )
+      ).catch(() => {
+        setToast({
+          message: 'Error al guardar tratamientos en la base de datos',
+          variant: 'error'
         })
+        window.setTimeout(() => setToast(null), 3000)
       })
     }
 
@@ -1933,6 +1945,28 @@ export default function AddTreatmentsToBudgetModal({
           )}
         </div>
       </div>
+      {toast && (
+        <div className='fixed right-4 bottom-4 z-[200]'>
+          <div
+            className={[
+              'min-w-[240px] max-w-[360px] rounded-lg border shadow-[var(--shadow-cta)] px-3 py-2 flex items-start gap-2',
+              toast.variant === 'success'
+                ? 'bg-[var(--color-success-50)] border-[var(--color-success-200)] text-[var(--color-success-800)]'
+                : 'bg-[var(--color-error-50)] border-[var(--color-error-200)] text-[var(--color-error-800)]'
+            ].join(' ')}
+          >
+            <p className='text-body-md flex-1'>{toast.message}</p>
+            <button
+              type='button'
+              aria-label='Cerrar aviso'
+              className='ml-2 leading-none text-body-md'
+              onClick={() => setToast(null)}
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 

@@ -4,9 +4,9 @@ import { CloseRounded, FilePresentRounded } from '@/components/icons/md3'
 import Portal from '@/components/ui/Portal'
 import React from 'react'
 import BudgetsPayments, {
-  INITIAL_BUDGET_ROWS,
-  type BudgetRow
+  INITIAL_BUDGET_ROWS
 } from './BudgetsPayments'
+import type { BudgetRow } from './budgetTypes'
 import ClientSummary from './ClientSummary'
 import ClinicalHistory from './ClinicalHistory'
 import Documents from './Documents'

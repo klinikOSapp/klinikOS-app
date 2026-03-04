@@ -18,7 +18,7 @@ import { MD3Icon } from '@/components/icons/MD3Icon'
 import BudgetQuickPaymentModal, {
   type QuickPaymentFormData
 } from '@/components/pacientes/modals/patient-record/BudgetQuickPaymentModal'
-import { type BudgetRow } from '@/components/pacientes/modals/patient-record/BudgetsPayments'
+import { type BudgetRow } from '@/components/pacientes/modals/patient-record/budgetTypes'
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import RegisterPaymentModal from '@/components/pacientes/modals/patient-record/RegisterPaymentModal'
 import Portal from '@/components/ui/Portal'

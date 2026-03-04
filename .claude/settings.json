@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l src/data/*.ts)",
+      "Bash(ls -la .env*)",
+      "Bash(npx tsc --noEmit --pretty)",
+      "Bash(npm install)",
+      "Read(//Users/vicentebarberatormo/.npm/_logs/**)",
+      "Bash(wc -l src/context/*.ts src/context/*.tsx)",
+      "Bash(node /tmp/check-circular.js)",
+      "Bash(sysctl -n hw.memsize)",
+      "Read(//Users/vicentebarberatormo/Desktop/VIJEPO TECH S.L./klinikOS/klinikos-app/{print $1/1024/1024/**)",
+      "Bash(while read f)",
+      "Bash(do rm \"$f\")",
+      "Bash(echo \"Eliminado: $f\")",
+      "Bash(done)",
+      "Read(//Users/vicentebarberatormo/Desktop/VIJEPO TECH S.L./klinikOS/klinikos-app/**)",
+      "Bash(timeout 30 npx next build --no-lint)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(git config --global commit.gpgsign)",
+      "Bash(git config --global core.editor)",
+      "Bash(git config --global gpg.program)",
+      "Bash(git config --global --list)"
+    ],
+    "additionalDirectories": [
+      "/tmp",
+      "/Users/vicentebarberatormo/Library/Application Support/Cursor/User/workspaceStorage",
+      "/Users/vicentebarberatormo/Desktop/VIJEPO TECH S.L./klinikOS/klinikos-app/.git"
+    ]
+  }
+}

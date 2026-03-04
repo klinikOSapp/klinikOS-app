@@ -17,6 +17,7 @@ type PrimaryContactUpdate = {
 
 type HealthProfileUpdate = {
   allergies?: string | null
+  conditions?: string | null
   main_complaint?: string | null
   motivo_consulta?: string | null
 }
@@ -82,6 +83,7 @@ export async function POST(req: Request) {
         .upsert({
           patient_id: patientId,
           allergies: healthProfile.allergies ?? null,
+          conditions: healthProfile.conditions ?? null,
           main_complaint: healthProfile.main_complaint ?? null,
           motivo_consulta: healthProfile.motivo_consulta ?? null
         })

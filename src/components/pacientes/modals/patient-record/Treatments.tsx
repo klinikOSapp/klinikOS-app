@@ -43,7 +43,7 @@ import { useRouter } from 'next/navigation'
 import React from 'react'
 import AddTreatmentsToBudgetModal from './AddTreatmentsToBudgetModal'
 import BudgetTypeListModal from './BudgetTypeListModal'
-import type { BudgetRow } from './BudgetsPayments'
+import type { BudgetRow } from './budgetTypes'
 
 // Parse a formatted euro string like "500 €" or "2.300 €" to integer cents
 // Used because TreatmentCatalogEntry.amount is a display string but addTreatment expects cents

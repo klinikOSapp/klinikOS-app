@@ -22,7 +22,7 @@ import {
 } from '@/types/payments'
 import React from 'react'
 import { createPortal } from 'react-dom'
-import type { BudgetRow } from './BudgetsPayments'
+import type { BudgetRow } from './budgetTypes'
 
 type BudgetQuickPaymentModalProps = {
   open: boolean

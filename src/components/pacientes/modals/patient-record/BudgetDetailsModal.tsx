@@ -14,7 +14,7 @@ import {
 } from '@/components/icons/md3'
 import React from 'react'
 import { createPortal } from 'react-dom'
-import type { BudgetRow, BudgetStatusType } from './BudgetsPayments'
+import type { BudgetRow, BudgetStatusType } from './budgetTypes'
 
 type BudgetDetailsModalProps = {
   open: boolean
