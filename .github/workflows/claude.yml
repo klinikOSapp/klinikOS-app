@@ -21,6 +21,9 @@ jobs:
       (github.event_name == 'issues' && contains(github.event.issue.body, '@claude'))
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4      # ← ADD THIS
+        with:
+          fetch-depth: 0               # ← Full history so git works properly
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
