@@ -660,21 +660,22 @@ export default function AddPatientModal({
 
       await Promise.all(followUp)
 
-      // Create a contact record and link it as the patient's primary contact
+      // Create a contact record and link it as the patient's primary contact.
+      // We pre-generate the UUID so we can skip .select() after insert — avoiding
+      // the need for a SELECT RLS policy on contacts (INSERT policy alone is enough).
       if (patientId) {
         try {
-          const { data: contactData, error: contactError } = await supabase
+          const contactId = crypto.randomUUID()
+          const { error: contactError } = await supabase
             .from('contacts')
             .insert({
+              id: contactId,
               full_name: `${nombre} ${apellidos}`.trim() || nombre || apellidos || '—',
               phone_primary: payload.phone_number || null,
               email: contactEmail || null
             })
-            .select('id')
-            .single()
 
-          if (!contactError && contactData?.id) {
-            const contactId = contactData.id
+          if (!contactError) {
             await Promise.all([
               supabase.from('patient_contacts').insert({
                 patient_id: patientId,
@@ -687,7 +688,7 @@ export default function AddPatientModal({
                 .update({ primary_contact_id: contactId })
                 .eq('id', patientId)
             ])
-          } else if (contactError) {
+          } else {
             console.warn('No se pudo crear el contacto principal', contactError)
           }
         } catch (contactErr) {
