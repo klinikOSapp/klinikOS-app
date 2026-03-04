@@ -1066,6 +1066,7 @@ export default function Treatments({
       .substr(2, 9)}`
     const newTreatment: TreatmentV2 = {
       _internalId: tempId,
+      _stableKey: tempId, // stays the same even after _internalId swaps to real UUID
       codigo: '',
       tratamiento: '',
       precio: '0 €',
@@ -1091,17 +1092,38 @@ export default function Treatments({
           markedForNextAppointment: false
         })
         if (created) {
-          // Swap temp ID for real DB ID so updateField will persist edits
-          setPendingTreatments((prev) =>
-            prev.map((t) =>
+          // Capture any edits made while the temp ID was active (e.g. user typed a
+          // catalog code before addTreatment finished), then flush them to DB so the
+          // useEffect doesn't overwrite local changes with amount=0 from the DB row.
+          let editsMadeWhilePending: Partial<import('@/context/PatientsContext').PatientTreatment> | null = null
+          setPendingTreatments((prev) => {
+            const tempRow = prev.find((t) => t._internalId === tempId)
+            if (tempRow) {
+              const editedAmount = parseEuroStringToCents(tempRow.precio)
+              const edits: Partial<import('@/context/PatientsContext').PatientTreatment> = {}
+              if (tempRow.codigo) edits.code = tempRow.codigo
+              if (tempRow.tratamiento && tempRow.tratamiento !== 'Tratamiento') edits.description = tempRow.tratamiento
+              if (editedAmount > 0) {
+                edits.amount = editedAmount
+                // Include amountFormatted so updateTreatment's setPatients keeps the
+                // displayed price correct after the useEffect re-sync
+                edits.amountFormatted = tempRow.precio
+              }
+              if (Object.keys(edits).length > 0) editsMadeWhilePending = edits
+            }
+            return prev.map((t) =>
               t._internalId === tempId ? { ...t, _internalId: created.id } : t
             )
-          )
+          })
           setNewRowId(created.id)
+          // Apply captured edits to DB so the useEffect re-sync shows the correct values
+          if (editsMadeWhilePending) {
+            updateTreatment(patientId, created.id, editsMadeWhilePending)
+          }
         }
       })()
     }
-  }, [patientId, addTreatment])
+  }, [patientId, addTreatment, updateTreatment])
 
   // Effect to auto-add empty row when navigating from Resumen with "add treatment" action
   React.useEffect(() => {
@@ -1434,7 +1456,7 @@ export default function Treatments({
                 <tbody>
                   {filteredPending.map((treatment) => (
                     <TreatmentRow
-                      key={treatment._internalId}
+                      key={treatment._stableKey ?? treatment._internalId}
                       treatment={treatment}
                       onToggleSelection={() =>
                         toggleSelection(treatment._internalId, 'pending')
@@ -1548,7 +1570,7 @@ export default function Treatments({
                 <tbody>
                   {filteredHistory.map((treatment) => (
                     <TreatmentRow
-                      key={treatment._internalId}
+                      key={treatment._stableKey ?? treatment._internalId}
                       treatment={treatment}
                       onToggleSelection={() =>
                         toggleSelection(treatment._internalId, 'history')

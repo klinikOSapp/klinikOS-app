@@ -1946,8 +1946,11 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
     ): Promise<PatientTreatment | null> => {
       try {
         const patient = patients.find((p) => p.id === patientId)
-        if (!patient?.clinicId) {
-          console.warn('No se pudo crear tratamiento: paciente o clínica no encontrados')
+        // Fall back to activeClinicId so treatments can be added to patients that were
+        // just created and may not yet be reflected in the local patients state
+        const effectiveClinicId = patient?.clinicId || activeClinicId
+        if (!effectiveClinicId) {
+          console.warn('No se pudo crear tratamiento: clínica no encontrada')
           return null
         }
 
@@ -1956,7 +1959,7 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
         const paidAmountEuros = centsToEuros(treatmentData.paidAmount)
 
         const payload = {
-          clinic_id: patient.clinicId,
+          clinic_id: effectiveClinicId,
           patient_id: patientId,
           treatment_code: treatmentData.code || null,
           treatment_name: treatmentData.description ?? 'Tratamiento',
@@ -2055,6 +2058,13 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
   // Actualizar tratamiento de un paciente
   const updateTreatment = useCallback(
     (patientId: string, treatmentId: string, updates: Partial<PatientTreatment>) => {
+      // Keep amountFormatted in sync whenever amount changes so that the useEffect
+      // re-sync in Treatments.tsx shows the correct price after an optimistic update
+      const enrichedUpdates: Partial<PatientTreatment> = { ...updates }
+      if (updates.amount !== undefined) {
+        enrichedUpdates.amountFormatted = formatEuroAmount(centsToEuros(updates.amount))
+      }
+
       setPatients((prev) =>
         prev.map((p) =>
           p.id === patientId
@@ -2062,7 +2072,7 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
                 ...p,
                 treatments: p.treatments.map((t) =>
                   t.id === treatmentId
-                    ? { ...t, ...updates, updatedAt: new Date().toISOString().split('T')[0] }
+                    ? { ...t, ...enrichedUpdates, updatedAt: new Date().toISOString().split('T')[0] }
                     : t
                 ),
                 updatedAt: new Date().toISOString().split('T')[0]
@@ -2070,6 +2080,11 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
             : p
         )
       )
+
+      // Skip DB update for temp IDs — they haven't been persisted yet
+      const isTempId = treatmentId.startsWith('TR-EMPTY-') || treatmentId.startsWith('new-')
+      if (isTempId) return
+
       console.log(`✅ Tratamiento ${treatmentId} actualizado`)
 
       void (async () => {
@@ -2164,25 +2179,29 @@ export function PatientsProvider({ children }: { children: ReactNode }) {
         )
       )
 
-      void (async () => {
-        try {
-          const supabase = createSupabaseBrowserClient()
-          const { error } = await supabase
-            .from('patient_treatments')
-            .update({
-              marked_for_next_appointment: nextMarkedValue,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', treatmentId)
-            .eq('patient_id', patientId)
+      // Only persist if treatmentId is a real DB UUID (not a temp TR-EMPTY- or new- id)
+      const isTempId = treatmentId.startsWith('TR-EMPTY-') || treatmentId.startsWith('new-') || treatmentId.startsWith('pat-')
+      if (!isTempId) {
+        void (async () => {
+          try {
+            const supabase = createSupabaseBrowserClient()
+            const { error } = await supabase
+              .from('patient_treatments')
+              .update({
+                marked_for_next_appointment: nextMarkedValue,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', treatmentId)
+              .eq('patient_id', patientId)
 
-          if (error) {
-            console.warn('No se pudo persistir marcado de tratamiento en DB', error)
+            if (error) {
+              console.warn('No se pudo persistir marcado de tratamiento en DB', error)
+            }
+          } catch (error) {
+            console.warn('Error persistiendo marcado de tratamiento en DB', error)
           }
-        } catch (error) {
-          console.warn('Error persistiendo marcado de tratamiento en DB', error)
-        }
-      })()
+        })()
+      }
     },
     []
   )

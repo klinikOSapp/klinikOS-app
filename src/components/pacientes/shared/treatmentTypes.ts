@@ -64,7 +64,8 @@ export type TreatmentV2Status =
 
 // Tratamiento V2 - Nuevo diseño de Figma
 export type TreatmentV2 = {
-  _internalId: string // ID interno único para React keys
+  _internalId: string // ID interno único — may update from temp to real DB UUID
+  _stableKey?: string // Stable React key — set at creation, never changes (survives ID swap)
   pieza?: number // Número de diente (11-48)
   cara?: ToothFace // Cara del diente
   codigo: string // Código del tratamiento (ej: CZ, CPDC, CORMC)

@@ -399,7 +399,7 @@ export default function AddPatientModal({
       let insertedPatient: { id?: string } | null = null
       let lastInsertError: { code?: string; message?: string } | null = null
 
-      for (let attempt = 0; attempt < 2; attempt += 1) {
+      {
         const { data, error } = await supabase
           .from('patients')
           .insert(payloadToInsert)
@@ -408,14 +408,29 @@ export default function AddPatientModal({
         if (!error) {
           insertedPatient = data as { id?: string }
           lastInsertError = null
-          break
+        } else {
+          lastInsertError = { code: error.code, message: error.message }
         }
-
-        lastInsertError = { code: error.code, message: error.message }
-        break
       }
 
       if (lastInsertError || !insertedPatient) {
+        // 23505 = unique_violation — extract the exact constraint name from Postgres message
+        if (lastInsertError?.code === '23505') {
+          const msg = lastInsertError.message ?? ''
+          // Postgres includes the constraint name in quotes: ...constraint "xyz"
+          const constraintMatch = msg.match(/constraint "([^"]+)"/)
+          const constraintName = constraintMatch?.[1] ?? ''
+          console.error('Unique constraint violated:', constraintName, '| full error:', lastInsertError)
+
+          if (constraintName.includes('email') || msg.includes('email')) {
+            throw new Error(`Ya existe un paciente con ese email. Usa un email diferente o busca al paciente existente.`)
+          }
+          if (constraintName.includes('national_id') || msg.includes('national_id')) {
+            throw new Error(`Ya existe un paciente con ese número de documento (DNI/NIE) en esta clínica.`)
+          }
+          // Generic fallback — show constraint name so we can debug it
+          throw new Error(`Error de duplicado en la base de datos (${constraintName || 'constraint desconocida'}). Revisa los datos e inténtalo de nuevo.`)
+        }
         throw new Error(lastInsertError?.message || 'No se pudo crear el paciente')
       }
 
@@ -610,6 +625,7 @@ export default function AddPatientModal({
               (async () => {
                 try {
                   const { path } = await uploadPatientFile({ patientId, file: att.file, kind: att.kind })
+                  // Save to clinical_attachments
                   const { error: insertError } = await supabase.from('clinical_attachments').insert({
                     patient_id: patientId,
                     staff_id: staffId,
@@ -618,7 +634,18 @@ export default function AddPatientModal({
                     storage_path: path
                   })
                   if (insertError) {
-                    console.error(`Error saving ${att.label} to DB`, insertError)
+                    console.error(`Error saving ${att.label} to clinical_attachments`, insertError)
+                  }
+                  // Also insert a patient_consents record so the file appears in the Documentos tab
+                  const { error: consentInsertError } = await supabase.from('patient_consents').insert({
+                    patient_id: patientId,
+                    consent_type: att.label,
+                    status: 'signed',
+                    signed_at: new Date().toISOString(),
+                    document_url: path
+                  })
+                  if (consentInsertError) {
+                    console.error(`Error saving ${att.label} to patient_consents`, consentInsertError)
                   }
                 } catch (attachError) {
                   console.error(`Error uploading ${att.label}`, attachError)
