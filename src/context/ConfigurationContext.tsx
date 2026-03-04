@@ -2039,102 +2039,39 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     (professional: Omit<Professional, 'id'>) => {
       void (async () => {
         try {
-          const supabase = createSupabaseBrowserClient()
           const staffRole = mapProfessionalRoleToUserRole(professional.role)
-          const roleSlug = slugifyRoleName(professional.role)
-          let roleQuery = supabase.from('roles').select('id')
-          if (activeClinicId && roleSlug) {
-            roleQuery = roleQuery.or(
-              `and(clinic_id.eq.${activeClinicId},name.eq.${roleSlug}),name.eq.${staffRole}`
-            )
-          } else {
-            roleQuery = roleQuery.eq('name', staffRole)
-          }
 
-          const { data: roleRow } = await roleQuery
-            .order('clinic_id', { ascending: false })
-            .limit(1)
-            .maybeSingle()
+          const response = await fetch('/api/configuration/staff', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              full_name: professional.name || 'Profesional',
+              specialties: professional.role ? [professional.role] : [],
+              phone: professional.phone || null,
+              email: professional.email || null,
+              calendar_color: toneToHex(professional.colorTone),
+              commission_percentage: parseCommissionPercentage(
+                professional.commission
+              ),
+              is_active: professional.status === 'Activo',
+              avatar_url: professional.photoUrl || null,
+              role: staffRole
+            })
+          })
 
-          const baseStaffPayload: Record<string, unknown> = {
-            full_name: professional.name || 'Profesional',
-            specialties: professional.role ? [professional.role] : [],
-            phone: professional.phone || null,
-            email: professional.email || null,
-            calendar_color: toneToHex(professional.colorTone),
-            commission_percentage: parseCommissionPercentage(
-              professional.commission
-            ),
-            is_active: professional.status === 'Activo',
-            avatar_url: professional.photoUrl || null,
-            ...(activeClinicId ? { clinic_id: activeClinicId } : {})
-          }
-          const payloadWithOptional: Record<string, unknown> = {
-            ...baseStaffPayload
-          }
-          if (staffSchemaSupport.employmentTypeColumn) {
-            payloadWithOptional[staffSchemaSupport.employmentTypeColumn] =
-              professional.employmentType || null
-          }
-          if (staffSchemaSupport.salaryColumn) {
-            payloadWithOptional[staffSchemaSupport.salaryColumn] =
-              parseSalaryAmount(professional.salary)
-          }
-
-          const staffBaseSelect =
-            'id, full_name, specialties, phone, email, calendar_color, commission_percentage, is_active, avatar_url'
-          const selectWithOptional = [
-            staffBaseSelect,
-            staffSchemaSupport.employmentTypeColumn,
-            staffSchemaSupport.salaryColumn
-          ]
-            .filter(Boolean)
-            .join(', ')
-
-          let insertResponse = await supabase
-            .from('staff')
-            .insert(payloadWithOptional)
-            .select(selectWithOptional || staffBaseSelect)
-            .single()
-
-          let insertedStaff = insertResponse.data as Record<string, unknown> | null
-          let staffError = insertResponse.error
-          if (staffError?.code === '42703') {
-            insertResponse = await supabase
-              .from('staff')
-              .insert(baseStaffPayload)
-              .select(staffBaseSelect)
-              .single()
-            insertedStaff = insertResponse.data as Record<string, unknown> | null
-            staffError = insertResponse.error
-            if (!staffError) {
-              setStaffSchemaSupport({
-                employmentTypeColumn: null,
-                salaryColumn: null
-              })
-            }
-          }
-
-          if (staffError || !insertedStaff) {
-            console.warn('No se pudo crear profesional en DB', staffError)
+          if (!response.ok) {
+            const errBody = await response.json().catch(() => ({}))
+            console.warn('No se pudo crear profesional en DB', errBody)
             return
           }
 
-          if (activeClinicId) {
-            const { error: relationError } = await supabase
-              .from('staff_clinics')
-              .insert({
-                staff_id: insertedStaff.id,
-                clinic_id: activeClinicId,
-                role: staffRole,
-                role_id: Number(roleRow?.id || 3)
-              })
-            if (relationError) {
-              console.warn(
-                'No se pudo asociar profesional a la clínica en DB',
-                relationError
-              )
-            }
+          const { data: insertedStaff } = (await response.json()) as {
+            data: Record<string, unknown>
+          }
+
+          if (!insertedStaff) {
+            console.warn('No se pudo crear profesional en DB: respuesta vacía')
+            return
           }
 
           const tone = parseHexToTone(
@@ -2152,21 +2089,11 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             email: String(insertedStaff.email || professional.email || ''),
             colorLabel: toneToLabel(tone),
             colorTone: tone,
-            employmentType:
-              parseEmploymentType(
-                staffSchemaSupport.employmentTypeColumn
-                  ? insertedStaff[staffSchemaSupport.employmentTypeColumn]
-                  : undefined
-              ) || professional.employmentType,
+            employmentType: professional.employmentType,
             commission: formatCommissionPercentage(
               insertedStaff.commission_percentage
             ),
-            salary:
-              formatSalaryAmount(
-                staffSchemaSupport.salaryColumn
-                  ? insertedStaff[staffSchemaSupport.salaryColumn]
-                  : undefined
-              ) || professional.salary,
+            salary: professional.salary,
             status: insertedStaff.is_active === false ? 'Inactivo' : 'Activo',
             photoUrl:
               typeof insertedStaff.avatar_url === 'string'
@@ -2180,7 +2107,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         }
       })()
     },
-    [activeClinicId, staffSchemaSupport]
+    []
   )
 
   const updateProfessional = useCallback(
