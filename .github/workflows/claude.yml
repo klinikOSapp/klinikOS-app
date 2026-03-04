@@ -9,8 +9,8 @@ on:
 
 permissions:
   contents: write
-  issues: write
   pull-requests: write
+  issues: write
   id-token: write
 
 jobs:
@@ -21,9 +21,9 @@ jobs:
       (github.event_name == 'issues' && contains(github.event.issue.body, '@claude'))
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4      # ← ADD THIS
-        with:
-          fetch-depth: 0               # ← Full history so git works properly
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
