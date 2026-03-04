@@ -13,7 +13,11 @@ export async function uploadPatientFile(params: {
 }): Promise<{ path: string }> {
   const supabase = createSupabaseBrowserClient()
   const { patientId, file, kind } = params
-  const path = `patients/${patientId}/${kind}/${Date.now()}-${file.name}`
+  const safeName = file.name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+  const path = `patients/${patientId}/${kind}/${Date.now()}-${safeName}`
   const { error } = await supabase.storage.from('patient-docs').upload(path, file, {
     cacheControl: '3600',
     upsert: false,
