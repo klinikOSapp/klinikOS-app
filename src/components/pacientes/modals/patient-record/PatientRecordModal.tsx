@@ -430,7 +430,7 @@ export default function PatientRecordModal({
                     />
                   )}
                   {active === 'Documentos' && (
-                    <Documents onClose={onClose} patientId={patientId} />
+                    <Documents onClose={onClose} patientId={patientId} patientName={patientName} />
                   )}
                   {active === 'Recetas' && (
                     <Recetas
