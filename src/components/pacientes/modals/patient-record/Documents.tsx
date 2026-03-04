@@ -223,35 +223,37 @@ export default function Documents({
       const { data } = await supabase
         .from('patients')
         .select(
-          'first_name, last_name, dni, email, phone, address, birth_date, gender'
+          'first_name, last_name, national_id, email, phone_number, address_country, date_of_birth, age'
         )
         .eq('id', patientId)
         .single()
       if (!data) return
       const fullName =
         patientName || [data.first_name, data.last_name].filter(Boolean).join(' ')
-      const birthDate = data.birth_date
-        ? new Date(data.birth_date).toLocaleDateString(DEFAULT_LOCALE, {
+      const birthDate = data.date_of_birth
+        ? new Date(data.date_of_birth).toLocaleDateString(DEFAULT_LOCALE, {
             timeZone: DEFAULT_TIMEZONE
           })
         : undefined
-      const age = data.birth_date
+      const age = data.date_of_birth
         ? String(
             Math.floor(
-              (Date.now() - new Date(data.birth_date).getTime()) /
+              (Date.now() - new Date(data.date_of_birth).getTime()) /
                 (365.25 * 24 * 60 * 60 * 1000)
             )
           )
-        : undefined
+        : data.age != null
+          ? String(data.age)
+          : undefined
       setPatientData({
         nombre: fullName,
-        dni: data.dni ?? undefined,
+        dni: data.national_id ?? undefined,
         email: data.email ?? undefined,
-        telefono: data.phone ?? undefined,
-        direccion: data.address ?? undefined,
+        telefono: data.phone_number ?? undefined,
+        direccion: data.address_country ?? undefined,
         fecha_nacimiento: birthDate,
         edad: age,
-        sexo: data.gender ?? undefined
+        sexo: undefined
       })
     })()
   }, [patientId, patientName, supabase])
