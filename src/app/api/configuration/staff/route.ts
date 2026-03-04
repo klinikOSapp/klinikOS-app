@@ -15,29 +15,6 @@ type CreatePayload = {
   role?: string
 }
 
-function parseJwtPayload(
-  token: string | undefined
-): Record<string, unknown> | null {
-  if (!token) return null
-  const parts = token.split('.')
-  if (parts.length < 2) return null
-  try {
-    const payload = Buffer.from(parts[1], 'base64url').toString('utf8')
-    const parsed = JSON.parse(payload)
-    if (parsed && typeof parsed === 'object') {
-      return parsed as Record<string, unknown>
-    }
-    return null
-  } catch {
-    return null
-  }
-}
-
-function isServiceRoleKey(token: string | undefined): boolean {
-  const payload = parseJwtPayload(token)
-  return String(payload?.role || '') === 'service_role'
-}
-
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as CreatePayload
@@ -70,32 +47,35 @@ export async function POST(req: Request) {
       avatar_url: body.avatar_url || null
     }
 
-    // Use service_role to bypass RLS (INSERT policy requires auth.uid() = id)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    // Must use service_role to bypass RLS (INSERT policy requires auth.uid() = id)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    const hasServiceRole =
-      Boolean(supabaseUrl) && isServiceRoleKey(serviceRoleKey)
 
-    const adminClient = hasServiceRole
-      ? createClient(supabaseUrl, serviceRoleKey!, {
-          auth: { persistSession: false, autoRefreshToken: false }
-        })
-      : null
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error(
+        'POST /api/configuration/staff: missing SUPABASE_SERVICE_ROLE_KEY env var'
+      )
+      return NextResponse.json(
+        { error: 'Server configuration error: service role not available' },
+        { status: 500 }
+      )
+    }
 
-    const insertClient = adminClient ?? supabase
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    })
 
     const staffSelect =
       'id, full_name, specialties, phone, email, calendar_color, commission_percentage, is_active, avatar_url'
 
-    const { data: insertedStaff, error: staffError } = await (
-      insertClient as unknown as typeof supabase
-    )
+    const { data: insertedStaff, error: staffError } = await adminClient
       .from('staff')
       .insert(staffPayload)
       .select(staffSelect)
       .single()
 
     if (staffError || !insertedStaff) {
+      console.error('Staff insert failed', staffError)
       return NextResponse.json(
         {
           error: staffError?.message || 'Failed to create staff',
@@ -109,7 +89,7 @@ export async function POST(req: Request) {
     const staffRole = body.role || 'doctor'
 
     // Look up role_id
-    const { data: roleRow } = await (insertClient as unknown as typeof supabase)
+    const { data: roleRow } = await adminClient
       .from('roles')
       .select('id')
       .or(
@@ -119,9 +99,7 @@ export async function POST(req: Request) {
       .limit(1)
       .maybeSingle()
 
-    const { error: relationError } = await (
-      insertClient as unknown as typeof supabase
-    )
+    const { error: relationError } = await adminClient
       .from('staff_clinics')
       .insert({
         staff_id: insertedStaff.id,
