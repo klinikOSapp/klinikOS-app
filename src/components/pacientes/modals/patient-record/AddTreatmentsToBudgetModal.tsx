@@ -1029,7 +1029,7 @@ export default function AddTreatmentsToBudgetModal({
 
     // Filtrar por dientes seleccionados en el odontograma
     if (filterByTeeth.length > 0) {
-      result = result.filter((t) => t.pieza && filterByTeeth.includes(t.pieza))
+      result = result.filter((t) => t.zona || (t.pieza && filterByTeeth.includes(t.pieza)))
     }
 
     // Filtrar por búsqueda
