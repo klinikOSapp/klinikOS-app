@@ -5,13 +5,7 @@
 
 export type ExpenseStatus = 'activo' | 'inactivo'
 
-export type ExpenseCategory =
-  | 'Servicios'
-  | 'Material'
-  | 'Nóminas'
-  | 'Alquiler'
-  | 'Suministros'
-  | 'Otros'
+export type ExpenseCategory = string
 
 export type ConfigExpense = {
   id: string

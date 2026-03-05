@@ -4,24 +4,28 @@
 
 import {
   AddRounded,
+  CheckRounded,
   CloseRounded,
   KeyboardArrowDownRounded
 } from '@/components/icons/md3'
 import Portal from '@/components/ui/Portal'
-import type { EmploymentType, ProfessionalColorTone } from '@/context/ConfigurationContext'
+import type { EmploymentType, ProfessionalColorTone, ProfessionalRole } from '@/context/ConfigurationContext'
 import React from 'react'
+import { createPortal } from 'react-dom'
 
 export type ProfessionalFormData = {
   nombre: string
   telefono: string
   email: string
-  especialidad: string
+  role: ProfessionalRole
+  specialty: string
   color: ProfessionalColorTone
   estado: 'Activo' | 'Inactivo'
   employmentType: EmploymentType
   comision?: string
   salary?: string
   fotoUrl?: string
+  notas?: string
 }
 
 type AddProfessionalModalProps = {
@@ -107,6 +111,60 @@ function SelectField({
   helperText?: string
   className?: string
 }) {
+  const [isOpen, setIsOpen] = React.useState(false)
+  const [dropdownPos, setDropdownPos] = React.useState<{
+    top: number
+    left: number
+    minWidth: number
+  } | null>(null)
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
+  const dropdownRef = React.useRef<HTMLDivElement>(null)
+
+  const selectedOption = options.find((o) => o.value === value)
+
+  const openDropdown = React.useCallback(() => {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const dropdownHeight = Math.min(options.length * 40 + 8, 280)
+    const placeAbove = spaceBelow < dropdownHeight && rect.top > dropdownHeight
+
+    setDropdownPos({
+      top: placeAbove ? rect.top - dropdownHeight - 4 : rect.bottom + 4,
+      left: rect.left,
+      minWidth: rect.width
+    })
+    setIsOpen(true)
+  }, [options.length])
+
+  React.useEffect(() => {
+    if (!isOpen) return undefined
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        triggerRef.current?.contains(e.target as Node) ||
+        dropdownRef.current?.contains(e.target as Node)
+      )
+        return
+      setIsOpen(false)
+    }
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false)
+    }
+    const handleScroll = (e: Event) => {
+      if (dropdownRef.current?.contains(e.target as Node)) return
+      setIsOpen(false)
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    window.addEventListener('scroll', handleScroll, true)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+      window.removeEventListener('scroll', handleScroll, true)
+    }
+  }, [isOpen])
+
   return (
     <div
       className={['flex flex-col gap-[0.5rem] w-full', className]
@@ -127,22 +185,70 @@ function SelectField({
         ) : null}
       </div>
       <div className='flex flex-col gap-[0.25rem] w-full'>
-        <div className='flex h-[3rem] items-center justify-between rounded-[0.5rem] border-[0.03125rem] border-neutral-300 bg-[var(--color-neutral-50)] px-[0.625rem] py-[0.5rem] focus-within:border-[var(--color-brand-500)] focus-within:ring-1 focus-within:ring-[var(--color-brand-500)] transition-colors'>
-          <select
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className='w-full bg-transparent outline-none font-inter text-[1rem] leading-[1.5rem] text-neutral-900 appearance-none'
-          >
-            {options.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <span className='flex items-center justify-center text-neutral-600'>
-            <KeyboardArrowDownRounded />
+        <button
+          ref={triggerRef}
+          type='button'
+          onClick={() => (isOpen ? setIsOpen(false) : openDropdown())}
+          className={[
+            'flex h-[3rem] items-center justify-between rounded-[0.5rem] border-[0.03125rem] bg-[var(--color-neutral-50)] px-[0.625rem] py-[0.5rem] transition-colors text-left',
+            isOpen
+              ? 'border-[var(--color-brand-500)] ring-1 ring-[var(--color-brand-500)]'
+              : 'border-neutral-300'
+          ].join(' ')}
+        >
+          <span className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900 truncate'>
+            {selectedOption?.label || '-'}
           </span>
-        </div>
+          <KeyboardArrowDownRounded
+            className={[
+              'shrink-0 text-neutral-600 transition-transform',
+              isOpen ? 'rotate-180' : ''
+            ].join(' ')}
+          />
+        </button>
+        {isOpen &&
+          dropdownPos &&
+          createPortal(
+            <div
+              ref={dropdownRef}
+              className='fixed z-[9999] flex flex-col overflow-auto rounded-[0.5rem] border border-[#E2E7EA] bg-white py-1 shadow-[0_4px_16px_rgba(0,0,0,0.12)]'
+              style={{
+                top: dropdownPos.top,
+                left: dropdownPos.left,
+                minWidth: dropdownPos.minWidth,
+                maxHeight: 280
+              }}
+              role='listbox'
+            >
+              {options.map((opt) => {
+                const isSelected = opt.value === value
+                return (
+                  <button
+                    key={opt.value}
+                    type='button'
+                    role='option'
+                    aria-selected={isSelected}
+                    onClick={() => {
+                      onChange(opt.value)
+                      setIsOpen(false)
+                    }}
+                    className={[
+                      'flex items-center justify-between gap-2 px-[0.625rem] py-[0.5rem] font-inter text-[0.9375rem] leading-[1.375rem] transition-colors cursor-pointer',
+                      isSelected
+                        ? 'bg-[#E9FBF9] text-[var(--color-brand-700)] font-medium'
+                        : 'text-[#24282C] hover:bg-[var(--color-neutral-50)]'
+                    ].join(' ')}
+                  >
+                    <span className='truncate'>{opt.label}</span>
+                    {isSelected && (
+                      <CheckRounded className='w-[1rem] h-[1rem] text-[var(--color-brand-500)] shrink-0' />
+                    )}
+                  </button>
+                )
+              })}
+            </div>,
+            document.body
+          )}
         {helperText ? (
           <p className='font-inter text-[0.6875rem] leading-[1rem] font-medium text-neutral-600'>
             {helperText}
@@ -153,17 +259,51 @@ function SelectField({
   )
 }
 
+const ROLE_OPTIONS: { label: string; value: ProfessionalRole }[] = [
+  { label: 'Director', value: 'director' },
+  { label: 'Coordinador', value: 'coordinador' },
+  { label: 'Profesional', value: 'profesional' },
+  { label: 'Asistente', value: 'asistente' },
+  { label: 'Recepción', value: 'recepcion' }
+]
+
+const EMPLOYEE_SPECIALTIES: { label: string; value: string }[] = [
+  { label: 'Odontólogo', value: 'Odontólogo' },
+  { label: 'Ortodoncista', value: 'Ortodoncista' },
+  { label: 'Higienista', value: 'Higienista' },
+  { label: 'Auxiliar', value: 'Auxiliar' },
+  { label: 'Recepcionista', value: 'Recepcionista' },
+  { label: 'Cirujano', value: 'Cirujano' },
+  { label: 'Implantólogo', value: 'Implantólogo' },
+  { label: 'Endodoncista', value: 'Endodoncista' },
+  { label: 'Periodoncista', value: 'Periodoncista' }
+]
+
+const EXTERNAL_SPECIALTIES: { label: string; value: string }[] = [
+  { label: 'Ortodoncista', value: 'Ortodoncista' },
+  { label: 'Cirujano maxilofacial', value: 'Cirujano maxilofacial' },
+  { label: 'Implantólogo', value: 'Implantólogo' },
+  { label: 'Endodoncista', value: 'Endodoncista' },
+  { label: 'Periodoncista', value: 'Periodoncista' },
+  { label: 'Prostodoncista', value: 'Prostodoncista' },
+  { label: 'Cirujano oral', value: 'Cirujano oral' },
+  { label: 'Odontopediatra', value: 'Odontopediatra' },
+  { label: 'Radiólogo dental', value: 'Radiólogo dental' }
+]
+
 const inicialForm: ProfessionalFormData = {
   nombre: '',
   telefono: '',
   email: '',
-  especialidad: 'Odontólogo',
+  role: 'profesional',
+  specialty: 'Odontólogo',
   color: 'verde',
   estado: 'Activo',
-  employmentType: 'autonomo',
+  employmentType: 'empleado',
   comision: '',
   salary: '',
-  fotoUrl: undefined
+  fotoUrl: undefined,
+  notas: ''
 }
 
 export default function AddProfessionalModal({
@@ -193,6 +333,10 @@ export default function AddProfessionalModal({
     e.preventDefault()
     onSubmit(form)
   }
+
+  const specialtyOptions = form.employmentType === 'externo'
+    ? EXTERNAL_SPECIALTIES
+    : EMPLOYEE_SPECIALTIES
 
   return (
     <Portal>
@@ -269,7 +413,7 @@ export default function AddProfessionalModal({
                 <div className='flex flex-wrap gap-[1.5rem]'>
                   <Field
                     label='Teléfono'
-                    required
+                    required={form.employmentType !== 'externo'}
                     value={form.telefono}
                     onChange={updateField('telefono')}
                     placeholder='Ej: 612 345 678'
@@ -278,7 +422,7 @@ export default function AddProfessionalModal({
                   />
                   <Field
                     label='Email'
-                    required
+                    required={form.employmentType !== 'externo'}
                     value={form.email}
                     onChange={updateField('email')}
                     placeholder='Ej: maria@clinica.es'
@@ -288,19 +432,48 @@ export default function AddProfessionalModal({
                 </div>
 
                 <SelectField
-                  label='Especialidad'
+                  label='Tipo de vinculación'
                   required
-                  value={form.especialidad}
-                  onChange={updateField('especialidad')}
-                  helperText='Área de especialización principal'
+                  value={form.employmentType}
+                  onChange={(v) => {
+                    const empType = v as EmploymentType
+                    setForm((prev) => ({
+                      ...prev,
+                      employmentType: empType,
+                      specialty: empType === 'externo'
+                        ? EXTERNAL_SPECIALTIES[0].value
+                        : EMPLOYEE_SPECIALTIES[0].value
+                    }))
+                  }}
+                  helperText='Los empleados son internos. Los externos aparecen en la agenda los días asignados.'
                   options={[
-                    { label: 'Odontólogo', value: 'Odontólogo' },
-                    { label: 'Ortodoncista', value: 'Ortodoncista' },
-                    { label: 'Higienista', value: 'Higienista' },
-                    { label: 'Cirujano', value: 'Cirujano' },
-                    { label: 'Implantólogo', value: 'Implantólogo' }
+                    { label: 'Empleado (interno)', value: 'empleado' },
+                    { label: 'Especialista externo', value: 'externo' }
                   ]}
                 />
+
+                <div className='flex flex-wrap gap-[1.5rem]'>
+                  <SelectField
+                    label='Rol'
+                    required
+                    value={form.role}
+                    onChange={(v) =>
+                      updateField('role')(v as ProfessionalRole)
+                    }
+                    helperText='Rol del profesional en la clínica'
+                    options={ROLE_OPTIONS}
+                    className='w-[min(23.75rem,100%)]'
+                  />
+                  <SelectField
+                    label='Especialidad'
+                    required
+                    value={form.specialty}
+                    onChange={updateField('specialty')}
+                    helperText='Área de especialización principal'
+                    options={specialtyOptions}
+                    className='w-[min(23.75rem,100%)]'
+                  />
+                </div>
 
                 <div className='flex flex-wrap gap-[1.5rem]'>
                   <SelectField
@@ -336,28 +509,23 @@ export default function AddProfessionalModal({
                   />
                 </div>
 
-              <SelectField
-                label='Tipo de contratación'
-                required
-                value={form.employmentType}
-                onChange={(v) =>
-                  updateField('employmentType')(v as ProfessionalFormData['employmentType'])
-                }
-                helperText='Determina el tipo de compensación del profesional'
-                options={[
-                  { label: 'Autónomo (comisión)', value: 'autonomo' },
-                  { label: 'Empleado (salario fijo)', value: 'nomina' }
-                ]}
-              />
-
-              {form.employmentType === 'autonomo' ? (
-                <Field
-                  label='% comisión'
-                  value={form.comision ?? ''}
-                  onChange={updateField('comision')}
-                  placeholder='Ej: 30'
-                  helperText='Porcentaje de comisión por servicios realizados'
-                />
+              {form.employmentType === 'externo' ? (
+                <>
+                  <Field
+                    label='% comisión'
+                    value={form.comision ?? ''}
+                    onChange={updateField('comision')}
+                    placeholder='Ej: 30'
+                    helperText='Porcentaje de comisión por servicios realizados'
+                  />
+                  <Field
+                    label='Notas'
+                    value={form.notas ?? ''}
+                    onChange={updateField('notas')}
+                    placeholder='Ej: Viene los martes por la mañana'
+                    helperText='Información adicional sobre el especialista externo'
+                  />
+                </>
               ) : (
                 <Field
                   label='Salario mensual (EUR)'

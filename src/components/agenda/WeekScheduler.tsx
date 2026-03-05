@@ -56,6 +56,7 @@ type SpecialistAvailability = {
   name: string
   timeRange: string
   color: string
+  isExternal?: boolean
 }
 
 type HeaderCell = {
@@ -4335,7 +4336,8 @@ export default function WeekScheduler() {
     getAvailableProfessionalsForDate,
     getProfessionalScheduleForDate,
     activeProfessionals,
-    getProfessionalById
+    getProfessionalById,
+    isExternalAvailableForDate
   } = useConfiguration()
 
   // Hook del contexto de citas compartido para sincronización con Parte Diario
@@ -6005,24 +6007,23 @@ export default function WeekScheduler() {
           : availableProfessionals
       const specialists: SpecialistAvailability[] = visibleProfessionals.map(
         (prof) => {
-          const daySchedule = getProfessionalScheduleForDate(prof.id, date)
           let timeRange = ''
-          if (daySchedule?.isWorking && daySchedule.shifts.length > 0) {
-            timeRange = daySchedule.shifts
-              .map((s) => `${s.start} - ${s.end}`)
-              .join(', ')
+          const extAvail = isExternalAvailableForDate(prof.id, date)
+          if (extAvail.available && extAvail.startTime && extAvail.endTime) {
+            timeRange = `${extAvail.startTime} - ${extAvail.endTime}`
           }
           const profOption = effectiveProfessionalOptions.find(
             (p) => p.id === prof.id
           )
           return {
             id: prof.id,
-            name: prof.name,
+            name: `${prof.name} (Ext.)`,
             timeRange,
             color:
               dotColorByProfessionalId.get(prof.id) ||
               profOption?.color ||
-              'var(--color-neutral-400)'
+              'var(--color-neutral-400)',
+            isExternal: true
           }
         }
       )

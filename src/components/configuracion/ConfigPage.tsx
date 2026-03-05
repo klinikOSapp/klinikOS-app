@@ -13,7 +13,7 @@ import {
   useConfiguration,
   type DayOfWeek
 } from '@/context/ConfigurationContext'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import AddClinicModal, { ClinicFormData } from './AddClinicModal'
 
 type FieldProps = {
@@ -135,24 +135,47 @@ export default function ConfigPage() {
     workingHours,
     updateWorkingHours,
     clinicInfo: contextClinicInfo,
-    updateClinicInfo: updateContextClinicInfo
+    updateClinicInfo: updateContextClinicInfo,
+    clinics: contextClinics,
+    addClinic: addClinicToContext,
+    updateClinic: updateClinicInContext,
+    deleteClinic: deleteClinicFromContext
   } = useConfiguration()
 
   // Local clinic information state (for editing before save)
   const [clinicInfo, setClinicInfo] = useState<ClinicaInfo>({
-    nombreComercial: contextClinicInfo.nombreComercial || 'Clínica Morales',
-    razonSocial: contextClinicInfo.razonSocial || 'Clínica Morales S.L.',
-    cif: contextClinicInfo.cif || 'B12345678',
-    direccion: contextClinicInfo.direccion || 'C/ Universidad, 2',
-    poblacion: contextClinicInfo.poblacion || 'Valencia',
-    codigoPostal: contextClinicInfo.codigoPostal || '46001',
-    telefono: contextClinicInfo.telefono || '608020203',
-    email: contextClinicInfo.email || 'clinicamorales@morales.es',
-    iban: contextClinicInfo.iban || 'ES12 1234 5678 9012 3456 7890',
-    emailBancario: contextClinicInfo.emailBancario || 'facturacion@morales.es',
+    nombreComercial: contextClinicInfo.nombreComercial || '',
+    razonSocial: contextClinicInfo.razonSocial || '',
+    cif: contextClinicInfo.cif || '',
+    direccion: contextClinicInfo.direccion || '',
+    poblacion: contextClinicInfo.poblacion || '',
+    codigoPostal: contextClinicInfo.codigoPostal || '',
+    telefono: contextClinicInfo.telefono || '',
+    email: contextClinicInfo.email || '',
+    iban: contextClinicInfo.iban || '',
+    emailBancario: contextClinicInfo.emailBancario || '',
     logo: contextClinicInfo.logo,
     web: contextClinicInfo.web
   })
+
+  // Sync local state when context data loads from DB
+  useEffect(() => {
+    if (!contextClinicInfo.nombreComercial) return
+    setClinicInfo({
+      nombreComercial: contextClinicInfo.nombreComercial || '',
+      razonSocial: contextClinicInfo.razonSocial || '',
+      cif: contextClinicInfo.cif || '',
+      direccion: contextClinicInfo.direccion || '',
+      poblacion: contextClinicInfo.poblacion || '',
+      codigoPostal: contextClinicInfo.codigoPostal || '',
+      telefono: contextClinicInfo.telefono || '',
+      email: contextClinicInfo.email || '',
+      iban: contextClinicInfo.iban || '',
+      emailBancario: contextClinicInfo.emailBancario || '',
+      logo: contextClinicInfo.logo,
+      web: contextClinicInfo.web
+    })
+  }, [contextClinicInfo])
 
   const updateClinicInfo = useCallback(
     (field: keyof ClinicaInfo, value: string) => {
@@ -223,36 +246,23 @@ export default function ConfigPage() {
     setIsEditing(false)
   }, [contextClinicInfo])
 
-  // Rows state - declared first so callbacks can reference it
-  const [rows, setRows] = useState<Clinica[]>([
-    {
-      id: 's1',
-      nombre: 'Clínica Morales Ruzafa',
-      direccion: 'C/ Universidad, 2, Valencia',
-      horario: '08:00 - 20:00',
-      telefono: '608020203',
-      email: 'clinicamorales@morales.es',
-      selected: false
-    },
-    {
-      id: 's2',
-      nombre: 'Clínica Morales Albal',
-      direccion: 'C/ Madrid, 12, Catarroja',
-      horario: '09:30 - 20:00',
-      telefono: '608020203',
-      email: 'clinicamorales@morales.es',
-      selected: false
-    },
-    {
-      id: 's3',
-      nombre: 'Clínica Morales Blasco',
-      direccion: 'C/ José María Hoyo, 34, Valencia',
-      horario: '08:30 - 19:30',
-      telefono: '608020203',
-      email: 'clinicamorales@morales.es',
-      selected: true
-    }
-  ])
+  // Selection state for clinics table (keyed by clinic id)
+  const [selectedClinicIds, setSelectedClinicIds] = useState<Set<string>>(new Set())
+
+  // Derive rows from context clinics
+  const rows: Clinica[] = useMemo(
+    () =>
+      contextClinics.map((c) => ({
+        id: c.id,
+        nombre: c.nombre,
+        direccion: c.direccion,
+        horario: c.horario,
+        telefono: c.telefono,
+        email: c.email,
+        selected: selectedClinicIds.has(c.id)
+      })),
+    [contextClinics, selectedClinicIds]
+  )
   const [search, setSearch] = useState('')
 
   const selectionCount = useMemo(
@@ -273,14 +283,18 @@ export default function ConfigPage() {
   }, [rows, search])
 
   const toggleRow = useCallback((id: string) => {
-    setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, selected: !r.selected } : r))
-    )
+    setSelectedClinicIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }, [])
 
   const deleteSelected = useCallback(() => {
-    setRows((prev) => prev.filter((r) => !r.selected))
-  }, [])
+    selectedClinicIds.forEach((id) => deleteClinicFromContext(id))
+    setSelectedClinicIds(new Set())
+  }, [selectedClinicIds, deleteClinicFromContext])
 
   const handleCreateClinica = useCallback((data: ClinicFormData) => {
     const horario =
@@ -288,20 +302,16 @@ export default function ConfigPage() {
         ? `${data.horarioApertura} - ${data.horarioCierre}`
         : data.horarioApertura || data.horarioCierre || '08:00 - 20:00'
 
-    setRows((prev) => [
-      ...prev,
-      {
-        id: `c${prev.length + 1}`,
-        nombre: data.nombreComercial || `Nueva clínica ${prev.length + 1}`,
-        direccion: data.direccion || 'Dirección pendiente',
-        horario,
-        telefono: data.telefonos.filter((t) => t).join(', ') || '—',
-        email: data.emails.filter((e) => e).join(', ') || '—',
-        selected: false
-      }
-    ])
+    addClinicToContext({
+      nombre: data.nombreComercial || 'Nueva clínica',
+      direccion: data.direccion || '',
+      horario,
+      telefono: data.telefonos.filter((t) => t).join(', ') || '',
+      email: data.emails.filter((e) => e).join(', ') || '',
+      isActive: true
+    })
     setShowClinicModal(false)
-  }, [])
+  }, [addClinicToContext])
 
   // Edit clinic state and handlers
   const [editingClinic, setEditingClinic] = useState<Clinica | null>(null)
@@ -324,28 +334,21 @@ export default function ConfigPage() {
               data.horarioCierre ||
               editingClinic.horario
 
-        setRows((prev) =>
-          prev.map((r) =>
-            r.id === editingClinic.id
-              ? {
-                  ...r,
-                  nombre: data.nombreComercial || r.nombre,
-                  direccion: data.direccion || r.direccion,
-                  horario,
-                  telefono:
-                    data.telefonos.filter((t) => t).join(', ') || r.telefono,
-                  email: data.emails.filter((e) => e).join(', ') || r.email
-                }
-              : r
-          )
-        )
+        updateClinicInContext(editingClinic.id, {
+          nombre: data.nombreComercial || editingClinic.nombre,
+          direccion: data.direccion || editingClinic.direccion,
+          horario,
+          telefono:
+            data.telefonos.filter((t) => t).join(', ') || editingClinic.telefono,
+          email: data.emails.filter((e) => e).join(', ') || editingClinic.email
+        })
         setEditingClinic(null)
       } else {
         handleCreateClinica(data)
       }
       setShowClinicModal(false)
     },
-    [editingClinic, handleCreateClinica]
+    [editingClinic, handleCreateClinica, updateClinicInContext]
   )
 
   return (
@@ -392,25 +395,27 @@ export default function ConfigPage() {
                   Información general
                 </p>
               </button>
-              <button
-                type='button'
-                onClick={() => setActiveTab('clinicas')}
-                className={`p-2 border-b transition-colors whitespace-nowrap ${
-                  activeTab === 'clinicas'
-                    ? 'border-[var(--color-brand-500)]'
-                    : 'border-transparent'
-                }`}
-              >
-                <p
-                  className={`text-title-sm font-medium ${
+              {contextClinics.length > 1 && (
+                <button
+                  type='button'
+                  onClick={() => setActiveTab('clinicas')}
+                  className={`p-2 border-b transition-colors whitespace-nowrap ${
                     activeTab === 'clinicas'
-                      ? 'text-[var(--color-neutral-900)]'
-                      : 'text-[var(--color-neutral-600)]'
+                      ? 'border-[var(--color-brand-500)]'
+                      : 'border-transparent'
                   }`}
                 >
-                  Clínicas
-                </p>
-              </button>
+                  <p
+                    className={`text-title-sm font-medium ${
+                      activeTab === 'clinicas'
+                        ? 'text-[var(--color-neutral-900)]'
+                        : 'text-[var(--color-neutral-600)]'
+                    }`}
+                  >
+                    Clínicas
+                  </p>
+                </button>
+              )}
               <button
                 type='button'
                 onClick={() => setActiveTab('horarios')}
@@ -435,49 +440,57 @@ export default function ConfigPage() {
 
           {activeTab === 'general' && (
             <div className='px-[min(3rem,4vw)] py-[min(1.5rem,2vh)]'>
-              {/* Clinic Selector with Chevron */}
+              {/* Clinic Selector with Chevron (only if multiple clinics) */}
               <div className='relative pb-4 border-b border-neutral-200 mb-10'>
-                <button
-                  type='button'
-                  onClick={() => setShowClinicSelector(!showClinicSelector)}
-                  className='flex items-center justify-between w-full hover:bg-[var(--color-neutral-50)] rounded-lg px-2 py-1 -mx-2 transition-colors'
-                  aria-expanded={showClinicSelector}
-                  aria-haspopup='listbox'
-                >
-                  <p className='text-title-sm font-medium text-[var(--color-neutral-900)]'>
-                    {rows[selectedClinicIndex]?.nombre || 'Seleccionar clínica'}
-                  </p>
-                  <KeyboardArrowDownRounded
-                    className={`size-6 text-[var(--color-neutral-900)] transition-transform ${
-                      showClinicSelector ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
-                {showClinicSelector && (
-                  <div
-                    className='absolute top-full left-0 right-0 mt-1 bg-[var(--color-surface)] border border-neutral-200 rounded-lg shadow-lg z-20 max-h-48 overflow-auto'
-                    role='listbox'
-                  >
-                    {rows.map((clinic, index) => (
-                      <button
-                        key={clinic.id}
-                        type='button'
-                        role='option'
-                        aria-selected={index === selectedClinicIndex}
-                        onClick={() => {
-                          setSelectedClinicIndex(index)
-                          setShowClinicSelector(false)
-                        }}
-                        className={`w-full text-left px-4 py-3 text-body-md transition-colors ${
-                          index === selectedClinicIndex
-                            ? 'bg-[var(--color-brand-50)] text-[var(--color-brand-900)]'
-                            : 'text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-50)]'
+                {contextClinics.length > 1 ? (
+                  <>
+                    <button
+                      type='button'
+                      onClick={() => setShowClinicSelector(!showClinicSelector)}
+                      className='flex items-center justify-between w-full hover:bg-[var(--color-neutral-50)] rounded-lg px-2 py-1 -mx-2 transition-colors'
+                      aria-expanded={showClinicSelector}
+                      aria-haspopup='listbox'
+                    >
+                      <p className='text-title-sm font-medium text-[var(--color-neutral-900)]'>
+                        {rows[selectedClinicIndex]?.nombre || clinicInfo.nombreComercial || 'Clínica'}
+                      </p>
+                      <KeyboardArrowDownRounded
+                        className={`size-6 text-[var(--color-neutral-900)] transition-transform ${
+                          showClinicSelector ? 'rotate-180' : ''
                         }`}
+                      />
+                    </button>
+                    {showClinicSelector && (
+                      <div
+                        className='absolute top-full left-0 right-0 mt-1 bg-[var(--color-surface)] border border-neutral-200 rounded-lg shadow-lg z-20 max-h-48 overflow-auto'
+                        role='listbox'
                       >
-                        {clinic.nombre}
-                      </button>
-                    ))}
-                  </div>
+                        {rows.map((clinic, index) => (
+                          <button
+                            key={clinic.id}
+                            type='button'
+                            role='option'
+                            aria-selected={index === selectedClinicIndex}
+                            onClick={() => {
+                              setSelectedClinicIndex(index)
+                              setShowClinicSelector(false)
+                            }}
+                            className={`w-full text-left px-4 py-3 text-body-md transition-colors ${
+                              index === selectedClinicIndex
+                                ? 'bg-[var(--color-brand-50)] text-[var(--color-brand-900)]'
+                                : 'text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-50)]'
+                            }`}
+                          >
+                            {clinic.nombre}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className='text-title-sm font-medium text-[var(--color-neutral-900)] px-2 py-1'>
+                    {clinicInfo.nombreComercial || 'Clínica'}
+                  </p>
                 )}
               </div>
 
@@ -702,7 +715,7 @@ export default function ConfigPage() {
             <div className='px-[min(2.5rem,3vw)] py-[min(1.5rem,2vh)] flex flex-col h-full min-h-0'>
               {/* Title */}
               <p className='text-title-sm font-medium text-[var(--color-neutral-900)] mb-[min(1.5rem,2vh)]'>
-                Clínica Morales
+                {clinicInfo.nombreComercial || 'Clínicas'}
               </p>
 
               {/* Toolbar */}

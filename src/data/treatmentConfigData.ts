@@ -76,12 +76,4 @@ export const initialDiscounts: ConfigDiscount[] = [
   }
 ]
 
-// ============================================
-// INITIAL CATEGORIES
-// This is a reference to the data exported from TreatmentsPage
-// to avoid duplicating ~3700 lines of mock treatment data.
-// The actual data remains in TreatmentsPage.tsx as `initialCategories`.
-// ============================================
-
-// NOTE: initialCategories is exported from TreatmentsPage.tsx
-// and imported separately where needed to avoid circular dependencies.
+// Treatment data is now loaded from service_catalog via ConfigurationContext.

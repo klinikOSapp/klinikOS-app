@@ -63,22 +63,39 @@ export type ProfessionalColorTone =
   | 'azul'
   | 'rojo'
 
-export type EmploymentType = 'autonomo' | 'nomina'
+export type EmploymentType = 'empleado' | 'externo'
+
+export type ProfessionalRole = 'director' | 'coordinador' | 'profesional' | 'asistente' | 'recepcion'
 
 export type Professional = {
   id: string
   name: string
-  role: string // Especialidad: Odontólogo, Ortodoncista, Higienista, etc.
+  role: ProfessionalRole
+  specialty: string // Especialidad médica: Odontólogo, Ortodoncista, Higienista, etc.
   professionalLicenseId?: string
   phone: string
   email: string
   colorLabel: string
   colorTone: ProfessionalColorTone
-  employmentType?: EmploymentType
+  employmentType: EmploymentType
   commission: string
   salary?: string
   status: 'Activo' | 'Inactivo'
   photoUrl?: string
+  externalNotes?: string
+}
+
+export type ExternalSpecialistScheduleEntry = {
+  id: number
+  staffId: string
+  clinicId: string
+  scheduleType: 'recurring' | 'specific'
+  dayOfWeek?: number // 0=sunday ... 6=saturday
+  specificDate?: string // YYYY-MM-DD
+  startTime?: string // HH:MM
+  endTime?: string // HH:MM
+  notes?: string
+  isCancelled: boolean
 }
 
 type StaffSchemaSupport = {
@@ -378,6 +395,11 @@ export const WEEKDAYS_ORDER: WeekDay[] = [
   'sunday'
 ]
 
+const WEEKDAY_TO_DAY_INDEX: Record<WeekDay, number> = {
+  monday: 0, tuesday: 1, wednesday: 2, thursday: 3,
+  friday: 4, saturday: 5, sunday: 6
+}
+
 export const EXCEPTION_TYPE_LABELS: Record<ScheduleExceptionType, string> = {
   vacation: 'Vacaciones',
   holiday: 'Festivo',
@@ -468,99 +490,7 @@ const initialClinicInfo: ClinicInfo = {
   emailBancario: ''
 }
 
-const initialClinics: Clinic[] = [
-  {
-    id: 'clinic-1',
-    nombre: 'Clínica Morales Ruzafa',
-    direccion: 'C/ Universidad, 2, Valencia',
-    horario: '08:00 - 20:00',
-    telefono: '608020203',
-    email: 'clinicamorales@morales.es',
-    isActive: true
-  },
-  {
-    id: 'clinic-2',
-    nombre: 'Clínica Morales Albal',
-    direccion: 'C/ Madrid, 12, Catarroja',
-    horario: '09:30 - 20:00',
-    telefono: '608020203',
-    email: 'clinicamorales@morales.es',
-    isActive: true
-  },
-  {
-    id: 'clinic-3',
-    nombre: 'Clínica Morales Centro',
-    direccion: 'C/ Colón, 45, Valencia',
-    horario: '09:00 - 21:00',
-    telefono: '608020204',
-    email: 'centro@morales.es',
-    isActive: true
-  }
-]
-
-const initialProfessionals: Professional[] = [
-  {
-    id: 'prof-1',
-    name: 'Dr. Antonio Ruiz',
-    role: 'Odontólogo',
-    phone: '608020203',
-    email: 'antonio@clinicamorales.es',
-    colorLabel: 'Morado',
-    colorTone: 'morado',
-    commission: '30%',
-    status: 'Activo'
-  },
-  {
-    id: 'prof-2',
-    name: 'Dra. María García',
-    role: 'Ortodoncista',
-    phone: '608020204',
-    email: 'maria@clinicamorales.es',
-    colorLabel: 'Naranja',
-    colorTone: 'naranja',
-    commission: '30%',
-    status: 'Activo'
-  },
-  {
-    id: 'prof-3',
-    name: 'Carlos Pérez',
-    role: 'Higienista',
-    phone: '608020205',
-    email: 'carlos@clinicamorales.es',
-    colorLabel: 'Verde',
-    colorTone: 'verde',
-    commission: '25%',
-    status: 'Activo'
-  },
-  {
-    id: 'prof-4',
-    name: 'Dra. Laura Martínez',
-    role: 'Implantólogo',
-    phone: '608020206',
-    email: 'laura@clinicamorales.es',
-    colorLabel: 'Azul',
-    colorTone: 'azul',
-    commission: '35%',
-    status: 'Activo'
-  },
-  {
-    id: 'prof-5',
-    name: 'Javier Herrera',
-    role: 'Higienista',
-    phone: '608020207',
-    email: 'javier@clinicamorales.es',
-    colorLabel: 'Rojo',
-    colorTone: 'rojo',
-    commission: '25%',
-    status: 'Inactivo'
-  }
-]
-
-const initialBoxes: Box[] = [
-  { id: 'box-1', label: 'BOX 1', tone: 'neutral', isActive: true },
-  { id: 'box-2', label: 'BOX 2', tone: 'neutral', isActive: true },
-  { id: 'box-3', label: 'BOX 3', tone: 'neutral', isActive: true }
-]
+// Mock arrays removed — all data is now loaded from the database via hydrateConfigurationFromDb()
 
 const initialWorkingHours: WorkingHoursConfig = {
   defaultStartHour: 9,
@@ -630,14 +560,7 @@ const initialDocumentTemplates: DocumentTemplate[] = [
   }
 ]
 
-const initialProfessionalSchedules: ProfessionalSchedule[] = initialProfessionals.map(
-  (professional) => ({
-    professionalId: professional.id,
-    weeklySchedule: createDefaultWeeklySchedule(initialWorkingHours),
-    exceptions: [],
-    appliedTemplateId: 'clinic-default'
-  })
-)
+const initialProfessionalSchedules: ProfessionalSchedule[] = []
 
 const DAY_INDEX_TO_NAME: Record<number, DayOfWeek> = {
   0: 'domingo',
@@ -761,11 +684,13 @@ function formatCommissionPercentage(value: unknown): string {
   return Number.isFinite(numeric) ? `${numeric}%` : '0%'
 }
 
-function parseEmploymentType(value: unknown): EmploymentType | undefined {
+function parseEmploymentType(value: unknown, isExternal?: boolean): EmploymentType {
+  if (isExternal) return 'externo'
   const normalized = String(value || '').trim().toLowerCase()
-  if (normalized === 'autonomo' || normalized === 'autónomo') return 'autonomo'
-  if (normalized === 'nomina' || normalized === 'nómina') return 'nomina'
-  return undefined
+  // Autónomos now map to 'externo'
+  if (normalized === 'autonomo' || normalized === 'autónomo') return 'externo'
+  // Everything else (nomina, empty, unknown) maps to 'empleado'
+  return 'empleado'
 }
 
 function parseSalaryAmount(value: string | undefined): number | null {
@@ -819,6 +744,25 @@ function mapProfessionalRoleToUserRole(
   return 'doctor'
 }
 
+function mapDbRoleToProfessionalRole(dbRole: unknown): ProfessionalRole {
+  const normalized = String(dbRole || '').trim().toLowerCase()
+  if (normalized.includes('director') || normalized.includes('geren') || normalized.includes('gerencia')) return 'director'
+  if (normalized.includes('coordinador') || normalized.includes('coordin')) return 'coordinador'
+  if (normalized.includes('asistente') || normalized.includes('auxiliar')) return 'asistente'
+  if (normalized.includes('recep') || normalized.includes('admin')) return 'recepcion'
+  return 'profesional'
+}
+
+function mapProfessionalRoleToDbRole(role: ProfessionalRole): 'gerencia' | 'doctor' | 'higienista' | 'recepcion' {
+  switch (role) {
+    case 'director': return 'gerencia'
+    case 'coordinador': return 'gerencia'
+    case 'asistente': return 'recepcion'
+    case 'recepcion': return 'recepcion'
+    default: return 'doctor'
+  }
+}
+
 function slugifyRoleName(value: string): string {
   return value
     .trim()
@@ -853,6 +797,8 @@ type ConfigurationContextType = {
   getProfessionalById: (id: string) => Professional | undefined
   getProfessionalByName: (name: string) => Professional | undefined
 
+  // Agenda professionals (only externals)
+  agendaProfessionals: Professional[]
   // Professional options for dropdowns (agenda)
   professionalOptions: Array<{ id: string; label: string; color: string }>
   professionalNames: string[]
@@ -905,11 +851,25 @@ type ConfigurationContextType = {
   getProfessionalScheduleForDate: (professionalId: string, date: Date) => DaySchedule | null
   getAvailableProfessionalsForDate: (date: Date) => Professional[]
 
+  // External specialist schedules
+  externalSpecialistSchedules: ExternalSpecialistScheduleEntry[]
+  addExternalScheduleEntry: (entry: Omit<ExternalSpecialistScheduleEntry, 'id'>) => Promise<ExternalSpecialistScheduleEntry | null>
+  updateExternalScheduleEntry: (id: number, updates: Partial<ExternalSpecialistScheduleEntry>) => Promise<void>
+  deleteExternalScheduleEntry: (id: number) => Promise<void>
+  getExternalSchedulesForStaff: (staffId: string) => ExternalSpecialistScheduleEntry[]
+  isExternalAvailableForDate: (staffId: string, date: Date) => { available: boolean; startTime?: string; endTime?: string }
+
   // Treatments, discounts, budget types
   treatmentCategories: ConfigCategory[]
   setTreatmentCategories: Dispatch<SetStateAction<ConfigCategory[]>>
+  addTreatmentToDb: (treatment: { name: string; code: string; basePrice: number; estimatedTime: string; iva: string }, categoryName: string) => Promise<string | null>
+  updateTreatmentInDb: (id: string, updates: { name?: string; code?: string; basePrice?: number; estimatedTime?: string; iva?: string; category?: string }) => Promise<boolean>
+  deleteTreatmentFromDb: (id: string) => Promise<boolean>
   discounts: ConfigDiscount[]
   setDiscounts: Dispatch<SetStateAction<ConfigDiscount[]>>
+  addDiscount: (discount: Omit<ConfigDiscount, 'id'>) => void
+  updateDiscount: (id: string, updates: Partial<ConfigDiscount>) => void
+  deleteDiscount: (id: string) => void
   discountOptions: string[]
   budgetTypes: BudgetTypeData[]
   setBudgetTypes: Dispatch<SetStateAction<BudgetTypeData[]>>
@@ -920,6 +880,10 @@ type ConfigurationContextType = {
   // Finances
   expenses: ConfigExpense[]
   setExpenses: Dispatch<SetStateAction<ConfigExpense[]>>
+  addExpense: (expense: Omit<ConfigExpense, 'id'>) => void
+  updateExpense: (id: string, updates: Partial<ConfigExpense>) => void
+  deleteExpense: (id: string) => void
+  expenseCategories: string[]
 
   // Roles and permissions
   roles: ConfigRole[]
@@ -955,10 +919,13 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const [professionalSchedules, setProfessionalSchedules] = useState<
     ProfessionalSchedule[]
   >(initialProfessionalSchedules)
+  const [externalSpecialistSchedules, setExternalSpecialistSchedules] = useState<
+    ExternalSpecialistScheduleEntry[]
+  >([])
   const [activeOrganizationId, setActiveOrganizationId] = useState<string | null>(
     null
   )
-  const [scheduleTemplates] = useState<ScheduleTemplate[]>(
+  const [scheduleTemplates, setScheduleTemplates] = useState<ScheduleTemplate[]>(
     DEFAULT_SCHEDULE_TEMPLATES
   )
   const [treatmentCategories, setTreatmentCategories] = useState<ConfigCategory[]>(
@@ -968,6 +935,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const [budgetTypesState, setBudgetTypesState] =
     useState<BudgetTypeData[]>(BUDGET_TYPES_DATA)
   const [expenses, setExpensesState] = useState<ConfigExpense[]>([])
+  const [expenseCategories, setExpenseCategories] = useState<string[]>([])
+  const expenseCategoryMapRef = useRef<Map<string, number>>(new Map())
   const [roles, setRolesState] = useState<ConfigRole[]>([])
   const [permissions, setPermissionsState] = useState<ConfigPermission[]>([])
   const [staffSchemaSupport, setStaffSchemaSupport] =
@@ -979,7 +948,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const {
     activeClinicId,
     clinics: clinicOptions,
-    isInitialized: isClinicInitialized
+    isInitialized: isClinicInitialized,
+    refreshClinics
   } = useClinic()
 
   useEffect(() => {
@@ -1141,7 +1111,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           : []
         const staffIds = Array.from(new Set([...rpcStaffIds, ...relationStaffIds]))
         const staffBaseSelect =
-          'id, full_name, specialties, professional_license_id, phone, email, calendar_color, commission_percentage, is_active, avatar_url'
+          'id, full_name, specialties, professional_license_id, phone, email, calendar_color, commission_percentage, is_active, avatar_url, is_external, external_notes'
         let detectedStaffSchemaSupport: StaffSchemaSupport = {
           employmentTypeColumn: null,
           salaryColumn: null
@@ -1285,12 +1255,13 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
                 detectedStaffSchemaSupport.salaryColumn
                   ? row[detectedStaffSchemaSupport.salaryColumn]
                   : undefined
-              const employmentType = parseEmploymentType(employmentRaw)
+              const employmentType = parseEmploymentType(employmentRaw, row.is_external === true)
               const salaryAmount = formatSalaryAmount(salaryRaw)
               return {
                 id: String(row.id),
                 name: String(row.full_name || 'Profesional'),
-                role: Array.isArray(row.specialties)
+                role: mapDbRoleToProfessionalRole(row.role ?? row.staff_role),
+                specialty: Array.isArray(row.specialties)
                   ? String(row.specialties[0] || 'Profesional')
                   : 'Profesional',
                 professionalLicenseId:
@@ -1309,7 +1280,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
                 salary: salaryAmount,
                 status: row.is_active === false ? 'Inactivo' : 'Activo',
                 photoUrl:
-                  typeof row.avatar_url === 'string' ? row.avatar_url : undefined
+                  typeof row.avatar_url === 'string' ? row.avatar_url : undefined,
+                externalNotes:
+                  typeof row.external_notes === 'string' ? row.external_notes : undefined
               }
             })
           : []
@@ -1323,13 +1296,15 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
               .map((row) => ({
                 id: String((row as { id?: string }).id || ''),
                 name: String((row as { full_name?: string }).full_name || 'Profesional'),
-                role: 'Profesional',
+                role: 'profesional' as ProfessionalRole,
+                specialty: 'Profesional',
                 phone: '',
                 email: '',
                 colorLabel: 'Morado',
-                colorTone: 'morado',
+                colorTone: 'morado' as ProfessionalColorTone,
+                employmentType: 'empleado' as EmploymentType,
                 commission: '0%',
-                status: 'Activo'
+                status: 'Activo' as const
               }))
           : []
 
@@ -1442,7 +1417,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         }
 
         // ── Treatments (service_catalog) ──
-        const DENTAL_CATEGORIES = [
+        // Preferred display order for common dental categories (cosmetic only)
+        const PREFERRED_CATEGORY_ORDER = [
           'Cirugía', 'Conservadora', 'Endodoncia', 'Estética',
           'Implantes', 'Odontopediatría', 'Ortodoncia', 'Periodoncia'
         ]
@@ -1507,11 +1483,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           }
         }
 
+        // Build categories dynamically from actual service_catalog data
         const grouped = new Map<string, ConfigCategory>()
-        DENTAL_CATEGORIES.forEach((name) => {
-          const id = slugCatId(name) || name.toLowerCase()
-          grouped.set(id, { id, name, treatments: [] })
-        })
         serviceRows.forEach((row) => {
           const catName = toCatLabel(row.category)
           const catId = slugCatId(catName) || 'general'
@@ -1527,8 +1500,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           })
         })
         const mappedTreatmentCategories = Array.from(grouped.values()).sort((a, b) => {
-          const ai = DENTAL_CATEGORIES.indexOf(a.name)
-          const bi = DENTAL_CATEGORIES.indexOf(b.name)
+          const ai = PREFERRED_CATEGORY_ORDER.indexOf(a.name)
+          const bi = PREFERRED_CATEGORY_ORDER.indexOf(b.name)
           if (ai === -1 && bi === -1) return a.name.localeCompare(b.name)
           if (ai === -1) return 1
           if (bi === -1) return -1
@@ -1684,6 +1657,23 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           })
         }
 
+        // ── Expense categories ──
+        const mappedExpenseCategories: string[] = []
+        const newCategoryMap = new Map<string, number>()
+        const { data: expenseCatRows, error: expenseCatErr } = await supabase
+          .from('expense_categories')
+          .select('id, name')
+          .order('name', { ascending: true })
+        if (!expenseCatErr && expenseCatRows) {
+          const seen = new Set<string>()
+          for (const row of expenseCatRows as Array<{ id: number; name: string }>) {
+            if (!row.name || seen.has(row.name)) continue
+            seen.add(row.name)
+            mappedExpenseCategories.push(row.name)
+            newCategoryMap.set(row.name, row.id)
+          }
+        }
+
         // ── Roles & permissions (roles + permissions + modules tables) ──
         let mappedRoles: ConfigRole[] = []
         const mappedPermissions: ConfigPermission[] = []
@@ -1778,10 +1768,144 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           })
         }
 
+        // Load external specialist schedules
+        let mappedExtSchedules: ExternalSpecialistScheduleEntry[] = []
+        const hasExternals = mappedProfessionals.some((p) => p.employmentType === 'externo')
+        if (hasExternals) {
+          const { data: extScheduleRows } = await supabase
+            .from('external_specialist_schedules')
+            .select('*')
+            .eq('clinic_id', selectedClinicId)
+          if (Array.isArray(extScheduleRows)) {
+            mappedExtSchedules = extScheduleRows.map((row) => ({
+              id: Number(row.id),
+              staffId: String(row.staff_id),
+              clinicId: String(row.clinic_id),
+              scheduleType: String(row.schedule_type) as 'recurring' | 'specific',
+              dayOfWeek: row.day_of_week != null ? Number(row.day_of_week) : undefined,
+              specificDate: row.specific_date ? String(row.specific_date) : undefined,
+              startTime: row.start_time ? String(row.start_time).slice(0, 5) : undefined,
+              endTime: row.end_time ? String(row.end_time).slice(0, 5) : undefined,
+              notes: row.notes ? String(row.notes) : undefined,
+              isCancelled: row.is_cancelled === true
+            }))
+          }
+        }
+
+        // ── Schedule templates ──
+        let mappedScheduleTemplates: ScheduleTemplate[] = []
+        const { data: templateSchedRows, error: templateSchedErr } = await supabase
+          .from('schedule_templates')
+          .select('id, name, description, weekly_schedule, is_default')
+          .eq('clinic_id', selectedClinicId)
+          .order('is_default', { ascending: false })
+          .order('name', { ascending: true })
+        if (!templateSchedErr && Array.isArray(templateSchedRows)) {
+          mappedScheduleTemplates = templateSchedRows.map((row) => ({
+            id: String(row.id),
+            name: String(row.name || ''),
+            description: row.description ? String(row.description) : undefined,
+            weeklySchedule: row.weekly_schedule as WeeklySchedule,
+            isDefault: row.is_default === true
+          }))
+        }
+
+        // ── Staff schedules (staff_schedules + schedule_exceptions) ──
+        const DAY_INDEX_TO_WEEKDAY: Record<number, WeekDay> = {
+          0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday',
+          4: 'friday', 5: 'saturday', 6: 'sunday'
+        }
+        const mappedProfessionalSchedules: ProfessionalSchedule[] = []
+        if (staffIds.length > 0) {
+          const [scheduleRes, exceptionRes] = await Promise.all([
+            supabase
+              .from('staff_schedules')
+              .select('staff_id, day_of_week, is_working, shifts, breaks, applied_template_id')
+              .eq('clinic_id', selectedClinicId),
+            supabase
+              .from('schedule_exceptions')
+              .select('id, staff_id, exception_date, exception_type, reason, custom_schedule')
+              .eq('clinic_id', selectedClinicId)
+          ])
+
+          const scheduleRows = (scheduleRes.data || []) as Array<Record<string, unknown>>
+          const exceptionRows = (exceptionRes.data || []) as Array<Record<string, unknown>>
+
+          // Group schedule rows by staff_id
+          const schedulesByStaff = new Map<string, Map<number, Record<string, unknown>>>()
+          for (const row of scheduleRows) {
+            const sid = String(row.staff_id || '')
+            if (!sid) continue
+            if (!schedulesByStaff.has(sid)) schedulesByStaff.set(sid, new Map())
+            schedulesByStaff.get(sid)!.set(Number(row.day_of_week), row)
+          }
+
+          // Group exceptions by staff_id
+          const exceptionsByStaff = new Map<string, ScheduleException[]>()
+          for (const row of exceptionRows) {
+            const sid = String(row.staff_id || '')
+            if (!sid) continue
+            if (!exceptionsByStaff.has(sid)) exceptionsByStaff.set(sid, [])
+            exceptionsByStaff.get(sid)!.push({
+              id: String(row.id),
+              professionalId: sid,
+              date: String(row.exception_date || ''),
+              type: (row.exception_type || 'absence') as ScheduleExceptionType,
+              reason: row.reason ? String(row.reason) : undefined,
+              customSchedule: row.custom_schedule
+                ? (row.custom_schedule as DaySchedule)
+                : undefined
+            })
+          }
+
+          // Build ProfessionalSchedule for each staff that has rows
+          for (const [sid, dayMap] of schedulesByStaff) {
+            const weeklySchedule = {} as WeeklySchedule
+            let appliedTemplateId: string | undefined
+            for (let d = 0; d < 7; d++) {
+              const dayName = DAY_INDEX_TO_WEEKDAY[d]
+              const row = dayMap.get(d)
+              if (row) {
+                weeklySchedule[dayName] = {
+                  isWorking: row.is_working === true,
+                  shifts: Array.isArray(row.shifts) ? (row.shifts as TimeRange[]) : [],
+                  breaks: Array.isArray(row.breaks) ? (row.breaks as ScheduleBreak[]) : []
+                }
+                if (!appliedTemplateId && row.applied_template_id) {
+                  appliedTemplateId = String(row.applied_template_id)
+                }
+              } else {
+                weeklySchedule[dayName] = createNonWorkingDay()
+              }
+            }
+            mappedProfessionalSchedules.push({
+              professionalId: sid,
+              weeklySchedule,
+              exceptions: exceptionsByStaff.get(sid) || [],
+              appliedTemplateId
+            })
+          }
+
+          // Also include staff with only exceptions but no schedule rows
+          for (const [sid, exceptions] of exceptionsByStaff) {
+            if (!schedulesByStaff.has(sid)) {
+              mappedProfessionalSchedules.push({
+                professionalId: sid,
+                weeklySchedule: createDefaultWeeklySchedule(newWorkingHours),
+                exceptions,
+                appliedTemplateId: 'clinic-default'
+              })
+            }
+          }
+        }
+
         if (isMounted) {
           if (mappedClinics.length > 0) setClinics(mappedClinics)
           setStaffSchemaSupport(detectedStaffSchemaSupport)
           setProfessionals(mappedProfessionals)
+          setExternalSpecialistSchedules(mappedExtSchedules)
+          if (mappedProfessionalSchedules.length > 0) setProfessionalSchedules(mappedProfessionalSchedules)
+          if (mappedScheduleTemplates.length > 0) setScheduleTemplates(mappedScheduleTemplates)
           setBoxes(mappedBoxes)
           setWorkingHours(newWorkingHours)
           if (!documentTemplateRowsError) {
@@ -1789,10 +1913,14 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           }
           setTreatmentCategories(mappedTreatmentCategories)
           setDiscountsState(mappedDiscounts)
-          if (mappedBudgetTypes.length > 0) setBudgetTypesState(mappedBudgetTypes)
-          if (mappedExpenses.length > 0) setExpensesState(mappedExpenses)
-          if (mappedRoles.length > 0) setRolesState(mappedRoles)
-          if (mappedPermissions.length > 0) setPermissionsState(mappedPermissions)
+          setBudgetTypesState(mappedBudgetTypes)
+          setExpensesState(mappedExpenses)
+          if (mappedExpenseCategories.length > 0) {
+            setExpenseCategories(mappedExpenseCategories)
+            expenseCategoryMapRef.current = newCategoryMap
+          }
+          setRolesState(mappedRoles)
+          setPermissionsState(mappedPermissions)
 
           if (selectedClinicRow) {
             setClinicInfo({
@@ -1840,22 +1968,35 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     }
   }, [activeClinicId, clinicOptions, isClinicInitialized, staffSchemaSupport])
 
+  // Ensure every active professional has a schedule entry (fill gaps with defaults,
+  // but preserve DB-loaded schedules). Remove schedules for inactive professionals.
   useEffect(() => {
     setProfessionalSchedules((previous) => {
-      const byId = new Map(previous.map((schedule) => [schedule.professionalId, schedule]))
-      const next = professionals
-        .filter((professional) => professional.status === 'Activo')
-        .map((professional) => {
-          const existing = byId.get(professional.id)
-          return (
-            existing || {
-              professionalId: professional.id,
-              weeklySchedule: createDefaultWeeklySchedule(workingHours),
-              exceptions: [],
-              appliedTemplateId: 'clinic-default'
-            }
-          )
-        })
+      const activeIds = new Set(
+        professionals.filter((p) => p.status === 'Activo').map((p) => p.id)
+      )
+      const byId = new Map(previous.map((s) => [s.professionalId, s]))
+      const next: ProfessionalSchedule[] = []
+      for (const id of activeIds) {
+        const existing = byId.get(id)
+        if (existing) {
+          next.push(existing)
+        } else {
+          next.push({
+            professionalId: id,
+            weeklySchedule: createDefaultWeeklySchedule(workingHours),
+            exceptions: [],
+            appliedTemplateId: 'clinic-default'
+          })
+        }
+      }
+      // Only update if there's an actual change (avoid infinite loops)
+      if (
+        next.length === previous.length &&
+        next.every((s, i) => s === previous[i])
+      ) {
+        return previous
+      }
       return next
     })
   }, [professionals, workingHours])
@@ -1865,7 +2006,10 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     const mergedClinicInfo: ClinicInfo = { ...clinicInfo, ...updates }
     setClinicInfo(mergedClinicInfo)
 
-    if (!activeClinicId) return
+    if (!activeClinicId) {
+      console.warn('[updateClinicInfo] No activeClinicId — skipping DB update')
+      return
+    }
 
     void (async () => {
       try {
@@ -1875,8 +2019,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         }
 
         if (updates.nombreComercial !== undefined) payload.name = updates.nombreComercial
-        if (updates.razonSocial !== undefined) payload.legal_name = updates.razonSocial
-        if (updates.cif !== undefined) payload.tax_id = updates.cif
+        if (updates.razonSocial !== undefined) payload.legal_name = updates.razonSocial || null
+        if (updates.cif !== undefined) payload.tax_id = updates.cif || null
         if (updates.web !== undefined) payload.website = updates.web || null
         if (updates.logo !== undefined) payload.logo_url = updates.logo || null
 
@@ -1892,19 +2036,26 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           billing_email: mergedClinicInfo.emailBancario || null
         }
 
-        const { error } = await supabase
+        console.info('[updateClinicInfo] Updating clinic', activeClinicId, 'with payload:', payload)
+
+        const { error, data, status } = await supabase
           .from('clinics')
           .update(payload)
           .eq('id', activeClinicId)
+          .select()
 
         if (error) {
-          console.warn('No se pudo persistir clinicInfo en DB', error)
+          console.error('[updateClinicInfo] DB error:', error.message, error.code, { status })
+        } else {
+          console.info('[updateClinicInfo] OK — rows returned:', data?.length, { status, data })
+          // Refresh ClinicContext so sidebar and other consumers show the updated name/address
+          void refreshClinics()
         }
       } catch (error) {
-        console.warn('Error persistiendo clinicInfo en DB', error)
+        console.error('[updateClinicInfo] Exception:', error)
       }
     })()
-  }, [activeClinicId, clinicInfo])
+  }, [activeClinicId, clinicInfo, refreshClinics])
 
   // ====== CLINICS ======
   const addClinic = useCallback((clinic: Omit<Clinic, 'id'>) => {
@@ -2044,8 +2195,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             return
           }
           const supabase = createSupabaseBrowserClient()
-          const staffRole = mapProfessionalRoleToUserRole(professional.role)
-          const roleSlug = slugifyRoleName(professional.role)
+          const isExternal = professional.employmentType === 'externo'
+          const staffRole = isExternal ? 'externo' : mapProfessionalRoleToDbRole(professional.role)
+          const roleSlug = slugifyRoleName(professional.specialty)
 
           // Look up role_id for the staff_clinics association
           let roleQuery = supabase.from('roles').select('id')
@@ -2066,7 +2218,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             {
               p_clinic_id: activeClinicId,
               p_full_name: professional.name || 'Profesional',
-              p_specialties: professional.role ? [professional.role] : [],
+              p_specialties: professional.specialty ? [professional.specialty] : [],
               p_phone: professional.phone || null,
               p_email: professional.email || null,
               p_calendar_color: toneToHex(professional.colorTone),
@@ -2086,17 +2238,30 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           }
 
           const insertedStaff = result as Record<string, unknown>
+          const staffId = String(insertedStaff.id)
+
+          if (isExternal) {
+            await supabase
+              .from('staff')
+              .update({
+                is_external: true,
+                external_notes: professional.externalNotes || null
+              })
+              .eq('id', staffId)
+          }
+
           const tone = parseHexToTone(
             typeof insertedStaff.calendar_color === 'string'
               ? insertedStaff.calendar_color
               : null
           )
           const persistedProfessional: Professional = {
-            id: String(insertedStaff.id),
+            id: staffId,
             name: String(insertedStaff.full_name || professional.name),
-            role: Array.isArray(insertedStaff.specialties)
-              ? String(insertedStaff.specialties[0] || professional.role)
-              : professional.role,
+            role: professional.role,
+            specialty: Array.isArray(insertedStaff.specialties)
+              ? String(insertedStaff.specialties[0] || professional.specialty)
+              : professional.specialty,
             phone: String(insertedStaff.phone || professional.phone || ''),
             email: String(insertedStaff.email || professional.email || ''),
             colorLabel: toneToLabel(tone),
@@ -2110,7 +2275,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             photoUrl:
               typeof insertedStaff.avatar_url === 'string'
                 ? insertedStaff.avatar_url
-                : undefined
+                : undefined,
+            externalNotes: professional.externalNotes
           }
 
           setProfessionals((prev) => [...prev, persistedProfessional])
@@ -2141,14 +2307,17 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
               updates: {
                 name: merged.name,
                 role: merged.role,
+                specialty: merged.specialty,
                 phone: merged.phone,
                 email: merged.email,
                 colorTone: merged.colorTone,
                 commission: merged.commission,
                 status: merged.status,
-                photoUrl: merged.photoUrl
+                photoUrl: merged.photoUrl,
+                is_external: merged.employmentType === 'externo',
+                external_notes: merged.externalNotes ?? null
               },
-              previousRole: current.role
+              previousRole: current.specialty
             })
           })
           if (!response.ok) {
@@ -2212,15 +2381,21 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     [professionals]
   )
 
-  // Professional options for agenda dropdowns
+  // Only external specialists appear in the agenda
+  const agendaProfessionals = useMemo(
+    () => activeProfessionals.filter((p) => p.employmentType === 'externo'),
+    [activeProfessionals]
+  )
+
+  // Professional options for agenda dropdowns (only external specialists)
   const professionalOptions = useMemo(
     () =>
-      activeProfessionals.map((p) => ({
+      agendaProfessionals.map((p) => ({
         id: p.id,
         label: p.name,
         color: professionalColorStyles[p.colorTone]?.hex || '#6b7280'
       })),
-    [activeProfessionals]
+    [agendaProfessionals]
   )
   const professionalNames = useMemo(
     () => activeProfessionals.map((p) => p.name).filter(Boolean),
@@ -2680,6 +2855,29 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     [professionalSchedules]
   )
 
+  // Helper: upsert 7 rows in staff_schedules for a professional
+  const upsertWeeklyScheduleToDb = useCallback(
+    async (professionalId: string, schedule: WeeklySchedule, templateId?: string) => {
+      if (!activeClinicId) return
+      const supabase = createSupabaseBrowserClient()
+      const rows = WEEKDAYS_ORDER.map((day) => ({
+        staff_id: professionalId,
+        clinic_id: activeClinicId,
+        day_of_week: WEEKDAY_TO_DAY_INDEX[day],
+        is_working: schedule[day].isWorking,
+        shifts: schedule[day].shifts,
+        breaks: schedule[day].breaks,
+        applied_template_id: templateId || null,
+        updated_at: new Date().toISOString()
+      }))
+      const { error } = await supabase
+        .from('staff_schedules')
+        .upsert(rows, { onConflict: 'staff_id,clinic_id,day_of_week' })
+      if (error) console.warn('[upsertWeeklySchedule] DB error:', error.message)
+    },
+    [activeClinicId]
+  )
+
   const updateProfessionalSchedule = useCallback(
     (professionalId: string, schedule: WeeklySchedule) => {
       setProfessionalSchedules((previous) => {
@@ -2701,8 +2899,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             : item
         )
       })
+      void upsertWeeklyScheduleToDb(professionalId, schedule)
     },
-    []
+    [upsertWeeklyScheduleToDb]
   )
 
   const applyTemplateToProfessional = useCallback(
@@ -2732,16 +2931,16 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             : item
         )
       })
+      void upsertWeeklyScheduleToDb(professionalId, template.weeklySchedule, templateId)
     },
-    [scheduleTemplates]
+    [scheduleTemplates, upsertWeeklyScheduleToDb]
   )
 
   const addScheduleException = useCallback(
     (exception: Omit<ScheduleException, 'id'>) => {
-      const newException: ScheduleException = {
-        ...exception,
-        id: `exc-${Date.now()}`
-      }
+      // Optimistically update with temp ID, then replace with DB ID
+      const tempId = `exc-${Date.now()}`
+      const newException: ScheduleException = { ...exception, id: tempId }
       setProfessionalSchedules((previous) =>
         previous.map((item) =>
           item.professionalId === exception.professionalId
@@ -2749,8 +2948,39 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             : item
         )
       )
+
+      if (activeClinicId) {
+        void (async () => {
+          const supabase = createSupabaseBrowserClient()
+          const { data, error } = await supabase
+            .from('schedule_exceptions')
+            .insert({
+              staff_id: exception.professionalId,
+              clinic_id: activeClinicId,
+              exception_date: exception.date,
+              exception_type: exception.type,
+              reason: exception.reason || null,
+              custom_schedule: exception.customSchedule || null
+            })
+            .select('id')
+            .single()
+          if (error) {
+            console.warn('[addScheduleException] DB error:', error.message)
+          } else if (data) {
+            // Replace temp ID with real DB ID
+            setProfessionalSchedules((previous) =>
+              previous.map((item) => ({
+                ...item,
+                exceptions: item.exceptions.map((e) =>
+                  e.id === tempId ? { ...e, id: String(data.id) } : e
+                )
+              }))
+            )
+          }
+        })()
+      }
     },
-    []
+    [activeClinicId]
   )
 
   const removeScheduleException = useCallback((exceptionId: string) => {
@@ -2760,6 +2990,14 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         exceptions: item.exceptions.filter((exception) => exception.id !== exceptionId)
       }))
     )
+    void (async () => {
+      const supabase = createSupabaseBrowserClient()
+      const { error } = await supabase
+        .from('schedule_exceptions')
+        .delete()
+        .eq('id', exceptionId)
+      if (error) console.warn('[removeScheduleException] DB error:', error.message)
+    })()
   }, [])
 
   const copySchedule = useCallback(
@@ -2791,8 +3029,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             : item
         )
       })
+      void upsertWeeklyScheduleToDb(toProfessionalId, source.weeklySchedule)
     },
-    [professionalSchedules]
+    [professionalSchedules, upsertWeeklyScheduleToDb]
   )
 
   const getDayOfWeek = useCallback((date: Date): WeekDay => {
@@ -2859,13 +3098,99 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     [getProfessionalScheduleForDate, timeToMinutes]
   )
 
+  const getExternalSchedulesForStaff = useCallback(
+    (staffId: string): ExternalSpecialistScheduleEntry[] =>
+      externalSpecialistSchedules.filter((e) => e.staffId === staffId && !e.isCancelled),
+    [externalSpecialistSchedules]
+  )
+
+  const isExternalAvailableForDate = useCallback(
+    (staffId: string, date: Date): { available: boolean; startTime?: string; endTime?: string } => {
+      const entries = externalSpecialistSchedules.filter((e) => e.staffId === staffId && !e.isCancelled)
+      const dow = date.getDay()
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
+      const specificMatch = entries.find((e) => e.scheduleType === 'specific' && e.specificDate === dateStr)
+      if (specificMatch) return { available: true, startTime: specificMatch.startTime, endTime: specificMatch.endTime }
+
+      const recurringMatch = entries.find((e) => e.scheduleType === 'recurring' && e.dayOfWeek === dow)
+      if (recurringMatch) return { available: true, startTime: recurringMatch.startTime, endTime: recurringMatch.endTime }
+
+      return { available: false }
+    },
+    [externalSpecialistSchedules]
+  )
+
+  const addExternalScheduleEntry = useCallback(
+    async (entry: Omit<ExternalSpecialistScheduleEntry, 'id'>): Promise<ExternalSpecialistScheduleEntry | null> => {
+      const supabase = createSupabaseBrowserClient()
+      const { data, error } = await supabase
+        .from('external_specialist_schedules')
+        .insert({
+          staff_id: entry.staffId,
+          clinic_id: entry.clinicId,
+          schedule_type: entry.scheduleType,
+          day_of_week: entry.dayOfWeek ?? null,
+          specific_date: entry.specificDate ?? null,
+          start_time: entry.startTime ?? null,
+          end_time: entry.endTime ?? null,
+          notes: entry.notes ?? null,
+          is_cancelled: false
+        })
+        .select()
+        .single()
+      if (error || !data) { console.warn('Error adding external schedule', error); return null }
+      const newEntry: ExternalSpecialistScheduleEntry = {
+        id: Number(data.id), staffId: String(data.staff_id), clinicId: String(data.clinic_id),
+        scheduleType: String(data.schedule_type) as 'recurring' | 'specific',
+        dayOfWeek: data.day_of_week != null ? Number(data.day_of_week) : undefined,
+        specificDate: data.specific_date ? String(data.specific_date) : undefined,
+        startTime: data.start_time ? String(data.start_time).slice(0, 5) : undefined,
+        endTime: data.end_time ? String(data.end_time).slice(0, 5) : undefined,
+        notes: data.notes ? String(data.notes) : undefined,
+        isCancelled: false
+      }
+      setExternalSpecialistSchedules((prev) => [...prev, newEntry])
+      return newEntry
+    },
+    []
+  )
+
+  const updateExternalScheduleEntry = useCallback(
+    async (id: number, updates: Partial<ExternalSpecialistScheduleEntry>): Promise<void> => {
+      const supabase = createSupabaseBrowserClient()
+      const dbUpdates: Record<string, unknown> = {}
+      if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime
+      if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime
+      if (updates.notes !== undefined) dbUpdates.notes = updates.notes
+      if (updates.isCancelled !== undefined) dbUpdates.is_cancelled = updates.isCancelled
+      if (updates.dayOfWeek !== undefined) dbUpdates.day_of_week = updates.dayOfWeek
+      if (updates.specificDate !== undefined) dbUpdates.specific_date = updates.specificDate
+      const { error } = await supabase.from('external_specialist_schedules').update(dbUpdates).eq('id', id)
+      if (error) { console.warn('Error updating external schedule', error); return }
+      setExternalSpecialistSchedules((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
+      )
+    },
+    []
+  )
+
+  const deleteExternalScheduleEntry = useCallback(
+    async (id: number): Promise<void> => {
+      const supabase = createSupabaseBrowserClient()
+      const { error } = await supabase.from('external_specialist_schedules').delete().eq('id', id)
+      if (error) { console.warn('Error deleting external schedule', error); return }
+      setExternalSpecialistSchedules((prev) => prev.filter((e) => e.id !== id))
+    },
+    []
+  )
+
   const getAvailableProfessionalsForDate = useCallback(
     (date: Date): Professional[] =>
-      activeProfessionals.filter((professional) => {
-        const daySchedule = getProfessionalScheduleForDate(professional.id, date)
-        return daySchedule?.isWorking === true
-      }),
-    [activeProfessionals, getProfessionalScheduleForDate]
+      agendaProfessionals.filter((professional) =>
+        isExternalAvailableForDate(professional.id, date).available
+      ),
+    [agendaProfessionals, isExternalAvailableForDate]
   )
 
   const setDiscounts = useCallback(
@@ -2875,24 +3200,265 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     []
   )
 
-  const addBudgetType = useCallback((budgetType: Omit<BudgetTypeData, 'id'>) => {
-    const created: BudgetTypeData = {
-      ...budgetType,
-      id: `bt-${Date.now()}`
-    }
-    setBudgetTypesState((prev) => [created, ...prev])
-    return created
+  const addDiscount = useCallback(
+    (discount: Omit<ConfigDiscount, 'id'>) => {
+      const tempId = `disc-${Date.now()}`
+      setDiscountsState((prev) => [{ ...discount, id: tempId }, ...prev])
+      if (activeClinicId) {
+        void (async () => {
+          const supabase = createSupabaseBrowserClient()
+          const { data, error } = await supabase
+            .from('clinic_discounts')
+            .insert({
+              clinic_id: activeClinicId,
+              name: discount.name,
+              discount_type: discount.type,
+              value: discount.value,
+              notes: discount.notes || null,
+              is_active: discount.isActive
+            })
+            .select('id')
+            .single()
+          if (error) {
+            console.warn('[addDiscount] DB error:', error.message)
+          } else if (data) {
+            setDiscountsState((prev) =>
+              prev.map((d) => (d.id === tempId ? { ...d, id: String(data.id) } : d))
+            )
+          }
+        })()
+      }
+    },
+    [activeClinicId]
+  )
+
+  const updateDiscount = useCallback((id: string, updates: Partial<ConfigDiscount>) => {
+    setDiscountsState((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, ...updates } : d))
+    )
+    void (async () => {
+      const supabase = createSupabaseBrowserClient()
+      const payload: Record<string, unknown> = {}
+      if (updates.name !== undefined) payload.name = updates.name
+      if (updates.type !== undefined) payload.discount_type = updates.type
+      if (updates.value !== undefined) payload.value = updates.value
+      if (updates.notes !== undefined) payload.notes = updates.notes || null
+      if (updates.isActive !== undefined) payload.is_active = updates.isActive
+      const { error } = await supabase.from('clinic_discounts').update(payload).eq('id', Number(id))
+      if (error) console.warn('[updateDiscount] DB error:', error.message)
+    })()
   }, [])
+
+  const deleteDiscount = useCallback((id: string) => {
+    setDiscountsState((prev) => prev.filter((d) => d.id !== id))
+    void (async () => {
+      const supabase = createSupabaseBrowserClient()
+      const { error } = await supabase.from('clinic_discounts').delete().eq('id', Number(id))
+      if (error) console.warn('[deleteDiscount] DB error:', error.message)
+    })()
+  }, [])
+
+  const addBudgetType = useCallback((budgetType: Omit<BudgetTypeData, 'id'>) => {
+    const tempId = `bt-${Date.now()}`
+    const created: BudgetTypeData = { ...budgetType, id: tempId }
+    setBudgetTypesState((prev) => [created, ...prev])
+
+    if (activeClinicId) {
+      void (async () => {
+        const supabase = createSupabaseBrowserClient()
+        const { data, error } = await supabase
+          .from('quote_templates')
+          .insert({
+            clinic_id: activeClinicId,
+            name: budgetType.name,
+            notes: budgetType.description || null,
+            is_active: budgetType.isActive
+          })
+          .select('id')
+          .single()
+        if (error) {
+          console.warn('[addBudgetType] DB error:', error.message)
+          return
+        }
+        const dbId = String(data.id)
+        setBudgetTypesState((prev) =>
+          prev.map((bt) => (bt.id === tempId ? { ...bt, id: dbId } : bt))
+        )
+        // Insert items
+        if (budgetType.treatments.length > 0) {
+          const items = budgetType.treatments.map((t, i) => ({
+            template_id: data.id,
+            service_id: Number(t.codigo) || null,
+            quantity: 1,
+            override_unit_price: t.precio || null,
+            display_order: i
+          })).filter((item) => item.service_id)
+          if (items.length > 0) {
+            const { error: itemsErr } = await supabase.from('quote_template_items').insert(items)
+            if (itemsErr) console.warn('[addBudgetType] items error:', itemsErr.message)
+          }
+        }
+      })()
+    }
+    return created
+  }, [activeClinicId])
 
   const updateBudgetType = useCallback((id: string, updates: Partial<BudgetTypeData>) => {
     setBudgetTypesState((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
     )
+    void (async () => {
+      const supabase = createSupabaseBrowserClient()
+      const payload: Record<string, unknown> = {}
+      if (updates.name !== undefined) payload.name = updates.name
+      if (updates.description !== undefined) payload.notes = updates.description || null
+      if (updates.isActive !== undefined) payload.is_active = updates.isActive
+      if (Object.keys(payload).length > 0) {
+        const { error } = await supabase.from('quote_templates').update(payload).eq('id', Number(id))
+        if (error) console.warn('[updateBudgetType] DB error:', error.message)
+      }
+      // If treatments changed, replace items
+      if (updates.treatments) {
+        await supabase.from('quote_template_items').delete().eq('template_id', Number(id))
+        const items = updates.treatments.map((t, i) => ({
+          template_id: Number(id),
+          service_id: Number(t.codigo) || null,
+          quantity: 1,
+          override_unit_price: t.precio || null,
+          display_order: i
+        })).filter((item) => item.service_id)
+        if (items.length > 0) {
+          const { error: itemsErr } = await supabase.from('quote_template_items').insert(items)
+          if (itemsErr) console.warn('[updateBudgetType] items error:', itemsErr.message)
+        }
+      }
+    })()
   }, [])
 
   const deleteBudgetType = useCallback((id: string) => {
     setBudgetTypesState((prev) => prev.filter((item) => item.id !== id))
+    void (async () => {
+      const supabase = createSupabaseBrowserClient()
+      const { error } = await supabase.from('quote_templates').delete().eq('id', Number(id))
+      if (error) console.warn('[deleteBudgetType] DB error:', error.message)
+    })()
   }, [])
+
+  // ====== TREATMENT PERSISTENCE ======
+
+  const parseMinutes = (estimatedTime: string): number | null => {
+    const match = estimatedTime.match(/(\d+)/)
+    return match ? parseInt(match[1], 10) : null
+  }
+
+  const addTreatmentToDb = useCallback(
+    async (
+      treatment: { name: string; code: string; basePrice: number; estimatedTime: string; iva: string },
+      categoryName: string
+    ): Promise<string | null> => {
+      try {
+        const supabase = createSupabaseBrowserClient()
+        let organizationId = activeOrganizationId
+        if (!organizationId && activeClinicId) {
+          const { data: row } = await supabase
+            .from('clinics')
+            .select('organization_id')
+            .eq('id', activeClinicId)
+            .single()
+          organizationId =
+            typeof row?.organization_id === 'string' ? row.organization_id : null
+          if (organizationId) setActiveOrganizationId(organizationId)
+        }
+
+        const payload: Record<string, unknown> = {
+          name: treatment.name,
+          treatment_code: treatment.code,
+          standard_price: treatment.basePrice,
+          default_duration_minutes: parseMinutes(treatment.estimatedTime),
+          category: categoryName,
+          is_active: true
+        }
+        if (organizationId) payload.organization_id = organizationId
+
+        const { data, error } = await supabase
+          .from('service_catalog')
+          .insert(payload)
+          .select('id')
+          .single()
+
+        if (error) {
+          console.warn('Error al insertar tratamiento en service_catalog', error)
+          return null
+        }
+        return String(data.id)
+      } catch (err) {
+        console.warn('Error al insertar tratamiento en service_catalog', err)
+        return null
+      }
+    },
+    [activeOrganizationId, activeClinicId]
+  )
+
+  const updateTreatmentInDb = useCallback(
+    async (
+      id: string,
+      updates: { name?: string; code?: string; basePrice?: number; estimatedTime?: string; iva?: string; category?: string }
+    ): Promise<boolean> => {
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const payload: Record<string, unknown> = {}
+        if (updates.name !== undefined) payload.name = updates.name
+        if (updates.code !== undefined) payload.treatment_code = updates.code
+        if (updates.basePrice !== undefined) payload.standard_price = updates.basePrice
+        if (updates.estimatedTime !== undefined)
+          payload.default_duration_minutes = parseMinutes(updates.estimatedTime)
+        if (updates.category !== undefined) payload.category = updates.category
+
+        const { error } = await supabase
+          .from('service_catalog')
+          .update(payload)
+          .eq('id', Number(id))
+
+        if (error) {
+          console.warn('Error al actualizar tratamiento en service_catalog', error)
+          return false
+        }
+        return true
+      } catch (err) {
+        console.warn('Error al actualizar tratamiento en service_catalog', err)
+        return false
+      }
+    },
+    []
+  )
+
+  const deleteTreatmentFromDb = useCallback(
+    async (id: string): Promise<boolean> => {
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const { error } = await supabase
+          .from('service_catalog')
+          .delete()
+          .eq('id', Number(id))
+        if (error) {
+          console.warn('Error al eliminar tratamiento de service_catalog', error)
+          return false
+        }
+        // Remove from local state
+        setTreatmentCategories((prev) =>
+          prev.map((cat) => ({
+            ...cat,
+            treatments: cat.treatments.filter((t) => t.id !== id)
+          })).filter((cat) => cat.treatments.length > 0)
+        )
+        return true
+      } catch (err) {
+        console.warn('Error al eliminar tratamiento de service_catalog', err)
+        return false
+      }
+    },
+    []
+  )
 
   const setExpenses = useCallback(
     (expensesOrUpdater: SetStateAction<ConfigExpense[]>) => {
@@ -2901,23 +3467,126 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     []
   )
 
+  const freqUiToDb = (ui: string): string => {
+    switch (ui) {
+      case 'Mensual': return 'monthly'
+      case 'Trimestral': return 'quarterly'
+      case 'Anual': return 'annual'
+      default: return 'one_time'
+    }
+  }
+
+  const addExpense = useCallback(
+    (expense: Omit<ConfigExpense, 'id'>) => {
+      const tempId = `exp-${Date.now()}`
+      const newExpense: ConfigExpense = { ...expense, id: tempId }
+      setExpensesState((prev) => [newExpense, ...prev])
+
+      if (activeClinicId) {
+        void (async () => {
+          const supabase = createSupabaseBrowserClient()
+          const categoryId = expenseCategoryMapRef.current.get(expense.categoria) || null
+          const { data, error } = await supabase
+            .from('expenses')
+            .insert({
+              clinic_id: activeClinicId,
+              category_id: categoryId,
+              expense_type: expense.categoria || 'Otros',
+              description: expense.nombre,
+              amount: expense.importe,
+              frequency: freqUiToDb(expense.frecuencia),
+              start_date: expense.fechaInicio || null,
+              end_date: expense.fechaFin || null,
+              notes: expense.notas || null,
+              is_active: expense.estado === 'activo'
+            })
+            .select('id')
+            .single()
+          if (error) {
+            console.warn('[addExpense] DB error:', error.message)
+          } else if (data) {
+            setExpensesState((prev) =>
+              prev.map((e) => (e.id === tempId ? { ...e, id: String(data.id) } : e))
+            )
+          }
+        })()
+      }
+    },
+    [activeClinicId]
+  )
+
+  const updateExpense = useCallback(
+    (id: string, updates: Partial<ConfigExpense>) => {
+      setExpensesState((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
+      )
+      void (async () => {
+        const supabase = createSupabaseBrowserClient()
+        const payload: Record<string, unknown> = { updated_at: new Date().toISOString() }
+        if (updates.nombre !== undefined) payload.description = updates.nombre
+        if (updates.importe !== undefined) payload.amount = updates.importe
+        if (updates.frecuencia !== undefined) payload.frequency = freqUiToDb(updates.frecuencia)
+        if (updates.categoria !== undefined) {
+          payload.category_id = expenseCategoryMapRef.current.get(updates.categoria) || null
+          payload.expense_type = updates.categoria
+        }
+        if (updates.fechaInicio !== undefined) payload.start_date = updates.fechaInicio || null
+        if (updates.fechaFin !== undefined) payload.end_date = updates.fechaFin || null
+        if (updates.notas !== undefined) payload.notes = updates.notas || null
+        if (updates.estado !== undefined) payload.is_active = updates.estado === 'activo'
+        const { error } = await supabase.from('expenses').update(payload).eq('id', Number(id))
+        if (error) console.warn('[updateExpense] DB error:', error.message)
+      })()
+    },
+    []
+  )
+
+  const deleteExpense = useCallback((id: string) => {
+    setExpensesState((prev) => prev.filter((e) => e.id !== id))
+    void (async () => {
+      const supabase = createSupabaseBrowserClient()
+      const { error } = await supabase.from('expenses').delete().eq('id', Number(id))
+      if (error) console.warn('[deleteExpense] DB error:', error.message)
+    })()
+  }, [])
+
   const setRoles = useCallback((rolesOrUpdater: SetStateAction<ConfigRole[]>) => {
     setRolesState(rolesOrUpdater)
   }, [])
 
   const toggleRolePermission = useCallback((roleId: string, permissionId: string) => {
+    // Determine new state
+    let isNowEnabled = false
     setRolesState((prev) =>
-      prev.map((role) =>
-        role.id !== roleId
-          ? role
-          : {
-              ...role,
-              permisos: role.permisos.includes(permissionId)
-                ? role.permisos.filter((id) => id !== permissionId)
-                : [...role.permisos, permissionId]
-            }
-      )
+      prev.map((role) => {
+        if (role.id !== roleId) return role
+        const had = role.permisos.includes(permissionId)
+        isNowEnabled = !had
+        return {
+          ...role,
+          permisos: had
+            ? role.permisos.filter((id) => id !== permissionId)
+            : [...role.permisos, permissionId]
+        }
+      })
     )
+
+    // Persist: permissionId format is "{dbPermId}-{action}"
+    const lastDash = permissionId.lastIndexOf('-')
+    if (lastDash === -1) return
+    const dbPermId = permissionId.slice(0, lastDash)
+    const action = permissionId.slice(lastDash + 1)
+    const colMap: Record<string, string> = { view: 'can_view', create: 'can_create', edit: 'can_edit', delete: 'can_delete' }
+    const column = colMap[action]
+    if (!column) return
+    void (async () => {
+      const supabase = createSupabaseBrowserClient()
+      const { error } = await supabase
+        .from('permissions')
+        .update({ [column]: isNowEnabled })
+        .eq('id', Number(dbPermId))
+      if (error) console.warn('[toggleRolePermission] DB error:', error.message)
+    })()
   }, [])
 
   const setPermissions = useCallback(
@@ -2938,6 +3607,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       deleteClinic,
       professionals,
       activeProfessionals,
+      agendaProfessionals,
       addProfessional,
       updateProfessional,
       deleteProfessional,
@@ -2973,10 +3643,22 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       isProfessionalAvailable,
       getProfessionalScheduleForDate,
       getAvailableProfessionalsForDate,
+      externalSpecialistSchedules,
+      addExternalScheduleEntry,
+      updateExternalScheduleEntry,
+      deleteExternalScheduleEntry,
+      getExternalSchedulesForStaff,
+      isExternalAvailableForDate,
       treatmentCategories,
       setTreatmentCategories,
+      addTreatmentToDb,
+      updateTreatmentInDb,
+      deleteTreatmentFromDb,
       discounts,
       setDiscounts,
+      addDiscount,
+      updateDiscount,
+      deleteDiscount,
       discountOptions,
       budgetTypes: budgetTypesState,
       setBudgetTypes: setBudgetTypesState,
@@ -2985,6 +3667,10 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       deleteBudgetType,
       expenses,
       setExpenses,
+      addExpense,
+      updateExpense,
+      deleteExpense,
+      expenseCategories,
       roles,
       setRoles,
       toggleRolePermission,
@@ -3000,6 +3686,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       deleteClinic,
       professionals,
       activeProfessionals,
+      agendaProfessionals,
       addProfessional,
       updateProfessional,
       deleteProfessional,
@@ -3035,10 +3722,22 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       isProfessionalAvailable,
       getProfessionalScheduleForDate,
       getAvailableProfessionalsForDate,
+      externalSpecialistSchedules,
+      addExternalScheduleEntry,
+      updateExternalScheduleEntry,
+      deleteExternalScheduleEntry,
+      getExternalSchedulesForStaff,
+      isExternalAvailableForDate,
       treatmentCategories,
       setTreatmentCategories,
+      addTreatmentToDb,
+      updateTreatmentInDb,
+      deleteTreatmentFromDb,
       discounts,
       setDiscounts,
+      addDiscount,
+      updateDiscount,
+      deleteDiscount,
       discountOptions,
       budgetTypesState,
       addBudgetType,
@@ -3046,6 +3745,10 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       deleteBudgetType,
       expenses,
       setExpenses,
+      addExpense,
+      updateExpense,
+      deleteExpense,
+      expenseCategories,
       roles,
       setRoles,
       toggleRolePermission,

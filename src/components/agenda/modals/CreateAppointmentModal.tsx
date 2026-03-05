@@ -486,7 +486,7 @@ export default function CreateAppointmentModal({
   initialData
 }: CreateAppointmentModalProps) {
   const { isTimeSlotBlocked } = useAppointments()
-  const { activeProfessionals, activeBoxes, isProfessionalAvailable, getProfessionalById } = useConfiguration()
+  const { activeProfessionals, agendaProfessionals, activeBoxes, isProfessionalAvailable, getProfessionalById } = useConfiguration()
   const {
     getPatientsForSelect,
     getPendingTreatments,
@@ -765,7 +765,10 @@ export default function CreateAppointmentModal({
   const responsables = useMemo(
     () => [
       { value: '', label: 'Sin asignar' },
-      ...activeProfessionals.map((p) => ({ value: p.id, label: p.name }))
+      ...activeProfessionals.map((p) => ({
+        value: p.id,
+        label: p.employmentType === 'externo' ? `${p.name} (Ext.)` : p.name
+      }))
     ],
     [activeProfessionals]
   )
