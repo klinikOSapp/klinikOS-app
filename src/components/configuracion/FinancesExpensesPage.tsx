@@ -368,17 +368,28 @@ function ExpenseActionsMenu({
   )
 }
 
+const DEFAULT_EXPENSE_CATEGORIES: string[] = [
+  'Servicios',
+  'Material',
+  'Nóminas',
+  'Alquiler',
+  'Suministros',
+  'Otros'
+]
+
 // Edit/Create Expense Modal
 function EditExpenseModal({
   open,
   onClose,
   expense,
-  onSave
+  onSave,
+  expenseCategories
 }: {
   open: boolean
   onClose: () => void
   expense: Expense | null
   onSave: (updatedExpense: Expense, isNew: boolean) => void
+  expenseCategories: string[]
 }) {
   const isNew = expense === null
   const [formData, setFormData] = useState<Expense | null>(null)
@@ -415,14 +426,7 @@ function EditExpenseModal({
     }
   }
 
-  const categories: ExpenseCategory[] = [
-    'Servicios',
-    'Material',
-    'Nóminas',
-    'Alquiler',
-    'Suministros',
-    'Otros'
-  ]
+  const categories = expenseCategories.length > 0 ? expenseCategories : DEFAULT_EXPENSE_CATEGORIES
 
   return createPortal(
     <div className='fixed inset-0 z-[9999] flex items-center justify-center'>
@@ -629,7 +633,7 @@ function EditExpenseModal({
 const ITEMS_PER_PAGE = 15
 
 export default function FinancesExpensesPage() {
-  const { expenses, setExpenses } = useConfiguration()
+  const { expenses, addExpense, updateExpense, deleteExpense, expenseCategories } = useConfiguration()
   const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [showArchived, setShowArchived] = useState(false)
@@ -638,14 +642,7 @@ export default function FinancesExpensesPage() {
   const categoryBtnRef = React.useRef<HTMLButtonElement>(null)
   const categoryDropdownRef = React.useRef<HTMLDivElement>(null)
 
-  const ALL_CATEGORIES: ExpenseCategory[] = [
-    'Servicios',
-    'Material',
-    'Nóminas',
-    'Alquiler',
-    'Suministros',
-    'Otros'
-  ]
+  const ALL_CATEGORIES = expenseCategories.length > 0 ? expenseCategories : DEFAULT_EXPENSE_CATEGORIES
 
   React.useEffect(() => {
     if (!showCategoryDropdown) return
@@ -746,26 +743,20 @@ export default function FinancesExpensesPage() {
   const handleSaveExpense = useCallback(
     (updatedExpense: Expense, isNew: boolean) => {
       if (isNew) {
-        setExpenses((prev) => [...prev, updatedExpense])
+        const { id: _tempId, ...rest } = updatedExpense
+        addExpense(rest)
       } else {
-        setExpenses((prev) =>
-          prev.map((e) => (e.id === updatedExpense.id ? updatedExpense : e))
-        )
+        updateExpense(updatedExpense.id, updatedExpense)
       }
     },
-    []
+    [addExpense, updateExpense]
   )
 
   // Handler to toggle archive status
   const handleToggleArchive = useCallback((expense: Expense) => {
-    setExpenses((prev) =>
-      prev.map((e) =>
-        e.id === expense.id
-          ? { ...e, estado: e.estado === 'activo' ? 'inactivo' : 'activo' }
-          : e
-      )
-    )
-  }, [])
+    const newEstado = expense.estado === 'activo' ? 'inactivo' : 'activo'
+    updateExpense(expense.id, { estado: newEstado })
+  }, [updateExpense])
 
   // Handler to open delete confirmation dialog
   const handleDeleteExpense = useCallback((expense: Expense) => {
@@ -777,10 +768,10 @@ export default function FinancesExpensesPage() {
   // Handler to confirm deletion
   const confirmDeleteExpense = useCallback(() => {
     if (expenseToDelete) {
-      setExpenses((prev) => prev.filter((e) => e.id !== expenseToDelete.id))
+      deleteExpense(expenseToDelete.id)
       setExpenseToDelete(null)
     }
-  }, [expenseToDelete])
+  }, [expenseToDelete, deleteExpense])
 
   return (
     <>
@@ -1000,11 +991,7 @@ export default function FinancesExpensesPage() {
                       <NotesCellTd
                         value={expense.notas || ''}
                         onChange={(newNotes) => {
-                          setExpenses((prev) =>
-                            prev.map((e) =>
-                              e.id === expense.id ? { ...e, notas: newNotes } : e
-                            )
-                          )
+                          updateExpense(expense.id, { notas: newNotes })
                         }}
                       />
                       <td className='px-2 border-b border-r border-neutral-300'>
@@ -1059,6 +1046,7 @@ export default function FinancesExpensesPage() {
         }}
         expense={editingExpense}
         onSave={handleSaveExpense}
+        expenseCategories={expenseCategories}
       />
 
       {/* Delete Confirmation Dialog */}

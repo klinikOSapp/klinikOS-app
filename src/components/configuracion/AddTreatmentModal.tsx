@@ -1,11 +1,13 @@
 'use client'
 
 import {
+  CheckRounded,
   CloseRounded,
   KeyboardArrowDownRounded
 } from '@/components/icons/md3'
 import Portal from '@/components/ui/Portal'
 import React from 'react'
+import { createPortal } from 'react-dom'
 
 export type TreatmentFormData = {
   name: string
@@ -13,6 +15,7 @@ export type TreatmentFormData = {
   basePrice: string
   estimatedTime: string
   iva: string
+  category?: string
 }
 
 type AddTreatmentModalProps = {
@@ -24,6 +27,7 @@ type AddTreatmentModalProps = {
   title?: string
   submitLabel?: string
   initialData?: Partial<TreatmentFormData>
+  categories?: { id: string; name: string }[]
 }
 
 function generateCodeFromName(name: string, existingCodes: string[]): string {
@@ -133,6 +137,60 @@ function SelectField({
   helperText?: string
   className?: string
 }) {
+  const [isOpen, setIsOpen] = React.useState(false)
+  const [dropdownPos, setDropdownPos] = React.useState<{
+    top: number
+    left: number
+    minWidth: number
+  } | null>(null)
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
+  const dropdownRef = React.useRef<HTMLDivElement>(null)
+
+  const selectedOption = options.find((o) => o.value === value)
+
+  const openDropdown = React.useCallback(() => {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const dropdownHeight = Math.min(options.length * 40 + 8, 280)
+    const placeAbove = spaceBelow < dropdownHeight && rect.top > dropdownHeight
+
+    setDropdownPos({
+      top: placeAbove ? rect.top - dropdownHeight - 4 : rect.bottom + 4,
+      left: rect.left,
+      minWidth: rect.width
+    })
+    setIsOpen(true)
+  }, [options.length])
+
+  React.useEffect(() => {
+    if (!isOpen) return undefined
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        triggerRef.current?.contains(e.target as Node) ||
+        dropdownRef.current?.contains(e.target as Node)
+      )
+        return
+      setIsOpen(false)
+    }
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false)
+    }
+    const handleScroll = (e: Event) => {
+      if (dropdownRef.current?.contains(e.target as Node)) return
+      setIsOpen(false)
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    window.addEventListener('scroll', handleScroll, true)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+      window.removeEventListener('scroll', handleScroll, true)
+    }
+  }, [isOpen])
+
   return (
     <div
       className={['flex flex-col gap-[0.5rem] w-full', className]
@@ -153,22 +211,70 @@ function SelectField({
         ) : null}
       </div>
       <div className='flex flex-col gap-[0.25rem] w-full'>
-        <div className='flex h-[3rem] items-center justify-between rounded-[0.5rem] border-[0.03125rem] border-neutral-300 bg-[var(--color-neutral-50)] px-[0.625rem] py-[0.5rem] focus-within:border-[var(--color-brand-500)] focus-within:ring-1 focus-within:ring-[var(--color-brand-500)] transition-colors'>
-          <select
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className='w-full bg-transparent outline-none font-inter text-[1rem] leading-[1.5rem] text-neutral-900 appearance-none'
-          >
-            {options.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <span className='flex items-center justify-center text-neutral-600'>
-            <KeyboardArrowDownRounded />
+        <button
+          ref={triggerRef}
+          type='button'
+          onClick={() => (isOpen ? setIsOpen(false) : openDropdown())}
+          className={[
+            'flex h-[3rem] items-center justify-between rounded-[0.5rem] border-[0.03125rem] bg-[var(--color-neutral-50)] px-[0.625rem] py-[0.5rem] transition-colors text-left',
+            isOpen
+              ? 'border-[var(--color-brand-500)] ring-1 ring-[var(--color-brand-500)]'
+              : 'border-neutral-300'
+          ].join(' ')}
+        >
+          <span className='font-inter text-[1rem] leading-[1.5rem] text-neutral-900 truncate'>
+            {selectedOption?.label || '-'}
           </span>
-        </div>
+          <KeyboardArrowDownRounded
+            className={[
+              'shrink-0 text-neutral-600 transition-transform',
+              isOpen ? 'rotate-180' : ''
+            ].join(' ')}
+          />
+        </button>
+        {isOpen &&
+          dropdownPos &&
+          createPortal(
+            <div
+              ref={dropdownRef}
+              className='fixed z-[9999] flex flex-col overflow-auto rounded-[0.5rem] border border-[#E2E7EA] bg-white py-1 shadow-[0_4px_16px_rgba(0,0,0,0.12)]'
+              style={{
+                top: dropdownPos.top,
+                left: dropdownPos.left,
+                minWidth: dropdownPos.minWidth,
+                maxHeight: 280
+              }}
+              role='listbox'
+            >
+              {options.map((opt) => {
+                const isSelected = opt.value === value
+                return (
+                  <button
+                    key={opt.value}
+                    type='button'
+                    role='option'
+                    aria-selected={isSelected}
+                    onClick={() => {
+                      onChange(opt.value)
+                      setIsOpen(false)
+                    }}
+                    className={[
+                      'flex items-center justify-between gap-2 px-[0.625rem] py-[0.5rem] font-inter text-[0.9375rem] leading-[1.375rem] transition-colors cursor-pointer',
+                      isSelected
+                        ? 'bg-[#E9FBF9] text-[var(--color-brand-700)] font-medium'
+                        : 'text-[#24282C] hover:bg-[var(--color-neutral-50)]'
+                    ].join(' ')}
+                  >
+                    <span className='truncate'>{opt.label}</span>
+                    {isSelected && (
+                      <CheckRounded className='w-[1rem] h-[1rem] text-[var(--color-brand-500)] shrink-0' />
+                    )}
+                  </button>
+                )
+              })}
+            </div>,
+            document.body
+          )}
         {helperText ? (
           <p className='font-inter text-[0.6875rem] leading-[1rem] font-medium text-neutral-600'>
             {helperText}
@@ -184,7 +290,8 @@ const initialForm: TreatmentFormData = {
   code: '',
   basePrice: '',
   estimatedTime: '30 min',
-  iva: '0%'
+  iva: '0%',
+  category: undefined
 }
 
 const TIME_OPTIONS = [
@@ -213,7 +320,8 @@ export default function AddTreatmentModal({
   existingCodes = [],
   title = 'Nuevo tratamiento',
   submitLabel = 'Añadir tratamiento',
-  initialData
+  initialData,
+  categories
 }: AddTreatmentModalProps) {
   const [form, setForm] = React.useState<TreatmentFormData>({
     ...initialForm,
@@ -224,7 +332,7 @@ export default function AddTreatmentModal({
   React.useEffect(() => {
     if (!open) return
     setForm({ ...initialForm, ...initialData })
-    setCodeManuallyEdited(false)
+    setCodeManuallyEdited(!!initialData?.code)
   }, [initialData, open])
 
   React.useEffect(() => {
@@ -295,7 +403,11 @@ export default function AddTreatmentModal({
           >
             <div className='mx-auto flex w-[min(36rem,calc(100%-2rem))] flex-col gap-[2.5rem] px-[2rem] py-[2.5rem]'>
               <section className='flex flex-col gap-[1.5rem]'>
-                {categoryName ? (
+                {initialData ? (
+                  <p className='font-inter text-[1.125rem] leading-[1.75rem] font-medium text-neutral-900'>
+                    Modifica los datos del tratamiento
+                  </p>
+                ) : categoryName ? (
                   <p className='font-inter text-[1.125rem] leading-[1.75rem] font-medium text-neutral-900'>
                     Añadir tratamiento a {categoryName}
                   </p>
@@ -356,6 +468,17 @@ export default function AddTreatmentModal({
                     className='w-[min(15rem,100%)]'
                   />
                 </div>
+
+                {categories && categories.length > 0 ? (
+                  <SelectField
+                    label='Familia'
+                    required
+                    value={form.category || ''}
+                    onChange={updateField('category')}
+                    helperText='Categoría del tratamiento'
+                    options={categories.map((c) => ({ label: c.name, value: c.name }))}
+                  />
+                ) : null}
               </section>
 
               <div className='flex justify-end'>

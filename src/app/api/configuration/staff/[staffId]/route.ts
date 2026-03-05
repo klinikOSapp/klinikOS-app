@@ -6,13 +6,16 @@ import { NextResponse } from 'next/server'
 type UpdatePayload = {
   updates?: {
     name?: string
-    role?: string
+    role?: 'director' | 'coordinador' | 'profesional' | 'asistente' | 'recepcion'
+    specialty?: string
     phone?: string
     email?: string
     colorTone?: 'morado' | 'naranja' | 'verde' | 'azul' | 'rojo'
     commission?: string
     status?: 'Activo' | 'Inactivo'
     photoUrl?: string
+    is_external?: boolean
+    external_notes?: string | null
   }
   previousRole?: string
 }
@@ -261,9 +264,9 @@ export async function PATCH(
           })
         : null
 
-    const basePayload = {
+    const basePayload: Record<string, unknown> = {
       full_name: updates.name || null,
-      specialties: updates.role ? [updates.role] : [],
+      specialties: updates.specialty ? [updates.specialty] : [],
       phone: updates.phone || null,
       email: updates.email || null,
       calendar_color: toneToHex(updates.colorTone),
@@ -271,6 +274,8 @@ export async function PATCH(
       is_active: updates.status === 'Activo',
       avatar_url: updates.photoUrl || null
     }
+    if (updates.is_external !== undefined) basePayload.is_external = updates.is_external
+    if (updates.external_notes !== undefined) basePayload.external_notes = updates.external_notes
 
     const updateAttempts: Array<Record<string, unknown>> = [
       { ...basePayload, updated_at: new Date().toISOString() },
@@ -356,12 +361,12 @@ export async function PATCH(
     }
 
     const roleChanged =
-      typeof updates.role === 'string' &&
-      updates.role.trim().length > 0 &&
-      updates.role !== body.previousRole
+      typeof updates.specialty === 'string' &&
+      updates.specialty.trim().length > 0 &&
+      updates.specialty !== body.previousRole
     if (roleChanged && clinicId) {
-      const staffRole = mapProfessionalRoleToUserRole(updates.role || 'doctor')
-      const roleSlug = slugifyRoleName(updates.role || '')
+      const staffRole = updates.is_external ? 'externo' : mapProfessionalRoleToUserRole(updates.specialty || 'doctor')
+      const roleSlug = slugifyRoleName(updates.specialty || '')
       const roleClient =
         writerClientName === 'service_role' && supabaseAdmin
           ? (supabaseAdmin as unknown as typeof supabase)

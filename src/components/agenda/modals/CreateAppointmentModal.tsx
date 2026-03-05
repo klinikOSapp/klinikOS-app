@@ -486,7 +486,7 @@ export default function CreateAppointmentModal({
   initialData
 }: CreateAppointmentModalProps) {
   const { isTimeSlotBlocked } = useAppointments()
-  const { activeProfessionals, activeBoxes, isProfessionalAvailable, getProfessionalById } = useConfiguration()
+  const { agendaProfessionals, activeBoxes, isProfessionalAvailable, getProfessionalById } = useConfiguration()
   const {
     getPatientsForSelect,
     getPendingTreatments,
@@ -615,12 +615,12 @@ export default function CreateAppointmentModal({
 
     const allSame = profNames.every((n) => n === profNames[0])
     if (allSame) {
-      const match = activeProfessionals.find((p) => p.name === profNames[0])
+      const match = agendaProfessionals.find((p) => p.name === profNames[0])
       if (match) {
         setFormData((prev) => ({ ...prev, responsable: match.id }))
       }
     }
-  }, [pendingTreatments, activeProfessionals])
+  }, [pendingTreatments, agendaProfessionals])
 
   const hasTimeSlotConflict = useMemo(() => {
     if (isBlockMode) return false
@@ -765,9 +765,12 @@ export default function CreateAppointmentModal({
   const responsables = useMemo(
     () => [
       { value: '', label: 'Sin asignar' },
-      ...activeProfessionals.map((p) => ({ value: p.id, label: p.name }))
+      ...agendaProfessionals.map((p) => ({
+        value: p.id,
+        label: `${p.name} (Ext.)`
+      }))
     ],
-    [activeProfessionals]
+    [agendaProfessionals]
   )
 
   // Boxes from configuration context - MUST be before early return to avoid hooks order change

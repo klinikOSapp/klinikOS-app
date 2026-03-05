@@ -4,16 +4,12 @@ import {
   AccessTimeFilledRounded,
   AddRounded,
   CheckCircleRounded,
-  ChevronLeftRounded,
-  ChevronRightRounded,
   CloseRounded,
   ContrastRounded,
   DeleteRounded,
   EmailRounded,
   FilterListRounded,
-  FirstPageRounded,
   KeyboardArrowDownRounded,
-  LastPageRounded,
   LocalHospitalRounded,
   MoreHorizRounded,
   PaymentsRounded,
@@ -21,20 +17,23 @@ import {
   PhoneRounded,
   SearchRounded
 } from '@/components/icons/md3'
-import { Professional, type EmploymentType, type ProfessionalColorTone, useConfiguration } from '@/context/ConfigurationContext'
+import { Professional, type EmploymentType, type ProfessionalColorTone, type ProfessionalRole, useConfiguration } from '@/context/ConfigurationContext'
 import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import AddProfessionalModal, {
   ProfessionalFormData
 } from './AddProfessionalModal'
+import ExternalSpecialistScheduleModal from './ExternalSpecialistScheduleModal'
 import ProfessionalScheduleModal from './ProfessionalScheduleModal'
 
 type StatusFilter = 'all' | 'active' | 'inactive'
 type SpecialtyFilter = string | null
+type TypeFilter = 'all' | 'empleado' | 'externo'
 
 export type Specialist = {
   id: string
   name: string
-  role: string
+  role: ProfessionalRole
+  specialty: string
   phone: string
   email: string
   colorLabel: string
@@ -43,6 +42,7 @@ export type Specialist = {
   commission?: string
   salary?: string
   status: 'Activo' | 'Inactivo'
+  externalNotes?: string
 }
 
 function normalizeCommission(value: string | undefined): string {
@@ -52,22 +52,23 @@ function normalizeCommission(value: string | undefined): string {
 }
 
 function mapProfessionalToSpecialist(professional: Professional): Specialist {
-  const employmentType = professional.employmentType || 'autonomo'
   return {
     id: professional.id,
     name: professional.name,
     role: professional.role,
+    specialty: professional.specialty,
     phone: professional.phone || '—',
     email: professional.email || '—',
     colorLabel: professional.colorLabel,
     colorTone: professional.colorTone,
-    employmentType,
+    employmentType: professional.employmentType,
     commission:
-      employmentType === 'autonomo'
+      professional.employmentType === 'externo'
         ? normalizeCommission(professional.commission)
         : undefined,
-    salary: employmentType === 'nomina' ? professional.salary : undefined,
-    status: professional.status
+    salary: professional.employmentType === 'empleado' ? professional.salary : undefined,
+    status: professional.status,
+    externalNotes: professional.externalNotes
   }
 }
 
@@ -232,18 +233,18 @@ function TableRow({
           </p>
           <span
             className={`inline-flex items-center w-fit px-1.5 py-px rounded-sm text-[0.6875rem] leading-[1rem] font-medium ${
-              specialist.employmentType === 'autonomo'
-                ? 'bg-amber-50 text-amber-700'
+              specialist.employmentType === 'externo'
+                ? 'bg-teal-50 text-teal-700'
                 : 'bg-blue-50 text-blue-700'
             }`}
           >
-            {specialist.employmentType === 'autonomo' ? 'Autónomo' : 'Empleado'}
+            {specialist.employmentType === 'externo' ? 'Externo' : 'Empleado'}
           </span>
         </div>
       </div>
       <div className='flex items-center border-b border-neutral-200 px-2 py-2 min-w-0'>
         <p className='text-body-sm text-[var(--color-neutral-900)] truncate'>
-          {specialist.role}
+          {specialist.specialty}
         </p>
       </div>
       <div className='flex items-center border-b border-neutral-200 px-2 py-2 min-w-0'>
@@ -258,7 +259,7 @@ function TableRow({
       </div>
       <div className='flex items-center border-b border-neutral-200 px-2 py-2 min-w-0'>
         <p className='text-body-sm text-[var(--color-neutral-900)] truncate'>
-          {specialist.employmentType === 'autonomo'
+          {specialist.employmentType === 'externo'
             ? specialist.commission || '—'
             : `${specialist.salary || '—'} €/mes`}
         </p>
@@ -294,11 +295,13 @@ export default function SpecialistsListPage() {
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all')
   const [specialtyFilter, setSpecialtyFilter] =
     React.useState<SpecialtyFilter>(null)
+  const [typeFilter, setTypeFilter] = React.useState<TypeFilter>('all')
   const [showFilterDropdown, setShowFilterDropdown] = React.useState(false)
   const filterDropdownRef = useRef<HTMLDivElement>(null)
 
   // Schedule modal state
   const [showScheduleModal, setShowScheduleModal] = React.useState(false)
+  const [showExternalScheduleModal, setShowExternalScheduleModal] = React.useState(false)
   const [scheduleEditingId, setScheduleEditingId] = React.useState<string | null>(null)
 
   const { professionals, addProfessional, updateProfessional, deleteProfessional } =
@@ -310,8 +313,8 @@ export default function SpecialistsListPage() {
 
   // Get unique specialties from data
   const uniqueSpecialties = useMemo(() => {
-    const roles = new Set(data.map((s) => s.role))
-    return Array.from(roles).sort()
+    const specialties = new Set(data.map((s) => s.specialty))
+    return Array.from(specialties).sort()
   }, [data])
 
   // Filter data based on search and filters
@@ -335,11 +338,15 @@ export default function SpecialistsListPage() {
         return false
 
       // Specialty filter
-      if (specialtyFilter && specialist.role !== specialtyFilter) return false
+      if (specialtyFilter && specialist.specialty !== specialtyFilter) return false
+
+      // Type filter
+      if (typeFilter === 'externo' && specialist.employmentType !== 'externo') return false
+      if (typeFilter === 'empleado' && specialist.employmentType !== 'empleado') return false
 
       return true
     })
-  }, [data, search, statusFilter, specialtyFilter])
+  }, [data, search, statusFilter, specialtyFilter, typeFilter])
 
   // Close filter dropdown when clicking outside
   useEffect(() => {
@@ -375,6 +382,7 @@ export default function SpecialistsListPage() {
   const clearFilters = useCallback(() => {
     setStatusFilter('all')
     setSpecialtyFilter(null)
+    setTypeFilter('all')
     setShowFilterDropdown(false)
   }, [])
 
@@ -412,19 +420,20 @@ export default function SpecialistsListPage() {
 
   const handleAddProfessional = (form: ProfessionalFormData) => {
     const colorTone = form.color
-    const empType = form.employmentType || 'autonomo'
+    const isExt = form.employmentType === 'externo'
     addProfessional({
       name: form.nombre || 'Nuevo profesional',
-      role: form.especialidad || 'Especialidad',
+      role: form.role,
+      specialty: form.specialty || 'Profesional',
       phone: form.telefono || '',
       email: form.email || '',
       colorLabel: colorToneToLabel[colorTone] || 'Verde',
       colorTone,
-      employmentType: empType,
-      commission:
-        empType === 'autonomo' ? normalizeCommission(form.comision) : '0%',
-      salary: empType === 'nomina' ? String(form.salary || '').trim() : undefined,
-      status: form.estado
+      employmentType: form.employmentType,
+      commission: isExt ? normalizeCommission(form.comision) : '0%',
+      salary: !isExt ? String(form.salary || '').trim() : undefined,
+      status: form.estado,
+      externalNotes: isExt ? form.notas : undefined
     })
     setShowAddModal(false)
   }
@@ -432,19 +441,20 @@ export default function SpecialistsListPage() {
   const handleEditProfessional = (form: ProfessionalFormData) => {
     if (!editingId) return
     const colorTone = form.color
-    const empType = form.employmentType || 'autonomo'
+    const isExt = form.employmentType === 'externo'
     updateProfessional(editingId, {
       name: form.nombre || 'Profesional',
-      role: form.especialidad || 'Profesional',
+      role: form.role,
+      specialty: form.specialty || 'Profesional',
       phone: form.telefono || '',
       email: form.email || '',
       colorLabel: colorToneToLabel[colorTone] || 'Verde',
       colorTone,
-      employmentType: empType,
-      commission:
-        empType === 'autonomo' ? normalizeCommission(form.comision) : '0%',
-      salary: empType === 'nomina' ? String(form.salary || '').trim() : undefined,
-      status: form.estado
+      employmentType: form.employmentType,
+      commission: isExt ? normalizeCommission(form.comision) : '0%',
+      salary: !isExt ? String(form.salary || '').trim() : undefined,
+      status: form.estado,
+      externalNotes: isExt ? form.notas : undefined
     })
     setShowAddModal(false)
     setEditingId(null)
@@ -492,12 +502,14 @@ export default function SpecialistsListPage() {
         nombre: editingSpecialist.name,
         telefono: editingSpecialist.phone,
         email: editingSpecialist.email,
-        especialidad: editingSpecialist.role,
+        role: editingSpecialist.role,
+        specialty: editingSpecialist.specialty,
         color: editingSpecialist.colorTone,
         estado: editingSpecialist.status,
         employmentType: editingSpecialist.employmentType,
         comision: editingSpecialist.commission,
-        salary: editingSpecialist.salary
+        salary: editingSpecialist.salary,
+        notas: editingSpecialist.externalNotes
       }
     : undefined
 
@@ -552,8 +564,13 @@ export default function SpecialistsListPage() {
                 onClick={() => {
                   if (selectionCount === 1) {
                     const onlyId = Array.from(selectedIds)[0]
+                    const specialist = data.find((s) => s.id === onlyId)
                     setScheduleEditingId(onlyId)
-                    setShowScheduleModal(true)
+                    if (specialist?.employmentType === 'externo') {
+                      setShowExternalScheduleModal(true)
+                    } else {
+                      setShowScheduleModal(true)
+                    }
                   }
                 }}
                 disabled={selectionCount !== 1}
@@ -720,6 +737,39 @@ export default function SpecialistsListPage() {
                         {specialty}
                       </button>
                     ))}
+
+                    <div className='border-t border-neutral-200 my-1' />
+
+                    <p className='px-3 py-1.5 text-label-sm text-[var(--color-neutral-500)] font-medium'>
+                      Tipo
+                    </p>
+                    <button
+                      type='button'
+                      role='option'
+                      aria-selected={typeFilter === 'all'}
+                      onClick={() => { setTypeFilter('all'); setShowFilterDropdown(false) }}
+                      className={`w-full text-left px-3 py-2 text-body-sm hover:bg-neutral-50 transition-colors ${typeFilter === 'all' ? 'text-[var(--color-brand-600)] bg-[var(--color-brand-50)]' : 'text-[var(--color-neutral-700)]'}`}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type='button'
+                      role='option'
+                      aria-selected={typeFilter === 'empleado'}
+                      onClick={() => { setTypeFilter('empleado'); setShowFilterDropdown(false) }}
+                      className={`w-full text-left px-3 py-2 text-body-sm hover:bg-neutral-50 transition-colors ${typeFilter === 'empleado' ? 'text-[var(--color-brand-600)] bg-[var(--color-brand-50)]' : 'text-[var(--color-neutral-700)]'}`}
+                    >
+                      Empleados
+                    </button>
+                    <button
+                      type='button'
+                      role='option'
+                      aria-selected={typeFilter === 'externo'}
+                      onClick={() => { setTypeFilter('externo'); setShowFilterDropdown(false) }}
+                      className={`w-full text-left px-3 py-2 text-body-sm hover:bg-neutral-50 transition-colors ${typeFilter === 'externo' ? 'text-[var(--color-brand-600)] bg-[var(--color-brand-50)]' : 'text-[var(--color-neutral-700)]'}`}
+                    >
+                      Especialistas externos
+                    </button>
                   </div>
                 )}
               </div>
@@ -770,55 +820,6 @@ export default function SpecialistsListPage() {
             )}
           </div>
 
-          {/* Pagination */}
-          <div className='flex-none flex items-center justify-end gap-3 px-[min(1.5rem,2vw)] pb-[min(1rem,1.5vh)] text-[var(--color-neutral-700)]'>
-            <div className='flex items-center gap-1'>
-              <button
-                type='button'
-                aria-label='Primera página'
-                className='p-1 hover:bg-neutral-100 rounded transition-colors'
-              >
-                <FirstPageRounded className='size-6 text-[var(--color-neutral-600)]' />
-              </button>
-              <button
-                type='button'
-                aria-label='Página anterior'
-                className='p-1 hover:bg-neutral-100 rounded transition-colors'
-              >
-                <ChevronLeftRounded className='size-6 text-[var(--color-neutral-600)]' />
-              </button>
-            </div>
-            <div className='flex items-center gap-1.5'>
-              <span className='text-body-sm font-bold underline text-[var(--color-neutral-900)]'>
-                1
-              </span>
-              <span className='text-body-sm text-[var(--color-neutral-500)]'>
-                2
-              </span>
-              <span className='text-body-sm text-[var(--color-neutral-500)]'>
-                ...
-              </span>
-              <span className='text-body-sm text-[var(--color-neutral-500)]'>
-                12
-              </span>
-            </div>
-            <div className='flex items-center gap-1'>
-              <button
-                type='button'
-                aria-label='Página siguiente'
-                className='p-1 hover:bg-neutral-100 rounded transition-colors'
-              >
-                <ChevronRightRounded className='size-6 text-[var(--color-neutral-600)]' />
-              </button>
-              <button
-                type='button'
-                aria-label='Última página'
-                className='p-1 hover:bg-neutral-100 rounded transition-colors'
-              >
-                <LastPageRounded className='size-6 text-[var(--color-neutral-600)]' />
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -842,14 +843,11 @@ export default function SpecialistsListPage() {
         }}
         professional={(() => {
           if (!scheduleEditingId) return null
-          // Try to find in context professionals first
           const fromContext = professionals.find((p) => p.id === scheduleEditingId) ||
             professionals.find((p) => p.name === data.find((s) => s.id === scheduleEditingId)?.name)
           if (fromContext) return fromContext
-          // If not found, create a Professional from the local Specialist data
           const specialist = data.find((s) => s.id === scheduleEditingId)
           if (!specialist) return null
-          // Map specialist to a Professional object with default values for missing fields
           const colorTones: Array<'morado' | 'naranja' | 'verde' | 'azul' | 'rojo'> = ['morado', 'naranja', 'verde', 'azul', 'rojo']
           const colorIndex = data.findIndex((s) => s.id === scheduleEditingId) % colorTones.length
           return {
@@ -866,6 +864,17 @@ export default function SpecialistsListPage() {
             status: specialist.status
           } as Professional
         })()}
+      />
+
+      <ExternalSpecialistScheduleModal
+        open={showExternalScheduleModal}
+        onClose={() => {
+          setShowExternalScheduleModal(false)
+          setScheduleEditingId(null)
+        }}
+        staffId={scheduleEditingId || ''}
+        staffName={data.find((s) => s.id === scheduleEditingId)?.name || ''}
+        staffRole={data.find((s) => s.id === scheduleEditingId)?.role || ''}
       />
     </>
   )
