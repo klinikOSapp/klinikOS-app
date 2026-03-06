@@ -669,10 +669,8 @@
   pointer-events: none;
 }
 
-.loader-frame {
-  width: clamp(140px, 18vw, 200px);
-  height: auto;
-  filter: drop-shadow(0 0 10px rgba(81, 214, 199, 0.4));
+.page-loading-logo {
+  --landing-hero-size: min(clamp(9.5rem, 14vw, 12.5rem), calc(100vw - 3rem));
 }
 
 /* ✅ Animación de checkmark para citas completadas */
