@@ -17,6 +17,7 @@ import { LayoutProps } from '@/types/layout'
 import type { User } from '@supabase/supabase-js'
 import { usePathname, useRouter } from 'next/navigation'
 import React from 'react'
+import WordmarkLoader from '@/components/loading/WordmarkLoader'
 import AccountPanel from './AccountPanel'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
@@ -401,6 +402,7 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
             isHydrated={isSidebarHydrated}
           />
           <main className='relative z-0 isolate bg-white rounded-tl-[var(--radius-xl)] flex-1 min-w-0 h-[calc(100dvh-var(--spacing-topbar))] min-h-0 overflow-hidden'>
+            <WordmarkLoader isLoading={isLoading} />
             {children}
           </main>
         </div>

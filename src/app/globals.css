@@ -658,6 +658,46 @@
   }
 }
 
+/* Page loading overlay */
+.page-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-brand-900, #1e4947);
+  border-top-left-radius: var(--radius-xl);
+  transition: opacity 350ms ease-out;
+}
+
+.page-loading-overlay--exit {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.wordmark-svg {
+  width: clamp(280px, 50vw, 520px);
+  height: auto;
+}
+
+.wordmark-part {
+  opacity: 0;
+  animation: wordmarkPartReveal 400ms ease-out forwards;
+  animation-delay: var(--part-delay, 0ms);
+}
+
+@keyframes wordmarkPartReveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ✅ Animación de checkmark para citas completadas */
 @keyframes checkmark {
   0% {
