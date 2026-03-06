@@ -28,15 +28,20 @@ import AppointmentContextMenu, {
 } from './AppointmentContextMenu'
 import AppointmentSummaryCard from './AppointmentSummaryCard'
 import DayCalendar from './DayCalendar'
-import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
-import AppointmentHoverOverlay from './modals/AppointmentHoverOverlay'
-import CreateAppointmentModal from './modals/CreateAppointmentModal'
 import MonthCalendar from './MonthCalendar'
 import SlotDragSelection, {
   getSelectionBounds,
   type SlotDragState
 } from './SlotDragSelection'
 import { slotIndexToTime } from './TimeIndicator'
+import {
+  VisitStatusCountersCompact,
+  VisitStatusDropdown
+} from './VisitStatusCounters'
+import VoiceAgentPendingWidget from './VoiceAgentPendingWidget'
+import AppointmentDetailOverlay from './modals/AppointmentDetailOverlay'
+import AppointmentHoverOverlay from './modals/AppointmentHoverOverlay'
+import CreateAppointmentModal from './modals/CreateAppointmentModal'
 import type {
   AgendaEvent,
   DayColumn,
@@ -45,11 +50,6 @@ import type {
   VisitStatus,
   Weekday
 } from './types'
-import {
-  VisitStatusCountersCompact,
-  VisitStatusDropdown
-} from './VisitStatusCounters'
-import VoiceAgentPendingWidget from './VoiceAgentPendingWidget'
 
 type SpecialistAvailability = {
   id: string
@@ -527,17 +527,17 @@ function getOverlayLeft(
 ): string {
   // SMART POSITIONING: Place overlay in the OPPOSITE half of the day column
   // This ensures the overlay never covers the appointment, regardless of how many boxes exist
-  
+
   // Extract box number from event.box (e.g., "Box 1" -> 1, "Box 3" -> 3)
   const boxMatch = (event?.box ?? '').match(/\d+/)
   const boxNumber = boxMatch ? parseInt(boxMatch[0], 10) : 1
-  
+
   // Determine if the event is in the first half or second half of boxes
   // First half: boxes 1 to floor(totalBoxes/2) -> overlay goes RIGHT
   // Second half: boxes floor(totalBoxes/2)+1 to totalBoxes -> overlay goes LEFT
   const midpoint = Math.ceil(totalBoxes / 2)
   const isInFirstHalf = boxNumber <= midpoint
-  
+
   // Calculate position within the day column
   if (isInFirstHalf) {
     // Event is in first half -> place overlay in the RIGHT half of the column
@@ -635,8 +635,7 @@ function toWeekAgendaEvent(appointment: Appointment): AgendaEvent {
   const [startH = '09', startM = '00'] = normalizedStart.split(':')
   const [endH = '09', endM = '30'] = normalizedEnd.split(':')
 
-  const startMinutes =
-    Number(startH) * 60 + Number(startM)
+  const startMinutes = Number(startH) * 60 + Number(startM)
   const endMinutesRaw = Number(endH) * 60 + Number(endM)
   const minRangeStart = START_HOUR * 60
   const clampedStart = Math.max(minRangeStart, startMinutes)
@@ -771,7 +770,9 @@ function getInitialDayColumns(): DayColumn[] {
   ]
 }
 
-function buildWeekColumnsFromAppointments(appointments: Appointment[]): DayColumn[] {
+function buildWeekColumnsFromAppointments(
+  appointments: Appointment[]
+): DayColumn[] {
   const columns = getInitialDayColumns()
   const byWeekday = new Map<Weekday, DayColumn>(
     columns.map((column) => [column.id, column])
@@ -2624,7 +2625,9 @@ function HeaderLabels({
     }
   }, [activeSpecId])
 
-  const visibleBoxes = boxOptions.filter((opt) => selectedBoxes.includes(opt.id))
+  const visibleBoxes = boxOptions.filter((opt) =>
+    selectedBoxes.includes(opt.id)
+  )
   const boxCount = visibleBoxes.length || 1
 
   return (
@@ -2652,8 +2655,8 @@ function HeaderLabels({
                   cell.tone === 'neutral'
                     ? 'text-[var(--color-neutral-600)]'
                     : cell.tone === 'brand'
-                    ? 'text-[var(--color-brand-500)]'
-                    : 'text-[var(--color-neutral-900)]'
+                      ? 'text-[var(--color-brand-500)]'
+                      : 'text-[var(--color-neutral-900)]'
                 ].join(' ')}
               >
                 {cell.label}
@@ -2822,6 +2825,7 @@ function DayGrid({
   selectedBoxes,
   boxOptions,
   selectedProfessionals,
+  agendaProfessionalIds,
   activeVisitStatusFilter,
   completedEvents,
   onToggleComplete,
@@ -2868,6 +2872,7 @@ function DayGrid({
   selectedBoxes: string[]
   boxOptions: Array<{ id: string; label: string }>
   selectedProfessionals: string[]
+  agendaProfessionalIds: Set<string>
   activeVisitStatusFilter?: VisitStatus[] | null
   completedEvents?: Record<string, boolean>
   onToggleComplete?: (eventId: string, completed: boolean) => void
@@ -2925,9 +2930,11 @@ function DayGrid({
     const boxMatch =
       selectedBoxLabels.size === 0 ? true : selectedBoxLabels.has(boxName)
 
-    // Filter by professional (if event has professionalId)
+    // Filter by professional: appointments assigned to non-agenda professionals
+    // (employees) are always visible; only agenda (external) professionals can be filtered
     const professionalMatch =
       !event.professionalId ||
+      !agendaProfessionalIds.has(event.professionalId) ||
       selectedProfessionals.includes(event.professionalId)
 
     // Filter by confirmed status (if showConfirmedOnly is true)
@@ -4375,9 +4382,15 @@ export default function WeekScheduler() {
   }, [inferredProfessionalOptions, professionalOptions])
 
   const dotColorByProfessionalId = useMemo(() => {
-    const groupedByColor = new Map<string, Array<{ id: string; color: string }>>()
+    const groupedByColor = new Map<
+      string,
+      Array<{ id: string; color: string }>
+    >()
     for (const option of effectiveProfessionalOptions) {
-      const colorKey = String(option.color || '').trim().toLowerCase() || '__empty__'
+      const colorKey =
+        String(option.color || '')
+          .trim()
+          .toLowerCase() || '__empty__'
       const existing = groupedByColor.get(colorKey) || []
       existing.push({ id: option.id, color: option.color })
       groupedByColor.set(colorKey, existing)
@@ -4436,6 +4449,11 @@ export default function WeekScheduler() {
   const boxOptionIds = useMemo(
     () => effectiveBoxOptions.map((opt) => opt.id),
     [effectiveBoxOptions]
+  )
+
+  const agendaProfessionalIdSet = useMemo(
+    () => new Set(professionalOptionIds),
+    [professionalOptionIds]
   )
 
   const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>(
@@ -4508,7 +4526,9 @@ export default function WeekScheduler() {
       const valueNumber = raw.match(/\d+/)?.[0]
       const matched =
         effectiveBoxOptions.find((opt) => opt.id === raw) ||
-        effectiveBoxOptions.find((opt) => normalizeBoxFilterValue(opt.label) === key) ||
+        effectiveBoxOptions.find(
+          (opt) => normalizeBoxFilterValue(opt.label) === key
+        ) ||
         (valueNumber
           ? effectiveBoxOptions.find(
               (opt) => opt.label.match(/\d+/)?.[0] === valueNumber
@@ -4532,8 +4552,8 @@ export default function WeekScheduler() {
     useState(false)
   const [appointmentPrefill, setAppointmentPrefill] =
     useState<Partial<AppointmentFormData> | null>(null)
-  const [dayColumnsState, setDayColumnsState] = useState<DayColumn[]>(
-    () => getInitialDayColumns()
+  const [dayColumnsState, setDayColumnsState] = useState<DayColumn[]>(() =>
+    getInitialDayColumns()
   )
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedDayAppointments, setSelectedDayAppointments] = useState<
@@ -4668,9 +4688,20 @@ export default function WeekScheduler() {
       optionsEndIso
     )
 
-    const configuredProfessionalByName = new Map(
-      professionalOptions.map((opt) => [opt.label.toLowerCase(), opt])
-    )
+    const configuredProfessionalByName = new Map([
+      ...professionalOptions.map(
+        (opt) => [opt.label.toLowerCase(), opt] as const
+      ),
+      // Include all configured professionals (employees too) so their names
+      // are not inferred as new agenda filter options
+      ...activeProfessionals.map(
+        (p) =>
+          [
+            p.name.toLowerCase(),
+            { id: p.id, label: p.name, color: '' }
+          ] as const
+      )
+    ])
     const inferredByName = new Map<
       string,
       { id: string; label: string; color: string }
@@ -4679,7 +4710,8 @@ export default function WeekScheduler() {
       const professionalName = (apt.professional || '').trim()
       if (!professionalName) continue
       const key = professionalName.toLowerCase()
-      if (configuredProfessionalByName.has(key) || inferredByName.has(key)) continue
+      if (configuredProfessionalByName.has(key) || inferredByName.has(key))
+        continue
       inferredByName.set(key, {
         id: toProfessionalOptionId(professionalName),
         label: professionalName,
@@ -4705,7 +4737,10 @@ export default function WeekScheduler() {
     })
 
     const professionalIdByName = new Map(
-      effectiveProfessionalOptions.map((opt) => [opt.label.toLowerCase(), opt.id])
+      effectiveProfessionalOptions.map((opt) => [
+        opt.label.toLowerCase(),
+        opt.id
+      ])
     )
     const fallbackBox = effectiveBoxOptions[0]?.label || 'Box 1'
     const freshColumns: DayColumn[] = getInitialDayColumns().map((col) => ({
@@ -4749,6 +4784,7 @@ export default function WeekScheduler() {
     currentWeekStart,
     effectiveBoxOptions,
     effectiveProfessionalOptions,
+    activeProfessionals,
     getAppointmentsByDateRange,
     professionalOptions,
     resolveBoxLabel
@@ -4827,10 +4863,10 @@ export default function WeekScheduler() {
         .find((e) => e.id === active.event.id)
     : null
   const activeDetail = freshEvent?.detail ?? overlaySource?.event.detail
-  
+
   // Calculate total visible boxes for smart overlay positioning
   const totalVisibleBoxes = selectedBoxes.length || 2
-  
+
   const overlayPosition =
     overlaySource && activeDetail
       ? activeDetail.overlayOffsets?.top && activeDetail.overlayOffsets?.left
@@ -4906,7 +4942,10 @@ export default function WeekScheduler() {
       const appointment = getAppointmentById(appointmentId)
       const patientId = detail?.patientId || appointment?.patientId
       const patientName =
-        detail?.patientFull || appointment?.patientName || event.patient || 'Paciente'
+        detail?.patientFull ||
+        appointment?.patientName ||
+        event.patient ||
+        'Paciente'
       return { patientId, patientName }
     },
     [getAppointmentById]
@@ -5373,10 +5412,10 @@ export default function WeekScheduler() {
       const bgColor = apt.createdByVoiceAgent
         ? 'var(--color-event-ai-bg)'
         : apt.bgColor?.includes('coral')
-        ? 'var(--color-event-coral)'
-        : apt.bgColor?.includes('brand') || apt.bgColor?.includes('purple')
-        ? 'var(--color-event-purple)'
-        : 'var(--color-event-teal)'
+          ? 'var(--color-event-coral)'
+          : apt.bgColor?.includes('brand') || apt.bgColor?.includes('purple')
+            ? 'var(--color-event-purple)'
+            : 'var(--color-event-teal)'
       const durationMinutes = Math.max(
         MINUTES_STEP,
         timeToMinutes(apt.endTime) - timeToMinutes(apt.startTime)
@@ -5395,7 +5434,8 @@ export default function WeekScheduler() {
       const professionalId =
         apt.professionalId ||
         effectiveProfessionalOptions.find(
-          (option) => option.label.toLowerCase() === professionalName.toLowerCase()
+          (option) =>
+            option.label.toLowerCase() === professionalName.toLowerCase()
         )?.id ||
         undefined // appointments without a configured professional are always visible
 
@@ -5785,6 +5825,9 @@ export default function WeekScheduler() {
         option.id
       ])
     )
+    const monthAgendaIds = new Set(
+      effectiveProfessionalOptions.map((option) => option.id)
+    )
     const fallbackBoxLabel = effectiveBoxOptions[0]?.label || 'Box 1'
 
     return appointmentsForMonth
@@ -5797,9 +5840,13 @@ export default function WeekScheduler() {
 
         const professionalName = (apt.professional || '').trim().toLowerCase()
         const resolvedProfessionalId =
-          apt.professionalId || professionalIdByName.get(professionalName) || null
+          apt.professionalId ||
+          professionalIdByName.get(professionalName) ||
+          null
+        // Appointments assigned to non-agenda professionals (employees) are always visible
         const professionalMatch =
           !resolvedProfessionalId ||
+          !monthAgendaIds.has(resolvedProfessionalId) ||
           selectedProfessionals.includes(resolvedProfessionalId)
 
         const confirmedMatch = !showConfirmedOnly || apt.confirmed === true
@@ -5823,7 +5870,9 @@ export default function WeekScheduler() {
           .filter(Boolean)
           .join(', ')
         const title = linkedLabel || apt.reason || 'Consulta'
-        const professionalName = (apt.professional || DEFAULT_PROFESSIONAL).trim()
+        const professionalName = (
+          apt.professional || DEFAULT_PROFESSIONAL
+        ).trim()
         const resolvedProfessionalId =
           apt.professionalId ||
           professionalIdByName.get(professionalName.toLowerCase()) ||
@@ -6222,7 +6271,9 @@ export default function WeekScheduler() {
           Math.max(0, Math.floor(relX / boxWidthPx))
         )
         const targetBox =
-          validBoxes[boxIndex]?.label || effectiveBoxOptions[0]?.label || 'Box 1'
+          validBoxes[boxIndex]?.label ||
+          effectiveBoxOptions[0]?.label ||
+          'Box 1'
 
         const startTime = slotToTime(newSlot)
         const endTime = slotToTime(newSlot + newHeightSlots)
@@ -6595,12 +6646,19 @@ export default function WeekScheduler() {
     const slotDate = new Date(currentWeekStart)
     slotDate.setDate(currentWeekStart.getDate() + safeOffset)
 
+    // Resolve box name to UUID for the modal select
+    const resolvedBoxId = boxId
+      ? effectiveBoxOptions.find(
+          (opt) => normalizeBoxFilterValue(opt.label) === boxId
+        )?.id ?? boxId
+      : undefined
+
     // Open modal with pre-filled data including box
     openCreateAppointmentModal({
       fecha: formatDateInAgendaTimezone(slotDate),
       hora: startTime,
       duracion: durationMinutes.toString(),
-      box: boxId || undefined
+      box: resolvedBoxId
     })
 
     // Clear drag state
@@ -6610,6 +6668,7 @@ export default function WeekScheduler() {
     slotDragState,
     dayColumnsState,
     currentWeekStart,
+    effectiveBoxOptions,
     openCreateAppointmentModal
   ])
 
@@ -6910,7 +6969,9 @@ export default function WeekScheduler() {
           <DayCalendar
             period={dayPeriod}
             appointments={selectedDayAppointments}
-            currentDate={formatDateInAgendaTimezone(selectedDate ?? currentWeekStart)}
+            currentDate={formatDateInAgendaTimezone(
+              selectedDate ?? currentWeekStart
+            )}
             bands={getDayBands(selectedDate ?? currentWeekStart)}
             onAppointmentMove={handleDayAppointmentMove}
             selectedBoxes={selectedBoxes}
@@ -6965,6 +7026,7 @@ export default function WeekScheduler() {
                   selectedBoxes={selectedBoxes}
                   boxOptions={effectiveBoxOptions}
                   selectedProfessionals={selectedProfessionals}
+                  agendaProfessionalIds={agendaProfessionalIdSet}
                   activeVisitStatusFilter={activeVisitStatusFilter}
                   completedEvents={completedEvents}
                   onToggleComplete={handleToggleComplete}

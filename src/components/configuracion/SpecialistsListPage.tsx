@@ -9,23 +9,25 @@ import {
   DeleteRounded,
   EmailRounded,
   FilterListRounded,
+  FolderOpenRounded,
   KeyboardArrowDownRounded,
   LocalHospitalRounded,
   MoreHorizRounded,
   PaymentsRounded,
   PersonRounded,
   PhoneRounded,
+  RestartAltRounded,
   SearchRounded
 } from '@/components/icons/md3'
 import { Professional, type EmploymentType, type ProfessionalColorTone, type ProfessionalRole, useConfiguration } from '@/context/ConfigurationContext'
 import React, { useCallback, useEffect, useMemo, useRef } from 'react'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import AddProfessionalModal, {
   ProfessionalFormData
 } from './AddProfessionalModal'
 import ExternalSpecialistScheduleModal from './ExternalSpecialistScheduleModal'
 import ProfessionalScheduleModal from './ProfessionalScheduleModal'
 
-type StatusFilter = 'all' | 'active' | 'inactive'
 type SpecialtyFilter = string | null
 type TypeFilter = 'all' | 'empleado' | 'externo'
 
@@ -88,6 +90,13 @@ const statusStyles: Record<Specialist['status'], { bg: string; text: string }> =
     Activo: { bg: 'bg-[#e0f2fe]', text: 'text-[#075985]' },
     Inactivo: { bg: 'bg-[#cbd3d9]', text: 'text-[#24282c]' }
   }
+
+const roleLabels: Record<string, string> = {
+  director: 'Director',
+  coordinador: 'Coordinador',
+  asistente: 'Asistente',
+  recepcion: 'Recepción'
+}
 
 function TableHeader({
   allSelected,
@@ -231,20 +240,27 @@ function TableRow({
           <p className='text-body-sm font-medium text-[var(--color-neutral-900)] truncate'>
             {specialist.name}
           </p>
-          <span
-            className={`inline-flex items-center w-fit px-1.5 py-px rounded-sm text-[0.6875rem] leading-[1rem] font-medium ${
-              specialist.employmentType === 'externo'
-                ? 'bg-teal-50 text-teal-700'
-                : 'bg-blue-50 text-blue-700'
-            }`}
-          >
-            {specialist.employmentType === 'externo' ? 'Externo' : 'Empleado'}
-          </span>
+          <div className='flex items-center gap-1 flex-wrap'>
+            <span
+              className={`inline-flex items-center w-fit px-1.5 py-px rounded-sm text-[0.6875rem] leading-[1rem] font-medium ${
+                specialist.employmentType === 'externo'
+                  ? 'bg-teal-50 text-teal-700'
+                  : 'bg-blue-50 text-blue-700'
+              }`}
+            >
+              {specialist.employmentType === 'externo' ? 'Externo' : 'Empleado'}
+            </span>
+            {roleLabels[specialist.role] && (
+              <span className='inline-flex items-center w-fit px-1.5 py-px rounded-sm text-[0.6875rem] leading-[1rem] font-medium bg-amber-50 text-amber-700'>
+                {roleLabels[specialist.role]}
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <div className='flex items-center border-b border-neutral-200 px-2 py-2 min-w-0'>
         <p className='text-body-sm text-[var(--color-neutral-900)] truncate'>
-          {specialist.specialty}
+          {specialist.specialty || '—'}
         </p>
       </div>
       <div className='flex items-center border-b border-neutral-200 px-2 py-2 min-w-0'>
@@ -292,17 +308,26 @@ export default function SpecialistsListPage() {
 
   // Search and filter state
   const [search, setSearch] = React.useState('')
-  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all')
   const [specialtyFilter, setSpecialtyFilter] =
     React.useState<SpecialtyFilter>(null)
   const [typeFilter, setTypeFilter] = React.useState<TypeFilter>('all')
   const [showFilterDropdown, setShowFilterDropdown] = React.useState(false)
   const filterDropdownRef = useRef<HTMLDivElement>(null)
 
+  // Archive section state
+  const [archiveOpen, setArchiveOpen] = React.useState(false)
+
   // Schedule modal state
   const [showScheduleModal, setShowScheduleModal] = React.useState(false)
   const [showExternalScheduleModal, setShowExternalScheduleModal] = React.useState(false)
   const [scheduleEditingId, setScheduleEditingId] = React.useState<string | null>(null)
+
+  // Delete confirmation dialog state
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false)
+  const [showDeactivateDialog, setShowDeactivateDialog] = React.useState(false)
+  const [pendingDeleteIds, setPendingDeleteIds] = React.useState<string[]>([])
+  const [failedDeleteNames, setFailedDeleteNames] = React.useState<string[]>([])
+  const [isDeleting, setIsDeleting] = React.useState(false)
 
   const { professionals, addProfessional, updateProfessional, deleteProfessional } =
     useConfiguration()
@@ -317,36 +342,32 @@ export default function SpecialistsListPage() {
     return Array.from(specialties).sort()
   }, [data])
 
-  // Filter data based on search and filters
+  // Apply search + filters (shared logic for both lists)
+  const applyFilters = useCallback((specialist: Specialist) => {
+    const searchLower = search.toLowerCase().trim()
+    if (searchLower) {
+      const matchesSearch =
+        specialist.name.toLowerCase().includes(searchLower) ||
+        specialist.email.toLowerCase().includes(searchLower) ||
+        specialist.role.toLowerCase().includes(searchLower) ||
+        specialist.phone.includes(searchLower)
+      if (!matchesSearch) return false
+    }
+    if (specialtyFilter && specialist.specialty !== specialtyFilter) return false
+    if (typeFilter === 'externo' && specialist.employmentType !== 'externo') return false
+    if (typeFilter === 'empleado' && specialist.employmentType !== 'empleado') return false
+    return true
+  }, [search, specialtyFilter, typeFilter])
+
+  // Active specialists (main list)
   const filteredData = useMemo(() => {
-    return data.filter((specialist) => {
-      // Search filter
-      const searchLower = search.toLowerCase().trim()
-      if (searchLower) {
-        const matchesSearch =
-          specialist.name.toLowerCase().includes(searchLower) ||
-          specialist.email.toLowerCase().includes(searchLower) ||
-          specialist.role.toLowerCase().includes(searchLower) ||
-          specialist.phone.includes(searchLower)
-        if (!matchesSearch) return false
-      }
+    return data.filter((s) => s.status === 'Activo' && applyFilters(s))
+  }, [data, applyFilters])
 
-      // Status filter
-      if (statusFilter === 'active' && specialist.status !== 'Activo')
-        return false
-      if (statusFilter === 'inactive' && specialist.status !== 'Inactivo')
-        return false
-
-      // Specialty filter
-      if (specialtyFilter && specialist.specialty !== specialtyFilter) return false
-
-      // Type filter
-      if (typeFilter === 'externo' && specialist.employmentType !== 'externo') return false
-      if (typeFilter === 'empleado' && specialist.employmentType !== 'empleado') return false
-
-      return true
-    })
-  }, [data, search, statusFilter, specialtyFilter, typeFilter])
+  // Archived (inactive) specialists
+  const archivedData = useMemo(() => {
+    return data.filter((s) => s.status === 'Inactivo' && applyFilters(s))
+  }, [data, applyFilters])
 
   // Close filter dropdown when clicking outside
   useEffect(() => {
@@ -374,13 +395,12 @@ export default function SpecialistsListPage() {
   // Get current filter label
   const getFilterLabel = (): string => {
     if (specialtyFilter) return specialtyFilter
-    if (statusFilter === 'active') return 'Activos'
-    if (statusFilter === 'inactive') return 'Inactivos'
+    if (typeFilter === 'empleado') return 'Empleados'
+    if (typeFilter === 'externo') return 'Externos'
     return 'Todos'
   }
 
   const clearFilters = useCallback(() => {
-    setStatusFilter('all')
     setSpecialtyFilter(null)
     setTypeFilter('all')
     setShowFilterDropdown(false)
@@ -485,17 +505,54 @@ export default function SpecialistsListPage() {
 
   const handleDeleteSelected = () => {
     if (selectionCount === 0) return
-    if (
-      window.confirm(
-        `¿Estás seguro de que quieres eliminar ${selectionCount} especialista${
-          selectionCount > 1 ? 's' : ''
-        }?`
-      )
-    ) {
-      Array.from(selectedIds).forEach((id) => deleteProfessional(id))
-      setSelectedIds(new Set())
+    setPendingDeleteIds(Array.from(selectedIds))
+    setShowDeleteDialog(true)
+  }
+
+  const confirmDeleteSelected = async () => {
+    setShowDeleteDialog(false)
+    setIsDeleting(true)
+
+    const ids = pendingDeleteIds
+    const failed: string[] = []
+    const failedIds: string[] = []
+
+    for (const id of ids) {
+      const result = await deleteProfessional(id)
+      if (!result.success) {
+        const name = data.find((s) => s.id === id)?.name ?? 'Especialista'
+        failed.push(name)
+        failedIds.push(id)
+      }
+    }
+
+    setIsDeleting(false)
+    setSelectedIds(new Set())
+
+    if (failed.length > 0) {
+      setFailedDeleteNames(failed)
+      setPendingDeleteIds(failedIds)
+      setShowDeactivateDialog(true)
+    } else {
+      setPendingDeleteIds([])
     }
   }
+
+  const confirmDeactivateFailed = () => {
+    for (const id of pendingDeleteIds) {
+      updateProfessional(id, { status: 'Inactivo' })
+    }
+    setShowDeactivateDialog(false)
+    setPendingDeleteIds([])
+    setFailedDeleteNames([])
+  }
+
+  const handleReactivate = useCallback(
+    (id: string) => {
+      updateProfessional(id, { status: 'Activo' })
+    },
+    [updateProfessional]
+  )
 
   const modalInitialData = editingSpecialist
     ? {
@@ -523,12 +580,12 @@ export default function SpecialistsListPage() {
         <button
           type='button'
           className='flex items-center gap-2 px-4 py-2 rounded-full border border-neutral-300 bg-[var(--color-page-bg)] hover:bg-neutral-100 transition-colors cursor-pointer self-start sm:self-auto'
-          aria-label='Nuevo especialista'
+          aria-label='Nuevo'
           onClick={() => setShowAddModal(true)}
         >
           <AddRounded className='size-6 text-[var(--color-neutral-900)]' />
           <span className='text-body-md text-[var(--color-neutral-900)] whitespace-nowrap'>
-            Nuevo especialista
+            Nuevo
           </span>
         </button>
       </div>
@@ -580,12 +637,13 @@ export default function SpecialistsListPage() {
               </button>
               <button
                 type='button'
-                title='Desactivar especialistas seleccionados'
+                title='Archivar especialistas seleccionados'
                 onClick={handleDeactivateSelected}
                 disabled={selectionCount === 0}
-                className='flex items-center bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-2 py-1 border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+                className='flex items-center gap-1 bg-[var(--color-page-bg)] text-[var(--color-neutral-700)] px-2 py-1 border-t border-b border-r border-neutral-300 hover:bg-neutral-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
               >
-                <span className='text-body-sm'>Desactivar</span>
+                <FolderOpenRounded className='size-4' />
+                <span className='text-body-sm'>Archivar</span>
               </button>
               <button
                 type='button'
@@ -640,7 +698,7 @@ export default function SpecialistsListPage() {
                   aria-haspopup='listbox'
                   onClick={() => setShowFilterDropdown(!showFilterDropdown)}
                   className={`flex items-center gap-1 px-3 py-1.5 rounded-full border transition-colors ${
-                    statusFilter !== 'all' || specialtyFilter
+                    specialtyFilter || typeFilter !== 'all'
                       ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-50)] text-[var(--color-brand-700)]'
                       : 'border-neutral-300 hover:bg-neutral-100 text-[var(--color-neutral-700)]'
                   }`}
@@ -660,63 +718,21 @@ export default function SpecialistsListPage() {
                     role='listbox'
                   >
                     <p className='px-3 py-1.5 text-label-sm text-[var(--color-neutral-500)] font-medium'>
-                      Estado
-                    </p>
-                    <button
-                      type='button'
-                      role='option'
-                      aria-selected={statusFilter === 'all' && !specialtyFilter}
-                      onClick={() => {
-                        clearFilters()
-                      }}
-                      className={`w-full text-left px-3 py-2 text-body-sm hover:bg-neutral-50 transition-colors ${
-                        statusFilter === 'all' && !specialtyFilter
-                          ? 'text-[var(--color-brand-600)] bg-[var(--color-brand-50)]'
-                          : 'text-[var(--color-neutral-700)]'
-                      }`}
-                    >
-                      Todos
-                    </button>
-                    <button
-                      type='button'
-                      role='option'
-                      aria-selected={statusFilter === 'active'}
-                      onClick={() => {
-                        setStatusFilter('active')
-                        setSpecialtyFilter(null)
-                        setShowFilterDropdown(false)
-                      }}
-                      className={`w-full text-left px-3 py-2 text-body-sm hover:bg-neutral-50 transition-colors ${
-                        statusFilter === 'active'
-                          ? 'text-[var(--color-brand-600)] bg-[var(--color-brand-50)]'
-                          : 'text-[var(--color-neutral-700)]'
-                      }`}
-                    >
-                      Activos
-                    </button>
-                    <button
-                      type='button'
-                      role='option'
-                      aria-selected={statusFilter === 'inactive'}
-                      onClick={() => {
-                        setStatusFilter('inactive')
-                        setSpecialtyFilter(null)
-                        setShowFilterDropdown(false)
-                      }}
-                      className={`w-full text-left px-3 py-2 text-body-sm hover:bg-neutral-50 transition-colors ${
-                        statusFilter === 'inactive'
-                          ? 'text-[var(--color-brand-600)] bg-[var(--color-brand-50)]'
-                          : 'text-[var(--color-neutral-700)]'
-                      }`}
-                    >
-                      Inactivos
-                    </button>
-
-                    <div className='border-t border-neutral-200 my-1' />
-
-                    <p className='px-3 py-1.5 text-label-sm text-[var(--color-neutral-500)] font-medium'>
                       Especialidad
                     </p>
+                    <button
+                      type='button'
+                      role='option'
+                      aria-selected={!specialtyFilter && typeFilter === 'all'}
+                      onClick={() => clearFilters()}
+                      className={`w-full text-left px-3 py-2 text-body-sm hover:bg-neutral-50 transition-colors ${
+                        !specialtyFilter && typeFilter === 'all'
+                          ? 'text-[var(--color-brand-600)] bg-[var(--color-brand-50)]'
+                          : 'text-[var(--color-neutral-700)]'
+                      }`}
+                    >
+                      Todas
+                    </button>
                     {uniqueSpecialties.map((specialty) => (
                       <button
                         key={specialty}
@@ -725,7 +741,6 @@ export default function SpecialistsListPage() {
                         aria-selected={specialtyFilter === specialty}
                         onClick={() => {
                           setSpecialtyFilter(specialty)
-                          setStatusFilter('all')
                           setShowFilterDropdown(false)
                         }}
                         className={`w-full text-left px-3 py-2 text-body-sm hover:bg-neutral-50 transition-colors ${
@@ -777,17 +792,17 @@ export default function SpecialistsListPage() {
           </div>
 
           {/* Table with scroll */}
-          <div className='flex-1 min-h-0 px-[min(1.5rem,2vw)] pb-[min(1.5rem,2vh)]'>
+          <div className='flex-1 min-h-0 px-[min(1.5rem,2vw)] pb-[min(1.5rem,2vh)] overflow-auto'>
             {filteredData.length === 0 ? (
               /* Empty State */
               <div className='flex flex-col items-center justify-center py-16 border border-neutral-300 rounded bg-[var(--color-surface)]'>
                 <PersonRounded className='size-12 text-[var(--color-neutral-300)]' />
                 <p className='text-body-md text-[var(--color-neutral-500)] mt-4'>
-                  {search || statusFilter !== 'all' || specialtyFilter
+                  {search || specialtyFilter || typeFilter !== 'all'
                     ? 'No se encontraron especialistas con los filtros aplicados'
-                    : 'No hay especialistas registrados'}
+                    : 'No hay especialistas activos'}
                 </p>
-                {(search || statusFilter !== 'all' || specialtyFilter) && (
+                {(search || specialtyFilter || typeFilter !== 'all') && (
                   <button
                     type='button'
                     onClick={() => {
@@ -801,7 +816,7 @@ export default function SpecialistsListPage() {
                 )}
               </div>
             ) : (
-              <div className='overflow-auto h-full'>
+              <div>
                 <TableHeader
                   allSelected={allSelected}
                   indeterminate={indeterminate}
@@ -818,6 +833,72 @@ export default function SpecialistsListPage() {
                 ))}
               </div>
             )}
+
+            {/* Archive Section */}
+            {archivedData.length > 0 && (
+              <div className='mt-4'>
+                <button
+                  type='button'
+                  onClick={() => setArchiveOpen((prev) => !prev)}
+                  className='flex items-center gap-2 w-full px-3 py-2.5 rounded-lg bg-[var(--color-neutral-50)] hover:bg-[var(--color-neutral-100)] transition-colors group'
+                >
+                  <FolderOpenRounded className='size-5 text-[var(--color-neutral-500)]' />
+                  <span className='text-body-sm font-medium text-[var(--color-neutral-600)]'>
+                    Archivo
+                  </span>
+                  <span className='text-label-sm text-[var(--color-neutral-500)] bg-[var(--color-neutral-200)] px-1.5 py-px rounded-full'>
+                    {archivedData.length}
+                  </span>
+                  <KeyboardArrowDownRounded
+                    className={`size-5 text-[var(--color-neutral-500)] ml-auto transition-transform ${
+                      archiveOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {archiveOpen && (
+                  <div className='mt-1 rounded-lg border border-neutral-200 overflow-hidden bg-[var(--color-neutral-50)]/50'>
+                    {archivedData.map((s) => {
+                      const initials = getInitials(s.name)
+                      return (
+                        <div
+                          key={s.id}
+                          className='grid grid-cols-[1fr_auto] items-center min-h-[3rem] px-3 py-2 border-b border-neutral-100 last:border-b-0 opacity-70 hover:opacity-100 transition-opacity'
+                        >
+                          <div className='flex items-center gap-2.5 min-w-0'>
+                            <div
+                              className={`size-8 rounded-full flex-shrink-0 flex items-center justify-center text-label-sm font-semibold grayscale ${
+                                colorToneStyles[s.colorTone].bg
+                              } ${colorToneStyles[s.colorTone].text}`}
+                            >
+                              {initials}
+                            </div>
+                            <div className='flex flex-col gap-0.5 min-w-0'>
+                              <p className='text-body-sm font-medium text-[var(--color-neutral-600)] truncate'>
+                                {s.name}
+                              </p>
+                              <p className='text-label-sm text-[var(--color-neutral-500)] truncate'>
+                                {s.specialty}
+                                {s.employmentType === 'externo' ? ' · Externo' : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type='button'
+                            onClick={() => handleReactivate(s.id)}
+                            title='Reactivar especialista'
+                            className='flex items-center gap-1 px-2.5 py-1 rounded-full text-body-sm font-medium text-[var(--color-brand-600)] hover:bg-[var(--color-brand-50)] transition-colors'
+                          >
+                            <RestartAltRounded className='size-4' />
+                            <span>Reactivar</span>
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
         </div>
@@ -830,8 +911,8 @@ export default function SpecialistsListPage() {
           setEditingId(null)
         }}
         onSubmit={handleSubmitModal}
-        title={editingId ? 'Editar especialista' : 'Nuevo profesional'}
-        submitLabel={editingId ? 'Guardar cambios' : 'Añadir profesional'}
+        title={editingId ? 'Editar' : 'Nuevo'}
+        submitLabel={editingId ? 'Guardar' : 'Añadir'}
         initialData={modalInitialData}
       />
 
@@ -875,6 +956,35 @@ export default function SpecialistsListPage() {
         staffId={scheduleEditingId || ''}
         staffName={data.find((s) => s.id === scheduleEditingId)?.name || ''}
         staffRole={data.find((s) => s.id === scheduleEditingId)?.role || ''}
+      />
+
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onClose={() => {
+          setShowDeleteDialog(false)
+          setPendingDeleteIds([])
+        }}
+        onConfirm={confirmDeleteSelected}
+        title='Eliminar especialista'
+        message={`¿Estás seguro de que quieres eliminar ${pendingDeleteIds.length} especialista${pendingDeleteIds.length > 1 ? 's' : ''}? Esta acción no se puede deshacer.`}
+        confirmLabel='Eliminar'
+        cancelLabel='Cancelar'
+        variant='danger'
+      />
+
+      <ConfirmDialog
+        open={showDeactivateDialog}
+        onClose={() => {
+          setShowDeactivateDialog(false)
+          setPendingDeleteIds([])
+          setFailedDeleteNames([])
+        }}
+        onConfirm={confirmDeactivateFailed}
+        title='No se pudo eliminar'
+        message={`${failedDeleteNames.join(', ')} tiene${failedDeleteNames.length > 1 ? 'n' : ''} datos asociados (citas, notas clínicas, pagos, etc.) que impiden el borrado. ¿Deseas desactivar${failedDeleteNames.length > 1 ? 'los' : 'lo'} en su lugar?`}
+        confirmLabel='Desactivar'
+        cancelLabel='Cancelar'
+        variant='warning'
       />
     </>
   )

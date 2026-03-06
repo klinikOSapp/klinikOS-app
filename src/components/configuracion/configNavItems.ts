@@ -12,7 +12,7 @@ export const configNavItems = [
     href: '/configuracion/finanzas'
   },
   { label: 'Recordatorios & comunicación', href: undefined },
-  { label: 'Roles y permisos', href: '/configuracion/roles' }
+  { label: 'Roles', href: '/configuracion/roles' }
 ]
 
 export default configNavItems

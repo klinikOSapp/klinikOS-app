@@ -1,6 +1,14 @@
 'use client'
 
 import {
+  BUDGET_TYPES_DATA,
+  type BudgetTypeData
+} from '@/components/pacientes/shared/budgetTypeData'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import type { ConfigExpense } from '@/types/configExpenses'
+import type { ConfigRole } from '@/types/configRoles'
+import type { ConfigCategory, ConfigDiscount } from '@/types/treatments'
+import {
   createContext,
   Dispatch,
   ReactNode,
@@ -12,14 +20,6 @@ import {
   useRef,
   useState
 } from 'react'
-import {
-  BUDGET_TYPES_DATA,
-  type BudgetTypeData
-} from '@/components/pacientes/shared/budgetTypeData'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import type { ConfigExpense } from '@/types/configExpenses'
-import type { ConfigPermission, ConfigRole } from '@/types/configRoles'
-import type { ConfigCategory, ConfigDiscount } from '@/types/treatments'
 import { useClinic } from './ClinicContext'
 
 // ============================================
@@ -65,7 +65,12 @@ export type ProfessionalColorTone =
 
 export type EmploymentType = 'empleado' | 'externo'
 
-export type ProfessionalRole = 'director' | 'coordinador' | 'profesional' | 'asistente' | 'recepcion'
+export type ProfessionalRole =
+  | 'director'
+  | 'coordinador'
+  | 'profesional'
+  | 'asistente'
+  | 'recepcion'
 
 export type Professional = {
   id: string
@@ -176,9 +181,10 @@ export type DocumentTemplate = {
   lastModified?: string
 }
 
-export const DEFAULT_DOCUMENT_TEMPLATES: Record<DocumentTemplateType, string> = {
-  factura: '<h1>Factura</h1>',
-  receta: `
+export const DEFAULT_DOCUMENT_TEMPLATES: Record<DocumentTemplateType, string> =
+  {
+    factura: '<h1>Factura</h1>',
+    receta: `
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
       <div>
         <h1 style="font-size: 20px; color: #1E4947; margin: 0;">RECETA MÉDICA</h1>
@@ -254,11 +260,11 @@ export const DEFAULT_DOCUMENT_TEMPLATES: Record<DocumentTemplateType, string> = 
       </div>
     </div>
   `,
-  justificante: '<h1>Justificante</h1>',
-  consentimiento: '<h1>Consentimiento</h1>',
-  presupuesto: '<h1>Presupuesto</h1>',
-  informe: '<h1>Informe</h1>'
-}
+    justificante: '<h1>Justificante</h1>',
+    consentimiento: '<h1>Consentimiento</h1>',
+    presupuesto: '<h1>Presupuesto</h1>',
+    informe: '<h1>Informe</h1>'
+  }
 
 export const DOCUMENT_TYPE_LABELS: Record<DocumentTemplateType, string> = {
   factura: 'Factura',
@@ -285,7 +291,9 @@ function isDocumentTemplateType(value: string): value is DocumentTemplateType {
 function normalizeDocumentTemplateType(
   value: string | null | undefined
 ): DocumentTemplateType | null {
-  const normalized = String(value || '').trim().toLowerCase()
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
   if (!normalized) return null
   if (isDocumentTemplateType(normalized)) return normalized
 
@@ -349,7 +357,11 @@ export type WeeklySchedule = {
   sunday: DaySchedule
 }
 
-export type ScheduleExceptionType = 'vacation' | 'holiday' | 'absence' | 'special'
+export type ScheduleExceptionType =
+  | 'vacation'
+  | 'holiday'
+  | 'absence'
+  | 'special'
 
 export type ScheduleException = {
   id: string
@@ -396,8 +408,13 @@ export const WEEKDAYS_ORDER: WeekDay[] = [
 ]
 
 const WEEKDAY_TO_DAY_INDEX: Record<WeekDay, number> = {
-  monday: 0, tuesday: 1, wednesday: 2, thursday: 3,
-  friday: 4, saturday: 5, sunday: 6
+  monday: 0,
+  tuesday: 1,
+  wednesday: 2,
+  thursday: 3,
+  friday: 4,
+  saturday: 5,
+  sunday: 6
 }
 
 export const EXCEPTION_TYPE_LABELS: Record<ScheduleExceptionType, string> = {
@@ -430,15 +447,30 @@ const createWorkingDayFromConfig = (
 const createDefaultWeeklySchedule = (
   cfg: WorkingHoursConfig
 ): WeeklySchedule => {
-  const working = createWorkingDayFromConfig(cfg.defaultStartHour, cfg.defaultEndHour)
+  const working = createWorkingDayFromConfig(
+    cfg.defaultStartHour,
+    cfg.defaultEndHour
+  )
   return {
     monday: cfg.workingDays.includes('lunes') ? working : createNonWorkingDay(),
-    tuesday: cfg.workingDays.includes('martes') ? working : createNonWorkingDay(),
-    wednesday: cfg.workingDays.includes('miercoles') ? working : createNonWorkingDay(),
-    thursday: cfg.workingDays.includes('jueves') ? working : createNonWorkingDay(),
-    friday: cfg.workingDays.includes('viernes') ? working : createNonWorkingDay(),
-    saturday: cfg.workingDays.includes('sabado') ? working : createNonWorkingDay(),
-    sunday: cfg.workingDays.includes('domingo') ? working : createNonWorkingDay()
+    tuesday: cfg.workingDays.includes('martes')
+      ? working
+      : createNonWorkingDay(),
+    wednesday: cfg.workingDays.includes('miercoles')
+      ? working
+      : createNonWorkingDay(),
+    thursday: cfg.workingDays.includes('jueves')
+      ? working
+      : createNonWorkingDay(),
+    friday: cfg.workingDays.includes('viernes')
+      ? working
+      : createNonWorkingDay(),
+    saturday: cfg.workingDays.includes('sabado')
+      ? working
+      : createNonWorkingDay(),
+    sunday: cfg.workingDays.includes('domingo')
+      ? working
+      : createNonWorkingDay()
   }
 }
 
@@ -461,11 +493,31 @@ export const DEFAULT_SCHEDULE_TEMPLATES: ScheduleTemplate[] = [
     id: 'morning',
     name: 'Media jornada mañana',
     weeklySchedule: {
-      monday: { isWorking: true, shifts: [{ start: '09:00', end: '14:00' }], breaks: [] },
-      tuesday: { isWorking: true, shifts: [{ start: '09:00', end: '14:00' }], breaks: [] },
-      wednesday: { isWorking: true, shifts: [{ start: '09:00', end: '14:00' }], breaks: [] },
-      thursday: { isWorking: true, shifts: [{ start: '09:00', end: '14:00' }], breaks: [] },
-      friday: { isWorking: true, shifts: [{ start: '09:00', end: '14:00' }], breaks: [] },
+      monday: {
+        isWorking: true,
+        shifts: [{ start: '09:00', end: '14:00' }],
+        breaks: []
+      },
+      tuesday: {
+        isWorking: true,
+        shifts: [{ start: '09:00', end: '14:00' }],
+        breaks: []
+      },
+      wednesday: {
+        isWorking: true,
+        shifts: [{ start: '09:00', end: '14:00' }],
+        breaks: []
+      },
+      thursday: {
+        isWorking: true,
+        shifts: [{ start: '09:00', end: '14:00' }],
+        breaks: []
+      },
+      friday: {
+        isWorking: true,
+        shifts: [{ start: '09:00', end: '14:00' }],
+        breaks: []
+      },
       saturday: createNonWorkingDay(),
       sunday: createNonWorkingDay()
     }
@@ -583,7 +635,9 @@ const DAY_NAME_TO_INDEX: Record<DayOfWeek, number> = {
 }
 
 function parseHexToTone(hex?: string | null): ProfessionalColorTone {
-  const raw = String(hex || '').trim().toLowerCase()
+  const raw = String(hex || '')
+    .trim()
+    .toLowerCase()
   if (!raw) return 'morado'
 
   if (raw.includes('orange') || raw.includes('naranja')) return 'naranja'
@@ -670,11 +724,17 @@ function toneToLabel(tone: ProfessionalColorTone): string {
 }
 
 function toneToHex(tone: ProfessionalColorTone): string {
-  return professionalColorStyles[tone]?.hex || professionalColorStyles.morado.hex
+  return (
+    professionalColorStyles[tone]?.hex || professionalColorStyles.morado.hex
+  )
 }
 
 function parseCommissionPercentage(commission: string): number | null {
-  const parsed = Number(String(commission || '').replace('%', '').trim())
+  const parsed = Number(
+    String(commission || '')
+      .replace('%', '')
+      .trim()
+  )
   return Number.isFinite(parsed) ? parsed : null
 }
 
@@ -684,9 +744,14 @@ function formatCommissionPercentage(value: unknown): string {
   return Number.isFinite(numeric) ? `${numeric}%` : '0%'
 }
 
-function parseEmploymentType(value: unknown, isExternal?: boolean): EmploymentType {
+function parseEmploymentType(
+  value: unknown,
+  isExternal?: boolean
+): EmploymentType {
   if (isExternal) return 'externo'
-  const normalized = String(value || '').trim().toLowerCase()
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
   // Autónomos now map to 'externo'
   if (normalized === 'autonomo' || normalized === 'autónomo') return 'externo'
   // Everything else (nomina, empty, unknown) maps to 'empleado'
@@ -694,7 +759,11 @@ function parseEmploymentType(value: unknown, isExternal?: boolean): EmploymentTy
 }
 
 function parseSalaryAmount(value: string | undefined): number | null {
-  const numeric = Number(String(value || '').replace(',', '.').trim())
+  const numeric = Number(
+    String(value || '')
+      .replace(',', '.')
+      .trim()
+  )
   return Number.isFinite(numeric) ? numeric : null
 }
 
@@ -704,12 +773,15 @@ function formatSalaryAmount(value: unknown): string | undefined {
   return Number.isFinite(numeric) ? String(numeric) : undefined
 }
 
-type SupabaseLikeError = {
-  code?: string | null
-  message?: string | null
-  details?: string | null
-  hint?: string | null
-} | null | undefined
+type SupabaseLikeError =
+  | {
+      code?: string | null
+      message?: string | null
+      details?: string | null
+      hint?: string | null
+    }
+  | null
+  | undefined
 
 function isMissingColumnError(error: SupabaseLikeError): boolean {
   if (!error) return false
@@ -745,21 +817,38 @@ function mapProfessionalRoleToUserRole(
 }
 
 function mapDbRoleToProfessionalRole(dbRole: unknown): ProfessionalRole {
-  const normalized = String(dbRole || '').trim().toLowerCase()
-  if (normalized.includes('director') || normalized.includes('geren') || normalized.includes('gerencia')) return 'director'
-  if (normalized.includes('coordinador') || normalized.includes('coordin')) return 'coordinador'
-  if (normalized.includes('asistente') || normalized.includes('auxiliar')) return 'asistente'
-  if (normalized.includes('recep') || normalized.includes('admin')) return 'recepcion'
+  const normalized = String(dbRole || '')
+    .trim()
+    .toLowerCase()
+  if (
+    normalized.includes('director') ||
+    normalized.includes('geren') ||
+    normalized.includes('gerencia')
+  )
+    return 'director'
+  if (normalized.includes('coordinador') || normalized.includes('coordin'))
+    return 'coordinador'
+  if (normalized.includes('asistente') || normalized.includes('auxiliar'))
+    return 'asistente'
+  if (normalized.includes('recep') || normalized.includes('admin'))
+    return 'recepcion'
   return 'profesional'
 }
 
-function mapProfessionalRoleToDbRole(role: ProfessionalRole): 'gerencia' | 'doctor' | 'higienista' | 'recepcion' {
+function mapProfessionalRoleToDbRole(
+  role: ProfessionalRole
+): 'gerencia' | 'doctor' | 'higienista' | 'recepcion' {
   switch (role) {
-    case 'director': return 'gerencia'
-    case 'coordinador': return 'gerencia'
-    case 'asistente': return 'recepcion'
-    case 'recepcion': return 'recepcion'
-    default: return 'doctor'
+    case 'director':
+      return 'gerencia'
+    case 'coordinador':
+      return 'gerencia'
+    case 'asistente':
+      return 'recepcion'
+    case 'recepcion':
+      return 'recepcion'
+    default:
+      return 'doctor'
   }
 }
 
@@ -793,7 +882,7 @@ type ConfigurationContextType = {
   activeProfessionals: Professional[]
   addProfessional: (professional: Omit<Professional, 'id'>) => void
   updateProfessional: (id: string, updates: Partial<Professional>) => void
-  deleteProfessional: (id: string) => void
+  deleteProfessional: (id: string) => Promise<{ success: boolean; fkError?: boolean }>
   getProfessionalById: (id: string) => Professional | undefined
   getProfessionalByName: (name: string) => Professional | undefined
 
@@ -841,29 +930,73 @@ type ConfigurationContextType = {
   // Professional Schedules
   professionalSchedules: ProfessionalSchedule[]
   scheduleTemplates: ScheduleTemplate[]
-  getProfessionalSchedule: (professionalId: string) => ProfessionalSchedule | undefined
-  updateProfessionalSchedule: (professionalId: string, schedule: WeeklySchedule) => void
-  applyTemplateToProfessional: (professionalId: string, templateId: string) => void
+  getProfessionalSchedule: (
+    professionalId: string
+  ) => ProfessionalSchedule | undefined
+  updateProfessionalSchedule: (
+    professionalId: string,
+    schedule: WeeklySchedule
+  ) => void
+  applyTemplateToProfessional: (
+    professionalId: string,
+    templateId: string
+  ) => void
   addScheduleException: (exception: Omit<ScheduleException, 'id'>) => void
   removeScheduleException: (exceptionId: string) => void
   copySchedule: (fromProfessionalId: string, toProfessionalId: string) => void
-  isProfessionalAvailable: (professionalId: string, date: Date, time: string) => boolean
-  getProfessionalScheduleForDate: (professionalId: string, date: Date) => DaySchedule | null
+  isProfessionalAvailable: (
+    professionalId: string,
+    date: Date,
+    time: string
+  ) => boolean
+  getProfessionalScheduleForDate: (
+    professionalId: string,
+    date: Date
+  ) => DaySchedule | null
   getAvailableProfessionalsForDate: (date: Date) => Professional[]
 
   // External specialist schedules
   externalSpecialistSchedules: ExternalSpecialistScheduleEntry[]
-  addExternalScheduleEntry: (entry: Omit<ExternalSpecialistScheduleEntry, 'id'>) => Promise<ExternalSpecialistScheduleEntry | null>
-  updateExternalScheduleEntry: (id: number, updates: Partial<ExternalSpecialistScheduleEntry>) => Promise<void>
+  addExternalScheduleEntry: (
+    entry: Omit<ExternalSpecialistScheduleEntry, 'id'>
+  ) => Promise<ExternalSpecialistScheduleEntry | null>
+  updateExternalScheduleEntry: (
+    id: number,
+    updates: Partial<ExternalSpecialistScheduleEntry>
+  ) => Promise<void>
   deleteExternalScheduleEntry: (id: number) => Promise<void>
-  getExternalSchedulesForStaff: (staffId: string) => ExternalSpecialistScheduleEntry[]
-  isExternalAvailableForDate: (staffId: string, date: Date) => { available: boolean; startTime?: string; endTime?: string }
+  getExternalSchedulesForStaff: (
+    staffId: string
+  ) => ExternalSpecialistScheduleEntry[]
+  isExternalAvailableForDate: (
+    staffId: string,
+    date: Date
+  ) => { available: boolean; startTime?: string; endTime?: string }
 
   // Treatments, discounts, budget types
   treatmentCategories: ConfigCategory[]
   setTreatmentCategories: Dispatch<SetStateAction<ConfigCategory[]>>
-  addTreatmentToDb: (treatment: { name: string; code: string; basePrice: number; estimatedTime: string; iva: string }, categoryName: string) => Promise<string | null>
-  updateTreatmentInDb: (id: string, updates: { name?: string; code?: string; basePrice?: number; estimatedTime?: string; iva?: string; category?: string }) => Promise<boolean>
+  addTreatmentToDb: (
+    treatment: {
+      name: string
+      code: string
+      basePrice: number
+      estimatedTime: string
+      iva: string
+    },
+    categoryName: string
+  ) => Promise<string | null>
+  updateTreatmentInDb: (
+    id: string,
+    updates: {
+      name?: string
+      code?: string
+      basePrice?: number
+      estimatedTime?: string
+      iva?: string
+      category?: string
+    }
+  ) => Promise<boolean>
   deleteTreatmentFromDb: (id: string) => Promise<boolean>
   discounts: ConfigDiscount[]
   setDiscounts: Dispatch<SetStateAction<ConfigDiscount[]>>
@@ -885,12 +1018,9 @@ type ConfigurationContextType = {
   deleteExpense: (id: string) => void
   expenseCategories: string[]
 
-  // Roles and permissions
+  // Roles
   roles: ConfigRole[]
   setRoles: Dispatch<SetStateAction<ConfigRole[]>>
-  toggleRolePermission: (roleId: string, permissionId: string) => void
-  permissions: ConfigPermission[]
-  setPermissions: Dispatch<SetStateAction<ConfigPermission[]>>
 }
 
 // ============================================
@@ -913,24 +1043,23 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const [boxes, setBoxes] = useState<Box[]>([])
   const [workingHours, setWorkingHours] =
     useState<WorkingHoursConfig>(initialWorkingHours)
-  const [documentTemplates, setDocumentTemplates] = useState<DocumentTemplate[]>(
-    initialDocumentTemplates
-  )
+  const [documentTemplates, setDocumentTemplates] = useState<
+    DocumentTemplate[]
+  >(initialDocumentTemplates)
   const [professionalSchedules, setProfessionalSchedules] = useState<
     ProfessionalSchedule[]
   >(initialProfessionalSchedules)
-  const [externalSpecialistSchedules, setExternalSpecialistSchedules] = useState<
-    ExternalSpecialistScheduleEntry[]
+  const [externalSpecialistSchedules, setExternalSpecialistSchedules] =
+    useState<ExternalSpecialistScheduleEntry[]>([])
+  const [activeOrganizationId, setActiveOrganizationId] = useState<
+    string | null
+  >(null)
+  const [scheduleTemplates, setScheduleTemplates] = useState<
+    ScheduleTemplate[]
+  >(DEFAULT_SCHEDULE_TEMPLATES)
+  const [treatmentCategories, setTreatmentCategories] = useState<
+    ConfigCategory[]
   >([])
-  const [activeOrganizationId, setActiveOrganizationId] = useState<string | null>(
-    null
-  )
-  const [scheduleTemplates, setScheduleTemplates] = useState<ScheduleTemplate[]>(
-    DEFAULT_SCHEDULE_TEMPLATES
-  )
-  const [treatmentCategories, setTreatmentCategories] = useState<ConfigCategory[]>(
-    []
-  )
   const [discounts, setDiscountsState] = useState<ConfigDiscount[]>([])
   const [budgetTypesState, setBudgetTypesState] =
     useState<BudgetTypeData[]>(BUDGET_TYPES_DATA)
@@ -938,7 +1067,6 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const [expenseCategories, setExpenseCategories] = useState<string[]>([])
   const expenseCategoryMapRef = useRef<Map<string, number>>(new Map())
   const [roles, setRolesState] = useState<ConfigRole[]>([])
-  const [permissions, setPermissionsState] = useState<ConfigPermission[]>([])
   const [staffSchemaSupport, setStaffSchemaSupport] =
     useState<StaffSchemaSupport>({
       employmentTypeColumn: null,
@@ -986,7 +1114,12 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         const supabase = createSupabaseBrowserClient()
 
         const clinicIds = Array.from(
-          new Set([activeClinicId, ...clinicOptions.map((clinic) => clinic.id)].filter(Boolean))
+          new Set(
+            [
+              activeClinicId,
+              ...clinicOptions.map((clinic) => clinic.id)
+            ].filter(Boolean)
+          )
         )
         const selectedClinicId = activeClinicId
 
@@ -997,44 +1130,49 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           { data: staffLiteRows, error: staffLiteRowsError },
           { data: clinicPhoneRows, error: clinicPhoneRowsError },
           { data: documentTemplateRows, error: documentTemplateRowsError }
-        ] =
-          await Promise.all([
-            supabase
-              .from('clinics')
-              .select(
-                'id, organization_id, name, legal_name, tax_id, website, logo_url, address, contact_info'
-              )
-              .in('id', clinicIds)
-              .order('name', { ascending: true }),
-            supabase
-              .from('boxes')
-              .select('id, clinic_id, name_or_number')
-              .eq('clinic_id', selectedClinicId),
-            supabase
-              .from('clinic_working_hours')
-              .select('dow, start_time, end_time, is_open')
-              .eq('clinic_id', selectedClinicId)
-              .order('dow', { ascending: true }),
-            supabase.rpc('get_clinic_staff', { clinic: selectedClinicId }),
-            supabase
-              .from('clinic_phone_numbers')
-              .select('clinic_id, phone_e164, is_active, created_at')
-              .in('clinic_id', clinicIds)
-              .eq('is_active', true)
-              .order('created_at', { ascending: false }),
-            supabase
-              .from('document_templates')
-              .select('*')
-              .or(`clinic_id.is.null,clinic_id.eq.${selectedClinicId}`)
-              .eq('is_active', true)
-              .order('created_at', { ascending: true })
-          ])
+        ] = await Promise.all([
+          supabase
+            .from('clinics')
+            .select(
+              'id, organization_id, name, legal_name, tax_id, website, logo_url, address, contact_info'
+            )
+            .in('id', clinicIds)
+            .order('name', { ascending: true }),
+          supabase
+            .from('boxes')
+            .select('id, clinic_id, name_or_number')
+            .eq('clinic_id', selectedClinicId),
+          supabase
+            .from('clinic_working_hours')
+            .select('dow, start_time, end_time, is_open')
+            .eq('clinic_id', selectedClinicId)
+            .order('dow', { ascending: true }),
+          supabase.rpc('get_clinic_staff', { clinic: selectedClinicId }),
+          supabase
+            .from('clinic_phone_numbers')
+            .select('clinic_id, phone_e164, is_active, created_at')
+            .in('clinic_id', clinicIds)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('document_templates')
+            .select('*')
+            .or(`clinic_id.is.null,clinic_id.eq.${selectedClinicId}`)
+            .eq('is_active', true)
+            .order('created_at', { ascending: true })
+        ])
 
         if (clinicRowsError) {
-          console.warn('No se pudieron cargar clínicas en ConfigurationContext', clinicRowsError)
+          console.warn(
+            'No se pudieron cargar clínicas en ConfigurationContext',
+            clinicRowsError
+          )
         }
         if (boxRowsError) {
-          console.warn('No se pudieron cargar gabinetes en ConfigurationContext', boxRowsError)
+          console.warn(
+            'No se pudieron cargar gabinetes en ConfigurationContext',
+            boxRowsError
+          )
         }
         if (workingRowsError) {
           console.warn(
@@ -1065,8 +1203,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         }
 
         const selectedClinicRow =
-          (clinicRows || []).find((row) => String(row.id) === selectedClinicId) ||
-          clinicRows?.[0]
+          (clinicRows || []).find(
+            (row) => String(row.id) === selectedClinicId
+          ) || clinicRows?.[0]
         const selectedOrganizationId =
           typeof selectedClinicRow?.organization_id === 'string'
             ? selectedClinicRow.organization_id
@@ -1074,7 +1213,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         const sameOrganizationClinicRows =
           selectedOrganizationId && Array.isArray(clinicRows)
             ? clinicRows.filter(
-                (row) => String(row.organization_id || '') === selectedOrganizationId
+                (row) =>
+                  String(row.organization_id || '') === selectedOrganizationId
               )
             : clinicRows || []
 
@@ -1082,14 +1222,14 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           selectedOrganizationId && sameOrganizationClinicRows.length > 0
             ? await supabase
                 .from('staff_clinics')
-                .select('staff_id')
+                .select('staff_id, role')
                 .in(
                   'clinic_id',
                   sameOrganizationClinicRows.map((row) => String(row.id))
                 )
             : await supabase
                 .from('staff_clinics')
-                .select('staff_id')
+                .select('staff_id, role')
                 .eq('clinic_id', selectedClinicId)
 
         if (staffClinicRowsError) {
@@ -1106,10 +1246,23 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           : []
         const relationStaffIds = Array.isArray(staffClinicRows)
           ? staffClinicRows
-              .map((row) => String((row as { staff_id?: string }).staff_id || ''))
+              .map((row) =>
+                String((row as { staff_id?: string }).staff_id || '')
+              )
               .filter(Boolean)
           : []
-        const staffIds = Array.from(new Set([...rpcStaffIds, ...relationStaffIds]))
+        // Build a map of staff_id → clinic role for role resolution
+        const staffClinicRoleMap = new Map<string, string>()
+        if (Array.isArray(staffClinicRows)) {
+          for (const row of staffClinicRows) {
+            const r = row as { staff_id?: string; role?: string }
+            const sid = String(r.staff_id || '')
+            if (sid && r.role) staffClinicRoleMap.set(sid, r.role)
+          }
+        }
+        const staffIds = Array.from(
+          new Set([...rpcStaffIds, ...relationStaffIds])
+        )
         const staffBaseSelect =
           'id, full_name, specialties, professional_license_id, phone, email, calendar_color, commission_percentage, is_active, avatar_url, is_external, external_notes'
         let detectedStaffSchemaSupport: StaffSchemaSupport = {
@@ -1170,7 +1323,13 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           id: unknown
           clinic_id?: unknown
           name_or_number?: unknown
-        }> = Array.isArray(boxRows) ? (boxRows as Array<{ id: unknown; clinic_id?: unknown; name_or_number?: unknown }>) : []
+        }> = Array.isArray(boxRows)
+          ? (boxRows as Array<{
+              id: unknown
+              clinic_id?: unknown
+              name_or_number?: unknown
+            }>)
+          : []
         if (resolvedBoxRows.length === 0) {
           const { data: boxRpcRows } = await supabase.rpc('get_clinic_boxes', {
             clinic: selectedClinicId
@@ -1179,7 +1338,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             resolvedBoxRows = boxRpcRows.map((row) => ({
               id: (row as { id?: string }).id || '',
               name_or_number:
-                (row as { name_or_number?: string; name?: string }).name_or_number ||
+                (row as { name_or_number?: string; name?: string })
+                  .name_or_number ||
                 (row as { name?: string }).name ||
                 ''
             }))
@@ -1201,18 +1361,26 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           })
         }
 
-        const mappedClinics: Clinic[] = Array.isArray(sameOrganizationClinicRows)
+        const mappedClinics: Clinic[] = Array.isArray(
+          sameOrganizationClinicRows
+        )
           ? sameOrganizationClinicRows.map((row) => {
-              const address = (row.address as Record<string, unknown> | null) || {}
-              const contact = (row.contact_info as Record<string, unknown> | null) || {}
+              const address =
+                (row.address as Record<string, unknown> | null) || {}
+              const contact =
+                (row.contact_info as Record<string, unknown> | null) || {}
               const city = String(address.city || '')
               const street = String(address.street || '')
               const line2 = String(address.line2 || '')
               const direction = [street, line2, city].filter(Boolean).join(', ')
-              const openHour = Number(workingRowsSafe[0]?.start_time?.slice(0, 2) || 9)
+              const openHour = Number(
+                workingRowsSafe[0]?.start_time?.slice(0, 2) || 9
+              )
               const closeHour = Number(
-                workingRowsSafe[workingRowsSafe.length - 1]?.end_time?.slice(0, 2) ||
-                  20
+                workingRowsSafe[workingRowsSafe.length - 1]?.end_time?.slice(
+                  0,
+                  2
+                ) || 20
               )
 
               return {
@@ -1234,36 +1402,54 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         const selectedAddress =
           (selectedClinicRow?.address as Record<string, unknown> | null) || {}
         const selectedContact =
-          (selectedClinicRow?.contact_info as Record<string, unknown> | null) || {}
+          (selectedClinicRow?.contact_info as Record<string, unknown> | null) ||
+          {}
 
         const staffRowsById = new Map<string, Record<string, unknown>>(
           Array.isArray(staffRows)
-            ? staffRows.map((row) => [String(row.id), row as Record<string, unknown>])
+            ? staffRows.map((row) => [
+                String(row.id),
+                row as Record<string, unknown>
+              ])
             : []
         )
 
-        const mappedProfessionalsFromStaffRows: Professional[] = Array.isArray(staffRows)
+        const mappedProfessionalsFromStaffRows: Professional[] = Array.isArray(
+          staffRows
+        )
           ? staffRows.map((row) => {
               const tone = parseHexToTone(
-                typeof row.calendar_color === 'string' ? row.calendar_color : null
+                typeof row.calendar_color === 'string'
+                  ? row.calendar_color
+                  : null
               )
               const employmentRaw =
                 detectedStaffSchemaSupport.employmentTypeColumn
                   ? row[detectedStaffSchemaSupport.employmentTypeColumn]
                   : undefined
-              const salaryRaw =
-                detectedStaffSchemaSupport.salaryColumn
-                  ? row[detectedStaffSchemaSupport.salaryColumn]
-                  : undefined
-              const employmentType = parseEmploymentType(employmentRaw, row.is_external === true)
+              const salaryRaw = detectedStaffSchemaSupport.salaryColumn
+                ? row[detectedStaffSchemaSupport.salaryColumn]
+                : undefined
+              const employmentType = parseEmploymentType(
+                employmentRaw,
+                row.is_external === true
+              )
               const salaryAmount = formatSalaryAmount(salaryRaw)
+              const staffId = String(row.id)
+              const clinicRole = staffClinicRoleMap.get(staffId)
+              const rawSpecialty = Array.isArray(row.specialties)
+                ? String(row.specialties[0] || '')
+                : ''
+              // Don't treat role-like values as medical specialties
+              const roleKeywords = ['gerencia', 'recepción', 'recepcion', 'auxiliar', 'recepcionista', 'administración']
+              const isRoleValue = roleKeywords.some((k) => rawSpecialty.toLowerCase().includes(k))
               return {
-                id: String(row.id),
+                id: staffId,
                 name: String(row.full_name || 'Profesional'),
-                role: mapDbRoleToProfessionalRole(row.role ?? row.staff_role),
-                specialty: Array.isArray(row.specialties)
-                  ? String(row.specialties[0] || 'Profesional')
-                  : 'Profesional',
+                role: clinicRole
+                  ? mapDbRoleToProfessionalRole(clinicRole)
+                  : mapDbRoleToProfessionalRole(row.role ?? row.staff_role),
+                specialty: isRoleValue ? '' : rawSpecialty,
                 professionalLicenseId:
                   typeof row.professional_license_id === 'string'
                     ? row.professional_license_id
@@ -1280,14 +1466,20 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
                 salary: salaryAmount,
                 status: row.is_active === false ? 'Inactivo' : 'Activo',
                 photoUrl:
-                  typeof row.avatar_url === 'string' ? row.avatar_url : undefined,
+                  typeof row.avatar_url === 'string'
+                    ? row.avatar_url
+                    : undefined,
                 externalNotes:
-                  typeof row.external_notes === 'string' ? row.external_notes : undefined
+                  typeof row.external_notes === 'string'
+                    ? row.external_notes
+                    : undefined
               }
             })
           : []
 
-        const mappedProfessionalsFromLiteRows: Professional[] = Array.isArray(staffLiteRows)
+        const mappedProfessionalsFromLiteRows: Professional[] = Array.isArray(
+          staffLiteRows
+        )
           ? staffLiteRows
               .filter((row) => {
                 const staffId = String((row as { id?: string }).id || '')
@@ -1295,7 +1487,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
               })
               .map((row) => ({
                 id: String((row as { id?: string }).id || ''),
-                name: String((row as { full_name?: string }).full_name || 'Profesional'),
+                name: String(
+                  (row as { full_name?: string }).full_name || 'Profesional'
+                ),
                 role: 'profesional' as ProfessionalRole,
                 specialty: 'Profesional',
                 phone: '',
@@ -1309,8 +1503,12 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           : []
 
         const mappedProfessionals: Professional[] =
-          mappedProfessionalsFromStaffRows.length > 0 || mappedProfessionalsFromLiteRows.length > 0
-            ? [...mappedProfessionalsFromStaffRows, ...mappedProfessionalsFromLiteRows]
+          mappedProfessionalsFromStaffRows.length > 0 ||
+          mappedProfessionalsFromLiteRows.length > 0
+            ? [
+                ...mappedProfessionalsFromStaffRows,
+                ...mappedProfessionalsFromLiteRows
+              ]
             : []
 
         const mappedBoxes: Box[] = Array.isArray(resolvedBoxRows)
@@ -1338,7 +1536,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
                   is_default?: boolean
                   updated_at?: string | null
                 }
-                const templateType = normalizeDocumentTemplateType(typedRow.type)
+                const templateType = normalizeDocumentTemplateType(
+                  typedRow.type
+                )
                 if (!templateType) return null
                 return {
                   id: String(typedRow.id || ''),
@@ -1370,24 +1570,34 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
                       : undefined
                 } as DocumentTemplate
               })
-              .filter((template): template is DocumentTemplate => Boolean(template))
+              .filter((template): template is DocumentTemplate =>
+                Boolean(template)
+              )
           : []
 
         const openWorkingRows = workingRowsSafe.filter((row) => row.is_open)
         const workingDays =
           openWorkingRows.length > 0
-            ? openWorkingRows
+            ? (openWorkingRows
                 .map((row) => DAY_INDEX_TO_NAME[row.dow] || null)
-                .filter(Boolean) as DayOfWeek[]
+                .filter(Boolean) as DayOfWeek[])
             : initialWorkingHours.workingDays
 
         const minStartHour =
           openWorkingRows.length > 0
-            ? Math.min(...openWorkingRows.map((row) => Number(row.start_time.slice(0, 2))))
+            ? Math.min(
+                ...openWorkingRows.map((row) =>
+                  Number(row.start_time.slice(0, 2))
+                )
+              )
             : initialWorkingHours.defaultStartHour
         const maxEndHour =
           openWorkingRows.length > 0
-            ? Math.max(...openWorkingRows.map((row) => Number(row.end_time.slice(0, 2))))
+            ? Math.max(
+                ...openWorkingRows.map((row) =>
+                  Number(row.end_time.slice(0, 2))
+                )
+              )
             : initialWorkingHours.defaultEndHour
 
         const morningRows = openWorkingRows.filter(
@@ -1419,12 +1629,21 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         // ── Treatments (service_catalog) ──
         // Preferred display order for common dental categories (cosmetic only)
         const PREFERRED_CATEGORY_ORDER = [
-          'Cirugía', 'Conservadora', 'Endodoncia', 'Estética',
-          'Implantes', 'Odontopediatría', 'Ortodoncia', 'Periodoncia'
+          'Cirugía',
+          'Conservadora',
+          'Endodoncia',
+          'Estética',
+          'Implantes',
+          'Odontopediatría',
+          'Ortodoncia',
+          'Periodoncia'
         ]
 
         const slugCatId = (v: string) =>
-          v.trim().toLowerCase().normalize('NFD')
+          v
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-+|-+$/g, '')
@@ -1441,9 +1660,13 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         }
 
         type ServiceRow = {
-          id: number; name: string; treatment_code: string | null
-          standard_price: number | string; category: string | null
-          default_duration_minutes: number | null; organization_id?: string | null
+          id: number
+          name: string
+          treatment_code: string | null
+          standard_price: number | string
+          category: string | null
+          default_duration_minutes: number | null
+          organization_id?: string | null
         }
 
         let serviceRows: ServiceRow[] = []
@@ -1459,10 +1682,14 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             .order('name', { ascending: true })
           if (!error) {
             serviceRows = (data || []) as ServiceRow[]
-          } else if (String((error as { code?: string })?.code || '') === '42703') {
+          } else if (
+            String((error as { code?: string })?.code || '') === '42703'
+          ) {
             const { data: legacy } = await supabase
-              .from('service_catalog').select(baseSvcSelect)
-              .order('category', { ascending: true }).order('name', { ascending: true })
+              .from('service_catalog')
+              .select(baseSvcSelect)
+              .order('category', { ascending: true })
+              .order('name', { ascending: true })
             serviceRows = (legacy || []) as ServiceRow[]
           }
         }
@@ -1475,10 +1702,14 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             .order('name', { ascending: true })
           if (!error) {
             serviceRows = (data || []) as ServiceRow[]
-          } else if (String((error as { code?: string })?.code || '') === '42703') {
+          } else if (
+            String((error as { code?: string })?.code || '') === '42703'
+          ) {
             const { data: legacy } = await supabase
-              .from('service_catalog').select(baseSvcSelect)
-              .order('category', { ascending: true }).order('name', { ascending: true })
+              .from('service_catalog')
+              .select(baseSvcSelect)
+              .order('category', { ascending: true })
+              .order('name', { ascending: true })
             serviceRows = (legacy || []) as ServiceRow[]
           }
         }
@@ -1488,7 +1719,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         serviceRows.forEach((row) => {
           const catName = toCatLabel(row.category)
           const catId = slugCatId(catName) || 'general'
-          if (!grouped.has(catId)) grouped.set(catId, { id: catId, name: catName, treatments: [] })
+          if (!grouped.has(catId))
+            grouped.set(catId, { id: catId, name: catName, treatments: [] })
           grouped.get(catId)?.treatments.push({
             id: String(row.id),
             code: String(row.treatment_code || `TRT-${row.id}`),
@@ -1499,14 +1731,16 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             selected: false
           })
         })
-        const mappedTreatmentCategories = Array.from(grouped.values()).sort((a, b) => {
-          const ai = PREFERRED_CATEGORY_ORDER.indexOf(a.name)
-          const bi = PREFERRED_CATEGORY_ORDER.indexOf(b.name)
-          if (ai === -1 && bi === -1) return a.name.localeCompare(b.name)
-          if (ai === -1) return 1
-          if (bi === -1) return -1
-          return ai - bi
-        })
+        const mappedTreatmentCategories = Array.from(grouped.values()).sort(
+          (a, b) => {
+            const ai = PREFERRED_CATEGORY_ORDER.indexOf(a.name)
+            const bi = PREFERRED_CATEGORY_ORDER.indexOf(b.name)
+            if (ai === -1 && bi === -1) return a.name.localeCompare(b.name)
+            if (ai === -1) return 1
+            if (bi === -1) return -1
+            return ai - bi
+          }
+        )
 
         // ── Discounts (clinic_discounts / discounts fallback) ──
         let mappedDiscounts: ConfigDiscount[] = []
@@ -1517,10 +1751,15 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           .order('name', { ascending: true })
 
         if (!discountError) {
-          mappedDiscounts = ((discountRows || []) as Array<Record<string, unknown>>).map((row) => ({
+          mappedDiscounts = (
+            (discountRows || []) as Array<Record<string, unknown>>
+          ).map((row) => ({
             id: String(row.id),
             name: String(row.name || ''),
-            type: String(row.discount_type || 'percentage') === 'fixed' ? 'fixed' as const : 'percentage' as const,
+            type:
+              String(row.discount_type || 'percentage') === 'fixed'
+                ? ('fixed' as const)
+                : ('percentage' as const),
             value: Number(row.value || 0),
             notes: String(row.notes || ''),
             isActive: row.is_active !== false
@@ -1532,10 +1771,15 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             .eq('clinic_id', selectedClinicId)
             .order('name', { ascending: true })
           if (!fallbackErr) {
-            mappedDiscounts = ((fallback || []) as Array<Record<string, unknown>>).map((row) => ({
+            mappedDiscounts = (
+              (fallback || []) as Array<Record<string, unknown>>
+            ).map((row) => ({
               id: String(row.id),
               name: String(row.name || ''),
-              type: String(row.discount_type || 'percentage') === 'fixed' ? 'fixed' as const : 'percentage' as const,
+              type:
+                String(row.discount_type || 'percentage') === 'fixed'
+                  ? ('fixed' as const)
+                  : ('percentage' as const),
               value: Number(row.value || 0),
               notes: String(row.notes || ''),
               isActive: row.is_active !== false
@@ -1554,17 +1798,34 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           .order('name', { ascending: true })
 
         if (!templateError) {
-          mappedBudgetTypes = ((templateRows || []) as Array<Record<string, unknown>>).map((row) => {
-            const items = (row.quote_template_items as Array<Record<string, unknown>> | null) || []
+          mappedBudgetTypes = (
+            (templateRows || []) as Array<Record<string, unknown>>
+          ).map((row) => {
+            const items =
+              (row.quote_template_items as Array<
+                Record<string, unknown>
+              > | null) || []
             const treatments = items.map((item) => {
-              const svc = Array.isArray(item.service_catalog) ? item.service_catalog[0] : item.service_catalog
+              const svc = Array.isArray(item.service_catalog)
+                ? item.service_catalog[0]
+                : item.service_catalog
               const qty = Number(item.quantity || 1)
               const unitPrice = Number(
-                item.override_unit_price ?? (svc as { standard_price?: number | string } | undefined)?.standard_price ?? 0
+                item.override_unit_price ??
+                  (svc as { standard_price?: number | string } | undefined)
+                    ?.standard_price ??
+                  0
               )
               return {
-                codigo: String((svc as { treatment_code?: string } | undefined)?.treatment_code || item.service_id || ''),
-                tratamiento: String((svc as { name?: string } | undefined)?.name || ''),
+                codigo: String(
+                  (svc as { treatment_code?: string } | undefined)
+                    ?.treatment_code ||
+                    item.service_id ||
+                    ''
+                ),
+                tratamiento: String(
+                  (svc as { name?: string } | undefined)?.name || ''
+                ),
                 precio: unitPrice * qty
               }
             })
@@ -1573,7 +1834,10 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
               name: String(row.name || ''),
               description: String(row.notes || ''),
               treatments,
-              totalPrice: treatments.reduce((s, t) => s + Number(t.precio || 0), 0),
+              totalPrice: treatments.reduce(
+                (s, t) => s + Number(t.precio || 0),
+                0
+              ),
               isActive: row.is_active !== false
             }
           })
@@ -1586,17 +1850,34 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             .eq('organization_id', selectedOrganizationId)
             .order('name', { ascending: true })
           if (!pkgError) {
-            mappedBudgetTypes = ((pkgRows || []) as Array<Record<string, unknown>>).map((row) => {
-              const items = (row.service_package_items as Array<Record<string, unknown>> | null) || []
+            mappedBudgetTypes = (
+              (pkgRows || []) as Array<Record<string, unknown>>
+            ).map((row) => {
+              const items =
+                (row.service_package_items as Array<
+                  Record<string, unknown>
+                > | null) || []
               const treatments = items.map((item) => {
-                const svc = Array.isArray(item.service_catalog) ? item.service_catalog[0] : item.service_catalog
+                const svc = Array.isArray(item.service_catalog)
+                  ? item.service_catalog[0]
+                  : item.service_catalog
                 const qty = Number(item.quantity || 1)
                 const unitPrice = Number(
-                  item.custom_price ?? (svc as { standard_price?: number | string } | undefined)?.standard_price ?? 0
+                  item.custom_price ??
+                    (svc as { standard_price?: number | string } | undefined)
+                      ?.standard_price ??
+                    0
                 )
                 return {
-                  codigo: String((svc as { treatment_code?: string } | undefined)?.treatment_code || item.service_id || ''),
-                  tratamiento: String((svc as { name?: string } | undefined)?.name || ''),
+                  codigo: String(
+                    (svc as { treatment_code?: string } | undefined)
+                      ?.treatment_code ||
+                      item.service_id ||
+                      ''
+                  ),
+                  tratamiento: String(
+                    (svc as { name?: string } | undefined)?.name || ''
+                  ),
                   precio: unitPrice * qty
                 }
               })
@@ -1605,7 +1886,10 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
                 name: String(row.name || ''),
                 description: String(row.description || ''),
                 treatments,
-                totalPrice: treatments.reduce((s, t) => s + Number(t.precio || 0), 0),
+                totalPrice: treatments.reduce(
+                  (s, t) => s + Number(t.precio || 0),
+                  0
+                ),
                 isActive: row.is_active !== false
               }
             })
@@ -1622,10 +1906,14 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         }
         const freqDbToUi = (v?: string | null) => {
           switch (v) {
-            case 'monthly': return 'Mensual'
-            case 'quarterly': return 'Trimestral'
-            case 'annual': return 'Anual'
-            default: return 'Puntual'
+            case 'monthly':
+              return 'Mensual'
+            case 'quarterly':
+              return 'Trimestral'
+            case 'annual':
+              return 'Anual'
+            default:
+              return 'Puntual'
           }
         }
 
@@ -1639,22 +1927,29 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           .order('created_at', { ascending: false })
 
         if (!expenseErr && expenseRows) {
-          mappedExpenses = (expenseRows as Array<Record<string, unknown>>).map((row) => {
-            const catRec = Array.isArray(row.expense_categories)
-              ? row.expense_categories[0]
-              : row.expense_categories
-            return {
-              id: String(row.id),
-              nombre: String(row.description || ''),
-              importe: Number(row.amount || 0),
-              frecuencia: freqDbToUi(row.frequency as string | null),
-              categoria: (String((catRec as { name?: string } | undefined)?.name || 'Otros')) as ConfigExpense['categoria'],
-              fechaInicio: normDateInput(row.start_date as string | null),
-              fechaFin: normDateInput(row.end_date as string | null),
-              notas: String(row.notes || ''),
-              estado: row.is_active === false ? 'inactivo' as const : 'activo' as const
+          mappedExpenses = (expenseRows as Array<Record<string, unknown>>).map(
+            (row) => {
+              const catRec = Array.isArray(row.expense_categories)
+                ? row.expense_categories[0]
+                : row.expense_categories
+              return {
+                id: String(row.id),
+                nombre: String(row.description || ''),
+                importe: Number(row.amount || 0),
+                frecuencia: freqDbToUi(row.frequency as string | null),
+                categoria: String(
+                  (catRec as { name?: string } | undefined)?.name || 'Otros'
+                ) as ConfigExpense['categoria'],
+                fechaInicio: normDateInput(row.start_date as string | null),
+                fechaFin: normDateInput(row.end_date as string | null),
+                notas: String(row.notes || ''),
+                estado:
+                  row.is_active === false
+                    ? ('inactivo' as const)
+                    : ('activo' as const)
+              }
             }
-          })
+          )
         }
 
         // ── Expense categories ──
@@ -1666,7 +1961,10 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           .order('name', { ascending: true })
         if (!expenseCatErr && expenseCatRows) {
           const seen = new Set<string>()
-          for (const row of expenseCatRows as Array<{ id: number; name: string }>) {
+          for (const row of expenseCatRows as Array<{
+            id: number
+            name: string
+          }>) {
             if (!row.name || seen.has(row.name)) continue
             seen.add(row.name)
             mappedExpenseCategories.push(row.name)
@@ -1674,87 +1972,40 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // ── Roles & permissions (roles + permissions + modules tables) ──
+        // ── Roles (roles table + staff count) ──
         let mappedRoles: ConfigRole[] = []
-        const mappedPermissions: ConfigPermission[] = []
 
         let roleQuery = supabase
           .from('roles')
           .select('id, clinic_id, display_name, name, is_active')
           .order('display_name', { ascending: true })
         if (selectedClinicId) {
-          roleQuery = roleQuery.or(`clinic_id.is.null,clinic_id.eq.${selectedClinicId}`)
+          roleQuery = roleQuery.or(
+            `clinic_id.is.null,clinic_id.eq.${selectedClinicId}`
+          )
         } else {
           roleQuery = roleQuery.is('clinic_id', null)
         }
         const { data: roleRows, error: rolesErr } = await roleQuery
 
         if (!rolesErr && roleRows) {
-          const activeRoleRows = (roleRows as Array<Record<string, unknown>>).filter(
-            (r) => r.is_active !== false
-          )
-          const roleIds = activeRoleRows.map((r) => Number(r.id))
-
-          const staffCountPromise =
-            selectedClinicId && roleIds.length > 0
-              ? supabase
-                  .from('staff_clinics')
-                  .select('staff_id, role_id')
-                  .eq('clinic_id', selectedClinicId)
-              : Promise.resolve({ data: [], error: null } as const)
-
-          const permPromise =
-            roleIds.length > 0
-              ? supabase
-                  .from('permissions')
-                  .select(
-                    'id, role_id, module_id, can_view, can_create, can_edit, can_delete, modules:module_id(id, name, display_name, description)'
-                  )
-                  .in('role_id', roleIds)
-              : Promise.resolve({ data: [], error: null } as const)
-
-          const [staffCountRes, permRes] = await Promise.all([staffCountPromise, permPromise])
+          const activeRoleRows = (
+            roleRows as Array<Record<string, unknown>>
+          ).filter((r) => r.is_active !== false)
 
           const userCountByRole = new Map<number, number>()
-          if (!staffCountRes.error && staffCountRes.data) {
-            (staffCountRes.data as Array<{ role_id?: number }>).forEach((row) => {
-              const rid = Number(row.role_id || 0)
-              if (rid) userCountByRole.set(rid, (userCountByRole.get(rid) || 0) + 1)
-            })
-          }
-
-          const permsByRole = new Map<number, string[]>()
-          if (!permRes.error && permRes.data) {
-            const permRows = permRes.data as Array<Record<string, unknown>>
-            const seenPermIds = new Set<string>()
-            permRows.forEach((pRow) => {
-              const roleId = Number(pRow.role_id || 0)
-              const permId = String(pRow.id)
-              if (!permsByRole.has(roleId)) permsByRole.set(roleId, [])
-              permsByRole.get(roleId)?.push(permId)
-
-              if (!seenPermIds.has(permId)) {
-                seenPermIds.add(permId)
-                const mod = Array.isArray(pRow.modules) ? pRow.modules[0] : pRow.modules
-                const modObj = (mod || {}) as Record<string, unknown>
-                const actions = ['view', 'create', 'edit', 'delete'] as const
-                actions.forEach((action) => {
-                  if (pRow[`can_${action}`]) {
-                    const subId = `${permId}-${action}`
-                    if (!seenPermIds.has(subId)) {
-                      seenPermIds.add(subId)
-                      mappedPermissions.push({
-                        id: subId,
-                        nombre: `${String(modObj.display_name || modObj.name || 'Módulo')} - ${action === 'view' ? 'Ver' : action === 'create' ? 'Crear' : action === 'edit' ? 'Editar' : 'Eliminar'}`,
-                        descripcion: String(modObj.description || ''),
-                        modulo: String(modObj.display_name || modObj.name || 'General'),
-                        activo: true
-                      })
-                    }
-                  }
-                })
-              }
-            })
+          if (selectedClinicId && activeRoleRows.length > 0) {
+            const { data: scRows, error: scErr } = await supabase
+              .from('staff_clinics')
+              .select('staff_id, role_id')
+              .eq('clinic_id', selectedClinicId)
+            if (!scErr && scRows) {
+              ;(scRows as Array<{ role_id?: number }>).forEach((row) => {
+                const rid = Number(row.role_id || 0)
+                if (rid)
+                  userCountByRole.set(rid, (userCountByRole.get(rid) || 0) + 1)
+              })
+            }
           }
 
           mappedRoles = activeRoleRows.map((row) => {
@@ -1763,14 +2014,16 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
               id: String(roleId),
               nombre: String(row.display_name || row.name || `Rol ${roleId}`),
               usuariosAsignados: userCountByRole.get(roleId) || 0,
-              permisos: permsByRole.get(roleId) || []
+              permisos: []
             }
           })
         }
 
         // Load external specialist schedules
         let mappedExtSchedules: ExternalSpecialistScheduleEntry[] = []
-        const hasExternals = mappedProfessionals.some((p) => p.employmentType === 'externo')
+        const hasExternals = mappedProfessionals.some(
+          (p) => p.employmentType === 'externo'
+        )
         if (hasExternals) {
           const { data: extScheduleRows } = await supabase
             .from('external_specialist_schedules')
@@ -1781,11 +2034,20 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
               id: Number(row.id),
               staffId: String(row.staff_id),
               clinicId: String(row.clinic_id),
-              scheduleType: String(row.schedule_type) as 'recurring' | 'specific',
-              dayOfWeek: row.day_of_week != null ? Number(row.day_of_week) : undefined,
-              specificDate: row.specific_date ? String(row.specific_date) : undefined,
-              startTime: row.start_time ? String(row.start_time).slice(0, 5) : undefined,
-              endTime: row.end_time ? String(row.end_time).slice(0, 5) : undefined,
+              scheduleType: String(row.schedule_type) as
+                | 'recurring'
+                | 'specific',
+              dayOfWeek:
+                row.day_of_week != null ? Number(row.day_of_week) : undefined,
+              specificDate: row.specific_date
+                ? String(row.specific_date)
+                : undefined,
+              startTime: row.start_time
+                ? String(row.start_time).slice(0, 5)
+                : undefined,
+              endTime: row.end_time
+                ? String(row.end_time).slice(0, 5)
+                : undefined,
               notes: row.notes ? String(row.notes) : undefined,
               isCancelled: row.is_cancelled === true
             }))
@@ -1794,12 +2056,13 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
 
         // ── Schedule templates ──
         let mappedScheduleTemplates: ScheduleTemplate[] = []
-        const { data: templateSchedRows, error: templateSchedErr } = await supabase
-          .from('schedule_templates')
-          .select('id, name, description, weekly_schedule, is_default')
-          .eq('clinic_id', selectedClinicId)
-          .order('is_default', { ascending: false })
-          .order('name', { ascending: true })
+        const { data: templateSchedRows, error: templateSchedErr } =
+          await supabase
+            .from('schedule_templates')
+            .select('id, name, description, weekly_schedule, is_default')
+            .eq('clinic_id', selectedClinicId)
+            .order('is_default', { ascending: false })
+            .order('name', { ascending: true })
         if (!templateSchedErr && Array.isArray(templateSchedRows)) {
           mappedScheduleTemplates = templateSchedRows.map((row) => ({
             id: String(row.id),
@@ -1812,27 +2075,43 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
 
         // ── Staff schedules (staff_schedules + schedule_exceptions) ──
         const DAY_INDEX_TO_WEEKDAY: Record<number, WeekDay> = {
-          0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday',
-          4: 'friday', 5: 'saturday', 6: 'sunday'
+          0: 'monday',
+          1: 'tuesday',
+          2: 'wednesday',
+          3: 'thursday',
+          4: 'friday',
+          5: 'saturday',
+          6: 'sunday'
         }
         const mappedProfessionalSchedules: ProfessionalSchedule[] = []
         if (staffIds.length > 0) {
           const [scheduleRes, exceptionRes] = await Promise.all([
             supabase
               .from('staff_schedules')
-              .select('staff_id, day_of_week, is_working, shifts, breaks, applied_template_id')
+              .select(
+                'staff_id, day_of_week, is_working, shifts, breaks, applied_template_id'
+              )
               .eq('clinic_id', selectedClinicId),
             supabase
               .from('schedule_exceptions')
-              .select('id, staff_id, exception_date, exception_type, reason, custom_schedule')
+              .select(
+                'id, staff_id, exception_date, exception_type, reason, custom_schedule'
+              )
               .eq('clinic_id', selectedClinicId)
           ])
 
-          const scheduleRows = (scheduleRes.data || []) as Array<Record<string, unknown>>
-          const exceptionRows = (exceptionRes.data || []) as Array<Record<string, unknown>>
+          const scheduleRows = (scheduleRes.data || []) as Array<
+            Record<string, unknown>
+          >
+          const exceptionRows = (exceptionRes.data || []) as Array<
+            Record<string, unknown>
+          >
 
           // Group schedule rows by staff_id
-          const schedulesByStaff = new Map<string, Map<number, Record<string, unknown>>>()
+          const schedulesByStaff = new Map<
+            string,
+            Map<number, Record<string, unknown>>
+          >()
           for (const row of scheduleRows) {
             const sid = String(row.staff_id || '')
             if (!sid) continue
@@ -1868,8 +2147,12 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
               if (row) {
                 weeklySchedule[dayName] = {
                   isWorking: row.is_working === true,
-                  shifts: Array.isArray(row.shifts) ? (row.shifts as TimeRange[]) : [],
-                  breaks: Array.isArray(row.breaks) ? (row.breaks as ScheduleBreak[]) : []
+                  shifts: Array.isArray(row.shifts)
+                    ? (row.shifts as TimeRange[])
+                    : [],
+                  breaks: Array.isArray(row.breaks)
+                    ? (row.breaks as ScheduleBreak[])
+                    : []
                 }
                 if (!appliedTemplateId && row.applied_template_id) {
                   appliedTemplateId = String(row.applied_template_id)
@@ -1904,8 +2187,10 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           setStaffSchemaSupport(detectedStaffSchemaSupport)
           setProfessionals(mappedProfessionals)
           setExternalSpecialistSchedules(mappedExtSchedules)
-          if (mappedProfessionalSchedules.length > 0) setProfessionalSchedules(mappedProfessionalSchedules)
-          if (mappedScheduleTemplates.length > 0) setScheduleTemplates(mappedScheduleTemplates)
+          if (mappedProfessionalSchedules.length > 0)
+            setProfessionalSchedules(mappedProfessionalSchedules)
+          if (mappedScheduleTemplates.length > 0)
+            setScheduleTemplates(mappedScheduleTemplates)
           setBoxes(mappedBoxes)
           setWorkingHours(newWorkingHours)
           if (!documentTemplateRowsError) {
@@ -1920,7 +2205,6 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             expenseCategoryMapRef.current = newCategoryMap
           }
           setRolesState(mappedRoles)
-          setPermissionsState(mappedPermissions)
 
           if (selectedClinicRow) {
             setClinicInfo({
@@ -2002,134 +2286,159 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   }, [professionals, workingHours])
 
   // ====== CLINIC INFO ======
-  const updateClinicInfo = useCallback((updates: Partial<ClinicInfo>) => {
-    const mergedClinicInfo: ClinicInfo = { ...clinicInfo, ...updates }
-    setClinicInfo(mergedClinicInfo)
+  const updateClinicInfo = useCallback(
+    (updates: Partial<ClinicInfo>) => {
+      const mergedClinicInfo: ClinicInfo = { ...clinicInfo, ...updates }
+      setClinicInfo(mergedClinicInfo)
 
-    if (!activeClinicId) {
-      console.warn('[updateClinicInfo] No activeClinicId — skipping DB update')
-      return
-    }
-
-    void (async () => {
-      try {
-        const supabase = createSupabaseBrowserClient()
-        const payload: Record<string, unknown> = {
-          updated_at: new Date().toISOString()
-        }
-
-        if (updates.nombreComercial !== undefined) payload.name = updates.nombreComercial
-        if (updates.razonSocial !== undefined) payload.legal_name = updates.razonSocial || null
-        if (updates.cif !== undefined) payload.tax_id = updates.cif || null
-        if (updates.web !== undefined) payload.website = updates.web || null
-        if (updates.logo !== undefined) payload.logo_url = updates.logo || null
-
-        payload.address = {
-          street: mergedClinicInfo.direccion || null,
-          city: mergedClinicInfo.poblacion || null,
-          postal_code: mergedClinicInfo.codigoPostal || null
-        }
-        payload.contact_info = {
-          phone: mergedClinicInfo.telefono || null,
-          email: mergedClinicInfo.email || null,
-          iban: mergedClinicInfo.iban || null,
-          billing_email: mergedClinicInfo.emailBancario || null
-        }
-
-        console.info('[updateClinicInfo] Updating clinic', activeClinicId, 'with payload:', payload)
-
-        const { error, data, status } = await supabase
-          .from('clinics')
-          .update(payload)
-          .eq('id', activeClinicId)
-          .select()
-
-        if (error) {
-          console.error('[updateClinicInfo] DB error:', error.message, error.code, { status })
-        } else {
-          console.info('[updateClinicInfo] OK — rows returned:', data?.length, { status, data })
-          // Refresh ClinicContext so sidebar and other consumers show the updated name/address
-          void refreshClinics()
-        }
-      } catch (error) {
-        console.error('[updateClinicInfo] Exception:', error)
+      if (!activeClinicId) {
+        console.warn(
+          '[updateClinicInfo] No activeClinicId — skipping DB update'
+        )
+        return
       }
-    })()
-  }, [activeClinicId, clinicInfo, refreshClinics])
+
+      void (async () => {
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const payload: Record<string, unknown> = {
+            updated_at: new Date().toISOString()
+          }
+
+          if (updates.nombreComercial !== undefined)
+            payload.name = updates.nombreComercial
+          if (updates.razonSocial !== undefined)
+            payload.legal_name = updates.razonSocial || null
+          if (updates.cif !== undefined) payload.tax_id = updates.cif || null
+          if (updates.web !== undefined) payload.website = updates.web || null
+          if (updates.logo !== undefined)
+            payload.logo_url = updates.logo || null
+
+          payload.address = {
+            street: mergedClinicInfo.direccion || null,
+            city: mergedClinicInfo.poblacion || null,
+            postal_code: mergedClinicInfo.codigoPostal || null
+          }
+          payload.contact_info = {
+            phone: mergedClinicInfo.telefono || null,
+            email: mergedClinicInfo.email || null,
+            iban: mergedClinicInfo.iban || null,
+            billing_email: mergedClinicInfo.emailBancario || null
+          }
+
+          console.info(
+            '[updateClinicInfo] Updating clinic',
+            activeClinicId,
+            'with payload:',
+            payload
+          )
+
+          const { error, data, status } = await supabase
+            .from('clinics')
+            .update(payload)
+            .eq('id', activeClinicId)
+            .select()
+
+          if (error) {
+            console.error(
+              '[updateClinicInfo] DB error:',
+              error.message,
+              error.code,
+              { status }
+            )
+          } else {
+            console.info(
+              '[updateClinicInfo] OK — rows returned:',
+              data?.length,
+              { status, data }
+            )
+            // Refresh ClinicContext so sidebar and other consumers show the updated name/address
+            void refreshClinics()
+          }
+        } catch (error) {
+          console.error('[updateClinicInfo] Exception:', error)
+        }
+      })()
+    },
+    [activeClinicId, clinicInfo, refreshClinics]
+  )
 
   // ====== CLINICS ======
-  const addClinic = useCallback((clinic: Omit<Clinic, 'id'>) => {
-    void (async () => {
-      try {
-        const supabase = createSupabaseBrowserClient()
-        let organizationId = activeOrganizationId
+  const addClinic = useCallback(
+    (clinic: Omit<Clinic, 'id'>) => {
+      void (async () => {
+        try {
+          const supabase = createSupabaseBrowserClient()
+          let organizationId = activeOrganizationId
 
-        if (!organizationId && activeClinicId) {
-          const { data: activeClinicRow } = await supabase
-            .from('clinics')
-            .select('organization_id')
-            .eq('id', activeClinicId)
-            .single()
-          organizationId =
-            typeof activeClinicRow?.organization_id === 'string'
-              ? activeClinicRow.organization_id
-              : null
-          if (organizationId) {
-            setActiveOrganizationId(organizationId)
-          }
-        }
-
-        if (!organizationId) {
-          console.warn(
-            'No se pudo crear clínica: organización activa no disponible'
-          )
-          return
-        }
-
-        const { data: insertedRow, error } = await supabase
-          .from('clinics')
-          .insert({
-            organization_id: organizationId,
-            name: clinic.nombre || 'Nueva clínica',
-            legal_name: clinic.nombre || null,
-            address: {
-              street: clinic.direccion || null
-            },
-            contact_info: {
-              phone: clinic.telefono || null,
-              email: clinic.email || null
+          if (!organizationId && activeClinicId) {
+            const { data: activeClinicRow } = await supabase
+              .from('clinics')
+              .select('organization_id')
+              .eq('id', activeClinicId)
+              .single()
+            organizationId =
+              typeof activeClinicRow?.organization_id === 'string'
+                ? activeClinicRow.organization_id
+                : null
+            if (organizationId) {
+              setActiveOrganizationId(organizationId)
             }
-          })
-          .select('id, name, address, contact_info')
-          .single()
-
-        if (error || !insertedRow) {
-          console.warn('No se pudo crear clínica en DB', error)
-          return
-        }
-
-        const address =
-          (insertedRow.address as Record<string, unknown> | null) || {}
-        const contact =
-          (insertedRow.contact_info as Record<string, unknown> | null) || {}
-
-        setClinics((prev) => [
-          ...prev,
-          {
-            id: String(insertedRow.id),
-            nombre: String(insertedRow.name || clinic.nombre || 'Clínica'),
-            direccion: String(address.street || clinic.direccion || ''),
-            horario: clinic.horario,
-            telefono: String(contact.phone || clinic.telefono || ''),
-            email: String(contact.email || clinic.email || ''),
-            isActive: clinic.isActive
           }
-        ])
-      } catch (error) {
-        console.warn('Error creando clínica en DB', error)
-      }
-    })()
-  }, [activeClinicId, activeOrganizationId])
+
+          if (!organizationId) {
+            console.warn(
+              'No se pudo crear clínica: organización activa no disponible'
+            )
+            return
+          }
+
+          const { data: insertedRow, error } = await supabase
+            .from('clinics')
+            .insert({
+              organization_id: organizationId,
+              name: clinic.nombre || 'Nueva clínica',
+              legal_name: clinic.nombre || null,
+              address: {
+                street: clinic.direccion || null
+              },
+              contact_info: {
+                phone: clinic.telefono || null,
+                email: clinic.email || null
+              }
+            })
+            .select('id, name, address, contact_info')
+            .single()
+
+          if (error || !insertedRow) {
+            console.warn('No se pudo crear clínica en DB', error)
+            return
+          }
+
+          const address =
+            (insertedRow.address as Record<string, unknown> | null) || {}
+          const contact =
+            (insertedRow.contact_info as Record<string, unknown> | null) || {}
+
+          setClinics((prev) => [
+            ...prev,
+            {
+              id: String(insertedRow.id),
+              nombre: String(insertedRow.name || clinic.nombre || 'Clínica'),
+              direccion: String(address.street || clinic.direccion || ''),
+              horario: clinic.horario,
+              telefono: String(contact.phone || clinic.telefono || ''),
+              email: String(contact.email || clinic.email || ''),
+              isActive: clinic.isActive
+            }
+          ])
+        } catch (error) {
+          console.warn('Error creando clínica en DB', error)
+        }
+      })()
+    },
+    [activeClinicId, activeOrganizationId]
+  )
 
   const updateClinic = useCallback((id: string, updates: Partial<Clinic>) => {
     setClinics((prev) => {
@@ -2196,7 +2505,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           }
           const supabase = createSupabaseBrowserClient()
           const isExternal = professional.employmentType === 'externo'
-          const staffRole = isExternal ? 'externo' : mapProfessionalRoleToDbRole(professional.role)
+          const staffRole = isExternal
+            ? 'externo'
+            : mapProfessionalRoleToDbRole(professional.role)
           const roleSlug = slugifyRoleName(professional.specialty)
 
           // Look up role_id for the staff_clinics association
@@ -2218,7 +2529,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             {
               p_clinic_id: activeClinicId,
               p_full_name: professional.name || 'Profesional',
-              p_specialties: professional.specialty ? [professional.specialty] : [],
+              p_specialties: professional.specialty
+                ? [professional.specialty]
+                : [],
               p_phone: professional.phone || null,
               p_email: professional.email || null,
               p_calendar_color: toneToHex(professional.colorTone),
@@ -2290,12 +2603,16 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
 
   const updateProfessional = useCallback(
     (id: string, updates: Partial<Professional>) => {
-      const current = professionals.find((professional) => professional.id === id)
+      const current = professionals.find(
+        (professional) => professional.id === id
+      )
       if (!current) return
       const merged = { ...current, ...updates }
 
       setProfessionals((prev) =>
-        prev.map((professional) => (professional.id === id ? merged : professional))
+        prev.map((professional) =>
+          professional.id === id ? merged : professional
+        )
       )
 
       void (async () => {
@@ -2321,13 +2638,11 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             })
           })
           if (!response.ok) {
-            const payload = (await response.json().catch(() => null)) as
-              | {
-                  error?: string
-                  code?: string | null
-                  details?: Record<string, unknown>
-                }
-              | null
+            const payload = (await response.json().catch(() => null)) as {
+              error?: string
+              code?: string | null
+              details?: Record<string, unknown>
+            } | null
             throw {
               code: payload?.code || null,
               details: payload?.details || null,
@@ -2349,27 +2664,25 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     [professionals]
   )
 
-  const deleteProfessional = useCallback((id: string) => {
-    setProfessionals((prev) => prev.filter((p) => p.id !== id))
-    void (async () => {
+  const deleteProfessional = useCallback(
+    async (id: string): Promise<{ success: boolean; fkError?: boolean }> => {
       try {
         const supabase = createSupabaseBrowserClient()
-        if (activeClinicId) {
-          await supabase
-            .from('staff_clinics')
-            .delete()
-            .eq('clinic_id', activeClinicId)
-            .eq('staff_id', id)
-        }
         const { error } = await supabase.from('staff').delete().eq('id', id)
         if (error) {
-          console.warn('No se pudo eliminar profesional en DB', error)
+          const isFkError =
+            error.code === '23503' ||
+            error.message?.includes('violates foreign key')
+          return { success: false, fkError: isFkError }
         }
-      } catch (error) {
-        console.warn('Error eliminando profesional en DB', error)
+        setProfessionals((prev) => prev.filter((p) => p.id !== id))
+        return { success: true }
+      } catch {
+        return { success: false }
       }
-    })()
-  }, [activeClinicId])
+    },
+    [activeClinicId]
+  )
 
   const getProfessionalById = useCallback(
     (id: string) => professionals.find((p) => p.id === id),
@@ -2413,41 +2726,44 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   // ====== BOXES ======
   const activeBoxes = useMemo(() => boxes.filter((b) => b.isActive), [boxes])
 
-  const addBox = useCallback((box: Omit<Box, 'id'>) => {
-    if (!activeClinicId) return
+  const addBox = useCallback(
+    (box: Omit<Box, 'id'>) => {
+      if (!activeClinicId) return
 
-    void (async () => {
-      try {
-        const supabase = createSupabaseBrowserClient()
-        const { data: insertedBox, error } = await supabase
-          .from('boxes')
-          .insert({
-            clinic_id: activeClinicId,
-            name_or_number: box.label,
-            color_hex: box.tone === 'neutral' ? null : '#7725eb'
-          })
-          .select('id, name_or_number')
-          .single()
+      void (async () => {
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const { data: insertedBox, error } = await supabase
+            .from('boxes')
+            .insert({
+              clinic_id: activeClinicId,
+              name_or_number: box.label,
+              color_hex: box.tone === 'neutral' ? null : '#7725eb'
+            })
+            .select('id, name_or_number')
+            .single()
 
-        if (error || !insertedBox) {
-          console.warn('No se pudo crear gabinete en DB', error)
-          return
-        }
-
-        setBoxes((prev) => [
-          ...prev,
-          {
-            id: String(insertedBox.id),
-            label: String(insertedBox.name_or_number || box.label),
-            tone: box.tone,
-            isActive: box.isActive
+          if (error || !insertedBox) {
+            console.warn('No se pudo crear gabinete en DB', error)
+            return
           }
-        ])
-      } catch (error) {
-        console.warn('Error creando gabinete en DB', error)
-      }
-    })()
-  }, [activeClinicId])
+
+          setBoxes((prev) => [
+            ...prev,
+            {
+              id: String(insertedBox.id),
+              label: String(insertedBox.name_or_number || box.label),
+              tone: box.tone,
+              isActive: box.isActive
+            }
+          ])
+        } catch (error) {
+          console.warn('Error creando gabinete en DB', error)
+        }
+      })()
+    },
+    [activeClinicId]
+  )
 
   const updateBox = useCallback((id: string, updates: Partial<Box>) => {
     setBoxes((prev) => {
@@ -2519,7 +2835,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
               is_open: boolean
             }> = []
 
-            if (mergedConfig.morningShift.start < mergedConfig.morningShift.end) {
+            if (
+              mergedConfig.morningShift.start < mergedConfig.morningShift.end
+            ) {
               blocks.push({
                 clinic_id: activeClinicId,
                 dow,
@@ -2528,7 +2846,10 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
                 is_open: true
               })
             }
-            if (mergedConfig.afternoonShift.start < mergedConfig.afternoonShift.end) {
+            if (
+              mergedConfig.afternoonShift.start <
+              mergedConfig.afternoonShift.end
+            ) {
               blocks.push({
                 clinic_id: activeClinicId,
                 dow,
@@ -2547,7 +2868,10 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             .eq('clinic_id', activeClinicId)
 
           if (deleteError) {
-            console.warn('No se pudieron limpiar horarios de clínica', deleteError)
+            console.warn(
+              'No se pudieron limpiar horarios de clínica',
+              deleteError
+            )
             return
           }
 
@@ -2556,7 +2880,10 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
               .from('clinic_working_hours')
               .insert(rows)
             if (insertError) {
-              console.warn('No se pudieron guardar horarios de clínica', insertError)
+              console.warn(
+                'No se pudieron guardar horarios de clínica',
+                insertError
+              )
             }
           }
         } catch (error) {
@@ -2657,35 +2984,45 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           if (!dbType) return
 
           const persistedTemplate: DocumentTemplate = {
-            id: String((inserted as { id?: string }).id || optimisticTemplate.id),
-            title: String((inserted as { title?: string }).title || template.title),
+            id: String(
+              (inserted as { id?: string }).id || optimisticTemplate.id
+            ),
+            title: String(
+              (inserted as { title?: string }).title || template.title
+            ),
             type: dbType,
             content: String(
-              (inserted as { content?: string; content_html?: string }).content ||
+              (inserted as { content?: string; content_html?: string })
+                .content ||
                 (inserted as { content_html?: string }).content_html ||
                 template.content
             ),
             logoUrl:
-              typeof (inserted as { logo_url?: string | null }).logo_url === 'string'
+              typeof (inserted as { logo_url?: string | null }).logo_url ===
+              'string'
                 ? String((inserted as { logo_url?: string }).logo_url)
                 : undefined,
             logoPosition:
-              ((inserted as { logo_position?: { x?: number; y?: number } | null })
-                .logo_position &&
-                typeof (inserted as { logo_position?: unknown }).logo_position ===
-                  'object')
+              (
+                inserted as {
+                  logo_position?: { x?: number; y?: number } | null
+                }
+              ).logo_position &&
+              typeof (inserted as { logo_position?: unknown }).logo_position ===
+                'object'
                 ? {
                     x: Number(
-                      (inserted as { logo_position?: { x?: number } }).logo_position
-                        ?.x ?? 20
+                      (inserted as { logo_position?: { x?: number } })
+                        .logo_position?.x ?? 20
                     ),
                     y: Number(
-                      (inserted as { logo_position?: { y?: number } }).logo_position
-                        ?.y ?? 20
+                      (inserted as { logo_position?: { y?: number } })
+                        .logo_position?.y ?? 20
                     )
                   }
                 : undefined,
-            isDefault: (inserted as { is_default?: boolean }).is_default === true,
+            isDefault:
+              (inserted as { is_default?: boolean }).is_default === true,
             lastModified:
               typeof (inserted as { updated_at?: string | null }).updated_at ===
               'string'
@@ -2724,14 +3061,17 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       }
       if (updates.title !== undefined) payload.title = updates.title
       if (updates.type !== undefined) {
-        payload.type = normalizeDocumentTemplateType(updates.type) || updates.type
+        payload.type =
+          normalizeDocumentTemplateType(updates.type) || updates.type
       }
       if (updates.content !== undefined) payload.content = updates.content
-      if (updates.logoUrl !== undefined) payload.logo_url = updates.logoUrl || null
+      if (updates.logoUrl !== undefined)
+        payload.logo_url = updates.logoUrl || null
       if (updates.logoPosition !== undefined) {
         payload.logo_position = updates.logoPosition || null
       }
-      if (updates.isDefault !== undefined) payload.is_default = updates.isDefault
+      if (updates.isDefault !== undefined)
+        payload.is_default = updates.isDefault
 
       void (async () => {
         try {
@@ -2743,7 +3083,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             .eq('clinic_id', activeClinicId)
           if (updateResponse.error?.code === '42703') {
             const fallbackPayload = { ...payload }
-            if (Object.prototype.hasOwnProperty.call(fallbackPayload, 'content')) {
+            if (
+              Object.prototype.hasOwnProperty.call(fallbackPayload, 'content')
+            ) {
               fallbackPayload.content_html = fallbackPayload.content
               delete fallbackPayload.content
             }
@@ -2765,27 +3107,32 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     [activeClinicId]
   )
 
-  const deleteDocumentTemplate = useCallback((id: string) => {
-    setDocumentTemplates((previous) => previous.filter((template) => template.id !== id))
+  const deleteDocumentTemplate = useCallback(
+    (id: string) => {
+      setDocumentTemplates((previous) =>
+        previous.filter((template) => template.id !== id)
+      )
 
-    if (!activeClinicId) return
+      if (!activeClinicId) return
 
-    void (async () => {
-      try {
-        const supabase = createSupabaseBrowserClient()
-        const { error } = await supabase
-          .from('document_templates')
-          .delete()
-          .eq('id', id)
-          .eq('clinic_id', activeClinicId)
-        if (error) {
-          console.warn('No se pudo eliminar plantilla en DB', error)
+      void (async () => {
+        try {
+          const supabase = createSupabaseBrowserClient()
+          const { error } = await supabase
+            .from('document_templates')
+            .delete()
+            .eq('id', id)
+            .eq('clinic_id', activeClinicId)
+          if (error) {
+            console.warn('No se pudo eliminar plantilla en DB', error)
+          }
+        } catch (error) {
+          console.warn('Error eliminando plantilla en DB', error)
         }
-      } catch (error) {
-        console.warn('Error eliminando plantilla en DB', error)
-      }
-    })()
-  }, [activeClinicId])
+      })()
+    },
+    [activeClinicId]
+  )
 
   const getDocumentTemplateById = useCallback(
     (id: string) => documentTemplates.find((template) => template.id === id),
@@ -2798,66 +3145,75 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     [documentTemplates]
   )
 
-  const resetDocumentTemplate = useCallback((id: string) => {
-    const resetTimestamp = new Date().toISOString()
-    let resetContent: string | null = null
-    setDocumentTemplates((previous) =>
-      previous.map((template) => {
-        if (template.id === id && template.isDefault) {
-          resetContent = DEFAULT_DOCUMENT_TEMPLATES[template.type]
-          return {
-            ...template,
-            content: resetContent,
-            lastModified: resetTimestamp
+  const resetDocumentTemplate = useCallback(
+    (id: string) => {
+      const resetTimestamp = new Date().toISOString()
+      let resetContent: string | null = null
+      setDocumentTemplates((previous) =>
+        previous.map((template) => {
+          if (template.id === id && template.isDefault) {
+            resetContent = DEFAULT_DOCUMENT_TEMPLATES[template.type]
+            return {
+              ...template,
+              content: resetContent,
+              lastModified: resetTimestamp
+            }
           }
-        }
-        return template
-      })
-    )
+          return template
+        })
+      )
 
-    if (!activeClinicId || resetContent == null) return
+      if (!activeClinicId || resetContent == null) return
 
-    void (async () => {
-      try {
-        const supabase = createSupabaseBrowserClient()
-        let updateResponse = await supabase
-          .from('document_templates')
-          .update({
-            content: resetContent,
-            updated_at: resetTimestamp
-          })
-          .eq('id', id)
-          .eq('clinic_id', activeClinicId)
-        if (updateResponse.error?.code === '42703') {
-          updateResponse = await supabase
+      void (async () => {
+        try {
+          const supabase = createSupabaseBrowserClient()
+          let updateResponse = await supabase
             .from('document_templates')
             .update({
-              content_html: resetContent,
+              content: resetContent,
               updated_at: resetTimestamp
             })
             .eq('id', id)
             .eq('clinic_id', activeClinicId)
+          if (updateResponse.error?.code === '42703') {
+            updateResponse = await supabase
+              .from('document_templates')
+              .update({
+                content_html: resetContent,
+                updated_at: resetTimestamp
+              })
+              .eq('id', id)
+              .eq('clinic_id', activeClinicId)
+          }
+          const { error } = updateResponse
+          if (error) {
+            console.warn('No se pudo restablecer plantilla en DB', error)
+          }
+        } catch (error) {
+          console.warn('Error restableciendo plantilla en DB', error)
         }
-        const { error } = updateResponse
-        if (error) {
-          console.warn('No se pudo restablecer plantilla en DB', error)
-        }
-      } catch (error) {
-        console.warn('Error restableciendo plantilla en DB', error)
-      }
-    })()
-  }, [activeClinicId])
+      })()
+    },
+    [activeClinicId]
+  )
 
   // ====== PROFESSIONAL SCHEDULES ======
   const getProfessionalSchedule = useCallback(
     (professionalId: string) =>
-      professionalSchedules.find((schedule) => schedule.professionalId === professionalId),
+      professionalSchedules.find(
+        (schedule) => schedule.professionalId === professionalId
+      ),
     [professionalSchedules]
   )
 
   // Helper: upsert 7 rows in staff_schedules for a professional
   const upsertWeeklyScheduleToDb = useCallback(
-    async (professionalId: string, schedule: WeeklySchedule, templateId?: string) => {
+    async (
+      professionalId: string,
+      schedule: WeeklySchedule,
+      templateId?: string
+    ) => {
       if (!activeClinicId) return
       const supabase = createSupabaseBrowserClient()
       const rows = WEEKDAYS_ORDER.map((day) => ({
@@ -2881,7 +3237,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const updateProfessionalSchedule = useCallback(
     (professionalId: string, schedule: WeeklySchedule) => {
       setProfessionalSchedules((previous) => {
-        const exists = previous.some((item) => item.professionalId === professionalId)
+        const exists = previous.some(
+          (item) => item.professionalId === professionalId
+        )
         if (!exists) {
           return [
             ...previous,
@@ -2895,7 +3253,11 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         }
         return previous.map((item) =>
           item.professionalId === professionalId
-            ? { ...item, weeklySchedule: schedule, appliedTemplateId: undefined }
+            ? {
+                ...item,
+                weeklySchedule: schedule,
+                appliedTemplateId: undefined
+              }
             : item
         )
       })
@@ -2909,7 +3271,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       const template = scheduleTemplates.find((item) => item.id === templateId)
       if (!template) return
       setProfessionalSchedules((previous) => {
-        const exists = previous.some((item) => item.professionalId === professionalId)
+        const exists = previous.some(
+          (item) => item.professionalId === professionalId
+        )
         if (!exists) {
           return [
             ...previous,
@@ -2931,7 +3295,11 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             : item
         )
       })
-      void upsertWeeklyScheduleToDb(professionalId, template.weeklySchedule, templateId)
+      void upsertWeeklyScheduleToDb(
+        professionalId,
+        template.weeklySchedule,
+        templateId
+      )
     },
     [scheduleTemplates, upsertWeeklyScheduleToDb]
   )
@@ -2987,7 +3355,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     setProfessionalSchedules((previous) =>
       previous.map((item) => ({
         ...item,
-        exceptions: item.exceptions.filter((exception) => exception.id !== exceptionId)
+        exceptions: item.exceptions.filter(
+          (exception) => exception.id !== exceptionId
+        )
       }))
     )
     void (async () => {
@@ -2996,7 +3366,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         .from('schedule_exceptions')
         .delete()
         .eq('id', exceptionId)
-      if (error) console.warn('[removeScheduleException] DB error:', error.message)
+      if (error)
+        console.warn('[removeScheduleException] DB error:', error.message)
     })()
   }, [])
 
@@ -3007,7 +3378,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       )
       if (!source) return
       setProfessionalSchedules((previous) => {
-        const exists = previous.some((item) => item.professionalId === toProfessionalId)
+        const exists = previous.some(
+          (item) => item.professionalId === toProfessionalId
+        )
         if (!exists) {
           return [
             ...previous,
@@ -3060,7 +3433,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       if (!schedule) return null
 
       const dateStr = date.toISOString().split('T')[0]
-      const exception = schedule.exceptions.find((item) => item.date === dateStr)
+      const exception = schedule.exceptions.find(
+        (item) => item.date === dateStr
+      )
       if (exception) {
         if (exception.type !== 'special' || !exception.customSchedule) {
           return createNonWorkingDay()
@@ -3100,21 +3475,42 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
 
   const getExternalSchedulesForStaff = useCallback(
     (staffId: string): ExternalSpecialistScheduleEntry[] =>
-      externalSpecialistSchedules.filter((e) => e.staffId === staffId && !e.isCancelled),
+      externalSpecialistSchedules.filter(
+        (e) => e.staffId === staffId && !e.isCancelled
+      ),
     [externalSpecialistSchedules]
   )
 
   const isExternalAvailableForDate = useCallback(
-    (staffId: string, date: Date): { available: boolean; startTime?: string; endTime?: string } => {
-      const entries = externalSpecialistSchedules.filter((e) => e.staffId === staffId && !e.isCancelled)
+    (
+      staffId: string,
+      date: Date
+    ): { available: boolean; startTime?: string; endTime?: string } => {
+      const entries = externalSpecialistSchedules.filter(
+        (e) => e.staffId === staffId && !e.isCancelled
+      )
       const dow = date.getDay()
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
-      const specificMatch = entries.find((e) => e.scheduleType === 'specific' && e.specificDate === dateStr)
-      if (specificMatch) return { available: true, startTime: specificMatch.startTime, endTime: specificMatch.endTime }
+      const specificMatch = entries.find(
+        (e) => e.scheduleType === 'specific' && e.specificDate === dateStr
+      )
+      if (specificMatch)
+        return {
+          available: true,
+          startTime: specificMatch.startTime,
+          endTime: specificMatch.endTime
+        }
 
-      const recurringMatch = entries.find((e) => e.scheduleType === 'recurring' && e.dayOfWeek === dow)
-      if (recurringMatch) return { available: true, startTime: recurringMatch.startTime, endTime: recurringMatch.endTime }
+      const recurringMatch = entries.find(
+        (e) => e.scheduleType === 'recurring' && e.dayOfWeek === dow
+      )
+      if (recurringMatch)
+        return {
+          available: true,
+          startTime: recurringMatch.startTime,
+          endTime: recurringMatch.endTime
+        }
 
       return { available: false }
     },
@@ -3122,7 +3518,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   )
 
   const addExternalScheduleEntry = useCallback(
-    async (entry: Omit<ExternalSpecialistScheduleEntry, 'id'>): Promise<ExternalSpecialistScheduleEntry | null> => {
+    async (
+      entry: Omit<ExternalSpecialistScheduleEntry, 'id'>
+    ): Promise<ExternalSpecialistScheduleEntry | null> => {
       const supabase = createSupabaseBrowserClient()
       const { data, error } = await supabase
         .from('external_specialist_schedules')
@@ -3139,13 +3537,23 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
         })
         .select()
         .single()
-      if (error || !data) { console.warn('Error adding external schedule', error); return null }
+      if (error || !data) {
+        console.warn('Error adding external schedule', error)
+        return null
+      }
       const newEntry: ExternalSpecialistScheduleEntry = {
-        id: Number(data.id), staffId: String(data.staff_id), clinicId: String(data.clinic_id),
+        id: Number(data.id),
+        staffId: String(data.staff_id),
+        clinicId: String(data.clinic_id),
         scheduleType: String(data.schedule_type) as 'recurring' | 'specific',
-        dayOfWeek: data.day_of_week != null ? Number(data.day_of_week) : undefined,
-        specificDate: data.specific_date ? String(data.specific_date) : undefined,
-        startTime: data.start_time ? String(data.start_time).slice(0, 5) : undefined,
+        dayOfWeek:
+          data.day_of_week != null ? Number(data.day_of_week) : undefined,
+        specificDate: data.specific_date
+          ? String(data.specific_date)
+          : undefined,
+        startTime: data.start_time
+          ? String(data.start_time).slice(0, 5)
+          : undefined,
         endTime: data.end_time ? String(data.end_time).slice(0, 5) : undefined,
         notes: data.notes ? String(data.notes) : undefined,
         isCancelled: false
@@ -3157,17 +3565,30 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   )
 
   const updateExternalScheduleEntry = useCallback(
-    async (id: number, updates: Partial<ExternalSpecialistScheduleEntry>): Promise<void> => {
+    async (
+      id: number,
+      updates: Partial<ExternalSpecialistScheduleEntry>
+    ): Promise<void> => {
       const supabase = createSupabaseBrowserClient()
       const dbUpdates: Record<string, unknown> = {}
-      if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime
+      if (updates.startTime !== undefined)
+        dbUpdates.start_time = updates.startTime
       if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime
       if (updates.notes !== undefined) dbUpdates.notes = updates.notes
-      if (updates.isCancelled !== undefined) dbUpdates.is_cancelled = updates.isCancelled
-      if (updates.dayOfWeek !== undefined) dbUpdates.day_of_week = updates.dayOfWeek
-      if (updates.specificDate !== undefined) dbUpdates.specific_date = updates.specificDate
-      const { error } = await supabase.from('external_specialist_schedules').update(dbUpdates).eq('id', id)
-      if (error) { console.warn('Error updating external schedule', error); return }
+      if (updates.isCancelled !== undefined)
+        dbUpdates.is_cancelled = updates.isCancelled
+      if (updates.dayOfWeek !== undefined)
+        dbUpdates.day_of_week = updates.dayOfWeek
+      if (updates.specificDate !== undefined)
+        dbUpdates.specific_date = updates.specificDate
+      const { error } = await supabase
+        .from('external_specialist_schedules')
+        .update(dbUpdates)
+        .eq('id', id)
+      if (error) {
+        console.warn('Error updating external schedule', error)
+        return
+      }
       setExternalSpecialistSchedules((prev) =>
         prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
       )
@@ -3178,8 +3599,14 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const deleteExternalScheduleEntry = useCallback(
     async (id: number): Promise<void> => {
       const supabase = createSupabaseBrowserClient()
-      const { error } = await supabase.from('external_specialist_schedules').delete().eq('id', id)
-      if (error) { console.warn('Error deleting external schedule', error); return }
+      const { error } = await supabase
+        .from('external_specialist_schedules')
+        .delete()
+        .eq('id', id)
+      if (error) {
+        console.warn('Error deleting external schedule', error)
+        return
+      }
       setExternalSpecialistSchedules((prev) => prev.filter((e) => e.id !== id))
     },
     []
@@ -3223,7 +3650,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             console.warn('[addDiscount] DB error:', error.message)
           } else if (data) {
             setDiscountsState((prev) =>
-              prev.map((d) => (d.id === tempId ? { ...d, id: String(data.id) } : d))
+              prev.map((d) =>
+                d.id === tempId ? { ...d, id: String(data.id) } : d
+              )
             )
           }
         })()
@@ -3232,114 +3661,149 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     [activeClinicId]
   )
 
-  const updateDiscount = useCallback((id: string, updates: Partial<ConfigDiscount>) => {
-    setDiscountsState((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, ...updates } : d))
-    )
-    void (async () => {
-      const supabase = createSupabaseBrowserClient()
-      const payload: Record<string, unknown> = {}
-      if (updates.name !== undefined) payload.name = updates.name
-      if (updates.type !== undefined) payload.discount_type = updates.type
-      if (updates.value !== undefined) payload.value = updates.value
-      if (updates.notes !== undefined) payload.notes = updates.notes || null
-      if (updates.isActive !== undefined) payload.is_active = updates.isActive
-      const { error } = await supabase.from('clinic_discounts').update(payload).eq('id', Number(id))
-      if (error) console.warn('[updateDiscount] DB error:', error.message)
-    })()
-  }, [])
+  const updateDiscount = useCallback(
+    (id: string, updates: Partial<ConfigDiscount>) => {
+      setDiscountsState((prev) =>
+        prev.map((d) => (d.id === id ? { ...d, ...updates } : d))
+      )
+      void (async () => {
+        const supabase = createSupabaseBrowserClient()
+        const payload: Record<string, unknown> = {}
+        if (updates.name !== undefined) payload.name = updates.name
+        if (updates.type !== undefined) payload.discount_type = updates.type
+        if (updates.value !== undefined) payload.value = updates.value
+        if (updates.notes !== undefined) payload.notes = updates.notes || null
+        if (updates.isActive !== undefined) payload.is_active = updates.isActive
+        const { error } = await supabase
+          .from('clinic_discounts')
+          .update(payload)
+          .eq('id', Number(id))
+        if (error) console.warn('[updateDiscount] DB error:', error.message)
+      })()
+    },
+    []
+  )
 
   const deleteDiscount = useCallback((id: string) => {
     setDiscountsState((prev) => prev.filter((d) => d.id !== id))
     void (async () => {
       const supabase = createSupabaseBrowserClient()
-      const { error } = await supabase.from('clinic_discounts').delete().eq('id', Number(id))
+      const { error } = await supabase
+        .from('clinic_discounts')
+        .delete()
+        .eq('id', Number(id))
       if (error) console.warn('[deleteDiscount] DB error:', error.message)
     })()
   }, [])
 
-  const addBudgetType = useCallback((budgetType: Omit<BudgetTypeData, 'id'>) => {
-    const tempId = `bt-${Date.now()}`
-    const created: BudgetTypeData = { ...budgetType, id: tempId }
-    setBudgetTypesState((prev) => [created, ...prev])
+  const addBudgetType = useCallback(
+    (budgetType: Omit<BudgetTypeData, 'id'>) => {
+      const tempId = `bt-${Date.now()}`
+      const created: BudgetTypeData = { ...budgetType, id: tempId }
+      setBudgetTypesState((prev) => [created, ...prev])
 
-    if (activeClinicId) {
+      if (activeClinicId) {
+        void (async () => {
+          const supabase = createSupabaseBrowserClient()
+          const { data, error } = await supabase
+            .from('quote_templates')
+            .insert({
+              clinic_id: activeClinicId,
+              name: budgetType.name,
+              notes: budgetType.description || null,
+              is_active: budgetType.isActive
+            })
+            .select('id')
+            .single()
+          if (error) {
+            console.warn('[addBudgetType] DB error:', error.message)
+            return
+          }
+          const dbId = String(data.id)
+          setBudgetTypesState((prev) =>
+            prev.map((bt) => (bt.id === tempId ? { ...bt, id: dbId } : bt))
+          )
+          // Insert items
+          if (budgetType.treatments.length > 0) {
+            const items = budgetType.treatments
+              .map((t, i) => ({
+                template_id: data.id,
+                service_id: Number(t.codigo) || null,
+                quantity: 1,
+                override_unit_price: t.precio || null,
+                display_order: i
+              }))
+              .filter((item) => item.service_id)
+            if (items.length > 0) {
+              const { error: itemsErr } = await supabase
+                .from('quote_template_items')
+                .insert(items)
+              if (itemsErr)
+                console.warn('[addBudgetType] items error:', itemsErr.message)
+            }
+          }
+        })()
+      }
+      return created
+    },
+    [activeClinicId]
+  )
+
+  const updateBudgetType = useCallback(
+    (id: string, updates: Partial<BudgetTypeData>) => {
+      setBudgetTypesState((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
+      )
       void (async () => {
         const supabase = createSupabaseBrowserClient()
-        const { data, error } = await supabase
-          .from('quote_templates')
-          .insert({
-            clinic_id: activeClinicId,
-            name: budgetType.name,
-            notes: budgetType.description || null,
-            is_active: budgetType.isActive
-          })
-          .select('id')
-          .single()
-        if (error) {
-          console.warn('[addBudgetType] DB error:', error.message)
-          return
+        const payload: Record<string, unknown> = {}
+        if (updates.name !== undefined) payload.name = updates.name
+        if (updates.description !== undefined)
+          payload.notes = updates.description || null
+        if (updates.isActive !== undefined) payload.is_active = updates.isActive
+        if (Object.keys(payload).length > 0) {
+          const { error } = await supabase
+            .from('quote_templates')
+            .update(payload)
+            .eq('id', Number(id))
+          if (error) console.warn('[updateBudgetType] DB error:', error.message)
         }
-        const dbId = String(data.id)
-        setBudgetTypesState((prev) =>
-          prev.map((bt) => (bt.id === tempId ? { ...bt, id: dbId } : bt))
-        )
-        // Insert items
-        if (budgetType.treatments.length > 0) {
-          const items = budgetType.treatments.map((t, i) => ({
-            template_id: data.id,
-            service_id: Number(t.codigo) || null,
-            quantity: 1,
-            override_unit_price: t.precio || null,
-            display_order: i
-          })).filter((item) => item.service_id)
+        // If treatments changed, replace items
+        if (updates.treatments) {
+          await supabase
+            .from('quote_template_items')
+            .delete()
+            .eq('template_id', Number(id))
+          const items = updates.treatments
+            .map((t, i) => ({
+              template_id: Number(id),
+              service_id: Number(t.codigo) || null,
+              quantity: 1,
+              override_unit_price: t.precio || null,
+              display_order: i
+            }))
+            .filter((item) => item.service_id)
           if (items.length > 0) {
-            const { error: itemsErr } = await supabase.from('quote_template_items').insert(items)
-            if (itemsErr) console.warn('[addBudgetType] items error:', itemsErr.message)
+            const { error: itemsErr } = await supabase
+              .from('quote_template_items')
+              .insert(items)
+            if (itemsErr)
+              console.warn('[updateBudgetType] items error:', itemsErr.message)
           }
         }
       })()
-    }
-    return created
-  }, [activeClinicId])
-
-  const updateBudgetType = useCallback((id: string, updates: Partial<BudgetTypeData>) => {
-    setBudgetTypesState((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
-    )
-    void (async () => {
-      const supabase = createSupabaseBrowserClient()
-      const payload: Record<string, unknown> = {}
-      if (updates.name !== undefined) payload.name = updates.name
-      if (updates.description !== undefined) payload.notes = updates.description || null
-      if (updates.isActive !== undefined) payload.is_active = updates.isActive
-      if (Object.keys(payload).length > 0) {
-        const { error } = await supabase.from('quote_templates').update(payload).eq('id', Number(id))
-        if (error) console.warn('[updateBudgetType] DB error:', error.message)
-      }
-      // If treatments changed, replace items
-      if (updates.treatments) {
-        await supabase.from('quote_template_items').delete().eq('template_id', Number(id))
-        const items = updates.treatments.map((t, i) => ({
-          template_id: Number(id),
-          service_id: Number(t.codigo) || null,
-          quantity: 1,
-          override_unit_price: t.precio || null,
-          display_order: i
-        })).filter((item) => item.service_id)
-        if (items.length > 0) {
-          const { error: itemsErr } = await supabase.from('quote_template_items').insert(items)
-          if (itemsErr) console.warn('[updateBudgetType] items error:', itemsErr.message)
-        }
-      }
-    })()
-  }, [])
+    },
+    []
+  )
 
   const deleteBudgetType = useCallback((id: string) => {
     setBudgetTypesState((prev) => prev.filter((item) => item.id !== id))
     void (async () => {
       const supabase = createSupabaseBrowserClient()
-      const { error } = await supabase.from('quote_templates').delete().eq('id', Number(id))
+      const { error } = await supabase
+        .from('quote_templates')
+        .delete()
+        .eq('id', Number(id))
       if (error) console.warn('[deleteBudgetType] DB error:', error.message)
     })()
   }, [])
@@ -3353,7 +3817,13 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
 
   const addTreatmentToDb = useCallback(
     async (
-      treatment: { name: string; code: string; basePrice: number; estimatedTime: string; iva: string },
+      treatment: {
+        name: string
+        code: string
+        basePrice: number
+        estimatedTime: string
+        iva: string
+      },
       categoryName: string
     ): Promise<string | null> => {
       try {
@@ -3366,7 +3836,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             .eq('id', activeClinicId)
             .single()
           organizationId =
-            typeof row?.organization_id === 'string' ? row.organization_id : null
+            typeof row?.organization_id === 'string'
+              ? row.organization_id
+              : null
           if (organizationId) setActiveOrganizationId(organizationId)
         }
 
@@ -3387,7 +3859,10 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           .single()
 
         if (error) {
-          console.warn('Error al insertar tratamiento en service_catalog', error)
+          console.warn(
+            'Error al insertar tratamiento en service_catalog',
+            error
+          )
           return null
         }
         return String(data.id)
@@ -3402,14 +3877,22 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
   const updateTreatmentInDb = useCallback(
     async (
       id: string,
-      updates: { name?: string; code?: string; basePrice?: number; estimatedTime?: string; iva?: string; category?: string }
+      updates: {
+        name?: string
+        code?: string
+        basePrice?: number
+        estimatedTime?: string
+        iva?: string
+        category?: string
+      }
     ): Promise<boolean> => {
       try {
         const supabase = createSupabaseBrowserClient()
         const payload: Record<string, unknown> = {}
         if (updates.name !== undefined) payload.name = updates.name
         if (updates.code !== undefined) payload.treatment_code = updates.code
-        if (updates.basePrice !== undefined) payload.standard_price = updates.basePrice
+        if (updates.basePrice !== undefined)
+          payload.standard_price = updates.basePrice
         if (updates.estimatedTime !== undefined)
           payload.default_duration_minutes = parseMinutes(updates.estimatedTime)
         if (updates.category !== undefined) payload.category = updates.category
@@ -3420,7 +3903,10 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           .eq('id', Number(id))
 
         if (error) {
-          console.warn('Error al actualizar tratamiento en service_catalog', error)
+          console.warn(
+            'Error al actualizar tratamiento en service_catalog',
+            error
+          )
           return false
         }
         return true
@@ -3441,15 +3927,20 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           .delete()
           .eq('id', Number(id))
         if (error) {
-          console.warn('Error al eliminar tratamiento de service_catalog', error)
+          console.warn(
+            'Error al eliminar tratamiento de service_catalog',
+            error
+          )
           return false
         }
         // Remove from local state
         setTreatmentCategories((prev) =>
-          prev.map((cat) => ({
-            ...cat,
-            treatments: cat.treatments.filter((t) => t.id !== id)
-          })).filter((cat) => cat.treatments.length > 0)
+          prev
+            .map((cat) => ({
+              ...cat,
+              treatments: cat.treatments.filter((t) => t.id !== id)
+            }))
+            .filter((cat) => cat.treatments.length > 0)
         )
         return true
       } catch (err) {
@@ -3469,10 +3960,14 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
 
   const freqUiToDb = (ui: string): string => {
     switch (ui) {
-      case 'Mensual': return 'monthly'
-      case 'Trimestral': return 'quarterly'
-      case 'Anual': return 'annual'
-      default: return 'one_time'
+      case 'Mensual':
+        return 'monthly'
+      case 'Trimestral':
+        return 'quarterly'
+      case 'Anual':
+        return 'annual'
+      default:
+        return 'one_time'
     }
   }
 
@@ -3485,7 +3980,8 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       if (activeClinicId) {
         void (async () => {
           const supabase = createSupabaseBrowserClient()
-          const categoryId = expenseCategoryMapRef.current.get(expense.categoria) || null
+          const categoryId =
+            expenseCategoryMapRef.current.get(expense.categoria) || null
           const { data, error } = await supabase
             .from('expenses')
             .insert({
@@ -3506,7 +4002,9 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             console.warn('[addExpense] DB error:', error.message)
           } else if (data) {
             setExpensesState((prev) =>
-              prev.map((e) => (e.id === tempId ? { ...e, id: String(data.id) } : e))
+              prev.map((e) =>
+                e.id === tempId ? { ...e, id: String(data.id) } : e
+              )
             )
           }
         })()
@@ -3522,19 +4020,29 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       )
       void (async () => {
         const supabase = createSupabaseBrowserClient()
-        const payload: Record<string, unknown> = { updated_at: new Date().toISOString() }
+        const payload: Record<string, unknown> = {
+          updated_at: new Date().toISOString()
+        }
         if (updates.nombre !== undefined) payload.description = updates.nombre
         if (updates.importe !== undefined) payload.amount = updates.importe
-        if (updates.frecuencia !== undefined) payload.frequency = freqUiToDb(updates.frecuencia)
+        if (updates.frecuencia !== undefined)
+          payload.frequency = freqUiToDb(updates.frecuencia)
         if (updates.categoria !== undefined) {
-          payload.category_id = expenseCategoryMapRef.current.get(updates.categoria) || null
+          payload.category_id =
+            expenseCategoryMapRef.current.get(updates.categoria) || null
           payload.expense_type = updates.categoria
         }
-        if (updates.fechaInicio !== undefined) payload.start_date = updates.fechaInicio || null
-        if (updates.fechaFin !== undefined) payload.end_date = updates.fechaFin || null
+        if (updates.fechaInicio !== undefined)
+          payload.start_date = updates.fechaInicio || null
+        if (updates.fechaFin !== undefined)
+          payload.end_date = updates.fechaFin || null
         if (updates.notas !== undefined) payload.notes = updates.notas || null
-        if (updates.estado !== undefined) payload.is_active = updates.estado === 'activo'
-        const { error } = await supabase.from('expenses').update(payload).eq('id', Number(id))
+        if (updates.estado !== undefined)
+          payload.is_active = updates.estado === 'activo'
+        const { error } = await supabase
+          .from('expenses')
+          .update(payload)
+          .eq('id', Number(id))
         if (error) console.warn('[updateExpense] DB error:', error.message)
       })()
     },
@@ -3545,53 +4053,17 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     setExpensesState((prev) => prev.filter((e) => e.id !== id))
     void (async () => {
       const supabase = createSupabaseBrowserClient()
-      const { error } = await supabase.from('expenses').delete().eq('id', Number(id))
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', Number(id))
       if (error) console.warn('[deleteExpense] DB error:', error.message)
     })()
   }, [])
 
-  const setRoles = useCallback((rolesOrUpdater: SetStateAction<ConfigRole[]>) => {
-    setRolesState(rolesOrUpdater)
-  }, [])
-
-  const toggleRolePermission = useCallback((roleId: string, permissionId: string) => {
-    // Determine new state
-    let isNowEnabled = false
-    setRolesState((prev) =>
-      prev.map((role) => {
-        if (role.id !== roleId) return role
-        const had = role.permisos.includes(permissionId)
-        isNowEnabled = !had
-        return {
-          ...role,
-          permisos: had
-            ? role.permisos.filter((id) => id !== permissionId)
-            : [...role.permisos, permissionId]
-        }
-      })
-    )
-
-    // Persist: permissionId format is "{dbPermId}-{action}"
-    const lastDash = permissionId.lastIndexOf('-')
-    if (lastDash === -1) return
-    const dbPermId = permissionId.slice(0, lastDash)
-    const action = permissionId.slice(lastDash + 1)
-    const colMap: Record<string, string> = { view: 'can_view', create: 'can_create', edit: 'can_edit', delete: 'can_delete' }
-    const column = colMap[action]
-    if (!column) return
-    void (async () => {
-      const supabase = createSupabaseBrowserClient()
-      const { error } = await supabase
-        .from('permissions')
-        .update({ [column]: isNowEnabled })
-        .eq('id', Number(dbPermId))
-      if (error) console.warn('[toggleRolePermission] DB error:', error.message)
-    })()
-  }, [])
-
-  const setPermissions = useCallback(
-    (permissionsOrUpdater: SetStateAction<ConfigPermission[]>) => {
-      setPermissionsState(permissionsOrUpdater)
+  const setRoles = useCallback(
+    (rolesOrUpdater: SetStateAction<ConfigRole[]>) => {
+      setRolesState(rolesOrUpdater)
     },
     []
   )
@@ -3672,10 +4144,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       deleteExpense,
       expenseCategories,
       roles,
-      setRoles,
-      toggleRolePermission,
-      permissions,
-      setPermissions
+      setRoles
     }),
     [
       clinicInfo,
@@ -3750,10 +4219,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       deleteExpense,
       expenseCategories,
       roles,
-      setRoles,
-      toggleRolePermission,
-      permissions,
-      setPermissions
+      setRoles
     ]
   )
 

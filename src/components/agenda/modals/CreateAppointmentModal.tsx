@@ -486,7 +486,14 @@ export default function CreateAppointmentModal({
   initialData
 }: CreateAppointmentModalProps) {
   const { isTimeSlotBlocked } = useAppointments()
-  const { activeProfessionals, agendaProfessionals, activeBoxes, isProfessionalAvailable, getProfessionalById } = useConfiguration()
+  const {
+    activeProfessionals,
+    agendaProfessionals,
+    activeBoxes,
+    isProfessionalAvailable,
+    getProfessionalById,
+    isExternalAvailableForDate
+  } = useConfiguration()
   const {
     getPatientsForSelect,
     getPendingTreatments,
@@ -548,7 +555,10 @@ export default function CreateAppointmentModal({
 
   useEffect(() => {
     let isMounted = true
-    if (!isOpen) return () => { isMounted = false }
+    if (!isOpen)
+      return () => {
+        isMounted = false
+      }
 
     void (async () => {
       try {
@@ -599,7 +609,10 @@ export default function CreateAppointmentModal({
       .map((t) => ({
         id: t.id,
         description: t.description,
-        amount: (t.amount / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €'
+        amount:
+          (t.amount / 100).toLocaleString('es-ES', {
+            minimumFractionDigits: 2
+          }) + ' €'
       }))
   }, [pendingTreatments])
 
@@ -660,7 +673,12 @@ export default function CreateAppointmentModal({
 
   // Check professional availability when form data changes
   useEffect(() => {
-    if (isBlockMode || !formData.responsable || !formData.fecha || !formData.hora) {
+    if (
+      isBlockMode ||
+      !formData.responsable ||
+      !formData.fecha ||
+      !formData.hora
+    ) {
       setScheduleWarning(null)
       return
     }
@@ -674,13 +692,24 @@ export default function CreateAppointmentModal({
       setScheduleWarning(null)
       return
     }
-    const isAvailable = isProfessionalAvailable(formData.responsable, dateObj, formData.hora)
+    const isAvailable = isProfessionalAvailable(
+      formData.responsable,
+      dateObj,
+      formData.hora
+    )
     if (!isAvailable) {
       setScheduleWarning(professional.name + ' no disponible en este horario')
     } else {
       setScheduleWarning(null)
     }
-  }, [formData.responsable, formData.fecha, formData.hora, isBlockMode, isProfessionalAvailable, getProfessionalById])
+  }, [
+    formData.responsable,
+    formData.fecha,
+    formData.hora,
+    isBlockMode,
+    isProfessionalAvailable,
+    getProfessionalById
+  ])
 
   const handleOpenCreatePatient = (name?: string) => {
     onClose()
@@ -762,16 +791,29 @@ export default function CreateAppointmentModal({
   }
 
   // Professionals from configuration context - MUST be before early return to avoid hooks order change
-  const responsables = useMemo(
-    () => [
+  const responsables = useMemo(() => {
+    let selectedDate: Date | null = null
+    if (formData.fecha) {
+      const [y, m, d] = formData.fecha.split('-').map(Number)
+      selectedDate = new Date(y, m - 1, d, 12, 0, 0, 0)
+    }
+
+    return [
       { value: '', label: 'Sin asignar' },
-      ...activeProfessionals.map((p) => ({
-        value: p.id,
-        label: p.employmentType === 'externo' ? `${p.name} (Ext.)` : p.name
-      }))
-    ],
-    [activeProfessionals]
-  )
+      ...activeProfessionals.map((p) => {
+        if (p.employmentType === 'externo' && selectedDate) {
+          const schedule = isExternalAvailableForDate(p.id, selectedDate)
+          if (schedule.available && schedule.startTime && schedule.endTime) {
+            return {
+              value: p.id,
+              label: `${p.name} · ${schedule.startTime} - ${schedule.endTime}`
+            }
+          }
+        }
+        return { value: p.id, label: p.name }
+      })
+    ]
+  }, [activeProfessionals, formData.fecha, isExternalAvailableForDate])
 
   // Boxes from configuration context - MUST be before early return to avoid hooks order change
   // value = b.id (UUID) so the caller can pass the ID directly to the DB without label lookup
@@ -1144,12 +1186,17 @@ export default function CreateAppointmentModal({
                               <p
                                 className={`text-xs ${treatment.professional ? 'text-gray-500' : 'text-gray-400 italic'}`}
                               >
-                                {treatment.professional || 'Sin profesional asignado'}
+                                {treatment.professional ||
+                                  'Sin profesional asignado'}
                               </p>
                             </div>
                             <div className='text-right'>
                               <p className='text-sm font-semibold text-gray-900'>
-                                {(treatment.amount / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+                                {(treatment.amount / 100).toLocaleString(
+                                  'es-ES',
+                                  { minimumFractionDigits: 2 }
+                                )}{' '}
+                                €
                               </p>
                             </div>
                           </button>
