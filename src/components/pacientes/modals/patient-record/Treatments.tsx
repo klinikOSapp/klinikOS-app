@@ -29,7 +29,6 @@ import {
   ALL_TEETH,
   FAMILY_TO_SPECIALTY,
   LOWER_TEETH,
-  TREATMENT_CATALOG,
   TREATMENT_ZONE_OPTIONS,
   UPPER_TEETH,
   ZONE_DB_VALUES,
@@ -328,6 +327,7 @@ type TreatmentRowProps = {
   onNewRowMounted?: () => void
   isHistoryTable?: boolean // HU-011: Flag to show history-specific columns (fechaRealizacion, facturado)
   professionals: Array<{ value: string; label: string }>
+  catalogLookup: Record<string, { description: string; amount: string }>
 }
 
 function TreatmentRow({
@@ -339,7 +339,8 @@ function TreatmentRow({
   isNewRow,
   onNewRowMounted,
   isHistoryTable = false,
-  professionals
+  professionals,
+  catalogLookup
 }: TreatmentRowProps) {
   const rowRef = React.useRef<HTMLTableRowElement>(null)
   const firstInputRef = React.useRef<HTMLInputElement>(null)
@@ -403,7 +404,7 @@ function TreatmentRow({
   const handleCodigoChange = (value: string) => {
     // Buscar en el catálogo (case insensitive)
     const upperCode = value.toUpperCase().trim()
-    const catalogEntry = TREATMENT_CATALOG[upperCode]
+    const catalogEntry = catalogLookup[upperCode]
 
     if (catalogEntry && onUpdateMultipleFields) {
       // Encontrado: autocompletar todos los campos de una sola vez
@@ -642,8 +643,22 @@ export default function Treatments({
   const router = useRouter()
 
   // Contexto de configuración
-  const { professionalNameOptions, activeProfessionals, addBudgetType } =
+  const { professionalNameOptions, activeProfessionals, addBudgetType, treatmentCategories } =
     useConfiguration()
+
+  // Build code→entry lookup from DB-sourced treatmentCategories
+  const treatmentCatalogLookup = React.useMemo(() => {
+    const map: Record<string, { description: string; amount: string }> = {}
+    for (const cat of treatmentCategories) {
+      for (const t of cat.treatments) {
+        map[t.code.toUpperCase()] = {
+          description: t.name,
+          amount: `${t.basePrice.toLocaleString('es-ES')} \u20AC`
+        }
+      }
+    }
+    return map
+  }, [treatmentCategories])
 
   const getSmartDoctor = React.useCallback(
     (familia?: string): string | undefined => {
@@ -1554,6 +1569,7 @@ export default function Treatments({
                       isNewRow={treatment._internalId === newRowId}
                       onNewRowMounted={() => setNewRowId(null)}
                       professionals={professionalNameOptions}
+                      catalogLookup={treatmentCatalogLookup}
                     />
                   ))}
                 </tbody>
@@ -1667,6 +1683,7 @@ export default function Treatments({
                       }
                       isHistoryTable={true}
                       professionals={professionalNameOptions}
+                      catalogLookup={treatmentCatalogLookup}
                     />
                   ))}
                 </tbody>

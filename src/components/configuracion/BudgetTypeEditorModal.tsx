@@ -5,7 +5,7 @@ import type {
   BudgetTypeData,
   BudgetTypeTreatment
 } from '@/components/pacientes/shared/budgetTypeData'
-import { TREATMENT_CATALOG } from '@/components/pacientes/shared/treatmentTypes'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -19,22 +19,6 @@ type BudgetTypeEditorModalProps = {
   editingBudgetType?: BudgetTypeData | null
 }
 
-// Convert TREATMENT_CATALOG to array for easier rendering
-const treatmentOptions = Object.entries(TREATMENT_CATALOG).map(
-  ([code, entry]) => ({
-    code,
-    description: entry.description,
-    price:
-      parseFloat(
-        entry.amount
-          .replace(/[^\d,.-]/g, '')
-          .replace('.', '')
-          .replace(',', '.')
-      ) || 0,
-    familia: entry.familia
-  })
-)
-
 // ============================================
 // Main Component
 // ============================================
@@ -44,6 +28,19 @@ export default function BudgetTypeEditorModal({
   onSave,
   editingBudgetType
 }: BudgetTypeEditorModalProps) {
+  const { treatmentCategories } = useConfiguration()
+
+  // Build treatment options from DB-sourced categories
+  const treatmentOptions = useMemo(() => {
+    return treatmentCategories.flatMap((cat) =>
+      cat.treatments.map((t) => ({
+        code: t.code,
+        description: t.name,
+        price: t.basePrice,
+        familia: cat.id
+      }))
+    )
+  }, [treatmentCategories])
   const [mounted, setMounted] = useState(false)
 
   // Form state

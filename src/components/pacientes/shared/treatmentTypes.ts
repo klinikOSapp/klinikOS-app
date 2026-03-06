@@ -135,18 +135,6 @@ export const ZONE_DISPLAY_LABELS: Record<string, string> = {
   INF: 'Inf.'
 }
 
-// Familias de tratamiento para filtros
-export const TREATMENT_FAMILIES = [
-  { value: 'corona', label: 'Corona' },
-  { value: 'endodoncia', label: 'Endodoncia' },
-  { value: 'ortodoncia', label: 'Ortodoncia' },
-  { value: 'periodoncia', label: 'Periodoncia' },
-  { value: 'cirugia', label: 'Cirugía' },
-  { value: 'estetica', label: 'Estética' },
-  { value: 'protesis', label: 'Prótesis' },
-  { value: 'diagnostico', label: 'Diagnóstico' }
-]
-
 // Áreas de tratamiento para filtros
 export const TREATMENT_AREAS = [
   { value: 'general', label: 'General' },
@@ -156,105 +144,11 @@ export const TREATMENT_AREAS = [
   { value: 'posterior', label: 'Posterior' }
 ]
 
-// Catálogo de tratamientos por acrónimo
+// Catálogo de tratamientos por acrónimo (type kept for CatalogoTratamientos)
 export type TreatmentCatalogEntry = {
   description: string
   amount: string
-  familia?: string // Para filtrado
-}
-
-export type TreatmentCatalog = {
-  [acronym: string]: TreatmentCatalogEntry
-}
-
-export const TREATMENT_CATALOG: TreatmentCatalog = {
-  // Coronas (del diseño Figma)
-  CORMC: {
-    description: 'Corona Metal Cerámica Fases',
-    amount: '500 €',
-    familia: 'corona'
-  },
-  CPDC: {
-    description: 'Corona Preformada Dentición Permanente',
-    amount: '140 €',
-    familia: 'corona'
-  },
-  CZ: {
-    description: 'Carilla de Zirconio',
-    amount: '500 €',
-    familia: 'corona'
-  },
-  COR: {
-    description: 'Corona dental',
-    amount: '600 €',
-    familia: 'corona'
-  },
-  // Tratamientos generales
-  LDE: {
-    description: 'Limpieza dental',
-    amount: '72 €',
-    familia: 'general'
-  },
-  BLD: {
-    description: 'Blanqueamiento dental',
-    amount: '200 €',
-    familia: 'estetica'
-  },
-  OPM: {
-    description: 'Operación mandíbula',
-    amount: '2.300 €',
-    familia: 'cirugia'
-  },
-  CI: {
-    description: 'Consulta inicial',
-    amount: '150 €',
-    familia: 'diagnostico'
-  },
-  RX: {
-    description: 'Radiografía',
-    amount: '100 €',
-    familia: 'diagnostico'
-  },
-  EXM: {
-    description: 'Extracción de muela',
-    amount: '500 €',
-    familia: 'cirugia'
-  },
-  IMP: {
-    description: 'Implante dental',
-    amount: '1.200 €',
-    familia: 'protesis'
-  },
-  FER: {
-    description: 'Férula de descarga',
-    amount: '300 €',
-    familia: 'protesis'
-  },
-  EMP: {
-    description: 'Empaste / Obturación',
-    amount: '80 €',
-    familia: 'general'
-  },
-  END: {
-    description: 'Endodoncia',
-    amount: '400 €',
-    familia: 'endodoncia'
-  },
-  ORT: {
-    description: 'Revisión ortodoncia',
-    amount: '120 €',
-    familia: 'ortodoncia'
-  },
-  PER: {
-    description: 'Tratamiento periodontal',
-    amount: '800 €',
-    familia: 'periodoncia'
-  },
-  CAR: {
-    description: 'Carillas estéticas',
-    amount: '350 €',
-    familia: 'estetica'
-  }
+  familia?: string
 }
 
 // Mapeo familia de tratamiento → especialidades profesionales compatibles

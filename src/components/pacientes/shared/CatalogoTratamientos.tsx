@@ -5,8 +5,6 @@ import { useConfiguration } from '@/context/ConfigurationContext'
 import React from 'react'
 import {
   TREATMENT_AREAS,
-  TREATMENT_CATALOG,
-  TREATMENT_FAMILIES,
   type TreatmentCatalogEntry
 } from './treatmentTypes'
 
@@ -113,7 +111,7 @@ export default function CatalogoTratamientos({
   selectedArea,
   compact = false
 }: CatalogoTratamientosProps) {
-  const { professionalNameOptions } = useConfiguration()
+  const { professionalNameOptions, treatmentCategories } = useConfiguration()
   const [searchTerm, setSearchTerm] = React.useState('')
   const [familyFilter, setFamilyFilter] = React.useState(selectedFamily || '')
   const [doctorFilter, setDoctorFilter] = React.useState(selectedDoctor || '')
@@ -124,22 +122,42 @@ export default function CatalogoTratamientos({
   const [showDoctorDropdown, setShowDoctorDropdown] = React.useState(false)
   const [showAreaDropdown, setShowAreaDropdown] = React.useState(false)
 
+  // Build flat catalog from DB-sourced treatmentCategories
+  const catalogEntries = React.useMemo(() => {
+    return treatmentCategories.flatMap((cat) =>
+      cat.treatments.map((t) => ({
+        codigo: t.code,
+        entry: {
+          description: t.name,
+          amount: `${t.basePrice.toLocaleString('es-ES')} \u20AC`,
+          familia: cat.id
+        } as TreatmentCatalogEntry
+      }))
+    )
+  }, [treatmentCategories])
+
+  // Derive family filter options from actual categories
+  const familyOptions = React.useMemo(() => {
+    return treatmentCategories.map((cat) => ({
+      value: cat.id,
+      label: cat.name
+    }))
+  }, [treatmentCategories])
+
   // Filtrar el catálogo
   const filteredCatalog = React.useMemo(() => {
-    return Object.entries(TREATMENT_CATALOG).filter(([codigo, entry]) => {
-      // Filtro por búsqueda
+    return catalogEntries.filter(({ codigo, entry }) => {
       const matchesSearch =
         searchTerm === '' ||
         codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
         entry.description.toLowerCase().includes(searchTerm.toLowerCase())
 
-      // Filtro por familia
       const matchesFamily =
         familyFilter === '' || entry.familia === familyFilter
 
       return matchesSearch && matchesFamily
     })
-  }, [searchTerm, familyFilter])
+  }, [catalogEntries, searchTerm, familyFilter])
 
   const handleTreatmentClick = (
     codigo: string,
@@ -156,7 +174,7 @@ export default function CatalogoTratamientos({
   }
 
   const familyLabel =
-    TREATMENT_FAMILIES.find((f) => f.value === familyFilter)?.label || 'Familia'
+    familyOptions.find((f) => f.value === familyFilter)?.label || 'Familia'
   const doctorLabel =
     professionalNameOptions.find((p) => p.value === doctorFilter)?.label ||
     'Doctor'
@@ -195,7 +213,7 @@ export default function CatalogoTratamientos({
                 >
                   Todos
                 </button>
-                {TREATMENT_FAMILIES.map((fam) => (
+                {familyOptions.map((fam) => (
                   <button
                     key={fam.value}
                     type='button'
@@ -341,7 +359,7 @@ export default function CatalogoTratamientos({
               : 'max-h-[10rem] overflow-y-auto'
           }
         >
-          {filteredCatalog.map(([codigo, entry]) => (
+          {filteredCatalog.map(({ codigo, entry }) => (
             <CatalogRow
               key={codigo}
               codigo={codigo}
