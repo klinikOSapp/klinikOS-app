@@ -260,24 +260,30 @@ function SelectField({
 }
 
 const ROLE_OPTIONS: { label: string; value: ProfessionalRole }[] = [
-  { label: 'Director', value: 'director' },
-  { label: 'Coordinador', value: 'coordinador' },
-  { label: 'Profesional', value: 'profesional' },
-  { label: 'Asistente', value: 'asistente' },
-  { label: 'Recepción', value: 'recepcion' }
+  { label: 'Gerencia', value: 'director' },
+  { label: 'Administración', value: 'recepcion' },
+  { label: 'Doctor', value: 'profesional' }
 ]
 
 const EMPLOYEE_SPECIALTIES: { label: string; value: string }[] = [
+  { label: 'Odontología general', value: 'Odontología general' },
   { label: 'Odontólogo', value: 'Odontólogo' },
   { label: 'Ortodoncista', value: 'Ortodoncista' },
-  { label: 'Higienista', value: 'Higienista' },
-  { label: 'Auxiliar', value: 'Auxiliar' },
-  { label: 'Recepcionista', value: 'Recepcionista' },
-  { label: 'Cirujano', value: 'Cirujano' },
+  { label: 'Higienista dental', value: 'Higienista dental' },
+  { label: 'Cirujano oral', value: 'Cirujano oral' },
   { label: 'Implantólogo', value: 'Implantólogo' },
   { label: 'Endodoncista', value: 'Endodoncista' },
-  { label: 'Periodoncista', value: 'Periodoncista' }
+  { label: 'Periodoncista', value: 'Periodoncista' },
+  { label: 'Prostodoncista', value: 'Prostodoncista' },
+  { label: 'Odontopediatra', value: 'Odontopediatra' }
 ]
+
+const ADMIN_SPECIALTIES: { label: string; value: string }[] = [
+  { label: 'Ninguna', value: '' },
+  { label: 'Higienista', value: 'Higienista dental' }
+]
+
+const NINGUNA_OPTION = { label: 'Ninguna', value: '' }
 
 const EXTERNAL_SPECIALTIES: { label: string; value: string }[] = [
   { label: 'Ortodoncista', value: 'Ortodoncista' },
@@ -296,7 +302,7 @@ const inicialForm: ProfessionalFormData = {
   telefono: '',
   email: '',
   role: 'profesional',
-  specialty: 'Odontólogo',
+  specialty: 'Odontología general',
   color: 'verde',
   estado: 'Activo',
   employmentType: 'empleado',
@@ -310,8 +316,8 @@ export default function AddProfessionalModal({
   open,
   onClose,
   onSubmit,
-  title = 'Nuevo profesional',
-  submitLabel = 'Añadir profesional',
+  title = 'Nuevo',
+  submitLabel = 'Añadir',
   initialData
 }: AddProfessionalModalProps) {
   const [form, setForm] = React.useState<ProfessionalFormData>({
@@ -334,9 +340,14 @@ export default function AddProfessionalModal({
     onSubmit(form)
   }
 
-  const specialtyOptions = form.employmentType === 'externo'
-    ? EXTERNAL_SPECIALTIES
-    : EMPLOYEE_SPECIALTIES
+  const specialtyOptions =
+    form.employmentType === 'externo'
+      ? EXTERNAL_SPECIALTIES
+      : form.role === 'recepcion'
+        ? ADMIN_SPECIALTIES
+        : form.role === 'director'
+          ? [NINGUNA_OPTION, ...EMPLOYEE_SPECIALTIES]
+          : EMPLOYEE_SPECIALTIES
 
   return (
     <Portal>
@@ -373,7 +384,7 @@ export default function AddProfessionalModal({
             <div className='mx-auto flex w-[min(49rem,calc(100%-2rem))] flex-col gap-[2.5rem] px-[2rem] py-[2.5rem]'>
               <section className='flex flex-col gap-[1rem]'>
                 <p className='font-inter text-[1.125rem] leading-[1.75rem] font-medium text-neutral-900'>
-                  Introduce los datos del nuevo especialista
+                  Introduce los datos
                 </p>
                 <div className='flex flex-col gap-[0.5rem]'>
                   <p className='font-inter text-[0.875rem] leading-[1.25rem] text-neutral-900'>
@@ -457,9 +468,18 @@ export default function AddProfessionalModal({
                     label='Rol'
                     required
                     value={form.role}
-                    onChange={(v) =>
-                      updateField('role')(v as ProfessionalRole)
-                    }
+                    onChange={(v) => {
+                      const newRole = v as ProfessionalRole
+                      const defaultSpec =
+                        newRole === 'recepcion' ? '' :
+                        newRole === 'director' ? '' :
+                        EMPLOYEE_SPECIALTIES[0].value
+                      setForm((prev) => ({
+                        ...prev,
+                        role: newRole,
+                        specialty: defaultSpec
+                      }))
+                    }}
                     helperText='Rol del profesional en la clínica'
                     options={ROLE_OPTIONS}
                     className='w-[min(23.75rem,100%)]'

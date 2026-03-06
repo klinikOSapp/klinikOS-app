@@ -361,12 +361,18 @@ export async function PATCH(
     }
 
     const roleChanged =
-      typeof updates.specialty === 'string' &&
-      updates.specialty.trim().length > 0 &&
-      updates.specialty !== body.previousRole
+      typeof updates.role === 'string' &&
+      updates.role.trim().length > 0
     if (roleChanged && clinicId) {
-      const staffRole = updates.is_external ? 'externo' : mapProfessionalRoleToUserRole(updates.specialty || 'doctor')
-      const roleSlug = slugifyRoleName(updates.specialty || '')
+      const roleMap: Record<string, string> = {
+        director: 'gerencia',
+        coordinador: 'gerencia',
+        profesional: 'doctor',
+        asistente: 'recepcion',
+        recepcion: 'recepcion'
+      }
+      const staffRole = updates.is_external ? 'externo' : (roleMap[updates.role!] || 'doctor')
+      const roleSlug = slugifyRoleName(updates.role || '')
       const roleClient =
         writerClientName === 'service_role' && supabaseAdmin
           ? (supabaseAdmin as unknown as typeof supabase)

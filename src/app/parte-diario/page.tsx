@@ -29,24 +29,17 @@ import {
   type Appointment,
   type PaymentInfo
 } from '@/context/AppointmentsContext'
+import {
+  professionalColorStyles,
+  useConfiguration
+} from '@/context/ConfigurationContext'
 import { useWaitTimer } from '@/hooks/useWaitTimer'
 import { useRouter } from 'next/navigation'
 import React from 'react'
 
 const CTA_WIDTH_REM = 7.3125 // 117px ÷ 16
 const CTA_HEIGHT_REM = 2.5 // 40px ÷ 16
-const DAILY_BANDS = [
-  {
-    id: 'odontologo',
-    label: 'Odontólogo 10:00 - 16:00',
-    background: '#f0fafa'
-  },
-  {
-    id: 'anestesista',
-    label: 'Anestesista 10:00 - 16:00',
-    background: '#fbe9fb'
-  }
-]
+// DAILY_BANDS removed — now computed dynamically from external specialist schedules
 
 function KpiCard({
   title,
@@ -816,12 +809,16 @@ export default function ParteDiarioPage() {
   const {
     appointments,
     getAppointmentsByDate,
+    getAppointmentsByDateRange,
     deleteAppointment,
     updateAppointment,
     updateVisitStatus,
     getVisitStatusCounts,
     toggleAppointmentConfirmed
   } = useAppointments()
+
+  const { getAvailableProfessionalsForDate, isExternalAvailableForDate } =
+    useConfiguration()
 
   const [query, setQuery] = React.useState('')
   type FilterKey = 'deuda' | 'confirmada'
@@ -923,6 +920,38 @@ export default function ParteDiarioPage() {
 
   // Formatear la fecha seleccionada para comparar con los datos (formato ISO)
   const selectedDateISO = formatDateToISO(selectedDate)
+
+  // Citas de la semana (lunes a domingo)
+  const weekAppointments = React.useMemo(() => {
+    const day = selectedDate.getDay()
+    const diffToMonday = day === 0 ? -6 : 1 - day
+    const monday = new Date(selectedDate)
+    monday.setDate(selectedDate.getDate() + diffToMonday)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    return getAppointmentsByDateRange(formatDateToISO(monday), formatDateToISO(sunday))
+  }, [selectedDate, getAppointmentsByDateRange])
+
+  // Dynamic specialist bands for the selected date
+  const dailyBands = React.useMemo(() => {
+    const available = getAvailableProfessionalsForDate(selectedDate)
+    return available.map((p) => {
+      const schedule = isExternalAvailableForDate(p.id, selectedDate)
+      const timeLabel =
+        schedule.startTime && schedule.endTime
+          ? ` ${schedule.startTime} - ${schedule.endTime}`
+          : ''
+      return {
+        id: p.id,
+        label: `${p.name}${timeLabel}`,
+        background: professionalColorStyles[p.colorTone]?.hex || '#6b7280'
+      }
+    })
+  }, [
+    selectedDate,
+    getAvailableProfessionalsForDate,
+    isExternalAvailableForDate
+  ])
 
   // Funciones para navegar entre días
   const goToPreviousDay = () => {
@@ -1308,21 +1337,23 @@ export default function ParteDiarioPage() {
         >
           <KpiCard
             title='Pacientes semana'
-            value={`${appointments.length}/75`}
+            value={`${weekAppointments.filter((a) => a.visitStatus !== 'scheduled').length}/${weekAppointments.length}`}
             badge={
-              <span className='text-body-md text-[var(--color-success-600)]'>
-                {Math.round((appointments.length / 75) * 100)}%
-              </span>
+              weekAppointments.length > 0 ? (
+                <span className='text-body-md text-[var(--color-success-600)]'>
+                  {Math.round(
+                    (weekAppointments.filter((a) => a.visitStatus !== 'scheduled').length /
+                      weekAppointments.length) *
+                      100
+                  )}
+                  %
+                </span>
+              ) : null
             }
           />
           <KpiCard
             title='Pacientes del día'
             value={String(patientsForSelectedDay.length)}
-            badge={
-              <span className='text-body-md text-[var(--color-success-600)]'>
-                +12%
-              </span>
-            }
           />
           <KpiCard
             title='Pacientes recibidos'
@@ -1370,24 +1401,30 @@ export default function ParteDiarioPage() {
         <div className='flex-shrink-0 mt-6'>
           <div className='flex items-center gap-4 flex-wrap'>
             <p className='text-body-md font-medium text-[var(--color-neutral-700)]'>
-              Profesionales hoy,{' '}
-              {new Date().toLocaleDateString('es-ES', {
+              Especialistas,{' '}
+              {selectedDate.toLocaleDateString('es-ES', {
                 day: 'numeric',
                 month: 'long'
               })}
             </p>
             <div className='flex items-center gap-4'>
-              {DAILY_BANDS.map((band) => (
-                <div key={band.id} className='flex items-center gap-2'>
-                  <span
-                    className='size-3 rounded-full'
-                    style={{ backgroundColor: band.background }}
-                  />
-                  <span className='text-body-sm text-[var(--color-neutral-700)]'>
-                    {band.label}
-                  </span>
-                </div>
-              ))}
+              {dailyBands.length === 0 ? (
+                <span className='text-body-sm text-[var(--color-neutral-500)]'>
+                  Sin especialistas externos este día
+                </span>
+              ) : (
+                dailyBands.map((band) => (
+                  <div key={band.id} className='flex items-center gap-2'>
+                    <span
+                      className='size-3 rounded-full'
+                      style={{ backgroundColor: band.background }}
+                    />
+                    <span className='text-body-sm text-[var(--color-neutral-700)]'>
+                      {band.label}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

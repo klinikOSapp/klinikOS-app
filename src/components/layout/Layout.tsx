@@ -1,7 +1,7 @@
 'use client'
 
 import { useClinic } from '@/context/ClinicContext'
-import { AllPermissions, PermissionAction, RoleContext, UserRole } from '@/context/role-context'
+import { AllPermissions, getPermissionsForRole, PermissionAction, RoleContext, UserRole } from '@/context/role-context'
 import {
   ArticleRounded,
   BadgeRounded,
@@ -215,13 +215,12 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
           if (!active) return
 
           if (legacyRole) {
-            const fallbackPerms = getFallbackPermissions(legacyRole as UserRole)
             setRoleInfo({
               roleId: null,
               roleName: legacyRole as string,
               roleDisplayName: legacyRole as string,
               isSystemRole: true,
-              permissions: fallbackPerms
+              permissions: {}
             })
           } else {
             setRoleInfo({
@@ -279,14 +278,19 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
     []
   )
 
-  // Helper function to check permissions
+  // Hardcoded permissions based on role name (ignores DB permissions)
+  const hardcodedPerms = React.useMemo(
+    () => getPermissionsForRole(roleInfo.roleName),
+    [roleInfo.roleName]
+  )
+
   const can = React.useCallback(
     (module: keyof AllPermissions, action: PermissionAction): boolean => {
-      const modulePerms = roleInfo.permissions[module]
+      const modulePerms = hardcodedPerms[module]
       if (!modulePerms) return false
       return modulePerms[action] ?? false
     },
-    [roleInfo.permissions]
+    [hardcodedPerms]
   )
 
   const roleContextValue = React.useMemo(
@@ -302,11 +306,11 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
       roleName: roleInfo.roleName,
       roleDisplayName: roleInfo.roleDisplayName,
       isSystemRole: roleInfo.isSystemRole,
-      permissions: roleInfo.permissions,
+      permissions: hardcodedPerms,
       can,
       isLoading
     }),
-    [roleInfo, can, isLoading]
+    [roleInfo, hardcodedPerms, can, isLoading]
   )
 
   const showCta = roleContextValue.canManageAppointments
@@ -416,45 +420,3 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
   )
 }
 
-// Fallback permissions for legacy roles (used when get_my_role_info fails)
-function getFallbackPermissions(role: UserRole): AllPermissions {
-  switch (role) {
-    case 'gerencia':
-      return {
-        patients: { view: true, create: true, edit: true, delete: true },
-        appointments: { view: true, create: true, edit: true, delete: true },
-        clinical_notes: { view: true, create: true, edit: true, delete: true },
-        invoices: { view: true, create: true, edit: true, delete: true },
-        payments: { view: true, create: true, edit: true, delete: true },
-        staff: { view: true, create: true, edit: true, delete: true },
-        settings: { view: true, create: true, edit: true, delete: true },
-        reports: { view: true, create: false, edit: false, delete: false },
-        expenses: { view: true, create: true, edit: true, delete: true },
-        calls: { view: true, create: true, edit: true, delete: true },
-        leads: { view: true, create: true, edit: true, delete: true }
-      }
-    case 'recepcion':
-      return {
-        patients: { view: true, create: true, edit: true, delete: false },
-        appointments: { view: true, create: true, edit: true, delete: true },
-        clinical_notes: { view: true, create: false, edit: false, delete: false },
-        invoices: { view: true, create: true, edit: true, delete: false },
-        payments: { view: true, create: true, edit: false, delete: false },
-        staff: { view: true, create: false, edit: false, delete: false },
-        reports: { view: true, create: false, edit: false, delete: false },
-        calls: { view: true, create: true, edit: true, delete: false },
-        leads: { view: true, create: true, edit: true, delete: false }
-      }
-    case 'doctor':
-    case 'higienista':
-      return {
-        patients: { view: true, create: false, edit: true, delete: false, custom: { medical_only: true } },
-        appointments: { view: true, create: false, edit: false, delete: false },
-        clinical_notes: { view: true, create: true, edit: true, delete: false },
-        staff: { view: true, create: false, edit: false, delete: false },
-        reports: { view: true, create: false, edit: false, delete: false }
-      }
-    default:
-      return {}
-  }
-}

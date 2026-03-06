@@ -23,7 +23,21 @@
       "mcp__supabase-saas__list_tables",
       "mcp__supabase-saas__list_migrations",
       "mcp__supabase-saas__execute_sql",
-      "mcp__supabase-VIJEPO__apply_migration"
+      "mcp__supabase-VIJEPO__apply_migration",
+      "Read(//Users/vicentebarberatormo/Desktop/VIJEPO TECH S.L./klinikOS/Migrations/klinikos-migrations/**)",
+      "Read(//Users/vicentebarberatormo/Desktop/VIJEPO\\\\ TECH\\\\ S.L./klinikOS/klinikos-app/src/components/configuracion/**)",
+      "Bash(node -e \":*)",
+      "Bash(wc -l src/app/api/configuration/staff/[staffId]/route.ts)",
+      "Read(//Users/vicentebarberatormo/Desktop/VIJEPO TECH S.L./klinikos-app/src/app/api/configuration/staff/[staffId]/**)",
+      "Read(//Users/vicentebarberatormo/Desktop/VIJEPO TECH S.L./klinikos-app/src/app/api/configuration/**)",
+      "Read(//Users/vicentebarberatormo/Desktop/VIJEPO TECH S.L./klinikOS/Migrations/**)",
+      "Read(//Users/vicentebarberatormo/Desktop/VIJEPO TECH S.L./klinikOS/**)",
+      "Read(//Users/vicentebarberatormo/Desktop/VIJEPO\\\\ TECH\\\\ S.L./klinikOS/klinikos-app/src/context/**)",
+      "Read(//Users/vicentebarberatormo/Desktop/VIJEPO\\\\ TECH\\\\ S.L./klinikOS/klinikos-app/src/components/agenda/**)",
+      "Read(//Users/vicentebarberatormo/Desktop/VIJEPO\\\\ TECH\\\\ S.L./klinikOS/klinikos-app/src/components/agenda/modals/**)",
+      "Read(//Users/vicentebarberatormo/Desktop/VIJEPO TECH S.L./klinikos-app/src/components/agenda/modals/**)",
+      "Read(//Users/vicentebarberatormo/Desktop/VIJEPO TECH S.L./klinikos-app/src/components/agenda/**)",
+      "Bash(npx next build)"
     ],
     "additionalDirectories": [
       "/tmp"
