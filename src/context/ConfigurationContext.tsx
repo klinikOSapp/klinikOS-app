@@ -1508,7 +1508,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
           return ai - bi
         })
 
-        // ── Discounts (clinic_discounts / discounts fallback) ──
+        // ── Discounts (clinic_discounts) ──
         let mappedDiscounts: ConfigDiscount[] = []
         const { data: discountRows, error: discountError } = await supabase
           .from('clinic_discounts')
@@ -1525,22 +1525,6 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             notes: String(row.notes || ''),
             isActive: row.is_active !== false
           }))
-        } else {
-          const { data: fallback, error: fallbackErr } = await supabase
-            .from('discounts')
-            .select('id, name, discount_type, value, notes, is_active')
-            .eq('clinic_id', selectedClinicId)
-            .order('name', { ascending: true })
-          if (!fallbackErr) {
-            mappedDiscounts = ((fallback || []) as Array<Record<string, unknown>>).map((row) => ({
-              id: String(row.id),
-              name: String(row.name || ''),
-              type: String(row.discount_type || 'percentage') === 'fixed' ? 'fixed' as const : 'percentage' as const,
-              value: Number(row.value || 0),
-              notes: String(row.notes || ''),
-              isActive: row.is_active !== false
-            }))
-          }
         }
 
         // ── Budget types (quote_templates / service_packages fallback) ──

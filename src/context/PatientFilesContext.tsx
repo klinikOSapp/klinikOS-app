@@ -37,53 +37,6 @@ export type PatientFile = {
   consentSentAt?: string
 }
 
-// ============================================
-// DATOS INICIALES (MOCK DATA)
-// ============================================
-
-const INITIAL_PATIENT_FILES: PatientFile[] = [
-  // Sample consent documents
-  {
-    id: 'pf-001',
-    patientId: 'pat-001',
-    name: 'Consentimiento general.pdf',
-    type: 'consent',
-    url: '/files/consent-general.pdf',
-    mimeType: 'application/pdf',
-    size: 245000,
-    uploadedAt: '2024-08-19T10:00:00Z',
-    uploadedBy: 'Dr. Antonio Ruiz',
-    consentStatus: 'Firmado',
-    consentSentAt: '19/08/2024'
-  },
-  {
-    id: 'pf-002',
-    patientId: 'pat-001',
-    name: 'Tratamiento de datos.pdf',
-    type: 'consent',
-    url: '/files/consent-datos.pdf',
-    mimeType: 'application/pdf',
-    size: 189000,
-    uploadedAt: '2024-08-19T10:00:00Z',
-    uploadedBy: 'Dr. Antonio Ruiz',
-    consentStatus: 'Firmado',
-    consentSentAt: '19/08/2024'
-  },
-  // Sample RX images
-  {
-    id: 'pf-003',
-    patientId: 'pat-001',
-    name: 'Periapical 2.6',
-    type: 'rx_image',
-    url: '',
-    mimeType: 'image/jpeg',
-    size: 1500000,
-    uploadedAt: '2025-06-24T09:00:00Z',
-    uploadedBy: 'Dr. Antonio Ruiz',
-    description: 'Caries distal profunda en 2.6, probable pulpitis reversible.'
-  }
-]
-
 type DbClinicalAttachmentRow = {
   id: number
   patient_id: string
