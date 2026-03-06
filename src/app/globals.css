@@ -666,31 +666,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(30, 73, 71, 0.8);
-  border-top-left-radius: var(--radius-xl);
-  transition: opacity 350ms ease-out;
-}
-
-.page-loading-overlay--exit {
-  opacity: 0;
   pointer-events: none;
 }
 
-.filmstrip-window {
-  width: clamp(200px, 28vw, 300px);
-  aspect-ratio: 1;
-  overflow: hidden;
-  position: relative;
-}
-
-.filmstrip-svg {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  height: 100%;
-  width: auto;
-  transition: transform 160ms ease-out;
-  filter: drop-shadow(0 0 12px rgba(81, 214, 199, 0.35));
+.loader-frame {
+  width: clamp(140px, 18vw, 200px);
+  height: auto;
+  filter: drop-shadow(0 0 10px rgba(81, 214, 199, 0.4));
 }
 
 /* ✅ Animación de checkmark para citas completadas */
