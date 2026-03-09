@@ -1,9 +1,9 @@
 'use client'
 
+import Portal from '@/components/ui/Portal'
+import { useClinic } from '@/context/ClinicContext'
 import { uploadPatientFile } from '@/lib/storage'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { useClinic } from '@/context/ClinicContext'
-import Portal from '@/components/ui/Portal'
 import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded'
 import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
@@ -249,12 +249,16 @@ export default function AddPatientModal({
   const [contactEmail, setContactEmail] = React.useState<string>('')
   const [contactPhone, setContactPhone] = React.useState<string>('')
   const [phonePrefix, setPhonePrefix] = React.useState<string>('+34')
-  const [emergencyContactName, setEmergencyContactName] = React.useState<string>('')
-  const [emergencyContactPhone, setEmergencyContactPhone] = React.useState<string>('')
-  const [emergencyContactEmail, setEmergencyContactEmail] = React.useState<string>('')
+  const [emergencyContactName, setEmergencyContactName] =
+    React.useState<string>('')
+  const [emergencyContactPhone, setEmergencyContactPhone] =
+    React.useState<string>('')
+  const [emergencyContactEmail, setEmergencyContactEmail] =
+    React.useState<string>('')
   const [adminNotas, setAdminNotas] = React.useState<string>('')
   const [saludAlergias, setSaludAlergias] = React.useState<AllergyEntry[]>([])
-  const [saludMedicamentosText, setSaludMedicamentosText] = React.useState<string>('')
+  const [saludMedicamentosText, setSaludMedicamentosText] =
+    React.useState<string>('')
   const [saludMotivoText, setSaludMotivoText] = React.useState<string>('')
   const [saludFearScale, setSaludFearScale] = React.useState<string>('')
   const [saludAccesibilidad, setSaludAccesibilidad] = React.useState<{
@@ -263,21 +267,27 @@ export default function AddPatientModal({
   }>({ movilidad: false, interprete: false })
   const [nombre, setNombre] = React.useState<string>('')
   const [apellidos, setApellidos] = React.useState<string>('')
-  const [tipoDocumento, setTipoDocumento] = React.useState<'DNI' | 'NIE' | 'Pasaporte' | 'Otro'>('DNI')
+  const [tipoDocumento, setTipoDocumento] = React.useState<
+    'DNI' | 'NIE' | 'Pasaporte' | 'Otro'
+  >('DNI')
   const [dni, setDni] = React.useState<string>('')
   const [sexo, setSexo] = React.useState<string>('')
   const [idioma, setIdioma] = React.useState<string>('')
   const [avatarFile, setAvatarFile] = React.useState<File | null>(null)
   const [clinicId, setClinicId] = React.useState<string | null>(null)
-  const [staffOptions, setStaffOptions] = React.useState<Array<{ label: string; value: string }>>(
-    []
-  )
-  const [selectedProfessionalId, setSelectedProfessionalId] = React.useState<string>('')
+  const [staffOptions, setStaffOptions] = React.useState<
+    Array<{ label: string; value: string }>
+  >([])
+  const [selectedProfessionalId, setSelectedProfessionalId] =
+    React.useState<string>('')
   const [leadSource, setLeadSource] = React.useState<string>('')
   const [coverageType, setCoverageType] = React.useState<string>('')
   const [insuranceProvider, setInsuranceProvider] = React.useState<string>('')
-  const [insurancePolicyNumber, setInsurancePolicyNumber] = React.useState<string>('')
-  const [insuranceExpiry, setInsuranceExpiry] = React.useState<Date | null>(null)
+  const [insurancePolicyNumber, setInsurancePolicyNumber] =
+    React.useState<string>('')
+  const [insuranceExpiry, setInsuranceExpiry] = React.useState<Date | null>(
+    null
+  )
   const [addressLine1, setAddressLine1] = React.useState<string>('')
   const [addressLine2, setAddressLine2] = React.useState<string>('')
   const [addressNumber, setAddressNumber] = React.useState<string>('')
@@ -287,8 +297,10 @@ export default function AddPatientModal({
   const [addressCountry, setAddressCountry] = React.useState<string>('')
   const [billCompanyName, setBillCompanyName] = React.useState<string>('')
   const [billCompanyTaxId, setBillCompanyTaxId] = React.useState<string>('')
-  const [preferredPaymentMethod, setPreferredPaymentMethod] = React.useState<string>('')
-  const [preferredFinancingOption, setPreferredFinancingOption] = React.useState<string>('')
+  const [preferredPaymentMethod, setPreferredPaymentMethod] =
+    React.useState<string>('')
+  const [preferredFinancingOption, setPreferredFinancingOption] =
+    React.useState<string>('')
 
   const [referidoPor, setReferidoPor] = React.useState<string>('')
 
@@ -366,7 +378,9 @@ export default function AddPatientModal({
           })()
         : null,
       email: contactEmail || null,
-      date_of_birth: selectedDate ? selectedDate.toISOString().slice(0, 10) : null,
+      date_of_birth: selectedDate
+        ? selectedDate.toISOString().slice(0, 10)
+        : null,
       national_id: dni || null,
       national_id_type: tipoDocumento || null,
       recommended_by: referidoPor || null,
@@ -420,18 +434,34 @@ export default function AddPatientModal({
           // Postgres includes the constraint name in quotes: ...constraint "xyz"
           const constraintMatch = msg.match(/constraint "([^"]+)"/)
           const constraintName = constraintMatch?.[1] ?? ''
-          console.error('Unique constraint violated:', constraintName, '| full error:', lastInsertError)
+          console.error(
+            'Unique constraint violated:',
+            constraintName,
+            '| full error:',
+            lastInsertError
+          )
 
           if (constraintName.includes('email') || msg.includes('email')) {
-            throw new Error(`Ya existe un paciente con ese email. Usa un email diferente o busca al paciente existente.`)
+            throw new Error(
+              `Ya existe un paciente con ese email. Usa un email diferente o busca al paciente existente.`
+            )
           }
-          if (constraintName.includes('national_id') || msg.includes('national_id')) {
-            throw new Error(`Ya existe un paciente con ese número de documento (DNI/NIE) en esta clínica.`)
+          if (
+            constraintName.includes('national_id') ||
+            msg.includes('national_id')
+          ) {
+            throw new Error(
+              `Ya existe un paciente con ese número de documento (DNI/NIE) en esta clínica.`
+            )
           }
           // Generic fallback — show constraint name so we can debug it
-          throw new Error(`Error de duplicado en la base de datos (${constraintName || 'constraint desconocida'}). Revisa los datos e inténtalo de nuevo.`)
+          throw new Error(
+            `Error de duplicado en la base de datos (${constraintName || 'constraint desconocida'}). Revisa los datos e inténtalo de nuevo.`
+          )
         }
-        throw new Error(lastInsertError?.message || 'No se pudo crear el paciente')
+        throw new Error(
+          lastInsertError?.message || 'No se pudo crear el paciente'
+        )
       }
 
       const patientId = insertedPatient?.id
@@ -439,7 +469,10 @@ export default function AddPatientModal({
 
       if (
         patientId &&
-        (insuranceProvider || insurancePolicyNumber || coverageType || insuranceExpiry)
+        (insuranceProvider ||
+          insurancePolicyNumber ||
+          coverageType ||
+          insuranceExpiry)
       ) {
         followUp.push(
           (async () => {
@@ -448,7 +481,9 @@ export default function AddPatientModal({
               provider: insuranceProvider || null,
               policy_number: insurancePolicyNumber || null,
               coverage_type: coverageType || null,
-              expiry_date: insuranceExpiry ? insuranceExpiry.toISOString().slice(0, 10) : null,
+              expiry_date: insuranceExpiry
+                ? insuranceExpiry.toISOString().slice(0, 10)
+                : null,
               metadata:
                 billCompanyName || billCompanyTaxId
                   ? {
@@ -467,7 +502,9 @@ export default function AddPatientModal({
           (async () => {
             await supabase.from('patient_health_profiles').upsert({
               patient_id: patientId,
-              allergies: saludAlergias.length ? saludAlergias.map((a) => a.name).join(', ') : null,
+              allergies: saludAlergias.length
+                ? saludAlergias.map((a) => a.name).join(', ')
+                : null,
               medications: saludMedicamentosText || null,
               main_complaint: saludMotivoText || null,
               fear_scale: saludFearScale ? Number(saludFearScale) : null,
@@ -497,11 +534,13 @@ export default function AddPatientModal({
         description: a.name,
         is_critical: a.severity === 'grave' || a.severity === 'extrema',
         category: 'allergy',
-        severity: (
-          a.severity === 'extrema' ? 'high' :
-          a.severity === 'grave' ? 'high' :
-          a.severity === 'moderada' ? 'medium' : 'low'
-        ) as 'low' | 'medium' | 'high'
+        severity: (a.severity === 'extrema'
+          ? 'high'
+          : a.severity === 'grave'
+            ? 'high'
+            : a.severity === 'moderada'
+              ? 'medium'
+              : 'low') as 'low' | 'medium' | 'high'
       }))
       alerts.push(...allergyEntries)
 
@@ -559,16 +598,14 @@ export default function AddPatientModal({
       if (patientId && alerts.length) {
         followUp.push(
           (async () => {
-            await supabase
-              .from('patient_medical_alerts')
-              .insert(
-                alerts.map((alert) => ({
-                  ...alert,
-                  category: alert.category ?? null,
-                  severity: alert.severity ?? null,
-                  patient_id: patientId
-                }))
-              )
+            await supabase.from('patient_medical_alerts').insert(
+              alerts.map((alert) => ({
+                ...alert,
+                category: alert.category ?? null,
+                severity: alert.severity ?? null,
+                patient_id: patientId
+              }))
+            )
           })()
         )
       }
@@ -582,7 +619,10 @@ export default function AddPatientModal({
                 file: avatarFile,
                 kind: 'avatar'
               })
-              await supabase.from('patients').update({ avatar_url: path }).eq('id', patientId)
+              await supabase
+                .from('patients')
+                .update({ avatar_url: path })
+                .eq('id', patientId)
             } catch (avatarError) {
               console.error('Error uploading avatar', avatarError)
             }
@@ -595,8 +635,16 @@ export default function AddPatientModal({
         followUp.push(
           (async () => {
             const consentRows = [
-              { patient_id: patientId, consent_type: 'informativo_general', status: 'pending' },
-              { patient_id: patientId, consent_type: 'proteccion_datos', status: 'pending' },
+              {
+                patient_id: patientId,
+                consent_type: 'informativo_general',
+                status: 'pending'
+              },
+              {
+                patient_id: patientId,
+                consent_type: 'proteccion_datos',
+                status: 'pending'
+              },
               {
                 patient_id: patientId,
                 consent_type: 'cesion_imagenes',
@@ -604,48 +652,96 @@ export default function AddPatientModal({
                 signed_at: imagenesMarketing ? new Date().toISOString() : null
               }
             ]
-            const { error } = await supabase.from('patient_consents').insert(consentRows)
+            const { error } = await supabase
+              .from('patient_consents')
+              .insert(consentRows)
             if (error) console.warn('Error saving patient_consents', error)
           })()
         )
 
         // Upload attachment files and save to clinical_attachments
         // Use getSession() (local read, no network) to reliably get the user ID
-        const { data: { session } } = await supabase.auth.getSession()
+        const {
+          data: { session }
+        } = await supabase.auth.getSession()
         const staffId = session?.user?.id
         if (staffId) {
-          const attachments: Array<{ file: File; kind: 'rx' | 'consents'; label: string }> = [
-            ...(derivacionFile ? [{ file: derivacionFile, kind: 'consents' as const, label: 'derivacion' }] : []),
-            ...(informesFile ? [{ file: informesFile, kind: 'consents' as const, label: 'informes' }] : []),
-            ...(rxFile ? [{ file: rxFile, kind: 'rx' as const, label: 'rx' }] : []),
-            ...(fotosFile ? [{ file: fotosFile, kind: 'consents' as const, label: 'fotos_seguro' }] : [])
+          const attachments: Array<{
+            file: File
+            kind: 'rx' | 'consents'
+            label: string
+          }> = [
+            ...(derivacionFile
+              ? [
+                  {
+                    file: derivacionFile,
+                    kind: 'consents' as const,
+                    label: 'derivacion'
+                  }
+                ]
+              : []),
+            ...(informesFile
+              ? [
+                  {
+                    file: informesFile,
+                    kind: 'consents' as const,
+                    label: 'informes'
+                  }
+                ]
+              : []),
+            ...(rxFile
+              ? [{ file: rxFile, kind: 'rx' as const, label: 'rx' }]
+              : []),
+            ...(fotosFile
+              ? [
+                  {
+                    file: fotosFile,
+                    kind: 'consents' as const,
+                    label: 'fotos_seguro'
+                  }
+                ]
+              : [])
           ]
           for (const att of attachments) {
             followUp.push(
               (async () => {
                 try {
-                  const { path } = await uploadPatientFile({ patientId, file: att.file, kind: att.kind })
-                  // Save to clinical_attachments
-                  const { error: insertError } = await supabase.from('clinical_attachments').insert({
-                    patient_id: patientId,
-                    staff_id: staffId,
-                    file_name: att.file.name,
-                    file_type: att.file.type || null,
-                    storage_path: path
+                  const { path } = await uploadPatientFile({
+                    patientId,
+                    file: att.file,
+                    kind: att.kind
                   })
+                  // Save to clinical_attachments
+                  const { error: insertError } = await supabase
+                    .from('clinical_attachments')
+                    .insert({
+                      patient_id: patientId,
+                      staff_id: staffId,
+                      file_name: att.file.name,
+                      file_type: att.file.type || null,
+                      storage_path: path
+                    })
                   if (insertError) {
-                    console.error(`Error saving ${att.label} to clinical_attachments`, insertError)
+                    console.error(
+                      `Error saving ${att.label} to clinical_attachments`,
+                      insertError
+                    )
                   }
                   // Also insert a patient_consents record so the file appears in the Documentos tab
-                  const { error: consentInsertError } = await supabase.from('patient_consents').insert({
-                    patient_id: patientId,
-                    consent_type: att.label,
-                    status: 'signed',
-                    signed_at: new Date().toISOString(),
-                    document_url: path
-                  })
+                  const { error: consentInsertError } = await supabase
+                    .from('patient_consents')
+                    .insert({
+                      patient_id: patientId,
+                      consent_type: att.label,
+                      status: 'signed',
+                      signed_at: new Date().toISOString(),
+                      document_url: path
+                    })
                   if (consentInsertError) {
-                    console.error(`Error saving ${att.label} to patient_consents`, consentInsertError)
+                    console.error(
+                      `Error saving ${att.label} to patient_consents`,
+                      consentInsertError
+                    )
                   }
                 } catch (attachError) {
                   console.error(`Error uploading ${att.label}`, attachError)
@@ -663,7 +759,10 @@ export default function AddPatientModal({
       try {
         await Promise.all(followUp)
       } catch (followUpErr) {
-        console.error('Some follow-up operations failed (patient was still created):', followUpErr)
+        console.error(
+          'Some follow-up operations failed (patient was still created):',
+          followUpErr
+        )
       }
 
       // Create a contact record and link it as the patient's primary contact.
@@ -676,7 +775,8 @@ export default function AddPatientModal({
             .from('contacts')
             .insert({
               id: contactId,
-              full_name: `${nombre} ${apellidos}`.trim() || nombre || apellidos || '—',
+              full_name:
+                `${nombre} ${apellidos}`.trim() || nombre || apellidos || '—',
               phone_primary: payload.phone_number || null,
               email: contactEmail || null
             })
@@ -709,7 +809,10 @@ export default function AddPatientModal({
       onClose()
     } catch (error) {
       console.error('Error creating patient', error)
-      const message = error instanceof Error ? error.message : 'No se pudo crear el paciente. Intenta nuevamente.'
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'No se pudo crear el paciente. Intenta nuevamente.'
       alert(message)
     }
   }
@@ -752,287 +855,353 @@ export default function AddPatientModal({
       ? 'var(--color-brand-500)'
       : 'var(--color-neutral-300)'
   }
+  const modalVisualScale = 0.92
 
   return (
     <Portal>
-    <div
-      className='fixed inset-0 z-50 bg-black/30'
-      onClick={onClose}
-      aria-hidden
-    >
-      <div className='absolute inset-0 flex items-start justify-center p-8'>
-        <div
-          role='dialog'
-          aria-modal='true'
-          onClick={(e) => e.stopPropagation()}
-        >
+      <div
+        className='fixed inset-0 z-50 bg-black/30'
+        onClick={onClose}
+        aria-hidden
+      >
+        <div className='absolute inset-0 flex items-start justify-center p-8'>
           <div
-            className='w-[68.25rem] h-[59.75rem] max-w-[92vw] max-h-[85vh] shrink-0 relative bg-[var(--color-surface-modal,#fff)] rounded-[1rem] overflow-hidden flex items-start justify-center'
-            style={{
-              width: 'min(68.25rem, calc(68.25rem * (85vh / 60rem)))',
-              height: 'min(59.75rem, calc(59.75rem * (85vh / 60rem)))'
-            }}
+            role='dialog'
+            aria-modal='true'
+            onClick={(e) => e.stopPropagation()}
           >
-            {/* Scaled content to always fit within 85vh without scroll */}
-            <div
-              className='relative w-[68.25rem] h-[60rem]'
-              style={{
-                transform: 'scale(min(1, calc(85vh / 60rem)))',
-                transformOrigin: 'top left'
-              }}
-            >
-              <div className='w-[68.25rem] h-14 px-8 left-0 top-0 absolute border-b border-[var(--color-neutral-300)] inline-flex justify-between items-center'>
-                <div className='justify-start text-[var(--color-neutral-900)] text-title-lg font-sans'>
-                  Formulario de creación de usuarios
+            <div className='relative h-[min(55.2rem,85vh)] w-[min(62.79rem,92vw)] shrink-0 overflow-hidden rounded-[1rem] bg-[var(--color-surface-modal,#fff)]'>
+              <div
+                className='flex flex-col w-[68.25rem]'
+                style={{
+                  transform: `scale(${modalVisualScale})`,
+                  transformOrigin: 'top left',
+                  height: `calc(100% / ${modalVisualScale})`
+                }}
+              >
+                {/* Header */}
+                <div className='w-full h-14 px-8 shrink-0 border-b border-[var(--color-neutral-300)] inline-flex justify-between items-center'>
+                  <div className='justify-start text-[var(--color-neutral-900)] text-title-lg font-sans'>
+                    Formulario de creación de usuarios
+                  </div>
+                  <button
+                    type='button'
+                    aria-label='Cerrar'
+                    onClick={onClose}
+                    className='w-3.5 h-3.5'
+                  >
+                    <CloseRounded className='block w-3.5 h-3.5' />
+                  </button>
                 </div>
-                <button
-                  type='button'
-                  aria-label='Cerrar'
-                  onClick={onClose}
-                  className='w-3.5 h-3.5'
-                >
-                  <CloseRounded className='block w-3.5 h-3.5' />
-                </button>
-              </div>
 
-              {(
-                [
-                  { name: 'paciente', label: 'Paciente', top: '6rem', hasLine: true },
-                  { name: 'contacto', label: 'Contacto', top: '9rem', hasLine: true },
-                  { name: 'administrativo', label: 'Administrativo', top: '12rem', hasLine: true },
-                  { name: 'salud', label: 'Salud', top: '15rem', hasLine: true },
-                  { name: 'consentimientos', label: 'Consentimientos', top: '18rem', hasLine: true },
-                  { name: 'resumen', label: 'Resumen', top: '21rem', hasLine: false }
-                ] as const
-              ).map(({ name, label, top, hasLine }) => (
-                <div
-                  key={name}
-                  className='left-[2rem] absolute inline-flex justify-start items-start gap-3 cursor-pointer'
-                  style={{ top }}
-                  role='button'
-                  tabIndex={0}
-                  onClick={() => setStep(name)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') setStep(name)
-                  }}
-                >
-                  <div className='w-6 h-12 relative'>
-                    <div className='w-6 h-6 left-0 top-0 absolute'>
-                      {getStepIcon(name)}
+                {/* Body */}
+                <div className='flex-1 relative overflow-hidden min-h-0'>
+                  {(
+                    [
+                      {
+                        name: 'paciente',
+                        label: 'Paciente',
+                        top: '2.5rem',
+                        hasLine: true
+                      },
+                      {
+                        name: 'contacto',
+                        label: 'Contacto',
+                        top: '5.5rem',
+                        hasLine: true
+                      },
+                      {
+                        name: 'administrativo',
+                        label: 'Administrativo',
+                        top: '8.5rem',
+                        hasLine: true
+                      },
+                      {
+                        name: 'salud',
+                        label: 'Salud',
+                        top: '11.5rem',
+                        hasLine: true
+                      },
+                      {
+                        name: 'consentimientos',
+                        label: 'Consentimientos',
+                        top: '14.5rem',
+                        hasLine: true
+                      },
+                      {
+                        name: 'resumen',
+                        label: 'Resumen',
+                        top: '17.5rem',
+                        hasLine: false
+                      }
+                    ] as const
+                  ).map(({ name, label, top, hasLine }) => (
+                    <div
+                      key={name}
+                      className='left-[2rem] absolute inline-flex justify-start items-start gap-3 cursor-pointer'
+                      style={{ top }}
+                      role='button'
+                      tabIndex={0}
+                      onClick={() => setStep(name)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') setStep(name)
+                      }}
+                    >
+                      <div className='w-6 h-12 relative'>
+                        <div className='w-6 h-6 left-0 top-0 absolute'>
+                          {getStepIcon(name)}
+                        </div>
+                        {hasLine && (
+                          <span
+                            className='absolute left-[0.625rem] top-[1.625rem] block h-[1.375rem] w-[0.125rem]'
+                            style={{
+                              backgroundColor: getConnectorColor(name)
+                            }}
+                          />
+                        )}
+                      </div>
+                      <div className='justify-start text-[var(--color-neutral-900)] text-title-sm font-sans'>
+                        {label}
+                      </div>
                     </div>
-                    {hasLine && (
-                      <span
-                        className='absolute left-[0.625rem] top-[1.625rem] block h-[1.375rem] w-[0.125rem]'
-                        style={{ backgroundColor: getConnectorColor(name) }}
+                  ))}
+
+                  <div
+                    data-property-1='Default'
+                    className='w-[35.5rem] left-[14.3125rem] top-[2.5rem] absolute inline-flex flex-col justify-start items-start gap-2'
+                  >
+                    <div className='inline-flex justify-start items-center gap-2'>
+                      <div className='justify-start text-[var(--color-neutral-900)] text-title-lg font-sans'>
+                        {step === 'contacto'
+                          ? 'Contacto y consentimientos rápidos'
+                          : step === 'administrativo'
+                            ? 'Datos administrativos'
+                            : step === 'salud'
+                              ? 'Salud'
+                              : step === 'consentimientos'
+                                ? 'Documentos y consentimientos'
+                                : step === 'resumen'
+                                  ? 'Resumen'
+                                  : 'Datos básicos del paciente'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Scrollable content area */}
+                  <div className='absolute left-0 top-[6rem] bottom-0 w-[68.25rem]'>
+                    {step === 'paciente' && (
+                      <div className='h-full overflow-y-auto overflow-x-hidden'>
+                        <div className='relative min-h-[48rem] w-[68.25rem]'>
+                          <AddPatientStepPaciente
+                            nombre={nombre}
+                            onChangeNombre={setNombre}
+                            apellidos={apellidos}
+                            onChangeApellidos={setApellidos}
+                            fechaNacimiento={selectedDate}
+                            onChangeFechaNacimiento={(d) => setSelectedDate(d)}
+                            tipoDocumento={tipoDocumento}
+                            onChangeTipoDocumento={setTipoDocumento}
+                            dni={dni}
+                            onChangeDni={setDni}
+                            sexo={sexo}
+                            onChangeSexo={setSexo}
+                            idioma={idioma}
+                            onChangeIdioma={setIdioma}
+                            onAvatarSelected={setAvatarFile}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {step === 'contacto' && (
+                      <AddPatientStepContacto
+                        recordatorios={contactoToggles.recordatorios}
+                        onChangeRecordatorios={(v) =>
+                          setContactoToggles((p) => ({
+                            ...p,
+                            recordatorios: v
+                          }))
+                        }
+                        marketing={contactoToggles.marketing}
+                        onChangeMarketing={(v) =>
+                          setContactoToggles((p) => ({ ...p, marketing: v }))
+                        }
+                        phonePrefix={phonePrefix}
+                        onChangePhonePrefix={setPhonePrefix}
+                        telefono={contactPhone}
+                        onChangeTelefono={setContactPhone}
+                        email={contactEmail}
+                        onChangeEmail={setContactEmail}
+                        emergencyName={emergencyContactName}
+                        onChangeEmergencyName={setEmergencyContactName}
+                        emergencyPhone={emergencyContactPhone}
+                        onChangeEmergencyPhone={setEmergencyContactPhone}
+                        emergencyEmail={emergencyContactEmail}
+                        onChangeEmergencyEmail={setEmergencyContactEmail}
+                        referidoPor={referidoPor}
+                        onChangeReferidoPor={setReferidoPor}
                       />
                     )}
-                  </div>
-                  <div className='justify-start text-[var(--color-neutral-900)] text-title-sm font-sans'>
-                    {label}
+
+                    {step === 'administrativo' && (
+                      <AddPatientStepAdministrativo
+                        facturaEmpresa={adminFacturaEmpresa}
+                        onChangeFacturaEmpresa={setAdminFacturaEmpresa}
+                        notas={adminNotas}
+                        onChangeNotas={setAdminNotas}
+                        staffOptions={staffOptions}
+                        selectedStaffId={selectedProfessionalId}
+                        onChangeStaff={setSelectedProfessionalId}
+                        leadSource={leadSource}
+                        onChangeLeadSource={setLeadSource}
+                        coverageType={coverageType}
+                        onChangeCoverageType={setCoverageType}
+                        insuranceProvider={insuranceProvider}
+                        onChangeInsuranceProvider={setInsuranceProvider}
+                        insurancePolicyNumber={insurancePolicyNumber}
+                        onChangeInsurancePolicyNumber={
+                          setInsurancePolicyNumber
+                        }
+                        insuranceExpiry={insuranceExpiry}
+                        onChangeInsuranceExpiry={(date: Date) =>
+                          setInsuranceExpiry(date)
+                        }
+                        addressLine1={addressLine1}
+                        onChangeAddressLine1={setAddressLine1}
+                        addressLine2={addressLine2}
+                        onChangeAddressLine2={setAddressLine2}
+                        addressNumber={addressNumber}
+                        onChangeAddressNumber={setAddressNumber}
+                        addressState={addressState}
+                        onChangeAddressState={setAddressState}
+                        addressCity={addressCity}
+                        onChangeAddressCity={setAddressCity}
+                        addressPostalCode={addressPostalCode}
+                        onChangeAddressPostalCode={setAddressPostalCode}
+                        addressCountry={addressCountry}
+                        onChangeAddressCountry={setAddressCountry}
+                        billCompanyName={billCompanyName}
+                        onChangeBillCompanyName={setBillCompanyName}
+                        billCompanyTaxId={billCompanyTaxId}
+                        onChangeBillCompanyTaxId={setBillCompanyTaxId}
+                        preferredPaymentMethod={preferredPaymentMethod}
+                        onChangePreferredPaymentMethod={
+                          setPreferredPaymentMethod
+                        }
+                        preferredFinancingOption={preferredFinancingOption}
+                        onChangePreferredFinancingOption={
+                          setPreferredFinancingOption
+                        }
+                      />
+                    )}
+
+                    {step === 'salud' && (
+                      <SaludComp
+                        embarazo={saludToggles.embarazo}
+                        onChangeEmbarazo={(v: boolean) =>
+                          setSaludToggles((p) => ({ ...p, embarazo: v }))
+                        }
+                        tabaquismo={saludToggles.tabaquismo}
+                        onChangeTabaquismo={(v: boolean) =>
+                          setSaludToggles((p) => ({ ...p, tabaquismo: v }))
+                        }
+                        alergias={saludAlergias}
+                        onChangeAlergias={setSaludAlergias}
+                        medicamentosText={saludMedicamentosText}
+                        onChangeMedicamentosText={setSaludMedicamentosText}
+                        motivoConsulta={saludMotivoText}
+                        onChangeMotivoConsulta={setSaludMotivoText}
+                        fearScale={saludFearScale}
+                        onChangeFearScale={setSaludFearScale}
+                        mobilityRestricted={saludAccesibilidad.movilidad}
+                        onChangeMobilityRestricted={(v: boolean) =>
+                          setSaludAccesibilidad((p) => ({
+                            ...p,
+                            movilidad: v
+                          }))
+                        }
+                        needsInterpreter={saludAccesibilidad.interprete}
+                        onChangeNeedsInterpreter={(v: boolean) =>
+                          setSaludAccesibilidad((p) => ({
+                            ...p,
+                            interprete: v
+                          }))
+                        }
+                      />
+                    )}
+
+                    {step === 'consentimientos' && (
+                      <AddPatientStepConsentimientos
+                        imagenesMarketing={imagenesMarketing}
+                        onChangeImagenesMarketing={setImagenesMarketing}
+                        derivacionFile={derivacionFile}
+                        onChangeDerivacionFile={setDerivacionFile}
+                        informesFile={informesFile}
+                        onChangeInformesFile={setInformesFile}
+                        rxFile={rxFile}
+                        onChangeRxFile={setRxFile}
+                        fotosFile={fotosFile}
+                        onChangeFotosFile={setFotosFile}
+                      />
+                    )}
+
+                    {step === 'resumen' && (
+                      <div className='h-full overflow-y-auto overflow-x-hidden'>
+                        <div className='relative min-h-[30rem] w-[68.25rem]'>
+                          <AddPatientStepResumen
+                            nombre={nombre}
+                            apellidos={apellidos}
+                            email={contactEmail}
+                            telefono={
+                              contactPhone
+                                ? `${phonePrefix}${contactPhone.replace(/\s/g, '').replace(/^0+/, '')}`
+                                : undefined
+                            }
+                            anotaciones={adminNotas}
+                            alergiasConSeveridad={saludAlergias}
+                            recordatorios={contactoToggles.recordatorios}
+                            marketing={contactoToggles.marketing}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              ))}
 
-              <div
-                data-property-1='Default'
-                className='w-[35.5rem] left-[14.3125rem] top-[6rem] absolute inline-flex flex-col justify-start items-start gap-2'
-              >
-                <div className='inline-flex justify-start items-center gap-2'>
-                  <div className='justify-start text-[var(--color-neutral-900)] text-title-lg font-sans'>
-                    {step === 'contacto'
-                      ? 'Contacto y consentimientos rápidos'
-                      : step === 'administrativo'
-                      ? 'Datos administrativos'
-                      : step === 'salud'
-                      ? 'Salud'
-                      : step === 'consentimientos'
-                      ? 'Documentos y consentimientos'
-                      : step === 'resumen'
-                      ? 'Resumen'
-                      : 'Datos básicos del paciente'}
+                {/* Footer - always visible */}
+                <div className='shrink-0 pl-[18.375rem] pr-8 pt-3 pb-4'>
+                  <div className='w-[31.5rem] border-t border-[var(--color-neutral-400)]' />
+                  <div className='flex items-center mt-4 w-[31.5rem]'>
+                    {step !== 'paciente' && (
+                      <button
+                        type='button'
+                        onClick={handleBack}
+                        className='inline-flex h-[2.5rem] w-[13.4375rem] cursor-pointer items-center justify-center gap-[0.5rem] rounded-full border border-[var(--color-brand-500)] bg-[var(--color-neutral-50)] px-[1rem] text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-100)]'
+                      >
+                        Volver
+                      </button>
+                    )}
+                    <button
+                      type='button'
+                      onClick={() => {
+                        if (step === 'resumen') {
+                          void handleCreatePatient()
+                        } else {
+                          handleContinue()
+                        }
+                      }}
+                      className='w-[13.4375rem] px-4 py-2 ml-auto cursor-pointer bg-[var(--color-brand-500)] rounded-[8.5rem] border border-[var(--color-brand-500)] inline-flex justify-center items-center gap-2 text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-400)]'
+                    >
+                      {step === 'resumen' ? 'Crear paciente' : 'Continuar'}
+                      <ArrowForwardRounded className='w-6 h-6' />
+                    </button>
                   </div>
                 </div>
               </div>
-
-              {step === 'paciente' && (
-                <AddPatientStepPaciente
-                  nombre={nombre}
-                  onChangeNombre={setNombre}
-                  apellidos={apellidos}
-                  onChangeApellidos={setApellidos}
-                  fechaNacimiento={selectedDate}
-                  onChangeFechaNacimiento={(d) => setSelectedDate(d)}
-                  tipoDocumento={tipoDocumento}
-                  onChangeTipoDocumento={setTipoDocumento}
-                  dni={dni}
-                  onChangeDni={setDni}
-                  sexo={sexo}
-                  onChangeSexo={setSexo}
-                  idioma={idioma}
-                  onChangeIdioma={setIdioma}
-                  onAvatarSelected={setAvatarFile}
-                />
-              )}
-
-              {step === 'contacto' && (
-                <AddPatientStepContacto
-                  recordatorios={contactoToggles.recordatorios}
-                  onChangeRecordatorios={(v) =>
-                    setContactoToggles((p) => ({ ...p, recordatorios: v }))
-                  }
-                  marketing={contactoToggles.marketing}
-                  onChangeMarketing={(v) =>
-                    setContactoToggles((p) => ({ ...p, marketing: v }))
-                  }
-                  phonePrefix={phonePrefix}
-                  onChangePhonePrefix={setPhonePrefix}
-                  telefono={contactPhone}
-                  onChangeTelefono={setContactPhone}
-                  email={contactEmail}
-                  onChangeEmail={setContactEmail}
-                  emergencyName={emergencyContactName}
-                  onChangeEmergencyName={setEmergencyContactName}
-                  emergencyPhone={emergencyContactPhone}
-                  onChangeEmergencyPhone={setEmergencyContactPhone}
-                  emergencyEmail={emergencyContactEmail}
-                  onChangeEmergencyEmail={setEmergencyContactEmail}
-                  referidoPor={referidoPor}
-                  onChangeReferidoPor={setReferidoPor}
-                />
-              )}
-
-              {step === 'administrativo' && (
-                <AddPatientStepAdministrativo
-                  facturaEmpresa={adminFacturaEmpresa}
-                  onChangeFacturaEmpresa={setAdminFacturaEmpresa}
-                  notas={adminNotas}
-                  onChangeNotas={setAdminNotas}
-                  staffOptions={staffOptions}
-                  selectedStaffId={selectedProfessionalId}
-                  onChangeStaff={setSelectedProfessionalId}
-                  leadSource={leadSource}
-                  onChangeLeadSource={setLeadSource}
-                  coverageType={coverageType}
-                  onChangeCoverageType={setCoverageType}
-                  insuranceProvider={insuranceProvider}
-                  onChangeInsuranceProvider={setInsuranceProvider}
-                  insurancePolicyNumber={insurancePolicyNumber}
-                  onChangeInsurancePolicyNumber={setInsurancePolicyNumber}
-                  insuranceExpiry={insuranceExpiry}
-                  onChangeInsuranceExpiry={(date: Date) => setInsuranceExpiry(date)}
-                  addressLine1={addressLine1}
-                  onChangeAddressLine1={setAddressLine1}
-                  addressLine2={addressLine2}
-                  onChangeAddressLine2={setAddressLine2}
-                  addressNumber={addressNumber}
-                  onChangeAddressNumber={setAddressNumber}
-                  addressState={addressState}
-                  onChangeAddressState={setAddressState}
-                  addressCity={addressCity}
-                  onChangeAddressCity={setAddressCity}
-                  addressPostalCode={addressPostalCode}
-                  onChangeAddressPostalCode={setAddressPostalCode}
-                  addressCountry={addressCountry}
-                  onChangeAddressCountry={setAddressCountry}
-                  billCompanyName={billCompanyName}
-                  onChangeBillCompanyName={setBillCompanyName}
-                  billCompanyTaxId={billCompanyTaxId}
-                  onChangeBillCompanyTaxId={setBillCompanyTaxId}
-                  preferredPaymentMethod={preferredPaymentMethod}
-                  onChangePreferredPaymentMethod={setPreferredPaymentMethod}
-                  preferredFinancingOption={preferredFinancingOption}
-                  onChangePreferredFinancingOption={setPreferredFinancingOption}
-                />
-              )}
-
-              {step === 'salud' && (
-                <SaludComp
-                  embarazo={saludToggles.embarazo}
-                  onChangeEmbarazo={(v: boolean) =>
-                    setSaludToggles((p) => ({ ...p, embarazo: v }))
-                  }
-                  tabaquismo={saludToggles.tabaquismo}
-                  onChangeTabaquismo={(v: boolean) =>
-                    setSaludToggles((p) => ({ ...p, tabaquismo: v }))
-                  }
-                  alergias={saludAlergias}
-                  onChangeAlergias={setSaludAlergias}
-                  medicamentosText={saludMedicamentosText}
-                  onChangeMedicamentosText={setSaludMedicamentosText}
-                  motivoConsulta={saludMotivoText}
-                  onChangeMotivoConsulta={setSaludMotivoText}
-                  fearScale={saludFearScale}
-                  onChangeFearScale={setSaludFearScale}
-                  mobilityRestricted={saludAccesibilidad.movilidad}
-                  onChangeMobilityRestricted={(v: boolean) =>
-                    setSaludAccesibilidad((p) => ({ ...p, movilidad: v }))
-                  }
-                  needsInterpreter={saludAccesibilidad.interprete}
-                  onChangeNeedsInterpreter={(v: boolean) =>
-                    setSaludAccesibilidad((p) => ({ ...p, interprete: v }))
-                  }
-                />
-              )}
-
-              {step === 'consentimientos' && (
-                <AddPatientStepConsentimientos
-                  imagenesMarketing={imagenesMarketing}
-                  onChangeImagenesMarketing={setImagenesMarketing}
-                  derivacionFile={derivacionFile}
-                  onChangeDerivacionFile={setDerivacionFile}
-                  informesFile={informesFile}
-                  onChangeInformesFile={setInformesFile}
-                  rxFile={rxFile}
-                  onChangeRxFile={setRxFile}
-                  fotosFile={fotosFile}
-                  onChangeFotosFile={setFotosFile}
-                />
-              )}
-
-              {step === 'resumen' && (
-                <AddPatientStepResumen
-                  nombre={nombre}
-                  apellidos={apellidos}
-                  email={contactEmail}
-                  telefono={contactPhone ? `${phonePrefix}${contactPhone.replace(/\s/g, '').replace(/^0+/, '')}` : undefined}
-                  anotaciones={adminNotas}
-                  alergiasConSeveridad={saludAlergias}
-                  recordatorios={contactoToggles.recordatorios}
-                  marketing={contactoToggles.marketing}
-                />
-              )}
-
-              <div className='w-[31.5rem] h-0 left-[18.375rem] top-[53.25rem] absolute origin-top-left rotate-180 border-t-[0.0625rem] border-[var(--color-neutral-400)]'></div>
-
-              {step !== 'paciente' && (
-                <button
-                  type='button'
-                  onClick={handleBack}
-                  className='absolute left-[18.375rem] top-[55.75rem] inline-flex h-[2.5rem] w-[13.4375rem] cursor-pointer items-center justify-center gap-[0.5rem] rounded-full border border-[var(--color-brand-500)] bg-[var(--color-neutral-50)] px-[1rem] text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-100)]'
-                >
-                  Volver
-                </button>
-              )}
-
-              <button
-                type='button'
-                onClick={() => {
-                  if (step === 'resumen') {
-                    void handleCreatePatient()
-                  } else {
-                    handleContinue()
-                  }
-                }}
-                className='w-[13.4375rem] px-4 py-2 left-[36.4375rem] top-[55.75rem] absolute cursor-pointer bg-[var(--color-brand-500)] rounded-[8.5rem] border border-[var(--color-brand-500)] inline-flex justify-center items-center gap-2 text-body-md font-medium text-[var(--color-brand-900)] transition-colors hover:bg-[var(--color-brand-400)]'
-              >
-                {step === 'resumen' ? 'Crear paciente' : 'Continuar'}
-                <ArrowForwardRounded className='w-6 h-6' />
-              </button>
             </div>
           </div>
         </div>
       </div>
-    </div>
     </Portal>
   )
 }

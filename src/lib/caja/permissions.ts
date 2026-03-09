@@ -38,7 +38,17 @@ export async function requireCajaPermission(
     return { ok: Boolean(data), error: null as string | null }
   }
 
-  // custom rule: use get_my_role_info and inspect permissions JSON
+  // Custom rule:
+  // 1) module must be visible for the clinic/user (respects clinic_modules via has_permission)
+  // 2) custom key must be enabled in role permissions payload
+  const { data: canViewModule, error: canViewError } = await supabase.rpc('has_permission', {
+    p_clinic_id: clinicId,
+    p_module: permission.module,
+    p_action: 'view'
+  })
+  if (canViewError) return { ok: false, error: canViewError.message }
+  if (!canViewModule) return { ok: false, error: null as string | null }
+
   const { data, error } = await supabase.rpc('get_my_role_info', { p_clinic_id: clinicId })
   const row = Array.isArray(data) ? (data[0] as any) : (data as any)
   if (error || !row) return { ok: false, error: error?.message || 'Role info unavailable' }

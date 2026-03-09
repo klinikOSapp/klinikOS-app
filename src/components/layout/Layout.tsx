@@ -41,10 +41,53 @@ type RoleInfoResponse = {
   role_name: string
   role_display_name: string
   is_system_role: boolean
-  permissions: AllPermissions
+  permissions: unknown
 }
 
-const CLINIC_ID_HIDE_VOICE_AGENT = '0a62cf76-bfd0-4125-b8fe-860a1700da39'
+type RawModulePermission = {
+  view?: boolean
+  create?: boolean
+  edit?: boolean
+  delete?: boolean
+  can_view?: boolean
+  can_create?: boolean
+  can_edit?: boolean
+  can_delete?: boolean
+  custom?: Record<string, unknown>
+}
+
+type ClinicModuleResponse = {
+  module_name: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object'
+}
+
+function normalizeModulePermission(raw: unknown) {
+  if (!isRecord(raw)) return null
+  const typed = raw as RawModulePermission
+  return {
+    view: typed.view ?? typed.can_view ?? false,
+    create: typed.create ?? typed.can_create ?? false,
+    edit: typed.edit ?? typed.can_edit ?? false,
+    delete: typed.delete ?? typed.can_delete ?? false,
+    custom: typed.custom
+  }
+}
+
+function normalizePermissions(raw: unknown): AllPermissions {
+  if (!isRecord(raw)) return {}
+
+  const normalized: AllPermissions = {}
+  for (const [moduleKey, moduleValue] of Object.entries(raw)) {
+    const modulePermissions = normalizeModulePermission(moduleValue)
+    if (!modulePermissions) continue
+    ;(normalized as Record<string, unknown>)[moduleKey] = modulePermissions
+  }
+
+  return normalized
+}
 
 export default function Layout({ children, ctaMenuItems }: LayoutProps) {
   const baseItemsTop = [
@@ -104,6 +147,7 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
   const [isSidebarHydrated, setIsSidebarHydrated] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(true)
+  const [enabledModules, setEnabledModules] = React.useState<Set<string> | null>(null)
   
   // New permission-based state
   const [roleInfo, setRoleInfo] = React.useState<RoleInfo>({
@@ -220,7 +264,8 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
               roleName: legacyRole as string,
               roleDisplayName: legacyRole as string,
               isSystemRole: true,
-              permissions: {}
+              // Controlled legacy fallback: only when role-info RPC fails.
+              permissions: getPermissionsForRole(legacyRole as string)
             })
           } else {
             setRoleInfo({
@@ -239,7 +284,7 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
           roleName: data.role_name,
           roleDisplayName: data.role_display_name,
           isSystemRole: data.is_system_role,
-          permissions: data.permissions || {}
+          permissions: normalizePermissions(data.permissions)
         })
       } catch (error) {
         if (active) {
@@ -257,6 +302,49 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
       active = false
     }
   }, [activeClinicId, isClinicInitialized, supabase, user])
+
+  React.useEffect(() => {
+    let active = true
+
+    async function loadClinicModules() {
+      if (!isClinicInitialized) return
+
+      if (!activeClinicId) {
+        if (active) setEnabledModules(null)
+        return
+      }
+
+      try {
+        const { data, error } = await supabase
+          .rpc('get_clinic_modules', { p_clinic_id: activeClinicId })
+          .returns<ClinicModuleResponse[]>()
+
+        if (!active) return
+        if (error) {
+          console.error('Error loading clinic modules:', error)
+          setEnabledModules(null)
+          return
+        }
+
+        const enabled = new Set(
+          (Array.isArray(data) ? data : [])
+            .map((row) => row.module_name)
+            .filter((name): name is string => typeof name === 'string' && name.length > 0)
+        )
+        setEnabledModules(enabled.size > 0 ? enabled : null)
+      } catch (error) {
+        if (active) {
+          console.error('Error fetching clinic modules:', error)
+          setEnabledModules(null)
+        }
+      }
+    }
+
+    void loadClinicModules()
+    return () => {
+      active = false
+    }
+  }, [activeClinicId, isClinicInitialized, supabase])
 
   const handleProfileUpdated = React.useCallback(
     async ({ fullName, avatarUrl: path }: { fullName: string; avatarUrl?: string | null }) => {
@@ -278,19 +366,22 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
     []
   )
 
-  // Hardcoded permissions based on role name (ignores DB permissions)
-  const hardcodedPerms = React.useMemo(
-    () => getPermissionsForRole(roleInfo.roleName),
-    [roleInfo.roleName]
+  const isModuleEnabled = React.useCallback(
+    (module: keyof AllPermissions): boolean => {
+      if (!enabledModules) return true
+      return enabledModules.has(module)
+    },
+    [enabledModules]
   )
 
   const can = React.useCallback(
     (module: keyof AllPermissions, action: PermissionAction): boolean => {
-      const modulePerms = hardcodedPerms[module]
+      if (!isModuleEnabled(module)) return false
+      const modulePerms = roleInfo.permissions[module]
       if (!modulePerms) return false
       return modulePerms[action] ?? false
     },
-    [hardcodedPerms]
+    [isModuleEnabled, roleInfo.permissions]
   )
 
   const roleContextValue = React.useMemo(
@@ -306,11 +397,11 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
       roleName: roleInfo.roleName,
       roleDisplayName: roleInfo.roleDisplayName,
       isSystemRole: roleInfo.isSystemRole,
-      permissions: hardcodedPerms,
+      permissions: roleInfo.permissions,
       can,
       isLoading
     }),
-    [roleInfo, hardcodedPerms, can, isLoading]
+    [roleInfo, can, isLoading]
   )
 
   const showCta = roleContextValue.canManageAppointments
@@ -378,13 +469,12 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
     return baseItemsBottom.filter((item) => {
       if (item.id === 'gestion') return can('reports', 'view')
       if (item.id === 'agente-voz') {
-        if (activeClinicId === CLINIC_ID_HIDE_VOICE_AGENT) return false
         return can('calls', 'view')
       }
       if (item.id === 'configuracion') return can('settings', 'view')
       return true
     })
-  }, [activeClinicId, baseItemsBottom, can])
+  }, [baseItemsBottom, can])
 
   return (
     <div className='bg-[var(--color-brand-0)] h-dvh overflow-hidden'>

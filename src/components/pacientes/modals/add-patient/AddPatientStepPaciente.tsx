@@ -45,13 +45,16 @@ export default function AddPatientStepPaciente({
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
   const lastUrlRef = React.useRef<string | null>(null)
 
-  const setPreviewFromFile = React.useCallback((file: File) => {
-    const url = URL.createObjectURL(file)
-    if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current)
-    lastUrlRef.current = url
-    setPreviewUrl(url)
-    onAvatarSelected?.(file)
-  }, [onAvatarSelected])
+  const setPreviewFromFile = React.useCallback(
+    (file: File) => {
+      const url = URL.createObjectURL(file)
+      if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current)
+      lastUrlRef.current = url
+      setPreviewUrl(url)
+      onAvatarSelected?.(file)
+    },
+    [onAvatarSelected]
+  )
 
   React.useEffect(() => {
     return () => {
@@ -61,35 +64,35 @@ export default function AddPatientStepPaciente({
 
   return (
     <>
-      <div className='left-[18.375rem] top-[10rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
+      <div className='left-[18.375rem] top-[0rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
         Imagen del paciente
       </div>
-      <div className='left-[18.375rem] top-[17.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
+      <div className='left-[18.375rem] top-[7.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
         Nombre
       </div>
-      <div className='left-[18.375rem] top-[23.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
+      <div className='left-[18.375rem] top-[13.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
         Apellidos
       </div>
-      <div className='left-[18.375rem] top-[47.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
+      <div className='left-[18.375rem] top-[37.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
         Tipo de documento
       </div>
-      <div className='left-[18.375rem] top-[53.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
+      <div className='left-[18.375rem] top-[43.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
         Número de documento
       </div>
-      <div className='left-[18.375rem] top-[29.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
+      <div className='left-[18.375rem] top-[19.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
         Fecha de nacimiento
       </div>
-      <div className='left-[18.375rem] top-[35.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
+      <div className='left-[18.375rem] top-[25.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
         Sexo biológico
       </div>
-      <div className='left-[18.375rem] top-[41.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
+      <div className='left-[18.375rem] top-[31.9375rem] absolute justify-start text-[var(--color-neutral-900)] text-body-md font-sans'>
         Idioma preferido
       </div>
-      <div className='w-40 left-[18.375rem] top-[11.75rem] absolute justify-start text-[var(--color-neutral-500)] text-label-sm font-medium font-sans'>
+      <div className='w-40 left-[18.375rem] top-[1.75rem] absolute justify-start text-[var(--color-neutral-500)] text-label-sm font-medium font-sans'>
         Toma una fotografía o súbela desde tu dispositivo
       </div>
 
-      <div className='left-[30.6875rem] top-[10rem] absolute'>
+      <div className='left-[30.6875rem] top-[0rem] absolute'>
         <AvatarImageDropdown
           previewUrl={previewUrl ?? undefined}
           onCaptureFromCamera={setPreviewFromFile}
@@ -99,7 +102,7 @@ export default function AddPatientStepPaciente({
         />
       </div>
 
-      <div className='w-[19.1875rem] left-[30.6875rem] top-[17.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
+      <div className='w-[19.1875rem] left-[30.6875rem] top-[7.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
         <TextInput
           placeholder='Nombre'
           required
@@ -108,7 +111,7 @@ export default function AddPatientStepPaciente({
         />
       </div>
 
-      <div className='w-[19.1875rem] left-[30.6875rem] top-[23.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
+      <div className='w-[19.1875rem] left-[30.6875rem] top-[13.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
         <TextInput
           placeholder='Apellidos'
           required
@@ -117,14 +120,14 @@ export default function AddPatientStepPaciente({
         />
       </div>
 
-      <div className='w-[19.1875rem] left-[30.6875rem] top-[29.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
+      <div className='w-[19.1875rem] left-[30.6875rem] top-[19.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
         <DatePicker
           value={fechaNacimiento ?? undefined}
           onChange={onChangeFechaNacimiento}
         />
       </div>
 
-      <div className='w-[19.1875rem] left-[30.6875rem] top-[35.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
+      <div className='w-[19.1875rem] left-[30.6875rem] top-[25.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
         <SelectInput
           placeholder='Selecciona sexo'
           value={sexo ?? ''}
@@ -138,7 +141,7 @@ export default function AddPatientStepPaciente({
         />
       </div>
 
-      <div className='w-[19.1875rem] left-[30.6875rem] top-[41.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
+      <div className='w-[19.1875rem] left-[30.6875rem] top-[31.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
         <SelectInput
           placeholder='Selecciona idioma'
           value={idioma ?? ''}
@@ -152,7 +155,7 @@ export default function AddPatientStepPaciente({
         />
       </div>
 
-      <div className='w-[19.1875rem] left-[30.6875rem] top-[47.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
+      <div className='w-[19.1875rem] left-[30.6875rem] top-[37.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
         <SelectInput
           placeholder='Selecciona tipo'
           value={tipoDocumento}
@@ -166,14 +169,14 @@ export default function AddPatientStepPaciente({
         />
       </div>
 
-      <div className='w-[19.1875rem] left-[30.6875rem] top-[53.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
+      <div className='w-[19.1875rem] left-[30.6875rem] top-[43.9375rem] absolute inline-flex flex-col justify-start items-start gap-2'>
         <TextInput
           placeholder={
             tipoDocumento === 'DNI'
               ? '12345678A'
               : tipoDocumento === 'NIE'
-              ? 'X1234567A'
-              : 'Número de documento'
+                ? 'X1234567A'
+                : 'Número de documento'
           }
           required
           value={dni}

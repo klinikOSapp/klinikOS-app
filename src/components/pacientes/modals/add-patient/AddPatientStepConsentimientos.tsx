@@ -35,8 +35,8 @@ export default function AddPatientStepConsentimientos({
   const fotosInputRef = React.useRef<HTMLInputElement | null>(null)
 
   return (
-    <div className='absolute left-[18.375rem] top-[10rem] w-[31.6875rem] h-[43.25rem] overflow-y-auto overflow-x-clip scrollbar-hide'>
-      <div className='relative w-full h-full'>
+    <div className='ml-[18.375rem] w-[31.6875rem] h-full overflow-y-auto overflow-x-clip scrollbar-hide'>
+      <div className='relative w-full min-h-[54rem]'>
         {/* Sección Consentimientos */}
         <p className='absolute left-0 top-0 text-title-sm text-[var(--color-neutral-900)] w-[11.25rem]'>
           Consentimientos
