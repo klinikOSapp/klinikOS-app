@@ -588,6 +588,7 @@ type AppointmentsContextType = {
     options?: { persistToDb?: boolean }
   ) => void
   removeAttachment: (appointmentId: string, attachmentId: string) => void
+  loadAttachments: (appointmentId: string) => Promise<void>
 }
 
 const AppointmentsContext = createContext<AppointmentsContextType | undefined>(
@@ -639,21 +640,42 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         const dateFrom = startDate.toISOString().slice(0, 10)
         const dateTo = endDate.toISOString().slice(0, 10)
 
+        // Fetch calendar appointments with pagination to bypass PostgREST max-rows (1000)
+        async function fetchAllCalendarRows() {
+          const PAGE_SIZE = 1000
+          const allRows: DbCalendarAppointmentRow[] = []
+          let offset = 0
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            const { data, error } = await supabase
+              .rpc('get_appointments_calendar', {
+                p_clinic_id: clinicId,
+                p_start_date: dateFrom,
+                p_end_date: dateTo,
+                p_staff_id: null,
+                p_box_id: null
+              })
+              .range(offset, offset + PAGE_SIZE - 1)
+            if (error) {
+              throw new Error(`Error fetching calendar page: ${error.message}`)
+            }
+            const rows = (data || []) as DbCalendarAppointmentRow[]
+            allRows.push(...rows)
+            if (rows.length < PAGE_SIZE) break
+            offset += PAGE_SIZE
+          }
+          return allRows
+        }
+
         const [
-          { data: calendarRows },
+          calendarRows,
           { data: boxRows },
           { data: holdRows },
           { data: paymentRows },
           { data: debtInvoiceRows }
         ] =
           await Promise.all([
-            supabase.rpc('get_appointments_calendar', {
-              p_clinic_id: clinicId,
-              p_start_date: dateFrom,
-              p_end_date: dateTo,
-              p_staff_id: null,
-              p_box_id: null
-            }),
+            fetchAllCalendarRows(),
             supabase
               .from('boxes')
               .select('id, name_or_number')
@@ -733,41 +755,8 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         }
         boxIdByLabelRef.current = Object.fromEntries(boxMapByLabel.entries())
 
-        const appointmentIds = Array.isArray(calendarRows)
-          ? (calendarRows as DbCalendarAppointmentRow[]).map((row) => row.id)
-          : []
-
-        const { data: attachmentRows } =
-          appointmentIds.length > 0
-            ? await supabase
-                .from('clinical_attachments')
-                .select(
-                  'id, appointment_id, file_name, file_type, storage_path, created_at, staff_id'
-                )
-                .in('appointment_id', appointmentIds)
-            : { data: [] as DbClinicalAttachmentRow[] }
-
-        const attachmentByAppointment = new Map<string, VisitAttachment[]>()
-        for (const row of (attachmentRows || []) as DbClinicalAttachmentRow[]) {
-          if (!row.appointment_id) continue
-          const key = String(row.appointment_id)
-          const list = attachmentByAppointment.get(key) || []
-          const attachmentType: VisitAttachment['type'] =
-            row.file_type?.startsWith('image/')
-              ? 'image'
-              : row.file_type?.includes('xray')
-              ? 'xray'
-              : 'document'
-          list.push({
-            id: String(row.id),
-            name: row.file_name,
-            type: attachmentType,
-            url: row.storage_path,
-            uploadedAt: row.created_at,
-            uploadedBy: row.staff_id
-          })
-          attachmentByAppointment.set(key, list)
-        }
+        // Attachments are loaded lazily per-appointment via loadAttachments()
+        // to avoid a bulk .in() query that breaks PostgREST URL limits for large clinics.
 
         const mappedAppointments: Appointment[] = (
           (calendarRows || []) as DbCalendarAppointmentRow[]
@@ -863,7 +852,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
             paymentInfo,
             linkedTreatments,
             soapNotes,
-            attachments: attachmentByAppointment.get(String(row.id)) || []
+            attachments: []
           }
         })
 
@@ -1014,7 +1003,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
           setBlocks(mappedBlocks)
         }
       } catch (error) {
-        console.warn('AppointmentsContext DB hydration failed, using local state', error)
+        console.error('AppointmentsContext DB hydration FAILED:', error)
         if (isMounted) {
           setAppointments([])
           setPayments([])
@@ -2431,6 +2420,46 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     []
   )
 
+  const loadAttachments = useCallback(
+    async (appointmentId: string) => {
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const { data, error } = await supabase
+          .from('clinical_attachments')
+          .select(
+            'id, appointment_id, file_name, file_type, storage_path, created_at, staff_id'
+          )
+          .eq('appointment_id', appointmentId)
+        if (error) {
+          console.warn('Error loading attachments for appointment', appointmentId, error)
+          return
+        }
+        const attachments: VisitAttachment[] = ((data || []) as DbClinicalAttachmentRow[]).map(
+          (row) => ({
+            id: String(row.id),
+            name: row.file_name,
+            type: (row.file_type?.startsWith('image/')
+              ? 'image'
+              : row.file_type?.includes('xray')
+              ? 'xray'
+              : 'document') as VisitAttachment['type'],
+            url: row.storage_path,
+            uploadedAt: row.created_at,
+            uploadedBy: row.staff_id
+          })
+        )
+        setAppointments((prev) =>
+          prev.map((apt) =>
+            apt.id === appointmentId ? { ...apt, attachments } : apt
+          )
+        )
+      } catch (err) {
+        console.warn('Error loading attachments', err)
+      }
+    },
+    []
+  )
+
   const value: AppointmentsContextType = {
     appointments,
     payments,
@@ -2463,7 +2492,8 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
     updateSOAPNotes,
     updateLinkedTreatmentStatus,
     addAttachment,
-    removeAttachment
+    removeAttachment,
+    loadAttachments
   }
 
   return (
