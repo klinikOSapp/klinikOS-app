@@ -92,7 +92,7 @@ export default function AddPatientStepAdministrativo({
   onChangePreferredFinancingOption
 }: Props) {
   return (
-    <div className='left-[18.375rem] top-[10rem] absolute inline-flex flex-col justify-start items-start gap-6 w-[31.5rem] h-[43.25rem] overflow-y-auto overflow-x-clip pr-2 pb-2 scrollbar-hide'>
+    <div className='ml-[18.375rem] inline-flex flex-col justify-start items-start gap-6 w-[31.5rem] h-full overflow-y-auto overflow-x-clip pr-2 pb-2 scrollbar-hide'>
       <div className='inline-flex flex-col gap-2 w-full'>
         <div className='text-title-sm text-[var(--color-neutral-900)]'>
           Profesional de referencia
@@ -153,7 +153,10 @@ export default function AddPatientStepAdministrativo({
           value={insurancePolicyNumber}
           onChange={onChangeInsurancePolicyNumber}
         />
-        <DatePickerInput value={insuranceExpiry ?? undefined} onChange={onChangeInsuranceExpiry} />
+        <DatePickerInput
+          value={insuranceExpiry ?? undefined}
+          onChange={onChangeInsuranceExpiry}
+        />
       </div>
 
       <div className='inline-flex flex-col gap-4 w-full'>

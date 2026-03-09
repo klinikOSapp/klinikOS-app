@@ -1,9 +1,14 @@
 'use client'
 
-import React from 'react'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import WarningRounded from '@mui/icons-material/WarningRounded'
-import { SelectInput, TextArea, TextInput, ToggleInput } from './AddPatientInputs'
+import React from 'react'
+import {
+  SelectInput,
+  TextArea,
+  TextInput,
+  ToggleInput
+} from './AddPatientInputs'
 
 export type AllergySeverity = 'leve' | 'moderada' | 'grave' | 'extrema'
 
@@ -14,7 +19,10 @@ export type AllergyEntry = {
   notes?: string
 }
 
-const severityColors: Record<AllergySeverity, { bg: string; text: string; border: string }> = {
+const severityColors: Record<
+  AllergySeverity,
+  { bg: string; text: string; border: string }
+> = {
   leve: {
     bg: 'bg-[var(--color-warning-100)]',
     text: 'text-[var(--color-warning-700)]',
@@ -109,7 +117,7 @@ export default function AddPatientStepSalud({
   }
 
   return (
-    <div className='left-[18.375rem] top-[10rem] absolute inline-flex flex-col justify-start items-start gap-6 w-[31.5rem] h-[43.25rem] overflow-y-auto overflow-x-clip pr-2 pb-2 scrollbar-hide'>
+    <div className='ml-[18.375rem] inline-flex flex-col justify-start items-start gap-6 w-[31.5rem] h-full overflow-y-auto overflow-x-clip pr-2 pb-2 scrollbar-hide'>
       <div className='inline-flex flex-col gap-3 w-full'>
         <div className='text-title-sm text-[var(--color-neutral-900)]'>
           Alergias relevantes
