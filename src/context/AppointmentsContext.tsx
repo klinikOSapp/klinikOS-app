@@ -657,8 +657,7 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
               })
               .range(offset, offset + PAGE_SIZE - 1)
             if (error) {
-              console.error('Error fetching calendar page:', error)
-              break
+              throw new Error(`Error fetching calendar page: ${error.message}`)
             }
             const rows = (data || []) as DbCalendarAppointmentRow[]
             allRows.push(...rows)
