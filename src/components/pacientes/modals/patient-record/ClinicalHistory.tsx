@@ -57,7 +57,8 @@ export default function ClinicalHistory({
     updateSOAPNotes,
     updateLinkedTreatmentStatus,
     addAttachment,
-    removeAttachment
+    removeAttachment,
+    loadAttachments
   } = useAppointments()
 
   const { addDocumentFromClinicalHistory, addOdontogramFromClinicalHistory } =
@@ -88,6 +89,13 @@ export default function ClinicalHistory({
   // Upload type selector modal (for table view)
   const [isUploadTypeSelectorOpen, setIsUploadTypeSelectorOpen] =
     React.useState(false)
+
+  // Load attachments lazily when a visit is selected
+  React.useEffect(() => {
+    if (selectedAppointmentId) {
+      void loadAttachments(selectedAppointmentId)
+    }
+  }, [selectedAppointmentId, loadAttachments])
 
   // Get patient appointments
   const patientAppointments = React.useMemo(() => {

@@ -2212,7 +2212,8 @@ function timeToMinutes(time: string): number {
 }
 
 function buildEventsFromAppointments(
-  appointments: ExternalAppointment[]
+  appointments: ExternalAppointment[],
+  configuredBoxHeaders?: Array<{ id: string; label: string }>
 ): TimeSlot[] {
   if (!appointments.length) {
     return TIME_LABELS.map((time) => ({
@@ -2225,15 +2226,38 @@ function buildEventsFromAppointments(
     }))
   }
 
+  // Build a label→internal-boxId map from configured boxes (position-based).
+  // This mirrors the weekly view's label-based approach so both views agree.
+  const labelToBoxId = new Map<string, string>()
+  if (configuredBoxHeaders) {
+    const internalIds = ['box1', 'box2', 'box3'] as const
+    configuredBoxHeaders.forEach((header, idx) => {
+      if (idx < internalIds.length) {
+        labelToBoxId.set(normalizeBoxLabel(header.label), internalIds[idx])
+      }
+    })
+  }
+
   // Helper to map appointment box to internal boxId
   const getBoxId = (apptBox: string | undefined, index: number): string => {
+    // First: match by configured box label (robust, same logic as weekly view)
+    if (apptBox && labelToBoxId.size > 0) {
+      const key = normalizeBoxLabel(apptBox)
+      const mapped = labelToBoxId.get(key)
+      if (mapped) return mapped
+    }
+    // Fallback: number extraction
     if (apptBox) {
       const lower = apptBox.toLowerCase()
       if (lower.includes('1')) return 'box1'
       if (lower.includes('2')) return 'box2'
       if (lower.includes('3')) return 'box3'
     }
-    // Fallback: round-robin
+    // Last resort: first configured box or round-robin
+    if (labelToBoxId.size > 0) {
+      const firstBoxId = Array.from(labelToBoxId.values())[0]
+      return firstBoxId || 'box1'
+    }
     return index % 3 === 0 ? 'box1' : index % 3 === 1 ? 'box2' : 'box3'
   }
 
@@ -2505,7 +2529,7 @@ export default function DayCalendar({
   // Sincronizar eventos locales con appointments externos
   useEffect(() => {
     if (appointments.length) {
-      setLocalEvents(buildEventsFromAppointments(appointments))
+      setLocalEvents(buildEventsFromAppointments(appointments, effectiveBoxHeaders))
     } else {
       setLocalEvents(
         TIME_LABELS.map((time) => ({
@@ -2518,7 +2542,7 @@ export default function DayCalendar({
         }))
       )
     }
-  }, [appointments])
+  }, [appointments, effectiveBoxHeaders])
 
   const handleHover = (state: DayEventSelection) => {
     if (isDraggingRef.current) return
