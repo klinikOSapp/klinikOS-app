@@ -331,7 +331,7 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
             .map((row) => row.module_name)
             .filter((name): name is string => typeof name === 'string' && name.length > 0)
         )
-        setEnabledModules(enabled)
+        setEnabledModules(enabled.size > 0 ? enabled : null)
       } catch (error) {
         if (active) {
           console.error('Error fetching clinic modules:', error)
