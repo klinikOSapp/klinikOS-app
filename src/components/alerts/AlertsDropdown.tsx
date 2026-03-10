@@ -79,7 +79,7 @@ function AlertGroup({
                   <button
                     type='button'
                     className='mt-1 text-left text-label-sm text-[var(--color-brand-700)] hover:underline'
-                    onClick={() => onOpenPatient?.(alert.patientId)}
+                    onClick={() => onOpenPatient?.(alert.patientId!)}
                   >
                     {alert.patientName}
                   </button>
