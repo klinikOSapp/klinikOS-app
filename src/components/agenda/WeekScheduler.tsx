@@ -7205,7 +7205,7 @@ export default function WeekScheduler() {
                   onDeleteBlock={handleDeleteBlock}
                   // Alert-related props
                   alertCards={getAlertsForWeekday(index)}
-                  onToggleAlertComplete={toggleAlertComplete}
+                  onToggleAlertComplete={(alertId: number) => toggleAlertComplete(alertId, true)}
                   // Quick appointment creation props
                   hoverSlotIndex={
                     hoverSlotInfo?.columnId === column.id
