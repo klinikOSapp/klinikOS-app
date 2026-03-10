@@ -1,9 +1,12 @@
 'use client'
 
-import { SettingsRounded } from '@/components/icons/md3'
+import AlertsDropdown from '@/components/alerts/AlertsDropdown'
+import { NotificationsActiveRounded, SettingsRounded } from '@/components/icons/md3'
+import { useAlerts } from '@/context/AlertsContext'
 import { TopBarProps } from '@/types/layout'
 import Image from 'next/image'
-import { useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 function initialsFromName(name?: string) {
   if (!name) return '—'
@@ -13,8 +16,35 @@ function initialsFromName(name?: string) {
   return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase()
 }
 
-export default function TopBar({ userName, userAvatarUrl, onAccountClick }: TopBarProps) {
+export default function TopBar({
+  userName,
+  userAvatarUrl,
+  onAccountClick,
+  onSettingsClick
+}: TopBarProps) {
   const initials = useMemo(() => initialsFromName(userName), [userName])
+  const { pendingCount } = useAlerts()
+  const router = useRouter()
+  const [alertsOpen, setAlertsOpen] = useState(false)
+  const alertsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!alertsOpen) return
+    const handleClickOutside = (event: MouseEvent) => {
+      if (alertsRef.current?.contains(event.target as Node)) return
+      setAlertsOpen(false)
+    }
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setAlertsOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [alertsOpen])
+
   return (
     <header className='bg-[var(--color-brand-0)] h-[var(--spacing-topbar)] w-full flex items-center justify-between px-6'>
       <div className='flex items-center gap-4'>
@@ -44,11 +74,34 @@ export default function TopBar({ userName, userAvatarUrl, onAccountClick }: TopB
             {userName}
           </span>
         </button>
+        <div className='relative' ref={alertsRef}>
+          <button
+            type='button'
+            className='relative size-9 grid place-items-center rounded-xl text-neutral-900 transition hover:bg-white/60'
+            aria-label='Abrir central de alertas'
+            onClick={() => setAlertsOpen((prev) => !prev)}
+          >
+            <NotificationsActiveRounded />
+            {pendingCount > 0 && (
+              <span className='absolute -right-1 -top-1 grid min-w-[1.25rem] place-items-center rounded-full bg-[var(--color-error-500)] px-1 text-[0.625rem] font-semibold leading-5 text-white'>
+                {pendingCount > 99 ? '99+' : pendingCount}
+              </span>
+            )}
+          </button>
+          {alertsOpen && (
+            <AlertsDropdown
+              onOpenPatient={(patientId) => {
+                setAlertsOpen(false)
+                router.push(`/pacientes?patientId=${patientId}`)
+              }}
+            />
+          )}
+        </div>
         <button
           type='button'
           className='size-8 grid place-items-center text-neutral-900 hover:text-neutral-700'
           aria-label='Configuración de cuenta'
-          onClick={onAccountClick}
+          onClick={onSettingsClick}
         >
           <SettingsRounded className='size-6' />
         </button>

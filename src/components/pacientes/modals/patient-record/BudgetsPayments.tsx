@@ -65,6 +65,9 @@ import InvoiceProductionModal from './InvoiceProductionModal'
 import MarkAsProducedModal from './MarkAsProducedModal'
 import PaymentDetailsModal from './PaymentDetailsModal'
 import ProductionDetailsModal from './ProductionDetailsModal'
+import RegisterAdvancePaymentModal, {
+  type RegisterAdvancePaymentFormData
+} from './RegisterAdvancePaymentModal'
 import RegisterPaymentModal from './RegisterPaymentModal'
 import TraceabilityModal from './TraceabilityModal'
 
@@ -655,6 +658,22 @@ type DbPaymentRow = {
   payment_method: string | null
   amount: number | null
   transaction_date: string | null
+}
+
+type AdvancePaymentRow = {
+  id: number
+  transactionDate: string | null
+  amount: number
+  paymentMethod: string
+  concept: string
+  notes: string
+}
+
+type PatientFinancialSummary = {
+  openInvoicesTotal: number
+  availableCredit: number
+  netPendingTotal: number
+  advancePayments: AdvancePaymentRow[]
 }
 
 function formatEuroAmount(value: number): string {
@@ -2250,6 +2269,8 @@ export default function BudgetsPayments({
   const [showInvoiceModal, setShowInvoiceModal] = React.useState(false)
   const [showRegisterPaymentModal, setShowRegisterPaymentModal] =
     React.useState(false)
+  const [showRegisterAdvancePaymentModal, setShowRegisterAdvancePaymentModal] =
+    React.useState(false)
   const [showTraceabilityModal, setShowTraceabilityModal] =
     React.useState(false)
   const [showBudgetDetailsModal, setShowBudgetDetailsModal] =
@@ -2304,13 +2325,23 @@ export default function BudgetsPayments({
   const [invoiceRows, setInvoiceRows] =
     React.useState<InvoiceRow[]>(INITIAL_INVOICE_ROWS)
   const [isHydrating, setIsHydrating] = React.useState(false)
+  const [financialSummary, setFinancialSummary] =
+    React.useState<PatientFinancialSummary | null>(null)
+  const [financialSummaryError, setFinancialSummaryError] = React.useState<string | null>(null)
+  const [isFinancialSummaryLoading, setIsFinancialSummaryLoading] = React.useState(false)
+  const [isAdvanceSectionOpen, setIsAdvanceSectionOpen] = React.useState(false)
 
   const refreshFinanceData = React.useCallback(async () => {
     if (!shouldUseDbSource || !patientId || !activeClinicId || !isClinicInitialized) {
+      setFinancialSummary(null)
+      setFinancialSummaryError(null)
+      setIsFinancialSummaryLoading(false)
       return
     }
 
     setIsHydrating(true)
+    setIsFinancialSummaryLoading(true)
+    setFinancialSummaryError(null)
     try {
       const [{ data: quoteRows }, { data: invoiceRowsDb }, { data: insuranceRows }] =
         await Promise.all([
@@ -2589,10 +2620,39 @@ export default function BudgetsPayments({
       setLocalBudgetRows(budgetRowsMapped)
       setProductionRows(productionRowsMapped)
       setInvoiceRows(invoiceRowsMapped)
+
+      const summaryResponse = await fetch(
+        `/api/pacientes/financial-summary?patientId=${encodeURIComponent(patientId)}`
+      )
+      const summaryPayload = (await summaryResponse.json().catch(() => null)) as
+        | (PatientFinancialSummary & { error?: string })
+        | null
+
+      if (!summaryResponse.ok || !summaryPayload) {
+        setFinancialSummary(null)
+        setFinancialSummaryError(
+          summaryPayload?.error || 'No se pudo cargar el resumen de anticipos'
+        )
+      } else {
+        setFinancialSummary({
+          openInvoicesTotal: Number(summaryPayload.openInvoicesTotal || 0),
+          availableCredit: Number(summaryPayload.availableCredit || 0),
+          netPendingTotal: Number(summaryPayload.netPendingTotal || 0),
+          advancePayments: Array.isArray(summaryPayload.advancePayments)
+            ? summaryPayload.advancePayments
+            : []
+        })
+        if ((summaryPayload.advancePayments || []).length > 0) {
+          setIsAdvanceSectionOpen(true)
+        }
+      }
     } catch (error) {
       console.warn('Finanzas hydration failed, keeping local state', error)
+      setFinancialSummary(null)
+      setFinancialSummaryError('No se pudo cargar el resumen de anticipos')
     } finally {
       setIsHydrating(false)
+      setIsFinancialSummaryLoading(false)
     }
   }, [
     activeClinicId,
@@ -4062,16 +4122,18 @@ export default function BudgetsPayments({
 
       {/* KPIs - calculated dynamically */}
       {(() => {
-        // Calculate pending balance from invoices with status "Pendiente"
-        const pendingBalance = invoiceRows
-          .filter((row) => row.status === 'Pendiente')
-          .reduce((sum, row) => {
-            // Parse amount like "150 €" or "1.200 €" to number
-            const amountStr = row.amount
-              .replace(/[€\s.]/g, '')
-              .replace(',', '.')
-            return sum + (parseFloat(amountStr) || 0)
-          }, 0)
+        const openInvoicesTotalFromRows = invoiceRows.reduce((sum, row) => {
+          const total = row.amountNumber ?? parseEuroAmount(row.amount)
+          const paid = row.amountPaidNumber ?? 0
+          const outstanding = Math.max(total - paid, 0)
+          return sum + outstanding
+        }, 0)
+
+        const openInvoicesTotal =
+          financialSummary?.openInvoicesTotal ?? openInvoicesTotalFromRows
+        const availableCredit = financialSummary?.availableCredit ?? 0
+        const netPendingTotal =
+          financialSummary?.netPendingTotal ?? openInvoicesTotal - availableCredit
 
         // Count pending invoices (could represent "vencidas" in a real scenario)
         const pendingCount = invoiceRows.filter(
@@ -4079,21 +4141,43 @@ export default function BudgetsPayments({
         ).length
 
         // Format balance with Spanish locale
-        const formattedBalance = pendingBalance.toLocaleString('es-ES', {
+        const formattedBalance = Math.max(netPendingTotal, 0).toLocaleString('es-ES', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2
         })
+        const formattedCredit = availableCredit.toLocaleString('es-ES', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        })
+        const hasCreditInFavor = netPendingTotal < -0.009
+        const creditInFavor = Math.abs(netPendingTotal)
 
         return (
           <div className='flex gap-16 mb-6'>
             <div data-node-id='3092:10811'>
-              <p className='text-title-md text-neutral-900'>Saldo pendiente</p>
+              <p className='text-title-md text-neutral-900'>
+                {hasCreditInFavor ? 'Crédito a favor' : 'Saldo pendiente'}
+              </p>
               <p
-                className='mt-[0.4375rem] text-neutral-900'
+                className={`mt-[0.4375rem] ${hasCreditInFavor ? 'text-success-700' : 'text-neutral-900'}`}
                 style={{ fontSize: '2rem', lineHeight: '2.5rem' }}
                 data-node-id='3092:10813'
               >
-                {formattedBalance} €
+                {hasCreditInFavor
+                  ? `${creditInFavor.toLocaleString('es-ES', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })} €`
+                  : `${formattedBalance} €`}
+              </p>
+            </div>
+            <div data-node-id='3092:11000'>
+              <p className='text-title-md text-neutral-900'>Crédito disponible</p>
+              <p
+                className='mt-[0.4375rem] text-brand-700'
+                style={{ fontSize: '2rem', lineHeight: '2.5rem' }}
+              >
+                {formattedCredit} €
               </p>
             </div>
             <div data-node-id='3092:10812'>
@@ -4111,6 +4195,85 @@ export default function BudgetsPayments({
           </div>
         )
       })()}
+
+      <div className='mb-6 rounded-lg border border-neutral-200 bg-white'>
+        <div className='w-full px-6 py-4 flex items-center justify-between'>
+          <div className='flex items-center justify-between gap-4 w-full'>
+            <div className='text-left'>
+              <p className='text-title-md text-neutral-900'>Anticipos / pagos a cuenta</p>
+              <p className='text-body-sm text-neutral-600 mt-1'>
+                Pagos del paciente no asociados a factura
+              </p>
+            </div>
+            <div className='flex items-center gap-2'>
+              <button
+                type='button'
+                className='inline-flex items-center gap-2 rounded-[8.5rem] px-4 py-2 bg-neutral-50 border border-neutral-300 text-body-md text-neutral-900 hover:bg-[#D3F7F3] hover:border-[#7DE7DC] active:bg-[#1E4947] active:text-neutral-50 active:border-[#1E4947] transition-colors cursor-pointer'
+                onClick={() => {
+                  setShowRegisterAdvancePaymentModal(true)
+                }}
+              >
+                <AddRounded className='size-5' />
+                <span className='font-medium'>Registrar anticipo</span>
+              </button>
+              <button
+                type='button'
+                aria-label='Expandir anticipos'
+                className='p-1 cursor-pointer'
+                onClick={() => setIsAdvanceSectionOpen((prev) => !prev)}
+              >
+                <KeyboardArrowDownRounded
+                  className={`size-6 text-neutral-700 transition-transform ${isAdvanceSectionOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+        {isAdvanceSectionOpen && (
+          <div className='px-6 pb-4'>
+            {isFinancialSummaryLoading || isHydrating ? (
+              <p className='text-body-sm text-neutral-600 py-2'>Cargando anticipos...</p>
+            ) : financialSummaryError ? (
+              <p className='text-body-sm text-red-600 py-2'>{financialSummaryError}</p>
+            ) : (financialSummary?.advancePayments || []).length === 0 ? (
+              <p className='text-body-sm text-neutral-600 py-2'>No hay anticipos</p>
+            ) : (
+              <div className='overflow-x-auto rounded-lg border border-neutral-200'>
+                <table className='w-full min-w-[48rem] text-left'>
+                  <thead className='bg-neutral-50'>
+                    <tr>
+                      <th className='px-3 py-2 text-body-sm text-neutral-700 font-medium'>Fecha</th>
+                      <th className='px-3 py-2 text-body-sm text-neutral-700 font-medium'>Importe</th>
+                      <th className='px-3 py-2 text-body-sm text-neutral-700 font-medium'>
+                        Método de pago
+                      </th>
+                      <th className='px-3 py-2 text-body-sm text-neutral-700 font-medium'>Concepto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(financialSummary?.advancePayments || []).map((advance) => (
+                      <tr key={advance.id} className='border-t border-neutral-200'>
+                        <td className='px-3 py-2 text-body-sm text-neutral-900'>
+                          {formatShortDate(advance.transactionDate) || '—'}
+                        </td>
+                        <td className='px-3 py-2 text-body-sm text-neutral-900'>
+                          {formatEuroAmount(advance.amount)}
+                        </td>
+                        <td className='px-3 py-2 text-body-sm text-neutral-900'>
+                          {mapDbPaymentMethodToUi(advance.paymentMethod) || '—'}
+                        </td>
+                        <td className='px-3 py-2 text-body-sm text-neutral-900'>
+                          {String(advance.concept || '').trim() || 'Sin concepto'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Main Card */}
       <div
@@ -5638,6 +5801,57 @@ export default function BudgetsPayments({
         productionDate={selectedProductionRow?.date ?? ''}
         amount={selectedProductionRow?.amount ?? ''}
       />
+      <RegisterAdvancePaymentModal
+        open={showRegisterAdvancePaymentModal}
+        onClose={() => setShowRegisterAdvancePaymentModal(false)}
+        onSubmit={(data: RegisterAdvancePaymentFormData) => {
+          if (!patientId) {
+            return {
+              ok: false,
+              error: 'No se pudo identificar el paciente'
+            }
+          }
+          return (async () => {
+            try {
+              const response = await fetch('/api/pacientes/register-advance-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  patientId,
+                  amount: data.amount,
+                  paymentMethod: data.paymentMethod,
+                  transactionDate: data.paymentDate?.toISOString(),
+                  concept: data.concept,
+                  transactionId: data.reference || null,
+                  notes: data.notes || null
+                })
+              })
+              const responseBody = (await response.json().catch(() => null)) as
+                | { error?: string }
+                | null
+              if (!response.ok) {
+                return {
+                  ok: false,
+                  error: responseBody?.error || 'No se pudo registrar el anticipo'
+                }
+              }
+
+              await refreshFinanceData()
+              onPatientUpdated?.()
+              showNotice('Anticipo registrado correctamente', 'success')
+              return { ok: true }
+            } catch (error) {
+              return {
+                ok: false,
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : 'No se pudo registrar el anticipo'
+              }
+            }
+          })()
+        }}
+      />
       <RegisterPaymentModal
         open={showRegisterPaymentModal}
         onClose={() => {
@@ -5657,7 +5871,8 @@ export default function BudgetsPayments({
                     paymentMethod: data.paymentMethod,
                     transactionDate: data.paymentDate?.toISOString(),
                     transactionId: data.reference || null,
-                    notes: selectedInvoiceRow.description
+                    notes: selectedInvoiceRow.description,
+                    appliedCreditAmount: Number(data.appliedCreditAmount || 0)
                   })
                 })
                 const responseBody = (await response.json().catch(() => null)) as
@@ -5715,6 +5930,7 @@ export default function BudgetsPayments({
         invoiceId={selectedInvoiceRow?.id ?? ''}
         treatment={selectedInvoiceRow?.description ?? ''}
         amount={selectedInvoiceRow?.amount ?? ''}
+        availableCredit={financialSummary?.availableCredit ?? 0}
       />
       <TraceabilityModal
         open={showTraceabilityModal}

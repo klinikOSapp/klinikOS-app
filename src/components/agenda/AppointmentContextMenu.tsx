@@ -16,6 +16,7 @@ export type ContextMenuAction =
   | 'view-patient'
   | 'view-appointment'
   | 'new-appointment'
+  | 'new-alert'
   | 'new-budget'
   | 'new-prescription'
   | 'report'
@@ -52,6 +53,7 @@ const MENU_ITEMS: {
   { id: 'view-patient', label: 'Ver paciente', icon: 'AccountCircleRounded' },
   { id: 'view-appointment', label: 'Ver cita', icon: 'CalendarMonthRounded' },
   { id: 'new-appointment', label: 'Nueva cita', icon: 'AddRounded' },
+  { id: 'new-alert', label: 'Nueva alerta', icon: 'NotificationsActiveRounded' },
   { id: 'new-budget', label: 'Nuevo presupuesto', icon: 'ReceiptLongRounded' },
   { id: 'new-prescription', label: 'Nueva receta', icon: 'DescriptionRounded' },
   { id: 'report', label: 'Reportar', icon: 'EditRounded' }

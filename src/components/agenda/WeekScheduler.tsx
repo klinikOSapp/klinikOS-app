@@ -4,6 +4,7 @@
 
 import { MD3Icon } from '@/components/icons/MD3Icon'
 import { useAppointments } from '@/context/AppointmentsContext'
+import { useAlerts } from '@/context/AlertsContext'
 import { useConfiguration } from '@/context/ConfigurationContext'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type {
@@ -20,8 +21,11 @@ import type {
 
 import PatientRecordModal from '@/components/pacientes/modals/patient-record/PatientRecordModal'
 import RegisterPaymentModal from '@/components/pacientes/modals/patient-record/RegisterPaymentModal'
+import CreateAlertModal from '@/components/alerts/CreateAlertModal'
 import type { Appointment, BlockType } from '@/context/AppointmentsContext'
 import { BLOCK_TYPE_CONFIG } from '@/context/AppointmentsContext'
+import AgendaAlertCard from './AgendaAlertCard'
+import type { AgendaAlertCardProps } from './AgendaAlertCard'
 import AgendaBlockCard from './AgendaBlockCard'
 import AppointmentContextMenu, {
   type ContextMenuAction
@@ -2797,6 +2801,8 @@ type DaySlotSelection = {
 }
 
 // Visual block type for week view
+type WeekAlertCard = Omit<AgendaAlertCardProps, 'onToggleComplete'>
+
 type WeekBlock = {
   id: string
   top: string
@@ -2851,7 +2857,10 @@ function DayGrid({
   slotDragState,
   onSlotDragStart,
   onSlotDragMove,
-  onSlotDragEnd
+  onSlotDragEnd,
+  // Alert-related props
+  alertCards = [],
+  onToggleAlertComplete
 }: {
   column: DayColumn
   activeSelection: EventSelection
@@ -2914,6 +2923,9 @@ function DayGrid({
   ) => void
   onSlotDragMove?: (slotIndex: number) => void
   onSlotDragEnd?: () => void
+  // Alert-related props
+  alertCards?: WeekAlertCard[]
+  onToggleAlertComplete?: (alertId: number) => void
 }) {
   // Calculate dynamic box layout based on selected boxes
   const boxLayout = getBoxLayout(selectedBoxes, boxOptions)
@@ -3251,6 +3263,17 @@ function DayGrid({
             onDelete={(deleteRecurrence) =>
               onDeleteBlock?.(block.id, deleteRecurrence)
             }
+          />
+        ))}
+      </div>
+
+      {/* Alertas (recordatorios rojo pastel) */}
+      <div className='absolute inset-0'>
+        {alertCards.map((ac) => (
+          <AgendaAlertCard
+            key={ac.id}
+            {...ac}
+            onToggleComplete={onToggleAlertComplete}
           />
         ))}
       </div>
@@ -4359,6 +4382,7 @@ export default function WeekScheduler() {
     updateVisitStatus,
     getAppointmentById
   } = useAppointments()
+  const { alerts, toggleComplete: toggleAlertComplete } = useAlerts()
 
   const [hovered, setHovered] = useState<EventSelection>(null)
   const [active, setActive] = useState<EventSelection>(null)
@@ -4548,10 +4572,17 @@ export default function WeekScheduler() {
   const [openDropdown, setOpenDropdown] = useState<
     null | 'view' | 'professional' | 'box'
   >(null)
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false)
+  const addMenuRef = useRef<HTMLDivElement>(null)
   const [isCreateAppointmentModalOpen, setIsCreateAppointmentModalOpen] =
     useState(false)
   const [appointmentPrefill, setAppointmentPrefill] =
     useState<Partial<AppointmentFormData> | null>(null)
+  const [isCreateAlertModalOpen, setIsCreateAlertModalOpen] = useState(false)
+  const [alertPrefill, setAlertPrefill] = useState<{
+    patientId?: string | null
+    patientName?: string | null
+  } | null>(null)
   const [dayColumnsState, setDayColumnsState] = useState<DayColumn[]>(() =>
     getInitialDayColumns()
   )
@@ -5229,6 +5260,32 @@ export default function WeekScheduler() {
     []
   )
 
+  const openCreateAlertModal = useCallback(
+    (prefill?: { patientId?: string | null; patientName?: string | null }) => {
+      setAlertPrefill(prefill ?? null)
+      setIsCreateAlertModalOpen(true)
+      setIsAddMenuOpen(false)
+    },
+    []
+  )
+
+  useEffect(() => {
+    if (!isAddMenuOpen) return
+    const handleClickOutside = (event: MouseEvent) => {
+      if (addMenuRef.current?.contains(event.target as Node)) return
+      setIsAddMenuOpen(false)
+    }
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsAddMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isAddMenuOpen])
+
   // Handle action=create from URL to open CreateAppointmentModal with pre-filled data (from Voice Agent)
   useEffect(() => {
     const action = searchParams.get('action')
@@ -5315,6 +5372,16 @@ export default function WeekScheduler() {
           })
           break
 
+        case 'new-alert':
+          {
+            const { patientId, patientName } = resolveEventPatient(event)
+            openCreateAlertModal({
+              patientId: patientId ?? null,
+              patientName: patientName ?? detail?.patientFull ?? null
+            })
+          }
+          break
+
         case 'new-budget':
           {
             const { patientId, patientName } = resolveEventPatient(event)
@@ -5391,6 +5458,7 @@ export default function WeekScheduler() {
     [
       contextMenu,
       dayColumnsState,
+      openCreateAlertModal,
       openCreateAppointmentModal,
       resolveEventPatient,
       router
@@ -6002,13 +6070,78 @@ export default function WeekScheduler() {
           height,
           blockType: block.blockType,
           description: block.description,
-          box: block.box,
+          box: resolveBoxLabel(block.box),
           timeRange: `${block.startTime} - ${block.endTime}`,
           responsibleName: block.responsibleName,
           isRecurring: !!block.recurrence && block.recurrence.type !== 'none',
           left: layout?.left,
           width: layout?.width ? `calc(${layout.width} - 0.5rem)` : undefined
         }
+      })
+  }
+
+  const getAlertsForWeekday = (weekdayIndex: number): WeekAlertCard[] => {
+    const dateStr = getDateForWeekday(weekdayIndex)
+    const allVisibleBoxLabels = effectiveBoxOptions.map((option) =>
+      normalizeBoxFilterValue(option.label)
+    )
+    const selectedBoxLabels = new Set(
+      effectiveBoxOptions
+        .filter((option) => selectedBoxes.includes(option.id))
+        .map((option) => normalizeBoxFilterValue(option.label))
+    )
+    const boxLayout = getBoxLayout(selectedBoxes, effectiveBoxOptions)
+
+    const START_HOUR = 9
+    const MINUTES_STEP = 15
+    const SLOT_REM = 2.5
+
+    return alerts
+      .filter((alert) => !alert.completed && alert.dueDate === dateStr)
+      .flatMap((alert) => {
+        const startTime = alert.dueTime?.slice(0, 5) || '09:00'
+        const [hh, mm] = startTime.split(':').map(Number)
+        const endDateObj = new Date(2000, 0, 1, hh || 9, mm || 0)
+        endDateObj.setMinutes(endDateObj.getMinutes() + 30)
+        const endTime = `${String(endDateObj.getHours()).padStart(2, '0')}:${String(
+          endDateObj.getMinutes()
+        ).padStart(2, '0')}`
+        const targetLabels = alert.appliesToAllBoxes
+          ? allVisibleBoxLabels
+          : [
+              normalizeBoxFilterValue(
+                resolveBoxLabel(alert.boxId || effectiveBoxOptions[0]?.label || 'Box 1')
+              )
+            ]
+
+        return targetLabels
+          .filter((boxLabel) => selectedBoxLabels.size === 0 || selectedBoxLabels.has(boxLabel))
+          .map((boxLabel, index) => {
+            const [startH, startM] = startTime.split(':').map(Number)
+            const startMinutes = startH * 60 + startM
+            const [endH, endM] = endTime.split(':').map(Number)
+            const endMinutes = endH * 60 + endM
+            const durationMinutes = endMinutes - startMinutes
+
+            const startSlot = Math.floor((startMinutes - START_HOUR * 60) / MINUTES_STEP)
+            const heightSlots = Math.max(1, Math.ceil(durationMinutes / MINUTES_STEP))
+            const top = `${startSlot * SLOT_REM}rem`
+            const height = `${heightSlots * SLOT_REM}rem`
+            const layout = boxLayout[boxLabel]
+
+            return {
+              id: `alert-${alert.id}-${boxLabel}-${index}`,
+              title: alert.title,
+              description: alert.description,
+              timeRange: `${startTime} - ${endTime}`,
+              patientName: alert.patientName,
+              alertNumericId: alert.id,
+              top,
+              height,
+              left: layout?.left,
+              width: layout?.width ? `calc(${layout.width} - 0.5rem)` : undefined,
+            }
+          })
       })
   }
 
@@ -6940,14 +7073,40 @@ export default function WeekScheduler() {
         </div>
 
         {/* Grupo derecho: Acción principal */}
-        <button
-          onClick={() => openCreateAppointmentModal()}
-          className='inline-flex h-[2.5rem] items-center gap-2 rounded-full bg-brand-500 px-4 text-sm font-medium text-brand-900 shadow-sm transition-all duration-150 hover:bg-brand-600 hover:shadow active:scale-[0.98]'
-          title='Añadir cita'
-        >
-          <MD3Icon name='AddRounded' size='sm' />
-          <span className='hidden lg:inline'>Añadir cita</span>
-        </button>
+        <div className='relative' ref={addMenuRef}>
+          <button
+            onClick={() => setIsAddMenuOpen((prev) => !prev)}
+            className='inline-flex h-[2.5rem] items-center gap-2 rounded-full bg-brand-500 px-4 text-sm font-medium text-brand-900 shadow-sm transition-all duration-150 hover:bg-brand-600 hover:shadow active:scale-[0.98]'
+            title='Añadir'
+          >
+            <MD3Icon name='AddRounded' size='sm' />
+            <span className='hidden lg:inline'>Añadir</span>
+            <MD3Icon name='KeyboardArrowDownRounded' size='sm' />
+          </button>
+          {isAddMenuOpen && (
+            <div className='absolute right-0 top-[calc(100%+0.5rem)] z-[9999] min-w-[12rem] overflow-hidden rounded-xl border border-[var(--color-border-default)] bg-white shadow-xl'>
+              <button
+                type='button'
+                onClick={() => {
+                  setIsAddMenuOpen(false)
+                  openCreateAppointmentModal()
+                }}
+                className='flex w-full items-center gap-2 px-3 py-2 text-left text-body-sm text-[var(--color-neutral-800)] hover:bg-[var(--color-neutral-100)]'
+              >
+                <MD3Icon name='CalendarMonthRounded' size='sm' />
+                <span>Añadir cita</span>
+              </button>
+              <button
+                type='button'
+                onClick={() => openCreateAlertModal()}
+                className='flex w-full items-center gap-2 px-3 py-2 text-left text-body-sm text-[var(--color-neutral-800)] hover:bg-[var(--color-neutral-100)]'
+              >
+                <MD3Icon name='NotificationsActiveRounded' size='sm' />
+                <span>Añadir alerta</span>
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Contenido condicional según la vista */}
@@ -7044,6 +7203,9 @@ export default function WeekScheduler() {
                   onBlockHover={setHoveredBlockId}
                   onBlockActivate={setActiveBlockId}
                   onDeleteBlock={handleDeleteBlock}
+                  // Alert-related props
+                  alertCards={getAlertsForWeekday(index)}
+                  onToggleAlertComplete={toggleAlertComplete}
                   // Quick appointment creation props
                   hoverSlotIndex={
                     hoverSlotInfo?.columnId === column.id
@@ -7147,6 +7309,16 @@ export default function WeekScheduler() {
         initialData={appointmentPrefill ?? undefined}
         onSubmit={handleCreateAppointmentSubmit}
         onSubmitBlock={handleCreateBlockSubmit}
+      />
+
+      <CreateAlertModal
+        open={isCreateAlertModalOpen}
+        prefill={alertPrefill}
+        boxOptions={effectiveBoxOptions}
+        onClose={() => {
+          setIsCreateAlertModalOpen(false)
+          setAlertPrefill(null)
+        }}
       />
 
       {/* Register Payment Modal - Quick action from agenda */}

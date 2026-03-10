@@ -5,7 +5,7 @@ import type {
   BudgetTypeData,
   BudgetTypeTreatment
 } from '@/components/pacientes/shared/budgetTypeData'
-import { TREATMENT_CATALOG } from '@/components/pacientes/shared/treatmentTypes'
+import { useConfiguration } from '@/context/ConfigurationContext'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -19,22 +19,6 @@ type BudgetTypeEditorModalProps = {
   editingBudgetType?: BudgetTypeData | null
 }
 
-// Convert TREATMENT_CATALOG to array for easier rendering
-const treatmentOptions = Object.entries(TREATMENT_CATALOG).map(
-  ([code, entry]) => ({
-    code,
-    description: entry.description,
-    price:
-      parseFloat(
-        entry.amount
-          .replace(/[^\d,.-]/g, '')
-          .replace('.', '')
-          .replace(',', '.')
-      ) || 0,
-    familia: entry.familia
-  })
-)
-
 // ============================================
 // Main Component
 // ============================================
@@ -44,7 +28,24 @@ export default function BudgetTypeEditorModal({
   onSave,
   editingBudgetType
 }: BudgetTypeEditorModalProps) {
+  const { treatmentCategories } = useConfiguration()
   const [mounted, setMounted] = useState(false)
+
+  // Build treatment options from real service_catalog data
+  const treatmentOptions = useMemo(() => {
+    const options: { code: string; description: string; price: number; familia: string }[] = []
+    for (const cat of treatmentCategories) {
+      for (const t of cat.treatments) {
+        options.push({
+          code: t.code,
+          description: t.name,
+          price: t.basePrice,
+          familia: cat.id
+        })
+      }
+    }
+    return options
+  }, [treatmentCategories])
 
   // Form state
   const [name, setName] = useState('')
@@ -99,7 +100,7 @@ export default function BudgetTypeEditorModal({
         t.code.toLowerCase().includes(term) ||
         t.description.toLowerCase().includes(term)
     )
-  }, [searchTerm])
+  }, [searchTerm, treatmentOptions])
 
   // Add treatment
   const handleAddTreatment = useCallback(

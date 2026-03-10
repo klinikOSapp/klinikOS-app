@@ -1,6 +1,7 @@
 'use client'
 
 import OrientationLock from '@/components/ui/OrientationLock'
+import { AlertsProvider } from '@/context/AlertsContext'
 import { AppointmentsProvider } from '@/context/AppointmentsContext'
 import { CashClosingProvider } from '@/context/CashClosingContext'
 import { ClinicProvider } from '@/context/ClinicContext'
@@ -15,14 +16,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <ClinicProvider>
         <ConfigurationProvider>
           <PatientsProvider>
-            <AppointmentsProvider>
-              <CashClosingProvider>
-                <PatientFilesProvider>
-                  <OrientationLock />
-                  {children}
-                </PatientFilesProvider>
-              </CashClosingProvider>
-            </AppointmentsProvider>
+            <AlertsProvider>
+              <AppointmentsProvider>
+                <CashClosingProvider>
+                  <PatientFilesProvider>
+                    <OrientationLock />
+                    {children}
+                  </PatientFilesProvider>
+                </CashClosingProvider>
+              </AppointmentsProvider>
+            </AlertsProvider>
           </PatientsProvider>
         </ConfigurationProvider>
       </ClinicProvider>

@@ -29,12 +29,12 @@ import {
   ALL_TEETH,
   FAMILY_TO_SPECIALTY,
   LOWER_TEETH,
-  TREATMENT_CATALOG,
   TREATMENT_ZONE_OPTIONS,
   UPPER_TEETH,
   ZONE_DB_VALUES,
   ZONE_DISPLAY_LABELS
 } from '@/components/pacientes/shared/treatmentTypes'
+import type { TreatmentCatalog } from '@/components/pacientes/shared/treatmentTypes'
 import { useConfiguration } from '@/context/ConfigurationContext'
 import { usePatients } from '@/context/PatientsContext'
 import {
@@ -261,6 +261,7 @@ type TreatmentRowProps = {
   isNewRow?: boolean
   onNewRowMounted?: () => void
   professionals: Array<{ value: string; label: string }>
+  catalogLookup: TreatmentCatalog
 }
 
 function TreatmentRow({
@@ -271,7 +272,8 @@ function TreatmentRow({
   onUpdateMultipleFields,
   isNewRow,
   onNewRowMounted,
-  professionals
+  professionals,
+  catalogLookup
 }: TreatmentRowProps) {
   const rowRef = React.useRef<HTMLTableRowElement>(null)
   const firstInputRef = React.useRef<HTMLInputElement>(null)
@@ -334,7 +336,7 @@ function TreatmentRow({
   const handleCodigoChange = (value: string) => {
     // Buscar en el catálogo (case insensitive)
     const upperCode = value.toUpperCase().trim()
-    const catalogEntry = TREATMENT_CATALOG[upperCode]
+    const catalogEntry = catalogLookup[upperCode]
 
     if (catalogEntry && onUpdateMultipleFields) {
       // Encontrado: autocompletar todos los campos de una sola vez
@@ -619,8 +621,26 @@ export default function AddTreatmentsToBudgetModal({
   patientName: patientNameProp,
   patientId
 }: AddTreatmentsToBudgetModalProps) {
-  const { professionalNameOptions, activeProfessionals } = useConfiguration()
+  const { professionalNameOptions, activeProfessionals, treatmentCategories } = useConfiguration()
   const { addTreatment } = usePatients()
+
+  // Build lookup map from real service_catalog data
+  const catalogLookup: TreatmentCatalog = React.useMemo(() => {
+    const map: TreatmentCatalog = {}
+    for (const cat of treatmentCategories) {
+      for (const t of cat.treatments) {
+        map[t.code] = {
+          description: t.name,
+          amount:
+            t.basePrice >= 1000
+              ? `${t.basePrice.toLocaleString('es-ES')} €`
+              : `${t.basePrice} €`,
+          familia: cat.id
+        }
+      }
+    }
+    return map
+  }, [treatmentCategories])
 
   const getSmartDoctor = React.useCallback(
     (familia?: string): string | undefined => {
@@ -1661,6 +1681,7 @@ export default function AddTreatmentsToBudgetModal({
                                   isNewRow={treatment._internalId === newRowId}
                                   onNewRowMounted={() => setNewRowId(null)}
                                   professionals={professionalNameOptions}
+                                  catalogLookup={catalogLookup}
                                 />
                               ))
                             )}
