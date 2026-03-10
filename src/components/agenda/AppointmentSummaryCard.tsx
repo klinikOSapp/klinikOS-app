@@ -185,7 +185,7 @@ export default function AppointmentSummaryCard({
         }}
         className={[
           'group/card absolute left-[var(--scheduler-event-left-offset)] flex flex-col gap-[var(--scheduler-event-gap)] overflow-hidden rounded-[var(--radius-lg)] border p-[var(--scheduler-event-padding)] text-left shadow-[0px_1px_2px_rgba(36,40,44,0.08)] transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-brand-500)] active:brightness-[0.98]',
-          event.backgroundClass,
+          event.bgColorInline ? '' : event.backgroundClass,
           event.borderClass ?? '',
           stateClasses,
           isCompleted ? 'opacity-70' : ''
@@ -197,7 +197,10 @@ export default function AppointmentSummaryCard({
           height: event.height,
           width: event.width ?? 'var(--scheduler-event-width)',
           left: event.left ?? 'var(--scheduler-event-left-offset)',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          ...(event.bgColorInline
+            ? { backgroundColor: event.bgColorInline }
+            : {})
         }}
         aria-pressed={isActive}
         aria-controls={isActive ? 'scheduler-event-overlay' : undefined}

@@ -998,6 +998,7 @@ type ConfigurationContextType = {
     }
   ) => Promise<boolean>
   deleteTreatmentFromDb: (id: string) => Promise<boolean>
+  addCategoryToDb: (categoryName: string) => Promise<string | null>
   discounts: ConfigDiscount[]
   setDiscounts: Dispatch<SetStateAction<ConfigDiscount[]>>
   addDiscount: (discount: Omit<ConfigDiscount, 'id'>) => void
@@ -1731,6 +1732,24 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
             selected: false
           })
         })
+
+        // Merge persisted empty categories from treatment_categories table
+        if (selectedOrganizationId) {
+          const { data: catRows } = await supabase
+            .from('treatment_categories')
+            .select('name')
+            .eq('organization_id', selectedOrganizationId)
+          if (catRows) {
+            for (const row of catRows as { name: string }[]) {
+              const catName = toCatLabel(row.name)
+              const catId = slugCatId(catName) || 'general'
+              if (!grouped.has(catId)) {
+                grouped.set(catId, { id: catId, name: catName, treatments: [] })
+              }
+            }
+          }
+        }
+
         const mappedTreatmentCategories = Array.from(grouped.values()).sort(
           (a, b) => {
             const ai = PREFERRED_CATEGORY_ORDER.indexOf(a.name)
@@ -3951,6 +3970,62 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     []
   )
 
+  const addCategoryToDb = useCallback(
+    async (categoryName: string): Promise<string | null> => {
+      try {
+        const supabase = createSupabaseBrowserClient()
+        let organizationId = activeOrganizationId
+        if (!organizationId && activeClinicId) {
+          const { data: row } = await supabase
+            .from('clinics')
+            .select('organization_id')
+            .eq('id', activeClinicId)
+            .single()
+          organizationId =
+            typeof row?.organization_id === 'string'
+              ? row.organization_id
+              : null
+          if (organizationId) setActiveOrganizationId(organizationId)
+        }
+
+        const payload: Record<string, unknown> = { name: categoryName }
+        if (organizationId) payload.organization_id = organizationId
+
+        const { data, error } = await supabase
+          .from('treatment_categories')
+          .insert(payload)
+          .select('id')
+          .single()
+
+        if (error) {
+          console.warn('Error al insertar categoría en treatment_categories', error)
+          return null
+        }
+
+        const slugCatId = (v: string) =>
+          v
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+
+        const catId = slugCatId(categoryName) || 'general'
+        setTreatmentCategories((prev) => {
+          if (prev.some((c) => c.id === catId)) return prev
+          return [...prev, { id: catId, name: categoryName, treatments: [] }]
+        })
+
+        return String(data.id)
+      } catch (err) {
+        console.warn('Error al insertar categoría en treatment_categories', err)
+        return null
+      }
+    },
+    [activeOrganizationId, activeClinicId]
+  )
+
   const setExpenses = useCallback(
     (expensesOrUpdater: SetStateAction<ConfigExpense[]>) => {
       setExpensesState(expensesOrUpdater)
@@ -4126,6 +4201,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       addTreatmentToDb,
       updateTreatmentInDb,
       deleteTreatmentFromDb,
+      addCategoryToDb,
       discounts,
       setDiscounts,
       addDiscount,
@@ -4202,6 +4278,7 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
       addTreatmentToDb,
       updateTreatmentInDb,
       deleteTreatmentFromDb,
+      addCategoryToDb,
       discounts,
       setDiscounts,
       addDiscount,

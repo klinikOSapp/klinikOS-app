@@ -39,7 +39,9 @@
       "Read(//Users/vicentebarberatormo/Desktop/VIJEPO TECH S.L./klinikos-app/src/components/agenda/**)",
       "Bash(npx next build)",
       "Bash(lsof -ti:3000)",
-      "Bash(pnpm build)"
+      "Bash(pnpm build)",
+      "Read(//Users/vicentebarberatormo/Desktop/VIJEPO TECH\\\\ S.L./klinikOS/klinikos-app/src/context/**)",
+      "Read(//Users/**)"
     ],
     "additionalDirectories": [
       "/tmp"

@@ -619,6 +619,17 @@ function normalizeBoxLabel(box: string | undefined): string {
   return `Box ${match?.[0] || '1'}`
 }
 
+/** Convert a saturated hex colour (#7725eb) into a light pastel background. */
+function hexToLightBg(hex: string, mix = 0.15): string {
+  const r = parseInt(hex.slice(1, 3), 16) / 255
+  const g = parseInt(hex.slice(3, 5), 16) / 255
+  const b = parseInt(hex.slice(5, 7), 16) / 255
+  const lr = Math.round((r * mix + (1 - mix)) * 255)
+  const lg = Math.round((g * mix + (1 - mix)) * 255)
+  const lb = Math.round((b * mix + (1 - mix)) * 255)
+  return `#${lr.toString(16).padStart(2, '0')}${lg.toString(16).padStart(2, '0')}${lb.toString(16).padStart(2, '0')}`
+}
+
 function toBackgroundClass(
   bgColor: string | undefined,
   createdByVoiceAgent: boolean | undefined
@@ -4799,6 +4810,12 @@ export default function WeekScheduler() {
       agendaEvent.professionalId = professionalId
       agendaEvent.box = resolveBoxLabel(apt.box || fallbackBox)
 
+      // Resolve professional colour for event background
+      if (!apt.createdByVoiceAgent && professionalId) {
+        const profHex = dotColorByProfessionalId.get(professionalId)
+        if (profHex) agendaEvent.bgColorInline = hexToLightBg(profHex)
+      }
+
       column.events.push(agendaEvent)
     }
 
@@ -5477,13 +5494,21 @@ export default function WeekScheduler() {
         .filter(Boolean)
         .join(', ')
       const title = linkedLabel || apt.reason || 'Consulta'
+      const profId =
+        apt.professionalId ||
+        effectiveProfessionalOptions.find(
+          (o) =>
+            o.label.toLowerCase() ===
+            (apt.professional || '').trim().toLowerCase()
+        )?.id
+      const profHex = profId
+        ? dotColorByProfessionalId.get(profId)
+        : undefined
       const bgColor = apt.createdByVoiceAgent
         ? 'var(--color-event-ai-bg)'
-        : apt.bgColor?.includes('coral')
-          ? 'var(--color-event-coral)'
-          : apt.bgColor?.includes('brand') || apt.bgColor?.includes('purple')
-            ? 'var(--color-event-purple)'
-            : 'var(--color-event-teal)'
+        : profHex
+          ? hexToLightBg(profHex)
+          : 'var(--color-event-teal)'
       const durationMinutes = Math.max(
         MINUTES_STEP,
         timeToMinutes(apt.endTime) - timeToMinutes(apt.startTime)
@@ -5601,7 +5626,7 @@ export default function WeekScheduler() {
         return {
           id: `band-${idx}-${toProfessionalOptionId(name)}`,
           label: name,
-          background: option?.color || 'var(--color-neutral-400)'
+          background: hexToLightBg(option?.color || '#9ca3af')
         }
       })
     },
@@ -5627,18 +5652,18 @@ export default function WeekScheduler() {
       const [startRaw, endRaw] = (ev.timeRange ?? '').split('-')
       const start = startRaw?.trim() || '09:00'
       const end = endRaw?.trim() || '09:30'
-      const bg = ev.backgroundClass ?? ''
-      const bgColor = bg.includes('coral')
-        ? 'var(--color-event-coral)'
-        : bg.includes('fbf3e9')
-          ? 'var(--color-event-coral)'
-          : bg.includes('f0e9fb') || bg.includes('e9fbf9')
-            ? 'var(--color-event-teal)'
-            : bg.includes('fbe9f0') || bg.includes('fbe9')
-              ? 'var(--color-event-coral)'
-              : bg.includes('brand')
-                ? 'var(--color-event-purple)'
-                : 'var(--color-event-teal)'
+      // Prefer inline professional colour; fall back to legacy class parsing
+      const bgColor = ev.bgColorInline
+        ? ev.bgColorInline
+        : (() => {
+            const bg = ev.backgroundClass ?? ''
+            if (bg.includes('ai')) return 'var(--color-event-ai-bg)'
+            if (bg.includes('coral') || bg.includes('fbf3e9') || bg.includes('fbe9f0') || bg.includes('fbe9'))
+              return 'var(--color-event-coral)'
+            if (bg.includes('brand') || bg.includes('f0e9fb'))
+              return 'var(--color-event-purple)'
+            return 'var(--color-event-teal)'
+          })()
 
       return {
         id: ev.id ?? `day-${column.id}-${idx}`,
@@ -6201,10 +6226,11 @@ export default function WeekScheduler() {
             id: prof.id,
             name: `${prof.name} (Ext.)`,
             timeRange,
-            color:
+            color: hexToLightBg(
               dotColorByProfessionalId.get(prof.id) ||
-              profOption?.color ||
-              'var(--color-neutral-400)',
+                profOption?.color ||
+                '#9ca3af'
+            ),
             isExternal: true
           }
         }
@@ -6585,6 +6611,13 @@ export default function WeekScheduler() {
       backgroundClass: voiceAgentPrefill?.createdByVoiceAgent
         ? 'bg-[var(--color-event-ai-bg)]'
         : 'bg-[var(--color-brand-100)]',
+      bgColorInline:
+        !voiceAgentPrefill?.createdByVoiceAgent && data.responsable
+          ? (() => {
+              const profHex = dotColorByProfessionalId.get(data.responsable)
+              return profHex ? hexToLightBg(profHex) : undefined
+            })()
+          : undefined,
       linkedTreatments: data.linkedTreatments,
       // Voice agent fields
       createdByVoiceAgent: voiceAgentPrefill?.createdByVoiceAgent,
@@ -7253,6 +7286,7 @@ export default function WeekScheduler() {
                       box={hovered.event.box}
                       position={position}
                       backgroundClass={hovered.event.backgroundClass}
+                      bgColorInline={hovered.event.bgColorInline}
                       createdByVoiceAgent={hovered.event.createdByVoiceAgent}
                     />
                   )
@@ -7267,6 +7301,10 @@ export default function WeekScheduler() {
                   backgroundClass={
                     freshEvent?.backgroundClass ??
                     overlaySource.event.backgroundClass
+                  }
+                  bgColorInline={
+                    freshEvent?.bgColorInline ??
+                    overlaySource.event.bgColorInline
                   }
                   onPaymentAction={handlePaymentAction}
                   onViewPatient={handleViewPatient}

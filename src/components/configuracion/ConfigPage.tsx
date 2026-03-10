@@ -6,7 +6,6 @@ import {
   CloudUploadRounded,
   DeleteRounded,
   FilterListRounded,
-  KeyboardArrowDownRounded,
   MoreHorizRounded
 } from '@/components/icons/md3'
 import {
@@ -123,8 +122,6 @@ export default function ConfigPage() {
   >('general')
   const [showClinicModal, setShowClinicModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [showClinicSelector, setShowClinicSelector] = useState(false)
-  const [selectedClinicIndex, setSelectedClinicIndex] = useState(0)
   const [isEditingHours, setIsEditingHours] = useState(false)
 
   // Logo file input ref
@@ -440,60 +437,6 @@ export default function ConfigPage() {
 
           {activeTab === 'general' && (
             <div className='px-[min(3rem,4vw)] py-[min(1.5rem,2vh)]'>
-              {/* Clinic Selector with Chevron (only if multiple clinics) */}
-              <div className='relative pb-4 border-b border-neutral-200 mb-10'>
-                {contextClinics.length > 1 ? (
-                  <>
-                    <button
-                      type='button'
-                      onClick={() => setShowClinicSelector(!showClinicSelector)}
-                      className='flex items-center justify-between w-full hover:bg-[var(--color-neutral-50)] rounded-lg px-2 py-1 -mx-2 transition-colors'
-                      aria-expanded={showClinicSelector}
-                      aria-haspopup='listbox'
-                    >
-                      <p className='text-title-sm font-medium text-[var(--color-neutral-900)]'>
-                        {rows[selectedClinicIndex]?.nombre || clinicInfo.nombreComercial || 'Clínica'}
-                      </p>
-                      <KeyboardArrowDownRounded
-                        className={`size-6 text-[var(--color-neutral-900)] transition-transform ${
-                          showClinicSelector ? 'rotate-180' : ''
-                        }`}
-                      />
-                    </button>
-                    {showClinicSelector && (
-                      <div
-                        className='absolute top-full left-0 right-0 mt-1 bg-[var(--color-surface)] border border-neutral-200 rounded-lg shadow-lg z-20 max-h-48 overflow-auto'
-                        role='listbox'
-                      >
-                        {rows.map((clinic, index) => (
-                          <button
-                            key={clinic.id}
-                            type='button'
-                            role='option'
-                            aria-selected={index === selectedClinicIndex}
-                            onClick={() => {
-                              setSelectedClinicIndex(index)
-                              setShowClinicSelector(false)
-                            }}
-                            className={`w-full text-left px-4 py-3 text-body-md transition-colors ${
-                              index === selectedClinicIndex
-                                ? 'bg-[var(--color-brand-50)] text-[var(--color-brand-900)]'
-                                : 'text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-50)]'
-                            }`}
-                          >
-                            {clinic.nombre}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <p className='text-title-sm font-medium text-[var(--color-neutral-900)] px-2 py-1'>
-                    {clinicInfo.nombreComercial || 'Clínica'}
-                  </p>
-                )}
-              </div>
-
               {/* Form content */}
               <div className='flex flex-col gap-10 max-w-[min(49rem,100%)] pb-6'>
                 {/* Información */}
