@@ -39,6 +39,7 @@ type RegisterPaymentModalProps = {
   // Patient info for receipt
   patientName?: string
   patientDni?: string
+  availableCredit?: number
 }
 
 export type RegisterPaymentFormData = {
@@ -47,6 +48,7 @@ export type RegisterPaymentFormData = {
   reference: string
   amountToPay: number // Monto que se va a pagar (puede ser parcial)
   generateReceipt?: boolean // HU-015: Flag to generate receipt PDF
+  appliedCreditAmount?: number
 }
 
 // Mock data for dropdowns
@@ -69,7 +71,8 @@ export default function RegisterPaymentModal({
   paymentInfo,
   installmentPlan,
   patientName = 'Paciente',
-  patientDni
+  patientDni,
+  availableCredit = 0
 }: RegisterPaymentModalProps) {
   // Calcular el monto pendiente
   const pendingAmount =
@@ -118,6 +121,11 @@ export default function RegisterPaymentModal({
   }
 
   const amountToPay = getAmountToPay()
+  const [applyAvailableCredit, setApplyAvailableCredit] = React.useState(false)
+  const appliedCreditAmount = applyAvailableCredit
+    ? Math.min(availableCredit, amountToPay)
+    : 0
+  const cashAmountToPay = Math.max(amountToPay - appliedCreditAmount, 0)
   const remainingAfterPayment = Math.max(0, pendingAmount - amountToPay)
 
   // Auto-set today's date when modal opens
@@ -131,6 +139,7 @@ export default function RegisterPaymentModal({
       setPaymentOption(hasInstallmentPlan ? 'installment' : 'full')
       setCustomAmount('')
       setAmountError('')
+      setApplyAvailableCredit(false)
     }
   }, [open, hasInstallmentPlan])
 
@@ -182,7 +191,8 @@ export default function RegisterPaymentModal({
     const submitPayload: RegisterPaymentFormData = {
       ...formData,
       amountToPay,
-      generateReceipt
+      generateReceipt,
+      appliedCreditAmount
     }
 
     const submitPayment = async (): Promise<boolean> => {
@@ -290,6 +300,7 @@ export default function RegisterPaymentModal({
     setLastReceiptNumber('')
     setSubmitError('')
     setIsSubmitting(false)
+    setApplyAvailableCredit(false)
   }
 
   const handleClose = () => {
@@ -520,18 +531,61 @@ export default function RegisterPaymentModal({
             </div>
           </div>
 
+          {availableCredit > 0.009 && (
+            <div className='rounded-lg border border-brand-200 bg-brand-50 px-4 py-3'>
+              <p className='text-body-md text-brand-900'>
+                Este paciente tiene{' '}
+                <span className='font-semibold'>
+                  {availableCredit.toLocaleString('es-ES', {
+                    minimumFractionDigits: 2
+                  })}{' '}
+                  {currency}
+                </span>{' '}
+                a cuenta. ¿Aplicar al pago?
+              </p>
+              <label className='mt-2 inline-flex items-center gap-2 cursor-pointer'>
+                <input
+                  type='checkbox'
+                  checked={applyAvailableCredit}
+                  onChange={(event) => setApplyAvailableCredit(event.target.checked)}
+                  className='h-4 w-4 accent-brand-500'
+                />
+                <span className='text-body-sm text-brand-900'>
+                  Aplicar{' '}
+                  {Math.min(availableCredit, amountToPay).toLocaleString('es-ES', {
+                    minimumFractionDigits: 2
+                  })}{' '}
+                  {currency}
+                </span>
+              </label>
+            </div>
+          )}
+
           {/* Vista previa del resultado */}
           {amountToPay > 0 && !amountError && (
             <div className='flex items-center justify-between rounded-lg bg-brand-50 px-4 py-3'>
-              <div className='flex items-center gap-2'>
-                <MD3Icon
-                  name='InfoRounded'
-                  size={1}
-                  className='text-brand-700'
-                />
-                <span className='text-body-sm text-brand-900'>
-                  Quedará pendiente después del pago:
-                </span>
+              <div className='flex flex-col gap-1'>
+                <div className='flex items-center gap-2'>
+                  <MD3Icon
+                    name='InfoRounded'
+                    size={1}
+                    className='text-brand-700'
+                  />
+                  <span className='text-body-sm text-brand-900'>
+                    Quedará pendiente después del pago:
+                  </span>
+                </div>
+                {applyAvailableCredit && (
+                  <span className='text-body-sm text-brand-900'>
+                    Crédito aplicado: {appliedCreditAmount.toLocaleString('es-ES', {
+                      minimumFractionDigits: 2
+                    })}{' '}
+                    {currency}. Cobro por método: {cashAmountToPay.toLocaleString('es-ES', {
+                      minimumFractionDigits: 2
+                    })}{' '}
+                    {currency}
+                  </span>
+                )}
               </div>
               <span
                 className={`text-title-sm font-semibold ${remainingAfterPayment === 0 ? 'text-green-600' : 'text-brand-900'}`}

@@ -1057,8 +1057,8 @@ type CashClosingContextValue = {
   getReceiptByTransaction: (transactionId: string) => Receipt | undefined
 
   // Mutations
-  closeDay: (date: string, cashOutflow: number, notes?: string) => CashClosing
-  reopenDay: (date: string) => void
+  closeDay: (date: string, cashOutflow: number, notes?: string) => Promise<CashClosing>
+  reopenDay: (date: string) => Promise<void>
   registerBudgetPayment: (data: RegisterBudgetPaymentInput) => CashTransaction
   registerSimplePayment: (data: RegisterSimplePaymentData) => CashTransaction
   generateReceipt: (data: GenerateReceiptData) => Receipt
@@ -1577,7 +1577,7 @@ export function CashClosingProvider({
   )
 
   const closeDay = useCallback(
-    (date: string, cashOutflow: number, notes?: string): CashClosing => {
+    async (date: string, cashOutflow: number, notes?: string): Promise<CashClosing> => {
       const summary = getDaySummary(date)
       const existingClosing = getClosingByDate(date)
       const clinicId = clinicIdRef.current || existingClosing?.clinic_id
@@ -1604,83 +1604,70 @@ export function CashClosingProvider({
         notes: notes ?? null
       }
 
+      // Persist to DB first, then update local state
+      if (clinicIdRef.current && staffIdRef.current) {
+        const supabase = createSupabaseBrowserClient()
+        const { error } = await supabase.from('daily_cash_closings').upsert(
+          {
+            clinic_id: clinicIdRef.current,
+            closing_date: date,
+            staff_id: staffIdRef.current,
+            expected_cash: summary.finalBalance,
+            actual_cash: newClosing.final_balance,
+            card_total: summary.incomeByMethod.tpv,
+            financed_total: summary.incomeByMethod.financiacion,
+            discrepancy: 0,
+            notes: notes ?? null,
+            starter_box_amount: summary.initialCash,
+            daily_box_amount: summary.incomeByMethod.efectivo,
+            cash_withdrawals: cashOutflow,
+            cash_balance: newClosing.final_balance,
+            payment_method_breakdown: {
+              cash: summary.incomeByMethod.efectivo,
+              card: summary.incomeByMethod.tpv,
+              transfer: summary.incomeByMethod.transferencia,
+              financing: summary.incomeByMethod.financiacion,
+              other: summary.incomeByMethod.otros
+            }
+          },
+          { onConflict: 'clinic_id,closing_date' }
+        )
+
+        if (error) {
+          throw new Error(`Error al cerrar caja: ${error.message}`)
+        }
+      }
+
       setClosings((prev) => {
         const filtered = prev.filter((c) => c.closing_date !== date)
         return [...filtered, newClosing]
       })
-
-      void (async () => {
-        if (!clinicIdRef.current || !staffIdRef.current) return
-        try {
-          const supabase = createSupabaseBrowserClient()
-          const { error } = await supabase.from('daily_cash_closings').upsert(
-            {
-              clinic_id: clinicIdRef.current,
-              closing_date: date,
-              staff_id: staffIdRef.current,
-              expected_cash: summary.finalBalance,
-              actual_cash: newClosing.final_balance,
-              card_total: summary.incomeByMethod.tpv,
-              financed_total: summary.incomeByMethod.financiacion,
-              discrepancy: 0,
-              notes: notes ?? null,
-              starter_box_amount: summary.initialCash,
-              daily_box_amount: summary.incomeByMethod.efectivo,
-              cash_withdrawals: cashOutflow,
-              cash_balance: newClosing.final_balance,
-              payment_method_breakdown: {
-                cash: summary.incomeByMethod.efectivo,
-                card: summary.incomeByMethod.tpv,
-                transfer: summary.incomeByMethod.transferencia,
-                financing: summary.incomeByMethod.financiacion,
-                other: summary.incomeByMethod.otros
-              }
-            },
-            { onConflict: 'clinic_id,closing_date' }
-          )
-
-          if (error) {
-            console.warn('No se pudo persistir daily_cash_closings en DB', error)
-          }
-        } catch (error) {
-          console.warn('Error persistiendo cierre de caja en DB', error)
-        }
-      })()
 
       return newClosing
     },
     [getDaySummary, getClosingByDate]
   )
 
-  const reopenDay = useCallback((date: string) => {
-    setClosings((prev) =>
-      prev.map((c) =>
-        c.closing_date === date
-          ? {
-              ...c,
-              status: 'reopened' as const,
-              updated_at: new Date().toISOString()
-            }
-          : c
-      )
-    )
-    void (async () => {
-      const clinicId = clinicIdRef.current
-      if (!clinicId) return
-      try {
-        const supabase = createSupabaseBrowserClient()
-        const { error } = await supabase
-          .from('daily_cash_closings')
-          .delete()
-          .eq('clinic_id', clinicId)
-          .eq('closing_date', date)
-        if (error) {
-          console.warn('No se pudo reabrir cierre (delete DB)', error)
-        }
-      } catch (error) {
-        console.warn('Error reabriendo cierre en DB', error)
-      }
-    })()
+  const reopenDay = useCallback(async (date: string): Promise<void> => {
+    const clinicId = clinicIdRef.current
+    if (!clinicId) {
+      throw new Error('No clinic context available to reopen day')
+    }
+
+    // Delete from DB first, then update local state
+    const supabase = createSupabaseBrowserClient()
+    const { error } = await supabase
+      .from('daily_cash_closings')
+      .delete()
+      .eq('clinic_id', clinicId)
+      .eq('closing_date', date)
+
+    if (error) {
+      throw new Error(`Error al reabrir caja: ${error.message}`)
+    }
+
+    // Remove the closing from local state (consistent with DB delete)
+    setClosings((prev) => prev.filter((c) => c.closing_date !== date))
   }, [])
 
   // Registrar pago de cuotas de presupuesto

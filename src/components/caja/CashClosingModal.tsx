@@ -83,6 +83,8 @@ export function CashClosingModal({
   const [selectedDate, setSelectedDate] = React.useState<string>('')
   const [cashOutflow, setCashOutflow] = React.useState('')
   const [isConfirming, setIsConfirming] = React.useState(false)
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
   const [searchQuery, setSearchQuery] = React.useState('')
   const [methodFilter, setMethodFilter] = React.useState<PaymentMethodFilter>('all')
   const [showDatePicker, setShowDatePicker] = React.useState(false)
@@ -111,6 +113,8 @@ export function CashClosingModal({
     setSelectedDate(dateToSelect)
     setCashOutflow('')
     setIsConfirming(false)
+    setIsSaving(false)
+    setErrorMessage(null)
     setSearchQuery('')
     setMethodFilter('all')
   }, [open, initialDate])
@@ -212,34 +216,45 @@ export function CashClosingModal({
     return { total, byMethod }
   }, [filteredTransactions])
 
-  const handleConfirm = () => {
-    if (!selectedDate || !daySummary) return
+  const handleConfirm = async () => {
+    if (!selectedDate || !daySummary || isSaving) return
 
     if (dayIsClosed && !isConfirming) {
       // Show warning for reopening
       setIsConfirming(true)
+      setErrorMessage(null)
       return
     }
 
     if (!isConfirming) {
       setIsConfirming(true)
+      setErrorMessage(null)
       return
     }
 
     // Actually close or reopen
-    if (dayIsClosed) {
-      reopenDay(selectedDate)
-    } else {
-      const outflowValue = parseFloat(cashOutflow.replace(',', '.')) || 0
-      closeDay(selectedDate, outflowValue)
-    }
+    setIsSaving(true)
+    setErrorMessage(null)
 
-    onClose()
+    try {
+      if (dayIsClosed) {
+        await reopenDay(selectedDate)
+      } else {
+        const outflowValue = parseFloat(cashOutflow.replace(',', '.')) || 0
+        await closeDay(selectedDate, outflowValue)
+      }
+      onClose()
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Error inesperado al procesar el cierre de caja')
+      setIsSaving(false)
+    }
   }
 
   const handleCancel = () => {
+    if (isSaving) return
     if (isConfirming) {
       setIsConfirming(false)
+      setErrorMessage(null)
       return
     }
     onClose()
@@ -661,26 +676,35 @@ export function CashClosingModal({
 
         {/* Footer */}
         <footer className='flex h-[4.5rem] shrink-0 items-center justify-between border-t border-border bg-neutral-0 px-8'>
-          <div className='flex items-center gap-2 text-label-sm text-neutral-500'>
-            <span className='material-symbols-rounded text-[1rem]'>info</span>
-            {isConfirming
-              ? dayIsClosed
-                ? 'Vas a reabrir el cierre de caja. Podrás volver a cerrarlo después.'
-                : 'Confirma el cierre de caja. Esta acción se puede deshacer.'
-              : 'Revisa los datos antes de confirmar el cierre.'}
+          <div className='flex flex-col gap-1'>
+            <div className='flex items-center gap-2 text-label-sm text-neutral-500'>
+              <span className='material-symbols-rounded text-[1rem]'>info</span>
+              {isConfirming
+                ? dayIsClosed
+                  ? 'Vas a reabrir el cierre de caja. Podrás volver a cerrarlo después.'
+                  : 'Confirma el cierre de caja. Esta acción se puede deshacer.'
+                : 'Revisa los datos antes de confirmar el cierre.'}
+            </div>
+            {errorMessage && (
+              <div className='flex items-center gap-1.5 text-label-sm text-error-600'>
+                <span className='material-symbols-rounded text-[1rem]'>error</span>
+                {errorMessage}
+              </div>
+            )}
           </div>
           <div className='flex items-center gap-3'>
             <button
               type='button'
               onClick={handleCancel}
-              className='h-10 rounded-xl border border-border bg-neutral-0 px-5 text-title-sm font-medium text-fg transition-colors hover:bg-neutral-50'
+              disabled={isSaving}
+              className='h-10 rounded-xl border border-border bg-neutral-0 px-5 text-title-sm font-medium text-fg transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50'
             >
               {isConfirming ? 'Volver' : 'Cancelar'}
             </button>
             <button
               type='button'
               onClick={handleConfirm}
-              disabled={!selectedDate}
+              disabled={!selectedDate || isSaving}
               className={`flex h-10 items-center gap-2 rounded-xl px-5 text-title-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
                 dayIsClosed
                   ? 'bg-warning-500 text-neutral-0 hover:bg-warning-600'
@@ -689,7 +713,14 @@ export function CashClosingModal({
                     : 'bg-brand-500 text-brand-900 hover:bg-brand-400'
               }`}
             >
-              {dayIsClosed ? (
+              {isSaving ? (
+                <>
+                  <span className='material-symbols-rounded animate-spin text-[1.125rem]'>
+                    progress_activity
+                  </span>
+                  Guardando...
+                </>
+              ) : dayIsClosed ? (
                 <>
                   <span className='material-symbols-rounded text-[1.125rem]'>
                     lock_open

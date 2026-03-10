@@ -5,8 +5,6 @@ import { useConfiguration } from '@/context/ConfigurationContext'
 import React from 'react'
 import {
   TREATMENT_AREAS,
-  TREATMENT_CATALOG,
-  TREATMENT_FAMILIES,
   type TreatmentCatalogEntry
 } from './treatmentTypes'
 
@@ -113,7 +111,7 @@ export default function CatalogoTratamientos({
   selectedArea,
   compact = false
 }: CatalogoTratamientosProps) {
-  const { professionalNameOptions } = useConfiguration()
+  const { professionalNameOptions, treatmentCategories } = useConfiguration()
   const [searchTerm, setSearchTerm] = React.useState('')
   const [familyFilter, setFamilyFilter] = React.useState(selectedFamily || '')
   const [doctorFilter, setDoctorFilter] = React.useState(selectedDoctor || '')
@@ -124,9 +122,41 @@ export default function CatalogoTratamientos({
   const [showDoctorDropdown, setShowDoctorDropdown] = React.useState(false)
   const [showAreaDropdown, setShowAreaDropdown] = React.useState(false)
 
+  // Build catalog from real service_catalog data (ConfigurationContext)
+  const realCatalog = React.useMemo(() => {
+    const entries: [string, TreatmentCatalogEntry & { categoryId?: string }][] = []
+    for (const cat of treatmentCategories) {
+      for (const t of cat.treatments) {
+        const priceFormatted =
+          t.basePrice >= 1000
+            ? `${t.basePrice.toLocaleString('es-ES')} €`
+            : `${t.basePrice} €`
+        entries.push([
+          t.code,
+          {
+            description: t.name,
+            amount: priceFormatted,
+            familia: cat.id,
+            categoryId: cat.id
+          }
+        ])
+      }
+    }
+    return entries
+  }, [treatmentCategories])
+
+  // Derive family options dynamically from real data
+  const familyOptions = React.useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const cat of treatmentCategories) {
+      if (!seen.has(cat.id)) seen.set(cat.id, cat.name)
+    }
+    return Array.from(seen.entries()).map(([value, label]) => ({ value, label }))
+  }, [treatmentCategories])
+
   // Filtrar el catálogo
   const filteredCatalog = React.useMemo(() => {
-    return Object.entries(TREATMENT_CATALOG).filter(([codigo, entry]) => {
+    return realCatalog.filter(([codigo, entry]) => {
       // Filtro por búsqueda
       const matchesSearch =
         searchTerm === '' ||
@@ -139,7 +169,7 @@ export default function CatalogoTratamientos({
 
       return matchesSearch && matchesFamily
     })
-  }, [searchTerm, familyFilter])
+  }, [searchTerm, familyFilter, realCatalog])
 
   const handleTreatmentClick = (
     codigo: string,
@@ -156,7 +186,7 @@ export default function CatalogoTratamientos({
   }
 
   const familyLabel =
-    TREATMENT_FAMILIES.find((f) => f.value === familyFilter)?.label || 'Familia'
+    familyOptions.find((f) => f.value === familyFilter)?.label || 'Familia'
   const doctorLabel =
     professionalNameOptions.find((p) => p.value === doctorFilter)?.label ||
     'Doctor'
@@ -195,7 +225,7 @@ export default function CatalogoTratamientos({
                 >
                   Todos
                 </button>
-                {TREATMENT_FAMILIES.map((fam) => (
+                {familyOptions.map((fam) => (
                   <button
                     key={fam.value}
                     type='button'

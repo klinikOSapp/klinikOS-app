@@ -8,7 +8,6 @@ import {
   BarChartRounded,
   CalendarMonthRounded,
   SellRounded,
-  SettingsRounded,
   SupportAgentRounded
 } from '@/components/icons/md3'
 import { getSignedUrl } from '@/lib/storage'
@@ -126,12 +125,6 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
       label: 'Agente de Voz',
       href: '/agente-voz',
       icon: <SupportAgentRounded />
-    },
-    {
-      id: 'configuracion',
-      label: 'Configuración',
-      href: '/configuracion',
-      icon: <SettingsRounded />
     }
   ]
 
@@ -471,7 +464,6 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
       if (item.id === 'agente-voz') {
         return can('calls', 'view')
       }
-      if (item.id === 'configuracion') return can('settings', 'view')
       return true
     })
   }, [baseItemsBottom, can])
@@ -483,6 +475,7 @@ export default function Layout({ children, ctaMenuItems }: LayoutProps) {
           userName={displayName}
           userAvatarUrl={avatarUrl}
           onAccountClick={() => setAccountOpen(true)}
+          onSettingsClick={() => router.push('/configuracion')}
         />
         <div className='flex'>
           <Sidebar

@@ -37,7 +37,8 @@
       "Read(//Users/vicentebarberatormo/Desktop/VIJEPO\\\\ TECH\\\\ S.L./klinikOS/klinikos-app/src/components/agenda/modals/**)",
       "Read(//Users/vicentebarberatormo/Desktop/VIJEPO TECH S.L./klinikos-app/src/components/agenda/modals/**)",
       "Read(//Users/vicentebarberatormo/Desktop/VIJEPO TECH S.L./klinikos-app/src/components/agenda/**)",
-      "Bash(npx next build)"
+      "Bash(npx next build)",
+      "Bash(lsof -ti:3000)"
     ],
     "additionalDirectories": [
       "/tmp"
