@@ -4171,7 +4171,7 @@ export default function BudgetsPayments({
                   : `${formattedBalance} €`}
               </p>
             </div>
-            <div data-node-id='3092:10812'>
+            <div data-node-id='3092:11000'>
               <p className='text-title-md text-neutral-900'>Crédito disponible</p>
               <p
                 className='mt-[0.4375rem] text-brand-700'
