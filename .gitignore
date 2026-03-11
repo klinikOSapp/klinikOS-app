@@ -54,3 +54,6 @@ sql/*
 /.playwright-cli/*
 
 /clinics-data/*
+.gitignore
+.gitignore
+scripts/*

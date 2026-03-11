@@ -20,6 +20,20 @@ type ExportBody = {
   }
 }
 
+type AccountingSummaryRow = {
+  ingresos?: number | string | null
+  cobros?: number | string | null
+  anticipos?: number | string | null
+  devoluciones?: number | string | null
+}
+
+type PaymentAccountingRow = {
+  amount: number | string | null
+  payment_method?: string | null
+  cash_kind?: string | null
+  voided_at?: string | null
+}
+
 function parseISODateOnly(s: string) {
   const [y, m, d] = s.split('-').map((v) => Number(v))
   if (!y || !m || !d) return null
@@ -48,6 +62,24 @@ function csvEscape(v: string) {
     return `"${v.replace(/"/g, '""')}"`
   }
   return v
+}
+
+function computeAccountingSummaryFromPayments(payments: PaymentAccountingRow[]) {
+  return payments.reduce(
+    (totals, payment) => {
+      if (payment.voided_at) return totals
+      const amount = Number(payment.amount || 0)
+      const cashKind = payment.cash_kind || null
+
+      if (cashKind === 'cobro') totals.cobros += amount
+      if (cashKind === 'anticipo') totals.anticipos += amount
+      if (cashKind === 'devolucion') totals.devoluciones += amount
+
+      totals.ingresos = totals.anticipos + totals.cobros - totals.devoluciones
+      return totals
+    },
+    { ingresos: 0, cobros: 0, anticipos: 0, devoluciones: 0 }
+  )
 }
 
 async function renderPdf(params: {
@@ -174,33 +206,52 @@ export async function POST(req: Request) {
     const prevEnd = new Date(end)
     prevEnd.setUTCFullYear(prevEnd.getUTCFullYear() - 1)
 
-    const resumenRpc = await supabase.rpc('get_caja_resumen', {
-      p_clinic_id: clinicId,
-      p_period_start: startTs,
-      p_period_end: endTs,
-      p_prev_start: `${formatDateOnlyUTC(prevStart)}T00:00:00Z`,
-      p_prev_end: `${formatDateOnlyUTC(prevEnd)}T23:59:59Z`
-    })
+    const [resumenRpc, accountingRpc] = await Promise.all([
+      supabase.rpc('get_caja_resumen', {
+        p_clinic_id: clinicId,
+        p_period_start: startTs,
+        p_period_end: endTs,
+        p_prev_start: `${formatDateOnlyUTC(prevStart)}T00:00:00Z`,
+        p_prev_end: `${formatDateOnlyUTC(prevEnd)}T23:59:59Z`
+      }),
+      supabase.rpc('get_cash_accounting_summary', {
+        p_clinic_id: clinicId,
+        p_period_start: startTs,
+        p_period_end: endTs
+      })
+    ])
     const resumen = Array.isArray(resumenRpc.data) ? (resumenRpc.data[0] as any) : null
+    const accounting = Array.isArray(accountingRpc.data)
+      ? (accountingRpc.data[0] as AccountingSummaryRow | null)
+      : null
 
     const produced = resumen ? Number(resumen.produced || 0) : 0
-    const invoiced = resumen ? Number(resumen.invoiced || 0) : produced
-    const collected = resumen ? Number(resumen.collected || 0) : 0
-    const toCollect = resumen ? Number(resumen.to_collect || 0) : 0
+    let invoiced = accounting ? Number(accounting.ingresos || 0) : produced
+    let collected = accounting ? Number(accounting.cobros || 0) : 0
+    let toCollect = accounting ? Number(accounting.anticipos || 0) : 0
 
     // Method breakdown from payments table (in range).
     const methodBreakdown: Record<string, number> = {}
+    let accountingPayments: PaymentAccountingRow[] = []
     if (includeMethod) {
       const { data: payments, error } = await supabase
         .from('payments')
-        .select('amount, payment_method, transaction_date')
+        .select('amount, payment_method, transaction_date, cash_kind, voided_at')
         .eq('clinic_id', clinicId)
         .gte('transaction_date', startTs)
         .lte('transaction_date', endTs)
       if (error) {
         console.error('[exportar] payments query error', error)
       }
-      for (const p of payments || []) {
+      accountingPayments = (payments || []) as PaymentAccountingRow[]
+      if (!accounting && accountingPayments.length > 0) {
+        const fallbackAccounting = computeAccountingSummaryFromPayments(accountingPayments)
+        invoiced = fallbackAccounting.ingresos
+        collected = fallbackAccounting.cobros
+        toCollect = fallbackAccounting.anticipos
+      }
+      for (const p of accountingPayments) {
+        if (p.voided_at || p.cash_kind !== 'cobro') continue
         const key = String((p as any).payment_method || 'Unknown')
         methodBreakdown[key] = (methodBreakdown[key] || 0) + Number((p as any).amount || 0)
       }
@@ -221,23 +272,17 @@ export async function POST(req: Request) {
         invByMonth[month] = (invByMonth[month] || 0) + Number(r.total_amount || 0)
       }
 
-      const { data: payments } = await supabase
-        .from('payments')
-        .select('amount, transaction_date')
-        .eq('clinic_id', clinicId)
-        .gte('transaction_date', startTs)
-        .lte('transaction_date', endTs)
       const payByMonth: Record<string, number> = {}
-      const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit' })
-      for (const p of payments || []) {
-        const dt = (p as any).transaction_date
-        if (!dt) continue
-        const parts = formatter.formatToParts(new Date(dt))
-        const y = parts.find((x) => x.type === 'year')?.value
-        const m = parts.find((x) => x.type === 'month')?.value
-        if (!y || !m) continue
-        const key = `${y}-${m}`
-        payByMonth[key] = (payByMonth[key] || 0) + Number((p as any).amount || 0)
+      const { data: accountingByMonth } = await supabase.rpc('get_cash_accounting_summary_by_month', {
+        p_clinic_id: clinicId,
+        p_period_start: startTs,
+        p_period_end: endTs,
+        p_timezone: 'Europe/Madrid'
+      })
+      for (const row of (accountingByMonth as Array<{ month?: string; cobros?: number | string | null }> | null) || []) {
+        const month = String(row.month || '')
+        if (!month) continue
+        payByMonth[month] = Number(row.cobros || 0)
       }
 
       const keys = Array.from(new Set([...Object.keys(invByMonth), ...Object.keys(payByMonth)])).sort()
@@ -397,4 +442,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error?.message ?? 'Unexpected error' }, { status: 500 })
   }
 }
-

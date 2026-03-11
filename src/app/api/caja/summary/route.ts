@@ -11,6 +11,45 @@ type SummaryCard = {
   accessory: string
 }
 
+type AccountingSummaryRow = {
+  ingresos?: number | string | null
+  cobros?: number | string | null
+  anticipos?: number | string | null
+  devoluciones?: number | string | null
+  prev_ingresos?: number | string | null
+  prev_cobros?: number | string | null
+  prev_anticipos?: number | string | null
+  prev_devoluciones?: number | string | null
+}
+
+type PaymentAccountingRow = {
+  amount: number | string | null
+  cash_kind?: string | null
+  voided_at?: string | null
+}
+
+const computeAccountingSummaryFromPayments = (payments: PaymentAccountingRow[]) => {
+  return payments.reduce(
+    (totals, payment) => {
+      if (payment.voided_at) return totals
+      const amount = Number(payment.amount || 0)
+      const cashKind = payment.cash_kind || null
+
+      if (cashKind === 'cobro') {
+        totals.cobros += amount
+      } else if (cashKind === 'anticipo') {
+        totals.anticipos += amount
+      } else if (cashKind === 'devolucion') {
+        totals.devoluciones += amount
+      }
+
+      totals.ingresos = totals.anticipos + totals.cobros - totals.devoluciones
+      return totals
+    },
+    { ingresos: 0, cobros: 0, anticipos: 0, devoluciones: 0 }
+  )
+}
+
 export async function GET(req: Request) {
   try {
     const supabase = await createSupabaseServerClient()
@@ -121,115 +160,125 @@ export async function GET(req: Request) {
     let prevCollected = 0
     let prevToCollect: number | null = null
 
-    const resumenRpc = await supabase.rpc('get_caja_resumen', {
-      p_clinic_id: clinicId,
-      p_period_start: periodStartTs,
-      p_period_end: periodEndTs,
-      p_prev_start: prevStartTs,
-      p_prev_end: prevEndTs
-    })
+    const [resumenRpc, accountingCombinedRpc] = await Promise.all([
+      supabase.rpc('get_caja_resumen', {
+        p_clinic_id: clinicId,
+        p_period_start: periodStartTs,
+        p_period_end: periodEndTs,
+        p_prev_start: prevStartTs,
+        p_prev_end: prevEndTs
+      }),
+      supabase.rpc('get_cash_accounting_summary', {
+        p_clinic_id: clinicId,
+        p_period_start: periodStartTs,
+        p_period_end: periodEndTs,
+        p_prev_start: prevStartTs,
+        p_prev_end: prevEndTs
+      })
+    ])
 
     const resumenRow = Array.isArray(resumenRpc.data) ? resumenRpc.data[0] : null
+    const accountingCombinedRow = Array.isArray(accountingCombinedRpc.data)
+      ? (accountingCombinedRpc.data[0] as AccountingSummaryRow | null)
+      : null
+
     if (!resumenRpc.error && resumenRow) {
       produced = Number(resumenRow.produced || 0)
-      invoiced = Number(resumenRow.invoiced || 0)
-      collected = Number(resumenRow.collected || 0)
-      toCollect = Number(resumenRow.to_collect || 0)
       prevProduced = Number(resumenRow.prev_produced || 0)
-      prevInvoiced = Number(resumenRow.prev_invoiced || resumenRow.prev_produced || 0)
-      prevCollected = Number(resumenRow.prev_collected || 0)
-      // Optional (future): if DB RPC is extended to return prev_to_collect, use it.
-      const maybePrevToCollect = (resumenRow as any).prev_to_collect
-      prevToCollect =
-        typeof maybePrevToCollect === 'number'
-          ? maybePrevToCollect
-          : typeof maybePrevToCollect === 'string' && maybePrevToCollect.trim() !== ''
-            ? Number(maybePrevToCollect)
-            : null
     } else {
-      // Fetch all needed datasets in parallel (reduces lag when switching filters).
-      const [
-        periodPaymentsRes,
-        periodInvoicesRes,
-        prevPeriodPaymentsRes,
-        prevPeriodInvoicesRes,
-        invoicesUpToEndRes,
-        paymentsUpToEndRes
-      ] = await Promise.all([
-        supabase
-          .from('payments')
-          .select('amount')
-          .eq('clinic_id', clinicId)
-          .gte('transaction_date', periodStartTs)
-          .lte('transaction_date', periodEndTs),
+      const [periodInvoicesRes, prevPeriodInvoicesRes] = await Promise.all([
         supabase.rpc('get_invoices_in_time_range', {
           p_clinic_id: clinicId,
           p_start_time: periodStartTs,
           p_end_time: periodEndTs
         }),
-        supabase
-          .from('payments')
-          .select('amount')
-          .eq('clinic_id', clinicId)
-          .gte('transaction_date', prevStartTs)
-          .lte('transaction_date', prevEndTs),
         supabase.rpc('get_invoices_in_time_range', {
           p_clinic_id: clinicId,
           p_start_time: prevStartTs,
           p_end_time: prevEndTs
-        }),
-        // Por cobrar: outstanding as of period end (includes previous months)
-        supabase.rpc('get_invoices_in_time_range', {
-          p_clinic_id: clinicId,
-          p_start_time: `1970-01-01T00:00:00Z`,
-          p_end_time: periodEndTs
-        }),
-        supabase
-          .from('payments')
-          .select('amount')
-          .eq('clinic_id', clinicId)
-          .lte('transaction_date', periodEndTs)
+        })
       ])
 
-      const periodPayments = periodPaymentsRes.data || []
       const periodInvoices = periodInvoicesRes.data || []
-      const prevPeriodPayments = prevPeriodPaymentsRes.data || []
       const prevPeriodInvoices = prevPeriodInvoicesRes.data || []
-      const invoicesUpToEnd = invoicesUpToEndRes.data || []
-      const paymentsUpToEnd = paymentsUpToEndRes.data || []
 
-      // v2.0 KPI values are for selected period.
       produced = periodInvoices.reduce(
         (sum: number, inv: any) => sum + Number(inv.total_amount || 0),
         0
       )
-      invoiced = produced
-      collected = periodPayments.reduce(
-        (sum: number, p: any) => sum + Number(p.amount || 0),
-        0
-      )
-
-      // v2.0 "Por cobrar": outstanding debt as-of end of selected period.
-      const producedUpToEnd = invoicesUpToEnd.reduce(
-        (sum: number, inv: any) => sum + Number(inv.total_amount || 0),
-        0
-      )
-      const collectedUpToEnd = paymentsUpToEnd.reduce(
-        (sum: number, p: any) => sum + Number(p.amount || 0),
-        0
-      )
-      toCollect = producedUpToEnd - collectedUpToEnd
-
-      // Previous period totals (same window last year)
       prevProduced = prevPeriodInvoices.reduce(
         (sum: number, inv: any) => sum + Number(inv.total_amount || 0),
         0
       )
-      prevInvoiced = prevProduced
-      prevCollected = prevPeriodPayments.reduce(
-        (sum: number, p: any) => sum + Number(p.amount || 0),
-        0
-      )
+    }
+
+    if (!accountingCombinedRpc.error && accountingCombinedRow) {
+      invoiced = Number(accountingCombinedRow.ingresos || 0)
+      collected = Number(accountingCombinedRow.cobros || 0)
+      toCollect = Number(accountingCombinedRow.anticipos || 0)
+      prevInvoiced = Number(accountingCombinedRow.prev_ingresos || 0)
+      prevCollected = Number(accountingCombinedRow.prev_cobros || 0)
+      prevToCollect = Number(accountingCombinedRow.prev_anticipos || 0)
+    } else {
+      const [accountingCurrentRpc, accountingPrevRpc] = await Promise.all([
+        supabase.rpc('get_cash_accounting_summary', {
+          p_clinic_id: clinicId,
+          p_period_start: periodStartTs,
+          p_period_end: periodEndTs
+        }),
+        supabase.rpc('get_cash_accounting_summary', {
+          p_clinic_id: clinicId,
+          p_period_start: prevStartTs,
+          p_period_end: prevEndTs
+        })
+      ])
+
+      const accountingCurrentRow = Array.isArray(accountingCurrentRpc.data)
+        ? (accountingCurrentRpc.data[0] as AccountingSummaryRow | null)
+        : null
+      const accountingPrevRow = Array.isArray(accountingPrevRpc.data)
+        ? (accountingPrevRpc.data[0] as AccountingSummaryRow | null)
+        : null
+
+      if (!accountingCurrentRpc.error && accountingCurrentRow) {
+        invoiced = Number(accountingCurrentRow.ingresos || 0)
+        collected = Number(accountingCurrentRow.cobros || 0)
+        toCollect = Number(accountingCurrentRow.anticipos || 0)
+      } else {
+        const { data: periodPayments } = await supabase
+          .from('payments')
+          .select('amount,cash_kind,voided_at')
+          .eq('clinic_id', clinicId)
+          .gte('transaction_date', periodStartTs)
+          .lte('transaction_date', periodEndTs)
+
+        const accounting = computeAccountingSummaryFromPayments(
+          (periodPayments || []) as PaymentAccountingRow[]
+        )
+        invoiced = accounting.ingresos
+        collected = accounting.cobros
+        toCollect = accounting.anticipos
+      }
+
+      if (!accountingPrevRpc.error && accountingPrevRow) {
+        prevInvoiced = Number(accountingPrevRow.ingresos || 0)
+        prevCollected = Number(accountingPrevRow.cobros || 0)
+        prevToCollect = Number(accountingPrevRow.anticipos || 0)
+      } else {
+        const { data: prevPeriodPayments } = await supabase
+          .from('payments')
+          .select('amount,cash_kind,voided_at')
+          .eq('clinic_id', clinicId)
+          .gte('transaction_date', prevStartTs)
+          .lte('transaction_date', prevEndTs)
+
+        const previousAccounting = computeAccountingSummaryFromPayments(
+          (prevPeriodPayments || []) as PaymentAccountingRow[]
+        )
+        prevInvoiced = previousAccounting.ingresos
+        prevCollected = previousAccounting.cobros
+        prevToCollect = previousAccounting.anticipos
+      }
     }
 
     // Calculate deltas
@@ -266,10 +315,9 @@ export async function GET(req: Request) {
         accessory: 'check_circle'
       },
       {
-        id: 'pending',
-        title: 'Por cobrar',
+        id: 'advance',
+        title: 'Anticipo / Pdte. cobrar',
         value: `${toCollect.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
-        // If we don't have "prev_to_collect" (not yet returned by DB RPC), avoid misleading +100%.
         delta:
           prevToCollect === null
             ? '—'
@@ -279,7 +327,7 @@ export async function GET(req: Request) {
       }
     ]
 
-    // Donut gauge for selected period: Cobrado vs Facturado
+    // Donut gauge for selected period: Cobrado vs Facturado (accounting view)
     const donutValue = collected
     const donutTarget = invoiced
 

@@ -32,6 +32,15 @@ type CalendarRow = {
     | null
 }
 
+type AccountingSummaryRow = {
+  ingresos?: number | string | null
+  cobros?: number | string | null
+  anticipos?: number | string | null
+  prev_ingresos?: number | string | null
+  prev_cobros?: number | string | null
+  prev_anticipos?: number | string | null
+}
+
 const PAYMENT_LABELS: Record<string, string> = {
   cash: 'Efectivo',
   card: 'Tarjeta/TPV',
@@ -70,7 +79,8 @@ export async function GET(req: Request) {
     const prevEndTs = toEndTs(previousPeriod.endUtc)
 
     const [
-      resumenRpc,
+      resumenRpcPrimary,
+      accountingCombinedRpc,
       paymentsPeriodRes,
       paymentsPreviousRes,
       invoicesPeriodRes,
@@ -85,6 +95,13 @@ export async function GET(req: Request) {
       billingInvoicesRes
     ] = await Promise.all([
       supabase.rpc('get_caja_resumen', {
+        p_clinic_id: clinicId,
+        p_period_start: periodStartTs,
+        p_period_end: periodEndTs,
+        p_prev_start: prevStartTs,
+        p_prev_end: prevEndTs
+      }),
+      supabase.rpc('get_cash_accounting_summary', {
         p_clinic_id: clinicId,
         p_period_start: periodStartTs,
         p_period_end: periodEndTs,
@@ -164,18 +181,21 @@ export async function GET(req: Request) {
     const producedToDate = sumAmount(invoicesToDateRes.data, 'total_amount')
     const collectedToDate = sumAmount(paymentsToDateRes.data, 'amount')
 
-    const resumenRow = Array.isArray(resumenRpc.data) ? resumenRpc.data[0] : null
+    const resumenRow = Array.isArray(resumenRpcPrimary.data) ? resumenRpcPrimary.data[0] : null
+    const accountingCombinedRow = Array.isArray(accountingCombinedRpc.data)
+      ? (accountingCombinedRpc.data[0] as AccountingSummaryRow | null)
+      : null
     const produced = Number(resumenRow?.produced ?? fallbackProduced)
-    const invoiced = Number(resumenRow?.invoiced ?? fallbackProduced)
-    const collected = Number(resumenRow?.collected ?? fallbackCollected)
-    const pending = Number(resumenRow?.to_collect ?? Math.max(producedToDate - collectedToDate, 0))
+    const invoiced = Number(accountingCombinedRow?.ingresos ?? produced)
+    const collected = Number(accountingCombinedRow?.cobros ?? fallbackCollected)
+    const pending = Number(
+      accountingCombinedRow?.anticipos ?? Math.max(producedToDate - collectedToDate, 0)
+    )
 
     const prevProduced = Number(resumenRow?.prev_produced ?? fallbackPrevProduced)
-    const prevInvoiced = Number(resumenRow?.prev_invoiced ?? fallbackPrevProduced)
-    const prevCollected = Number(resumenRow?.prev_collected ?? fallbackPrevCollected)
-    const prevPendingRaw = resumenRow?.prev_to_collect
-    const prevPending =
-      prevPendingRaw == null || prevPendingRaw === '' ? null : Number(prevPendingRaw)
+    const prevInvoiced = Number(accountingCombinedRow?.prev_ingresos ?? fallbackPrevProduced)
+    const prevCollected = Number(accountingCombinedRow?.prev_cobros ?? fallbackPrevCollected)
+    const prevPending = Number(accountingCombinedRow?.prev_anticipos ?? 0)
 
     const incomeMethods = aggregateIncomeMethods(
       paymentsPeriodRes.data as Array<{ amount: number | string | null; payment_method: string | null }> | null
