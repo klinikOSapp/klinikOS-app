@@ -800,7 +800,7 @@ export default function CreateAppointmentModal({
 
     return [
       { value: '', label: 'Sin asignar' },
-      ...activeProfessionals.map((p) => {
+      ...activeProfessionals.filter((p) => p.role !== 'recepcion').map((p) => {
         if (p.employmentType === 'externo' && selectedDate) {
           const schedule = isExternalAvailableForDate(p.id, selectedDate)
           if (schedule.available && schedule.startTime && schedule.endTime) {

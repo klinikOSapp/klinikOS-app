@@ -4372,6 +4372,7 @@ export default function WeekScheduler() {
 
   // Configuration context for professionals and boxes
   const {
+    activeProfessionals,
     professionalOptions,
     boxOptions,
     getAvailableProfessionalsForDate,
@@ -4734,6 +4735,11 @@ export default function WeekScheduler() {
         (opt) => [opt.label.toLowerCase(), opt] as const
       )
     )
+    const adminStaffIds = new Set(
+      activeProfessionals
+        .filter((p) => p.role === 'recepcion')
+        .map((p) => p.id)
+    )
     const inferredByName = new Map<
       string,
       { id: string; label: string; color: string }
@@ -4741,6 +4747,7 @@ export default function WeekScheduler() {
     for (const apt of appointmentsForOptions) {
       const professionalName = (apt.professional || '').trim()
       if (!professionalName) continue
+      if (apt.professionalId && adminStaffIds.has(apt.professionalId)) continue
       const key = professionalName.toLowerCase()
       if (configuredProfessionalByName.has(key)) continue
       const existing = inferredByName.get(key)

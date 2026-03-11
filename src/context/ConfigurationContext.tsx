@@ -2713,9 +2713,12 @@ export function ConfigurationProvider({ children }: { children: ReactNode }) {
     [professionals]
   )
 
-  // Only external specialists appear in the agenda
+  // Only external specialists appear in the agenda (admin roles excluded)
   const agendaProfessionals = useMemo(
-    () => activeProfessionals.filter((p) => p.employmentType === 'externo'),
+    () =>
+      activeProfessionals.filter(
+        (p) => p.employmentType === 'externo' && p.role !== 'recepcion'
+      ),
     [activeProfessionals]
   )
 
