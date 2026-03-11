@@ -76,9 +76,9 @@ export default function AddFamilyModal({
               type='button'
               onClick={onClose}
               aria-label='Cerrar'
-              className='size-[0.875rem] text-neutral-900'
+              className='flex items-center justify-center size-7 text-neutral-900'
             >
-              <CloseRounded />
+              <CloseRounded className='size-[0.875rem]' />
             </button>
           </header>
 
