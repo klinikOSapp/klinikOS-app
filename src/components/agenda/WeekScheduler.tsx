@@ -2953,8 +2953,8 @@ function DayGrid({
     const boxMatch =
       selectedBoxLabels.size === 0 ? true : selectedBoxLabels.has(boxName)
 
-    // Filter by professional: appointments assigned to non-agenda professionals
-    // (employees) are always visible; only agenda (external) professionals can be filtered
+    // Filter by professional: only appointments whose professional is unknown
+    // (no ID or not in dropdown options) bypass the filter
     const professionalMatch =
       !event.professionalId ||
       !agendaProfessionalIds.has(event.professionalId) ||
@@ -4376,7 +4376,6 @@ export default function WeekScheduler() {
     boxOptions,
     getAvailableProfessionalsForDate,
     getProfessionalScheduleForDate,
-    activeProfessionals,
     getProfessionalById,
     isExternalAvailableForDate
   } = useConfiguration()
@@ -4730,20 +4729,11 @@ export default function WeekScheduler() {
       optionsEndIso
     )
 
-    const configuredProfessionalByName = new Map([
-      ...professionalOptions.map(
+    const configuredProfessionalByName = new Map(
+      professionalOptions.map(
         (opt) => [opt.label.toLowerCase(), opt] as const
-      ),
-      // Include all configured professionals (employees too) so their names
-      // are not inferred as new agenda filter options
-      ...activeProfessionals.map(
-        (p) =>
-          [
-            p.name.toLowerCase(),
-            { id: p.id, label: p.name, color: '' }
-          ] as const
       )
-    ])
+    )
     const inferredByName = new Map<
       string,
       { id: string; label: string; color: string }
@@ -4752,10 +4742,16 @@ export default function WeekScheduler() {
       const professionalName = (apt.professional || '').trim()
       if (!professionalName) continue
       const key = professionalName.toLowerCase()
-      if (configuredProfessionalByName.has(key) || inferredByName.has(key))
+      if (configuredProfessionalByName.has(key)) continue
+      const existing = inferredByName.get(key)
+      if (existing) {
+        if (apt.professionalId && existing.id.startsWith('prof-')) {
+          existing.id = apt.professionalId
+        }
         continue
+      }
       inferredByName.set(key, {
-        id: toProfessionalOptionId(professionalName),
+        id: apt.professionalId || toProfessionalOptionId(professionalName),
         label: professionalName,
         color: 'var(--color-neutral-400)'
       })
@@ -4832,7 +4828,6 @@ export default function WeekScheduler() {
     currentWeekStart,
     effectiveBoxOptions,
     effectiveProfessionalOptions,
-    activeProfessionals,
     getAppointmentsByDateRange,
     professionalOptions,
     resolveBoxLabel
@@ -5936,7 +5931,6 @@ export default function WeekScheduler() {
           apt.professionalId ||
           professionalIdByName.get(professionalName) ||
           null
-        // Appointments assigned to non-agenda professionals (employees) are always visible
         const professionalMatch =
           !resolvedProfessionalId ||
           !monthAgendaIds.has(resolvedProfessionalId) ||
