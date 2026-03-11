@@ -1400,8 +1400,7 @@ export default function AddTreatmentsToBudgetModal({
                   <div className='bg-white border border-[#E2E7EA] rounded-[0.375rem] p-[min(0.75rem,1.5vw)] flex gap-[min(1rem,1.5vw)] items-start'>
                     {/* Columna izquierda: Odontograma + Banner */}
                     <div
-                      className='shrink-0 overflow-hidden flex flex-col gap-[0.5rem]'
-                      style={{ maxWidth: '28rem' }}
+                      className='shrink-0 flex flex-col gap-[0.5rem]'
                     >
                       <OdontogramaCompacto
                         state={odontogramaState}
