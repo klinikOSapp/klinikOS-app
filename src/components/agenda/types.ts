@@ -157,6 +157,7 @@ export type AgendaEvent = {
   box: string
   timeRange: string
   backgroundClass: string
+  bgColorInline?: string // Inline background color from professional (hex pastel)
   borderClass?: string
   left?: string
   width?: string

@@ -9,6 +9,7 @@ export interface AppointmentHoverOverlayProps {
   box: string
   position: { top: string; left: string; maxHeight?: string }
   backgroundClass?: string
+  bgColorInline?: string
   // Voice agent data (for AI-created appointments)
   createdByVoiceAgent?: boolean
 }
@@ -38,11 +39,12 @@ export default function AppointmentHoverOverlay({
   box,
   position,
   backgroundClass,
+  bgColorInline,
   createdByVoiceAgent = false
 }: AppointmentHoverOverlayProps) {
   const headerBgColor = createdByVoiceAgent
     ? 'var(--color-event-ai-bg)'
-    : extractBgColor(backgroundClass) || 'var(--color-brand-100)'
+    : bgColorInline || extractBgColor(backgroundClass) || 'var(--color-brand-100)'
 
   const patientInitials = getInitials(detail.patientFull || '')
   const professionalInitials = getInitials(detail.professional || '')

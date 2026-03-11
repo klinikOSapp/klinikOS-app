@@ -63,6 +63,7 @@ export interface AppointmentDetailOverlayProps {
   position: { top: string; left: string; maxHeight?: string }
   // Clase de fondo de la cita (ej: 'bg-[var(--color-brand-100)]' o 'bg-[#fbe9f0]')
   backgroundClass?: string
+  bgColorInline?: string
   // Callbacks para acciones rápidas
   onPaymentAction?: () => void
   onViewPatient?: () => void
@@ -105,6 +106,7 @@ export default function AppointmentDetailOverlay({
   box,
   position,
   backgroundClass,
+  bgColorInline,
   onPaymentAction,
   onViewPatient,
   isConfirmed = false,
@@ -118,7 +120,7 @@ export default function AppointmentDetailOverlay({
   const showQuickActions = onPaymentAction || onViewPatient
   const headerBgColor = createdByVoiceAgent
     ? 'var(--color-event-ai-bg)'
-    : extractBgColor(backgroundClass) || 'var(--color-brand-100)'
+    : bgColorInline || extractBgColor(backgroundClass) || 'var(--color-brand-100)'
 
   // Get patient initials for avatar
   const patientInitials = getInitials(detail.patientFull || '')

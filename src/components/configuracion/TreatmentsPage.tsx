@@ -18,6 +18,7 @@ import {
 import { useConfiguration } from '@/context/ConfigurationContext'
 import type { ConfigCategory, ConfigDiscount, ConfigTreatment } from '@/types/treatments'
 import { useCallback, useMemo, useState } from 'react'
+import AddFamilyModal from './AddFamilyModal'
 import AddTreatmentModal, { type TreatmentFormData } from './AddTreatmentModal'
 import BudgetTypeEditorModal from './BudgetTypeEditorModal'
 
@@ -645,7 +646,8 @@ export default function TreatmentsPage() {
     updateBudgetType: updateBudgetTypeCtx,
     deleteBudgetType: deleteBudgetTypeCtx,
     addTreatmentToDb,
-    updateTreatmentInDb
+    updateTreatmentInDb,
+    addCategoryToDb
   } = useConfiguration()
 
   const [activeTab, setActiveTab] = useState<TabKey>('treatments')
@@ -655,6 +657,7 @@ export default function TreatmentsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [showAddTreatment, setShowAddTreatment] = useState(false)
   const [editingTreatmentId, setEditingTreatmentId] = useState<string | null>(null)
+  const [showAddFamily, setShowAddFamily] = useState(false)
 
   // Budget Types state - derive from context, add local 'selected' state
   const [budgetTypeSelections, setBudgetTypeSelections] = useState<Record<string, boolean>>({})
@@ -771,6 +774,28 @@ export default function TreatmentsPage() {
       setShowAddTreatment(false)
     },
     [selectedCategoryId, setCategories, currentCategory, addTreatmentToDb]
+  )
+
+  // Create new family/category
+  const handleAddFamily = useCallback(
+    async (familyName: string) => {
+      const result = await addCategoryToDb(familyName)
+      if (result === null) {
+        alert('No se pudo crear la categoría. Inténtalo de nuevo.')
+        return
+      }
+      const slugCatId = (v: string) =>
+        v
+          .trim()
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+      setSelectedCategoryId(slugCatId(familyName) || 'general')
+      setShowAddFamily(false)
+    },
+    [addCategoryToDb]
   )
 
   // Open edit modal when clicking a treatment row
@@ -1043,15 +1068,15 @@ export default function TreatmentsPage() {
           {activeTab === 'treatments' ? (
             <div className='flex flex-1 min-h-0 mt-[min(1.5rem,2vh)] pb-[min(1.5rem,2vh)]'>
               {/* Categories Sidebar */}
-              <aside className='w-[min(11.5rem,18vw)] flex-none min-h-0 self-stretch border border-neutral-200 rounded-lg ml-[min(2.5rem,3vw)] mr-[min(1.5rem,2vw)] overflow-y-auto'>
-                <nav className='flex flex-col'>
+              <aside className='w-[min(11.5rem,18vw)] flex-none min-h-0 self-stretch flex flex-col border border-neutral-200 rounded-lg ml-[min(2.5rem,3vw)] mr-[min(1.5rem,2vw)]'>
+                <nav className='flex flex-col flex-1 min-h-0 overflow-y-auto'>
                   {categories.map((category) => (
                     <button
                       key={category.id}
                       type='button'
                       onClick={() => setSelectedCategoryId(category.id)}
                       className={[
-                        'text-left px-[0.625rem] py-[0.625rem] h-12 transition-colors',
+                        'text-left px-[0.625rem] py-[0.625rem] h-12 transition-colors shrink-0',
                         selectedCategoryId === category.id
                           ? 'bg-[var(--color-neutral-200)] text-body-md font-medium text-[var(--color-neutral-900)]'
                           : 'bg-[var(--color-surface)] text-body-md font-normal text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-100)]'
@@ -1061,6 +1086,14 @@ export default function TreatmentsPage() {
                     </button>
                   ))}
                 </nav>
+                <button
+                  type='button'
+                  onClick={() => setShowAddFamily(true)}
+                  className='flex items-center gap-1.5 px-[0.625rem] py-[0.625rem] h-12 shrink-0 text-body-md font-medium text-[var(--color-brand-700)] hover:bg-[var(--color-brand-50)] transition-colors border-t border-neutral-200'
+                >
+                  <AddRounded className='size-5' />
+                  Crear familia
+                </button>
               </aside>
 
               {/* Treatments Content */}
@@ -1391,6 +1424,14 @@ export default function TreatmentsPage() {
             : undefined
         }
         categories={editingTreatmentId ? categories.map((c) => ({ id: c.id, name: c.name })) : undefined}
+      />
+
+      {/* Add Family Modal */}
+      <AddFamilyModal
+        open={showAddFamily}
+        onClose={() => setShowAddFamily(false)}
+        onSubmit={handleAddFamily}
+        existingNames={categories.map((c) => c.name)}
       />
     </>
   )

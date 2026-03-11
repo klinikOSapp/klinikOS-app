@@ -3465,6 +3465,7 @@ export default function DayCalendar({
               box={hovered.event.box || ''}
               position={position}
               backgroundClass={`bg-[${hovered.event.bgColor}]`}
+              bgColorInline={hovered.event.bgColor}
               createdByVoiceAgent={hovered.event.createdByVoiceAgent}
             />
           )
@@ -3486,6 +3487,7 @@ export default function DayCalendar({
               box={overlaySource.event.box || ''}
               position={position}
               backgroundClass={`bg-[${overlaySource.event.bgColor}]`}
+              bgColorInline={overlaySource.event.bgColor}
               onPaymentAction={handlePaymentAction}
               onViewPatient={handleViewPatient}
               isConfirmed={
