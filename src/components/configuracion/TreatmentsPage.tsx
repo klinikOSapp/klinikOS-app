@@ -779,7 +779,11 @@ export default function TreatmentsPage() {
   // Create new family/category
   const handleAddFamily = useCallback(
     async (familyName: string) => {
-      await addCategoryToDb(familyName)
+      const result = await addCategoryToDb(familyName)
+      if (result === null) {
+        alert('No se pudo crear la categoría. Inténtalo de nuevo.')
+        return
+      }
       const slugCatId = (v: string) =>
         v
           .trim()
