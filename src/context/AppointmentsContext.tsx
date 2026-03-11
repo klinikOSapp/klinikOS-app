@@ -640,30 +640,63 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
         const dateFrom = startDate.toISOString().slice(0, 10)
         const dateTo = endDate.toISOString().slice(0, 10)
 
-        // Fetch calendar appointments with pagination to bypass PostgREST max-rows (1000)
+        // Fetch calendar appointments in smaller date windows to avoid timing out a single
+        // 2-year RPC call on larger clinics. Each window still pages through PostgREST max-rows.
         async function fetchAllCalendarRows() {
-          const PAGE_SIZE = 1000
+          const PAGE_SIZE = 500
+          const CHUNK_DAYS = 90
           const allRows: DbCalendarAppointmentRow[] = []
-          let offset = 0
-          // eslint-disable-next-line no-constant-condition
-          while (true) {
-            const { data, error } = await supabase
-              .rpc('get_appointments_calendar', {
-                p_clinic_id: clinicId,
-                p_start_date: dateFrom,
-                p_end_date: dateTo,
-                p_staff_id: null,
-                p_box_id: null
-              })
-              .range(offset, offset + PAGE_SIZE - 1)
-            if (error) {
-              throw new Error(`Error fetching calendar page: ${error.message}`)
+          const formatDateOnly = (value: Date) => value.toISOString().slice(0, 10)
+
+          async function fetchChunk(chunkFrom: string, chunkTo: string) {
+            const chunkRows: DbCalendarAppointmentRow[] = []
+            let offset = 0
+
+            // eslint-disable-next-line no-constant-condition
+            while (true) {
+              const { data, error } = await supabase
+                .rpc('get_appointments_calendar', {
+                  p_clinic_id: clinicId,
+                  p_start_date: chunkFrom,
+                  p_end_date: chunkTo,
+                  p_staff_id: null,
+                  p_box_id: null
+                })
+                .range(offset, offset + PAGE_SIZE - 1)
+
+              if (error) {
+                throw new Error(
+                  `Error fetching calendar ${chunkFrom}..${chunkTo}: ${error.message}`
+                )
+              }
+
+              const rows = (data || []) as DbCalendarAppointmentRow[]
+              chunkRows.push(...rows)
+              if (rows.length < PAGE_SIZE) break
+              offset += PAGE_SIZE
             }
-            const rows = (data || []) as DbCalendarAppointmentRow[]
-            allRows.push(...rows)
-            if (rows.length < PAGE_SIZE) break
-            offset += PAGE_SIZE
+
+            return chunkRows
           }
+
+          const cursor = new Date(startDate)
+          while (cursor <= endDate) {
+            const chunkStart = new Date(cursor)
+            const chunkEnd = new Date(cursor)
+            chunkEnd.setDate(chunkEnd.getDate() + CHUNK_DAYS - 1)
+            if (chunkEnd > endDate) {
+              chunkEnd.setTime(endDate.getTime())
+            }
+
+            const chunkRows = await fetchChunk(
+              formatDateOnly(chunkStart),
+              formatDateOnly(chunkEnd)
+            )
+            allRows.push(...chunkRows)
+
+            cursor.setDate(cursor.getDate() + CHUNK_DAYS)
+          }
+
           return allRows
         }
 
